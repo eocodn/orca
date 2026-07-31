@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, it } from 'node:test'
 
 import {
@@ -70,7 +73,7 @@ describe('Phase 1 characterization plan', () => {
     await assert.rejects(verifyCharacterizationPlan('/definitely/missing/ade'))
   })
 
-  it('rejects malformed and arbitrarily linked catalog entries', () => {
+  it('rejects malformed and arbitrarily linked catalog entries', async () => {
     assert.throws(() => validateRules([{ id: 'bad', pattern: 'x', layer: 'component', reason: 'x', contract: 'ignored' }]))
     assert.throws(() => validateContractRules([{ id: 'bad', pattern: 'x', contract: 'file-read-write-watch', layers: ['unknown'] }]))
     const rules = [{ id: 'component', layer: 'component' }]
@@ -78,9 +81,22 @@ describe('Phase 1 characterization plan', () => {
     assert.throws(() => validateOverrides([
       { path: 'tests/e2e/file-open.spec.ts', rule: 'component', layer: 'component', contract: 'git-workflow', reason: 'arbitrary' }
     ], rules, contractRules))
-    assert.throws(() => resolveCoveragePath('/workspace', '../outside.test.ts'))
+    await assert.rejects(resolveCoveragePath('/workspace', '../outside.test.ts'))
     assert.equal(isRelativePathInside('rules.json', '\\'), true)
     assert.equal(isRelativePathInside('..\\scripts\\verifier.mjs', '\\'), false)
+    assert.equal(isRelativePathInside('D:\\outside.test.ts', '\\'), false)
+    assert.equal(isRelativePathInside('\\\\server\\share\\outside.test.ts', '\\'), false)
+    const fixture = await mkdtemp(join(tmpdir(), 'ade-characterization-'))
+    try {
+      const repository = join(fixture, 'repository')
+      const outside = join(fixture, 'outside.test.ts')
+      await mkdir(repository)
+      await writeFile(outside, 'test("outside", () => {})')
+      await symlink(outside, join(repository, 'escape.test.ts'))
+      await assert.rejects(resolveCoveragePath(repository, 'escape.test.ts'), /symlink/)
+    } finally {
+      await rm(fixture, { recursive: true, force: true })
+    }
   })
 })
 

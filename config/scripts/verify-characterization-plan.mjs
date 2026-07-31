@@ -1,5 +1,5 @@
-import { readdir, readFile } from 'node:fs/promises'
-import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { readdir, readFile, realpath } from 'node:fs/promises'
+import { basename, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
@@ -55,7 +55,7 @@ export async function verifyCharacterizationPlan(root) {
     assertUnique(area.coverage, `${area.id} coverage path`)
     for (const path of area.coverage) {
       if (!/\.(?:integration\.)?test\.[cm]?[jt]sx?$/.test(path)) throw new Error(`non-test coverage path: ${path}`)
-      const absolutePath = resolveCoveragePath(root, path)
+      const absolutePath = await resolveCoveragePath(root, path)
       const content = await readFile(absolutePath, 'utf8')
       if (!/\b(?:describe|it|test)\s*\(/.test(content)) throw new Error(`non-executable coverage file: ${path}`)
     }
@@ -147,14 +147,19 @@ export function validateOverrides(overrides, rules, contractRules) {
   }
 }
 
-export function resolveCoveragePath(root, path) {
+export async function resolveCoveragePath(root, path) {
   const absolutePath = resolve(root, path)
-  if (relative(root, absolutePath).startsWith('..')) throw new Error(`coverage path escapes repository: ${path}`)
-  return absolutePath
+  if (!isRelativePathInside(relative(root, absolutePath), sep)) throw new Error(`coverage path escapes repository: ${path}`)
+  const [realRoot, realFile] = await Promise.all([realpath(root), realpath(absolutePath)])
+  if (!isRelativePathInside(relative(realRoot, realFile), sep)) throw new Error(`coverage path escapes repository through symlink: ${path}`)
+  return realFile
 }
 
 export function isRelativePathInside(relativePath, separator) {
-  return relativePath === '' || (!isAbsolute(relativePath) && relativePath !== '..' && !relativePath.startsWith(`..${separator}`))
+  if (relativePath === '') return true
+  if (relativePath === '..' || relativePath.startsWith(`..${separator}`) || relativePath.startsWith(separator)) return false
+  if (separator === '\\' && (/^[A-Za-z]:\\/.test(relativePath) || relativePath.startsWith('\\\\'))) return false
+  return true
 }
 
 function assertEqual(actual, expected, label) {
