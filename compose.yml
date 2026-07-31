@@ -28,6 +28,16 @@ services:
     volumes:
       - ./.git:/workspace/.git:ro
 
+  baseline-verifier-candidate:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: verifier
+    command: sh -euc "timeout --signal=TERM --kill-after=30s 2m node --test --test-name-pattern='rejects|runs product|accepts only' config/scripts/verify-fork-baseline.node-test.mjs"
+    init: true
+    volumes:
+      - ./.git:/workspace/.git:ro
+
   baseline-source:
     build:
       context: .
