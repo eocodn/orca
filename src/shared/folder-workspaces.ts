@@ -62,6 +62,12 @@ export function normalizeFolderWorkspaces(
     seen.add(raw.id)
     workspaces.push({
       id: raw.id,
+      ...(typeof raw.creationOperationId === 'string' && raw.creationOperationId.trim().length > 0
+        ? { creationOperationId: raw.creationOperationId }
+        : {}),
+      ...(typeof raw.creationFingerprint === 'string' && raw.creationFingerprint.length > 0
+        ? { creationFingerprint: raw.creationFingerprint }
+        : {}),
       projectGroupId: raw.projectGroupId,
       name: normalizeFolderWorkspaceName(raw.name),
       folderPath,

@@ -193,6 +193,7 @@
     "electron-builder": "^26.15.3",
     "electron-builder-squirrel-windows": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "esbuild": "0.25.12",
     "emoji-picker-react": "^4.19.1",
     "emojibase-data": "17.0.0",
     "happy-dom": "^20.9.0",

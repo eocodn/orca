@@ -323,6 +323,10 @@ export type WorkspaceKey = `worktree:${string}` | `folder:${string}`
 
 export type FolderWorkspace = {
   id: string
+  /** Stable caller identity for replay-safe creation; never reused for another payload. */
+  creationOperationId?: string
+  /** Canonical create payload bound to creationOperationId for conflict detection. */
+  creationFingerprint?: string
   projectGroupId: string
   name: string
   folderPath: string

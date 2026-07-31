@@ -1,0 +1,69 @@
+name: ade-control-${ADE_CONTROL_RUN_ID:?set a unique run id for concurrency-safe execution}
+
+services:
+  control-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - pnpm
+      - exec
+      - vitest
+      - run
+      - --config
+      - config/vitest.config.ts
+      - src/cli/handlers/folder-workspace.test.ts
+      - src/cli/registry-parity.test.ts
+      - src/cli/handler-group-manifest.test.ts
+      - src/main/runtime/rpc/methods/repo.test.ts
+      - src/main/persistence.test.ts
+    init: true
+
+  control-typecheck:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - pnpm exec tsc --noEmit -p config/tsconfig.node.json && pnpm exec tsc --noEmit -p config/tsconfig.tc.cli.json
+    init: true
+
+  control-quality:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - pnpm exec oxfmt --check src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/specs/folder-workspace.ts src/main/persistence.ts src/main/persistence.test.ts src/main/runtime/orca-runtime.ts src/main/runtime/rpc/methods/folder-workspace.ts src/main/runtime/rpc/methods/repo.test.ts src/shared/folder-workspaces.ts src/shared/types.ts && pnpm exec oxlint src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/specs/folder-workspace.ts
+    init: true
+
+  control-format:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - pnpm
+      - exec
+      - oxfmt
+      - src/cli/handlers/folder-workspace.ts
+      - src/cli/handlers/folder-workspace.test.ts
+      - src/cli/specs/folder-workspace.ts
+      - src/main/persistence.ts
+    init: true
+    volumes:
+      - ./:/workspace
+      - /workspace/node_modules

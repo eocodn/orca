@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "expectedIntentSetSha256": "2c59203022a652a9d360007e756f96239fa2b59c63c01a9c2decbfc28b27d0e4",
-  "expectedDependencySetSha256": "d52f58b5b3d80e37c363d823b78d012d1030f676d5d005e3767f39f60e557a63",
+  "expectedDependencySetSha256": "6d7b4f3758fd22b8dec63824477341e2f386c1c3fc4d5adfa4cb659a8584bca7",
   "rules": [
     {"id":"removed-feature-audit","pattern":"(browser-|plugin-|orchestration-|automation-|emulator-|computer-|native-chat)","layer":"removed-feature-audit","reason":"The product surface is removed; retain only absence and dependency audits."},
     {"id":"native-platform-smoke","pattern":"(^|[/_-])(ime|ibus|webgl|gpu|pointer|clipboard|screenshot|windows|macos|linux|wayland|image-paste)([-.]|$)","layer":"native-smoke","reason":"Compositor, OS input, or raster behavior requires a real native boundary."},

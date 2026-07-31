@@ -400,7 +400,8 @@ describe('repo RPC methods', () => {
     await dispatcher.dispatch(
       makeRequest('folderWorkspace.create', {
         projectGroupId: group.id,
-        name: 'Refund fix'
+        name: 'Refund fix',
+        operationId: 'folder-create-1'
       })
     )
     await dispatcher.dispatch(
@@ -440,7 +441,8 @@ describe('repo RPC methods', () => {
     expect(runtime.listFolderWorkspaces).toHaveBeenCalled()
     expect(runtime.createFolderWorkspace).toHaveBeenCalledWith({
       projectGroupId: group.id,
-      name: 'Refund fix'
+      name: 'Refund fix',
+      operationId: 'folder-create-1'
     })
     expect(runtime.updateFolderWorkspace).toHaveBeenCalledWith('folder-workspace-1', {
       comment: 'x'

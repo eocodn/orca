@@ -1036,6 +1036,7 @@ type RuntimeStore = {
   deleteProjectGroup?: Store['deleteProjectGroup']
   moveProjectToGroup?: Store['moveProjectToGroup']
   getFolderWorkspaces?: Store['getFolderWorkspaces']
+  getFolderWorkspaceByCreationOperationId?: Store['getFolderWorkspaceByCreationOperationId']
   createFolderWorkspace?: Store['createFolderWorkspace']
   updateFolderWorkspace?: Store['updateFolderWorkspace']
   removeFolderWorkspace?: Store['removeFolderWorkspace']
@@ -17248,9 +17249,18 @@ export class OrcaRuntimeService {
     linkedTaskSourceContext?: FolderWorkspace['linkedTaskSourceContext']
     createdWithAgent?: FolderWorkspace['createdWithAgent']
     pendingFirstAgentMessageRename?: boolean
+    operationId?: string
   }): Promise<FolderWorkspace> {
     if (!this.store?.createFolderWorkspace) {
       throw new Error('runtime_unavailable')
+    }
+    // Why: a retry after success must not depend on the folder still being reachable;
+    // the persisted operation binding is the authoritative completed state.
+    if (input.operationId && this.store.getFolderWorkspaceByCreationOperationId) {
+      const replay = this.store.getFolderWorkspaceByCreationOperationId(input.operationId)
+      if (replay) {
+        return this.store.createFolderWorkspace(input)
+      }
     }
     const projectGroups = this.store.getProjectGroups?.() ?? []
     const group = projectGroups.find((entry) => entry.id === input.projectGroupId)

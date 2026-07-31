@@ -5024,6 +5024,47 @@ describe('Store', () => {
     expect(store.getFolderWorkspaces()).toHaveLength(1)
   })
 
+  it('replays folder workspace creation idempotently across restart', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    const first = store.createFolderWorkspace({
+      projectGroupId: group.id,
+      name: 'Docs',
+      folderPath: '/workspace/platform/docs',
+      operationId: 'folder-create-1'
+    })
+    const replay = store.createFolderWorkspace({
+      projectGroupId: group.id,
+      name: 'Docs',
+      folderPath: '/workspace/platform/docs',
+      operationId: 'folder-create-1'
+    })
+    store.flush()
+    const restored = await createStore()
+    const restoredReplay = restored.createFolderWorkspace({
+      projectGroupId: group.id,
+      name: 'Docs',
+      folderPath: '/workspace/platform/docs',
+      operationId: 'folder-create-1'
+    })
+
+    expect(replay.id).toBe(first.id)
+    expect(restoredReplay.id).toBe(first.id)
+    expect(restored.getFolderWorkspaces()).toHaveLength(1)
+    expect(() =>
+      restored.createFolderWorkspace({
+        projectGroupId: group.id,
+        name: 'Different',
+        folderPath: '/workspace/platform/docs',
+        operationId: 'folder-create-1'
+      })
+    ).toThrow('folder_workspace_operation_conflict')
+  })
+
   it('round-trips Jira item and source context for repo-less folder workspaces', async () => {
     const store = await createStore()
     const group = store.createProjectGroup({

@@ -4123,6 +4123,12 @@ export class Store {
     return (this.state.folderWorkspaces ?? []).find((workspace) => workspace.id === id)
   }
 
+  getFolderWorkspaceByCreationOperationId(operationId: string): FolderWorkspace | undefined {
+    return (this.state.folderWorkspaces ?? []).find(
+      (workspace) => workspace.creationOperationId === operationId
+    )
+  }
+
   createFolderWorkspace(input: {
     projectGroupId: string
     name?: string
@@ -4132,6 +4138,7 @@ export class Store {
     connectionId?: string | null
     createdWithAgent?: FolderWorkspace['createdWithAgent']
     pendingFirstAgentMessageRename?: boolean
+    operationId?: string
   }): FolderWorkspace {
     const group = (this.state.projectGroups ?? []).find(
       (entry) => entry.id === input.projectGroupId
@@ -4143,15 +4150,40 @@ export class Store {
     if (!group || !folderPath) {
       throw new Error('Folder-backed project group not found.')
     }
-    const now = Date.now()
     const linkedTask = normalizeWorkspaceLinkedItem(input.linkedTask)
     const sourceContext = normalizeStoredTaskSourceContext(input.linkedTaskSourceContext)
+    const name = normalizeFolderWorkspaceName(input.name, `${group.name} workspace`)
+    const connectionId = input.connectionId ?? group.connectionId ?? null
+    const creationFingerprint = JSON.stringify({
+      projectGroupId: group.id,
+      name,
+      folderPath,
+      connectionId,
+      linkedTask,
+      linkedTaskSourceContext: isWorkspaceLinkedItemSourceContextMatch(linkedTask, sourceContext)
+        ? sourceContext
+        : null,
+      createdWithAgent: input.createdWithAgent ?? null,
+      pendingFirstAgentMessageRename:
+        input.pendingFirstAgentMessageRename === true && Boolean(input.createdWithAgent)
+    })
+    if (input.operationId) {
+      const existing = this.getFolderWorkspaceByCreationOperationId(input.operationId)
+      if (existing) {
+        if (existing.creationFingerprint !== creationFingerprint) {
+          throw new Error('folder_workspace_operation_conflict')
+        }
+        return existing
+      }
+    }
+    const now = Date.now()
     const workspace: FolderWorkspace = {
       id: randomUUID(),
+      ...(input.operationId ? { creationOperationId: input.operationId, creationFingerprint } : {}),
       projectGroupId: group.id,
-      name: normalizeFolderWorkspaceName(input.name, `${group.name} workspace`),
+      name,
       folderPath,
-      connectionId: input.connectionId ?? group.connectionId ?? null,
+      connectionId,
       linkedTask,
       linkedTaskSourceContext: isWorkspaceLinkedItemSourceContextMatch(linkedTask, sourceContext)
         ? sourceContext

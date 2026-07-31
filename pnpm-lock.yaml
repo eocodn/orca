@@ -249,6 +249,9 @@ importers:
       electron-vite:
         specifier: ^5.0.0
         version: 5.0.0(@swc/core@1.15.46)(rolldown-vite@7.3.1(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.8.4))
+      esbuild:
+        specifier: 0.25.12
+        version: 0.25.12
       emoji-picker-react:
         specifier: ^4.19.1
         version: 4.19.1(react@19.2.7)

@@ -16,11 +16,13 @@ import { INTROSPECTION_COMMAND_SPECS } from './introspection'
 import { LINEAR_COMMAND_SPECS } from './linear'
 import { VM_COMMAND_SPECS } from './vm'
 import { SKILL_COMMAND_SPECS } from './skills'
+import { FOLDER_WORKSPACE_COMMAND_SPECS } from './folder-workspace'
 
 export const COMMAND_SPECS: CommandSpec[] = [
   ...CORE_COMMAND_SPECS,
   ...ACCOUNT_COMMAND_SPECS,
   ...PROJECT_COMMAND_SPECS,
+  ...FOLDER_WORKSPACE_COMMAND_SPECS,
   ...FILE_COMMAND_SPECS,
   ...AUTOMATION_COMMAND_SPECS,
   ...BROWSER_BASIC_COMMAND_SPECS,

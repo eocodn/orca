@@ -54,6 +54,17 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/repo.js')).REPO_HANDLERS
   },
   {
+    name: 'folder-workspace',
+    keys: [
+      'folder-workspace list',
+      'folder-workspace add',
+      'folder-workspace inspect',
+      'folder-workspace remove'
+    ],
+    load: async () =>
+      (await import('./handlers/folder-workspace.js')).FOLDER_WORKSPACE_HANDLERS
+  },
+  {
     name: 'worktree',
     keys: [
       'worktree ps',
