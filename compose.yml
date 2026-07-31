@@ -24,6 +24,7 @@ services:
       dockerfile: Dockerfile.baseline
       target: verifier
     init: true
+    command: sh -euc 'timeout --signal=TERM --kill-after=30s 2m node --test config/scripts/verify-fork-baseline.node-test.mjs'
     volumes:
       - ./.git:/workspace/.git:ro
 
@@ -33,6 +34,10 @@ services:
       dockerfile: Dockerfile.baseline
       target: baseline-source
     command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 5m
       - sh
       - -euc
       - |

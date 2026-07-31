@@ -40,8 +40,10 @@ export async function verifyForkBaseline(root, runGit = createGitRunner(root)) {
   ])
   await runGit(['merge-base', '--is-ancestor', BASELINE_COMMIT, 'HEAD'])
   const packageData = JSON.parse(await runGit(['show', `${BASELINE_COMMIT}:package.json`]))
-  const surfaces = verifyBaselineResults(JSON.parse(resultsJson))
-  await verifyObservationArtifacts(root, surfaces)
+  const evidence = JSON.parse(resultsJson)
+  const surfaces = verifyBaselineResults(evidence)
+  await runGit(['diff', '--quiet', evidence.verifierCommit, 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
+  await verifyObservationArtifacts(root, surfaces, evidence.verifierCommit)
   const [baselineParent, baselineTree] = lines(commitData)
   const tags = lines(tagsText).length
   const tagNames = lines(tagsText)
@@ -77,11 +79,13 @@ export async function verifyForkBaseline(root, runGit = createGitRunner(root)) {
 export function verifyBaselineResults(evidence) {
   assertEqual(evidence.schemaVersion, 1, 'result schema version')
   assertEqual(evidence.baselineCommit, BASELINE_COMMIT, 'result baseline commit')
+  if (!/^[a-f0-9]{40}$/.test(evidence.verifierCommit)) throw new Error('fork baseline verifier commit invalid')
   if (!Array.isArray(evidence.surfaces)) throw new Error('fork baseline surfaces must be an array')
   const ids = new Set(evidence.surfaces.map(({ id }) => id))
   if (evidence.surfaces.length !== EXPECTED_SURFACES.size || ids.size !== EXPECTED_SURFACES.size || [...EXPECTED_SURFACES].some((id) => !ids.has(id))) {
     throw new Error('fork baseline surface set mismatch')
   }
+  const runIds = new Set()
   for (const surface of evidence.surfaces) {
     if (!['pass', 'fail', 'not_run'].includes(surface.status)) {
       throw new Error(`fork baseline invalid status: ${surface.id}`)
@@ -96,7 +100,10 @@ export function verifyBaselineResults(evidence) {
     if (!surface.command || !surface.summary) throw new Error(`fork baseline evidence incomplete: ${surface.id}`)
     const service = COMPOSE_SERVICES.get(surface.id)
     if (service) {
+      if (surface.status === 'not_run') throw new Error(`fork baseline Linux surface was not run: ${surface.id}`)
       if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(surface.runId)) throw new Error(`fork baseline run ID invalid: ${surface.id}`)
+      if (runIds.has(surface.runId)) throw new Error(`fork baseline run ID reused: ${surface.runId}`)
+      runIds.add(surface.runId)
       const expected = `ADE_BASELINE_RUN_ID=${surface.runId} docker compose up --build --abort-on-container-exit --exit-code-from ${service} ${service}`
       assertEqual(surface.command, expected, `${surface.id} command`)
       if (!surface.artifact?.path || !/^[a-f0-9]{64}$/.test(surface.artifact.sha256)) {
@@ -109,8 +116,9 @@ export function verifyBaselineResults(evidence) {
   return evidence.surfaces
 }
 
-async function verifyObservationArtifacts(root, surfaces) {
+async function verifyObservationArtifacts(root, surfaces, verifierCommit) {
   for (const surface of surfaces.filter(({ artifact }) => artifact)) {
+    assertEqual(surface.artifact.path, `docs/baseline-evidence/${surface.id}.json`, `${surface.id} artifact path`)
     const content = await readFile(join(root, surface.artifact.path), 'utf8')
     const digest = createHash('sha256').update(content).digest('hex')
     assertEqual(digest, surface.artifact.sha256, `${surface.id} artifact digest`)
@@ -118,7 +126,13 @@ async function verifyObservationArtifacts(root, surfaces) {
     assertEqual(observation.surface, surface.id, `${surface.id} artifact surface`)
     assertEqual(observation.runId, surface.runId, `${surface.id} artifact run ID`)
     assertEqual(observation.exitCode, surface.exitCode, `${surface.id} artifact exit code`)
-    if (!observation.startedAt || !observation.finishedAt || !/^sha256:[a-f0-9]{64}$/.test(observation.image)) {
+    assertEqual(observation.sourceCommit, surface.id === 'provenance' ? verifierCommit : BASELINE_COMMIT, `${surface.id} artifact source commit`)
+    assertEqual(observation.status, surface.status, `${surface.id} artifact status`)
+    assertEqual(observation.command, surface.command, `${surface.id} artifact command`)
+    assertEqual(observation.summary, surface.summary, `${surface.id} artifact summary`)
+    const startedAt = Date.parse(observation.startedAt)
+    const finishedAt = Date.parse(observation.finishedAt)
+    if (!Number.isFinite(startedAt) || !Number.isFinite(finishedAt) || finishedAt < startedAt || !/^sha256:[a-f0-9]{64}$/.test(observation.image)) {
       throw new Error(`fork baseline artifact metadata incomplete: ${surface.id}`)
     }
   }

@@ -44,6 +44,8 @@ describe('fork baseline provenance', () => {
     assert.match(compose, /condition: service_completed_successfully/)
     assert.match(compose, /baseline-source:\/baseline:\s*ro/)
     assert.match(compose, /\.git\/ade-baseline-ready/)
+    assert.match(compose, /timeout --signal=TERM --kill-after=30s 2m node --test/)
+    assert.match(compose, /timeout\n\s+- --signal=TERM\n\s+- --kill-after=30s\n\s+- 5m/)
   })
 
   it('rejects incomplete or ambiguous recorded results', () => {
@@ -56,6 +58,10 @@ describe('fork baseline provenance', () => {
     const fabricated = structuredClone(evidence)
     fabricated.surfaces[0].command = 'true'
     assert.throws(() => verifyBaselineResults(fabricated))
+    const replayed = structuredClone(evidence)
+    replayed.surfaces[1].runId = replayed.surfaces[0].runId
+    replayed.surfaces[1].command = replayed.surfaces[1].command.replace('core-exact-1', replayed.surfaces[0].runId)
+    assert.throws(() => verifyBaselineResults(replayed))
   })
 
   it('accepts only the six explicit baseline surfaces and status vocabulary', async () => {
