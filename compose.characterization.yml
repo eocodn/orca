@@ -1,4 +1,4 @@
-name: ade-characterization
+name: ade-characterization-${ADE_CHARACTERIZATION_RUN_ID:?set a unique run id for concurrency-safe execution}
 
 services:
   characterization-plan:

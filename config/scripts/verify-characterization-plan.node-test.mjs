@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
@@ -71,6 +71,11 @@ describe('Phase 1 characterization plan', () => {
 
   it('fails closed when the repository root is absent', async () => {
     await assert.rejects(verifyCharacterizationPlan('/definitely/missing/ade'))
+  })
+
+  it('requires an isolated Compose run identity', async () => {
+    const compose = await readFile(join(process.cwd(), 'compose.characterization.yml'), 'utf8')
+    assert.match(compose, /ADE_CHARACTERIZATION_RUN_ID:\?[^}]+/)
   })
 
   it('rejects malformed and arbitrarily linked catalog entries', async () => {

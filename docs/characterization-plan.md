@@ -21,3 +21,9 @@ Phase 1 freezes retained Orca behavior before removal or runtime migration. The 
 5. Git workflow and SSH connection/forward inspection commands using existing runtime RPC services.
 
 These commands must use the same headless service logic as later GUI/Web/mobile adapters, support `--json`, isolate concurrent fixtures, and expose failure state rather than adding fallback behavior.
+
+Run the catalog gate with a caller-unique project identity so concurrent agents cannot recreate or stop each other's container:
+
+```sh
+ADE_CHARACTERIZATION_RUN_ID=<unique-run-id> docker compose -f compose.characterization.yml up --build --abort-on-container-exit --exit-code-from characterization-plan characterization-plan
+```
