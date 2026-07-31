@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "baselineCommit": "79251d7a9861568dc261faabfa16df5347d1d008",
-  "verifierCommit": "d8fd105c4bf684e1279ebe30e46da7bd0ca1092e",
+  "verifierCommit": "8c27ec85a992fbb3802c58ad78e6ebdbb393012d",
   "environment": {
     "containerOs": "Debian 12 (bookworm)",
     "node": "24",
@@ -10,11 +10,11 @@
   "surfaces": [
     {
       "id": "provenance",
-      "runId": "verifier-full-2",
-      "command": "ADE_BASELINE_RUN_ID=verifier-full-2 docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests",
+      "runId": "verifier-full-3",
+      "command": "ADE_BASELINE_RUN_ID=verifier-full-3 docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests",
       "status": "pass",
       "exitCode": 0,
-      "artifact": {"path":"docs/baseline-evidence/provenance.json","sha256":"623faaad8f94b1ce5cf7565f92a0bef1faec540e5a1a17e24fcdb9b1597b1c3b"},
+      "artifact": {"path":"docs/baseline-evidence/provenance.json","sha256":"a76e46d6fdf22f367dbedf8917f35963ff1b2d81552672d66c6f8aef1ce5fc85"},
       "summary": "Authoritative Git provenance, license, immutable source contract, and evidence schema checks passed."
     },
     {
