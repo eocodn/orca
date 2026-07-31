@@ -86,6 +86,12 @@ describe('Phase 1 characterization plan', () => {
     assert.throws(() => validateOverrides([
       { path: 'tests/e2e/file-open.spec.ts', rule: 'component', layer: 'component', contract: 'git-workflow', reason: 'arbitrary' }
     ], rules, contractRules))
+    assert.throws(() => validateOverrides([
+      { path: 'tests/e2e/file-open.spec.ts', rule: 'component', layer: 'component', contract: 'file-read-write-watch', reason: 1 }
+    ], rules, contractRules))
+    assert.throws(() => validateOverrides([
+      { path: 'opaque.spec.ts', rule: 'component', layer: 'component', contract: 'file-read-write-watch', reason: 'typed', exception: 'false' }
+    ], rules, contractRules))
     await assert.rejects(resolveCoveragePath('/workspace', '../outside.test.ts'))
     assert.equal(isRelativePathInside('rules.json', '\\'), true)
     assert.equal(isRelativePathInside('..\\scripts\\verifier.mjs', '\\'), false)

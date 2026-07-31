@@ -114,7 +114,7 @@ function assertUnique(values, label) {
 
 export function validateRules(rules) {
   for (const rule of rules) {
-    if (!rule.id || !rule.pattern || !ALLOWED_LAYERS.has(rule.layer) || !rule.reason || 'contract' in rule) throw new Error(`invalid intent rule: ${rule.id}`)
+    if (!isNonemptyString(rule.id) || !isNonemptyString(rule.pattern) || !ALLOWED_LAYERS.has(rule.layer) || !isNonemptyString(rule.reason) || 'contract' in rule) throw new Error(`invalid intent rule: ${rule.id}`)
   }
 }
 
@@ -128,7 +128,7 @@ function isStringArray(value, minimum) {
 
 export function validateContractRules(rules) {
   for (const rule of rules) {
-    if (!rule.id || !rule.pattern || !rule.contract || !Array.isArray(rule.layers) || rule.layers.length === 0 || rule.layers.some((layer) => !ALLOWED_LAYERS.has(layer))) {
+    if (!isNonemptyString(rule.id) || !isNonemptyString(rule.pattern) || !isNonemptyString(rule.contract) || !isStringArray(rule.layers, 1) || rule.layers.some((layer) => !ALLOWED_LAYERS.has(layer))) {
       throw new Error(`invalid contract rule: ${rule.id}`)
     }
   }
@@ -138,7 +138,7 @@ export function validateOverrides(overrides, rules, contractRules) {
   for (const override of overrides) {
     const linkedRule = rules.find(({ id, layer }) => id === override.rule && layer === override.layer)
     const naturalContract = contractRules.some(({ expression, contract, layers }) => expression.test(override.path) && contract === override.contract && layers.includes(override.layer))
-    if (!override.path || !override.reason || !linkedRule || !ALLOWED_LAYERS.has(override.layer) || !override.contract) {
+    if (!isNonemptyString(override.path) || !isNonemptyString(override.rule) || !isNonemptyString(override.reason) || !linkedRule || !ALLOWED_LAYERS.has(override.layer) || !isNonemptyString(override.contract) || (override.exception !== undefined && typeof override.exception !== 'boolean')) {
       throw new Error(`invalid intent override: ${override.path}`)
     }
     if (naturalContract === Boolean(override.exception)) {
