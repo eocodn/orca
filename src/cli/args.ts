@@ -202,6 +202,7 @@ export function isCommandGroup(commandPath: string[]): boolean {
         'account',
         'automations',
         'project',
+        'folder-workspace',
         'repo',
         'worktree',
         'terminal',

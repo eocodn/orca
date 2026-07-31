@@ -34,17 +34,23 @@ export function normalizeFolderWorkspaces(
 
   const workspaces: FolderWorkspace[] = []
   const seen = new Set<string>()
+  const seenCreationOperationIds = new Set<string>()
   for (const candidate of value) {
     if (!candidate || typeof candidate !== 'object') {
       continue
     }
     const raw = candidate as Partial<FolderWorkspace>
+    const creationOperationId =
+      typeof raw.creationOperationId === 'string' && raw.creationOperationId.trim().length > 0
+        ? raw.creationOperationId
+        : null
     if (
       typeof raw.id !== 'string' ||
       raw.id.trim().length === 0 ||
       seen.has(raw.id) ||
       typeof raw.projectGroupId !== 'string' ||
-      !folderGroups.has(raw.projectGroupId)
+      !folderGroups.has(raw.projectGroupId) ||
+      (creationOperationId !== null && seenCreationOperationIds.has(creationOperationId))
     ) {
       continue
     }
@@ -60,12 +66,15 @@ export function normalizeFolderWorkspaces(
     const linkedTask = normalizeWorkspaceLinkedItem(raw.linkedTask)
     const linkedTaskSourceContext = normalizeStoredTaskSourceContext(raw.linkedTaskSourceContext)
     seen.add(raw.id)
+    if (creationOperationId !== null) {
+      seenCreationOperationIds.add(creationOperationId)
+    }
     workspaces.push({
       id: raw.id,
-      ...(typeof raw.creationOperationId === 'string' && raw.creationOperationId.trim().length > 0
-        ? { creationOperationId: raw.creationOperationId }
-        : {}),
-      ...(typeof raw.creationFingerprint === 'string' && raw.creationFingerprint.length > 0
+      ...(creationOperationId !== null ? { creationOperationId } : {}),
+      ...(creationOperationId !== null &&
+      typeof raw.creationFingerprint === 'string' &&
+      raw.creationFingerprint.length > 0
         ? { creationFingerprint: raw.creationFingerprint }
         : {}),
       projectGroupId: raw.projectGroupId,

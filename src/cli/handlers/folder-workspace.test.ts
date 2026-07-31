@@ -109,6 +109,26 @@ describe('orca folder-workspace CLI', () => {
     expect(output.result.authoritative).toBe(true)
   })
 
+  it('rejects a whitespace-only operation id before contacting the runtime', async () => {
+    await main(
+      [
+        'folder-workspace',
+        'add',
+        '--project-group',
+        'group-1',
+        '--path',
+        '/srv/docs',
+        '--operation-id',
+        '   ',
+        '--json'
+      ],
+      '/tmp'
+    )
+
+    expect(process.exitCode).toBe(1)
+    expect(callMock).not.toHaveBeenCalled()
+  })
+
   it('inspects a workspace on the selected remote runtime', async () => {
     queueFixtures(callMock, okFixture('list-3', { folderWorkspaces: [workspace] }))
 

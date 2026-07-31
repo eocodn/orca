@@ -5043,7 +5043,8 @@ describe('Store', () => {
       folderPath: '/workspace/platform/docs',
       operationId: 'folder-create-1'
     })
-    store.flush()
+    // A successful operation-bound create is the acknowledgement boundary. A caller may
+    // restart immediately after this return, so this test intentionally does not flush.
     const restored = await createStore()
     const restoredReplay = restored.createFolderWorkspace({
       projectGroupId: group.id,
@@ -5063,6 +5064,43 @@ describe('Store', () => {
         operationId: 'folder-create-1'
       })
     ).toThrow('folder_workspace_operation_conflict')
+  })
+
+  it('rolls back an operation-bound folder workspace when durable persistence fails', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    store.flush()
+    vi.spyOn(store, 'flushOrThrow').mockImplementationOnce(() => {
+      throw new Error('disk_full')
+    })
+
+    expect(() =>
+      store.createFolderWorkspace({
+        projectGroupId: group.id,
+        name: 'Docs',
+        folderPath: '/workspace/platform/docs',
+        operationId: 'folder-create-disk-full'
+      })
+    ).toThrow('disk_full')
+    expect(store.getFolderWorkspaces()).toEqual([])
+    expect(store.getFolderWorkspaceByCreationOperationId('folder-create-disk-full')).toBeUndefined()
+  })
+
+  it('rejects operation ids that cannot survive persistence normalization', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+
+    expect(() =>
+      store.createFolderWorkspace({ projectGroupId: group.id, operationId: '   ' })
+    ).toThrow('folder_workspace_operation_id_invalid')
   })
 
   it('round-trips Jira item and source context for repo-less folder workspaces', async () => {
@@ -5146,6 +5184,8 @@ describe('Store', () => {
       folderWorkspaces: [
         {
           id: 'fw-1',
+          creationOperationId: 'op-1',
+          creationFingerprint: 'fingerprint-1',
           projectGroupId: 'root',
           name: '  ',
           folderPath: '',
@@ -5159,6 +5199,21 @@ describe('Store', () => {
           updatedAt: 3
         },
         {
+          id: 'duplicate-operation',
+          creationOperationId: 'op-1',
+          creationFingerprint: 'fingerprint-2',
+          projectGroupId: 'root',
+          name: 'Ambiguous retry',
+          folderPath: '/workspace/platform'
+        },
+        {
+          id: 'orphan-fingerprint',
+          creationFingerprint: 'must-not-survive-without-an-operation',
+          projectGroupId: 'root',
+          name: 'No operation',
+          folderPath: '/workspace/platform'
+        },
+        {
           id: 'orphan',
           projectGroupId: 'missing',
           name: 'Orphan',
@@ -5169,7 +5224,9 @@ describe('Store', () => {
 
     const store = await createStore()
 
-    expect(store.getFolderWorkspaces()).toEqual([
+    const restored = store.getFolderWorkspaces()
+    expect(restored).toHaveLength(2)
+    expect(restored).toContainEqual(
       expect.objectContaining({
         id: 'fw-1',
         projectGroupId: 'root',
@@ -5179,7 +5236,11 @@ describe('Store', () => {
         isArchived: true,
         isUnread: true
       })
-    ])
+    )
+    expect(restored.map((workspace) => workspace.id)).not.toContain('duplicate-operation')
+    expect(restored.find((workspace) => workspace.id === 'orphan-fingerprint')).not.toHaveProperty(
+      'creationFingerprint'
+    )
   })
 
   it('backfills folder-scope SSH provenance from unambiguous child repos on load', async () => {

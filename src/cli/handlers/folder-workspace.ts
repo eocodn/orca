@@ -11,6 +11,17 @@ type HostQualifiedFolderWorkspace = FolderWorkspace & {
   executionHostId: `runtime:${string}` | 'local'
 }
 
+function getCreationOperationId(ctx: HandlerContext): string {
+  const value = getRequiredStringFlag(ctx.flags, 'operation-id').trim()
+  if (value.length === 0 || value.length > 256) {
+    throw new RuntimeClientError(
+      'invalid_args',
+      'Flag --operation-id must be between 1 and 256 non-whitespace characters.'
+    )
+  }
+  return value
+}
+
 function executionHostId(
   response: RuntimeRpcSuccess<unknown>,
   isRemote: boolean
@@ -90,7 +101,7 @@ export const FOLDER_WORKSPACE_HANDLERS: Record<string, CommandHandler> = {
         projectGroupId: getRequiredStringFlag(ctx.flags, 'project-group'),
         folderPath: path,
         name: getOptionalStringFlag(ctx.flags, 'name'),
-        operationId: getRequiredStringFlag(ctx.flags, 'operation-id')
+        operationId: getCreationOperationId(ctx)
       }
     )
     const { response, workspaces } = await listQualified(ctx)

@@ -4,11 +4,18 @@ import type { CommandSpec } from './args'
 import {
   REPEATED_FLAG_SEPARATOR,
   findCommandSpec,
+  isCommandGroup,
   normalizeCommandPositionals,
   parseArgs,
   supportsBrowserPageFlag,
   validateCommandAndFlags
 } from './args'
+
+describe('isCommandGroup', () => {
+  it('recognizes the folder workspace control group', () => {
+    expect(isCommandGroup(['folder-workspace'])).toBe(true)
+  })
+})
 
 describe('parseArgs', () => {
   it('keeps an empty string as a flag value', () => {

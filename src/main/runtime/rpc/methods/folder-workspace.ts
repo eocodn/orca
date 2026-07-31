@@ -37,7 +37,7 @@ const FolderWorkspaceCreate = z
     linkedTaskSourceContext: TaskSourceContextSchema.nullable().optional(),
     createdWithAgent: z.string().refine(isTuiAgent).optional(),
     pendingFirstAgentMessageRename: z.boolean().optional(),
-    operationId: requiredString('Missing operation id').optional()
+    operationId: z.string().trim().min(1, 'Missing operation id').max(256).optional()
   })
   .superRefine(assertLinkedTaskSourceContextMatch)
 

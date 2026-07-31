@@ -4140,6 +4140,10 @@ export class Store {
     pendingFirstAgentMessageRename?: boolean
     operationId?: string
   }): FolderWorkspace {
+    const operationId = input.operationId?.trim()
+    if (input.operationId !== undefined && (!operationId || operationId.length > 256)) {
+      throw new Error('folder_workspace_operation_id_invalid')
+    }
     const group = (this.state.projectGroups ?? []).find(
       (entry) => entry.id === input.projectGroupId
     )
@@ -4167,8 +4171,8 @@ export class Store {
       pendingFirstAgentMessageRename:
         input.pendingFirstAgentMessageRename === true && Boolean(input.createdWithAgent)
     })
-    if (input.operationId) {
-      const existing = this.getFolderWorkspaceByCreationOperationId(input.operationId)
+    if (operationId) {
+      const existing = this.getFolderWorkspaceByCreationOperationId(operationId)
       if (existing) {
         if (existing.creationFingerprint !== creationFingerprint) {
           throw new Error('folder_workspace_operation_conflict')
@@ -4179,7 +4183,7 @@ export class Store {
     const now = Date.now()
     const workspace: FolderWorkspace = {
       id: randomUUID(),
-      ...(input.operationId ? { creationOperationId: input.operationId, creationFingerprint } : {}),
+      ...(operationId ? { creationOperationId: operationId, creationFingerprint } : {}),
       projectGroupId: group.id,
       name,
       folderPath,
@@ -4201,8 +4205,20 @@ export class Store {
       createdAt: now,
       updatedAt: now
     }
-    this.state.folderWorkspaces = [workspace, ...(this.state.folderWorkspaces ?? [])]
-    this.scheduleSave()
+    const previousFolderWorkspaces = this.state.folderWorkspaces ?? []
+    this.state.folderWorkspaces = [workspace, ...previousFolderWorkspaces]
+    if (operationId) {
+      try {
+        // The create return is the idempotency acknowledgement boundary. Persist the
+        // workspace and its operation binding atomically before a caller can retry.
+        this.flushOrThrow()
+      } catch (error) {
+        this.state.folderWorkspaces = previousFolderWorkspaces
+        throw error
+      }
+    } else {
+      this.scheduleSave()
+    }
     return workspace
   }
 
