@@ -1,0 +1,37 @@
+services:
+  baseline-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: verifier
+    init: true
+  baseline-core-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: project-checks
+    command: pnpm test
+    init: true
+    volumes:
+      - ./.git:/workspace/.git:ro
+  baseline-web-build:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: project-checks
+    command: pnpm build:web
+    init: true
+  baseline-mobile-typecheck:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: mobile-checks
+    command: pnpm typecheck
+    init: true
+  baseline-mobile-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: mobile-checks
+    command: pnpm test
+    init: true
