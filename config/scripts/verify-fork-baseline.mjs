@@ -42,8 +42,9 @@ export async function verifyForkBaseline(root, runGit = createGitRunner(root)) {
   const packageData = JSON.parse(await runGit(['show', `${BASELINE_COMMIT}:package.json`]))
   const evidence = JSON.parse(resultsJson)
   const surfaces = verifyBaselineResults(evidence)
+  const head = await runGit(['rev-parse', 'HEAD'])
   await runGit(['diff', '--quiet', evidence.verifierCommit, 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
-  await verifyObservationArtifacts(root, surfaces, evidence.verifierCommit)
+  await verifyObservationArtifacts(root, surfaces, evidence.verifierCommit, head)
   const [baselineParent, baselineTree] = lines(commitData)
   const tags = lines(tagsText).length
   const tagNames = lines(tagsText)
@@ -116,7 +117,7 @@ export function verifyBaselineResults(evidence) {
   return evidence.surfaces
 }
 
-async function verifyObservationArtifacts(root, surfaces, verifierCommit) {
+async function verifyObservationArtifacts(root, surfaces, verifierCommit, head) {
   for (const surface of surfaces.filter(({ artifact }) => artifact)) {
     assertEqual(surface.artifact.path, `docs/baseline-evidence/${surface.id}.json`, `${surface.id} artifact path`)
     const content = await readFile(join(root, surface.artifact.path), 'utf8')
@@ -128,7 +129,14 @@ async function verifyObservationArtifacts(root, surfaces, verifierCommit) {
     assertEqual(observation.exitCode, surface.exitCode, `${surface.id} artifact exit code`)
     assertEqual(observation.sourceCommit, surface.id === 'provenance' ? verifierCommit : BASELINE_COMMIT, `${surface.id} artifact source commit`)
     assertEqual(observation.status, surface.status, `${surface.id} artifact status`)
-    assertEqual(observation.command, surface.command, `${surface.id} artifact command`)
+    const candidateCommand = `ADE_BASELINE_RUN_ID=${surface.runId} docker compose up --build --abort-on-container-exit --exit-code-from baseline-verifier-candidate baseline-verifier-candidate`
+    if (surface.id === 'provenance' && observation.mode === 'candidate') {
+      assertEqual(head, verifierCommit, 'candidate artifact may only bootstrap its own verifier commit')
+      assertEqual(observation.command, candidateCommand, 'provenance candidate command')
+    } else {
+      assertEqual(observation.mode ?? 'full', 'full', `${surface.id} artifact mode`)
+      assertEqual(observation.command, surface.command, `${surface.id} artifact command`)
+    }
     assertEqual(observation.summary, surface.summary, `${surface.id} artifact summary`)
     const startedAt = Date.parse(observation.startedAt)
     const finishedAt = Date.parse(observation.finishedAt)
