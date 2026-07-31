@@ -1,11 +1,13 @@
 {
   "schemaVersion": 1,
+  "expectedIntentSetSha256": "984cd9277b384b2ce44a487f7b97e5ca853dd82ad1ea39c53091c966b9a448f8",
+  "expectedDependencySetSha256": "1c8535f71b4ff66944fd0f2db9882fa88b3dbac8444408258a5826d1b7b6834e",
   "rules": [
-    {"id":"removed-feature-audit","pattern":"(browser-|plugin-|orchestration-|automation-|emulator-|computer-|native-chat)","layer":"removed-feature-audit","reason":"The product surface is removed; retain only absence and dependency audits."},
-    {"id":"native-platform-smoke","pattern":"(ime|webgl|gpu|pointer|clipboard|screenshot|windows-|macos-|linux-|wayland|image-paste)","layer":"native-smoke","reason":"Compositor, OS input, or raster behavior requires a real native boundary."},
-    {"id":"terminal-daemon-contract","pattern":"(terminal|daemon|pty|agent-session|opencode|scrollback|reattach|parking)","layer":"headless-core","reason":"PTY, history, process, and reconnect truth belongs to the daemon/runtime core."},
-    {"id":"remote-client-contract","pattern":"(ssh|remote|paired|multi-client|nested-runtime|web-remote|relay)","layer":"headless-core","reason":"Transport generations and subscriptions are verified at the protocol/runtime seam."},
-    {"id":"workspace-file-git-contract","pattern":"(workspace|worktree|folder|source-control|diff|file-|editor-|git-|project-switch)","layer":"core-integration","reason":"Workspace, filesystem, and Git outcomes require authoritative service read-back."},
-    {"id":"renderer-component-contract","pattern":".*","layer":"component","reason":"Remaining user-visible state is characterized as renderer state and accessibility contracts."}
+    {"id":"removed-feature-audit","pattern":"(browser-|plugin-|orchestration-|automation-|emulator-|computer-|native-chat)","layer":"removed-feature-audit","contract":"removed-feature-audit","reason":"The product surface is removed; retain only absence and dependency audits."},
+    {"id":"native-platform-smoke","pattern":"(^|[-])(ime|webgl|gpu|pointer|clipboard|screenshot|windows|macos|linux|wayland|image-paste)([-.]|$)","layer":"native-smoke","contract":"wsl-context","reason":"Compositor, OS input, or raster behavior requires a real native boundary."},
+    {"id":"terminal-daemon-contract","pattern":"(terminal|daemon|pty|agent-session|opencode|scrollback|reattach|parking)","layer":"headless-core","contract":"terminal-lifecycle","reason":"PTY, history, process, and reconnect truth belongs to the daemon/runtime core."},
+    {"id":"remote-client-contract","pattern":"(ssh|remote|paired|multi-client|nested-runtime|web-remote|relay)","layer":"headless-core","contract":"ssh-reconnect-forward","reason":"Transport generations and subscriptions are verified at the protocol/runtime seam."},
+    {"id":"workspace-file-git-contract","pattern":"(workspace|worktree|folder|source-control|diff|file-|editor-|git-|project-switch)","layer":"core-integration","contract":"workspace-registration-restore","reason":"Workspace, filesystem, and Git outcomes require authoritative service read-back."},
+    {"id":"renderer-component-contract","pattern":".*","layer":"component","contract":"editor-file-tree-source-control","reason":"Remaining user-visible state is characterized as renderer state and accessibility contracts."}
   ]
 }

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "overrides": [
+    {"path":"tests/e2e/local-worktree-visibility-runtime-active.spec.ts","rule":"workspace-file-git-contract","layer":"core-integration","contract":"workspace-registration-restore","reason":"Runtime is a host identity here, not an IME substring."},
+    {"path":"tests/e2e/nested-runtime-ssh-lifecycle.spec.ts","rule":"remote-client-contract","layer":"headless-core","contract":"ssh-reconnect-forward","reason":"Nested SSH lifecycle is a generation-fenced transport contract."},
+    {"path":"tests/e2e/nested-runtime-ssh-routing.spec.ts","rule":"remote-client-contract","layer":"headless-core","contract":"ssh-reconnect-forward","reason":"Nested SSH routing is owned by the remote runtime."},
+    {"path":"tests/e2e/pr11346-selected-runtime-add.spec.ts","rule":"remote-client-contract","layer":"headless-core","contract":"session-synchronization","reason":"Selected runtime activation is authoritative session routing."},
+    {"path":"tests/e2e/terminal-ibus-hangul-native.spec.ts","rule":"native-platform-smoke","layer":"native-smoke","contract":"terminal-lifecycle","reason":"Native IBus composition and exact bytes require a compositor."},
+    {"path":"tests/e2e/runtime-file-browser-windows-drives.spec.ts","rule":"workspace-file-git-contract","layer":"core-integration","contract":"file-read-write-watch","reason":"This is retained runtime file RPC and Windows drive discovery, not the removed browser product."}
+  ]
+}

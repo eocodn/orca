@@ -9,7 +9,7 @@ describe('Phase 1 characterization plan', () => {
     assert.equal(result.areaCount, 13)
     assert.equal(result.intentCount, 190)
     assert.ok(result.dependencyFileCount >= 200)
-    assert.ok(result.intents.every(({ path, layer, rule }) => path && layer && rule))
+    assert.ok(result.intents.every(({ path, layer, rule, contract }) => path && layer && rule && contract))
   })
 
   it('fails closed when the repository root is absent', async () => {
