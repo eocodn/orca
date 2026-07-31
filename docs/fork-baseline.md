@@ -13,22 +13,23 @@ The baseline commit is preserved without amendment. ADE changes begin in its des
 
 Baseline checks use Node 24 and pnpm 10.24.0 in Linux containers. The Windows desktop compile/package result must be recorded separately on a Windows runner because a Linux result is not evidence for WebView2 or Windows packaging.
 
+Every Compose invocation requires a caller-unique `ADE_BASELINE_RUN_ID`. This isolates the immutable baseline volume when agents run checks concurrently. Machine-readable results and strict status semantics live in `docs/fork-baseline-results.json`.
+
 ## Recorded baseline
 
 Results below describe the unmodified upstream tree at the baseline commit. A non-zero exit is a recorded baseline result, never interpreted as success.
 
 | Surface | Command | Result |
 | --- | --- | --- |
-| Provenance and license | `docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests` | Pass: 2 tests |
-| Core Vitest | `docker compose up --build --abort-on-container-exit --exit-code-from baseline-core-tests baseline-core-tests` | Exit 1: 5 files/7 tests failed; 3,992 files/42,242 tests passed; 14 files/178 tests skipped |
-| Web build | `docker compose up --build --abort-on-container-exit --exit-code-from baseline-web-build baseline-web-build` | Pass with existing CSS/chunk-size warnings |
-| Mobile typecheck | `docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-typecheck baseline-mobile-typecheck` | Pass |
-| Mobile tests | `docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-tests baseline-mobile-tests` | Pass: 376 files, 2,794 tests; 3 skipped |
+| Provenance and license | `ADE_BASELINE_RUN_ID=provenance docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests` | Pass: 6 tests |
+| Core Vitest | `ADE_BASELINE_RUN_ID=core docker compose up --build --abort-on-container-exit --exit-code-from baseline-core-tests baseline-core-tests` | Exit 1: 4 files/6 tests failed; 3,993 files/42,243 tests passed; 14 files/178 tests skipped |
+| Web build | `ADE_BASELINE_RUN_ID=web docker compose up --build --abort-on-container-exit --exit-code-from baseline-web-build baseline-web-build` | Pass with existing CSS/chunk-size warnings |
+| Mobile typecheck | `ADE_BASELINE_RUN_ID=mobile-typecheck docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-typecheck baseline-mobile-typecheck` | Pass |
+| Mobile tests | `ADE_BASELINE_RUN_ID=mobile-tests docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-tests baseline-mobile-tests` | Pass: 376 files, 2,794 tests; 3 skipped |
 | Windows desktop | `pnpm build:win` on a Windows runner | Not run: no Windows runner is attached to this workspace |
 
 The core run used read-only Git metadata plus OpenSSL and `procps`, which its integration tests require. The remaining failures were:
 
-- `generate-skill-bundle-manifest.test.mjs`: the container sees Phase 0 additions while Git `HEAD` still identifies the untouched baseline tree.
 - `config-sync-stall.test.ts`, `hook-service.test.ts`, three `history-manager.test.ts` cases, and `titlebar-extension-service.test.ts`: baseline failures retained without modification.
 
 The Windows result is explicitly unobserved; Linux compilation is not used as a substitute for Windows desktop evidence.

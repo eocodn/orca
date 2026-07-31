@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "79251d7a9861568dc261faabfa16df5347d1d008",
+  "environment": {
+    "containerOs": "Debian 12 (bookworm)",
+    "node": "24",
+    "pnpm": "10.24.0"
+  },
+  "surfaces": [
+    {
+      "id": "provenance",
+      "command": "ADE_BASELINE_RUN_ID=provenance docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests",
+      "status": "pass",
+      "exitCode": 0,
+      "summary": "Authoritative Git provenance, license, immutable source contract, and evidence schema checks passed."
+    },
+    {
+      "id": "core-tests",
+      "command": "ADE_BASELINE_RUN_ID=core docker compose up --build --abort-on-container-exit --exit-code-from baseline-core-tests baseline-core-tests",
+      "status": "fail",
+      "exitCode": 1,
+      "summary": "4 files/6 tests failed; 3993 files/42243 tests passed; 14 files/178 tests skipped."
+    },
+    {
+      "id": "web-build",
+      "command": "ADE_BASELINE_RUN_ID=web docker compose up --build --abort-on-container-exit --exit-code-from baseline-web-build baseline-web-build",
+      "status": "pass",
+      "exitCode": 0,
+      "summary": "Build passed with upstream CSS and chunk-size warnings."
+    },
+    {
+      "id": "mobile-typecheck",
+      "command": "ADE_BASELINE_RUN_ID=mobile-typecheck docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-typecheck baseline-mobile-typecheck",
+      "status": "pass",
+      "exitCode": 0,
+      "summary": "Typecheck passed."
+    },
+    {
+      "id": "mobile-tests",
+      "command": "ADE_BASELINE_RUN_ID=mobile-tests docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-tests baseline-mobile-tests",
+      "status": "pass",
+      "exitCode": 0,
+      "summary": "376 files and 2794 tests passed; 3 tests skipped."
+    },
+    {
+      "id": "windows-desktop",
+      "command": "pnpm build:win",
+      "status": "not_run",
+      "exitCode": null,
+      "reason": "No Windows runner is attached to this workspace.",
+      "summary": "Unobserved; Linux output is not accepted as Windows evidence."
+    }
+  ]
+}

@@ -1,20 +1,22 @@
-FROM node:24-bookworm-slim AS verifier
+FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS verifier
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 COPY . .
 
 CMD ["node", "--test", "config/scripts/verify-fork-baseline.node-test.mjs"]
 
-FROM node:24-bookworm-slim AS project-checks
+FROM verifier AS baseline-source
+
+WORKDIR /baseline
+
+FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS project-checks
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git openssl procps python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 WORKDIR /workspace
-COPY . .
-RUN pnpm install --frozen-lockfile --ignore-scripts
-
-FROM project-checks AS mobile-checks
-WORKDIR /workspace/mobile
-RUN pnpm install --frozen-lockfile

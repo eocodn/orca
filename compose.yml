@@ -1,3 +1,22 @@
+name: ade-baseline-${ADE_BASELINE_RUN_ID:?set ADE_BASELINE_RUN_ID to a unique run identifier}
+
+x-baseline-environment: &baseline-environment
+  ADE_BASELINE_COMMIT: 79251d7a9861568dc261faabfa16df5347d1d008
+
+x-product-check: &product-check
+  build:
+    context: .
+    dockerfile: Dockerfile.baseline
+    target: project-checks
+  depends_on:
+    baseline-source:
+      condition: service_completed_successfully
+  environment: *baseline-environment
+  init: true
+  volumes:
+    - baseline-source:/baseline:ro
+    - ./.git:/repository/.git:ro
+
 services:
   baseline-tests:
     build:
@@ -5,33 +24,46 @@ services:
       dockerfile: Dockerfile.baseline
       target: verifier
     init: true
-  baseline-core-tests:
-    build:
-      context: .
-      dockerfile: Dockerfile.baseline
-      target: project-checks
-    command: pnpm test
-    init: true
     volumes:
       - ./.git:/workspace/.git:ro
+
+  baseline-source:
+    build:
+      context: .
+      dockerfile: Dockerfile.baseline
+      target: baseline-source
+    command:
+      - sh
+      - -euc
+      - |
+        if [ ! -e /baseline/.git ]; then
+          git config --global --add safe.directory /repository/.git
+          git clone --shared --no-checkout /repository/.git /baseline
+          git -C /baseline checkout --detach "$$ADE_BASELINE_COMMIT"
+        fi
+        test "$$(git -C /baseline rev-parse HEAD)" = "$$ADE_BASELINE_COMMIT"
+        test -z "$$(git -C /baseline status --porcelain)"
+    environment: *baseline-environment
+    init: true
+    volumes:
+      - baseline-source:/baseline
+      - ./.git:/repository/.git:ro
+
+  baseline-core-tests:
+    <<: *product-check
+    command: sh -euc 'cp -a /baseline/. /workspace/; corepack enable; pnpm install --frozen-lockfile --ignore-scripts; timeout --signal=TERM --kill-after=30s 20m pnpm test'
+
   baseline-web-build:
-    build:
-      context: .
-      dockerfile: Dockerfile.baseline
-      target: project-checks
-    command: pnpm build:web
-    init: true
+    <<: *product-check
+    command: sh -euc 'cp -a /baseline/. /workspace/; corepack enable; pnpm install --frozen-lockfile --ignore-scripts; timeout --signal=TERM --kill-after=30s 20m pnpm build:web'
+
   baseline-mobile-typecheck:
-    build:
-      context: .
-      dockerfile: Dockerfile.baseline
-      target: mobile-checks
-    command: pnpm typecheck
-    init: true
+    <<: *product-check
+    command: sh -euc 'cp -a /baseline/. /workspace/; cd mobile; corepack enable; pnpm install --frozen-lockfile; timeout --signal=TERM --kill-after=30s 20m pnpm typecheck'
+
   baseline-mobile-tests:
-    build:
-      context: .
-      dockerfile: Dockerfile.baseline
-      target: mobile-checks
-    command: pnpm test
-    init: true
+    <<: *product-check
+    command: sh -euc 'cp -a /baseline/. /workspace/; cd mobile; corepack enable; pnpm install --frozen-lockfile; timeout --signal=TERM --kill-after=30s 20m pnpm test'
+
+volumes:
+  baseline-source:
