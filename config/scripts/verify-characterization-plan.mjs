@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { basename, join, relative, resolve } from 'node:path'
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
@@ -97,7 +97,7 @@ async function findPlaywrightDependencies(root) {
   for (const path of candidates.flat().filter((value) => /\.(?:[cm]?[jt]sx?|json)$/.test(value) || basename(value) === 'pnpm-lock.yaml')) {
     // The verifier contains the dependency tokens as data; counting it would make the
     // expected digest self-referential and would not represent a runtime/test dependency.
-    if (path === verifierPath || relative(manifestRoot, path).split('/')[0] !== '..') continue
+    if (path === verifierPath || isRelativePathInside(relative(manifestRoot, path), sep)) continue
     const content = await readFile(path, 'utf8')
     if (content.includes('@playwright/test') || content.includes('@stablyai/playwright-test')) matches.push(path)
   }
@@ -151,6 +151,10 @@ export function resolveCoveragePath(root, path) {
   const absolutePath = resolve(root, path)
   if (relative(root, absolutePath).startsWith('..')) throw new Error(`coverage path escapes repository: ${path}`)
   return absolutePath
+}
+
+export function isRelativePathInside(relativePath, separator) {
+  return relativePath === '' || (!isAbsolute(relativePath) && relativePath !== '..' && !relativePath.startsWith(`..${separator}`))
 }
 
 function assertEqual(actual, expected, label) {

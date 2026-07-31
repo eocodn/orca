@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 
 import {
   resolveCoveragePath,
+  isRelativePathInside,
   validateContractRules,
   validateOverrides,
   validateRules,
@@ -78,6 +79,8 @@ describe('Phase 1 characterization plan', () => {
       { path: 'tests/e2e/file-open.spec.ts', rule: 'component', layer: 'component', contract: 'git-workflow', reason: 'arbitrary' }
     ], rules, contractRules))
     assert.throws(() => resolveCoveragePath('/workspace', '../outside.test.ts'))
+    assert.equal(isRelativePathInside('rules.json', '\\'), true)
+    assert.equal(isRelativePathInside('..\\scripts\\verifier.mjs', '\\'), false)
   })
 })
 
