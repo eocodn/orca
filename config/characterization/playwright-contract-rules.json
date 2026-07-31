@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "rules": [
+    {"id":"removed","pattern":"(browser-|plugin-|orchestration-|automation-|emulator-|computer-|native-chat)","contract":"removed-feature-audit"},
+    {"id":"wsl","pattern":"(wsl|windows-project-runtime|windows-shell)","contract":"wsl-context"},
+    {"id":"native-terminal","pattern":"(ime|ibus|webgl|gpu|pointer|clipboard|image-paste|terminal-.*native)","contract":"terminal-lifecycle"},
+    {"id":"mobile","pattern":"(mobile|paired-runtime|pairing)","contract":"mobile-pairing-stream"},
+    {"id":"web","pattern":"(web-remote|headless-serve|multi-client-navigation)","contract":"web-remote-session"},
+    {"id":"ssh","pattern":"(ssh|nested-runtime|relay|remote-agent)","contract":"ssh-reconnect-forward"},
+    {"id":"session","pattern":"(session|tab-|workspace-session|restart|restore|relaunch)","contract":"session-synchronization"},
+    {"id":"worktree-preflight","pattern":"(worktree-(create|delete|remove|cleanup)|preflight|dirty-worktree)","contract":"worktree-preflight"},
+    {"id":"git","pattern":"(source-control|git-|diff|commit|push|pull|create-pr|review)","contract":"git-workflow"},
+    {"id":"files","pattern":"(file-|file-explorer|watcher|rename|drag-drop)","contract":"file-read-write-watch"},
+    {"id":"editor","pattern":"(editor|markdown|monaco)","contract":"editor-file-tree-source-control"},
+    {"id":"terminal","pattern":"(terminal|daemon|pty|agent-session|opencode|scrollback|reattach|parking)","contract":"terminal-lifecycle"},
+    {"id":"workspace","pattern":"(workspace|worktree|folder|project)","contract":"workspace-registration-restore"},
+    {"id":"component","pattern":".*","contract":"editor-file-tree-source-control"}
+  ]
+}
