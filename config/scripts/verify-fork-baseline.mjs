@@ -63,7 +63,11 @@ export async function verifyForkBaseline(root, runGit = createGitRunner(root)) {
   const evidence = JSON.parse(resultsJson)
   const surfaces = verifyBaselineResults(evidence)
   const head = await runGit(['rev-parse', 'HEAD'])
+  assertEqual(await runGit(['cat-file', '-t', evidence.verifierCommit]), 'commit', 'verifier object type')
+  await runGit(['merge-base', '--is-ancestor', evidence.verifierCommit, 'HEAD'])
   await runGit(['diff', '--quiet', evidence.verifierCommit, 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
+  await runGit(['diff', '--quiet', 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
+  await runGit(['diff', '--cached', '--quiet', 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
   await verifyObservationArtifacts(root, surfaces, evidence.verifierCommit, head)
 
   return {
@@ -135,6 +139,7 @@ async function verifyObservationArtifacts(root, surfaces, verifierCommit, head) 
       assertEqual(observation.command, candidateCommand, 'provenance candidate command')
     } else {
       assertEqual(observation.mode ?? 'full', 'full', `${surface.id} artifact mode`)
+      if (surface.id === 'provenance' && head === verifierCommit) throw new Error('full attestation requires an evidence descendant commit')
       assertEqual(observation.command, surface.command, `${surface.id} artifact command`)
     }
     assertEqual(observation.summary, surface.summary, `${surface.id} artifact summary`)

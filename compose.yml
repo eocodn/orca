@@ -72,19 +72,19 @@ services:
 
   baseline-core-tests:
     <<: *product-check
-    command: sh -euc 'cp -a /baseline/. /workspace/; corepack enable; pnpm install --frozen-lockfile --ignore-scripts; timeout --signal=TERM --kill-after=30s 20m pnpm test'
+    command: [timeout, --signal=TERM, --kill-after=30s, 20m, sh, -euc, 'cp -a /baseline/. /workspace/; corepack enable; pnpm install --frozen-lockfile --ignore-scripts; pnpm test']
 
   baseline-web-build:
     <<: *product-check
-    command: sh -euc 'cp -a /baseline/. /workspace/; corepack enable; pnpm install --frozen-lockfile --ignore-scripts; timeout --signal=TERM --kill-after=30s 20m pnpm build:web'
+    command: [timeout, --signal=TERM, --kill-after=30s, 20m, sh, -euc, 'cp -a /baseline/. /workspace/; corepack enable; pnpm install --frozen-lockfile --ignore-scripts; pnpm build:web']
 
   baseline-mobile-typecheck:
     <<: *product-check
-    command: sh -euc 'cp -a /baseline/. /workspace/; cd mobile; corepack enable; pnpm install --frozen-lockfile; timeout --signal=TERM --kill-after=30s 20m pnpm typecheck'
+    command: [timeout, --signal=TERM, --kill-after=30s, 20m, sh, -euc, 'cp -a /baseline/. /workspace/; cd mobile; corepack enable; pnpm install --frozen-lockfile; pnpm typecheck']
 
   baseline-mobile-tests:
     <<: *product-check
-    command: sh -euc 'cp -a /baseline/. /workspace/; cd mobile; corepack enable; pnpm install --frozen-lockfile; timeout --signal=TERM --kill-after=30s 20m pnpm test'
+    command: [timeout, --signal=TERM, --kill-after=30s, 20m, sh, -euc, 'cp -a /baseline/. /workspace/; cd mobile; corepack enable; pnpm install --frozen-lockfile; pnpm test']
 
 volumes:
   baseline-source:
