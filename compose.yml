@@ -36,11 +36,17 @@ services:
       - sh
       - -euc
       - |
-        if [ ! -e /baseline/.git ]; then
+        if [ -e /baseline/.git ] && [ ! -e /baseline/.git/ade-baseline-ready ]; then
+          echo 'partial baseline volume; retry with a new ADE_BASELINE_RUN_ID' >&2
+          exit 70
+        fi
+        if [ ! -e /baseline/.git/ade-baseline-ready ]; then
           git config --global --add safe.directory /repository/.git
           git clone --shared --no-checkout /repository/.git /baseline
           git -C /baseline checkout --detach "$$ADE_BASELINE_COMMIT"
+          printf '%s\n' "$$ADE_BASELINE_COMMIT" > /baseline/.git/ade-baseline-ready
         fi
+        test "$$(cat /baseline/.git/ade-baseline-ready)" = "$$ADE_BASELINE_COMMIT"
         test "$$(git -C /baseline rev-parse HEAD)" = "$$ADE_BASELINE_COMMIT"
         test -z "$$(git -C /baseline status --porcelain)"
     environment: *baseline-environment

@@ -43,10 +43,19 @@ describe('fork baseline provenance', () => {
     assert.match(compose, /ADE_BASELINE_COMMIT: 79251d7a9861568dc261faabfa16df5347d1d008/)
     assert.match(compose, /condition: service_completed_successfully/)
     assert.match(compose, /baseline-source:\/baseline:\s*ro/)
+    assert.match(compose, /\.git\/ade-baseline-ready/)
   })
 
   it('rejects incomplete or ambiguous recorded results', () => {
     assert.throws(() => verifyBaselineResults({ schemaVersion: 1, baselineCommit: 'wrong', surfaces: [] }))
+  })
+
+  it('rejects duplicate and fabricated surface evidence', async () => {
+    const evidence = JSON.parse(await readFile('docs/fork-baseline-results.json', 'utf8'))
+    assert.throws(() => verifyBaselineResults({ ...evidence, surfaces: [...evidence.surfaces, evidence.surfaces[0]] }))
+    const fabricated = structuredClone(evidence)
+    fabricated.surfaces[0].command = 'true'
+    assert.throws(() => verifyBaselineResults(fabricated))
   })
 
   it('accepts only the six explicit baseline surfaces and status vocabulary', async () => {

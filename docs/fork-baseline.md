@@ -13,7 +13,7 @@ The baseline commit is preserved without amendment. ADE changes begin in its des
 
 Baseline checks use Node 24 and pnpm 10.24.0 in Linux containers. The Windows desktop compile/package result must be recorded separately on a Windows runner because a Linux result is not evidence for WebView2 or Windows packaging.
 
-Every Compose invocation requires a caller-unique `ADE_BASELINE_RUN_ID`. This isolates the immutable baseline volume when agents run checks concurrently. Machine-readable results and strict status semantics live in `docs/fork-baseline-results.json`.
+Every Compose invocation requires a caller-unique `ADE_BASELINE_RUN_ID`. This isolates the immutable baseline volume when agents run checks concurrently. A partial source volume fails with exit 70; retry with a new run ID rather than reusing incomplete state. Commands in the result JSON are historical observations, not reusable run IDs. Machine-readable results and strict status semantics live in `docs/fork-baseline-results.json`; each observed Linux result links a hashed Docker observation artifact.
 
 ## Recorded baseline
 
