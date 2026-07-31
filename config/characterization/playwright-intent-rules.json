@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "expectedIntentSetSha256": "7a1d0edd0408d01960f4a15b5616b3271eeb8e27a546088cfb44cd6849c4b51d",
-  "expectedDependencySetSha256": "b246cabe1e411a7c54d687304c2e61a1d8c4b72015332d00d5aea3f57f829ed3",
+  "expectedIntentSetSha256": "2c59203022a652a9d360007e756f96239fa2b59c63c01a9c2decbfc28b27d0e4",
+  "expectedDependencySetSha256": "d52f58b5b3d80e37c363d823b78d012d1030f676d5d005e3767f39f60e557a63",
   "rules": [
     {"id":"removed-feature-audit","pattern":"(browser-|plugin-|orchestration-|automation-|emulator-|computer-|native-chat)","layer":"removed-feature-audit","reason":"The product surface is removed; retain only absence and dependency audits."},
     {"id":"native-platform-smoke","pattern":"(^|[/_-])(ime|ibus|webgl|gpu|pointer|clipboard|screenshot|windows|macos|linux|wayland|image-paste)([-.]|$)","layer":"native-smoke","reason":"Compositor, OS input, or raster behavior requires a real native boundary."},
     {"id":"terminal-daemon-contract","pattern":"(terminal|daemon|pty|agent-session|opencode|scrollback|reattach|parking)","layer":"headless-core","reason":"PTY, history, process, and reconnect truth belongs to the daemon/runtime core."},
     {"id":"remote-client-contract","pattern":"(ssh|remote|paired|multi-client|nested-runtime|web-remote|headless-serve|relay)","layer":"headless-core","reason":"Transport generations and subscriptions are verified at the protocol/runtime seam."},
-    {"id":"provider-contract","pattern":"(github|gitlab|tasks-page)","layer":"core-integration","reason":"Provider and task outcomes require provider adapter and authoritative service read-back."},
+    {"id":"provider-contract","pattern":"(github|gitlab|tasks-page|linked-item)","layer":"core-integration","reason":"Provider and task outcomes require provider adapter and authoritative service read-back."},
     {"id":"process-lifecycle-contract","pattern":"(agent-descendant-process-kill|resource-manager)","layer":"headless-core","reason":"Detached process ownership and cleanup are daemon lifecycle contracts."},
     {"id":"workspace-bootstrap-contract","pattern":"(add-project|setup-script-import|golden-core-flows)","layer":"core-integration","reason":"Project bootstrap and setup outcomes require workspace and Git service read-back."},
     {"id":"workspace-file-git-contract","pattern":"(workspace|worktree|folder|source-control|diff|file-|editor-|git-|project-switch)","layer":"core-integration","reason":"Workspace, filesystem, and Git outcomes require authoritative service read-back."},

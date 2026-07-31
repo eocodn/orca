@@ -7,7 +7,7 @@
     {"id":"native-ui","pattern":".*","contract":"editor-file-tree-source-control","layers":["native-smoke"]},
     {"id":"mobile","pattern":"(mobile|paired-runtime|pairing)","contract":"mobile-pairing-stream","layers":["headless-core","component"]},
     {"id":"web","pattern":"(web-remote|headless-serve|multi-client-navigation)","contract":"web-remote-session","layers":["headless-core","component"]},
-    {"id":"provider","pattern":"(github|gitlab|tasks-page|pr-comments)","contract":"provider-integrations","layers":["core-integration","component"]},
+    {"id":"provider","pattern":"(github|gitlab|tasks-page|pr-comments|linked-item)","contract":"provider-integrations","layers":["core-integration","component"]},
     {"id":"ssh","pattern":"(ssh|nested-runtime|relay|remote-agent)","contract":"ssh-reconnect-forward","layers":["headless-core"]},
     {"id":"session","pattern":"(session|tab-|workspace-session|restart|restore|relaunch)","contract":"session-synchronization","layers":["headless-core","component"]},
     {"id":"worktree-preflight","pattern":"(worktree-(create|delete|remove|cleanup)|preflight|dirty-worktree)","contract":"worktree-preflight","layers":["core-integration"]},

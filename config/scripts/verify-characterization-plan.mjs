@@ -88,7 +88,7 @@ export async function verifyCharacterizationPlan(root) {
 }
 
 async function findPlaywrightDependencies(root) {
-  const candidates = await Promise.all(['tests', 'config', 'src', 'mobile'].map((path) => walk(join(root, path))))
+  const candidates = await Promise.all(['tests', 'config', 'src', 'mobile', 'tools'].map((path) => walk(join(root, path))))
   const rootEntries = await readdir(root, { withFileTypes: true })
   candidates.push(rootEntries.filter((entry) => entry.isFile()).map((entry) => join(root, entry.name)))
   const matches = []

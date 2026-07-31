@@ -54,6 +54,15 @@ describe('Phase 1 characterization plan', () => {
       pick(intents.get('tests/e2e/github-cli-stall-repro.spec.ts')),
       { layer: 'core-integration', contract: 'provider-integrations' }
     )
+    assert.deepEqual(pick(intents.get('tests/e2e/terminal-windows-shell-paste-ownership.spec.ts')), { layer: 'native-smoke', contract: 'terminal-lifecycle' })
+    assert.deepEqual(pick(intents.get('tests/e2e/terminal-windows-codex-multiline-paste.spec.ts')), { layer: 'native-smoke', contract: 'terminal-lifecycle' })
+    assert.deepEqual(pick(intents.get('tests/e2e/windows-terminal-env-icons.spec.ts')), { layer: 'native-smoke', contract: 'terminal-lifecycle' })
+    assert.deepEqual(pick(intents.get('tests/e2e/settings-display-name-ime.spec.ts')), { layer: 'native-smoke', contract: 'editor-file-tree-source-control' })
+    assert.deepEqual(pick(intents.get('tests/e2e/remote-agent-session-focus-authority.spec.ts')), { layer: 'headless-core', contract: 'session-synchronization' })
+    assert.deepEqual(pick(intents.get('tests/e2e/resource-manager-unbound-session-safety.spec.ts')), { layer: 'headless-core', contract: 'terminal-lifecycle' })
+    assert.deepEqual(pick(intents.get('tests/e2e/markdown-add-review-note-shortcut.spec.ts')), { layer: 'component', contract: 'editor-file-tree-source-control' })
+    assert.deepEqual(pick(intents.get('tests/e2e/new-workspace-linked-item-project-switch.spec.ts')), { layer: 'core-integration', contract: 'provider-integrations' })
+    assert.ok(result.dependencyPaths.includes('tools/win-update-e2e/app-driver.mjs'))
   })
 
   it('fails closed when the repository root is absent', async () => {
