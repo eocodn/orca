@@ -21,6 +21,7 @@ services:
       - src/cli/registry-parity.test.ts
       - src/cli/handler-group-manifest.test.ts
       - src/main/runtime/rpc/methods/repo.test.ts
+      - src/main/runtime/rpc/errors.test.ts
       - src/main/project-groups/folder-workspace-path-status.test.ts
       - src/main/persistence.test.ts
     init: true
@@ -52,3 +53,18 @@ services:
       - -euc
       - pnpm exec oxfmt --check src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/specs/folder-workspace.ts src/main/persistence.ts src/main/persistence.test.ts src/main/runtime/orca-runtime.ts src/main/runtime/rpc/methods/folder-workspace.ts src/main/runtime/rpc/methods/repo.test.ts src/shared/folder-workspaces.ts src/shared/types.ts && pnpm exec oxlint src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/specs/folder-workspace.ts src/shared/folder-workspaces.ts
     init: true
+
+  control-format:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - pnpm
+      - exec
+      - oxfmt
+      - src/cli/handlers/folder-workspace.test.ts
+    init: true
+    profiles: [maintenance]
+    volumes:
+      - ./:/workspace
+      - /workspace/node_modules

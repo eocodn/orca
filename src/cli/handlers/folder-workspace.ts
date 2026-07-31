@@ -47,6 +47,18 @@ function qualify(
   return { ...workspace, executionHostId: executionHostId(response, isRemote) }
 }
 
+function assertSameRuntime(
+  mutation: RuntimeRpcSuccess<unknown>,
+  readBack: RuntimeRpcSuccess<unknown>
+): void {
+  if (!mutation._meta.runtimeId || mutation._meta.runtimeId !== readBack._meta.runtimeId) {
+    throw new RuntimeClientError(
+      'state_conflict',
+      'The selected runtime changed before authoritative state could be verified.'
+    )
+  }
+}
+
 async function listQualified(ctx: HandlerContext): Promise<{
   response: RuntimeRpcSuccess<FolderWorkspaceListResult>
   workspaces: HostQualifiedFolderWorkspace[]
@@ -105,6 +117,7 @@ export const FOLDER_WORKSPACE_HANDLERS: Record<string, CommandHandler> = {
       }
     )
     const { response, workspaces } = await listQualified(ctx)
+    assertSameRuntime(created, response)
     const workspace = workspaces.find(
       (candidate) => candidate.id === created.result.folderWorkspace.id
     )
@@ -135,6 +148,7 @@ export const FOLDER_WORKSPACE_HANDLERS: Record<string, CommandHandler> = {
       folderWorkspaceId: id
     })
     const { response, workspaces } = await listQualified(ctx)
+    assertSameRuntime(removed, response)
     if (workspaces.some((candidate) => candidate.id === id)) {
       throw new RuntimeClientError(
         'state_conflict',

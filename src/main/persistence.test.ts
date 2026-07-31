@@ -5088,6 +5088,7 @@ describe('Store', () => {
     ).toThrow('disk_full')
     expect(store.getFolderWorkspaces()).toEqual([])
     expect(store.getFolderWorkspaceByCreationOperationId('folder-create-disk-full')).toBeUndefined()
+    expect((store as unknown as { writeTimer: NodeJS.Timeout | null }).writeTimer).not.toBeNull()
   })
 
   it('rejects operation ids that cannot survive persistence normalization', async () => {
@@ -5101,6 +5102,47 @@ describe('Store', () => {
     expect(() =>
       store.createFolderWorkspace({ projectGroupId: group.id, operationId: '   ' })
     ).toThrow('folder_workspace_operation_id_invalid')
+  })
+
+  it('does not acknowledge an operation-bound create while an async state write is in flight', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    store.flush()
+    ;(store as unknown as { pendingWrite: Promise<void> | null }).pendingWrite = new Promise(
+      () => {}
+    )
+
+    expect(() =>
+      store.createFolderWorkspace({ projectGroupId: group.id, operationId: 'op-write-race' })
+    ).toThrow('folder_workspace_persistence_busy')
+    expect(store.getFolderWorkspaces()).toEqual([])
+  })
+
+  it('replays an already durable operation while an unrelated async write is in flight', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    const first = store.createFolderWorkspace({
+      projectGroupId: group.id,
+      operationId: 'op-already-durable'
+    })
+    ;(store as unknown as { pendingWrite: Promise<void> | null }).pendingWrite = new Promise(
+      () => {}
+    )
+
+    expect(
+      store.createFolderWorkspace({
+        projectGroupId: group.id,
+        operationId: 'op-already-durable'
+      }).id
+    ).toBe(first.id)
   })
 
   it('round-trips Jira item and source context for repo-less folder workspaces', async () => {
@@ -5214,6 +5256,21 @@ describe('Store', () => {
           folderPath: '/workspace/platform'
         },
         {
+          id: 'canonical-operation',
+          creationOperationId: '  op-space  ',
+          creationFingerprint: 'fingerprint-space',
+          projectGroupId: 'root',
+          name: 'Canonical operation',
+          folderPath: '/workspace/platform'
+        },
+        {
+          id: 'missing-fingerprint',
+          creationOperationId: 'op-without-fingerprint',
+          projectGroupId: 'root',
+          name: 'Missing fingerprint',
+          folderPath: '/workspace/platform'
+        },
+        {
           id: 'orphan',
           projectGroupId: 'missing',
           name: 'Orphan',
@@ -5225,7 +5282,7 @@ describe('Store', () => {
     const store = await createStore()
 
     const restored = store.getFolderWorkspaces()
-    expect(restored).toHaveLength(2)
+    expect(restored).toHaveLength(4)
     expect(restored).toContainEqual(
       expect.objectContaining({
         id: 'fw-1',
@@ -5240,6 +5297,13 @@ describe('Store', () => {
     expect(restored.map((workspace) => workspace.id)).not.toContain('duplicate-operation')
     expect(restored.find((workspace) => workspace.id === 'orphan-fingerprint')).not.toHaveProperty(
       'creationFingerprint'
+    )
+    expect(restored.find((workspace) => workspace.id === 'canonical-operation')).toMatchObject({
+      creationOperationId: 'op-space',
+      creationFingerprint: 'fingerprint-space'
+    })
+    expect(restored.find((workspace) => workspace.id === 'missing-fingerprint')).not.toHaveProperty(
+      'creationOperationId'
     )
   })
 

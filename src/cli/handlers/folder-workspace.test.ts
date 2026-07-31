@@ -184,4 +184,17 @@ describe('orca folder-workspace CLI', () => {
     const output = JSON.parse(String(vi.mocked(console.log).mock.calls[0][0]))
     expect(output.error.code).toBe('state_conflict')
   })
+
+  it('fails closed when the runtime changes between mutation and authoritative read-back', async () => {
+    queueFixtures(callMock, okFixture('delete-restarted-1', { deleted: true }), {
+      ...okFixture('list-restarted-2', { folderWorkspaces: [] }),
+      _meta: { runtimeId: 'runtime-2' }
+    })
+
+    await main(['folder-workspace', 'remove', '--folder-workspace', 'folder-1', '--json'], '/tmp')
+
+    expect(process.exitCode).toBe(1)
+    const output = JSON.parse(String(vi.mocked(console.log).mock.calls[0][0]))
+    expect(output.error.code).toBe('state_conflict')
+  })
 })

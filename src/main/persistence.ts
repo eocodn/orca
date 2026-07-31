@@ -4179,6 +4179,9 @@ export class Store {
         }
         return existing
       }
+      if (this.pendingWrite !== null) {
+        throw new Error('folder_workspace_persistence_busy')
+      }
     }
     const now = Date.now()
     const workspace: FolderWorkspace = {
@@ -4214,6 +4217,9 @@ export class Store {
         this.flushOrThrow()
       } catch (error) {
         this.state.folderWorkspaces = previousFolderWorkspaces
+        // flushOrThrow clears the shared debounce timer; restore pending persistence
+        // for state that existed before this operation began.
+        this.scheduleSave()
         throw error
       }
     } else {

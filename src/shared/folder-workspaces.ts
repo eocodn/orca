@@ -41,8 +41,12 @@ export function normalizeFolderWorkspaces(
     }
     const raw = candidate as Partial<FolderWorkspace>
     const creationOperationId =
-      typeof raw.creationOperationId === 'string' && raw.creationOperationId.trim().length > 0
-        ? raw.creationOperationId
+      typeof raw.creationOperationId === 'string' &&
+      raw.creationOperationId.trim().length > 0 &&
+      raw.creationOperationId.trim().length <= 256 &&
+      typeof raw.creationFingerprint === 'string' &&
+      raw.creationFingerprint.length > 0
+        ? raw.creationOperationId.trim()
         : null
     if (
       typeof raw.id !== 'string' ||
