@@ -1,0 +1,9 @@
+name: ade-characterization
+
+services:
+  characterization-plan:
+    build:
+      context: .
+      dockerfile: Dockerfile.characterization
+    command: timeout --signal=TERM --kill-after=30s 2m node --test config/scripts/verify-characterization-plan.node-test.mjs
+    init: true
