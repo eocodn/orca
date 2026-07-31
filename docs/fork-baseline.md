@@ -21,11 +21,11 @@ Results below describe the unmodified upstream tree at the baseline commit. A no
 
 | Surface | Command | Result |
 | --- | --- | --- |
-| Provenance and license | `ADE_BASELINE_RUN_ID=provenance docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests` | Pass: 6 tests |
-| Core Vitest | `ADE_BASELINE_RUN_ID=core docker compose up --build --abort-on-container-exit --exit-code-from baseline-core-tests baseline-core-tests` | Exit 1: 4 files/6 tests failed; 3,993 files/42,243 tests passed; 14 files/178 tests skipped |
-| Web build | `ADE_BASELINE_RUN_ID=web docker compose up --build --abort-on-container-exit --exit-code-from baseline-web-build baseline-web-build` | Pass with existing CSS/chunk-size warnings |
-| Mobile typecheck | `ADE_BASELINE_RUN_ID=mobile-typecheck docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-typecheck baseline-mobile-typecheck` | Pass |
-| Mobile tests | `ADE_BASELINE_RUN_ID=mobile-tests docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-tests baseline-mobile-tests` | Pass: 376 files, 2,794 tests; 3 skipped |
+| Provenance and license | `ADE_BASELINE_RUN_ID=<unique-run-id> docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests` | Pass: 7 tests |
+| Core Vitest | `ADE_BASELINE_RUN_ID=<unique-run-id> docker compose up --build --abort-on-container-exit --exit-code-from baseline-core-tests baseline-core-tests` | Exit 1: 4 files/6 tests failed; 3,993 files/42,243 tests passed; 14 files/178 tests skipped |
+| Web build | `ADE_BASELINE_RUN_ID=<unique-run-id> docker compose up --build --abort-on-container-exit --exit-code-from baseline-web-build baseline-web-build` | Pass with existing CSS/chunk-size warnings |
+| Mobile typecheck | `ADE_BASELINE_RUN_ID=<unique-run-id> docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-typecheck baseline-mobile-typecheck` | Pass |
+| Mobile tests | `ADE_BASELINE_RUN_ID=<unique-run-id> docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-tests baseline-mobile-tests` | Pass: 376 files, 2,794 tests; 3 skipped |
 | Windows desktop | `pnpm build:win` on a Windows runner | Not run: no Windows runner is attached to this workspace |
 
 The core run used read-only Git metadata plus OpenSSL and `procps`, which its integration tests require. The remaining failures were:

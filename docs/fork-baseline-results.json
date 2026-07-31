@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "baselineCommit": "79251d7a9861568dc261faabfa16df5347d1d008",
+  "verifierCommit": "d8fd105c4bf684e1279ebe30e46da7bd0ca1092e",
   "environment": {
     "containerOs": "Debian 12 (bookworm)",
     "node": "24",
@@ -9,11 +10,11 @@
   "surfaces": [
     {
       "id": "provenance",
-      "runId": "verify-final",
-      "command": "ADE_BASELINE_RUN_ID=verify-final docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests",
+      "runId": "verifier-full-2",
+      "command": "ADE_BASELINE_RUN_ID=verifier-full-2 docker compose up --build --abort-on-container-exit --exit-code-from baseline-tests baseline-tests",
       "status": "pass",
       "exitCode": 0,
-      "artifact": {"path":"docs/baseline-evidence/provenance.json","sha256":"3175b79f18d9db106957aefbff7935da108c3018ac8cae641f88bf81134ed5a1"},
+      "artifact": {"path":"docs/baseline-evidence/provenance.json","sha256":"623faaad8f94b1ce5cf7565f92a0bef1faec540e5a1a17e24fcdb9b1597b1c3b"},
       "summary": "Authoritative Git provenance, license, immutable source contract, and evidence schema checks passed."
     },
     {
@@ -22,7 +23,7 @@
       "command": "ADE_BASELINE_RUN_ID=core-exact-1 docker compose up --build --abort-on-container-exit --exit-code-from baseline-core-tests baseline-core-tests",
       "status": "fail",
       "exitCode": 1,
-      "artifact": {"path":"docs/baseline-evidence/core-tests.json","sha256":"ec3402efd71dc9e973fbf5161f4707ac9fc7610e123810cda79f995b243716a9"},
+      "artifact": {"path":"docs/baseline-evidence/core-tests.json","sha256":"2e3006ef1dba1e56c04c3ed307b536e372e5c9f471058a92b61949a7eddd59a1"},
       "summary": "4 files/6 tests failed; 3993 files/42243 tests passed; 14 files/178 tests skipped."
     },
     {
@@ -31,7 +32,7 @@
       "command": "ADE_BASELINE_RUN_ID=web-exact-1 docker compose up --build --abort-on-container-exit --exit-code-from baseline-web-build baseline-web-build",
       "status": "pass",
       "exitCode": 0,
-      "artifact": {"path":"docs/baseline-evidence/web-build.json","sha256":"1bbb3c85d26dc4ff40a13a8f5a92624af737dbbb50c32eea5c3354ff72b12001"},
+      "artifact": {"path":"docs/baseline-evidence/web-build.json","sha256":"f29b8e225e9d8edfa58ddbf7e583650183e6bf769db9d42072b35476fb7f296b"},
       "summary": "Build passed with upstream CSS and chunk-size warnings."
     },
     {
@@ -40,7 +41,7 @@
       "command": "ADE_BASELINE_RUN_ID=mobile-type-exact-1 docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-typecheck baseline-mobile-typecheck",
       "status": "pass",
       "exitCode": 0,
-      "artifact": {"path":"docs/baseline-evidence/mobile-typecheck.json","sha256":"56b27b139983e6c0ed914492607d10dada776a30dfddf2025fb8c8400435d6f6"},
+      "artifact": {"path":"docs/baseline-evidence/mobile-typecheck.json","sha256":"83da699cfed701c1c2d9cbee45b140176dee513aaf134b90d48e262c42020cda"},
       "summary": "Typecheck passed."
     },
     {
@@ -49,7 +50,7 @@
       "command": "ADE_BASELINE_RUN_ID=mobile-test-exact-1 docker compose up --build --abort-on-container-exit --exit-code-from baseline-mobile-tests baseline-mobile-tests",
       "status": "pass",
       "exitCode": 0,
-      "artifact": {"path":"docs/baseline-evidence/mobile-tests.json","sha256":"d6e80fd57fb25599c8e08330e0c629c267bf9a88cc704a6f476d00267b0ac84b"},
+      "artifact": {"path":"docs/baseline-evidence/mobile-tests.json","sha256":"29d46a90bf70210a34b2fbf6da3f6d45a86e0beb373d3a4b0d6b28765391cbdc"},
       "summary": "376 files and 2794 tests passed; 3 tests skipped."
     },
     {
