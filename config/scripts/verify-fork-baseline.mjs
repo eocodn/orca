@@ -40,11 +40,6 @@ export async function verifyForkBaseline(root, runGit = createGitRunner(root)) {
   ])
   await runGit(['merge-base', '--is-ancestor', BASELINE_COMMIT, 'HEAD'])
   const packageData = JSON.parse(await runGit(['show', `${BASELINE_COMMIT}:package.json`]))
-  const evidence = JSON.parse(resultsJson)
-  const surfaces = verifyBaselineResults(evidence)
-  const head = await runGit(['rev-parse', 'HEAD'])
-  await runGit(['diff', '--quiet', evidence.verifierCommit, 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
-  await verifyObservationArtifacts(root, surfaces, evidence.verifierCommit, head)
   const [baselineParent, baselineTree] = lines(commitData)
   const tags = lines(tagsText).length
   const tagNames = lines(tagsText)
@@ -65,6 +60,11 @@ export async function verifyForkBaseline(root, runGit = createGitRunner(root)) {
   assertIncludes(baseline, `Package version: \`${packageData.version}\``, 'package version')
   assertIncludes(license, 'MIT License', 'MIT license identifier')
   assertIncludes(license, `Copyright (c) 2026 ${LICENSE_HOLDER}`, 'license holder')
+  const evidence = JSON.parse(resultsJson)
+  const surfaces = verifyBaselineResults(evidence)
+  const head = await runGit(['rev-parse', 'HEAD'])
+  await runGit(['diff', '--quiet', evidence.verifierCommit, 'HEAD', '--', 'Dockerfile.baseline', 'compose.yml', 'config/scripts/verify-fork-baseline.mjs', 'config/scripts/verify-fork-baseline.node-test.mjs'])
+  await verifyObservationArtifacts(root, surfaces, evidence.verifierCommit, head)
 
   return {
     baselineCommit: BASELINE_COMMIT,
