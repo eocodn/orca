@@ -349,6 +349,26 @@ describe('Store', () => {
     expect(store.getStateRevision()).toBe(after)
   })
 
+  it('reloads the exact session state after a synchronous flush', async () => {
+    const store = await createStore()
+    store.setWorkspaceSession({
+      ...store.getWorkspaceSession(),
+      activeWorktreeId: 'flushed-worktree'
+    })
+    store.flushOrThrow()
+
+    const reloaded = await createStore()
+
+    expect(reloaded.getWorkspaceSession()?.activeWorktreeId).toBe('flushed-worktree')
+  })
+
+  it('fails explicitly when a synchronous flush is blocked by a profile transfer', async () => {
+    const store = await createStore()
+    store.freezeWrites()
+
+    expect(() => store.flushOrThrow()).toThrow('persistence_writes_frozen')
+  })
+
   it('clone-reads and synchronously persists the main-owned Codex reset ledger', async () => {
     const store = await createStore()
     const ledger = {

@@ -17,23 +17,24 @@ describe('session CLI handlers', () => {
   })
 
   it('uses the session snapshot RPC and preserves the JSON envelope', async () => {
-    call.mockResolvedValue({
+    const response = {
       id: 'request-1',
       ok: true,
       result: {
         snapshot: { hostGeneration: 'host-1', revision: 'revision-1', snapshots: [] }
       },
       _meta: { runtimeId: 'host-1' }
-    })
+    } as const
+    call.mockResolvedValue(response)
 
     await SESSION_HANDLERS['session snapshot'](context)
 
     expect(call).toHaveBeenCalledWith('session.snapshot')
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('"revision-1"'))
+    expect(log).toHaveBeenCalledWith(JSON.stringify(response, null, 2))
   })
 
   it('uses the session flush RPC and preserves the JSON envelope', async () => {
-    call.mockResolvedValue({
+    const response = {
       id: 'request-2',
       ok: true,
       result: {
@@ -45,11 +46,12 @@ describe('session CLI handlers', () => {
         }
       },
       _meta: { runtimeId: 'host-1' }
-    })
+    } as const
+    call.mockResolvedValue(response)
 
     await SESSION_HANDLERS['session flush'](context)
 
     expect(call).toHaveBeenCalledWith('session.flush')
-    expect(log).toHaveBeenCalledWith(expect.stringContaining('"flushed": true'))
+    expect(log).toHaveBeenCalledWith(JSON.stringify(response, null, 2))
   })
 })

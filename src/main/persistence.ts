@@ -3802,7 +3802,7 @@ export class Store {
   // Why: sync variant only for flush() at shutdown, where the process may exit before an async write completes.
   private writeToDiskSync(opts: { force?: boolean } = {}): void {
     if (this.writesFrozen) {
-      return
+      throw new Error('persistence_writes_frozen')
     }
     const { payload, stateHash } = this.buildStateToSave()
     // Why: matching hash means the file already holds this state; force overrides when an async rename may be racing past the gen check.

@@ -1331,6 +1331,7 @@ function isAgentSessionOperationOutcomeUnknown(error: unknown): boolean {
 
 const AGENT_SESSION_OPERATION_PER_CLIENT_LIMIT = 512
 const AGENT_SESSION_OPERATION_GLOBAL_LIMIT = 4_096
+const SESSION_SNAPSHOT_STABILITY_ATTEMPTS = 3
 
 function deterministicAgentSessionUuid(seed: string): string {
   const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
@@ -4498,25 +4499,42 @@ export class OrcaRuntimeService {
     return this.runtimeId
   }
 
-  async getSessionSnapshot(): Promise<RuntimeSessionSnapshot> {
-    if (!this.store?.getStateRevision) {
+  private async readStableSessionSnapshot(): Promise<RuntimeSessionSnapshot> {
+    const getStateRevision = this.store?.getStateRevision
+    if (!getStateRevision) {
       throw new Error('session_revision_unavailable')
     }
-    const snapshots = await this.listAllMobileSessionTabs()
-    return {
-      hostGeneration: this.runtimeId,
-      revision: this.store.getStateRevision(),
-      snapshots
+    for (let attempt = 0; attempt < SESSION_SNAPSHOT_STABILITY_ATTEMPTS; attempt += 1) {
+      const revisionBefore = getStateRevision()
+      const snapshots = await this.listAllMobileSessionTabs()
+      const revisionAfter = getStateRevision()
+      if (revisionBefore === revisionAfter) {
+        return {
+          hostGeneration: this.runtimeId,
+          revision: revisionAfter,
+          snapshots
+        }
+      }
     }
+    throw new Error('session_snapshot_unstable')
+  }
+
+  async getSessionSnapshot(): Promise<RuntimeSessionSnapshot> {
+    return this.readStableSessionSnapshot()
   }
 
   async flushSession(): Promise<RuntimeSessionFlushResult> {
     if (!this.store?.flushOrThrow || !this.store?.getStateRevision) {
       throw new Error('session_persistence_unavailable')
     }
+    const snapshot = await this.readStableSessionSnapshot()
     this.store.flushOrThrow()
+    const flushedRevision = this.store.getStateRevision()
+    if (flushedRevision !== snapshot.revision) {
+      throw new Error('session_flush_raced')
+    }
     return {
-      ...(await this.getSessionSnapshot()),
+      ...snapshot,
       flushed: true
     }
   }

@@ -31,7 +31,7 @@ describe('runtime session control', () => {
     expect(flushOrThrow).not.toHaveBeenCalled()
   })
 
-  it('flushes before reading back the authoritative revision and sessions', async () => {
+  it('flushes the same stable revision represented by the authoritative sessions', async () => {
     const events: string[] = []
     const flushOrThrow = vi.fn(() => events.push('flush'))
     const getStateRevision = vi.fn(() => {
@@ -49,6 +49,34 @@ describe('runtime session control', () => {
       flushed: true
     })
     expect(flushOrThrow).toHaveBeenCalledOnce()
-    expect(events).toEqual(['flush', 'revision'])
+    expect(events).toEqual(['revision', 'revision', 'flush', 'revision'])
+  })
+
+  it('retries when a session mutation races the authoritative read', async () => {
+    let revision = 'revision-1'
+    let durableRevision = revision
+    let listCalls = 0
+    const listAllMobileSessionTabs = vi.fn(async () => {
+      listCalls += 1
+      if (listCalls === 1) {
+        revision = 'revision-2'
+      }
+      return []
+    })
+    const runtime = new OrcaRuntimeService(
+      makeStore({
+        flushOrThrow: vi.fn(() => {
+          durableRevision = revision
+        }),
+        getStateRevision: vi.fn(() => revision)
+      }) as never
+    )
+    runtime.listAllMobileSessionTabs = listAllMobileSessionTabs
+
+    const result = await runtime.flushSession()
+
+    expect(result.revision).toBe('revision-2')
+    expect(durableRevision).toBe('revision-2')
+    expect(listAllMobileSessionTabs).toHaveBeenCalledTimes(2)
   })
 })
