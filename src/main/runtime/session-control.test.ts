@@ -31,6 +31,23 @@ describe('runtime session control', () => {
     expect(flushOrThrow).not.toHaveBeenCalled()
   })
 
+  it('preserves the Store receiver while observing a session revision', async () => {
+    const store = {
+      ...makeStore(),
+      revision: 'revision-bound',
+      getStateRevision() {
+        return this.revision
+      }
+    }
+    const runtime = new OrcaRuntimeService(store as never)
+    runtime.listAllMobileSessionTabs = vi.fn(async () => [])
+
+    await expect(runtime.getSessionSnapshot()).resolves.toMatchObject({
+      revision: 'revision-bound',
+      snapshots: []
+    })
+  })
+
   it('flushes the same stable revision represented by the authoritative sessions', async () => {
     const events: string[] = []
     const flushOrThrow = vi.fn(() => events.push('flush'))

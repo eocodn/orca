@@ -4500,14 +4500,15 @@ export class OrcaRuntimeService {
   }
 
   private async readStableSessionSnapshot(): Promise<RuntimeSessionSnapshot> {
-    const getStateRevision = this.store?.getStateRevision
-    if (!getStateRevision) {
+    const store = this.store
+    if (!store?.getStateRevision) {
       throw new Error('session_revision_unavailable')
     }
+    const readStateRevision = (): string => store.getStateRevision!()
     for (let attempt = 0; attempt < SESSION_SNAPSHOT_STABILITY_ATTEMPTS; attempt += 1) {
-      const revisionBefore = getStateRevision()
+      const revisionBefore = readStateRevision()
       const snapshots = await this.listAllMobileSessionTabs()
-      const revisionAfter = getStateRevision()
+      const revisionAfter = readStateRevision()
       if (revisionBefore === revisionAfter) {
         return {
           hostGeneration: this.runtimeId,
