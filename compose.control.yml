@@ -28,6 +28,7 @@ services:
           src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts \
           src/main/runtime/session-control.test.ts \
           src/main/runtime/orca-runtime.test.ts \
+          src/main/runtime/orca-runtime-terminal-retirement.test.ts \
           src/main/runtime/orca-runtime-terminal-create-idempotency.test.ts \
           src/main/runtime/runtime-rpc.test.ts \
           src/main/runtime/rpc/errors.test.ts \
@@ -100,6 +101,7 @@ services:
       - src/cli/terminal-format.ts
       - src/main/ipc/pty.ts
       - src/main/runtime/orca-runtime.test.ts
+      - src/main/runtime/orca-runtime-terminal-retirement.test.ts
       - src/main/runtime/orca-runtime.ts
       - src/main/runtime/session-control.test.ts
       - src/main/runtime/runtime-rpc.test.ts

@@ -319,6 +319,10 @@ export function isCurrentPtyExit(payload: {
 function stagePtyIncarnation(id: string, incarnationId: string | undefined): void {
   if (incarnationId) {
     pendingPtyIncarnationById.set(id, incarnationId)
+    if (ptyIncarnationById.get(id) !== incarnationId) {
+      // Why: a staged replacement is already a new lifecycle for teardown authority, even before commit publishes it.
+      ptyStateTokenById.set(id, Symbol(id))
+    }
   }
 }
 
@@ -369,7 +373,10 @@ type CleanupPendingPty = Readonly<{
 }>
 const cleanupPendingPtyById = new Map<string, Map<string | undefined, CleanupPendingPty>>()
 const pendingPtyCleanupRetryAttemptsById = new Map<string, number>()
-const PENDING_PTY_CLEANUP_MAX_RETRIES = 3
+const pendingPtyCleanupRetryTimersById = new Map<
+  string,
+  { provider: IPtyProvider; timer: ReturnType<typeof setTimeout> }
+>()
 let pendingPtyCleanupFinalizer:
   | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => boolean)
   | null = null
@@ -379,7 +386,7 @@ export function getPendingPtyCleanupIncarnation(id: string): string | undefined 
 }
 
 export function hasPendingPtyCleanupExact(id: string, incarnationId: string | undefined): boolean {
-  return incarnationId !== undefined && cleanupPendingPtyById.get(id)?.has(incarnationId) === true
+  return cleanupPendingPtyById.get(id)?.has(incarnationId) === true
 }
 
 export function hasPendingPtyCleanupWithoutIncarnation(id: string): boolean {
@@ -390,9 +397,6 @@ export function consumePendingPtyCleanupIfExact(payload: {
   id: string
   incarnationId?: string
 }): boolean {
-  if (!payload.incarnationId) {
-    return false
-  }
   const pendingByIncarnation = cleanupPendingPtyById.get(payload.id)
   if (!pendingByIncarnation?.has(payload.incarnationId)) {
     return false
@@ -454,10 +458,14 @@ function finalizePendingPtyCleanupEntry(id: string, pending: CleanupPendingPty):
   if (!pendingPtyCleanupFinalizer) {
     return false
   }
-  pendingPtyCleanupFinalizer(
-    { id, incarnationId: pending.incarnationId },
-    pending.publicationSnapshot
-  )
+  if (
+    !pendingPtyCleanupFinalizer(
+      { id, incarnationId: pending.incarnationId },
+      pending.publicationSnapshot
+    )
+  ) {
+    return false
+  }
   return deletePendingPtyCleanupEntry(id, pending)
 }
 
@@ -465,9 +473,6 @@ export function finalizePendingPtyCleanupIfExact(payload: {
   id: string
   incarnationId?: string
 }): boolean {
-  if (!payload.incarnationId) {
-    return false
-  }
   const pending = cleanupPendingPtyById.get(payload.id)?.get(payload.incarnationId)
   if (!pending || !pendingPtyCleanupFinalizer) {
     return false
@@ -513,28 +518,41 @@ function providerCanReconcileCleanup(pending: CleanupPendingPty, provider: IPtyP
   return pending.provider === provider
 }
 
+type PtyIncarnationAbsenceProof = Readonly<{
+  absent: boolean
+  superseded: boolean
+}>
+
 async function providerProvesPtyIncarnationAbsent(
   provider: IPtyProvider,
   id: string,
   incarnationId: string | undefined
-): Promise<boolean> {
+): Promise<PtyIncarnationAbsenceProof> {
   try {
     const sessions = await provider.listProcesses()
     const matchingSessions = sessions.filter((session) => session.id === id)
     if (matchingSessions.length === 0) {
-      return true
+      return { absent: true, superseded: false }
     }
     if (incarnationId === undefined) {
-      return false
+      return { absent: false, superseded: false }
     }
     // Why: a listing without identity proof cannot distinguish a failed PTY from a reused id.
-    return !matchingSessions.some(
+    const sameIncarnationIsLive = matchingSessions.some(
       (session) => session.incarnationId === undefined || session.incarnationId === incarnationId
     )
+    return { absent: !sameIncarnationIsLive, superseded: !sameIncarnationIsLive }
   } catch (error) {
     if (provider.probePtyLiveness) {
       try {
-        return (await provider.probePtyLiveness(id)) === false
+        const liveness = await provider.probePtyLiveness(id)
+        if (liveness === false) {
+          return { absent: true, superseded: false }
+        }
+        if (liveness === true) {
+          return { absent: false, superseded: false }
+        }
+        throw new Error('provider cleanup liveness unknown')
       } catch (probeError) {
         console.warn('[pty] pending cleanup liveness probe failed:', probeError)
         throw probeError
@@ -543,6 +561,22 @@ async function providerProvesPtyIncarnationAbsent(
     console.warn('[pty] pending cleanup inventory unavailable:', error)
     throw error
   }
+}
+
+function isSupersededPtyCleanup(id: string, pending: CleanupPendingPty): boolean {
+  const current = ptyIncarnationById.get(id)
+  const staged = pendingPtyIncarnationById.get(id)
+  const currentStateToken = ptyStateTokenById.get(id)
+  const stateTokenReplaced =
+    pending.publicationSnapshot?.stateToken !== undefined &&
+    currentStateToken !== undefined &&
+    currentStateToken !== pending.publicationSnapshot.stateToken
+  return (
+    stateTokenReplaced ||
+    (pending.incarnationId !== undefined &&
+      ((current !== undefined && current !== pending.incarnationId) ||
+        (staged !== undefined && staged !== pending.incarnationId)))
+  )
 }
 
 export async function reconcilePendingPtyCleanup(
@@ -558,12 +592,22 @@ export async function reconcilePendingPtyCleanup(
     if (!providerCanReconcileCleanup(pending, provider)) {
       continue
     }
-    const absent = await providerProvesPtyIncarnationAbsent(provider, id, pending.incarnationId)
+    const absenceProof = await providerProvesPtyIncarnationAbsent(
+      provider,
+      id,
+      pending.incarnationId
+    )
+    const canReconcileAfterProof = providerCanReconcileCleanup(pending, provider)
     // Why: provider registration can change while inventory I/O is pending; authorize the state transition against the current provider again.
-    if (!absent || !providerCanReconcileCleanup(pending, provider)) {
+    if (!absenceProof.absent || !canReconcileAfterProof) {
       continue
     }
-    if (finalizePendingPtyCleanupEntry(id, pending)) {
+    if (
+      finalizePendingPtyCleanupEntry(id, pending) ||
+      ((absenceProof.superseded || isSupersededPtyCleanup(id, pending)) &&
+        deletePendingPtyCleanupEntry(id, pending))
+    ) {
+      // Why: authoritative absence proves the failed generation is gone; a newer lifecycle must not inherit its stale spawn fence when publication restoration is intentionally rejected.
       finalized = true
     }
   }
@@ -575,15 +619,24 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
     return
   }
   for (const id of cleanupPendingPtyById.keys()) {
-    void reconcilePendingPtyCleanup(provider, id).catch((error) => {
+    void reconcilePendingPtyCleanup(provider, id).catch(() => {
       const attempts = (pendingPtyCleanupRetryAttemptsById.get(id) ?? 0) + 1
-      if (attempts > PENDING_PTY_CLEANUP_MAX_RETRIES) {
-        console.warn('[pty] pending cleanup reconciliation exhausted retries:', error)
+      const scheduled = pendingPtyCleanupRetryTimersById.get(id)
+      if (scheduled?.provider === provider) {
         return
+      }
+      if (scheduled) {
+        clearTimeout(scheduled.timer)
+        pendingPtyCleanupRetryTimersById.delete(id)
       }
       pendingPtyCleanupRetryAttemptsById.set(id, attempts)
       // Why: a failed finalizer retains its tombstone; retry asynchronously so a transient projection failure cannot permanently block the PTY id.
-      setTimeout(() => {
+      const retryDelayMs =
+        attempts === 1 ? 0 : Math.min(100 * 2 ** Math.min(attempts - 2, 6), 5_000)
+      const retryTimer = setTimeout(() => {
+        if (pendingPtyCleanupRetryTimersById.get(id)?.timer === retryTimer) {
+          pendingPtyCleanupRetryTimersById.delete(id)
+        }
         if (!cleanupPendingPtyById.has(id)) {
           pendingPtyCleanupRetryAttemptsById.delete(id)
           return
@@ -598,7 +651,8 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
             schedulePendingPtyCleanupReconciliation(provider)
             console.warn('[pty] pending cleanup reconciliation retry failed:', retryError)
           })
-      }, 0)
+      }, retryDelayMs)
+      pendingPtyCleanupRetryTimersById.set(id, { provider, timer: retryTimer })
     })
   }
 }
@@ -1944,6 +1998,24 @@ export function restorePtyIncarnation(id: string, incarnationId: string): void {
   ptyStateTokenById.set(id, Symbol(id))
 }
 
+export function getPtyIncarnation(id: string): string | undefined {
+  return ptyIncarnationById.get(id)
+}
+
+export function getPtyStateToken(id: string): symbol | undefined {
+  return ptyStateTokenById.get(id)
+}
+
+export function getOrCreatePtyStateToken(id: string): symbol {
+  const current = ptyStateTokenById.get(id)
+  if (current) {
+    return current
+  }
+  const created = Symbol(id)
+  ptyStateTokenById.set(id, created)
+  return created
+}
+
 // Why: localProvider.onData/onExit return unsubscribe functions. Without
 // storing and calling these on re-registration, macOS app re-activation
 // creates a new BrowserWindow and re-calls registerPtyHandlers, leaking
@@ -2219,14 +2291,15 @@ export function registerPtyHandlers(
     snapshot: PtyPublicationSnapshot | null,
     notifyRuntimeExit = true
   ): boolean => {
+    const current = ptyIncarnationById.get(result.id)
+    const pending = pendingPtyIncarnationById.get(result.id)
     if (
       snapshot?.stateToken !== undefined &&
-      ptyStateTokenById.get(result.id) !== snapshot.stateToken
+      ptyStateTokenById.get(result.id) !== snapshot.stateToken &&
+      (result.incarnationId === undefined || pending !== result.incarnationId)
     ) {
       return false
     }
-    const current = ptyIncarnationById.get(result.id)
-    const pending = pendingPtyIncarnationById.get(result.id)
     if (
       result.incarnationId &&
       ((current !== undefined && current !== result.incarnationId) ||
@@ -2247,7 +2320,13 @@ export function registerPtyHandlers(
       rememberFinalizedCleanupExit(result.id, result.incarnationId)
     }
     if (notifyRuntimeExit) {
-      runtime?.onPtyExit?.(result.id, -1, result.incarnationId)
+      if (result.incarnationId === undefined) {
+        runtime?.onPtyExit?.(result.id, -1, undefined, {
+          authoritativeIdentityLess: true
+        })
+      } else {
+        runtime?.onPtyExit?.(result.id, -1, result.incarnationId)
+      }
     }
     return true
   }
@@ -3897,13 +3976,18 @@ export function registerPtyHandlers(
       if (payload.id !== id) {
         return
       }
+      const providerIncarnationId =
+        payload.incarnationId ??
+        ('ptyIncarnation' in payload && typeof payload.ptyIncarnation === 'string'
+          ? payload.ptyIncarnation
+          : undefined)
       if (expectedIncarnationId !== undefined) {
-        if (payload.incarnationId === expectedIncarnationId) {
+        if (providerIncarnationId === expectedIncarnationId) {
           providerExitObserved = true
         }
         return
       }
-      if (payload.incarnationId === undefined) {
+      if (providerIncarnationId === undefined) {
         if (ptyStateTokenById.get(id) === expectedTarget.stateToken) {
           providerExitObserved = true
           identityLessExitPayload ??= payload
@@ -4021,20 +4105,32 @@ export function registerPtyHandlers(
       verification?: { identityLessAbsenceProven?: boolean; stateToken?: symbol }
     ): void => {
       if (hasPendingPtyCleanupExact(payload.id, payload.incarnationId)) {
-        const cleanupPending = cleanupPendingPtyById
-          .get(payload.id)
-          ?.get(payload.incarnationId ?? '')
+        const cleanupPending = cleanupPendingPtyById.get(payload.id)?.get(payload.incarnationId)
         if (!cleanupPending) {
           return
         }
+        const currentBeforeCleanup = ptyIncarnationById.get(payload.id)
+        const pendingBeforeCleanup = pendingPtyIncarnationById.get(payload.id)
         const restored = restorePublicationAfterExactCleanup(
           { id: payload.id, incarnationId: payload.incarnationId },
           cleanupPending?.publicationSnapshot ?? null
         )
-        deletePendingPtyCleanupExact(payload.id, payload.incarnationId)
         if (!restored) {
+          if (
+            pendingBeforeCleanup !== undefined &&
+            pendingBeforeCleanup !== payload.incarnationId
+          ) {
+            // Why: a staged replacement can still race the failed generation's exit, so retain its cleanup authority.
+            return
+          }
+          if (currentBeforeCleanup === undefined && pendingBeforeCleanup === undefined) {
+            // Why: an identity-less replacement has no exact lifecycle to fence the failed exit; reconciliation must prove its absence.
+            return
+          }
+          deletePendingPtyCleanupExact(payload.id, payload.incarnationId)
           return
         }
+        deletePendingPtyCleanupExact(payload.id, payload.incarnationId)
         // Why: preload pty:exit has no incarnation field, so stale cleanup must not fan out to a replacement renderer pane.
         const currentAfterCleanup = ptyIncarnationById.get(payload.id)
         const pendingAfterCleanup = pendingPtyIncarnationById.get(payload.id)
@@ -4062,17 +4158,34 @@ export function registerPtyHandlers(
         return
       }
       if (!isLocalProvider) {
+        const currentIncarnation = ptyIncarnationById.get(payload.id)
         clearProviderPtyState(payload.id)
         ptyOwnership.delete(payload.id)
         markClaudePtyExited(payload.id)
-        runtime?.onPtyExit(payload.id, payload.code, payload.incarnationId)
+        if (
+          payload.incarnationId === undefined &&
+          verification?.identityLessAbsenceProven === true
+        ) {
+          runtime?.onPtyExit(payload.id, payload.code, undefined, {
+            authoritativeIdentityLess: true,
+            ...(currentIncarnation ? { expectedIncarnationId: currentIncarnation } : {})
+          })
+        } else {
+          runtime?.onPtyExit(payload.id, payload.code, payload.incarnationId)
+        }
       }
       sendPtyExitToRenderer(payload)
     }
     localExitUnsub = localProvider.onExit((payload) => {
       const incarnationId = payload.incarnationId
       if (incarnationId === undefined) {
-        if (ptyShutdownTargetsInFlightById.has(payload.id)) {
+        const stateToken = ptyStateTokenById.get(payload.id)
+        const hasMatchingShutdownTarget =
+          stateToken !== undefined &&
+          [...(ptyShutdownTargetsInFlightById.get(payload.id) ?? [])].some(
+            (target) => target.stateToken === stateToken
+          )
+        if (hasMatchingShutdownTarget) {
           // Why: an identity-less exit cannot distinguish the PTY being shut
           // down from a same-id replacement; the shutdown's inventory proof is
           // the only authoritative cleanup boundary while it is in flight.
@@ -4083,8 +4196,8 @@ export function registerPtyHandlers(
       if (incarnationId === undefined && stateToken !== undefined) {
         // Why: legacy providers omit incarnation ids, so an old exit must not retire an id-reused PTY without an authoritative absence check.
         void providerProvesPtyIncarnationAbsent(localProvider, payload.id, undefined)
-          .then((absent) => {
-            if (absent && ptyStateTokenById.get(payload.id) === stateToken) {
+          .then((absenceProof) => {
+            if (absenceProof.absent && ptyStateTokenById.get(payload.id) === stateToken) {
               handleProviderExit(payload, {
                 identityLessAbsenceProven: true,
                 stateToken
@@ -5073,7 +5186,10 @@ export function registerPtyHandlers(
         }
         return resolvePaneSpawnReservation(materializedPaneKey, paneSpawnReservation, response)
       } catch (err) {
-        bindingRollbackReceipt?.rollbackIfCurrent()
+        const bindingRollbackApplied = bindingRollbackReceipt?.rollbackIfCurrent()
+        if (bindingRollbackApplied === false) {
+          console.error('[pty] durable PTY binding rollback did not apply')
+        }
         if (rejectedRegistrationCandidate) {
           const runtimeExitObservedBeforeQuarantine =
             rejectedRegistrationCandidate.incarnationId !== undefined &&
@@ -5163,11 +5279,10 @@ export function registerPtyHandlers(
               return
             }
             if (observation.identityLessExitPayload) {
-              runtime?.onPtyExit(
-                ptyId,
-                observation.identityLessExitPayload.code,
-                observation.identityLessExitPayload.incarnationId
-              )
+              runtime?.onPtyExit(ptyId, observation.identityLessExitPayload.code, undefined, {
+                authoritativeIdentityLess: true,
+                ...(finished.incarnationId ? { expectedIncarnationId: finished.incarnationId } : {})
+              })
               sendPtyExitToRenderer(observation.identityLessExitPayload)
             } else if (!observation.providerExitObserved) {
               runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
@@ -5298,6 +5413,9 @@ export function registerPtyHandlers(
           return false
         }
       }
+      if (deadlineMs !== undefined && Date.now() >= deadlineMs) {
+        return false
+      }
       try {
         if (!(await verifyPtyStopped(provider, ptyId, opts))) {
           return false
@@ -5318,11 +5436,10 @@ export function registerPtyHandlers(
         return false
       }
       if (observation.identityLessExitPayload) {
-        runtime?.onPtyExit(
-          ptyId,
-          observation.identityLessExitPayload.code,
-          observation.identityLessExitPayload.incarnationId
-        )
+        runtime?.onPtyExit(ptyId, observation.identityLessExitPayload.code, undefined, {
+          authoritativeIdentityLess: true,
+          ...(finished.incarnationId ? { expectedIncarnationId: finished.incarnationId } : {})
+        })
         sendPtyExitToRenderer(observation.identityLessExitPayload)
       } else if (!observation.providerExitObserved) {
         runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
@@ -6361,7 +6478,10 @@ export function registerPtyHandlers(
         sendPtySpawnedToRenderer(result.id)
         return resolvePaneSpawnReservation(reservationPaneKey, paneSpawnReservation, response)
       } catch (err) {
-        bindingRollbackReceipt?.rollbackIfCurrent()
+        const bindingRollbackApplied = bindingRollbackReceipt?.rollbackIfCurrent()
+        if (bindingRollbackApplied === false) {
+          console.error('[pty] durable PTY binding rollback did not apply')
+        }
         if (rejectedRegistrationCandidate) {
           const runtimeExitObservedBeforeQuarantine =
             rejectedRegistrationCandidate.incarnationId !== undefined &&
@@ -6947,11 +7067,10 @@ export function registerPtyHandlers(
       return
     }
     if (observation.identityLessExitPayload) {
-      runtime?.onPtyExit(
-        args.id,
-        observation.identityLessExitPayload.code,
-        observation.identityLessExitPayload.incarnationId
-      )
+      runtime?.onPtyExit(args.id, observation.identityLessExitPayload.code, undefined, {
+        authoritativeIdentityLess: true,
+        ...(finished.incarnationId ? { expectedIncarnationId: finished.incarnationId } : {})
+      })
       sendPtyExitToRenderer(observation.identityLessExitPayload)
     } else if (!observation.providerExitObserved) {
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)

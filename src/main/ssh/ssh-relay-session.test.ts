@@ -99,6 +99,7 @@ vi.mock('../ipc/pty', () => ({
   clearPtyOwnershipForConnection: vi.fn(),
   clearProviderPtyState: vi.fn(),
   deletePtyOwnership: vi.fn(),
+  getPtyIncarnation: vi.fn(() => undefined),
   setPtyOwnership: vi.fn(),
   restorePtyIncarnation: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
@@ -128,6 +129,7 @@ const {
   getPtyIdsForConnection,
   clearProviderPtyState,
   deletePtyOwnership,
+  getPtyIncarnation,
   setPtyOwnership
 } = await import('../ipc/pty')
 const { registerSshFilesystemProvider, unregisterSshFilesystemProvider } =
@@ -678,7 +680,14 @@ describe('SshRelaySession', () => {
 
   it('invalidates and broadcasts remote PTYs that cannot reattach after relay reconnect', async () => {
     const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
-    const session = new SshRelaySession('target-1', getMainWindow, mockStore, mockPortForward)
+    const runtime = { onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
     await session.establish(mockConn)
     vi.clearAllMocks()
     mockDeploySuccess()
@@ -693,6 +702,7 @@ describe('SshRelaySession', () => {
       dispose: vi.fn()
     } as unknown as ReturnType<typeof getSshPtyProvider>)
     vi.mocked(getPtyIdsForConnection).mockReturnValue(['pty-stale', 'pty-live'])
+    vi.mocked(getPtyIncarnation).mockReturnValue('stale-incarnation')
 
     await session.reconnect(mockConn)
 
@@ -700,6 +710,11 @@ describe('SshRelaySession', () => {
     expect(mockAttach).toHaveBeenCalledWith('pty-live')
     expect(clearProviderPtyState).toHaveBeenCalledWith('ssh:target-1@@pty-stale')
     expect(deletePtyOwnership).toHaveBeenCalledWith('ssh:target-1@@pty-stale')
+    expect(runtime.onPtyExit).toHaveBeenCalledWith(
+      'ssh:target-1@@pty-stale',
+      -1,
+      'stale-incarnation'
+    )
     expect(mockWindow.webContents.send).toHaveBeenCalledWith('pty:exit', {
       id: 'ssh:target-1@@pty-stale',
       code: -1

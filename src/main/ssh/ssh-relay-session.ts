@@ -39,6 +39,7 @@ import {
   clearPtyOwnershipForConnection,
   clearProviderPtyState,
   deletePtyOwnership,
+  getPtyIncarnation,
   setPtyOwnership,
   restorePtyIncarnation,
   getPendingPtyCleanupIncarnation,
@@ -49,6 +50,7 @@ import {
   isCurrentPtyExit,
   consumeSshPtyExitFinalization
 } from '../ipc/pty'
+import * as ptyAuthority from '../ipc/pty'
 import {
   acceptSshPtyOutputData,
   acceptSshPtyOutputExit,
@@ -138,6 +140,8 @@ type PendingPtyReattach = {
   recoveryWaiters: Set<() => void>
   livePassthrough: boolean
   activated: boolean
+  incarnationIdAtStart?: string
+  stateTokenAtStart?: symbol
 }
 
 type RemoteCliBridgeEnv = {
@@ -1738,6 +1742,16 @@ export class SshRelaySession {
       return
     }
     const exitIncarnation = payload.incarnationId ?? payload.ptyIncarnation
+    const stateTokenAtProofStart = ptyAuthority.getPtyStateToken?.(payload.id)
+    if (!(await this.proveLegacyExitAbsence(payload, exitIncarnation))) {
+      return
+    }
+    if (
+      stateTokenAtProofStart !== undefined &&
+      ptyAuthority.getPtyStateToken?.(payload.id) !== stateTokenAtProofStart
+    ) {
+      return
+    }
     const isExactCleanupPending = (): boolean => {
       const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
       return (
@@ -1762,9 +1776,7 @@ export class SshRelaySession {
       }
       if (isExactCleanupPending() && finalizeExactCleanup()) {
         // Why: the exact provider exit is authoritative even when output delivery is canceled; retire relay state after finalizing the main-side cleanup snapshot.
-        if (isCurrentPtyExit(payload)) {
-          this.retireExitedPty(payload, true)
-        }
+        await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
         return
       }
       if (isExactCleanupPending()) {
@@ -1772,19 +1784,22 @@ export class SshRelaySession {
       }
       if (consumeSshPtyExitFinalization?.(payload)) {
         // Why: intake may finalize the renderer/runtime exit before a later projection close rejects; only provider/lease cleanup remains here.
-        if (isCurrentPtyExit(payload)) {
-          this.retireExitedPty(payload, true)
-        }
+        await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
         return
       }
-      if (isCurrentPtyExit(payload)) {
-        // Why: an exit that loses the output barrier still needs authoritative teardown.
-        this.retireExitedPty(payload)
-        return
+      // Why: an exit that loses the output barrier still needs authoritative teardown.
+      if (!(await this.retireCurrentPtyExitIfAuthoritative(payload, false, exitIncarnation))) {
+        throw error
       }
-      throw error
+      return
     }
     if (this.activePtyProviderGeneration !== payload.providerGeneration) {
+      return
+    }
+    if (
+      stateTokenAtProofStart !== undefined &&
+      ptyAuthority.getPtyStateToken?.(payload.id) !== stateTokenAtProofStart
+    ) {
       return
     }
     if (isExactCleanupPending()) {
@@ -1792,13 +1807,53 @@ export class SshRelaySession {
         return
       }
     }
-    if (isCurrentPtyExit(payload)) {
-      this.retireExitedPty(payload, true)
+    await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
+  }
+
+  private async proveLegacyExitAbsence(
+    payload: SshPtyExitPayload,
+    exitIncarnation: string | undefined
+  ): Promise<boolean> {
+    if (!exitIncarnation?.startsWith('legacy:')) {
+      return true
     }
+    if (getPtyIncarnation(payload.id) === exitIncarnation) {
+      return true
+    }
+    const provider = getSshPtyProvider(this.targetId)
+    if (!provider?.listProcesses) {
+      throw new Error('legacy_pty_exit_liveness_unavailable')
+    }
+    const sessions = await provider.listProcesses()
+    // Why: legacy identities are synthetic; only an authoritative inventory can distinguish an old exit from a live same-id replacement.
+    return !sessions.some((session) => session.id === payload.id)
+  }
+
+  private async retireCurrentPtyExitIfAuthoritative(
+    payload: SshPtyExitPayload,
+    deliveryHandled: boolean,
+    exitIncarnation: string | undefined
+  ): Promise<boolean> {
+    const stateTokenAtProofStart = ptyAuthority.getPtyStateToken?.(payload.id)
+    if (!(await this.proveLegacyExitAbsence(payload, exitIncarnation))) {
+      return true
+    }
+    if (
+      stateTokenAtProofStart !== undefined &&
+      ptyAuthority.getPtyStateToken?.(payload.id) !== stateTokenAtProofStart
+    ) {
+      return true
+    }
+    if (isCurrentPtyExit(payload)) {
+      this.retireExitedPty(payload, deliveryHandled)
+      return true
+    }
+    return false
   }
 
   private retireExitedPty(payload: SshPtyExitPayload, deliveryHandled = false): void {
     const ptyIncarnation = payload.ptyIncarnation ?? payload.incarnationId
+    const canonicalIncarnation = payload.incarnationId ?? ptyIncarnation
     if (ptyIncarnation) {
       const retired = this.retiredPtyExitIncarnations.get(payload.id)
       if (retired?.has(ptyIncarnation)) {
@@ -1815,7 +1870,7 @@ export class SshRelaySession {
       .get(this.targetId)
       ?.checkpointsByAppPtyId.delete(toRelaySshPtyId(this.targetId, payload.id))
     if (!deliveryHandled) {
-      this.runtime?.onPtyExit(payload.id, payload.code, ptyIncarnation)
+      this.runtime?.onPtyExit(payload.id, payload.code, canonicalIncarnation)
       const win = this.getMainWindow()
       if (win && !win.isDestroyed()) {
         win.webContents.send('pty:exit', payload)
@@ -1957,7 +2012,9 @@ export class SshRelaySession {
       liveData: [],
       recoveryWaiters: new Set(),
       livePassthrough: false,
-      activated: false
+      activated: false,
+      incarnationIdAtStart: getPtyIncarnation(appPtyId),
+      stateTokenAtStart: ptyAuthority.getOrCreatePtyStateToken?.(appPtyId)
     }
     this.pendingPtyReattaches.set(appPtyId, pendingReattach)
     let sourceActivationLease: SshPtyAttachResult['sourceActivationLease']
@@ -2125,13 +2182,16 @@ export class SshRelaySession {
         incarnationId
       })
       try {
-        this.store.persistPtyBinding({
-          worktreeId: lease.worktreeId,
-          tabId: lease.tabId,
-          leafId: lease.leafId,
-          ptyId: appPtyId,
-          incarnationId
-        })
+        this.store.persistPtyBinding(
+          {
+            worktreeId: lease.worktreeId,
+            tabId: lease.tabId,
+            leafId: lease.leafId,
+            ptyId: appPtyId,
+            incarnationId
+          },
+          toSshExecutionHostId(this.targetId)
+        )
       } catch (error) {
         console.error('[ssh-relay-session] Failed to persist reconnect incarnation:', error)
       }
@@ -2248,9 +2308,30 @@ export class SshRelaySession {
         error instanceof Error ? error.message : String(error)
       }`
     )
+    const currentStateToken = ptyAuthority.getPtyStateToken?.(appPtyId)
+    if (
+      pending.stateTokenAtStart === undefined ||
+      currentStateToken !== pending.stateTokenAtStart ||
+      (pending.incarnationIdAtStart !== undefined &&
+        getPtyIncarnation(appPtyId) !== pending.incarnationIdAtStart)
+    ) {
+      // Why: a not-found reply belongs to the reattach generation that was queried, not a same-id replacement admitted while it was in flight.
+      console.warn(
+        `[ssh-relay-session] Ignoring stale not-found result for replaced PTY ${ptyId} on ${this.targetId}`
+      )
+      return
+    }
+    const incarnationId = getPtyIncarnation(appPtyId)
     clearProviderPtyState(appPtyId)
     deletePtyOwnership(appPtyId)
     this.store.markSshRemotePtyLease(this.targetId, ptyId, 'expired')
+    if (incarnationId) {
+      this.runtime?.onPtyExit(appPtyId, -1, incarnationId)
+    } else {
+      this.runtime?.onPtyExit(appPtyId, -1, undefined, {
+        authoritativeIdentityLess: true
+      })
+    }
     const win = this.getMainWindow()
     if (win && !win.isDestroyed()) {
       win.webContents.send('pty:exit', { id: appPtyId, code: -1 })

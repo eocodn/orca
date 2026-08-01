@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import type * as NodeCrypto from 'node:crypto'
+import { toSshExecutionHostId } from '../../shared/execution-host'
 import { SshRelaySession } from './ssh-relay-session'
 import { createMockDeps, mockDeploySuccess } from './ssh-relay-session-test-fixtures'
 
@@ -8,23 +9,26 @@ type MockMuxInstance = {
   requestHandlers: Map<string, (params: Record<string, unknown>) => Promise<unknown>>
 }
 
-const { acceptOutputExitMock, muxRequestMock, openConsumerSessionMock, muxInstancesRaw } =
-  vi.hoisted(() => ({
-    acceptOutputExitMock: vi.fn().mockResolvedValue(undefined),
-    muxRequestMock: vi.fn(),
-    openConsumerSessionMock: vi.fn(
-      async (
-        _mux: unknown,
-        options: { clientInstanceId: string; outputFlowControl?: unknown }
-      ) => ({
-        clientInstanceId: options.clientInstanceId,
-        clientGeneration: 1,
-        ownerGeneration: 1,
-        ownerLease: 'test-owner-lease'
-      })
-    ),
-    muxInstancesRaw: [] as unknown[]
-  }))
+const {
+  acceptOutputExitMock,
+  muxRequestMock,
+  openConsumerSessionMock,
+  muxInstancesRaw,
+  ptyStateTokens
+} = vi.hoisted(() => ({
+  acceptOutputExitMock: vi.fn().mockResolvedValue(undefined),
+  muxRequestMock: vi.fn(),
+  openConsumerSessionMock: vi.fn(
+    async (_mux: unknown, options: { clientInstanceId: string; outputFlowControl?: unknown }) => ({
+      clientInstanceId: options.clientInstanceId,
+      clientGeneration: 1,
+      ownerGeneration: 1,
+      ownerLease: 'test-owner-lease'
+    })
+  ),
+  muxInstancesRaw: [] as unknown[],
+  ptyStateTokens: new Map<string, symbol>()
+}))
 const muxInstances = muxInstancesRaw as MockMuxInstance[]
 
 vi.mock('./ssh-relay-deploy', () => ({ deployAndLaunchRelay: vi.fn() }))
@@ -107,6 +111,17 @@ vi.mock('../ipc/pty', () => ({
   clearPtyOwnershipForConnection: vi.fn(),
   clearProviderPtyState: vi.fn(),
   deletePtyOwnership: vi.fn(),
+  getPtyIncarnation: vi.fn(() => undefined),
+  getPtyStateToken: vi.fn((id: string) => ptyStateTokens.get(id)),
+  getOrCreatePtyStateToken: vi.fn((id: string) => {
+    const current = ptyStateTokens.get(id)
+    if (current) {
+      return current
+    }
+    const created = Symbol(id)
+    ptyStateTokens.set(id, created)
+    return created
+  }),
   setPtyOwnership: vi.fn(),
   restorePtyIncarnation: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
@@ -131,6 +146,9 @@ const {
   registerSshPtyProvider,
   getSshPtyProvider,
   getPtyIdsForConnection,
+  clearProviderPtyState,
+  deletePtyOwnership,
+  getPtyIncarnation,
   setPtyOwnership,
   restorePtyIncarnation,
   getPendingPtyCleanupIncarnation,
@@ -178,6 +196,7 @@ function emitExitDuringAttach(payload: {
 describe('SshRelaySession reconnect incarnation ordering', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ptyStateTokens.clear()
     vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue(undefined)
     vi.mocked(consumePendingPtyCleanupIfExact).mockReturnValue(false)
     vi.mocked(isCurrentPtyExit).mockReturnValue(true)
@@ -423,13 +442,16 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
       incarnationId
     })
     expect(runtime.onPtySpawned).not.toHaveBeenCalled()
-    expect(mockStore.persistPtyBinding).toHaveBeenCalledWith({
-      worktreeId: 'worktree-1',
-      tabId: 'tab-1',
-      leafId: INCARNATION_LEAF_ID,
-      ptyId: APP_PTY_ID,
-      incarnationId
-    })
+    expect(mockStore.persistPtyBinding).toHaveBeenCalledWith(
+      {
+        worktreeId: 'worktree-1',
+        tabId: 'tab-1',
+        leafId: INCARNATION_LEAF_ID,
+        ptyId: APP_PTY_ID,
+        incarnationId
+      },
+      toSshExecutionHostId('target-1')
+    )
     expect(vi.mocked(mockStore.persistPtyBinding).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(mockStore.markSshRemotePtyLease).mock.invocationCallOrder[0]!
     )
@@ -683,7 +705,8 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
     })
     expect(setPtyOwnership).toHaveBeenCalledWith(APP_PTY_ID, 'target-1')
     expect(mockStore.persistPtyBinding).toHaveBeenCalledWith(
-      expect.objectContaining({ ptyId: APP_PTY_ID, incarnationId: currentIncarnationId })
+      expect.objectContaining({ ptyId: APP_PTY_ID, incarnationId: currentIncarnationId }),
+      toSshExecutionHostId('target-1')
     )
     expect(mockWindow.webContents.send).toHaveBeenCalledWith('pty:replay', {
       id: APP_PTY_ID,
@@ -775,6 +798,68 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
       providerGeneration: 17,
       ptyIncarnation: 'replacement-incarnation'
     })
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+  })
+
+  it('does not retire a same-id SSH replacement after a stale not-found reply', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    vi.clearAllMocks()
+    mockDeploySuccess()
+
+    vi.mocked(getSshPtyProvider).mockReturnValue({
+      attachForReconnect: vi.fn().mockRejectedValue(new Error('PTY "pty-replaced" not found')),
+      dispose: vi.fn()
+    } as unknown as ReturnType<typeof getSshPtyProvider>)
+    vi.mocked(getPtyIdsForConnection).mockReturnValue(['pty-replaced'])
+    vi.mocked(getPtyIncarnation)
+      .mockReturnValueOnce('old-incarnation')
+      .mockReturnValue('replacement-incarnation')
+
+    await session.reconnect(mockConn)
+
+    expect(clearProviderPtyState).not.toHaveBeenCalled()
+    expect(deletePtyOwnership).not.toHaveBeenCalled()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+  })
+
+  it('does not retire a same-id replacement when the stale not-found reply has no old identity', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    vi.clearAllMocks()
+    mockDeploySuccess()
+
+    ptyStateTokens.set('ssh:target-1@@pty-identityless', Symbol('old-state'))
+    vi.mocked(getSshPtyProvider).mockReturnValue({
+      attachForReconnect: vi.fn().mockImplementation(async () => {
+        ptyStateTokens.set('ssh:target-1@@pty-identityless', Symbol('replacement-state'))
+        throw new Error('PTY "pty-identityless" not found')
+      }),
+      dispose: vi.fn()
+    } as unknown as ReturnType<typeof getSshPtyProvider>)
+    vi.mocked(getPtyIdsForConnection).mockReturnValue(['pty-identityless'])
+    vi.mocked(getPtyIncarnation).mockReturnValue(undefined)
+
+    await session.reconnect(mockConn)
+
+    expect(clearProviderPtyState).not.toHaveBeenCalled()
+    expect(deletePtyOwnership).not.toHaveBeenCalled()
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
   })
 })

@@ -2784,6 +2784,7 @@ export class OrcaRuntimeService {
     {
       ptyId: string
       incarnationId: PtyIncarnationId
+      executionHostId?: ExecutionHostId
       exactSurfaces: readonly Pick<
         RetiredTerminalSurface,
         'worktreeId' | 'parentTabId' | 'leafId'
@@ -4466,7 +4467,10 @@ export class OrcaRuntimeService {
         }
         if (!finalInventory.livePtyIds.has(candidate.ptyId)) {
           this.legacyWorkerTerminalReceiptEpochByPane.delete(candidate.paneKey)
-          this.onPtyExit(candidate.ptyId, 0, candidate.incarnationId)
+          this.onPtyExit(candidate.ptyId, 0, candidate.incarnationId, {
+            authoritativeIdentityLess: candidate.incarnationId === undefined,
+            ...(candidate.incarnationId ? { expectedIncarnationId: candidate.incarnationId } : {})
+          })
           if (this.resolveExitedLegacyWorkerTerminal(candidate)) {
             exitedDispatchIds.push(candidate.dispatchId)
           } else {
@@ -4709,6 +4713,10 @@ export class OrcaRuntimeService {
     const resolvedWorktreeId = scope?.type === 'worktree' ? scope.worktreeId : worktreeId
     const repo = this.store?.getRepo?.(getRepoIdFromWorktreeId(resolvedWorktreeId))
     return repo ? getRepoExecutionHostId(repo) : LOCAL_EXECUTION_HOST_ID
+  }
+
+  private getPtyExecutionHostId(pty: RuntimePtyWorktreeRecord | undefined): ExecutionHostId {
+    return pty?.connectionId ? toSshExecutionHostId(pty.connectionId) : LOCAL_EXECUTION_HOST_ID
   }
 
   private getWorkspaceSessionForWorktree(worktreeId: string): WorkspaceSessionState | null {
@@ -6465,7 +6473,10 @@ export class OrcaRuntimeService {
     leafId: string,
     candidatePtyId: string | null | undefined
   ): boolean {
-    const session = this.store?.getWorkspaceSession?.()
+    const candidatePty = candidatePtyId ? this.ptysById.get(candidatePtyId) : undefined
+    const session = this.store?.getWorkspaceSession?.(
+      candidatePty ? this.getPtyExecutionHostId(candidatePty) : undefined
+    )
     const repoId = getRepoIdFromWorktreeId(worktreeId)
     if (
       !hasHostAuthoritativeTerminalMembership(session, worktreeId) &&
@@ -6557,9 +6568,13 @@ export class OrcaRuntimeService {
       return
     }
     const currentPty = this.ptysById.get(pending.ptyId)
+    const pendingRegistration = this.pendingPtyRegistrationIncarnations.get(pending.ptyId)
+    const headlessIncarnation = this.headlessPtyIncarnationById.get(pending.ptyId)
     if (
-      currentPty?.incarnationId !== undefined &&
-      currentPty.incarnationId !== pending.incarnationId
+      (currentPty !== undefined && currentPty.incarnationId !== pending.incarnationId) ||
+      (this.pendingPtyRegistrationIncarnations.has(pending.ptyId) &&
+        pendingRegistration !== pending.incarnationId) ||
+      (headlessIncarnation !== undefined && headlessIncarnation !== pending.incarnationId)
     ) {
       // Why: an old durable retry may discover the same pane already admitted to a newer PTY lifecycle; removing its surface would retire the replacement.
       this.pendingPtyDurableRetirements.delete(retirementKey)
@@ -6572,7 +6587,9 @@ export class OrcaRuntimeService {
       this.retireMobileSessionSurfacesForPty(
         pending.ptyId,
         pending.incarnationId,
-        pending.exactSurfaces
+        pending.exactSurfaces,
+        pending.executionHostId,
+        { ensureDurableFlush: true }
       )
     ) {
       this.pendingPtyDurableRetirements.delete(retirementKey)
@@ -6585,7 +6602,9 @@ export class OrcaRuntimeService {
   private retireMobileSessionSurfacesForPty(
     ptyId: string,
     incarnationId: string,
-    exactSurfaces: readonly Pick<RetiredTerminalSurface, 'worktreeId' | 'parentTabId' | 'leafId'>[]
+    exactSurfaces: readonly Pick<RetiredTerminalSurface, 'worktreeId' | 'parentTabId' | 'leafId'>[],
+    executionHostId?: ExecutionHostId,
+    options: { ensureDurableFlush?: boolean } = {}
   ): boolean {
     const retiredSurfaceByKey = new Map<string, RetiredTerminalSurface>()
     for (const surface of exactSurfaces) {
@@ -6616,35 +6635,73 @@ export class OrcaRuntimeService {
       return true
     }
     let publishableRetiredSurfaces = retiredSurfaces
-    const session = this.store?.getWorkspaceSession?.()
-    if (session) {
+    const nextSessionByHostId = new Map<ExecutionHostId, WorkspaceSessionState>()
+    const sessionBeforeRetirementByHostId = new Map<ExecutionHostId, WorkspaceSessionState>()
+    const acceptedSurfaces: RetiredTerminalSurface[] = []
+    for (const surface of retiredSurfaces) {
+      let hostId: ExecutionHostId
+      try {
+        hostId = executionHostId ?? this.getWorkspaceSessionHostIdForWorktree(surface.worktreeId)
+      } catch (error) {
+        if (error instanceof Error && error.message === 'folder_workspace_not_found') {
+          // Why: deleting the folder workspace removes its durable session authority; only the in-memory PTY surface remains to retire.
+          console.warn('[runtime] skipping durable retirement for deleted folder workspace')
+          continue
+        }
+        console.error('[runtime] failed to resolve terminal retirement host:', error)
+        return false
+      }
+      const currentSession =
+        sessionBeforeRetirementByHostId.get(hostId) ?? this.store?.getWorkspaceSession?.(hostId)
+      if (!currentSession) {
+        continue
+      }
+      sessionBeforeRetirementByHostId.set(hostId, currentSession)
+      const nextSession = nextSessionByHostId.get(hostId) ?? currentSession
+      const retiredSession = retireTerminalSurfaceFromPersistence(nextSession, surface)
+      if (retiredSession !== nextSession) {
+        acceptedSurfaces.push(surface)
+        nextSessionByHostId.set(hostId, retiredSession)
+      }
+    }
+    if (sessionBeforeRetirementByHostId.size > 0) {
       // Why: publishing absence before its host membership fence is durable lets a crash or
       // stale renderer write resurrect the retired surface.
       if (!this.store?.setWorkspaceSession || !this.store.flushOrThrow) {
         return false
       }
-      let nextSession = session
-      const acceptedSurfaces: RetiredTerminalSurface[] = []
-      for (const surface of retiredSurfaces) {
-        const candidate = retireTerminalSurfaceFromPersistence(nextSession, surface)
-        if (candidate !== nextSession) {
-          acceptedSurfaces.push(surface)
-          nextSession = candidate
-        }
-      }
       if (acceptedSurfaces.length === 0) {
+        if (options.ensureDurableFlush) {
+          try {
+            this.store.flushOrThrow()
+          } catch (error) {
+            console.error('[runtime] failed to flush terminal retirement retry:', error)
+            return false
+          }
+        }
         return true
       }
-      const sessionBeforeRetirement = structuredClone(session)
       try {
-        this.store.setWorkspaceSession(nextSession)
+        for (const [hostId, nextSession] of nextSessionByHostId) {
+          if (hostId === LOCAL_EXECUTION_HOST_ID) {
+            this.store.setWorkspaceSession(nextSession)
+          } else {
+            this.store.setWorkspaceSession(nextSession, hostId)
+          }
+        }
         this.store.flushOrThrow()
       } catch (error) {
         console.error('[runtime] failed to persist terminal retirement:', error)
-        try {
-          this.store.setWorkspaceSession(sessionBeforeRetirement)
-        } catch (rollbackError) {
-          console.error('[runtime] failed to roll back terminal retirement:', rollbackError)
+        for (const [hostId, sessionBeforeRetirement] of sessionBeforeRetirementByHostId) {
+          try {
+            if (hostId === LOCAL_EXECUTION_HOST_ID) {
+              this.store.setWorkspaceSession(sessionBeforeRetirement)
+            } else {
+              this.store.setWorkspaceSession(sessionBeforeRetirement, hostId)
+            }
+          } catch (rollbackError) {
+            console.error('[runtime] failed to roll back terminal retirement:', rollbackError)
+          }
         }
         return false
       }
@@ -13101,8 +13158,17 @@ export class OrcaRuntimeService {
     }
   }
 
-  onPtyExit(ptyId: string, exitCode: number, exitIncarnationId?: PtyIncarnationId): void {
+  onPtyExit(
+    ptyId: string,
+    exitCode: number,
+    exitIncarnationId?: PtyIncarnationId,
+    options: {
+      authoritativeIdentityLess?: boolean
+      expectedIncarnationId?: PtyIncarnationId
+    } = {}
+  ): void {
     const pty = this.ptysById.get(ptyId)
+    const headlessIncarnation = this.headlessPtyIncarnationById.get(ptyId)
     const pendingIncarnation = this.pendingPtyRegistrationIncarnations.get(ptyId)
     const exitMatchesUnadmittedReplacement =
       this.pendingPtyRegistrationIncarnations.has(ptyId) &&
@@ -13125,10 +13191,37 @@ export class OrcaRuntimeService {
         return
       }
     }
-    if (exitIncarnationId === undefined && pty?.incarnationId) {
+    if (exitIncarnationId === undefined && options.authoritativeIdentityLess !== true) {
       return
     }
-    if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
+    if (
+      exitIncarnationId === undefined &&
+      options.authoritativeIdentityLess === true &&
+      options.expectedIncarnationId === undefined &&
+      (headlessIncarnation !== undefined || pty?.incarnationId != null)
+    ) {
+      return
+    }
+    if (
+      exitIncarnationId === undefined &&
+      options.expectedIncarnationId !== undefined &&
+      ((headlessIncarnation !== undefined &&
+        headlessIncarnation !== options.expectedIncarnationId) ||
+        (headlessIncarnation === undefined &&
+          pty?.incarnationId != null &&
+          pty.incarnationId !== options.expectedIncarnationId))
+    ) {
+      return
+    }
+    if (exitIncarnationId && headlessIncarnation && exitIncarnationId !== headlessIncarnation) {
+      return
+    }
+    if (
+      exitIncarnationId &&
+      headlessIncarnation === undefined &&
+      pty?.incarnationId &&
+      exitIncarnationId !== pty.incarnationId
+    ) {
       return
     }
     if (
@@ -13137,10 +13230,6 @@ export class OrcaRuntimeService {
       pty.connected === false &&
       pty.lastExitCode !== null
     ) {
-      return
-    }
-    const headlessIncarnation = this.headlessPtyIncarnationById.get(ptyId)
-    if (exitIncarnationId && headlessIncarnation && exitIncarnationId !== headlessIncarnation) {
       return
     }
     if (exitIncarnationId) {
@@ -13160,6 +13249,7 @@ export class OrcaRuntimeService {
     }
     const incarnationId =
       exitIncarnationId ??
+      options.expectedIncarnationId ??
       pty?.incarnationId ??
       `runtime:${this.runtimeId}:${this.getPtyLifecycleGeneration(ptyId)}`
     const exitingLifecycleGeneration = this.getPtyLifecycleGeneration(ptyId)
@@ -13176,6 +13266,22 @@ export class OrcaRuntimeService {
         parentTabId: leaf.tabId,
         leafId: leaf.leafId
       })
+    }
+    // Why: the mounted PTY record can disappear before the mobile snapshot is retired; the snapshot is then the remaining surface authority.
+    for (const [worktreeId, snapshot] of this.mobileSessionTabsByWorktree) {
+      for (const tab of snapshot.tabs) {
+        if (
+          tab.type !== 'terminal' ||
+          (tab.ptyId !== ptyId && tab.parentLayout?.ptyIdsByLeafId?.[tab.leafId] !== ptyId)
+        ) {
+          continue
+        }
+        exactSurfaceByKey.set(`${worktreeId}\0${tab.parentTabId}\0${tab.leafId}`, {
+          worktreeId,
+          parentTabId: tab.parentTabId,
+          leafId: tab.leafId
+        })
+      }
     }
     const parsedPaneKey = parsePaneKey(pty?.paneKey ?? '')
     if (pty?.tabId && parsedPaneKey) {
@@ -13287,10 +13393,18 @@ export class OrcaRuntimeService {
     } else {
       // Why: permanent process exit is absence, not a starting/sleeping tab.
       // Retire before publishing so paired clients never persist a ghost.
+      const executionHostId = pty?.connectionId
+        ? this.getPtyExecutionHostId(pty)
+        : exactSurfaces[0]
+          ? this.getWorkspaceSessionHostIdForWorktree(exactSurfaces[0].worktreeId)
+          : pty
+            ? this.getPtyExecutionHostId(pty)
+            : undefined
       const durableRetirementComplete = this.retireMobileSessionSurfacesForPty(
         ptyId,
         incarnationId,
-        exactSurfaces
+        exactSurfaces,
+        executionHostId
       )
       const retirementKey = makePtyDurableRetirementKey(ptyId, incarnationId)
       if (durableRetirementComplete) {
@@ -13300,6 +13414,7 @@ export class OrcaRuntimeService {
         this.pendingPtyDurableRetirements.set(retirementKey, {
           ptyId,
           incarnationId,
+          executionHostId,
           exactSurfaces
         })
         this.schedulePendingPtyDurableRetirementRetry(retirementKey)

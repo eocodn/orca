@@ -51,6 +51,12 @@ export async function renameDurable(tmpPath: string, finalPath: string): Promise
   await syncDirectory(dirname(finalPath))
 }
 
+/** Commit an already-fsynced temp file without an event-loop gap before rename. */
+export function renameDurableSync(tmpPath: string, finalPath: string): void {
+  renameSync(tmpPath, finalPath)
+  syncDirectorySync(dirname(finalPath))
+}
+
 /** Write `payload` to `tmpPath`, fsync it, then rename onto `finalPath` and fsync the directory. */
 export async function writeFileDurable(
   tmpPath: string,

@@ -11838,6 +11838,8 @@ describe('Store host-partitioned workspace sessions', () => {
     const store = await createStore()
     store.setWorkspaceSession(makeBoundHostSession(null), 'local')
     store.setWorkspaceSession(makeBoundHostSession(null), 'ssh:ssh-1')
+    const scheduleSave = vi.spyOn(store as unknown as { scheduleSave: () => void }, 'scheduleSave')
+    const scheduleCallsBeforeBinding = scheduleSave.mock.calls.length
     const flush = vi.spyOn(store, 'flushOrThrow').mockImplementationOnce(() => {
       throw new Error('disk unavailable')
     })
@@ -11861,6 +11863,123 @@ describe('Store host-partitioned workspace sessions', () => {
     expect(
       store.getWorkspaceSession('local').tabsByWorktree['repo-1::/worktree'][0]?.ptyId
     ).toBeNull()
+    expect(scheduleSave).toHaveBeenCalledTimes(scheduleCallsBeforeBinding + 1)
+  })
+
+  it('restores the prior PTY binding in memory when rollback flush fails', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = await createStore()
+      const binding = {
+        worktreeId: 'repo-1::/worktree',
+        tabId: 'tab-1',
+        leafId: TEST_LEAF_1,
+        ptyId: 'ssh:ssh-1@@remote-pty'
+      }
+      store.setWorkspaceSession(makeBoundHostSession(null), 'ssh:ssh-1')
+      const receipt = store.persistPtyBinding(binding, 'ssh:ssh-1')
+      const flush = vi.spyOn(store, 'flushOrThrow').mockImplementation(() => {
+        throw new Error('disk unavailable')
+      })
+
+      expect(receipt.rollbackIfCurrent()).toBe(false)
+      expect(
+        store.getWorkspaceSession('ssh:ssh-1').tabsByWorktree['repo-1::/worktree'][0]?.ptyId
+      ).toBeNull()
+      flush.mockRestore()
+      vi.runOnlyPendingTimers()
+      await store.waitForPendingWrite()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries an asynchronous durable rollback after a failed retry write', async () => {
+    vi.useFakeTimers()
+    try {
+      const store = await createStore()
+      const binding = {
+        worktreeId: 'repo-1::/worktree',
+        tabId: 'tab-1',
+        leafId: TEST_LEAF_1,
+        ptyId: 'ssh:ssh-1@@remote-pty'
+      }
+      store.setWorkspaceSession(makeBoundHostSession(null), 'ssh:ssh-1')
+      const receipt = store.persistPtyBinding(binding, 'ssh:ssh-1')
+      const flush = vi.spyOn(store, 'flushOrThrow').mockImplementation(() => {
+        throw new Error('disk unavailable')
+      })
+      const asyncWrite = vi
+        .spyOn(store as unknown as { writeToDiskAsync: () => Promise<void> }, 'writeToDiskAsync')
+        .mockRejectedValueOnce(new Error('disk still unavailable'))
+        .mockResolvedValue(undefined)
+
+      expect(receipt.rollbackIfCurrent()).toBe(false)
+      flush.mockRestore()
+      vi.runOnlyPendingTimers()
+      await store.waitForPendingWrite()
+      vi.runOnlyPendingTimers()
+      await store.waitForPendingWrite()
+      expect(asyncWrite).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not let an in-flight async rename overwrite a later synchronous flush', async () => {
+    vi.resetModules()
+    let releaseRename!: () => void
+    let observeRename!: () => void
+    const renameStarted = new Promise<void>((resolve) => {
+      observeRename = resolve
+    })
+    const renameGate = new Promise<void>((resolve) => {
+      releaseRename = resolve
+    })
+    const actualFsPromises =
+      await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    vi.doMock('node:fs/promises', () => ({
+      ...actualFsPromises,
+      rename: async (...args: Parameters<typeof actualFsPromises.rename>) => {
+        observeRename()
+        await renameGate
+        return actualFsPromises.rename(...args)
+      }
+    }))
+
+    try {
+      const store = await createStore()
+      store.setWorkspaceSession({
+        ...store.getWorkspaceSession(),
+        activeWorktreeId: 'async-state'
+      })
+      const asyncWrite = (
+        store as unknown as { writeToDiskAsync: () => Promise<void> }
+      ).writeToDiskAsync()
+      const renameWasDelayed = await Promise.race([
+        renameStarted.then(() => true),
+        asyncWrite.then(() => false)
+      ])
+
+      store.setWorkspaceSession({
+        ...store.getWorkspaceSession(),
+        activeWorktreeId: 'synchronous-state'
+      })
+      store.flushOrThrow()
+      releaseRename()
+      await asyncWrite
+
+      expect(readDataFile()).toEqual(
+        expect.objectContaining({
+          workspaceSession: expect.objectContaining({ activeWorktreeId: 'synchronous-state' })
+        })
+      )
+      // The commit boundary must not yield between the generation check and rename.
+      expect(renameWasDelayed).toBe(false)
+    } finally {
+      vi.doUnmock('node:fs/promises')
+      vi.resetModules()
+    }
   })
 
   it('clears expired SSH PTY bindings from the SSH partition and legacy local copy', async () => {

@@ -1289,6 +1289,22 @@ const store = {
   getProjects: () => []
 }
 
+function authoritativeIdentityLessExit(
+  runtime: OrcaRuntimeService,
+  ptyId: string,
+  exitCode: number
+): void {
+  const incarnationId = (
+    runtime as unknown as {
+      ptysById: Map<string, { incarnationId: string | null }>
+    }
+  ).ptysById.get(ptyId)?.incarnationId
+  runtime.onPtyExit(ptyId, exitCode, undefined, {
+    authoritativeIdentityLess: true,
+    ...(incarnationId ? { expectedIncarnationId: incarnationId } : {})
+  })
+}
+
 function createRuntimeWithSshLease(
   ptyId: string,
   tabId: string,
@@ -2498,7 +2514,7 @@ describe('OrcaRuntimeService', () => {
       write: () => true,
       kill: () => false,
       stopAndWait: async (ptyId) => {
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -2774,7 +2790,7 @@ describe('OrcaRuntimeService', () => {
       leafId: HEADLESS_LEAF_ID
     })
     const expiredHandle = runtime.resolveTerminalPane(paneKey, TEST_WORKTREE_ID).handle
-    runtime.onPtyExit('pty-expired', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-expired', 0)
     const createTerminal = vi.spyOn(runtime, 'createTerminal').mockResolvedValue({
       handle: 'term-replacement',
       tabId,
@@ -2850,7 +2866,7 @@ describe('OrcaRuntimeService', () => {
       leafId: HEADLESS_LEAF_ID
     })
     const oldHandle = runtime.resolveTerminalPane(paneKey, TEST_WORKTREE_ID).handle
-    runtime.onPtyExit('pty-old', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-old', 0)
     runtime.registerPty('pty-new', TEST_WORKTREE_ID, null, {
       tabId,
       leafId: HEADLESS_LEAF_ID
@@ -2873,7 +2889,7 @@ describe('OrcaRuntimeService', () => {
       leafId: HEADLESS_LEAF_ID
     })
     const expiredHandle = runtime.resolveTerminalPane(paneKey, TEST_WORKTREE_ID).handle
-    runtime.onPtyExit('pty-expired', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-expired', 0)
     let finishCreate!: (result: RuntimeTerminalCreate) => void
     const pendingCreate = new Promise<RuntimeTerminalCreate>((resolve) => {
       finishCreate = resolve
@@ -2906,7 +2922,7 @@ describe('OrcaRuntimeService', () => {
       leafId: HEADLESS_LEAF_ID
     })
     const expiredHandle = runtime.resolveTerminalPane(paneKey, TEST_WORKTREE_ID).handle
-    runtime.onPtyExit('pty-expired', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-expired', 0)
     const createTerminal = vi
       .spyOn(runtime, 'createTerminal')
       .mockRejectedValueOnce(new Error('relay_reconnecting'))
@@ -2938,7 +2954,7 @@ describe('OrcaRuntimeService', () => {
       leafId: HEADLESS_LEAF_ID
     })
     const handle = runtime.resolveTerminalPane(paneKey, TEST_WORKTREE_ID).handle
-    runtime.onPtyExit('pty-terminated', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-terminated', 0)
     const createTerminal = vi.spyOn(runtime, 'createTerminal')
 
     await expect(runtime.recoverTerminalPane(paneKey, TEST_WORKTREE_ID, handle)).rejects.toThrow(
@@ -8347,7 +8363,7 @@ describe('OrcaRuntimeService', () => {
 
       runtime.onPtyData(ptyId, '\x1b]0;Codex working\x07', 100)
       runtime.onPtyData(ptyId, 'output without a title\r\n', 101)
-      runtime.onPtyExit(ptyId, 0)
+      authoritativeIdentityLessExit(runtime, ptyId, 0)
 
       await vi.advanceTimersByTimeAsync(4_000)
 
@@ -10221,7 +10237,7 @@ describe('OrcaRuntimeService', () => {
     const runtime = new OrcaRuntimeService(store)
     runtime.preparePtyExecutionContext('pty-reused', 'Ubuntu', { resetIncarnation: true })
     runtime.registerPty('pty-reused', TEST_WORKTREE_ID)
-    runtime.onPtyExit('pty-reused', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-reused', 0)
 
     runtime.preparePtyExecutionContext('pty-reused', null, { resetIncarnation: true })
     runtime.registerPty('pty-reused', TEST_WORKTREE_ID)
@@ -11475,7 +11491,7 @@ describe('OrcaRuntimeService', () => {
 
     const status = runtime.getTerminalAgentStatus(handle)
     await vi.waitFor(() => expect(confirmForegroundProcess).toHaveBeenCalledWith('pty-1'))
-    runtime.onPtyExit('pty-1', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-1', 0)
     confirmation.resolve('codex')
 
     await expect(status).rejects.toThrow('terminal_exited')
@@ -13690,7 +13706,7 @@ describe('OrcaRuntimeService', () => {
     const { handle } = await runtime.createTerminal(`path:${TEST_WORKTREE_PATH}`)
 
     const waiting = runtime.waitForTerminal(handle, { condition: 'exit', timeoutMs: 1000 })
-    runtime.onPtyExit('pty-bg', 7)
+    authoritativeIdentityLessExit(runtime, 'pty-bg', 7)
 
     await expect(waiting).resolves.toMatchObject({
       handle,
@@ -13765,7 +13781,7 @@ describe('OrcaRuntimeService', () => {
     const { handle } = await runtime.createTerminal(`path:${TEST_WORKTREE_PATH}`)
 
     const waiting = runtime.waitForSetupTerminalCompletion(handle)
-    runtime.onPtyExit('pty-legacy-setup', 9)
+    authoritativeIdentityLessExit(runtime, 'pty-legacy-setup', 9)
 
     await expect(waiting).resolves.toEqual({ exitCode: 9 })
   })
@@ -13821,7 +13837,7 @@ describe('OrcaRuntimeService', () => {
       tail: expect.arrayContaining(['line-0'])
     })
 
-    runtime.onPtyExit('pty-bg', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-bg', 0)
 
     const pty = (
       runtime as unknown as {
@@ -13871,7 +13887,7 @@ describe('OrcaRuntimeService', () => {
       const { handle } = await runtime.createTerminal(`path:${TEST_WORKTREE_PATH}`)
       handles.push(handle)
       runtime.onPtyData(`pty-bg-${index}`, `wrote /tmp/result-${index}.json\n`, 100 + index)
-      runtime.onPtyExit(`pty-bg-${index}`, 0)
+      authoritativeIdentityLessExit(runtime, `pty-bg-${index}`, 0)
     }
 
     const internals = runtime as unknown as {
@@ -15063,7 +15079,7 @@ describe('OrcaRuntimeService', () => {
     runtime.syncWindowGraph(1, { tabs: [], leaves: [] })
     const { handle } = await runtime.createTerminal(`path:${TEST_WORKTREE_PATH}`)
     revealTerminalSession.mockClear()
-    runtime.onPtyExit('pty-bg', 0)
+    authoritativeIdentityLessExit(runtime, 'pty-bg', 0)
 
     await expect(runtime.focusTerminal(handle)).rejects.toThrow('terminal_exited')
     expect(revealTerminalSession).not.toHaveBeenCalled()
@@ -15185,7 +15201,7 @@ describe('OrcaRuntimeService', () => {
 
     const [terminal] = (await runtime.listTerminals()).terminals
     const waitPromise = runtime.waitForTerminal(terminal.handle, { timeoutMs: 1000 })
-    runtime.onPtyExit('pty-1', 7)
+    authoritativeIdentityLessExit(runtime, 'pty-1', 7)
 
     await expect(waitPromise).resolves.toMatchObject({
       handle: terminal.handle,
@@ -23614,7 +23630,7 @@ describe('OrcaRuntimeService', () => {
     })
     await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
 
-    runtime.onPtyExit('daemon-pty-1', 0)
+    authoritativeIdentityLessExit(runtime, 'daemon-pty-1', 0)
 
     const result = await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
 
@@ -25679,7 +25695,7 @@ describe('OrcaRuntimeService', () => {
     })
     events.length = 0
 
-    runtime.onPtyExit('laptop-created-pty', 0)
+    authoritativeIdentityLessExit(runtime, 'laptop-created-pty', 0)
 
     expect(events).toEqual([
       expect.objectContaining({
@@ -26545,7 +26561,7 @@ describe('OrcaRuntimeService', () => {
           }
         ]
       })
-      runtime.onPtyExit(ptyId, -1)
+      authoritativeIdentityLessExit(runtime, ptyId, -1)
 
       runtime.syncWindowGraph(1, {
         tabs: [],
@@ -26957,7 +26973,7 @@ describe('OrcaRuntimeService', () => {
         }
       ]
     })
-    runtime.onPtyExit(ptyId, 0)
+    authoritativeIdentityLessExit(runtime, ptyId, 0)
     runtime.syncWindowGraph(1, {
       tabs: [],
       leaves: [],
@@ -27577,7 +27593,7 @@ describe('OrcaRuntimeService', () => {
     const closeTerminalTab = vi.fn(async () => {})
     let runtime!: OrcaRuntimeService
     const kill = vi.fn((closedPtyId: string) => {
-      runtime.onPtyExit(closedPtyId, 0)
+      authoritativeIdentityLessExit(runtime, closedPtyId, 0)
       return true
     })
     runtime = new OrcaRuntimeService(runtimeStore as never)
@@ -28861,7 +28877,7 @@ describe('OrcaRuntimeService', () => {
       if (!terminal || terminal.status !== 'ready') {
         throw new Error('expected a ready terminal fixture')
       }
-      runtime.onPtyExit('serve-live-1', 0)
+      authoritativeIdentityLessExit(runtime, 'serve-live-1', 0)
       processes.length = 0
 
       const result = await runtime.closeMobileSessionTab(`id:${TEST_WORKTREE_ID}`, 'host-tab', {
@@ -28990,7 +29006,7 @@ describe('OrcaRuntimeService', () => {
       // republish would re-add the dead leaf on the echoing client and feed a
       // refuse→republish→re-echo loop.
       const { runtime, getSession, kill, closeTerminal, processes } = makeSplitLeafRuntime()
-      runtime.onPtyExit('serve-right', 0)
+      authoritativeIdentityLessExit(runtime, 'serve-right', 0)
       processes.splice(1, 1)
       const events: { worktree: string }[] = []
       const unsubscribe = runtime.onMobileSessionTabsChanged((snapshot) => events.push(snapshot))
@@ -29127,7 +29143,7 @@ describe('OrcaRuntimeService', () => {
       // Seed the connected PTY record from the controller listing, then let the
       // process die: the record flips to disconnected but stays retained.
       await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
-      runtime.onPtyExit('persisted-pty', 0)
+      authoritativeIdentityLessExit(runtime, 'persisted-pty', 0)
       processes.length = 0
 
       await runtime.closeMobileSessionTab(`id:${TEST_WORKTREE_ID}`, 'host-tab', {
@@ -31581,7 +31597,7 @@ describe('OrcaRuntimeService', () => {
       write: () => true,
       kill: () => false,
       stopAndWait: async (ptyId) => {
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -32833,7 +32849,7 @@ describe('OrcaRuntimeService', () => {
         expect(opts).toEqual(
           expect.objectContaining({ keepHistory: true, deadlineMs: expect.any(Number) })
         )
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -32852,7 +32868,7 @@ describe('OrcaRuntimeService', () => {
   it('uses provider-owned worktree identity when a PTY cwd has drifted', async () => {
     const runtime = new OrcaRuntimeService(store)
     const stopAndWait = vi.fn(async (ptyId: string) => {
-      runtime.onPtyExit(ptyId, -1)
+      authoritativeIdentityLessExit(runtime, ptyId, -1)
       return true
     })
     const processLists = [
@@ -32909,7 +32925,7 @@ describe('OrcaRuntimeService', () => {
       []
     ]
     const stopAndWait = vi.fn(async (ptyId: string) => {
-      runtime.onPtyExit(ptyId, -1)
+      authoritativeIdentityLessExit(runtime, ptyId, -1)
       return true
     })
     runtime.setPtyController({
@@ -32952,7 +32968,7 @@ describe('OrcaRuntimeService', () => {
       []
     ]
     const stopAndWait = vi.fn(async (ptyId: string) => {
-      runtime.onPtyExit(ptyId, -1)
+      authoritativeIdentityLessExit(runtime, ptyId, -1)
       return true
     })
     runtime.setPtyController({
@@ -33052,7 +33068,7 @@ describe('OrcaRuntimeService', () => {
       kill: () => false,
       stopAndWait: async (ptyId) => {
         stopped.push(ptyId)
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33200,7 +33216,7 @@ describe('OrcaRuntimeService', () => {
       write: () => true,
       kill: () => false,
       stopAndWait: async (ptyId) => {
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33249,7 +33265,7 @@ describe('OrcaRuntimeService', () => {
       .mockImplementationOnce(() => initialInventory.promise)
       .mockResolvedValueOnce([])
     const stopAndWait = vi.fn(async (ptyId: string) => {
-      runtime.onPtyExit(ptyId, -1)
+      authoritativeIdentityLessExit(runtime, ptyId, -1)
       return true
     })
     runtime.setPtyController({
@@ -33284,7 +33300,7 @@ describe('OrcaRuntimeService', () => {
       kill: () => false,
       stopAndWait: async (ptyId) => {
         const result = await stop.promise
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return result
       },
       getForegroundProcess: async () => null,
@@ -33386,7 +33402,7 @@ describe('OrcaRuntimeService', () => {
       write: () => true,
       kill: () => false,
       stopAndWait: async (ptyId) => {
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33453,7 +33469,7 @@ describe('OrcaRuntimeService', () => {
       write: () => true,
       kill: () => false,
       stopAndWait: async (ptyId) => {
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33497,11 +33513,11 @@ describe('OrcaRuntimeService', () => {
         if (failedAttempts === 1) {
           throw new Error('stop failed')
         }
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       }
       const stopped = await secondStop.promise
-      runtime.onPtyExit(ptyId, -1)
+      authoritativeIdentityLessExit(runtime, ptyId, -1)
       return stopped
     })
     runtime.setPtyController({
@@ -33556,7 +33572,7 @@ describe('OrcaRuntimeService', () => {
       stopAndWait: async (ptyId, opts) => {
         stopped.push(ptyId)
         expect(opts).toEqual({ keepHistory: true })
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33610,7 +33626,7 @@ describe('OrcaRuntimeService', () => {
       kill: () => false,
       stopAndWait: async (ptyId) => {
         stopped.push(ptyId)
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33710,7 +33726,7 @@ describe('OrcaRuntimeService', () => {
       kill: () => false,
       stopAndWait: async (ptyId) => {
         stopped.push(ptyId)
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33778,7 +33794,7 @@ describe('OrcaRuntimeService', () => {
       stopAndWait: async (ptyId, opts) => {
         stopped.push(ptyId)
         expect(opts).toEqual({ keepHistory: true })
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33844,7 +33860,7 @@ describe('OrcaRuntimeService', () => {
       kill: () => false,
       stopAndWait: async (ptyId) => {
         stopped.push(ptyId)
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -33898,7 +33914,7 @@ describe('OrcaRuntimeService', () => {
       kill: () => false,
       stopAndWait: async (ptyId) => {
         stopped.push(ptyId)
-        runtime.onPtyExit(ptyId, -1)
+        authoritativeIdentityLessExit(runtime, ptyId, -1)
         return true
       },
       getForegroundProcess: async () => null,
@@ -43375,7 +43391,7 @@ describe('OrcaRuntimeService', () => {
       }
       const firstIncarnation = (await runtime.inspectTerminal(handle)).processIncarnation
 
-      runtime.onPtyExit('pty-legacy-control', 0)
+      authoritativeIdentityLessExit(runtime, 'pty-legacy-control', 0)
       const syntheticIncarnation = runtime.registerPty(
         'pty-legacy-control',
         TEST_WORKTREE_ID,
@@ -43423,7 +43439,7 @@ describe('OrcaRuntimeService', () => {
         throw new Error('expected terminal handle')
       }
 
-      runtime.onPtyExit('pty-legacy-late-exit', 0)
+      authoritativeIdentityLessExit(runtime, 'pty-legacy-late-exit', 0)
       runtime.registerPty('pty-legacy-late-exit', TEST_WORKTREE_ID, null, {
         tabId: 'tab-1',
         leafId: 'pane:1',

@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SshRelaySession } from './ssh-relay-session'
 import { createMockDeps, mockDeploySuccess } from './ssh-relay-session-test-fixtures'
 
-const { acceptOutputExitMock, muxRequestMock } = vi.hoisted(() => ({
+const { acceptOutputExitMock, muxRequestMock, ptyStateTokens } = vi.hoisted(() => ({
   acceptOutputExitMock: vi.fn().mockResolvedValue(undefined),
-  muxRequestMock: vi.fn()
+  muxRequestMock: vi.fn(),
+  ptyStateTokens: new Map<string, symbol>()
 }))
 
 vi.mock('./ssh-relay-deploy', () => ({ deployAndLaunchRelay: vi.fn() }))
@@ -71,6 +72,17 @@ vi.mock('../ipc/pty', () => ({
   unregisterSshPtyProvider: vi.fn(),
   getSshPtyProvider: vi.fn().mockReturnValue({ dispose: vi.fn() }),
   getPtyIdsForConnection: vi.fn().mockReturnValue([]),
+  getPtyIncarnation: vi.fn(() => undefined),
+  getPtyStateToken: vi.fn((id: string) => ptyStateTokens.get(id)),
+  getOrCreatePtyStateToken: vi.fn((id: string) => {
+    const current = ptyStateTokens.get(id)
+    if (current) {
+      return current
+    }
+    const created = Symbol(id)
+    ptyStateTokens.set(id, created)
+    return created
+  }),
   clearPtyOwnershipForConnection: vi.fn(),
   clearProviderPtyState: vi.fn(),
   deletePtyOwnership: vi.fn(),
@@ -96,8 +108,10 @@ vi.mock('../providers/ssh-git-dispatch', () => ({
 
 const {
   registerSshPtyProvider,
+  getSshPtyProvider,
   clearProviderPtyState,
   deletePtyOwnership,
+  getPtyIncarnation,
   getPendingPtyCleanupIncarnation,
   consumePendingPtyCleanupIfExact,
   finalizePendingPtyCleanupIfExact,
@@ -109,6 +123,7 @@ const {
 describe('SSH relay PTY incarnation exits', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ptyStateTokens.clear()
     acceptOutputExitMock.mockResolvedValue(undefined)
     muxRequestMock.mockResolvedValue([])
     mockDeploySuccess()
@@ -171,6 +186,51 @@ describe('SSH relay PTY incarnation exits', () => {
       })
     )
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
+  })
+
+  it('does not accept a legacy synthetic exit while the provider reports a same-id replacement', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      providerGeneration: number
+      ptyIncarnation: string
+      incarnationId: string
+    }) => void
+    const listProcesses = vi
+      .fn()
+      .mockResolvedValue([
+        { id: 'ssh:target-1@@pty-reused', incarnationId: 'replacement-incarnation' }
+      ])
+    vi.mocked(getSshPtyProvider).mockReturnValue({ listProcesses } as never)
+    vi.mocked(getPtyIncarnation).mockReturnValue(undefined)
+
+    onExit({
+      id: 'ssh:target-1@@pty-reused',
+      code: 0,
+      providerGeneration: 31,
+      ptyIncarnation: 'legacy:31:1:ssh:target-1@@pty-reused',
+      incarnationId: 'legacy:31:1:ssh:target-1@@pty-reused'
+    })
+
+    await vi.waitFor(() => expect(listProcesses).toHaveBeenCalledWith())
+    expect(acceptOutputExitMock).not.toHaveBeenCalled()
+    expect(clearProviderPtyState).not.toHaveBeenCalled()
+    expect(deletePtyOwnership).not.toHaveBeenCalled()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
   })
 
   it('accepts a current replacement exit while an older cleanup identity is pending', async () => {
@@ -263,6 +323,47 @@ describe('SSH relay PTY incarnation exits', () => {
       'terminated'
     )
     expect(mockWindow.webContents.send).toHaveBeenCalledWith('pty:exit', expect.anything())
+  })
+
+  it('passes the canonical incarnation to runtime when transport identity differs', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+    acceptOutputExitMock.mockRejectedValueOnce(new Error('output barrier rejected'))
+
+    onExit({
+      id: 'ssh:target-1@@pty-canonical-runtime',
+      code: 0,
+      incarnationId: 'canonical-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'transport-incarnation'
+    })
+
+    await vi.waitFor(() =>
+      expect(runtime.onPtyExit).toHaveBeenCalledWith(
+        'ssh:target-1@@pty-canonical-runtime',
+        0,
+        'canonical-incarnation'
+      )
+    )
   })
 
   it('accepts the exact cleanup exit even when the replacement incarnation is current', async () => {

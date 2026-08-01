@@ -12,7 +12,7 @@ import {
   realpathSync
 } from 'node:fs'
 import { rename, mkdir, rm, copyFile, open } from 'node:fs/promises'
-import { renameDurable, writeFileDurableSync } from './durable-file-write'
+import { renameDurableSync, writeFileDurableSync } from './durable-file-write'
 import { join, dirname, isAbsolute, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
@@ -3665,6 +3665,9 @@ export class Store {
         .then(() => this.writeToDiskAsync())
         .catch((err) => {
           console.error('[persistence] Failed to write state:', err)
+          if (!this.writesFrozen) {
+            this.scheduleSave()
+          }
         })
         .finally(() => {
           if (this.pendingWrite === next) {
@@ -3778,9 +3781,10 @@ export class Store {
       if (this.writeGeneration !== gen) {
         return
       }
-      await renameDurable(tmpFile, dataFile)
+      // Why: the commit must not yield after the generation check; flushOrThrow is synchronous and cannot await an in-flight rename.
+      renameDurableSync(tmpFile, dataFile)
       renamed = true
-      // Why re-check gen: a sync flush during the rename await may have written fresher state; don't record a stale hash over it.
+      // Why re-check gen: retain the newer hash if a future synchronous caller changes the generation after this commit.
       if (this.writeGeneration === gen) {
         this.lastWrittenStateHash = stateHash
       }
@@ -6326,6 +6330,9 @@ export class Store {
         this.flushOrThrow()
       } catch (err) {
         restoreSession()
+        if (!this.writesFrozen) {
+          this.scheduleSave()
+        }
         throw err
       }
       const sessionAfterBinding = cloneWorkspaceSessionState(
@@ -6343,7 +6350,11 @@ export class Store {
             this.flushOrThrow()
             return true
           } catch {
-            assignSession(sessionAfterBinding)
+            // Why: keep memory on the pre-spawn state while the normal save queue retries the durable rollback.
+            assignSession(sessionBeforeBinding)
+            if (!this.writesFrozen) {
+              this.scheduleSave()
+            }
             return false
           }
         }
