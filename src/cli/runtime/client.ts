@@ -5,15 +5,15 @@ import {
   isOrchestrationMutation,
   orchestrationMigrationData
 } from '../../shared/orchestration-rpc-contract'
-import { parsePairingCode, type PairingOffer } from '../../shared/pairing'
+import type { PairingOffer } from '../../shared/pairing'
 import { launchOrcaApp } from './launch'
 import { getDefaultUserDataPath, readMetadata } from './metadata'
 import { getCliStatus, resolveDesktopWindowStatus } from './status'
 import { sendRequest } from './transport'
 import { RuntimeClientError, RuntimeRpcFailureError, type RuntimeRpcSuccess } from './types'
 import type { sendWebSocketRequest } from './websocket-transport'
-import { markEnvironmentUsed, resolveEnvironmentPairingOffer } from './environments'
-import { resolveRuntimeClientExecutionHostId } from './execution-host'
+import { markEnvironmentUsed } from './environments'
+import { resolveRuntimeClientSelection } from './execution-host'
 import { attachMutationRecovery } from './mutation-recovery'
 import { describeRuntimeCompatBlock, evaluateRuntimeCompat } from '../../shared/protocol-compat'
 import {
@@ -41,6 +41,7 @@ async function loadSendWebSocketRequest(): Promise<typeof sendWebSocketRequest> 
 }
 
 export class RuntimeClient {
+  readonly executionHostId: 'local' | `runtime:${string}` | null
   private readonly userDataPath: string
   private readonly requestTimeoutMs: number
   private readonly remotePairing: PairingOffer | null
@@ -63,19 +64,17 @@ export class RuntimeClient {
     this.userDataPath = userDataPath
     this.requestTimeoutMs = requestTimeoutMs
     this.environmentSelector = environmentSelector
-    this.remotePairing = resolveRemotePairing(userDataPath, remotePairingCode, environmentSelector)
+    const selection = resolveRuntimeClientSelection(
+      userDataPath,
+      remotePairingCode,
+      environmentSelector
+    )
+    this.remotePairing = selection.pairing
+    this.executionHostId = selection.executionHostId
   }
 
   get isRemote(): boolean {
     return this.remotePairing !== null
-  }
-
-  get executionHostId(): 'local' | `runtime:${string}` | null {
-    return resolveRuntimeClientExecutionHostId(
-      this.userDataPath,
-      this.remotePairing !== null,
-      this.environmentSelector
-    )
   }
 
   async call<TResult>(
@@ -304,31 +303,4 @@ function throwDesktopActivationBlocked(): never {
     'desktop_activation_blocked',
     'Orca is running headlessly, but it cannot open a desktop window safely because the persistent terminal provider is unavailable. Quit Orca normally and start the app again; do not use open -n.'
   )
-}
-
-function resolveRemotePairing(
-  userDataPath: string,
-  pairingCode: string | null,
-  environmentSelector: string | null
-): PairingOffer | null {
-  if (pairingCode && environmentSelector) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      'Use either --pairing-code or --environment, not both.'
-    )
-  }
-  if (environmentSelector) {
-    return resolveEnvironmentPairingOffer(userDataPath, environmentSelector)
-  }
-  if (!pairingCode) {
-    return null
-  }
-  const pairing = parsePairingCode(pairingCode)
-  if (!pairing) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      'Invalid remote pairing code. Expected an orca://pair?... URL or bare pairing payload.'
-    )
-  }
-  return pairing
 }

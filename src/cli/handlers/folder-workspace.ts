@@ -16,7 +16,7 @@ function getCreationOperationId(ctx: HandlerContext): string {
   const value = getRequiredStringFlag(ctx.flags, 'operation-id').trim()
   if (value.length === 0 || value.length > 256) {
     throw new RuntimeClientError(
-      'invalid_args',
+      'invalid_argument',
       'Flag --operation-id must be between 1 and 256 non-whitespace characters.'
     )
   }

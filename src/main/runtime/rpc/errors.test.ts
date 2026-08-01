@@ -24,6 +24,25 @@ describe('mapRuntimeError', () => {
       error: { code }
     })
   })
+
+  it.each([
+    'folder_workspace_path_missing',
+    'folder_workspace_path_not_directory',
+    'folder_workspace_path_unavailable',
+    'folder_workspace_connection_ambiguous'
+  ])(
+    'preserves the stable folder workspace error code %s when the message carries a path',
+    (code) => {
+      const message = `${code}:/workspace/private`
+
+      expect(
+        mapRuntimeError('req_1', { runtimeId: 'runtime-1' }, new Error(message))
+      ).toMatchObject({
+        ok: false,
+        error: { code, message }
+      })
+    }
+  )
   it.each(['terminal_tab_close_timeout', 'terminal_tab_not_found', 'terminal_tab_pinned'])(
     'preserves the durable terminal tab close failure %s',
     (code) => {

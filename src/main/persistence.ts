@@ -245,6 +245,7 @@ import { persistedUIValuesEqual } from '../shared/persisted-ui-equality'
 import { ActiveViewPreference } from './active-view-preference'
 import {
   normalizeFolderWorkspaceName,
+  normalizeFolderWorkspaceOperationId,
   normalizeFolderWorkspaces
 } from '../shared/folder-workspaces'
 import {
@@ -4140,10 +4141,7 @@ export class Store {
     pendingFirstAgentMessageRename?: boolean
     operationId?: string
   }): FolderWorkspace {
-    const operationId = input.operationId?.trim()
-    if (input.operationId !== undefined && (!operationId || operationId.length > 256)) {
-      throw new Error('folder_workspace_operation_id_invalid')
-    }
+    const operationId = normalizeFolderWorkspaceOperationId(input.operationId)
     const group = (this.state.projectGroups ?? []).find(
       (entry) => entry.id === input.projectGroupId
     )

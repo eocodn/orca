@@ -12,6 +12,17 @@ export function normalizeFolderWorkspaceName(
   return trimmed.length > 0 ? trimmed : fallback
 }
 
+export function normalizeFolderWorkspaceOperationId(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  const operationId = value.trim()
+  if (!operationId || operationId.length > 256) {
+    throw new Error('folder_workspace_operation_id_invalid')
+  }
+  return operationId
+}
+
 export function normalizeFolderWorkspaceLinkedTask(
   value: unknown
 ): FolderWorkspaceLinkedTask | null {

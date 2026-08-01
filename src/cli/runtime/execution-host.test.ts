@@ -1,23 +1,29 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const { resolveEnvironment } = vi.hoisted(() => ({
-  resolveEnvironment: vi.fn(() => ({ id: 'stable-environment' }))
+const { resolveEnvironment, getPreferredPairingOffer } = vi.hoisted(() => ({
+  resolveEnvironment: vi.fn(() => ({ id: 'stable-environment' })),
+  getPreferredPairingOffer: vi.fn(() => ({ endpoint: 'wss://old-runtime.example' }))
 }))
 
 vi.mock('./environments', () => ({ resolveEnvironment }))
+vi.mock('../../shared/runtime-environments', () => ({ getPreferredPairingOffer }))
 
-import { resolveRuntimeClientExecutionHostId } from './execution-host'
+import { resolveRuntimeClientSelection } from './execution-host'
 
-describe('resolveRuntimeClientExecutionHostId', () => {
-  it('separates a saved host identity from runtime incarnation identity', () => {
-    expect(resolveRuntimeClientExecutionHostId('/data', true, 'gpu')).toBe(
-      'runtime:stable-environment'
-    )
-    expect(resolveEnvironment).toHaveBeenCalledWith('/data', 'gpu')
+describe('resolveRuntimeClientSelection', () => {
+  it('atomically binds a saved host identity to its selected pairing endpoint', () => {
+    expect(resolveRuntimeClientSelection('/data', null, 'gpu')).toEqual({
+      pairing: { endpoint: 'wss://old-runtime.example' },
+      executionHostId: 'runtime:stable-environment'
+    })
+    expect(resolveEnvironment).toHaveBeenCalledTimes(1)
+    expect(getPreferredPairingOffer).toHaveBeenCalledWith({ id: 'stable-environment' })
   })
 
   it('does not manufacture a stable host identity from a raw pairing session', () => {
-    expect(resolveRuntimeClientExecutionHostId('/data', true, null)).toBeNull()
-    expect(resolveRuntimeClientExecutionHostId('/data', false, null)).toBe('local')
+    expect(resolveRuntimeClientSelection('/data', null, null)).toEqual({
+      pairing: null,
+      executionHostId: 'local'
+    })
   })
 })

@@ -134,6 +134,8 @@ describe('orca folder-workspace CLI', () => {
 
     expect(process.exitCode).toBe(1)
     expect(callMock).not.toHaveBeenCalled()
+    const output = JSON.parse(String(vi.mocked(console.log).mock.calls[0][0]))
+    expect(output.error.code).toBe('invalid_argument')
   })
 
   it('inspects a workspace on the selected remote runtime', async () => {

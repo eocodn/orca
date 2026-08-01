@@ -18,6 +18,7 @@ services:
       - config/vitest.config.ts
       - src/cli/handlers/folder-workspace.test.ts
       - src/cli/runtime/execution-host.test.ts
+      - src/shared/folder-workspaces.test.ts
       - src/cli/args.test.ts
       - src/cli/registry-parity.test.ts
       - src/cli/handler-group-manifest.test.ts
@@ -54,7 +55,7 @@ services:
       - 10m
       - sh
       - -euc
-      - pnpm exec oxfmt --check src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/folder-workspace.ts src/main/persistence.ts src/main/persistence.test.ts src/main/runtime/orca-runtime.ts src/main/runtime/rpc/methods/folder-workspace.ts src/main/runtime/rpc/methods/repo.test.ts src/shared/folder-workspaces.ts src/shared/types.ts && pnpm exec oxlint src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/folder-workspace.ts src/shared/folder-workspaces.ts
+      - pnpm exec oxfmt --check src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/folder-workspace.ts src/main/persistence.ts src/main/persistence.test.ts src/main/runtime/orca-runtime.ts src/main/runtime/rpc/errors.ts src/main/runtime/rpc/errors.test.ts src/main/runtime/rpc/methods/folder-workspace.ts src/main/runtime/rpc/methods/repo.test.ts src/shared/folder-workspaces.ts src/shared/folder-workspaces.test.ts src/shared/types.ts && pnpm exec oxlint src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/folder-workspace.ts src/main/runtime/rpc/errors.ts src/main/runtime/rpc/errors.test.ts src/shared/folder-workspaces.ts src/shared/folder-workspaces.test.ts
     init: true
     network_mode: host
 
@@ -74,7 +75,10 @@ services:
       - src/cli/runtime/mutation-recovery.ts
       - src/main/persistence.test.ts
       - src/main/persistence.ts
+      - src/main/runtime/rpc/errors.ts
+      - src/main/runtime/rpc/errors.test.ts
       - src/shared/folder-workspaces.ts
+      - src/shared/folder-workspaces.test.ts
     init: true
     network_mode: host
     profiles: [maintenance]

@@ -69,6 +69,12 @@ const RUNTIME_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
 
 const COMPUTER_PASSTHROUGH_CODES: ReadonlySet<string> = new Set(Object.values(COMPUTER_ERROR_CODES))
 const LINEAR_PASSTHROUGH_CODES: ReadonlySet<string> = new Set(LINEAR_ERROR_CODES)
+const RUNTIME_DETAIL_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
+  'folder_workspace_path_missing',
+  'folder_workspace_path_not_directory',
+  'folder_workspace_path_unavailable',
+  'folder_workspace_connection_ambiguous'
+])
 const STRUCTURED_RUNTIME_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
   'worktree_id_requires_full_path',
   'run_not_found',
@@ -164,6 +170,11 @@ export function mapRuntimeError(id: string, meta: RpcEnvelopeMeta, error: unknow
   }
   if (RUNTIME_PASSTHROUGH_CODES.has(message)) {
     return errorResponse(id, meta, message, message)
+  }
+  const detailSeparator = message.indexOf(':')
+  const detailCode = detailSeparator > 0 ? message.slice(0, detailSeparator) : ''
+  if (RUNTIME_DETAIL_PASSTHROUGH_CODES.has(detailCode)) {
+    return errorResponse(id, meta, detailCode, message)
   }
   if (message === 'invalid_terminal_send') {
     return errorResponse(id, meta, 'invalid_argument', 'Missing terminal send payload')

@@ -10,6 +10,7 @@ import {
   normalizeTerminalTitle
 } from '../../shared/agent-detection'
 import { extractOscTitleScanTail } from '../../shared/osc-title-scan-tail'
+import { normalizeFolderWorkspaceOperationId } from '../../shared/folder-workspaces'
 import { isServerDriveListRequest, listWindowsDrives } from './windows-drive-listing'
 import { extractLastOsc7Uri, extractOscScanTail } from '../daemon/osc7-uri-extraction'
 import { parseFileUriPathParts } from '../daemon/osc7-file-uri'
@@ -17254,12 +17255,14 @@ export class OrcaRuntimeService {
     if (!this.store?.createFolderWorkspace) {
       throw new Error('runtime_unavailable')
     }
+    const operationId = normalizeFolderWorkspaceOperationId(input.operationId)
+    const normalizedInput = operationId === undefined ? input : { ...input, operationId }
     // Why: a retry after success must not depend on the folder still being reachable;
     // the persisted operation binding is the authoritative completed state.
-    if (input.operationId && this.store.getFolderWorkspaceByCreationOperationId) {
-      const replay = this.store.getFolderWorkspaceByCreationOperationId(input.operationId)
+    if (operationId && this.store.getFolderWorkspaceByCreationOperationId) {
+      const replay = this.store.getFolderWorkspaceByCreationOperationId(operationId)
       if (replay) {
-        return this.store.createFolderWorkspace(input)
+        return this.store.createFolderWorkspace(normalizedInput)
       }
     }
     const projectGroups = this.store.getProjectGroups?.() ?? []
@@ -17282,7 +17285,7 @@ export class OrcaRuntimeService {
       { getSshFilesystemProvider }
     )
     assertFolderWorkspacePathUsable(status)
-    const workspace = this.store.createFolderWorkspace(input)
+    const workspace = this.store.createFolderWorkspace(normalizedInput)
     this.notifyReposChanged()
     return workspace
   }
