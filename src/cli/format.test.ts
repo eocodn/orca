@@ -149,6 +149,30 @@ describe('formatCliError', () => {
       }
     })
   })
+
+  it('preserves session persistence failure codes in JSON errors', () => {
+    const error = new RuntimeRpcFailureError({
+      id: 'req_session_flush',
+      ok: false,
+      error: {
+        code: 'persistence_writes_frozen',
+        message: 'persistence_writes_frozen'
+      },
+      _meta: { runtimeId: 'runtime-1' }
+    })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    reportCliError(error, true)
+
+    expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toMatchObject({
+      id: 'req_session_flush',
+      ok: false,
+      error: {
+        code: 'persistence_writes_frozen',
+        message: 'persistence_writes_frozen'
+      }
+    })
+  })
 })
 
 describe('formatWorktreeList', () => {

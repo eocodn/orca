@@ -17,6 +17,7 @@ services:
           src/cli/runtime/execution-host.test.ts \
           src/shared/folder-workspaces.test.ts \
           src/cli/args.test.ts \
+          src/cli/format.test.ts \
           src/cli/registry-parity.test.ts \
           src/cli/handlers/session.test.ts \
           src/cli/handler-group-manifest.test.ts \

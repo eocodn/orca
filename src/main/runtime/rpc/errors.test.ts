@@ -10,6 +10,19 @@ class LineageError extends Error {
 
 describe('mapRuntimeError', () => {
   it.each([
+    'session_revision_unavailable',
+    'session_snapshot_unstable',
+    'session_persistence_unavailable',
+    'session_flush_raced',
+    'persistence_writes_frozen'
+  ])('preserves the machine-readable session persistence failure %s', (code) => {
+    expect(mapRuntimeError('req', { runtimeId: 'runtime-1' }, new Error(code))).toMatchObject({
+      ok: false,
+      error: { code, message: code }
+    })
+  })
+
+  it.each([
     'terminal_incarnation_stale',
     'terminal_incarnation_unavailable',
     'terminal_not_running',

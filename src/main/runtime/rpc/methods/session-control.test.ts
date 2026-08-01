@@ -64,4 +64,22 @@ describe('session control RPC methods', () => {
     })
     expect(flushSession).toHaveBeenCalledOnce()
   })
+
+  it.each([
+    ['session.snapshot', 'session_snapshot_unstable', 'getSessionSnapshot'],
+    ['session.flush', 'persistence_writes_frozen', 'flushSession']
+  ] as const)('preserves %s failure code at the RPC boundary', async (method, code, operation) => {
+    const runtime = {
+      getRuntimeId: () => 'test-runtime',
+      [operation]: vi.fn().mockRejectedValue(new Error(code))
+    } as unknown as OrcaRuntimeService
+    const dispatcher = new RpcDispatcher({ runtime, methods: SESSION_CONTROL_METHODS })
+
+    const response = await dispatcher.dispatch(makeRequest(method))
+
+    expect(response).toMatchObject({
+      ok: false,
+      error: { code, message: code }
+    })
+  })
 })
