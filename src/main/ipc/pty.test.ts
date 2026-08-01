@@ -1090,10 +1090,14 @@ describe('registerPtyHandlers', () => {
   it('does not let an in-flight identity-less shutdown clear an identity-less replacement', async () => {
     const ptyId = 'identity-less-shutdown-replacement'
     const shutdownDeferred = makeDeferred()
+    let shutdownFinished = false
     const exitHandlers = new Set<
       (payload: { id: string; code: number; incarnationId?: string }) => void
     >()
-    const shutdown = vi.fn(() => shutdownDeferred.promise)
+    const shutdown = vi.fn(async () => {
+      await shutdownDeferred.promise
+      shutdownFinished = true
+    })
     const provider = createAgentClaimProvider({
       spawn: vi.fn(async () => ({ id: ptyId })),
       shutdown,
@@ -1135,6 +1139,13 @@ describe('registerPtyHandlers', () => {
     ).toHaveLength(0)
 
     shutdownDeferred.resolve()
+    await vi.waitFor(() => expect(shutdownFinished).toBe(true))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    expect(
+      mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:exit')
+    ).toHaveLength(0)
     await Promise.resolve()
     clearProviderPtyState(ptyId)
   })
@@ -8894,7 +8905,10 @@ describe('registerPtyHandlers', () => {
       | ((payload: { id: string; code: number; incarnationId?: string }) => void)
       | undefined
     const provider = createAgentClaimProvider({
-      spawn: vi.fn().mockResolvedValue({ id: ptyId, incarnationId }),
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({ id: ptyId, incarnationId })
+        .mockResolvedValueOnce({ id: ptyId }),
       shutdown: vi.fn().mockRejectedValue(new Error('shutdown response lost')),
       listProcesses: vi.fn().mockRejectedValue(new Error('provider unavailable')),
       onExit: vi.fn(
@@ -8908,7 +8922,11 @@ describe('registerPtyHandlers', () => {
     setLocalPtyProvider(provider as never)
     const runtime = {
       setPtyController: vi.fn(),
+      createPreAllocatedTerminalHandle: vi.fn(() => null),
+      preAllocateHandleForPty: vi.fn(),
+      registerPreAllocatedHandleForPty: vi.fn(),
       registerPty: vi.fn(),
+      onPtySpawned: vi.fn(),
       onPtyExit: vi.fn()
     }
     const store = {
@@ -8942,6 +8960,7 @@ describe('registerPtyHandlers', () => {
     ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
 
     clearProviderPtyState(ptyId)
+    await handlers.get('pty:spawn')!(null, { cols: 80, rows: 24 })
     exitHandler?.({ id: ptyId, code: 0, incarnationId })
 
     expect(
