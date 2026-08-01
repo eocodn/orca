@@ -3551,13 +3551,17 @@ export function registerPtyHandlers(
         payload.incarnationId &&
         cleanupPendingPtyById.get(payload.id)?.incarnationId === payload.incarnationId
       ) {
+        const currentIncarnation = ptyIncarnationById.get(payload.id)
         const cleanupPending = cleanupPendingPtyById.get(payload.id)
         restorePublicationAfterExactCleanup(
           { id: payload.id, incarnationId: payload.incarnationId },
           cleanupPending?.publicationSnapshot ?? null
         )
         cleanupPendingPtyById.delete(payload.id)
-        sendPtyExitToRenderer(payload)
+        // Why: preload pty:exit has no incarnation field, so stale cleanup must not fan out to a replacement renderer pane.
+        if (currentIncarnation === undefined || currentIncarnation === payload.incarnationId) {
+          sendPtyExitToRenderer(payload)
+        }
         return
       }
       if (!isCurrentPtyExit(payload)) {
