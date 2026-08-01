@@ -401,7 +401,7 @@ function providerGeneration(provider: IPtyProvider): number | undefined {
 
 function providerCanReconcileCleanup(pending: CleanupPendingPty, provider: IPtyProvider): boolean {
   if (pending.providerConnectionId === null) {
-    return provider === localProvider
+    return provider === localProvider && provider === pending.provider
   }
   if (pending.providerConnectionId !== undefined) {
     if (sshProviders.get(pending.providerConnectionId) !== provider) {
@@ -2062,7 +2062,8 @@ export function registerPtyHandlers(
   const cleanUpFailedFreshSpawn = async (
     provider: IPtyProvider,
     result: PtySpawnResult,
-    snapshot: PtyPublicationSnapshot | null
+    snapshot: PtyPublicationSnapshot | null,
+    runtimeExitObservedBeforeQuarantine = false
   ): Promise<void> => {
     if (result.isReattach || !result.incarnationId) {
       return
@@ -2072,7 +2073,10 @@ export function registerPtyHandlers(
       await provider.shutdown(result.id, { immediate: true })
     } catch (error) {
       console.warn('[pty] failed to prove PTY cleanup after publication failure:', error)
-      if (runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true) {
+      if (
+        runtimeExitObservedBeforeQuarantine ||
+        runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true
+      ) {
         deletePendingPtyCleanupExact(result.id, result.incarnationId)
         restorePublicationAfterExactCleanup(result, snapshot, false)
         return
@@ -2083,6 +2087,7 @@ export function registerPtyHandlers(
     }
 
     const runtimeExitObserved =
+      runtimeExitObservedBeforeQuarantine ||
       runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true
     let absent = runtimeExitObserved || provider.hasPty?.(result.id) === false
     if (!absent && provider.listProcesses) {
@@ -4796,6 +4801,12 @@ export function registerPtyHandlers(
       } catch (err) {
         bindingRollbackReceipt?.rollbackIfCurrent()
         if (rejectedRegistrationCandidate) {
+          const runtimeExitObservedBeforeQuarantine =
+            rejectedRegistrationCandidate.incarnationId !== undefined &&
+            runtime?.hasObservedExactPtyExit?.(
+              rejectedRegistrationCandidate.id,
+              rejectedRegistrationCandidate.incarnationId
+            ) === true
           runtime?.quarantinePtyAfterPublicationFailure?.(
             rejectedRegistrationCandidate.id,
             rejectedRegistrationCandidate.incarnationId
@@ -4809,7 +4820,8 @@ export function registerPtyHandlers(
             await cleanUpFailedFreshSpawn(
               provider,
               rejectedRegistrationCandidate,
-              publicationSnapshot
+              publicationSnapshot,
+              runtimeExitObservedBeforeQuarantine
             )
           }
         }
@@ -6035,6 +6047,12 @@ export function registerPtyHandlers(
       } catch (err) {
         bindingRollbackReceipt?.rollbackIfCurrent()
         if (rejectedRegistrationCandidate) {
+          const runtimeExitObservedBeforeQuarantine =
+            rejectedRegistrationCandidate.incarnationId !== undefined &&
+            runtime?.hasObservedExactPtyExit?.(
+              rejectedRegistrationCandidate.id,
+              rejectedRegistrationCandidate.incarnationId
+            ) === true
           runtime?.quarantinePtyAfterPublicationFailure?.(
             rejectedRegistrationCandidate.id,
             rejectedRegistrationCandidate.incarnationId
@@ -6048,7 +6066,8 @@ export function registerPtyHandlers(
             await cleanUpFailedFreshSpawn(
               provider,
               rejectedRegistrationCandidate,
-              publicationSnapshot
+              publicationSnapshot,
+              runtimeExitObservedBeforeQuarantine
             )
           }
         }

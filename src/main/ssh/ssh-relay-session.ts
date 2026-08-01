@@ -1411,6 +1411,9 @@ export class SshRelaySession {
         this.wakeRecovery(pendingReattach)
         return
       }
+      if (pendingCleanupIncarnation !== undefined) {
+        return
+      }
       if (!isCurrentPtyExit(payload)) {
         return
       }

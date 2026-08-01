@@ -8075,7 +8075,7 @@ describe('registerPtyHandlers', () => {
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
   })
 
-  it('rechecks the current provider after cleanup inventory awaits', async () => {
+  it('does not reconcile cleanup against a replacement local provider', async () => {
     type RuntimeSpawnController = {
       spawn(args: {
         cols: number
@@ -8096,20 +8096,8 @@ describe('registerPtyHandlers', () => {
       ]),
       authoritativeOwnerListings: false
     })
-    let releaseNewInventory!: (sessions: never[]) => void
-    const newInventory = vi.fn(
-      () => new Promise<never[]>((resolve) => (releaseNewInventory = resolve))
-    )
     const newProvider = createAgentClaimProvider({
-      listProcesses: newInventory,
-      authoritativeOwnerListings: false
-    })
-    let releaseCurrentInventory!: (sessions: never[]) => void
-    const currentInventory = vi.fn(
-      () => new Promise<never[]>((resolve) => (releaseCurrentInventory = resolve))
-    )
-    const currentProvider = createAgentClaimProvider({
-      listProcesses: currentInventory,
+      listProcesses: vi.fn(async () => []),
       authoritativeOwnerListings: false
     })
     setLocalPtyProvider(oldProvider as never)
@@ -8156,15 +8144,81 @@ describe('registerPtyHandlers', () => {
       /ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/
     )
     setLocalPtyProvider(newProvider as never)
-    await vi.waitFor(() => expect(newInventory).toHaveBeenCalledOnce())
-    setLocalPtyProvider(currentProvider as never)
-    releaseNewInventory([])
     await Promise.resolve()
     await Promise.resolve()
 
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
-    releaseCurrentInventory([])
-    await vi.waitFor(() => expect(runtime.onPtyExit).toHaveBeenCalledOnce())
+    expect(newProvider.listProcesses).not.toHaveBeenCalled()
+    await expect(controller!.spawn({ ...args, cols: 100, rows: 40 })).rejects.toThrow(
+      'pty_cleanup_pending'
+    )
+  })
+
+  it('does not treat quarantine as an observed physical PTY exit', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<unknown>
+    }
+    const sessionId = 'pty-cleanup-quarantine-is-not-exit'
+    const provider = createAgentClaimProvider({
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({ id: sessionId, incarnationId: 'inc-quarantined' })
+        .mockResolvedValueOnce({ id: sessionId, incarnationId: 'inc-replacement' }),
+      shutdown: vi.fn().mockRejectedValueOnce(new Error('shutdown response lost')),
+      listProcesses: vi.fn(async () => [
+        { id: sessionId, incarnationId: 'inc-quarantined', cwd: '/tmp', title: 'still-live' }
+      ]),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const store = {
+      persistPtyBinding: vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error('disk full')
+        })
+        .mockImplementation(() => ({ rollbackIfCurrent: vi.fn(() => true) }))
+    }
+    const runtime = new OrcaRuntimeService(null)
+    const quarantinePtyAfterPublicationFailure = vi.spyOn(
+      runtime,
+      'quarantinePtyAfterPublicationFailure'
+    )
+    const onPtyExit = vi.spyOn(runtime, 'onPtyExit')
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const args = {
+      sessionId,
+      worktreeId: 'wt-1',
+      tabId: 'tab-cleanup-quarantine',
+      leafId: '11111111-1111-4111-8111-111111111111',
+      persistHostSessionBinding: true
+    }
+
+    const controller = (runtime as unknown as { ptyController: RuntimeSpawnController })
+      .ptyController
+    await expect(controller.spawn({ ...args, cols: 90, rows: 30 })).rejects.toThrow(
+      /ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/
+    )
+    expect(quarantinePtyAfterPublicationFailure).toHaveBeenCalledWith(sessionId, 'inc-quarantined')
+    await expect(controller.spawn({ ...args, cols: 100, rows: 40 })).rejects.toThrow(
+      'pty_cleanup_pending'
+    )
+    expect(onPtyExit).not.toHaveBeenCalled()
   })
 
   it('persists the final synthetic incarnation before completing a same-id replacement', async () => {

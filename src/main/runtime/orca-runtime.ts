@@ -2772,6 +2772,8 @@ export class OrcaRuntimeService {
   private terminalTopologyRevisionByRepoId = new Map<string, number>()
   // Why: provider exit can beat surface registration; that exact dead incarnation must never publish.
   private earlyExitedPtyIncarnations = new Map<string, PtyIncarnationId | null>()
+  // Why: publication quarantine also disconnects the model, so only provider exit may set this marker.
+  private observedPtyExitIncarnations = new Map<string, PtyIncarnationId>()
   private pendingPtyRegistrationIncarnations = new Map<string, PtyIncarnationId | null>()
   private headlessPtyIncarnationById = new Map<string, PtyIncarnationId>()
   private ptyInventoryOverlapGraceById = new Map<string, PtyIncarnationId | null>()
@@ -9060,11 +9062,13 @@ export class OrcaRuntimeService {
   }
 
   hasObservedExactPtyExit(ptyId: string, incarnationId: PtyIncarnationId): boolean {
+    if (this.observedPtyExitIncarnations.get(ptyId) === incarnationId) {
+      return true
+    }
     if (this.earlyExitedPtyIncarnations.get(ptyId) === incarnationId) {
       return true
     }
-    const pty = this.ptysById.get(ptyId)
-    return Boolean(pty && pty.incarnationId === incarnationId && !pty.connected)
+    return false
   }
 
   private assertPtyDidNotExitBeforeRegistration(
@@ -13014,6 +13018,9 @@ export class OrcaRuntimeService {
         (exitIncarnationId === undefined && pty?.connected === false))
     if (exitMatchesUnadmittedReplacement) {
       this.earlyExitedPtyIncarnations.set(ptyId, pendingIncarnation)
+      if (exitIncarnationId) {
+        this.observedPtyExitIncarnations.set(ptyId, exitIncarnationId)
+      }
       return
     }
     if (exitIncarnationId === undefined && pty?.incarnationId) {
@@ -13025,6 +13032,9 @@ export class OrcaRuntimeService {
     const headlessIncarnation = this.headlessPtyIncarnationById.get(ptyId)
     if (exitIncarnationId && headlessIncarnation && exitIncarnationId !== headlessIncarnation) {
       return
+    }
+    if (exitIncarnationId) {
+      this.observedPtyExitIncarnations.set(ptyId, exitIncarnationId)
     }
     this.headlessPtyIncarnationById.delete(ptyId)
     this.rendererGraphLivenessBlockedPtys.add(ptyId)
