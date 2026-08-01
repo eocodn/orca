@@ -290,10 +290,15 @@ type PtyPublicationSnapshot = Readonly<{
   size: { cols: number; rows: number } | undefined
 }>
 type CleanupPendingPty = Readonly<{
+  provider: IPtyProvider
+  providerConnectionId: string | null | undefined
   incarnationId: string
   publicationSnapshot: PtyPublicationSnapshot | null
 }>
 const cleanupPendingPtyById = new Map<string, CleanupPendingPty>()
+let pendingPtyCleanupFinalizer:
+  | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => void)
+  | null = null
 
 export function getPendingPtyCleanupIncarnation(id: string): string | undefined {
   return cleanupPendingPtyById.get(id)?.incarnationId
@@ -309,6 +314,94 @@ export function consumePendingPtyCleanupIfExact(payload: {
   }
   cleanupPendingPtyById.delete(payload.id)
   return true
+}
+
+function providerConnectionId(provider: IPtyProvider): string | null | undefined {
+  if (provider === localProvider) {
+    return null
+  }
+  for (const [connectionId, registeredProvider] of sshProviders) {
+    if (registeredProvider === provider) {
+      return connectionId
+    }
+  }
+  return undefined
+}
+
+function providerCanReconcileCleanup(pending: CleanupPendingPty, provider: IPtyProvider): boolean {
+  if (pending.provider === provider) {
+    return true
+  }
+  if (pending.providerConnectionId === null) {
+    return provider === localProvider
+  }
+  if (pending.providerConnectionId !== undefined) {
+    return sshProviders.get(pending.providerConnectionId) === provider
+  }
+  return false
+}
+
+async function providerProvesPtyIncarnationAbsent(
+  provider: IPtyProvider,
+  id: string,
+  incarnationId: string
+): Promise<boolean> {
+  try {
+    const sessions = await provider.listProcesses()
+    const matchingSessions = sessions.filter((session) => session.id === id)
+    if (matchingSessions.length === 0) {
+      return true
+    }
+    // Why: a listing without identity proof cannot distinguish a failed PTY from a reused id.
+    return !matchingSessions.some(
+      (session) => session.incarnationId === undefined || session.incarnationId === incarnationId
+    )
+  } catch (error) {
+    if (provider.probePtyLiveness) {
+      try {
+        return (await provider.probePtyLiveness(id)) === false
+      } catch (probeError) {
+        console.warn('[pty] pending cleanup liveness probe failed:', probeError)
+      }
+    }
+    console.warn('[pty] pending cleanup inventory unavailable:', error)
+    return false
+  }
+}
+
+export async function reconcilePendingPtyCleanup(
+  provider: IPtyProvider,
+  id: string
+): Promise<boolean> {
+  const pending = cleanupPendingPtyById.get(id)
+  if (!pending || !providerCanReconcileCleanup(pending, provider)) {
+    return false
+  }
+  if (!pendingPtyCleanupFinalizer) {
+    return false
+  }
+  if (!(await providerProvesPtyIncarnationAbsent(provider, id, pending.incarnationId))) {
+    return false
+  }
+  if (!consumePendingPtyCleanupIfExact({ id, incarnationId: pending.incarnationId })) {
+    return false
+  }
+  pendingPtyCleanupFinalizer(
+    { id, incarnationId: pending.incarnationId },
+    pending.publicationSnapshot
+  )
+  return true
+}
+
+function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
+  if (cleanupPendingPtyById.size === 0) {
+    return
+  }
+  void Promise.all(
+    Array.from(cleanupPendingPtyById, ([id]) => reconcilePendingPtyCleanup(provider, id))
+  ).catch((error) => {
+    console.warn('[pty] pending cleanup reconciliation failed:', error)
+  })
 }
 
 function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
@@ -1427,6 +1520,7 @@ export function registerSshPtyProvider(connectionId: string, provider: IPtyProvi
   if (Number.isSafeInteger(generation) && generation! > 0) {
     sshProvidersByGeneration.set(generation!, provider)
   }
+  schedulePendingPtyCleanupReconciliation(provider)
 }
 
 /** Remove an SSH PTY provider when a connection is closed. */
@@ -1872,8 +1966,13 @@ export function registerPtyHandlers(
     if (snapshot) {
       restorePtyPublication(snapshot)
     }
+    if (result.incarnationId) {
+      rememberFinalizedCleanupExit(result.id, result.incarnationId)
+    }
     runtime?.onPtyExit(result.id, -1, result.incarnationId)
   }
+
+  pendingPtyCleanupFinalizer = restorePublicationAfterExactCleanup
 
   const cleanUpFailedFreshSpawn = async (
     provider: IPtyProvider,
@@ -1889,6 +1988,8 @@ export function registerPtyHandlers(
     } catch (error) {
       console.warn('[pty] failed to prove PTY cleanup after publication failure:', error)
       cleanupPendingPtyById.set(result.id, {
+        provider,
+        providerConnectionId: providerConnectionId(provider),
         incarnationId: result.incarnationId,
         publicationSnapshot: snapshot
       })
@@ -1912,6 +2013,8 @@ export function registerPtyHandlers(
     }
     if (!absent) {
       cleanupPendingPtyById.set(result.id, {
+        provider,
+        providerConnectionId: providerConnectionId(provider),
         incarnationId: result.incarnationId,
         publicationSnapshot: snapshot
       })
@@ -3091,6 +3194,10 @@ export function registerPtyHandlers(
   }
 
   const syntheticKillExitPtyIds = new Map<string, NodeJS.Timeout>()
+  const finalizedCleanupExitPtyIds = new Map<
+    string,
+    { incarnationId: string; cleanupTimer: NodeJS.Timeout }
+  >()
   const reversibleStopOwnersByPtyId = new Map<string, number>()
 
   function rememberSyntheticKillExit(id: string): void {
@@ -3113,6 +3220,32 @@ export function registerPtyHandlers(
     }
     clearTimeout(cleanupTimer)
     syntheticKillExitPtyIds.delete(id)
+    return true
+  }
+
+  function rememberFinalizedCleanupExit(id: string, incarnationId: string): void {
+    const existing = finalizedCleanupExitPtyIds.get(id)
+    if (existing) {
+      clearTimeout(existing.cleanupTimer)
+    }
+    // Why a bounded marker: publication cleanup can finish before the provider reports the same physical exit.
+    const cleanupTimer = setTimeout(() => {
+      const current = finalizedCleanupExitPtyIds.get(id)
+      if (current?.cleanupTimer === cleanupTimer) {
+        finalizedCleanupExitPtyIds.delete(id)
+      }
+    }, SYNTHETIC_KILL_EXIT_DUPLICATE_WINDOW_MS)
+    cleanupTimer.unref?.()
+    finalizedCleanupExitPtyIds.set(id, { incarnationId, cleanupTimer })
+  }
+
+  function consumeFinalizedCleanupExit(payload: { id: string; incarnationId?: string }): boolean {
+    const finalized = finalizedCleanupExitPtyIds.get(payload.id)
+    if (!finalized || finalized.incarnationId !== payload.incarnationId) {
+      return false
+    }
+    clearTimeout(finalized.cleanupTimer)
+    finalizedCleanupExitPtyIds.delete(payload.id)
     return true
   }
 
@@ -3568,14 +3701,18 @@ export function registerPtyHandlers(
         if (cleanupPending.incarnationId !== payload.incarnationId) {
           return
         }
-        const currentIncarnation = ptyIncarnationById.get(payload.id)
         restorePublicationAfterExactCleanup(
           { id: payload.id, incarnationId: payload.incarnationId },
           cleanupPending?.publicationSnapshot ?? null
         )
         cleanupPendingPtyById.delete(payload.id)
         // Why: preload pty:exit has no incarnation field, so stale cleanup must not fan out to a replacement renderer pane.
-        if (currentIncarnation === undefined || currentIncarnation === payload.incarnationId) {
+        const currentAfterCleanup = ptyIncarnationById.get(payload.id)
+        const pendingAfterCleanup = pendingPtyIncarnationById.get(payload.id)
+        if (
+          pendingAfterCleanup === undefined &&
+          (currentAfterCleanup === undefined || currentAfterCleanup === payload.incarnationId)
+        ) {
           sendPtyExitToRenderer(payload)
         }
         return
@@ -3584,6 +3721,10 @@ export function registerPtyHandlers(
         return
       }
       if (consumeSyntheticKillExit(payload.id)) {
+        return
+      }
+      if (consumeFinalizedCleanupExit(payload)) {
+        sendPtyExitToRenderer(payload)
         return
       }
       if (!isLocalProvider) {
@@ -3597,6 +3738,7 @@ export function registerPtyHandlers(
   }
 
   bindProviderListeners()
+  schedulePendingPtyCleanupReconciliation(localProvider)
   rebindProviderListeners = bindProviderListeners
 
   // Why: one persistent listener with a request-ID dispatch table instead of one per call, so concurrent serialize requests don't trip Node's MaxListeners=10 warning.

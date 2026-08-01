@@ -1390,22 +1390,19 @@ export class SshRelaySession {
       ) {
         return
       }
+      const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
+      if (pendingCleanupIncarnation !== undefined) {
+        if (payload.incarnationId !== pendingCleanupIncarnation) {
+          return
+        }
+        void this.acceptPtyExit(payload).catch(() => {})
+        return
+      }
       const pendingReattach = this.pendingPtyReattaches.get(payload.id)
       if (pendingReattach && !pendingReattach.activated) {
         // Why: attach response and exit can share one transport batch, before incarnation restoration runs.
         pendingReattach.exits.push(payload)
         this.wakeRecovery(pendingReattach)
-        return
-      }
-      const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
-      if (
-        pendingCleanupIncarnation !== undefined &&
-        payload.incarnationId === pendingCleanupIncarnation
-      ) {
-        void this.acceptPtyExit(payload).catch(() => {})
-        return
-      }
-      if (pendingCleanupIncarnation !== undefined) {
         return
       }
       if (!isCurrentPtyExit(payload)) {
@@ -1681,12 +1678,20 @@ export class SshRelaySession {
     ) {
       return
     }
-    await acceptSshPtyOutputExit({
-      id: payload.id,
-      code: payload.code,
-      providerGeneration: payload.providerGeneration,
-      ptyIncarnation: payload.ptyIncarnation
-    })
+    try {
+      await acceptSshPtyOutputExit({
+        id: payload.id,
+        code: payload.code,
+        providerGeneration: payload.providerGeneration,
+        ptyIncarnation: payload.ptyIncarnation
+      })
+    } catch (error) {
+      if (pendingCleanupIncarnation !== undefined && consumePendingPtyCleanupIfExact(payload)) {
+        // Why: the exact provider exit is authoritative for releasing the tombstone even when renderer delivery is canceled.
+        return
+      }
+      throw error
+    }
     if (pendingCleanupIncarnation !== undefined && !consumePendingPtyCleanupIfExact(payload)) {
       return
     }

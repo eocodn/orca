@@ -230,6 +230,7 @@ import {
   getLocalPtyProvider,
   isCurrentPtyExit,
   restorePtyIncarnation,
+  reconcilePendingPtyCleanup,
   type PrepareCodexSessionResume
 } from './pty'
 import { resetMacosLoginShellPreflightForTests } from '../providers/macos-tcc-login-shell'
@@ -7726,6 +7727,266 @@ describe('registerPtyHandlers', () => {
       rows: 40
     })
     expect(provider.spawn).toHaveBeenCalledTimes(3)
+  })
+
+  it('does not publish failed incarnation exit while a replacement is staged', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<unknown>
+    }
+    const sessionId = 'pty-cleanup-staged-replacement'
+    let spawnCount = 0
+    let exitHandler:
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null = null
+    const shutdownRejectors: ((error: Error) => void)[] = []
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({
+        id: sessionId,
+        incarnationId: `inc-staged-${++spawnCount}`
+      })),
+      shutdown: vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            shutdownRejectors.push(reject)
+          })
+      ),
+      onExit: vi.fn(
+        (handler: (payload: { id: string; code: number; incarnationId?: string }) => void) => {
+          exitHandler = handler
+          return () => {}
+        }
+      ),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const store = {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    }
+    let controller: RuntimeSpawnController | null = null
+    const runtime = {
+      setPtyController: vi.fn((value) => {
+        controller = value
+      }),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_cleanup_staged'),
+      preAllocateHandleForPty: vi.fn(() => 'term_cleanup_staged'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const args = {
+      sessionId,
+      worktreeId: 'wt-1',
+      tabId: 'tab-cleanup-staged',
+      leafId: '11111111-1111-4111-8111-111111111111',
+      persistHostSessionBinding: true
+    }
+    const spawnController = controller as unknown as RuntimeSpawnController
+
+    const firstSpawn = spawnController.spawn({ ...args, cols: 90, rows: 30 })
+    await vi.waitFor(() => expect(provider.spawn).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(shutdownRejectors).toHaveLength(1))
+    const replacementSpawn = spawnController.spawn({
+      ...args,
+      tabId: 'tab-cleanup-staged-replacement',
+      cols: 100,
+      rows: 40
+    })
+    await vi.waitFor(() => expect(provider.spawn).toHaveBeenCalledTimes(2))
+    await vi.waitFor(() => expect(shutdownRejectors).toHaveLength(2))
+
+    shutdownRejectors[0]?.(new Error('shutdown response lost'))
+    const emitExit = exitHandler as
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null
+    if (!emitExit) {
+      throw new Error('expected provider exit listener')
+    }
+    emitExit({ id: sessionId, code: 0, incarnationId: 'inc-staged-1' })
+
+    expect(
+      mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:exit')
+    ).toHaveLength(0)
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+
+    shutdownRejectors[1]?.(new Error('replacement cleanup response lost'))
+    await Promise.allSettled([firstSpawn, replacementSpawn])
+  })
+
+  it('reconciles a pending cleanup from authoritative provider absence', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<{ id: string; incarnationId?: string }>
+    }
+    const sessionId = 'pty-cleanup-reconcile'
+    const provider = createAgentClaimProvider({
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({ id: sessionId, incarnationId: 'inc-reconcile-failed' })
+        .mockResolvedValueOnce({ id: sessionId, incarnationId: 'inc-reconcile-live' }),
+      shutdown: vi.fn(async () => {
+        throw new Error('shutdown response lost')
+      }),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const store = {
+      persistPtyBinding: vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error('disk full')
+        })
+        .mockImplementation(() => ({ rollbackIfCurrent: vi.fn(() => true) }))
+    }
+    let controller: RuntimeSpawnController | null = null
+    const runtime = {
+      setPtyController: vi.fn((value) => {
+        controller = value
+      }),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_cleanup_reconcile'),
+      preAllocateHandleForPty: vi.fn(() => 'term_cleanup_reconcile'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const args = {
+      sessionId,
+      worktreeId: 'wt-1',
+      tabId: 'tab-cleanup-reconcile',
+      leafId: '11111111-1111-4111-8111-111111111111',
+      persistHostSessionBinding: true
+    }
+    const spawnController = controller as unknown as RuntimeSpawnController
+
+    await expect(spawnController.spawn({ ...args, cols: 90, rows: 30 })).rejects.toThrow(
+      /ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/
+    )
+    await expect(reconcilePendingPtyCleanup(provider as never, sessionId)).resolves.toBe(true)
+    await expect(spawnController.spawn({ ...args, cols: 100, rows: 40 })).resolves.toEqual({
+      id: sessionId,
+      incarnationId: 'inc-reconcile-live'
+    })
+    expect(runtime.onPtyExit).toHaveBeenCalledWith(sessionId, -1, 'inc-reconcile-failed')
+  })
+
+  it('does not deliver a duplicate runtime exit after exact cleanup finalization', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<unknown>
+    }
+    const sessionId = 'pty-cleanup-no-duplicate-exit'
+    let exitHandler:
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null = null
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({ id: sessionId, incarnationId: 'inc-no-duplicate' })),
+      shutdown: vi.fn(async () => {}),
+      onExit: vi.fn(
+        (handler: (payload: { id: string; code: number; incarnationId?: string }) => void) => {
+          exitHandler = handler
+          return () => {}
+        }
+      )
+    })
+    setLocalPtyProvider(provider as never)
+    const runtime = {
+      setPtyController: vi.fn(),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_cleanup_no_duplicate'),
+      preAllocateHandleForPty: vi.fn(() => 'term_cleanup_no_duplicate'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    const store = {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as RuntimeSpawnController
+
+    await expect(
+      controller.spawn({
+        cols: 90,
+        rows: 30,
+        sessionId,
+        worktreeId: 'wt-1',
+        tabId: 'tab-cleanup-no-duplicate',
+        leafId: '11111111-1111-4111-8111-111111111111',
+        persistHostSessionBinding: true
+      })
+    ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+    expect(runtime.onPtyExit).toHaveBeenCalledTimes(1)
+    expect(runtime.onPtyExit).toHaveBeenLastCalledWith(sessionId, -1, 'inc-no-duplicate')
+
+    const emitExit = exitHandler as
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null
+    if (!emitExit) {
+      throw new Error('expected provider exit listener')
+    }
+    emitExit({ id: sessionId, code: 0, incarnationId: 'inc-no-duplicate' })
+
+    expect(runtime.onPtyExit).toHaveBeenCalledTimes(1)
+    expect(runtime.onPtyExit).toHaveBeenLastCalledWith(sessionId, -1, 'inc-no-duplicate')
   })
 
   it('persists the final synthetic incarnation before completing a same-id replacement', async () => {

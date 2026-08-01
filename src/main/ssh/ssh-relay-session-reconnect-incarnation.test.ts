@@ -129,7 +129,10 @@ const {
   getSshPtyProvider,
   getPtyIdsForConnection,
   setPtyOwnership,
-  restorePtyIncarnation
+  restorePtyIncarnation,
+  getPendingPtyCleanupIncarnation,
+  consumePendingPtyCleanupIfExact,
+  isCurrentPtyExit
 } = await import('../ipc/pty')
 const { deployAndLaunchRelay } = await import('./ssh-relay-deploy')
 
@@ -172,6 +175,9 @@ function emitExitDuringAttach(payload: {
 describe('SshRelaySession reconnect incarnation ordering', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue(undefined)
+    vi.mocked(consumePendingPtyCleanupIfExact).mockReturnValue(false)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
     muxInstances.splice(0)
     delete process.env.ORCA_FEATURE_REMOTE_AGENT_HOOKS
     muxRequestMock.mockReset()
@@ -424,6 +430,61 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
     expect(vi.mocked(mockStore.persistPtyBinding).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(mockStore.markSshRemotePtyLease).mock.invocationCallOrder[0]!
     )
+  })
+
+  it('consumes exact cleanup while reattach is pending without terminating replacement state', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
+    const attachResult = {
+      incarnationId: 'incarnation-replacement',
+      sourceActivationLease: { commit: vi.fn(), rollback: vi.fn() }
+    }
+    let resolveAttach!: (result: typeof attachResult) => void
+    const attachForReconnect = vi.fn(
+      () => new Promise<typeof attachResult>((resolve) => (resolveAttach = resolve))
+    )
+    vi.mocked(getSshPtyProvider).mockReturnValue({
+      attachForReconnect,
+      dispose: vi.fn()
+    } as unknown as ReturnType<typeof getSshPtyProvider>)
+    vi.mocked(mockStore.getSshRemotePtyLeases).mockReturnValue([detachedLease()] as ReturnType<
+      typeof mockStore.getSshRemotePtyLeases
+    >)
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue('failed-incarnation')
+    vi.mocked(consumePendingPtyCleanupIfExact).mockReturnValue(true)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(false)
+    const runtime = { onPtyExit: vi.fn(), registerPty: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+
+    const establish = session.establish(mockConn)
+    await vi.waitFor(() =>
+      expect(attachForReconnect).toHaveBeenCalledWith('pty-live', expect.anything())
+    )
+    emitExitDuringAttach({
+      id: APP_PTY_ID,
+      code: 0,
+      incarnationId: 'failed-incarnation'
+    })
+    await vi.waitFor(() => expect(acceptOutputExitMock).toHaveBeenCalled())
+    resolveAttach(attachResult)
+    await establish
+
+    expect(consumePendingPtyCleanupIfExact).toHaveBeenCalledWith(
+      expect.objectContaining({ id: APP_PTY_ID, incarnationId: 'failed-incarnation' })
+    )
+    expect(attachResult.sourceActivationLease.commit).toHaveBeenCalledOnce()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    expect(mockStore.markSshRemotePtyLease).not.toHaveBeenCalledWith(
+      'target-1',
+      'pty-live',
+      'terminated'
+    )
+    expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
   })
 
   it('does not restore a PTY whose matching exit shares the attach reply batch', async () => {
