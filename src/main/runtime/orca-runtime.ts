@@ -2698,6 +2698,10 @@ async function hasLocalWorktreeBaseRef(
   )
 }
 
+function makePtyDurableRetirementKey(ptyId: string, incarnationId: PtyIncarnationId): string {
+  return JSON.stringify([ptyId, incarnationId])
+}
+
 export class OrcaRuntimeService {
   private readonly runtimeId = randomUUID()
   private readonly startedAt = Date.now()
@@ -2778,6 +2782,7 @@ export class OrcaRuntimeService {
   private pendingPtyDurableRetirements = new Map<
     string,
     {
+      ptyId: string
       incarnationId: PtyIncarnationId
       exactSurfaces: readonly Pick<
         RetiredTerminalSurface,
@@ -2787,7 +2792,6 @@ export class OrcaRuntimeService {
   >()
   private pendingPtyDurableRetirementRetryAttempts = new Map<string, number>()
   private pendingPtyDurableRetirementRetryScheduled = new Set<string>()
-  private readonly pendingPtyDurableRetirementMaxRetries = 3
   private pendingPtyRegistrationIncarnations = new Map<string, PtyIncarnationId | null>()
   private headlessPtyIncarnationById = new Map<string, PtyIncarnationId>()
   private ptyInventoryOverlapGraceById = new Map<string, PtyIncarnationId | null>()
@@ -6530,19 +6534,20 @@ export class OrcaRuntimeService {
   private schedulePendingPtyDurableRetirementRetry(retirementKey: string): void {
     if (
       !this.pendingPtyDurableRetirements.has(retirementKey) ||
-      this.pendingPtyDurableRetirementRetryScheduled.has(retirementKey) ||
-      (this.pendingPtyDurableRetirementRetryAttempts.get(retirementKey) ?? 0) >=
-        this.pendingPtyDurableRetirementMaxRetries
+      this.pendingPtyDurableRetirementRetryScheduled.has(retirementKey)
     ) {
       return
     }
     this.pendingPtyDurableRetirementRetryScheduled.add(retirementKey)
-    setTimeout(() => {
+    const attempts = this.pendingPtyDurableRetirementRetryAttempts.get(retirementKey) ?? 0
+    const retryDelayMs = attempts === 0 ? 0 : Math.min(100 * 2 ** Math.min(attempts - 1, 6), 5_000)
+    const retryTimer = setTimeout(() => {
       this.pendingPtyDurableRetirementRetryScheduled.delete(retirementKey)
       if (this.pendingPtyDurableRetirements.has(retirementKey)) {
         this.retryPendingPtyDurableRetirement(retirementKey)
       }
-    }, 0)
+    }, retryDelayMs)
+    retryTimer.unref?.()
   }
 
   private retryPendingPtyDurableRetirement(retirementKey: string): void {
@@ -6551,21 +6556,27 @@ export class OrcaRuntimeService {
       this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
       return
     }
+    const currentPty = this.ptysById.get(pending.ptyId)
+    if (
+      currentPty?.incarnationId !== undefined &&
+      currentPty.incarnationId !== pending.incarnationId
+    ) {
+      // Why: an old durable retry may discover the same pane already admitted to a newer PTY lifecycle; removing its surface would retire the replacement.
+      this.pendingPtyDurableRetirements.delete(retirementKey)
+      this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
+      return
+    }
     const attempts = (this.pendingPtyDurableRetirementRetryAttempts.get(retirementKey) ?? 0) + 1
     this.pendingPtyDurableRetirementRetryAttempts.set(retirementKey, attempts)
     if (
       this.retireMobileSessionSurfacesForPty(
-        retirementKey.slice(0, retirementKey.indexOf('\0')),
+        pending.ptyId,
         pending.incarnationId,
         pending.exactSurfaces
       )
     ) {
       this.pendingPtyDurableRetirements.delete(retirementKey)
       this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
-      return
-    }
-    if (attempts >= this.pendingPtyDurableRetirementMaxRetries) {
-      console.error('[runtime] durable retirement retries exhausted:', retirementKey)
       return
     }
     this.schedulePendingPtyDurableRetirementRetry(retirementKey)
@@ -6624,11 +6635,17 @@ export class OrcaRuntimeService {
       if (acceptedSurfaces.length === 0) {
         return true
       }
+      const sessionBeforeRetirement = structuredClone(session)
       try {
         this.store.setWorkspaceSession(nextSession)
         this.store.flushOrThrow()
       } catch (error) {
         console.error('[runtime] failed to persist terminal retirement:', error)
+        try {
+          this.store.setWorkspaceSession(sessionBeforeRetirement)
+        } catch (rollbackError) {
+          console.error('[runtime] failed to roll back terminal retirement:', rollbackError)
+        }
         return false
       }
       // Why: one repo epoch can cover multiple exits, but only surfaces individually accepted by persistence may disappear.
@@ -13102,7 +13119,7 @@ export class OrcaRuntimeService {
       return
     }
     if (exitIncarnationId) {
-      const retirementKey = `${ptyId}\0${exitIncarnationId}`
+      const retirementKey = makePtyDurableRetirementKey(ptyId, exitIncarnationId)
       if (this.pendingPtyDurableRetirements.has(retirementKey)) {
         this.retryPendingPtyDurableRetirement(retirementKey)
         return
@@ -13275,12 +13292,13 @@ export class OrcaRuntimeService {
         incarnationId,
         exactSurfaces
       )
-      const retirementKey = `${ptyId}\0${incarnationId}`
+      const retirementKey = makePtyDurableRetirementKey(ptyId, incarnationId)
       if (durableRetirementComplete) {
         this.pendingPtyDurableRetirements.delete(retirementKey)
         this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
       } else {
         this.pendingPtyDurableRetirements.set(retirementKey, {
+          ptyId,
           incarnationId,
           exactSurfaces
         })

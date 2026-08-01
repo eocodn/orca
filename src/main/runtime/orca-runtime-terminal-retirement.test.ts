@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { getDefaultWorkspaceSession } from '../../shared/constants'
 import type {
+  RuntimeMobileSessionTerminalTab,
   RuntimeMobileSessionTabsResult,
   RuntimeMobileSessionTabsSnapshot
 } from '../../shared/runtime-types'
@@ -34,7 +35,10 @@ function runtimeStore(
   } as never
 }
 
-function makeSplitSnapshot(): RuntimeMobileSessionTabsSnapshot {
+function makeSplitSnapshot(
+  leftPtyId = 'pty-left',
+  rightPtyId = 'pty-right'
+): RuntimeMobileSessionTabsSnapshot {
   const parentLayout = {
     root: {
       type: 'split' as const,
@@ -44,7 +48,7 @@ function makeSplitSnapshot(): RuntimeMobileSessionTabsSnapshot {
     },
     activeLeafId: 'left',
     expandedLeafId: 'left',
-    ptyIdsByLeafId: { left: 'pty-left', right: 'pty-right' }
+    ptyIdsByLeafId: { left: leftPtyId, right: rightPtyId }
   }
   return {
     worktree: WORKTREE_ID,
@@ -60,7 +64,7 @@ function makeSplitSnapshot(): RuntimeMobileSessionTabsSnapshot {
         id: 'tab::left',
         parentTabId: 'tab',
         leafId: 'left',
-        ptyId: 'pty-left',
+        ptyId: leftPtyId,
         title: 'Left',
         parentLayout,
         isActive: true
@@ -70,7 +74,7 @@ function makeSplitSnapshot(): RuntimeMobileSessionTabsSnapshot {
         id: 'tab::right',
         parentTabId: 'tab',
         leafId: 'right',
-        ptyId: 'pty-right',
+        ptyId: rightPtyId,
         title: 'Right',
         parentLayout,
         isActive: false
@@ -80,6 +84,13 @@ function makeSplitSnapshot(): RuntimeMobileSessionTabsSnapshot {
 }
 
 function syncSplit(runtime: OrcaRuntimeService, snapshot = makeSplitSnapshot()): void {
+  const findTerminalPtyId = (leafId: string): string | null | undefined =>
+    snapshot.tabs.find(
+      (tab): tab is RuntimeMobileSessionTerminalTab =>
+        tab.type === 'terminal' && tab.leafId === leafId
+    )?.ptyId
+  const leftPtyId = findTerminalPtyId('left')
+  const rightPtyId = findTerminalPtyId('right')
   runtime.syncWindowGraph(1, {
     tabs: [
       {
@@ -99,14 +110,14 @@ function syncSplit(runtime: OrcaRuntimeService, snapshot = makeSplitSnapshot()):
         worktreeId: WORKTREE_ID,
         leafId: 'left',
         paneRuntimeId: 1,
-        ptyId: 'pty-left'
+        ptyId: leftPtyId ?? 'pty-left'
       },
       {
         tabId: 'tab',
         worktreeId: WORKTREE_ID,
         leafId: 'right',
         paneRuntimeId: 2,
-        ptyId: 'pty-right'
+        ptyId: rightPtyId ?? 'pty-right'
       }
     ],
     mobileSessionTabs: [snapshot]
@@ -553,6 +564,53 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     ])
   })
 
+  it('rolls back the mutable session when a durable retirement flush fails', async () => {
+    let session = makePersistedSplitSession()
+    const originalSession = structuredClone(session)
+    const setWorkspaceSession = vi.fn((nextSession: WorkspaceSessionState) => {
+      session = nextSession
+    })
+    const flushOrThrow = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('disk unavailable')
+      })
+      .mockImplementation(() => undefined)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const runtime = new OrcaRuntimeService(
+        runtimeStore({
+          getWorkspaceSession: () => session,
+          setWorkspaceSession,
+          flushOrThrow
+        })
+      )
+      runtime.attachWindow(1)
+      syncSplit(runtime)
+      runtime.registerPty('pty-left', WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'left',
+        incarnationId: 'mutable-session-flush'
+      })
+
+      runtime.onPtyExit('pty-left', 0, 'mutable-session-flush')
+
+      expect(session.terminalLayoutsByTabId.tab).toMatchObject({
+        root: { type: 'split' },
+        ptyIdsByLeafId: { left: 'pty-left' }
+      })
+      await vi.waitFor(() => expect(flushOrThrow).toHaveBeenCalledTimes(2))
+      expect(session.terminalLayoutsByTabId.tab).toMatchObject({
+        root: { type: 'leaf', leafId: 'right' },
+        ptyIdsByLeafId: { right: 'pty-right' }
+      })
+      expect(setWorkspaceSession).toHaveBeenCalledTimes(3)
+      expect(setWorkspaceSession.mock.calls[1]?.[0]).toEqual(originalSession)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('automatically retries durable retirement after a one-shot exact exit', async () => {
     const session = makePersistedSplitSession()
     const flushOrThrow = vi
@@ -608,7 +666,7 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     expect(flushOrThrow).toHaveBeenCalledTimes(2)
   })
 
-  it('retries an old pending durable retirement before rejecting its stale exit', () => {
+  it('does not let an old pending durable retirement remove a current replacement', async () => {
     vi.useFakeTimers()
     try {
       const session = makePersistedSplitSession()
@@ -637,8 +695,108 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
       runtime.acceptPtyIncarnationForExit('pty-left', 'new-current-incarnation')
       runtime.onPtyExit('pty-left', 0, 'old-pending-incarnation')
 
-      expect(flushOrThrow).toHaveBeenCalledTimes(2)
+      expect(flushOrThrow).toHaveBeenCalledOnce()
+      await expect(runtime.listMobileSessionTabs(`id:${WORKTREE_ID}`)).resolves.toMatchObject({
+        tabs: [
+          expect.objectContaining({ id: 'tab::left', ptyId: 'pty-left' }),
+          expect.objectContaining({ id: 'tab::right', ptyId: 'pty-right' })
+        ]
+      })
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('continues durable retirement after transient failures exceed the initial retry budget', async () => {
+    vi.useFakeTimers()
+    let allowFlush = false
+    const session = makePersistedSplitSession()
+    const flushOrThrow = vi.fn(() => {
+      if (!allowFlush) {
+        throw new Error('disk unavailable')
+      }
+    })
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const runtime = new OrcaRuntimeService(
+        runtimeStore({
+          getWorkspaceSession: () => session,
+          setWorkspaceSession: vi.fn(),
+          flushOrThrow
+        })
+      )
+      runtime.attachWindow(1)
+      syncSplit(runtime)
+      runtime.registerPty('pty-left', WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'left',
+        incarnationId: 'retry-budget-incarnation'
+      })
+
+      runtime.onPtyExit('pty-left', 0, 'retry-budget-incarnation')
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(100)
+      await vi.advanceTimersByTimeAsync(200)
+      allowFlush = true
+      await vi.advanceTimersByTimeAsync(400)
+
+      expect(flushOrThrow).toHaveBeenCalledTimes(5)
+      await expect(runtime.listMobileSessionTabs(`id:${WORKTREE_ID}`)).resolves.toMatchObject({
+        tabs: [expect.objectContaining({ id: 'tab::right' })]
+      })
+    } finally {
+      vi.clearAllTimers()
+      errorSpy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps durable retirement keys distinct when ids contain the separator', () => {
+    vi.useFakeTimers()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    try {
+      const ptyIdA = 'collision\u0000left'
+      const ptyIdB = 'collision'
+      const incarnationIdA = 'right'
+      const incarnationIdB = 'left\u0000right'
+      const session = makePersistedSplitSession()
+      session.tabsByWorktree[WORKTREE_ID]![0]!.ptyId = ptyIdA
+      session.terminalLayoutsByTabId.tab.ptyIdsByLeafId = {
+        left: ptyIdA,
+        right: ptyIdB
+      }
+      const runtime = new OrcaRuntimeService(
+        runtimeStore({
+          getWorkspaceSession: () => session,
+          setWorkspaceSession: vi.fn(),
+          flushOrThrow: vi.fn(() => {
+            throw new Error('disk unavailable')
+          })
+        })
+      )
+      runtime.attachWindow(1)
+      syncSplit(runtime, makeSplitSnapshot(ptyIdA, ptyIdB))
+      runtime.registerPty(ptyIdA, WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'left',
+        incarnationId: incarnationIdA
+      })
+      runtime.registerPty(ptyIdB, WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'right',
+        incarnationId: incarnationIdB
+      })
+
+      runtime.onPtyExit(ptyIdA, 0, incarnationIdA)
+      runtime.onPtyExit(ptyIdB, 0, incarnationIdB)
+
+      const internals = runtime as unknown as {
+        pendingPtyDurableRetirements: Map<string, unknown>
+      }
+      expect(internals.pendingPtyDurableRetirements.size).toBe(2)
+    } finally {
+      vi.clearAllTimers()
+      errorSpy.mockRestore()
       vi.useRealTimers()
     }
   })

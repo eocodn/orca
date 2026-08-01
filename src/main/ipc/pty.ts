@@ -371,7 +371,7 @@ const cleanupPendingPtyById = new Map<string, Map<string | undefined, CleanupPen
 const pendingPtyCleanupRetryAttemptsById = new Map<string, number>()
 const PENDING_PTY_CLEANUP_MAX_RETRIES = 3
 let pendingPtyCleanupFinalizer:
-  | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => void)
+  | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => boolean)
   | null = null
 
 export function getPendingPtyCleanupIncarnation(id: string): string | undefined {
@@ -1111,6 +1111,11 @@ async function verifyPtyStopped(
 type PtyShutdownTarget = Readonly<{
   stateToken: symbol
   incarnationId: string | undefined
+}>
+
+type PtyShutdownObservation = Readonly<{
+  providerExitObserved: boolean
+  identityLessExitPayload?: { id: string; code: number; incarnationId?: string }
 }>
 
 function capturePtyShutdownTarget(id: string): PtyShutdownTarget {
@@ -2213,12 +2218,12 @@ export function registerPtyHandlers(
     result: PtySpawnResult,
     snapshot: PtyPublicationSnapshot | null,
     notifyRuntimeExit = true
-  ): void => {
+  ): boolean => {
     if (
       snapshot?.stateToken !== undefined &&
       ptyStateTokenById.get(result.id) !== snapshot.stateToken
     ) {
-      return
+      return false
     }
     const current = ptyIncarnationById.get(result.id)
     const pending = pendingPtyIncarnationById.get(result.id)
@@ -2230,7 +2235,7 @@ export function registerPtyHandlers(
       if (pending === result.incarnationId) {
         rollbackPtyIncarnation(result.id, result.incarnationId)
       }
-      return
+      return false
     }
     clearProviderPtyState(result.id)
     ptyOwnership.delete(result.id)
@@ -2244,6 +2249,7 @@ export function registerPtyHandlers(
     if (notifyRuntimeExit) {
       runtime?.onPtyExit?.(result.id, -1, result.incarnationId)
     }
+    return true
   }
 
   pendingPtyCleanupFinalizer = restorePublicationAfterExactCleanup
@@ -3876,31 +3882,52 @@ export function registerPtyHandlers(
     cleanupSshOutputIntakeRegistry()
   }
 
-  const identityLessPtyShutdownsInFlight = new Set<string>()
+  const ptyShutdownTargetsInFlightById = new Map<string, Set<PtyShutdownTarget>>()
 
   async function shutdownProviderAndDetectExit(
     provider: IPtyProvider,
     id: string,
     opts: { immediate?: boolean; keepHistory?: boolean; deadlineMs?: number }
-  ): Promise<boolean> {
+  ): Promise<PtyShutdownObservation> {
     let providerExitObserved = false
-    const expectedIncarnationId = ptyIncarnationById.get(id)
+    let identityLessExitPayload: PtyShutdownObservation['identityLessExitPayload']
+    const expectedTarget = capturePtyShutdownTarget(id)
+    const expectedIncarnationId = expectedTarget.incarnationId
     const unsubscribe = provider.onExit((payload) => {
-      if (
-        payload.id === id &&
-        (!expectedIncarnationId || payload.incarnationId === expectedIncarnationId)
-      ) {
-        providerExitObserved = true
+      if (payload.id !== id) {
+        return
       }
+      if (expectedIncarnationId !== undefined) {
+        if (payload.incarnationId === expectedIncarnationId) {
+          providerExitObserved = true
+        }
+        return
+      }
+      if (payload.incarnationId === undefined) {
+        if (ptyStateTokenById.get(id) === expectedTarget.stateToken) {
+          providerExitObserved = true
+          identityLessExitPayload ??= payload
+        }
+        return
+      }
+      providerExitObserved = true
     })
-    identityLessPtyShutdownsInFlight.add(id)
+    const shutdownTargets = ptyShutdownTargetsInFlightById.get(id) ?? new Set()
+    shutdownTargets.add(expectedTarget)
+    ptyShutdownTargetsInFlightById.set(id, shutdownTargets)
     try {
       await provider.shutdown(id, opts)
     } finally {
-      identityLessPtyShutdownsInFlight.delete(id)
+      shutdownTargets.delete(expectedTarget)
+      if (shutdownTargets.size === 0) {
+        ptyShutdownTargetsInFlightById.delete(id)
+      }
       unsubscribe()
     }
-    return providerExitObserved
+    return {
+      providerExitObserved,
+      ...(identityLessExitPayload ? { identityLessExitPayload } : {})
+    }
   }
 
   // Why extracted: the "Restart daemon" flow rebinds against the fresh adapter after replaceDaemonProvider, sharing this code path with startup registration.
@@ -4000,11 +4027,14 @@ export function registerPtyHandlers(
         if (!cleanupPending) {
           return
         }
-        restorePublicationAfterExactCleanup(
+        const restored = restorePublicationAfterExactCleanup(
           { id: payload.id, incarnationId: payload.incarnationId },
           cleanupPending?.publicationSnapshot ?? null
         )
         deletePendingPtyCleanupExact(payload.id, payload.incarnationId)
+        if (!restored) {
+          return
+        }
         // Why: preload pty:exit has no incarnation field, so stale cleanup must not fan out to a replacement renderer pane.
         const currentAfterCleanup = ptyIncarnationById.get(payload.id)
         const pendingAfterCleanup = pendingPtyIncarnationById.get(payload.id)
@@ -4041,12 +4071,16 @@ export function registerPtyHandlers(
     }
     localExitUnsub = localProvider.onExit((payload) => {
       const incarnationId = payload.incarnationId
+      if (incarnationId === undefined) {
+        if (ptyShutdownTargetsInFlightById.has(payload.id)) {
+          // Why: an identity-less exit cannot distinguish the PTY being shut
+          // down from a same-id replacement; the shutdown's inventory proof is
+          // the only authoritative cleanup boundary while it is in flight.
+          return
+        }
+      }
       const stateToken = ptyStateTokenById.get(payload.id)
-      if (
-        !identityLessPtyShutdownsInFlight.has(payload.id) &&
-        incarnationId === undefined &&
-        stateToken !== undefined
-      ) {
+      if (incarnationId === undefined && stateToken !== undefined) {
         // Why: legacy providers omit incarnation ids, so an old exit must not retire an id-reused PTY without an authoritative absence check.
         void providerProvesPtyIncarnationAbsent(localProvider, payload.id, undefined)
           .then((absent) => {
@@ -5123,12 +5157,19 @@ export function registerPtyHandlers(
         }
         // Why: controller is synchronous, but keep ownership until async shutdown proves whether the provider emitted an exit.
         void shutdownProviderAndDetectExit(provider, ptyId, { immediate: false })
-          .then((providerExitObserved) => {
+          .then((observation) => {
             const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
             if (!finished) {
               return
             }
-            if (!providerExitObserved) {
+            if (observation.identityLessExitPayload) {
+              runtime?.onPtyExit(
+                ptyId,
+                observation.identityLessExitPayload.code,
+                observation.identityLessExitPayload.incarnationId
+              )
+              sendPtyExitToRenderer(observation.identityLessExitPayload)
+            } else if (!observation.providerExitObserved) {
               runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
               rememberSyntheticKillExit(ptyId)
               sendPtyExitToRenderer({ id: ptyId, code: -1 })
@@ -5242,9 +5283,9 @@ export function registerPtyHandlers(
         }
         return false
       }
-      let providerExitObserved = false
+      let observation: PtyShutdownObservation = { providerExitObserved: false }
       try {
-        providerExitObserved = await shutdownProviderAndDetectExit(provider, ptyId, {
+        observation = await shutdownProviderAndDetectExit(provider, ptyId, {
           immediate: true,
           keepHistory: opts?.keepHistory ?? false,
           deadlineMs
@@ -5269,14 +5310,21 @@ export function registerPtyHandlers(
         )
         return false
       }
-      if (providerExitObserved && !isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
+      if (observation.providerExitObserved && !isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
         return true
       }
       const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
       if (!finished) {
         return false
       }
-      if (!providerExitObserved) {
+      if (observation.identityLessExitPayload) {
+        runtime?.onPtyExit(
+          ptyId,
+          observation.identityLessExitPayload.code,
+          observation.identityLessExitPayload.incarnationId
+        )
+        sendPtyExitToRenderer(observation.identityLessExitPayload)
+      } else if (!observation.providerExitObserved) {
         runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
         rememberSyntheticKillExit(ptyId)
         sendPtyExitToRenderer({ id: ptyId, code: -1 })
@@ -6879,9 +6927,9 @@ export function registerPtyHandlers(
       return
     }
     const shutdownProvider = provider ?? getProviderForPty(args.id)
-    let providerExitObserved = false
+    let observation: PtyShutdownObservation = { providerExitObserved: false }
     try {
-      providerExitObserved = await shutdownProviderAndDetectExit(shutdownProvider, args.id, {
+      observation = await shutdownProviderAndDetectExit(shutdownProvider, args.id, {
         immediate: true,
         keepHistory: args.keepHistory ?? false
       })
@@ -6898,7 +6946,14 @@ export function registerPtyHandlers(
     if (!finished) {
       return
     }
-    if (!providerExitObserved) {
+    if (observation.identityLessExitPayload) {
+      runtime?.onPtyExit(
+        args.id,
+        observation.identityLessExitPayload.code,
+        observation.identityLessExitPayload.incarnationId
+      )
+      sendPtyExitToRenderer(observation.identityLessExitPayload)
+    } else if (!observation.providerExitObserved) {
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)
       rememberSyntheticKillExit(args.id)
       sendPtyExitToRenderer({ id: args.id, code: -1 })
