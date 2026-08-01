@@ -319,6 +319,7 @@ function stagePtyIncarnation(id: string, incarnationId: string | undefined): voi
 function commitPtyIncarnation(id: string, incarnationId: string | undefined): void {
   if (!incarnationId) {
     pendingPtyIncarnationById.delete(id)
+    ptyIncarnationById.delete(id)
     ptyStateTokenById.set(id, Symbol(id))
     return
   }

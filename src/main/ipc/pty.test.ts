@@ -1109,6 +1109,38 @@ describe('registerPtyHandlers', () => {
     clearProviderPtyState(ptyId)
   })
 
+  it('accepts a current identity-less exit after an identity-bearing replacement is absent', async () => {
+    const ptyId = 'identity-less-replacement-pty'
+    let exitHandler:
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | undefined
+    const provider = createAgentClaimProvider({
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({ id: ptyId, incarnationId: 'old-incarnation' })
+        .mockResolvedValueOnce({ id: ptyId }),
+      listProcesses: vi.fn(async () => []),
+      onExit: vi.fn((handler: typeof exitHandler) => {
+        exitHandler = handler
+        return () => {}
+      })
+    })
+    setLocalPtyProvider(provider as never)
+    registerPtyHandlers(mainWindow as never)
+
+    await handlers.get('pty:spawn')!(null, { cols: 80, rows: 24 })
+    await handlers.get('pty:spawn')!(null, { cols: 80, rows: 24 })
+
+    exitHandler?.({ id: ptyId, code: 18 })
+    await vi.waitFor(() =>
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:exit', {
+        id: ptyId,
+        code: 18
+      })
+    )
+    clearProviderPtyState(ptyId)
+  })
+
   it('does not select a replacement after local provider startup completes', async () => {
     const startupDeferred = makeDeferred()
     const shutdown = vi.fn(async () => undefined)
