@@ -1840,13 +1840,14 @@ export function registerPtyHandlers(
   ): void => {
     const current = ptyIncarnationById.get(result.id)
     const pending = pendingPtyIncarnationById.get(result.id)
-    const cleanupPending = cleanupPendingPtyById.get(result.id)?.incarnationId
     if (
       result.incarnationId &&
-      current !== result.incarnationId &&
-      pending !== result.incarnationId &&
-      cleanupPending !== result.incarnationId
+      ((current !== undefined && current !== result.incarnationId) ||
+        (pending !== undefined && pending !== result.incarnationId))
     ) {
+      if (pending === result.incarnationId) {
+        rollbackPtyIncarnation(result.id, result.incarnationId)
+      }
       return
     }
     clearProviderPtyState(result.id)

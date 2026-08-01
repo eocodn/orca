@@ -7710,7 +7710,10 @@ describe('registerPtyHandlers', () => {
     if (!emitExit) {
       throw new Error('expected provider exit listener')
     }
+    restorePtyIncarnation(sessionId, 'inc-cleanup-replacement')
     emitExit({ id: sessionId, code: 0, incarnationId: 'inc-cleanup-2' })
+    expect(isCurrentPtyExit({ id: sessionId, incarnationId: 'inc-cleanup-replacement' })).toBe(true)
+    expect(isCurrentPtyExit({ id: sessionId, incarnationId: 'inc-cleanup-2' })).toBe(false)
     await expect(handlers.get('pty:getSize')!(null, { id: sessionId })).resolves.toEqual({
       cols: 90,
       rows: 30
