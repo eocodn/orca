@@ -17,6 +17,7 @@ import type { DaemonEvent, DataGapEvent } from './types'
 // gate or drop caps, and drops never remove it.
 export type StreamQueueEntry = {
   sessionId: string
+  incarnationId?: string
   data: string
   /** Original PTY characters represented by data. Salvaged query copies are
    * delivered bytes but represent zero new positions in the source stream. */

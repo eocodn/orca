@@ -585,9 +585,10 @@ describe('registerPtyHandlers', () => {
   }
 
   function installDaemonTestProvider(overrides: Record<string, unknown> = {}) {
-    const spawn = vi.fn(async (options: { sessionId?: string }) => ({
-      id: options.sessionId ?? 'daemon-pty'
-    }))
+    const spawn = vi.fn(async (options: { sessionId?: string }) => {
+      const id = options.sessionId ?? 'daemon-pty'
+      return { id, incarnationId: `test-incarnation:${id}` }
+    })
     const provider = {
       spawn,
       write: vi.fn(),
@@ -618,15 +619,23 @@ describe('registerPtyHandlers', () => {
   }
 
   function installObservableDaemonTestProvider() {
-    const spawn = vi.fn(async (options: { sessionId?: string }) => ({
-      id: options.sessionId ?? 'daemon-pty'
-    }))
+    const incarnationById = new Map<string, string>()
+    const spawn = vi.fn(async (options: { sessionId?: string }) => {
+      const id = options.sessionId ?? 'daemon-pty'
+      const incarnationId = `test-incarnation:${id}`
+      incarnationById.set(id, incarnationId)
+      return { id, incarnationId }
+    })
     const write = vi.fn()
     const pauseProducer = vi.fn()
     const resumeProducer = vi.fn()
     const shutdown = vi.fn()
-    let dataHandler: ((payload: { id: string; data: string }) => void) | null = null
-    let exitHandler: ((payload: { id: string; code: number }) => void) | null = null
+    let dataHandler:
+      | ((payload: { id: string; incarnationId: string; data: string }) => void)
+      | null = null
+    let exitHandler:
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null = null
     let backgroundStreamHandler:
       | ((payload: { id: string; kind: 'dataGap'; droppedChars: number }) => void)
       | null = null
@@ -649,10 +658,12 @@ describe('registerPtyHandlers', () => {
       confirmForegroundProcess: vi.fn(),
       serialize: vi.fn(),
       revive: vi.fn(),
-      onData: vi.fn((handler: (payload: { id: string; data: string }) => void) => {
-        dataHandler = handler
-        return () => {}
-      }),
+      onData: vi.fn(
+        (handler: (payload: { id: string; incarnationId: string; data: string }) => void) => {
+          dataHandler = handler
+          return () => {}
+        }
+      ),
       onReplay: vi.fn(() => () => {}),
       onBackgroundStreamEvent: vi.fn(
         (handler: (payload: { id: string; kind: 'dataGap'; droppedChars: number }) => void) => {
@@ -666,6 +677,7 @@ describe('registerPtyHandlers', () => {
         return () => {}
       }),
       listProcesses: vi.fn(async () => []),
+      hasPty: vi.fn(() => true),
       attach: vi.fn(),
       getDefaultShell: vi.fn(),
       getProfiles: vi.fn()
@@ -677,8 +689,13 @@ describe('registerPtyHandlers', () => {
       resumeProducer,
       shutdown,
       getBufferSnapshot,
-      emitData: (id: string, data: string) => dataHandler?.({ id, data }),
-      emitExit: (id: string, code = 0) => exitHandler?.({ id, code }),
+      emitData: (id: string, data: string) => {
+        const incarnationId = incarnationById.get(id) ?? `test-incarnation:${id}`
+        incarnationById.set(id, incarnationId)
+        dataHandler?.({ id, incarnationId, data })
+      },
+      emitExit: (id: string, code = 0) =>
+        exitHandler?.({ id, code, incarnationId: incarnationById.get(id) }),
       emitDataGap: (id: string, droppedChars: number) =>
         backgroundStreamHandler?.({ id, kind: 'dataGap', droppedChars })
     }
@@ -695,6 +712,8 @@ describe('registerPtyHandlers', () => {
     livePtyIds?: ReadonlySet<string>
     spawn?: ReturnType<typeof vi.fn>
     shutdown?: ReturnType<typeof vi.fn>
+    onExit?: ReturnType<typeof vi.fn>
+    listProcesses?: ReturnType<typeof vi.fn>
     authoritativeOwnerListings?: boolean
   }) {
     return {
@@ -713,8 +732,8 @@ describe('registerPtyHandlers', () => {
       revive: vi.fn(),
       onData: vi.fn(() => () => {}),
       onReplay: vi.fn(() => () => {}),
-      onExit: vi.fn(() => () => {}),
-      listProcesses: vi.fn(async () => args.sessions ?? []),
+      onExit: args.onExit ?? vi.fn(() => () => {}),
+      listProcesses: args.listProcesses ?? vi.fn(async () => args.sessions ?? []),
       providesAgentSessionOwnerListings: vi.fn(() => args.authoritativeOwnerListings !== false),
       hasPty: vi.fn((id: string) => args.livePtyIds?.has(id) ?? false),
       attach: vi.fn(),
@@ -5970,10 +5989,11 @@ describe('registerPtyHandlers', () => {
         seq: 13,
         rawLength: 'daemon output'.length
       })
-      expect(runtime.onPtyExit).toHaveBeenCalledWith(result.id, 0, undefined)
+      expect(runtime.onPtyExit).toHaveBeenCalledWith(result.id, 0, `test-incarnation:${result.id}`)
       expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:exit', {
         id: result.id,
-        code: 0
+        code: 0,
+        incarnationId: `test-incarnation:${result.id}`
       })
     } finally {
       vi.useRealTimers()
@@ -6882,6 +6902,42 @@ describe('registerPtyHandlers', () => {
       expect(reported).toEqual({ cols: 100, rows: 30 })
     })
 
+    it('does not expose a requested size while spawn is still uncommitted', async () => {
+      let resolveSpawn!: (value: { id: string; incarnationId: string }) => void
+      const spawnResult = new Promise<{ id: string; incarnationId: string }>((resolve) => {
+        resolveSpawn = resolve
+      })
+      setLocalPtyProvider({
+        spawn: vi.fn(async () => await spawnResult),
+        write: vi.fn(),
+        resize: vi.fn(),
+        shutdown: vi.fn(),
+        onData: vi.fn(() => vi.fn()),
+        onExit: vi.fn(() => vi.fn()),
+        listProcesses: vi.fn(async () => []),
+        getForegroundProcess: vi.fn(async () => null)
+      } as never)
+      handlers.clear()
+      registerPtyHandlers(mainWindow as never)
+      const pendingSpawn = handlers.get('pty:spawn')!(null, {
+        cols: 144,
+        rows: 44,
+        sessionId: 'pty-pending-size',
+        env: {}
+      })
+
+      await Promise.resolve()
+      await expect(
+        handlers.get('pty:getSize')!(null, { id: 'pty-pending-size' })
+      ).resolves.toBeNull()
+
+      resolveSpawn({ id: 'pty-pending-size', incarnationId: 'inc-pending-size' })
+      await pendingSpawn
+      await expect(handlers.get('pty:getSize')!(null, { id: 'pty-pending-size' })).resolves.toEqual(
+        { cols: 144, rows: 44 }
+      )
+    })
+
     it('fans out accepted desktop resizes to the runtime after provider resize', async () => {
       const resize = vi.fn()
       setupProviderWithAppliedSize({ applied: { cols: 120, rows: 30 }, resize })
@@ -7491,6 +7547,178 @@ describe('registerPtyHandlers', () => {
       ptyId: expect.any(String),
       incarnationId: expect.any(String)
     })
+  })
+
+  it('rolls back a durable binding when registration fails after persistence', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<{ id: string }>
+    }
+    const rollbackIfCurrent = vi.fn(() => true)
+    const store = {
+      persistPtyBinding: vi.fn(() => ({ rollbackIfCurrent }))
+    }
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({
+        id: 'pty-post-persist-fail',
+        incarnationId: 'inc-post-persist-fail'
+      })),
+      shutdown: vi.fn(async () => {})
+    })
+    setLocalPtyProvider(provider as never)
+    let controller: RuntimeSpawnController | null = null
+    const runtime = {
+      setPtyController: vi.fn((value) => {
+        controller = value
+      }),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_post_persist_fail'),
+      preAllocateHandleForPty: vi.fn(() => 'term_post_persist_fail'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(() => {
+        throw new Error('registration failed')
+      }),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const leafId = '11111111-1111-4111-8111-111111111111'
+
+    await expect(
+      (controller as unknown as RuntimeSpawnController).spawn({
+        cols: 80,
+        rows: 24,
+        worktreeId: 'wt-1',
+        tabId: 'tab-post-persist-fail',
+        leafId,
+        persistHostSessionBinding: true
+      })
+    ).rejects.toThrow('registration failed')
+
+    expect(store.persistPtyBinding).toHaveBeenCalledOnce()
+    expect(rollbackIfCurrent).toHaveBeenCalledOnce()
+    expect(mainWindow.webContents.send).not.toHaveBeenCalledWith('pty:spawned', expect.anything())
+  })
+
+  it('restores the prior publication after quarantined same-id cleanup is proven', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<{ id: string }>
+    }
+    const sessionId = 'pty-cleanup-unknown'
+    let spawnCount = 0
+    let exitHandler:
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null = null
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({
+        id: sessionId,
+        incarnationId: `inc-cleanup-${++spawnCount}`
+      })),
+      shutdown: vi.fn(async () => {
+        throw new Error('shutdown response lost')
+      }),
+      onExit: vi.fn(
+        (handler: (payload: { id: string; code: number; incarnationId?: string }) => void) => {
+          exitHandler = handler
+          return () => {}
+        }
+      ),
+      listProcesses: vi.fn(async () => {
+        throw new Error('inventory unavailable')
+      }),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const store = {
+      persistPtyBinding: vi
+        .fn()
+        .mockImplementationOnce(() => ({ rollbackIfCurrent: vi.fn(() => true) }))
+        .mockImplementationOnce(() => {
+          throw new Error('disk full')
+        })
+        .mockImplementation(() => ({ rollbackIfCurrent: vi.fn(() => true) }))
+    }
+    let controller: RuntimeSpawnController | null = null
+    const runtime = {
+      setPtyController: vi.fn((value) => {
+        controller = value
+      }),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_cleanup_unknown'),
+      preAllocateHandleForPty: vi.fn(() => 'term_cleanup_unknown'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const args = {
+      sessionId,
+      worktreeId: 'wt-1',
+      tabId: 'tab-cleanup-unknown',
+      leafId: '11111111-1111-4111-8111-111111111111',
+      persistHostSessionBinding: true
+    }
+
+    await expect(
+      (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 90, rows: 30 })
+    ).resolves.toEqual({ id: sessionId, incarnationId: 'inc-cleanup-1' })
+    await expect(
+      (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 80, rows: 24 })
+    ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+    await expect(
+      (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 100, rows: 40 })
+    ).rejects.toThrow('pty_cleanup_pending')
+    expect(provider.spawn).toHaveBeenCalledTimes(2)
+
+    const emitExit = exitHandler as
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | null
+    if (!emitExit) {
+      throw new Error('expected provider exit listener')
+    }
+    emitExit({ id: sessionId, code: 0, incarnationId: 'inc-cleanup-2' })
+    await expect(handlers.get('pty:getSize')!(null, { id: sessionId })).resolves.toEqual({
+      cols: 90,
+      rows: 30
+    })
+    await expect(
+      (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 100, rows: 40 })
+    ).resolves.toEqual({ id: sessionId, incarnationId: 'inc-cleanup-3' })
+    expect(provider.spawn).toHaveBeenCalledTimes(3)
   })
 
   it('persists the final synthetic incarnation before completing a same-id replacement', async () => {
@@ -10929,6 +11157,7 @@ describe('registerPtyHandlers', () => {
     vi.useFakeTimers()
     type ProviderData = {
       id: string
+      incarnationId: string
       data: string
       sequenceChars?: number
       transformed?: boolean
@@ -10939,15 +11168,17 @@ describe('registerPtyHandlers', () => {
     const query = '\x1b]10;?\x1b\\\x1b]11;?\x1b\\'
     const spawn = vi.fn(async (options: { sessionId?: string; startupIngress?: unknown }) => {
       const id = options.sessionId ?? 'daemon-pty'
+      const incarnationId = `test-incarnation:${id}`
       dataHandler?.({
         id,
+        incarnationId,
         data: '',
         sequenceChars: query.length,
         transformed: true,
         seq: query.length
       })
-      dataHandler?.({ id, data: 'daemon-ready' })
-      return { id }
+      dataHandler?.({ id, incarnationId, data: 'daemon-ready' })
+      return { id, incarnationId }
     })
     setLocalPtyProvider({
       spawn,
@@ -11024,6 +11255,7 @@ describe('registerPtyHandlers', () => {
     vi.useFakeTimers()
     type ProviderData = {
       id: string
+      incarnationId: string
       data: string
       sequenceChars?: number
       transformed?: boolean
@@ -11033,9 +11265,10 @@ describe('registerPtyHandlers', () => {
       dataHandler?: (payload: ProviderData) => void
     } = {}
     const write = vi.fn()
-    const spawn = vi.fn(async (options: { sessionId?: string }) => ({
-      id: options.sessionId ?? 'daemon-pty'
-    }))
+    const spawn = vi.fn(async (options: { sessionId?: string }) => {
+      const id = options.sessionId ?? 'daemon-pty'
+      return { id, incarnationId: `test-incarnation:${id}` }
+    })
     setLocalPtyProvider({
       spawn,
       write,
@@ -11087,16 +11320,18 @@ describe('registerPtyHandlers', () => {
       })) as { id: string }
       mainWindow.webContents.send.mockClear()
 
-      providerEvents.dataHandler?.({ id: spawnResult.id, data: 'prefix' })
+      const incarnationId = `test-incarnation:${spawnResult.id}`
+      providerEvents.dataHandler?.({ id: spawnResult.id, incarnationId, data: 'prefix' })
       const query = '\x1b]10;?\x1b\\\x1b]11;?\x1b\\'
       providerEvents.dataHandler?.({
         id: spawnResult.id,
+        incarnationId,
         data: '',
         sequenceChars: query.length,
         transformed: true,
         seq: 'prefix'.length + query.length
       })
-      providerEvents.dataHandler?.({ id: spawnResult.id, data: 'ready' })
+      providerEvents.dataHandler?.({ id: spawnResult.id, incarnationId, data: 'ready' })
       vi.advanceTimersByTime(2)
 
       expect(write).not.toHaveBeenCalled()
@@ -11855,7 +12090,7 @@ describe('registerPtyHandlers', () => {
         acceptPtyDataBounded: vi.fn(
           (_id: string, _data: string, _at: number, rawLength: number) => {
             modelSequence += rawLength
-            return { sequence: modelSequence, completion: Promise.resolve() }
+            return { admitted: true, sequence: modelSequence, completion: Promise.resolve() }
           }
         )
       }
@@ -11918,6 +12153,7 @@ describe('registerPtyHandlers', () => {
         sequence += rawLength
         captures++
         return {
+          admitted: true,
           sequence,
           completion: captures === 1 ? completion.promise : Promise.resolve()
         }
@@ -11985,7 +12221,7 @@ describe('registerPtyHandlers', () => {
       getPtyOutputSequence: vi.fn(() => sequence),
       acceptPtyDataBounded: vi.fn((_id: string, _data: string, _at: number, rawLength: number) => {
         sequence += rawLength
-        return { sequence, completion: Promise.resolve() }
+        return { admitted: true, sequence, completion: Promise.resolve() }
       }),
       onPtyData: vi.fn(),
       onPtyExit: vi.fn()
@@ -12069,7 +12305,7 @@ describe('registerPtyHandlers', () => {
       expect(provider.resumeProducer).toHaveBeenCalledTimes(1)
       expect(mainWindow.webContents.send.mock.calls).toEqual([
         ['pty:data', { id: 'flood-pty', data: finalPendingData }],
-        ['pty:exit', { id: 'flood-pty', code: 0 }]
+        ['pty:exit', { id: 'flood-pty', code: 0, incarnationId: 'test-incarnation:flood-pty' }]
       ])
       expect(
         getPtyDataSendCalls().some(
@@ -12310,7 +12546,16 @@ describe('registerPtyHandlers', () => {
       expect(getPtyDataSendCalls()).toEqual([['pty:data', { id: 'send-fail-exit', data: pending }]])
       expect(
         mainWindow.webContents.send.mock.calls.filter((call) => call[0] === 'pty:exit')
-      ).toEqual([['pty:exit', { id: 'send-fail-exit', code: 7 }]])
+      ).toEqual([
+        [
+          'pty:exit',
+          {
+            id: 'send-fail-exit',
+            code: 7,
+            incarnationId: 'test-incarnation:send-fail-exit'
+          }
+        ]
+      ])
       expect(
         mainWindow.webContents.send.mock.calls.filter(
           (call) => call[0] === 'pty:modelRestoreNeeded'
@@ -12349,7 +12594,7 @@ describe('registerPtyHandlers', () => {
 
       expect(mainWindow.webContents.send.mock.calls).toEqual([
         ['pty:data', { id: 'flood-pty', data: '', droppedOutput: true }],
-        ['pty:exit', { id: 'flood-pty', code: 0 }]
+        ['pty:exit', { id: 'flood-pty', code: 0, incarnationId: 'test-incarnation:flood-pty' }]
       ])
       expect(getPtyRendererDeliveryDebugSnapshot()).toMatchObject({
         pendingPtyCount: 0,
@@ -12539,12 +12784,13 @@ describe('registerPtyHandlers', () => {
   it('forwards only newly acknowledged cumulative bytes to provider ACK backpressure', async () => {
     vi.useFakeTimers()
     const acknowledgeDataEvent = vi.fn()
+    const incarnationId = 'inc-cumulative-pty'
     const mockProc = createMockProc()
     spawnMock.mockReturnValue(mockProc.proc)
 
     try {
       setLocalPtyProvider({
-        spawn: vi.fn(async () => ({ id: 'cumulative-pty' })),
+        spawn: vi.fn(async () => ({ id: 'cumulative-pty', incarnationId })),
         write: vi.fn(),
         resize: vi.fn(),
         shutdown: vi.fn(),
@@ -12558,12 +12804,15 @@ describe('registerPtyHandlers', () => {
         serialize: vi.fn(),
         revive: vi.fn(),
         onData: vi.fn((callback) => {
-          mockProc.proc.onData((data: string) => callback({ id: 'cumulative-pty', data }))
+          mockProc.proc.onData((data: string) =>
+            callback({ id: 'cumulative-pty', incarnationId, data })
+          )
           return () => {}
         }),
         onReplay: vi.fn(() => () => {}),
         onExit: vi.fn(() => () => {}),
         listProcesses: vi.fn(async () => []),
+        hasPty: vi.fn(() => true),
         attach: vi.fn(),
         getDefaultShell: vi.fn(),
         getProfiles: vi.fn()
@@ -12993,12 +13242,13 @@ describe('registerPtyHandlers', () => {
   it('forwards only actually in-flight bytes to provider ACK backpressure', async () => {
     vi.useFakeTimers()
     const acknowledgeDataEvent = vi.fn()
+    const incarnationId = 'inc-remote-like-pty'
     const mockProc = createMockProc()
     spawnMock.mockReturnValue(mockProc.proc)
 
     try {
       setLocalPtyProvider({
-        spawn: vi.fn(async () => ({ id: 'remote-like-pty' })),
+        spawn: vi.fn(async () => ({ id: 'remote-like-pty', incarnationId })),
         write: vi.fn(),
         resize: vi.fn(),
         shutdown: vi.fn(),
@@ -13012,12 +13262,15 @@ describe('registerPtyHandlers', () => {
         serialize: vi.fn(),
         revive: vi.fn(),
         onData: vi.fn((callback) => {
-          mockProc.proc.onData((data: string) => callback({ id: 'remote-like-pty', data }))
+          mockProc.proc.onData((data: string) =>
+            callback({ id: 'remote-like-pty', incarnationId, data })
+          )
           return () => {}
         }),
         onReplay: vi.fn(() => () => {}),
         onExit: vi.fn(() => () => {}),
         listProcesses: vi.fn(async () => []),
+        hasPty: vi.fn(() => true),
         attach: vi.fn(),
         getDefaultShell: vi.fn(),
         getProfiles: vi.fn()
@@ -14148,7 +14401,8 @@ describe('registerPtyHandlers', () => {
       const spawnGate = makeDeferred()
       daemon.spawn.mockImplementation(async (options: { sessionId?: string }) => {
         await spawnGate.promise
-        return { id: options.sessionId ?? 'daemon-pty' }
+        const id = options.sessionId ?? 'daemon-pty'
+        return { id, incarnationId: `test-incarnation:${id}` }
       })
       try {
         registerPtyHandlers(mainWindow as never, runtime as never)
@@ -16057,7 +16311,7 @@ describe('registerPtyHandlers', () => {
         noteTerminalSpawnCommand: vi.fn(),
         onPtySpawned: vi.fn(),
         onPtyExit: vi.fn(),
-        onPtyData: vi.fn(),
+        onPtyData: vi.fn(() => 2_472),
         preAllocateHandleForPty: vi.fn(() => null),
         getPtyOutputSequence: vi.fn(() => 2_472),
         hasRemoteTerminalViewSubscriber: vi.fn(() => false),

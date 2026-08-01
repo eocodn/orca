@@ -768,7 +768,7 @@ export class DaemonServer {
               routedSessionId = sessionId
             },
             streamClient: {
-              onData: (data, rawLength = data.length, transformed = false, seq) => {
+              onData: (data, rawLength = data.length, transformed = false, seq, incarnationId) => {
                 // Scan BEFORE enqueue: the batcher may drop this chunk, but its facts must be captured regardless.
                 this.transientFactRelay.onSessionData(routedSessionId, data)
                 const lastInputAt = this.lastInputAtBySessionId.get(routedSessionId)
@@ -781,7 +781,8 @@ export class DaemonServer {
                   flushMaxChars: DaemonServer.INTERACTIVE_OUTPUT_MAX_CHARS,
                   rawLength,
                   transformed,
-                  seq
+                  seq,
+                  incarnationId
                 })
               },
               onExit: (code, incarnationId) => {

@@ -3,6 +3,8 @@ import { basename } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { DaemonClient } from './client'
+import { parseDaemonResizeIfCurrentResponse } from './daemon-pty-resize-response'
+import type { PtyDataEvent } from '../providers/pty-provider-events'
 import {
   getMacDaemonSystemResolverHealth,
   parseDaemonPidFile,
@@ -175,6 +177,7 @@ export class DaemonPtyAdapter implements IPtyProvider {
   private writeRecoveryAttempted = false
   private dataListeners: ((payload: {
     id: string
+    incarnationId: string
     data: string
     sequenceChars?: number
     transformed?: boolean
@@ -924,16 +927,17 @@ export class DaemonPtyAdapter implements IPtyProvider {
     cols: number,
     rows: number
   ): Promise<boolean> {
-    const response = await this.client.request<{ applied: boolean }>('resizeIfCurrent', {
+    const response = await this.client.request<unknown>('resizeIfCurrent', {
       sessionId: id,
       expectedIncarnationId,
       cols,
       rows
     })
-    if (response.applied) {
+    const applied = parseDaemonResizeIfCurrentResponse(response)
+    if (applied) {
       this.markSessionDirty(id)
     }
-    return response.applied
+    return applied
   }
 
   pauseProducer(id: string): void {
@@ -1510,15 +1514,7 @@ export class DaemonPtyAdapter implements IPtyProvider {
     return shells.filter((s) => existsSync(s)).map((s) => ({ name: basename(s), path: s }))
   }
 
-  onData(
-    callback: (payload: {
-      id: string
-      data: string
-      sequenceChars?: number
-      transformed?: boolean
-      seq?: number
-    }) => void
-  ): () => void {
+  onData(callback: (payload: PtyDataEvent) => void): () => void {
     this.dataListeners.push(callback)
     return () => {
       const idx = this.dataListeners.indexOf(callback)
@@ -2253,11 +2249,15 @@ export class DaemonPtyAdapter implements IPtyProvider {
       }
 
       if (event.event === 'data') {
+        if (!event.payload.incarnationId) {
+          return
+        }
         this.markSessionDirty(event.sessionId)
         // oxlint-disable-next-line unicorn/no-useless-spread -- copy-safe: listeners may unsubscribe during iteration
         for (const listener of [...this.dataListeners]) {
           listener({
             id: event.sessionId,
+            incarnationId: event.payload.incarnationId,
             data: event.payload.data,
             ...((event.payload.rawLength ?? event.payload.sequenceChars) === undefined
               ? {}

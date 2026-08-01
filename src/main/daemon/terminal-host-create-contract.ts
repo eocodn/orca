@@ -32,7 +32,13 @@ export type CreateOrAttachOptions = {
     surface: AgentSessionSurfaceBinding
   }
   streamClient: {
-    onData: (data: string, rawLength?: number, transformed?: boolean, seq?: number) => void
+    onData: (
+      data: string,
+      rawLength?: number,
+      transformed?: boolean,
+      seq?: number,
+      incarnationId?: string
+    ) => void
     onExit: (code: number, incarnationId: PtyIncarnationId) => void
   }
   /** Lets the daemon route output under the adopted owner's canonical id before

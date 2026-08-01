@@ -2,6 +2,7 @@ import type { TerminalGitHubPRLink } from '../../shared/terminal-github-pr-link-
 
 export type PtyDataEvent = {
   id: string
+  incarnationId: string
   data: string
   sequenceChars?: number
   transformed?: boolean

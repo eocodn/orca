@@ -133,7 +133,10 @@ export class SshPtyOutputIntake {
       let model: { admitted: boolean; sequence: number; completion: Promise<void> }
       try {
         model = this.dependencies.acceptModel(event, projection)
-        modelAdmitted = model.admitted !== false
+        if (typeof model?.admitted !== 'boolean') {
+          throw new Error('ssh_model_admission_malformed')
+        }
+        modelAdmitted = model.admitted
       } catch (error) {
         if (sourceReservation) {
           this.sourceObligations.rollback(sourceReservation)

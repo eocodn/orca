@@ -280,6 +280,7 @@ function rollbackPtyIncarnation(id: string, incarnationId: string | undefined): 
 }
 // Why: mobile clients must mirror desktop PTY geometry even before the renderer can provide an xterm snapshot (e.g. right after tab creation).
 const ptySizes = new Map<string, { cols: number; rows: number }>()
+const pendingPtySizes = new Map<string, { cols: number; rows: number }>()
 
 type PtyPublicationSnapshot = Readonly<{
   id: string
@@ -288,6 +289,11 @@ type PtyPublicationSnapshot = Readonly<{
   incarnation: string | undefined
   size: { cols: number; rows: number } | undefined
 }>
+type CleanupPendingPty = Readonly<{
+  incarnationId: string
+  publicationSnapshot: PtyPublicationSnapshot | null
+}>
+const cleanupPendingPtyById = new Map<string, CleanupPendingPty>()
 
 function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
   const size = ptySizes.get(id)
@@ -1483,6 +1489,7 @@ export function clearProviderPtyState(
   // Why: SSH exit/teardown paths bypass pty.ts's local onExit but still must release Claude account-switch guards.
   markClaudePtyExited(id)
   ptySizes.delete(id)
+  pendingPtySizes.delete(id)
   pendingPtyIncarnationById.delete(id)
   ptyIncarnationById.delete(id)
   lastInputAtByPty.delete(id)
@@ -1819,6 +1826,84 @@ export function registerPtyHandlers(
     return options?.awaitLocalPtyProviderStartup?.() ?? options?.awaitLocalPtyStartup?.()
   }
 
+  type BindingRollbackReceipt = { rollbackIfCurrent: () => boolean }
+
+  const assertPtyCleanupComplete = (ptyId: string | undefined): void => {
+    if (ptyId && cleanupPendingPtyById.has(ptyId)) {
+      throw new Error('pty_cleanup_pending')
+    }
+  }
+
+  const restorePublicationAfterExactCleanup = (
+    result: PtySpawnResult,
+    snapshot: PtyPublicationSnapshot | null
+  ): void => {
+    const current = ptyIncarnationById.get(result.id)
+    const pending = pendingPtyIncarnationById.get(result.id)
+    const cleanupPending = cleanupPendingPtyById.get(result.id)?.incarnationId
+    if (
+      result.incarnationId &&
+      current !== result.incarnationId &&
+      pending !== result.incarnationId &&
+      cleanupPending !== result.incarnationId
+    ) {
+      return
+    }
+    clearProviderPtyState(result.id)
+    ptyOwnership.delete(result.id)
+    pendingPtySizes.delete(result.id)
+    if (snapshot) {
+      restorePtyPublication(snapshot)
+    }
+    runtime?.onPtyExit(result.id, -1, result.incarnationId)
+  }
+
+  const cleanUpFailedFreshSpawn = async (
+    provider: IPtyProvider,
+    result: PtySpawnResult,
+    snapshot: PtyPublicationSnapshot | null
+  ): Promise<void> => {
+    if (result.isReattach || !result.incarnationId) {
+      return
+    }
+    pendingPtySizes.delete(result.id)
+    try {
+      await provider.shutdown(result.id, { immediate: true })
+    } catch (error) {
+      console.warn('[pty] failed to prove PTY cleanup after publication failure:', error)
+      cleanupPendingPtyById.set(result.id, {
+        incarnationId: result.incarnationId,
+        publicationSnapshot: snapshot
+      })
+      return
+    }
+
+    let absent =
+      runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true ||
+      provider.hasPty?.(result.id) === false
+    if (!absent && provider.listProcesses) {
+      try {
+        const processes = await provider.listProcesses()
+        absent = !processes.some(
+          (process) =>
+            process.id === result.id &&
+            (process.incarnationId === undefined || process.incarnationId === result.incarnationId)
+        )
+      } catch {
+        absent = false
+      }
+    }
+    if (!absent) {
+      cleanupPendingPtyById.set(result.id, {
+        incarnationId: result.incarnationId,
+        publicationSnapshot: snapshot
+      })
+      return
+    }
+    cleanupPendingPtyById.delete(result.id)
+    restorePublicationAfterExactCleanup(result, snapshot)
+  }
+
   // Remove prior handlers so re-registration (e.g. macOS re-activate creating a new window) doesn't double-register.
   ipcMain.removeHandler('pty:spawn')
   ipcMain.removeHandler('pty:kill')
@@ -1923,9 +2008,7 @@ export function registerPtyHandlers(
         ptyOwnership.delete(id)
         markClaudePtyExited(id)
         runtime?.onPtyExit(id, code, incarnationId)
-      },
-      onData: (id, data, timestamp, sequenceChars, transformed) =>
-        runtime?.onPtyData(id, data, timestamp, sequenceChars ?? data.length, transformed)
+      }
     })
   }
 
@@ -3283,7 +3366,8 @@ export function registerPtyHandlers(
         Date.now(),
         event.rawLength,
         event.transformed,
-        projection.desktopSpan ? [projection.desktopSpan] : undefined
+        projection.desktopSpan ? [projection.desktopSpan] : undefined,
+        event.ptyIncarnation
       )
     },
     project: (event, projection) =>
@@ -3381,6 +3465,7 @@ export function registerPtyHandlers(
 
   // Why extracted: the "Restart daemon" flow rebinds against the fresh adapter after replaceDaemonProvider, sharing this code path with startup registration.
   const bindProviderListeners = (): void => {
+    const isLocalProvider = localProvider instanceof LocalPtyProvider
     localDataUnsub?.()
     localExitUnsub?.()
     localBackgroundStreamUnsub?.()
@@ -3426,28 +3511,20 @@ export function registerPtyHandlers(
         runtime?.emitDaemonPtyTransientFact(payload.id, payload.fact)
       }) ?? null
 
-    // Why: daemon providers lack configure().onData, so feed the runtime here or their tail buffer (terminal.read, agent-detection, mobile stream) stays empty.
-    const isLocalProvider = localProvider instanceof LocalPtyProvider
-
     localDataUnsub = localProvider.onData((payload) => {
-      const rawLength = payload.sequenceChars ?? payload.data.length
-      if (isLocalProvider) {
-        if (
-          runtime?.acceptsPtyDataForCurrentLifecycle &&
-          !runtime.acceptsPtyDataForCurrentLifecycle(payload.id)
-        ) {
-          return
-        }
-        acceptPtyDataForRenderer(payload, runtime?.getPtyOutputSequence(payload.id))
+      if (cleanupPendingPtyById.get(payload.id)?.incarnationId === payload.incarnationId) {
         return
       }
+      const rawLength = payload.sequenceChars ?? payload.data.length
       const admission = runtime?.acceptPtyDataBounded
         ? runtime.acceptPtyDataBounded(
             payload.id,
             payload.data,
             Date.now(),
             rawLength,
-            payload.transformed
+            payload.transformed,
+            undefined,
+            payload.incarnationId
           )
         : runtime?.onPtyData
           ? {
@@ -3460,13 +3537,28 @@ export function registerPtyHandlers(
                 payload.transformed
               )
             }
-          : undefined
-      if (admission?.admitted === false) {
+          : localProvider.hasPty?.(payload.id) === true
+            ? { admitted: true, sequence: undefined }
+            : undefined
+      if (admission?.admitted !== true) {
         return
       }
       acceptPtyDataForRenderer(payload, admission?.sequence)
     })
     localExitUnsub = localProvider.onExit((payload) => {
+      if (
+        payload.incarnationId &&
+        cleanupPendingPtyById.get(payload.id)?.incarnationId === payload.incarnationId
+      ) {
+        const cleanupPending = cleanupPendingPtyById.get(payload.id)
+        restorePublicationAfterExactCleanup(
+          { id: payload.id, incarnationId: payload.incarnationId },
+          cleanupPending?.publicationSnapshot ?? null
+        )
+        cleanupPendingPtyById.delete(payload.id)
+        sendPtyExitToRenderer(payload)
+        return
+      }
       if (!isCurrentPtyExit(payload)) {
         return
       }
@@ -4004,7 +4096,10 @@ export function registerPtyHandlers(
         effectiveSessionAppId !== undefined ? ptySizes.get(effectiveSessionAppId) : undefined
       if (sessionId !== undefined) {
         spawnOptions.sessionId = sessionId
-        ptySizes.set(effectiveSessionAppId ?? sessionId, { cols: args.cols, rows: args.rows })
+        pendingPtySizes.set(effectiveSessionAppId ?? sessionId, {
+          cols: args.cols,
+          rows: args.rows
+        })
       }
       const materializedPaneKey = hostSessionBinding
         ? makePaneKey(hostSessionBinding.tabId, hostSessionBinding.leafId)
@@ -4080,6 +4175,8 @@ export function registerPtyHandlers(
       let rejectedRegistrationCandidate: PtySpawnResult | null = null
       let pendingRegistrationPtyId: string | null = null
       let preparedProvisionalExecutionContext = false
+      let bindingRollbackReceipt: BindingRollbackReceipt | null = null
+      let persistenceAttempted = false
       let releaseWorktreeSpawn: (() => void) | undefined
       try {
         releaseWorktreeSpawn = await runtime?.acquireWorktreeTerminalSpawn?.(args.worktreeId)
@@ -4089,6 +4186,7 @@ export function registerPtyHandlers(
           }
           const expectedPtyId = effectiveSessionAppId ?? sessionId
           if (expectedPtyId) {
+            assertPtyCleanupComplete(expectedPtyId)
             runtime?.beginPtyRegistration?.(expectedPtyId)
             pendingRegistrationPtyId = expectedPtyId
           }
@@ -4335,37 +4433,21 @@ export function registerPtyHandlers(
               ...(result.incarnationId ? { incarnationId: result.incarnationId } : {}),
               ...(cwd ? { startupCwd: cwd } : {})
             }
+            persistenceAttempted = true
             if (args.connectionId) {
-              hostSessionBinding.store.persistPtyBinding(
+              bindingRollbackReceipt = hostSessionBinding.store.persistPtyBinding(
                 binding,
                 toSshExecutionHostId(args.connectionId)
               )
             } else {
-              hostSessionBinding.store.persistPtyBinding(binding)
+              bindingRollbackReceipt = hostSessionBinding.store.persistPtyBinding(binding)
             }
           } catch (err) {
             console.error('[pty] failed to persist runtime PTY binding after spawn:', err)
-            if (!result.isReattach) {
-              try {
-                await provider.shutdown(result.id, { immediate: true })
-              } catch (shutdownErr) {
-                console.warn('[pty] failed to clean up PTY after persistence failure:', shutdownErr)
-              }
-              clearProviderPtyState(result.id)
-            }
-            if (publicationSnapshot) {
-              restorePtyPublication(publicationSnapshot)
-            }
             throw Object.assign(new Error(createTerminalSessionStateSaveFailureMessage()), {
               agentSessionOperationOutcome: 'unknown' as const
             })
           }
-        }
-        commitPtyIncarnation(result.id, result.incarnationId)
-        ptyOwnership.set(result.id, args.connectionId ?? null)
-        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
-        if (effectiveSessionAppId !== undefined && effectiveSessionAppId !== result.id) {
-          ptySizes.delete(effectiveSessionAppId)
         }
         recordCodexPaneAccountForSpawn({
           ptyId: result.id,
@@ -4376,7 +4458,6 @@ export function registerPtyHandlers(
           target: codexSelectionTarget,
           settings: getSettings?.()
         })
-        persistSshLease()
         if (args.preAllocatedHandle) {
           runtime?.registerPreAllocatedHandleForPty(result.id, args.preAllocatedHandle)
         }
@@ -4403,7 +4484,11 @@ export function registerPtyHandlers(
           result.incarnationId ??= registeredIncarnation ?? undefined
         } else {
           // Why: non-worktree PTYs have no later surface-registration phase to clear admission intent.
-          runtime?.cancelPendingPtyRegistration?.(result.id, result.incarnationId)
+          if (result.incarnationId) {
+            runtime?.admitHeadlessPtyLifecycle?.(result.id, result.incarnationId)
+          } else {
+            runtime?.cancelPendingPtyRegistration?.(result.id)
+          }
         }
         // Why: arms main's per-PTY Command Code output detector from the launch command (renderer startupCommand parity).
         runtime?.noteTerminalSpawnCommand?.(result.id, launchCommand ?? null)
@@ -4446,6 +4531,15 @@ export function registerPtyHandlers(
                 : null
           })
         }
+        commitPtyIncarnation(result.id, result.incarnationId)
+        ptyOwnership.set(result.id, args.connectionId ?? null)
+        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
+        pendingPtySizes.delete(result.id)
+        if (effectiveSessionAppId !== undefined && effectiveSessionAppId !== result.id) {
+          ptySizes.delete(effectiveSessionAppId)
+          pendingPtySizes.delete(effectiveSessionAppId)
+        }
+        persistSshLease()
         // Why: runtime-owned/background spawns bypass mounted-pane state, so inventory consumers need an explicit signal.
         sendPtySpawnedToRenderer(result.id)
         const response = {
@@ -4455,6 +4549,25 @@ export function registerPtyHandlers(
         }
         return resolvePaneSpawnReservation(materializedPaneKey, paneSpawnReservation, response)
       } catch (err) {
+        bindingRollbackReceipt?.rollbackIfCurrent()
+        if (persistenceAttempted && rejectedRegistrationCandidate) {
+          runtime?.quarantinePtyAfterPublicationFailure?.(
+            rejectedRegistrationCandidate.id,
+            rejectedRegistrationCandidate.incarnationId
+          )
+          if (rejectedRegistrationCandidate.isReattach) {
+            pendingPtySizes.delete(rejectedRegistrationCandidate.id)
+            if (publicationSnapshot) {
+              restorePtyPublication(publicationSnapshot)
+            }
+          } else {
+            await cleanUpFailedFreshSpawn(
+              provider,
+              rejectedRegistrationCandidate,
+              publicationSnapshot
+            )
+          }
+        }
         if (pendingRegistrationPtyId) {
           runtime?.cancelPendingPtyRegistration?.(
             pendingRegistrationPtyId,
@@ -4729,6 +4842,7 @@ export function registerPtyHandlers(
       return rendererSerializerReadiness.wait(ptyId, afterGeneration, timeoutMs, signal)
     },
     getSize: (ptyId) => ptySizes.get(ptyId) ?? null,
+    getProvisionalSize: (ptyId) => pendingPtySizes.get(ptyId) ?? null,
     getAppliedSize: async (ptyId) =>
       (await getProviderForPty(ptyId).getAppliedSize?.(ptyId)) ?? null,
     resize: (ptyId, cols, rows) => {
@@ -5231,7 +5345,7 @@ export function registerPtyHandlers(
         effectiveSessionAppId !== undefined ? ptySizes.get(effectiveSessionAppId) : undefined
       if (effectiveSessionId !== undefined) {
         // Why: daemon PTYs can emit before spawn() resolves; set real geometry now or early bytes default to 80x24 and wrap TUIs.
-        ptySizes.set(effectiveSessionAppId ?? effectiveSessionId, {
+        pendingPtySizes.set(effectiveSessionAppId ?? effectiveSessionId, {
           cols: args.cols,
           rows: args.rows
         })
@@ -5274,6 +5388,8 @@ export function registerPtyHandlers(
       let rejectedRegistrationCandidate: PtySpawnResult | null = null
       let pendingRegistrationPtyId: string | null = null
       let preparedProvisionalExecutionContext = false
+      let bindingRollbackReceipt: BindingRollbackReceipt | null = null
+      let persistenceAttempted = false
       let releaseWorktreeSpawn: (() => void) | undefined
       try {
         releaseWorktreeSpawn = await runtime?.acquireWorktreeTerminalSpawn?.(args.worktreeId)
@@ -5284,6 +5400,7 @@ export function registerPtyHandlers(
           spawnTiming.mark('options')
           const expectedPtyId = effectiveSessionAppId ?? effectiveSessionId
           if (expectedPtyId) {
+            assertPtyCleanupComplete(expectedPtyId)
             runtime?.beginPtyRegistration?.(expectedPtyId)
             pendingRegistrationPtyId = expectedPtyId
           }
@@ -5440,32 +5557,22 @@ export function registerPtyHandlers(
               ...(result.incarnationId ? { incarnationId: result.incarnationId } : {}),
               ...(cwd ? { startupCwd: cwd } : {})
             }
+            persistenceAttempted = true
             if (args.connectionId) {
-              store.persistPtyBinding(binding, toSshExecutionHostId(args.connectionId))
+              bindingRollbackReceipt = store.persistPtyBinding(
+                binding,
+                toSshExecutionHostId(args.connectionId)
+              )
             } else {
-              store.persistPtyBinding(binding)
+              bindingRollbackReceipt = store.persistPtyBinding(binding)
             }
           } catch (err) {
             console.error('[pty] failed to persist PTY binding after spawn:', err)
-            if (!result.isReattach) {
-              try {
-                await provider.shutdown(result.id, { immediate: true })
-              } catch (shutdownErr) {
-                console.warn('[pty] failed to clean up PTY after persistence failure:', shutdownErr)
-              }
-              clearProviderPtyState(result.id)
-            }
-            if (publicationSnapshot) {
-              restorePtyPublication(publicationSnapshot)
-            }
             throw Object.assign(new Error(createTerminalSessionStateSaveFailureMessage()), {
               agentSessionOperationOutcome: 'unknown' as const
             })
           }
         }
-        commitPtyIncarnation(result.id, result.incarnationId)
-        ptyOwnership.set(result.id, args.connectionId ?? null)
-        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
         recordCodexPaneAccountForSpawn({
           ptyId: result.id,
           isDaemonHostSpawn,
@@ -5475,17 +5582,6 @@ export function registerPtyHandlers(
           target: codexSelectionTarget,
           settings: getSettings?.()
         })
-        if (store && args.connectionId) {
-          store.upsertSshRemotePtyLease({
-            targetId: args.connectionId,
-            ptyId: relayResultId,
-            ...(typeof args.worktreeId === 'string' ? { worktreeId: args.worktreeId } : {}),
-            ...(typeof args.tabId === 'string' ? { tabId: args.tabId } : {}),
-            ...(validatedLeafId ? { leafId: validatedLeafId } : {}),
-            state: 'attached',
-            lastAttachedAt: Date.now()
-          })
-        }
         if (preAllocatedHandle) {
           runtime?.registerPreAllocatedHandleForPty(result.id, preAllocatedHandle)
         }
@@ -5588,7 +5684,11 @@ export function registerPtyHandlers(
           result.incarnationId ??= registeredIncarnation ?? undefined
           pendingRegistrationPtyId = null
         } else if (pendingRegistrationPtyId) {
-          runtime?.cancelPendingPtyRegistration?.(pendingRegistrationPtyId, result.incarnationId)
+          if (result.incarnationId) {
+            runtime?.admitHeadlessPtyLifecycle?.(pendingRegistrationPtyId, result.incarnationId)
+          } else {
+            runtime?.cancelPendingPtyRegistration?.(pendingRegistrationPtyId)
+          }
           pendingRegistrationPtyId = null
         }
         // Why: arm main's per-PTY Command Code output detector from the launch command (startupCommand parity); banner detection covers PTYs without one.
@@ -5644,6 +5744,21 @@ export function registerPtyHandlers(
                 : null
           })
         }
+        commitPtyIncarnation(result.id, result.incarnationId)
+        ptyOwnership.set(result.id, args.connectionId ?? null)
+        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
+        pendingPtySizes.delete(result.id)
+        if (store && args.connectionId) {
+          store.upsertSshRemotePtyLease({
+            targetId: args.connectionId,
+            ptyId: relayResultId,
+            ...(typeof args.worktreeId === 'string' ? { worktreeId: args.worktreeId } : {}),
+            ...(typeof args.tabId === 'string' ? { tabId: args.tabId } : {}),
+            ...(validatedLeafId ? { leafId: validatedLeafId } : {}),
+            state: 'attached',
+            lastAttachedAt: Date.now()
+          })
+        }
         // Why: telemetry-plan.md§Agent launch semantics — fire agent_started only after spawn resolved; safeParse each field so a spoofed IPC payload can't poison the event (missing required field skips it).
         if (args.telemetry) {
           const agentKindParse = agentKindSchema.safeParse(args.telemetry.agent_kind)
@@ -5675,6 +5790,25 @@ export function registerPtyHandlers(
         sendPtySpawnedToRenderer(result.id)
         return resolvePaneSpawnReservation(reservationPaneKey, paneSpawnReservation, response)
       } catch (err) {
+        bindingRollbackReceipt?.rollbackIfCurrent()
+        if (persistenceAttempted && rejectedRegistrationCandidate) {
+          runtime?.quarantinePtyAfterPublicationFailure?.(
+            rejectedRegistrationCandidate.id,
+            rejectedRegistrationCandidate.incarnationId
+          )
+          if (rejectedRegistrationCandidate.isReattach) {
+            pendingPtySizes.delete(rejectedRegistrationCandidate.id)
+            if (publicationSnapshot) {
+              restorePtyPublication(publicationSnapshot)
+            }
+          } else {
+            await cleanUpFailedFreshSpawn(
+              provider,
+              rejectedRegistrationCandidate,
+              publicationSnapshot
+            )
+          }
+        }
         if (pendingRegistrationPtyId) {
           runtime?.cancelPendingPtyRegistration?.(
             pendingRegistrationPtyId,

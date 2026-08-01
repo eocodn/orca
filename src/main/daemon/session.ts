@@ -92,7 +92,13 @@ export type SessionOptions = {
 
 type AttachedClient = {
   token: symbol
-  onData: (data: string, rawLength?: number, transformed?: boolean, seq?: number) => void
+  onData: (
+    data: string,
+    rawLength?: number,
+    transformed?: boolean,
+    seq?: number,
+    incarnationId?: string
+  ) => void
   onExit: (code: number, incarnationId: string) => void
 }
 
@@ -640,9 +646,9 @@ export class Session {
     // Broadcast to attached clients
     for (const client of this.attachedClients) {
       if (emission.transformed || rawLength !== data.length) {
-        client.onData(data, rawLength, true, this.outputSequence)
+        client.onData(data, rawLength, true, this.outputSequence, this.incarnationId)
       } else {
-        client.onData(data)
+        client.onData(data, undefined, undefined, undefined, this.incarnationId)
       }
     }
   }

@@ -2,6 +2,7 @@ import type { PtyIncarnationId } from '../../shared/pty-incarnation'
 
 export type DaemonPtyRouterDataEvent = {
   id: string
+  incarnationId: string
   data: string
   sequenceChars?: number
   transformed?: boolean

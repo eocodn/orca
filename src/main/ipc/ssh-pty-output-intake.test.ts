@@ -296,8 +296,7 @@ describe('SshPtyOutputIntake', () => {
   it('rolls back projection and source state when the runtime rejects lifecycle data', async () => {
     const project = vi.fn()
     const harness = createHarness({
-      acceptModel: () =>
-        ({ admitted: false, sequence: 0, completion: Promise.resolve() }) as never,
+      acceptModel: () => ({ admitted: false, sequence: 0, completion: Promise.resolve() }) as never,
       project
     })
 
@@ -315,6 +314,38 @@ describe('SshPtyOutputIntake', () => {
         })
       )
     ).resolves.toMatchObject({ sequence: 0 })
+
+    expect(project).not.toHaveBeenCalled()
+    expect(harness.intake.getDebugSnapshot().projection).toMatchObject({
+      records: 0,
+      rolledBack: 1
+    })
+    expect(harness.intake.getAcceptedSourceCheckpoints(1)).toEqual([
+      expect.objectContaining({ acceptedSourceEndSu: 0 })
+    ])
+  })
+
+  it('fails closed when the model admission receipt omits admitted', async () => {
+    const project = vi.fn()
+    const harness = createHarness({
+      acceptModel: () => ({ sequence: 4, completion: Promise.resolve() }) as never,
+      project
+    })
+
+    await expect(
+      harness.intake.acceptData(
+        event({
+          source: {
+            spanId: 'malformed-receipt',
+            clientGeneration: 2,
+            ownerGeneration: 3,
+            deliveryToken: 'malformed-token',
+            sourceStartSu: 0,
+            sourceEndSu: 4
+          }
+        })
+      )
+    ).rejects.toThrow('ssh_model_admission_malformed')
 
     expect(project).not.toHaveBeenCalled()
     expect(harness.intake.getDebugSnapshot().projection).toMatchObject({

@@ -116,6 +116,7 @@ const ptyLoadGeneration = new Map<string, number>()
 
 type DataCallback = (payload: {
   id: string
+  incarnationId: string
   data: string
   sequenceChars?: number
   transformed?: boolean
@@ -491,6 +492,7 @@ export type LocalPtyProviderOptions = {
   onExit?: (id: string, code: number, incarnationId: string) => void
   onData?: (
     id: string,
+    incarnationId: string,
     data: string,
     timestamp: number,
     sequenceChars?: number,
@@ -882,21 +884,22 @@ export class LocalPtyProvider implements IPtyProvider {
     const emitIngressData = (emission: PtyIngressEmission): void => {
       const sequenceChars = emission.rawEndSeq - emission.rawStartSeq
       if (emission.transformed || sequenceChars !== emission.data.length) {
-        this.opts.onData?.(id, emission.data, Date.now(), sequenceChars, true)
+        this.opts.onData?.(id, incarnationId, emission.data, Date.now(), sequenceChars, true)
       } else {
-        this.opts.onData?.(id, emission.data, Date.now())
+        this.opts.onData?.(id, incarnationId, emission.data, Date.now())
       }
       for (const cb of dataListeners) {
         cb(
           emission.transformed || sequenceChars !== emission.data.length
             ? {
                 id,
+                incarnationId,
                 data: emission.data,
                 sequenceChars,
                 seq: emission.rawEndSeq,
                 transformed: true
               }
-            : { id, data: emission.data }
+            : { id, incarnationId, data: emission.data }
         )
       }
     }

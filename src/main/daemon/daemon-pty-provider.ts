@@ -1,4 +1,5 @@
 import { DaemonClient } from './client'
+import { parseDaemonResizeIfCurrentResponse } from './daemon-pty-resize-response'
 import type { DaemonEvent, CreateOrAttachResult } from './types'
 import type { PtyIncarnationId } from '../../shared/pty-incarnation'
 
@@ -77,13 +78,13 @@ export class DaemonPtyProvider {
     cols: number,
     rows: number
   ): Promise<boolean> {
-    const response = await this.client.request<{ applied: boolean }>('resizeIfCurrent', {
+    const response = await this.client.request<unknown>('resizeIfCurrent', {
       sessionId: id,
       expectedIncarnationId,
       cols,
       rows
     })
-    return response.applied
+    return parseDaemonResizeIfCurrentResponse(response)
   }
 
   async shutdown(

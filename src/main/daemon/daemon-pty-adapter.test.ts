@@ -182,12 +182,17 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
       expect(lastSubprocess.write).toHaveBeenCalledWith('\x1b]10;rgb:2e2e/3434/3434\x1b\\')
       expect(onData).toHaveBeenCalledWith({
         id,
+        incarnationId: expect.any(String),
         data: '',
         sequenceChars: query.length,
         seq: query.length,
         transformed: true
       })
-      expect(onData).toHaveBeenCalledWith({ id, data: 'prompt' })
+      expect(onData).toHaveBeenCalledWith({
+        id,
+        incarnationId: expect.any(String),
+        data: 'prompt'
+      })
       await expect(adapter.getBufferSnapshot(id)).resolves.toMatchObject({
         data: expect.not.stringContaining(']10;rgb')
       })
@@ -1219,6 +1224,22 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
     })
   })
 
+  describe('resizeIfCurrent', () => {
+    it('rejects malformed daemon CAS responses without marking the session dirty', async () => {
+      const internals = adapter as unknown as {
+        client: { request: (method: string, params: unknown) => Promise<unknown> }
+        markSessionDirty: (id: string) => void
+      }
+      vi.spyOn(internals.client, 'request').mockResolvedValueOnce({ applied: 'false' })
+      const markSessionDirty = vi.spyOn(internals, 'markSessionDirty')
+
+      await expect(adapter.resizeIfCurrent('session-a', 'incarnation-a', 120, 40)).rejects.toThrow(
+        'invalid_daemon_resize_if_current_response'
+      )
+      expect(markSessionDirty).not.toHaveBeenCalled()
+    })
+  })
+
   describe('probePtyLiveness', () => {
     it('reads daemon truth before a fresh adapter has attached the session', async () => {
       const { id } = await adapter.spawn({ cols: 80, rows: 24 })
@@ -1366,18 +1387,18 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
 
   describe('onData', () => {
     it('routes data events from daemon', async () => {
-      const dataPayloads: { id: string; data: string }[] = []
+      const dataPayloads: { id: string; incarnationId: string; data: string }[] = []
       adapter.onData((payload) => dataPayloads.push(payload))
 
       const { id } = await adapter.spawn({ cols: 80, rows: 24 })
       lastSubprocess._simulateData('hello')
 
       await waitFor(() => dataPayloads.length > 0)
-      expect(dataPayloads[0]).toEqual({ id, data: 'hello' })
+      expect(dataPayloads[0]).toEqual({ id, incarnationId: expect.any(String), data: 'hello' })
     })
 
     it('coalesces burst data events before serializing daemon stream output', async () => {
-      const dataPayloads: { id: string; data: string }[] = []
+      const dataPayloads: { id: string; incarnationId: string; data: string }[] = []
       adapter.onData((payload) => dataPayloads.push(payload))
 
       const { id } = await adapter.spawn({ cols: 80, rows: 24 })
@@ -1386,7 +1407,7 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
       lastSubprocess._simulateData('c')
 
       await waitFor(() => dataPayloads.length > 0)
-      expect(dataPayloads).toEqual([{ id, data: 'abc' }])
+      expect(dataPayloads).toEqual([{ id, incarnationId: expect.any(String), data: 'abc' }])
     })
   })
 
@@ -1458,14 +1479,18 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
 
       // Create a second adapter simulating app restart
       const adapter2 = new DaemonPtyAdapter({ socketPath, tokenPath })
-      const dataPayloads: { id: string; data: string }[] = []
+      const dataPayloads: { id: string; incarnationId: string; data: string }[] = []
       adapter2.onData((payload) => dataPayloads.push(payload))
 
       await adapter2.attach(id)
 
       lastSubprocess._simulateData('after-reattach')
       await waitFor(() => dataPayloads.length > 0)
-      expect(dataPayloads[0]).toEqual({ id, data: 'after-reattach' })
+      expect(dataPayloads[0]).toEqual({
+        id,
+        incarnationId: expect.any(String),
+        data: 'after-reattach'
+      })
 
       adapter2.dispose()
     })

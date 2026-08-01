@@ -6282,7 +6282,7 @@ export class Store {
       startupCwd?: string
     },
     hostId?: string | null
-  ): void {
+  ): { rollbackIfCurrent: () => boolean } {
     const resolvedHostId = this.resolveHostId(hostId)
     const session = this.getWorkspaceSession(resolvedHostId)
     if (resolvedHostId !== LOCAL_EXECUTION_HOST_ID) {
@@ -6306,15 +6306,44 @@ export class Store {
         [repoId]: currentRevision + 1
       }
     }
-    const restoreSession = (): void => {
+    const assignSession = (value: WorkspaceSessionState): void => {
       if (resolvedHostId === LOCAL_EXECUTION_HOST_ID) {
-        this.state.workspaceSession = sessionBeforeBinding
+        this.state.workspaceSession = value
       } else {
         this.state.workspaceSessionsByHostId = {
           ...this.state.workspaceSessionsByHostId,
-          [resolvedHostId]: sessionBeforeBinding
+          [resolvedHostId]: value
         }
       }
+    }
+    const restoreSession = (): void => assignSession(sessionBeforeBinding)
+    const flushWithRollbackReceipt = (): { rollbackIfCurrent: () => boolean } => {
+      try {
+        this.flushOrThrow()
+      } catch (err) {
+        restoreSession()
+        throw err
+      }
+      const sessionAfterBinding = cloneWorkspaceSessionState(
+        this.getWorkspaceSession(resolvedHostId)
+      )
+      const serializedAfterBinding = JSON.stringify(sessionAfterBinding)
+      return Object.freeze({
+        rollbackIfCurrent: (): boolean => {
+          const current = cloneWorkspaceSessionState(this.getWorkspaceSession(resolvedHostId))
+          if (JSON.stringify(current) !== serializedAfterBinding) {
+            return false
+          }
+          assignSession(cloneWorkspaceSessionState(sessionBeforeBinding))
+          try {
+            this.flushOrThrow()
+            return true
+          } catch {
+            assignSession(sessionAfterBinding)
+            return false
+          }
+        }
+      })
     }
     if (args.incarnationId) {
       session.terminalPtyIncarnationsByPaneKey = {
@@ -6356,13 +6385,7 @@ export class Store {
     if (!isTerminalLeafId(args.leafId)) {
       // Why: keep legacy renderer-local pane ids out of durable leaf-keyed layout state after the UUID migration.
       advanceTopologyAfterMembershipChange()
-      try {
-        this.flushOrThrow()
-      } catch (err) {
-        restoreSession()
-        throw err
-      }
-      return
+      return flushWithRollbackReceipt()
     }
     const layout = session.terminalLayoutsByTabId?.[args.tabId]
     if (layout) {
@@ -6404,12 +6427,7 @@ export class Store {
       }
     }
     advanceTopologyAfterMembershipChange()
-    try {
-      this.flushOrThrow()
-    } catch (err) {
-      restoreSession()
-      throw err
-    }
+    return flushWithRollbackReceipt()
   }
 
   // ── SSH Targets ────────────────────────────────────────────────────

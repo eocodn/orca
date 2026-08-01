@@ -1600,6 +1600,7 @@ type RuntimePtyController = {
     signal?: AbortSignal
   ): Promise<boolean>
   getSize?(ptyId: string): { cols: number; rows: number } | null
+  getProvisionalSize?(ptyId: string): { cols: number; rows: number } | null
   getAppliedSize?(ptyId: string): Promise<{ cols: number; rows: number } | null>
 }
 
@@ -2768,6 +2769,8 @@ export class OrcaRuntimeService {
   // Why: provider exit can beat surface registration; that exact dead incarnation must never publish.
   private earlyExitedPtyIncarnations = new Map<string, PtyIncarnationId | null>()
   private pendingPtyRegistrationIncarnations = new Map<string, PtyIncarnationId | null>()
+  private headlessPtyIncarnationById = new Map<string, PtyIncarnationId>()
+  private ptyInventoryOverlapGraceById = new Map<string, PtyIncarnationId | null>()
   // Why: exact-stop is the current sleep transaction boundary; its exit must
   // leave the renderer's intentional sleeping surface available for wake.
   private intentionalHandlelessPtyStops = new Map<string, string | null>()
@@ -8926,6 +8929,8 @@ export class OrcaRuntimeService {
       ...(binding && paneKey ? { tabId: binding.tabId, paneKey } : {}),
       ...(binding?.incarnationId ? { incarnationId: binding.incarnationId } : {})
     })
+    // Why: one successful admission may overlap one stale provider list; later absence is authoritative.
+    this.ptyInventoryOverlapGraceById.set(ptyId, pty.incarnationId)
     const pendingIncarnation = this.pendingPtyRegistrationIncarnations.get(ptyId)
     if (
       pendingIncarnation === null ||
@@ -8997,6 +9002,24 @@ export class OrcaRuntimeService {
     ) {
       this.earlyExitedPtyIncarnations.delete(ptyId)
     }
+  }
+
+  admitHeadlessPtyLifecycle(ptyId: string, incarnationId: PtyIncarnationId): void {
+    this.assertPtyDidNotExitBeforeRegistration(ptyId, incarnationId)
+    const pending = this.pendingPtyRegistrationIncarnations.get(ptyId)
+    if (pending !== null && pending !== undefined && pending !== incarnationId) {
+      throw new Error('terminal_incarnation_stale')
+    }
+    this.pendingPtyRegistrationIncarnations.delete(ptyId)
+    this.headlessPtyIncarnationById.set(ptyId, incarnationId)
+  }
+
+  hasObservedExactPtyExit(ptyId: string, incarnationId: PtyIncarnationId): boolean {
+    if (this.earlyExitedPtyIncarnations.get(ptyId) === incarnationId) {
+      return true
+    }
+    const pty = this.ptysById.get(ptyId)
+    return Boolean(pty && pty.incarnationId === incarnationId && !pty.connected)
   }
 
   private assertPtyDidNotExitBeforeRegistration(
@@ -9073,6 +9096,19 @@ export class OrcaRuntimeService {
     this.disposeHeadlessTerminal(ptyId)
   }
 
+  quarantinePtyAfterPublicationFailure(ptyId: string, incarnationId?: PtyIncarnationId): void {
+    const pty = this.ptysById.get(ptyId)
+    if (pty && incarnationId && pty.incarnationId && pty.incarnationId !== incarnationId) {
+      return
+    }
+    this.invalidateAllHandlesForPty(ptyId)
+    this.rendererGraphLivenessBlockedPtys.add(ptyId)
+    this.disposeHeadlessTerminal(ptyId)
+    if (pty?.connected) {
+      this.markPtyDisconnected(pty)
+    }
+  }
+
   /**
    * Handles incoming data from a PTY process, running agent detection,
    * updating terminal tail buffers, and triggering foreground agent refreshes.
@@ -9083,7 +9119,8 @@ export class OrcaRuntimeService {
     at: number,
     sequenceChars = data.length,
     transformed = false,
-    sourceRanges?: readonly TerminalOutputSourceRange[]
+    sourceRanges: readonly TerminalOutputSourceRange[] | undefined,
+    incarnationId: PtyIncarnationId
   ): RuntimePtyDataAdmission {
     let completion: Promise<void> | null = null
     let admitted = false
@@ -9099,7 +9136,8 @@ export class OrcaRuntimeService {
       sourceRanges,
       (value) => {
         admitted = value
-      }
+      },
+      incarnationId
     )
     if (!completion) {
       throw new Error('PTY model admission receipt was not captured')
@@ -9118,6 +9156,29 @@ export class OrcaRuntimeService {
     return pty ? pty.connected : true
   }
 
+  private acceptsPtyDataForIncarnation(ptyId: string, incarnationId: PtyIncarnationId): boolean {
+    if (this.earlyExitedPtyIncarnations.has(ptyId)) {
+      return false
+    }
+    const pty = this.ptysById.get(ptyId)
+    if (this.pendingPtyRegistrationIncarnations.has(ptyId)) {
+      const pending = this.pendingPtyRegistrationIncarnations.get(ptyId) ?? null
+      if (pending === incarnationId) {
+        return true
+      }
+      if (pending === null && pty?.incarnationId !== incarnationId) {
+        // Why: byte zero can prove the pending physical owner before spawn resolves.
+        this.pendingPtyRegistrationIncarnations.set(ptyId, incarnationId)
+        return true
+      }
+      return false
+    }
+    if (this.headlessPtyIncarnationById.get(ptyId) === incarnationId) {
+      return true
+    }
+    return Boolean(pty?.connected && pty.incarnationId === incarnationId)
+  }
+
   onPtyData(
     ptyId: string,
     data: string,
@@ -9126,10 +9187,14 @@ export class OrcaRuntimeService {
     transformed = false,
     captureModelReceipt?: (completion: Promise<void>) => void,
     sourceRanges?: readonly TerminalOutputSourceRange[],
-    captureAdmission?: (admitted: boolean) => void
+    captureAdmission?: (admitted: boolean) => void,
+    incarnationId?: PtyIncarnationId
   ): number {
     const existingPty = this.ptysById.get(ptyId)
-    if (!this.acceptsPtyDataForCurrentLifecycle(ptyId) || (existingPty && !existingPty.connected)) {
+    const accepted = incarnationId
+      ? this.acceptsPtyDataForIncarnation(ptyId, incarnationId)
+      : this.acceptsPtyDataForCurrentLifecycle(ptyId)
+    if (!accepted || (existingPty && !existingPty.connected && !incarnationId)) {
       captureAdmission?.(false)
       captureModelReceipt?.(Promise.resolve())
       return this.ptyOutputSequenceById.get(ptyId) ?? 0
@@ -10600,6 +10665,10 @@ export class OrcaRuntimeService {
     return this.ptyController?.getSize?.(ptyId) ?? null
   }
 
+  private getTerminalModelSize(ptyId: string): { cols: number; rows: number } | null {
+    return this.getTerminalSize(ptyId) ?? this.ptyController?.getProvisionalSize?.(ptyId) ?? null
+  }
+
   // Why: a width reflow on a normal-buffer PTY must re-stream the full
   // scrollback to mobile so it rewraps at the new cols, but alternate-screen
   // TUIs (vim, Claude Code) own their repaint and have no scrollback — for
@@ -10643,7 +10712,7 @@ export class OrcaRuntimeService {
       }
       return
     }
-    const dims = size ?? this.getTerminalSize(ptyId) ?? { cols: 80, rows: 24 }
+    const dims = size ?? this.getTerminalModelSize(ptyId) ?? { cols: 80, rows: 24 }
     const state = this.createPtyHeadlessTerminalState(ptyId, dims)
     state.outputSequence = this.getPtyOutputSequence(ptyId)
     this.headlessTerminals.set(ptyId, state)
@@ -10708,7 +10777,7 @@ export class OrcaRuntimeService {
     }
 
     this.headlessHydrationState.set(ptyId, 'pending')
-    const dims = this.getTerminalSize(ptyId) ?? { cols: 80, rows: 24 }
+    const dims = this.getTerminalModelSize(ptyId) ?? { cols: 80, rows: 24 }
     // Why: hydration writes below never set forwardQueryReplies (main-side
     // replay guard) — renderer-buffer snapshots can embed stale queries.
     const state = this.createPtyHeadlessTerminalState(ptyId, dims)
@@ -10738,7 +10807,7 @@ export class OrcaRuntimeService {
           state.emulator.resize(rendered.cols, rendered.rows)
         }
         await state.emulator.write(rendered.data)
-        const ptyDims = this.getTerminalSize(ptyId)
+        const ptyDims = this.getTerminalModelSize(ptyId)
         if (ptyDims && (ptyDims.cols !== rendered.cols || ptyDims.rows !== rendered.rows)) {
           state.emulator.resize(ptyDims.cols, ptyDims.rows)
         }
@@ -10892,7 +10961,7 @@ export class OrcaRuntimeService {
     if (existing) {
       return existing
     }
-    const size = this.getTerminalSize(ptyId) ?? { cols: 80, rows: 24 }
+    const size = this.getTerminalModelSize(ptyId) ?? { cols: 80, rows: 24 }
     const state = this.createPtyHeadlessTerminalState(ptyId, size)
     this.headlessTerminals.set(ptyId, state)
     return state
@@ -10901,7 +10970,7 @@ export class OrcaRuntimeService {
   private replaceHeadlessTerminalAfterExecutionContextChange(ptyId: string): void {
     this.disposeHeadlessTerminal(ptyId)
     this.providerSnapshotPreferredPtys.add(ptyId)
-    const dims = this.getTerminalSize(ptyId) ?? { cols: 80, rows: 24 }
+    const dims = this.getTerminalModelSize(ptyId) ?? { cols: 80, rows: 24 }
     const state = this.createPtyHeadlessTerminalState(ptyId, dims)
     this.headlessTerminals.set(ptyId, state)
     state.writeChain = state.writeChain
@@ -12908,6 +12977,11 @@ export class OrcaRuntimeService {
     if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
       return
     }
+    const headlessIncarnation = this.headlessPtyIncarnationById.get(ptyId)
+    if (exitIncarnationId && headlessIncarnation && exitIncarnationId !== headlessIncarnation) {
+      return
+    }
+    this.headlessPtyIncarnationById.delete(ptyId)
     this.rendererGraphLivenessBlockedPtys.add(ptyId)
     const preservesAbnormalSshSurface = this.isRecoverableSshTransportLoss(
       ptyId,
@@ -14083,6 +14157,9 @@ export class OrcaRuntimeService {
     // Snapshot for rollback.
     const prevFitOverride = this.terminalFitOverrides.get(ptyId) ?? null
 
+    const stillOwnsTentativeState = (): boolean =>
+      this.getPtyLifecycleGeneration(ptyId) === generation && this.layouts.get(ptyId) === next
+
     // Tentative writes — the resize is the point of no return.
     this.layouts.set(ptyId, next)
     if (target.kind === 'phone') {
@@ -14119,22 +14196,31 @@ export class OrcaRuntimeService {
         console.error('[layout] ptyController.resize threw', { ptyId, err })
         ok = false
       }
+      if (!stillOwnsTentativeState()) {
+        return { ok: false, reason: 'pty-exited' }
+      }
       if (!ok) {
         // Roll back to pre-call snapshot. seq is NOT bumped on the wire
         // because we never emit below.
-        if (prev) {
-          this.layouts.set(ptyId, prev)
-        } else {
-          this.layouts.delete(ptyId)
-        }
-        if (prevFitOverride) {
-          this.terminalFitOverrides.set(ptyId, prevFitOverride)
-        } else {
-          this.terminalFitOverrides.delete(ptyId)
+        if (stillOwnsTentativeState()) {
+          if (prev) {
+            this.layouts.set(ptyId, prev)
+          } else {
+            this.layouts.delete(ptyId)
+          }
+          if (prevFitOverride) {
+            this.terminalFitOverrides.set(ptyId, prevFitOverride)
+          } else {
+            this.terminalFitOverrides.delete(ptyId)
+          }
         }
         return { ok: false, reason: 'resize-failed' }
       }
       this.resizeHeadlessTerminal(ptyId, target.cols, target.rows)
+    }
+
+    if (!stillOwnsTentativeState()) {
+      return { ok: false, reason: 'pty-exited' }
     }
 
     // Why: remote desktop ownership is a fit hold for the host and passive
@@ -28234,46 +28320,44 @@ export class OrcaRuntimeService {
     }
     const sessions = sessionsResult.value
     const normalizedIncarnationByPtyId = new Map<string, PtyIncarnationId>()
+    const seenPtyIds = new Set<string>()
+    const ptyIdByCanonicalHandle = new Map<string, string>()
+    const validatedHandleByPtyId = new Map<string, string>()
     for (const session of sessions) {
-      if (session.incarnationId === undefined) {
-        continue
-      }
-      const raw = session.incarnationId as unknown
-      if (typeof raw !== 'string' || raw !== raw.trim() || !isPtyIncarnationId(raw)) {
+      if (seenPtyIds.has(session.id)) {
         return null
       }
-      normalizedIncarnationByPtyId.set(session.id, raw)
+      seenPtyIds.add(session.id)
+      if (session.incarnationId === undefined) {
+      } else {
+        const raw = session.incarnationId as unknown
+        if (typeof raw !== 'string' || raw !== raw.trim() || !isPtyIncarnationId(raw)) {
+          return null
+        }
+        normalizedIncarnationByPtyId.set(session.id, raw)
+      }
+      const handle = session.terminalHandle?.trim()
+      if (handle?.startsWith('term_')) {
+        const priorPtyId = ptyIdByCanonicalHandle.get(handle)
+        if (priorPtyId !== undefined) {
+          return null
+        }
+        ptyIdByCanonicalHandle.set(handle, session.id)
+        validatedHandleByPtyId.set(session.id, handle)
+      }
     }
     const controllerIdentityByPtyId = new Map<string, PtyControllerTerminalIdentity>()
-    const ptyIdByControllerHandle = new Map<string, string>()
-    const ambiguousControllerPtyIds = new Set<string>()
     for (const session of sessions) {
       const handle = session.terminalHandle?.trim()
       const incarnationId = normalizedIncarnationByPtyId.get(session.id)
       if (!handle?.startsWith('term_') || !incarnationId) {
         continue
       }
-      const priorPtyId = ptyIdByControllerHandle.get(handle)
-      if (priorPtyId && priorPtyId !== session.id) {
-        ambiguousControllerPtyIds.add(priorPtyId)
-        ambiguousControllerPtyIds.add(session.id)
-        controllerIdentityByPtyId.delete(priorPtyId)
-        continue
-      }
-      if (controllerIdentityByPtyId.has(session.id)) {
-        ambiguousControllerPtyIds.add(session.id)
-        controllerIdentityByPtyId.delete(session.id)
-        continue
-      }
-      ptyIdByControllerHandle.set(handle, session.id)
       controllerIdentityByPtyId.set(session.id, {
         handle,
         incarnationId,
         ...(session.wslDistro !== undefined ? { wslDistro: session.wslDistro } : {})
       })
-    }
-    for (const ptyId of ambiguousControllerPtyIds) {
-      controllerIdentityByPtyId.delete(ptyId)
     }
     const persistedIndexesByHostId = new Map<
       ExecutionHostId,
@@ -28340,7 +28424,7 @@ export class OrcaRuntimeService {
         runtimeWorktreeIdsEqual(persistedSurface.worktreeId, worktreeId as string)
       this.adoptControllerTerminalHandle(
         session.id,
-        controllerIdentity?.handle ?? session.terminalHandle,
+        validatedHandleByPtyId.get(session.id),
         controllerIdentity?.incarnationId ?? incarnationId,
         { exactRestoredSurface: Boolean(restoresExactSurface && controllerIdentity) }
       )
@@ -28384,6 +28468,7 @@ export class OrcaRuntimeService {
       }
       // Why: fire-and-forget so this listing hot path doesn't serialize a relay round-trip per session and a throw can't abort the sweep below.
       this.refreshPtyForegroundAgent(session.id)
+      this.ptyInventoryOverlapGraceById.delete(session.id)
     }
     for (const [ptyId, receipt] of this.restoredOrchestrationAuthorityByPtyId) {
       const inScope =
@@ -28401,8 +28486,14 @@ export class OrcaRuntimeService {
         continue
       }
       if (!allLivePtyIds.has(pty.ptyId)) {
-        if (this.ptyController.hasPty?.(pty.ptyId) === true) {
+        const overlapGrace = this.ptyInventoryOverlapGraceById.get(pty.ptyId)
+        if (
+          this.ptyInventoryOverlapGraceById.has(pty.ptyId) &&
+          overlapGrace === pty.incarnationId &&
+          this.ptyController.hasPty?.(pty.ptyId) === true
+        ) {
           // Why: an SSH spawn can become addressable before an overlapping relay list includes it.
+          this.ptyInventoryOverlapGraceById.delete(pty.ptyId)
           allLivePtyIds.add(pty.ptyId)
           if (
             !targetWorktreeId ||
@@ -28410,11 +28501,9 @@ export class OrcaRuntimeService {
           ) {
             selectedLivePtyIds.add(pty.ptyId)
           }
-          this.admitPtyLifecycle(pty, pty.incarnationId ?? undefined, {
-            adoptHandles: false
-          })
           continue
         }
+        this.ptyInventoryOverlapGraceById.delete(pty.ptyId)
         this.markPtyDisconnected(pty)
       }
     }

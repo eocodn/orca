@@ -11,7 +11,6 @@ import type {
 } from './ssh-pty-provider-contract'
 import { SshPtyProviderOutputState } from './ssh-pty-provider-output-state'
 import { spawnFreshSshPty } from './ssh-agent-session-create-operation'
-import { mapSshPtyProcessList } from './ssh-agent-session-process-list'
 import {
   requestSshPtyAttach,
   reattachSshPtySessionWithExitFence,
@@ -22,12 +21,24 @@ import { buildSshPtySpawnRequest } from './ssh-pty-spawn-request'
 import { SshPtySpawnExitRaceTracker } from './ssh-pty-spawn-exit-race'
 import { SshAgentSessionCapabilities } from './ssh-agent-session-capabilities'
 import type { PtyProcessInspection } from './pty-process-inspection'
+import type { PtyDataEvent } from './pty-provider-events'
 import { SSH_SESSION_EXPIRED_ERROR } from './ssh-pty-errors'
-
-// Why: sequential relay teardown calls share one absolute budget; convert to the mux-relative timeout only at dispatch.
-function relayTimeoutOptions(deadlineMs: number | undefined): { timeoutMs: number } | undefined {
-  return deadlineMs === undefined ? undefined : { timeoutMs: Math.max(1, deadlineMs - Date.now()) }
-}
+import {
+  requestSshPtyClearBuffer,
+  requestSshPtyCloseStartupAuthority,
+  requestSshPtyDefaultShell,
+  requestSshPtyForegroundProcess,
+  requestSshPtyHasChildProcesses,
+  requestSshPtyProcessInspection,
+  requestSshPtyProcessList,
+  requestSshPtyProfiles,
+  requestSshPtyResizeIfCurrent,
+  requestSshPtyRevive,
+  requestSshPtySerialize,
+  requestSshPtySignal,
+  requestSshPtyShutdown,
+  requestSshPtyString
+} from './ssh-pty-provider-rpc'
 
 /** Remote PTY provider that proxies IPtyProvider operations through the relay. */
 export class SshPtyProvider implements IPtyProvider {
@@ -216,56 +227,41 @@ export class SshPtyProvider implements IPtyProvider {
     cols: number,
     rows: number
   ): Promise<boolean> {
-    const response = (await this.mux.request(
-      'pty.resizeIfCurrent',
-      { id: this.toRelayPtyId(id), expectedIncarnationId, cols, rows },
-      { timeoutMs: 1_000 }
-    )) as { applied?: unknown }
-    if (typeof response?.applied !== 'boolean') {
-      throw new Error('Malformed pty.resizeIfCurrent response')
-    }
-    return response.applied
+    return await requestSshPtyResizeIfCurrent(
+      this.mux,
+      this.toRelayPtyId(id),
+      expectedIncarnationId,
+      cols,
+      rows
+    )
   }
 
   async shutdown(
     id: string,
     opts: { immediate?: boolean; keepHistory?: boolean; deadlineMs?: number }
   ): Promise<void> {
-    await this.mux.request(
-      'pty.shutdown',
-      {
-        id: this.toRelayPtyId(id),
-        immediate: opts.immediate ?? false,
-        keepHistory: opts.keepHistory ?? false
-      },
-      relayTimeoutOptions(opts.deadlineMs)
-    )
+    await requestSshPtyShutdown(this.mux, this.toRelayPtyId(id), opts)
     this.livePtyIds.delete(id)
   }
 
   async sendSignal(id: string, signal: string): Promise<void> {
-    await this.mux.request('pty.sendSignal', { id: this.toRelayPtyId(id), signal })
+    await requestSshPtySignal(this.mux, this.toRelayPtyId(id), signal)
   }
 
   async getCwd(id: string): Promise<string> {
-    const result = await this.mux.request('pty.getCwd', { id: this.toRelayPtyId(id) })
-    return result as string
+    return await requestSshPtyString(this.mux, 'pty.getCwd', this.toRelayPtyId(id))
   }
 
   async getInitialCwd(id: string): Promise<string> {
-    const result = await this.mux.request('pty.getInitialCwd', { id: this.toRelayPtyId(id) })
-    return result as string
+    return await requestSshPtyString(this.mux, 'pty.getInitialCwd', this.toRelayPtyId(id))
   }
 
   async clearBuffer(id: string): Promise<void> {
-    await this.mux.request('pty.clearBuffer', { id: this.toRelayPtyId(id) })
+    await requestSshPtyClearBuffer(this.mux, this.toRelayPtyId(id))
   }
 
   async closeStartupQueryAuthority(id: string): Promise<number> {
-    const result = (await this.mux.request('pty.closeStartupQueryAuthority', {
-      id: this.toRelayPtyId(id)
-    })) as { appliedSeq?: number }
-    return result.appliedSeq ?? 0
+    return await requestSshPtyCloseStartupAuthority(this.mux, this.toRelayPtyId(id))
   }
 
   acknowledgeDataEvent(id: string, charCount: number): void {
@@ -273,39 +269,32 @@ export class SshPtyProvider implements IPtyProvider {
   }
 
   async hasChildProcesses(id: string): Promise<boolean> {
-    const result = await this.mux.request('pty.hasChildProcesses', { id: this.toRelayPtyId(id) })
-    return result as boolean
+    return await requestSshPtyHasChildProcesses(this.mux, this.toRelayPtyId(id))
   }
 
   async getForegroundProcess(id: string): Promise<string | null> {
-    const result = await this.mux.request('pty.getForegroundProcess', { id: this.toRelayPtyId(id) })
-    return result as string | null
+    return await requestSshPtyForegroundProcess(this.mux, this.toRelayPtyId(id))
   }
 
   async inspectProcess(id: string): Promise<PtyProcessInspection> {
-    return (await this.mux.request('pty.inspectProcess', {
-      id: this.toRelayPtyId(id)
-    })) as PtyProcessInspection
+    return await requestSshPtyProcessInspection(this.mux, this.toRelayPtyId(id))
   }
 
   async serialize(ids: string[]): Promise<string> {
-    const result = await this.mux.request('pty.serialize', {
-      ids: ids.map((id) => this.toRelayPtyId(id))
-    })
-    return result as string
+    return await requestSshPtySerialize(
+      this.mux,
+      ids.map((id) => this.toRelayPtyId(id))
+    )
   }
 
   async revive(state: string): Promise<void> {
-    await this.mux.request('pty.revive', { state })
+    await requestSshPtyRevive(this.mux, state)
   }
 
   async listProcesses(opts?: { deadlineMs?: number }): Promise<PtyProcessInfo[]> {
-    const result = await this.mux.request(
-      'pty.listProcesses',
-      undefined,
-      relayTimeoutOptions(opts?.deadlineMs)
+    const processes = await requestSshPtyProcessList(this.mux, opts?.deadlineMs, (id) =>
+      this.toAppPtyId(id)
     )
-    const processes = mapSshPtyProcessList(result as PtyProcessInfo[], (id) => this.toAppPtyId(id))
     for (const process of processes) {
       this.livePtyIds.add(process.id)
       const relayPtyId = this.toRelayPtyId(process.id)
@@ -314,21 +303,23 @@ export class SshPtyProvider implements IPtyProvider {
     return processes
   }
 
-  hasPty(id: string): boolean {
-    return this.livePtyIds.has(id)
-  }
+  hasPty = (id: string): boolean => this.livePtyIds.has(id)
 
   async getDefaultShell(): Promise<string> {
-    const result = await this.mux.request('pty.getDefaultShell')
-    return result as string
+    return await requestSshPtyDefaultShell(this.mux)
   }
 
   async getProfiles(): Promise<{ name: string; path: string }[]> {
-    const result = await this.mux.request('pty.getProfiles')
-    return result as { name: string; path: string }[]
+    return await requestSshPtyProfiles(this.mux)
   }
 
-  onData = (callback: SshPtyDataCallback): (() => void) => this.outputState.onData(callback)
+  onData(callback: SshPtyDataCallback): () => void
+  onData(callback: (payload: PtyDataEvent) => void): () => void
+  onData(callback: ((payload: PtyDataEvent) => void) | SshPtyDataCallback): () => void {
+    return this.outputState.onData((payload) =>
+      callback({ ...payload, incarnationId: payload.ptyIncarnation })
+    )
+  }
   onReplay = (callback: SshPtyReplayCallback): (() => void) => this.outputState.onReplay(callback)
   onExit = (callback: SshPtyExitCallback): (() => void) => this.outputState.onExit(callback)
 
@@ -336,17 +327,11 @@ export class SshPtyProvider implements IPtyProvider {
     this.outputState.setDeliveryPauseAdapter(adapter)
   }
 
-  hasPtyDeliveryPauseAdapter(): boolean {
-    return this.outputState.hasDeliveryPauseAdapter()
-  }
+  hasPtyDeliveryPauseAdapter = (): boolean => this.outputState.hasDeliveryPauseAdapter()
 
-  pauseProducer(id: string): void {
-    this.outputState.pause(this.toRelayPtyId(id))
-  }
+  pauseProducer = (id: string): void => this.outputState.pause(this.toRelayPtyId(id))
 
-  resumeProducer(id: string): void {
-    this.outputState.resume(this.toRelayPtyId(id))
-  }
+  resumeProducer = (id: string): void => this.outputState.resume(this.toRelayPtyId(id))
 
   closeOutputIntake(reason: string): void {
     this.mux.dispose('connection_lost')
