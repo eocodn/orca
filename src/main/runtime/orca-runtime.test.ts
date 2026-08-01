@@ -27592,7 +27592,9 @@ describe('OrcaRuntimeService', () => {
       write: () => true,
       kill,
       getForegroundProcess: async () => null,
-      listProcesses: async () => []
+      listProcesses: async () => [
+        { id: ptyId, cwd: TEST_WORKTREE_PATH, title: 'Recovered SSH Terminal' }
+      ]
     })
     runtime.registerPty(ptyId, TEST_WORKTREE_ID, 'ssh-1', {
       tabId: 'host-tab',
@@ -28889,6 +28891,7 @@ describe('OrcaRuntimeService', () => {
       getSession: () => WorkspaceSessionState
       kill: ReturnType<typeof vi.fn>
       closeTerminal: ReturnType<typeof vi.fn>
+      processes: Array<{ id: string; cwd: string; title: string }>
     } {
       const layout = makeHeadlessTerminalLayout({
         [HEADLESS_LEAF_ID]: 'serve-left',
@@ -28913,6 +28916,10 @@ describe('OrcaRuntimeService', () => {
           terminalLayoutsByTabId: { 'host-tab': layout }
         })
       )
+      const processes = [
+        { id: 'serve-left', cwd: TEST_WORKTREE_PATH, title: 'Left' },
+        { id: 'serve-right', cwd: TEST_WORKTREE_PATH, title: 'Right' }
+      ]
       const kill = vi.fn(() => true)
       const closeTerminal = vi.fn()
       const runtime = new OrcaRuntimeService(runtimeStore as never)
@@ -28920,7 +28927,7 @@ describe('OrcaRuntimeService', () => {
         write: () => true,
         kill,
         getForegroundProcess: async () => null,
-        listProcesses: async () => []
+        listProcesses: async () => processes
       })
       runtime.setNotifier({ closeTerminal } as never)
       runtime.syncWindowGraph(1, {
@@ -28952,7 +28959,7 @@ describe('OrcaRuntimeService', () => {
           }
         ]
       })
-      return { runtime, getSession, kill, closeTerminal }
+      return { runtime, getSession, kill, closeTerminal, processes }
     }
 
     it('refuses a pty-exit echoed close of a live split leaf (direct-kill branch)', async () => {
@@ -28988,8 +28995,9 @@ describe('OrcaRuntimeService', () => {
       // parent (live sibling included), so the close must be refused — but a
       // republish would re-add the dead leaf on the echoing client and feed a
       // refuse→republish→re-echo loop.
-      const { runtime, getSession, kill, closeTerminal } = makeSplitLeafRuntime()
+      const { runtime, getSession, kill, closeTerminal, processes } = makeSplitLeafRuntime()
       runtime.onPtyExit('serve-right', 0)
+      processes.splice(1, 1)
       const events: { worktree: string }[] = []
       const unsubscribe = runtime.onMobileSessionTabsChanged((snapshot) => events.push(snapshot))
 
@@ -42868,6 +42876,128 @@ describe('OrcaRuntimeService', () => {
         { cols: 100, rows: 30 },
         { cols: 110, rows: 35 }
       ])
+    })
+
+    it('settles exited resize waiters without letting the old queue corrupt a readmitted lifecycle', async () => {
+      const { runtime, handle } = await setupTerminal()
+      const oldReadback = makeDeferred()
+      let applied = { cols: 80, rows: 24 }
+      let readbackCount = 0
+      const mutations: Array<{ cols: number; rows: number }> = []
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        resize: (_ptyId, cols, rows) => {
+          applied = { cols, rows }
+          mutations.push(applied)
+          return true
+        },
+        getAppliedSize: async () => {
+          readbackCount += 1
+          if (readbackCount === 1) {
+            await oldReadback.promise
+          }
+          return applied
+        }
+      })
+
+      const first = runtime.resizeTerminal(handle, 'pty-1:inc-1', 100, 30)
+      await vi.waitFor(() => expect(mutations).toEqual([{ cols: 100, rows: 30 }]))
+      const second = runtime.resizeTerminal(handle, 'pty-1:inc-1', 110, 35)
+
+      runtime.onPtyExit('pty-1', 0, 'inc-1')
+      await expect(first).rejects.toThrow('terminal_incarnation_stale')
+      await expect(
+        Promise.race([
+          second.then(
+            () => 'resolved',
+            (error: Error) => error.message
+          ),
+          new Promise<string>((resolve) => setTimeout(() => resolve('still-pending'), 100))
+        ])
+      ).resolves.toBe('terminal_incarnation_stale')
+
+      runtime.registerPty('pty-1', TEST_WORKTREE_ID, null, {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-2'
+      })
+      syncSinglePty(runtime)
+      const replacementHandle = (await runtime.listTerminals()).terminals[0]?.handle
+      if (!replacementHandle) {
+        throw new Error('expected replacement terminal handle')
+      }
+      const third = runtime.resizeTerminal(replacementHandle, 'pty-1:inc-2', 120, 40)
+      const fourth = runtime.resizeTerminal(replacementHandle, 'pty-1:inc-2', 130, 45)
+
+      await expect(third).resolves.toMatchObject({ applied: { cols: 120, rows: 40 } })
+      await expect(fourth).resolves.toMatchObject({ applied: { cols: 130, rows: 45 } })
+      oldReadback.resolve()
+      await Promise.resolve()
+      expect(mutations).toEqual([
+        { cols: 100, rows: 30 },
+        { cols: 120, rows: 40 },
+        { cols: 130, rows: 45 }
+      ])
+    })
+
+    it('does not let late PTY data revive an exited or transport-lost lifecycle', async () => {
+      const runtime = new OrcaRuntimeService(store)
+      const ptyId = 'ssh:target-1@@pty-late-data'
+      runtime.registerPty(ptyId, TEST_WORKTREE_ID, 'target-1', {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-late-data'
+      })
+      syncSinglePty(runtime, ptyId)
+      const handle = (await runtime.listTerminals()).terminals[0]?.handle
+      if (!handle) {
+        throw new Error('expected terminal handle')
+      }
+      const internals = runtime as unknown as {
+        ptyLifecycleGenerationById: Map<string, number>
+      }
+
+      runtime.onPtyExit(ptyId, -1, 'inc-late-data')
+      const generationAfterExit = internals.ptyLifecycleGenerationById.get(ptyId)
+      runtime.onPtyData(ptyId, 'stale provider bytes\n', 10)
+
+      expect(internals.ptyLifecycleGenerationById.get(ptyId)).toBe(generationAfterExit)
+      await expect(runtime.inspectTerminal(handle)).resolves.toMatchObject({
+        lifecycle: { state: 'disconnected', exit: { code: -1, reason: 'transport-loss' } },
+        reattach: { disposition: 'provider-reconnect-required' }
+      })
+      const history = await runtime.readTerminal(handle, { cursor: 0, limit: 10 })
+      expect(history.tail).not.toContain('stale provider bytes')
+    })
+
+    it('disconnects a leaf-backed PTY when authoritative inventory proves absence', async () => {
+      const { runtime, handle } = await setupTerminal()
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        listProcesses: async () => [],
+        hasPty: () => false
+      })
+      const internals = runtime as unknown as {
+        refreshPtyWorktreeRecordsWithControllerInventory: (worktrees: unknown[]) => Promise<unknown>
+        ptyLifecycleGenerationById: Map<string, number>
+      }
+      const generationBefore = internals.ptyLifecycleGenerationById.get('pty-1')
+
+      await internals.refreshPtyWorktreeRecordsWithControllerInventory([])
+      syncSinglePty(runtime)
+
+      expect(internals.ptyLifecycleGenerationById.get('pty-1')).not.toBe(generationBefore)
+      await expect(runtime.inspectTerminal(handle)).resolves.toMatchObject({
+        lifecycle: { state: 'exited' },
+        reattach: { disposition: 'exited' }
+      })
+      await expect(runtime.resizeTerminal(handle, 'pty-1:inc-1', 100, 30)).rejects.toThrow(
+        'terminal_not_running'
+      )
     })
 
     it('mints a synthetic incarnation when a legacy PTY id is readmitted', async () => {

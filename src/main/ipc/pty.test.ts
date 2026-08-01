@@ -694,13 +694,14 @@ describe('registerPtyHandlers', () => {
     }[]
     livePtyIds?: ReadonlySet<string>
     spawn?: ReturnType<typeof vi.fn>
+    shutdown?: ReturnType<typeof vi.fn>
     authoritativeOwnerListings?: boolean
   }) {
     return {
       spawn: args.spawn ?? vi.fn(async () => ({ id: 'unexpected-spawn' })),
       write: vi.fn(),
       resize: vi.fn(),
-      shutdown: vi.fn(),
+      shutdown: args.shutdown ?? vi.fn(),
       sendSignal: vi.fn(),
       getCwd: vi.fn(),
       getInitialCwd: vi.fn(),
@@ -7459,6 +7460,113 @@ describe('registerPtyHandlers', () => {
       leafId,
       ptyId: expect.any(String),
       incarnationId: expect.any(String)
+    })
+  })
+
+  it('persists the final synthetic incarnation before completing a same-id replacement', async () => {
+    const tabId = '11111111-1111-4111-8111-111111111111'
+    const leafId = '22222222-2222-4222-8222-222222222222'
+    const persistPtyBinding = vi.fn()
+    const runtime = new OrcaRuntimeService(null)
+    runtime.registerPty('pty-reused-binding', 'wt-1', null, {
+      tabId,
+      leafId,
+      incarnationId: 'incarnation-old'
+    })
+    runtime.onPtyExit('pty-reused-binding', 0, 'incarnation-old')
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => {
+        runtime.onPtySpawned('pty-reused-binding')
+        return { id: 'pty-reused-binding' }
+      }),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    registerPtyHandlers(mainWindow as never, runtime, undefined, undefined, undefined, {
+      persistPtyBinding
+    } as never)
+    const controller = (
+      runtime as unknown as {
+        ptyController: {
+          spawn(args: Record<string, unknown>): Promise<{ id: string; incarnationId?: string }>
+        }
+      }
+    ).ptyController
+
+    const spawned = await controller.spawn({
+      cols: 80,
+      rows: 24,
+      worktreeId: 'wt-1',
+      tabId,
+      leafId,
+      preAllocatedHandle: 'term_reused_binding',
+      persistHostSessionBinding: true
+    })
+
+    expect(spawned.incarnationId).toMatch(/^runtime-/)
+    expect(persistPtyBinding).toHaveBeenCalledWith({
+      worktreeId: 'wt-1',
+      tabId,
+      leafId,
+      ptyId: 'pty-reused-binding',
+      incarnationId: spawned.incarnationId
+    })
+  })
+
+  it('does not admit a synthetic replacement when durable binding persistence fails', async () => {
+    const tabId = '11111111-1111-4111-8111-111111111111'
+    const leafId = '22222222-2222-4222-8222-222222222222'
+    const runtime = new OrcaRuntimeService(null)
+    runtime.registerPty('pty-reused-persist-fail', 'wt-1', null, {
+      tabId,
+      leafId,
+      incarnationId: 'incarnation-old'
+    })
+    runtime.onPtyExit('pty-reused-persist-fail', 0, 'incarnation-old')
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => {
+        runtime.onPtySpawned('pty-reused-persist-fail')
+        return { id: 'pty-reused-persist-fail' }
+      }),
+      shutdown: vi.fn(async () => {}),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    registerPtyHandlers(mainWindow as never, runtime, undefined, undefined, undefined, {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    } as never)
+    const controller = (
+      runtime as unknown as {
+        ptyController: { spawn(args: Record<string, unknown>): Promise<unknown> }
+      }
+    ).ptyController
+
+    await expect(
+      controller.spawn({
+        cols: 80,
+        rows: 24,
+        worktreeId: 'wt-1',
+        tabId,
+        leafId,
+        preAllocatedHandle: 'term_reused_persist_fail',
+        persistHostSessionBinding: true
+      })
+    ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+
+    const pty = (
+      runtime as unknown as {
+        ptysById: Map<
+          string,
+          { incarnationId: string | null; connected: boolean; lastExitCode: number | null }
+        >
+      }
+    ).ptysById.get('pty-reused-persist-fail')
+    expect(pty).toMatchObject({
+      incarnationId: 'incarnation-old',
+      connected: false,
+      lastExitCode: 0
     })
   })
 

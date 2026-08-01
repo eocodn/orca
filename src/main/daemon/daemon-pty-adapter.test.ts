@@ -1171,6 +1171,37 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
       await expect(adapter.getAppliedSize('missing-session')).rejects.toThrow('daemon unavailable')
     })
 
+    it('does not report a supported missing session as an unsupported capability', async () => {
+      await adapter.spawn({ cols: 80, rows: 24 })
+      await expect(adapter.getAppliedSize('missing-session')).rejects.toThrow(
+        'terminal_session_not_found'
+      )
+    })
+
+    it('rejects malformed daemon size responses', async () => {
+      const internals = adapter as unknown as {
+        client: { request: (method: string, params: unknown) => Promise<unknown> }
+      }
+      vi.spyOn(internals.client, 'request').mockResolvedValueOnce({
+        size: { cols: 80.5, rows: 24 }
+      })
+
+      await expect(adapter.getAppliedSize('session-a')).rejects.toThrow(
+        'invalid_daemon_terminal_size'
+      )
+    })
+
+    it('does not treat unrelated errors containing method-not-found text as unsupported', async () => {
+      const internals = adapter as unknown as {
+        client: { request: (method: string, params: unknown) => Promise<unknown> }
+      }
+      vi.spyOn(internals.client, 'request').mockRejectedValueOnce(
+        new Error('transport failed after Unknown request type negotiation')
+      )
+
+      await expect(adapter.getAppliedSize('session-a')).rejects.toThrow('transport failed')
+    })
+
     // Why: a resize after exit is a dropped fire-and-forget notify; getAppliedSize must report the PTY's last real size, not the drop.
     it('does not advance when a resize is dropped after the session exited', async () => {
       const { id } = await adapter.spawn({ cols: 200, rows: 50 })
@@ -1182,10 +1213,9 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
       adapter.resize(id, 80, 24)
       await new Promise((r) => setTimeout(r, 50))
 
-      // The drop must stay visible: never resized to 80 cols, and getAppliedSize never reports 80 (stays wide, or null once reaped).
+      // The drop must stay visible: never resized to 80 cols, and dead sessions are observable failures.
       expect(lastSubprocess.resize).not.toHaveBeenCalledWith(80, 24)
-      const applied = await adapter.getAppliedSize(id)
-      expect(applied?.cols).not.toBe(80)
+      await expect(adapter.getAppliedSize(id)).rejects.toThrow('terminal_session_not_found')
     })
   })
 

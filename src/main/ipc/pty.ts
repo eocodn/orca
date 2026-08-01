@@ -4084,6 +4084,14 @@ export function registerPtyHandlers(
           }
           // Why: admission precedes sequence/context state and every durable publication below.
           runtime?.assertPtyRegistrationAllowed?.(result.id, result.incarnationId)
+          const preparedIncarnation = runtime?.preparePtyRegistrationIncarnation?.(
+            result.id,
+            result.incarnationId
+          )
+          result.incarnationId ??= preparedIncarnation ?? undefined
+          if (result.incarnationId) {
+            ptyIncarnationById.set(result.id, result.incarnationId)
+          }
           if (result.providerSequence) {
             runtime?.synchronizePtyOutputSequenceFromProvider?.(
               result.id,
@@ -5179,6 +5187,14 @@ export function registerPtyHandlers(
           }
           assertSpawnReplyWasLive(result)
           runtime?.assertPtyRegistrationAllowed?.(result.id, result.incarnationId)
+          const preparedIncarnation = runtime?.preparePtyRegistrationIncarnation?.(
+            result.id,
+            result.incarnationId
+          )
+          result.incarnationId ??= preparedIncarnation ?? undefined
+          if (result.incarnationId) {
+            ptyIncarnationById.set(result.id, result.incarnationId)
+          }
           if (result.providerSequence) {
             runtime?.synchronizePtyOutputSequenceFromProvider?.(
               result.id,

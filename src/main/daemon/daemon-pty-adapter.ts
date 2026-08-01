@@ -60,6 +60,7 @@ import { shouldUseShellReadyStartupDelivery } from '../../shared/codex-startup-d
 import type { PtyIncarnationId } from '../../shared/pty-incarnation'
 import { resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
 import { PtyWriteUnavailableError } from '../providers/pty-write-unavailable-error'
+import { areValidTerminalDimensions } from '../../shared/terminal-dimensions'
 import { ColdRestorePayloadCache, type ColdRestorePayload } from './cold-restore-payload-cache'
 import { PtyProcessListAdmission } from '../providers/pty-process-list-admission'
 import {
@@ -451,7 +452,7 @@ export class DaemonPtyAdapter implements IPtyProvider {
     let restoreSkippedForLiveSession = false
     const historyProbe = this.historyReader?.probeRestorableHistory(sessionId)
     if (historyProbe && historyProbe.status !== 'none') {
-      if ((await this.getAppliedSize(sessionId)) !== null) {
+      if ((await this.readAppliedSize(sessionId, true)) !== null) {
         restoreSkippedForLiveSession = true
         if (this.historyManager && !this.historyManager.hasWriter(sessionId)) {
           await detectColdRestore()
@@ -1103,14 +1104,39 @@ export class DaemonPtyAdapter implements IPtyProvider {
 
   // Why: resize() is fire-and-forget and can be dropped daemon-side; read the actually-applied size so the renderer can detect drift and re-assert.
   async getAppliedSize(id: string): Promise<{ cols: number; rows: number } | null> {
+    return this.readAppliedSize(id, false)
+  }
+
+  private async readAppliedSize(
+    id: string,
+    missingAsNull: boolean
+  ): Promise<{ cols: number; rows: number } | null> {
     try {
-      const result = await this.client.request<{ size: { cols: number; rows: number } | null }>(
-        'getSize',
-        { sessionId: id }
-      )
-      return result.size ?? null
+      const result = await this.client.request<{ status?: unknown; size?: unknown }>('getSize', {
+        sessionId: id
+      })
+      if (result.status === 'session-not-found') {
+        if (missingAsNull) {
+          return null
+        }
+        throw new Error('terminal_session_not_found')
+      }
+      const size = result.size as { cols?: unknown; rows?: unknown } | null | undefined
+      if (
+        typeof size !== 'object' ||
+        size === null ||
+        typeof size.cols !== 'number' ||
+        typeof size.rows !== 'number' ||
+        !areValidTerminalDimensions(size.cols, size.rows)
+      ) {
+        throw new Error('invalid_daemon_terminal_size')
+      }
+      return { cols: size.cols, rows: size.rows }
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Unknown request type')) {
+      if (
+        error instanceof Error &&
+        /^(?:Unknown request type|Unknown request type: getSize)$/.test(error.message)
+      ) {
         return null
       }
       throw error

@@ -188,7 +188,7 @@ export class TerminalHost {
     return session.getPartialEscapeTailAnsi()
   }
 
-  // Why: renderer diffs this against xterm to detect a dropped/coerced daemon-side resize; null-not-throw like getSnapshot.
+  // Why: the daemon protocol distinguishes missing owners; host-internal restore probes remain nullable.
   getAppliedSize(sessionId: string): { cols: number; rows: number } | null {
     const session = this.sessions.get(sessionId)
     if (!session || !session.isAlive) {

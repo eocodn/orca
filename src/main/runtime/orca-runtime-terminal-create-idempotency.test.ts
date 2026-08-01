@@ -11,23 +11,18 @@ type CreateRun = (
 ) => Promise<RuntimeTerminalCreate>
 
 function createRuntimeForDedupe(listProcesses = vi.fn(async (): Promise<PtyProcessInfo[]> => [])) {
-  const handleByPtyId = new Map<string, string>()
-  const runtime = Object.create(OrcaRuntimeService.prototype) as OrcaRuntimeService
+  const runtime = new OrcaRuntimeService(null)
+  runtime.setPtyController({
+    write: () => true,
+    kill: () => true,
+    getForegroundProcess: async () => null,
+    listProcesses
+  })
   Object.assign(runtime, {
     terminalCreateIdempotency: new RemoteRuntimeTerminalCreateIdempotency(),
-    ptyController: { listProcesses },
     resolveTerminalWorkspaceLaunchScope: vi.fn(async (selector: string) => ({
       id: selector.startsWith('id:') ? selector.slice(3) : selector
-    })),
-    adoptControllerTerminalHandle: vi.fn((ptyId: string, handle: string) => {
-      handleByPtyId.set(ptyId, handle)
-    }),
-    recordPtyWorktree: vi.fn((ptyId: string, worktreeId: string, state: { title?: string }) => ({
-      ptyId,
-      worktreeId,
-      title: state.title ?? null
-    })),
-    issuePtyHandle: vi.fn((pty: { ptyId: string }) => handleByPtyId.get(pty.ptyId))
+    }))
   })
   return { runtime, listProcesses }
 }
@@ -122,6 +117,46 @@ describe('terminal create idempotency', () => {
     expect(startup).toHaveBeenCalledTimes(1)
     expect(retrySpawn).not.toHaveBeenCalled()
     expect(secondInventory).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves explicit process incarnation during restart adoption', async () => {
+    const handle = deriveRemoteRuntimeTerminalCreateHandle('device-a', 'worktree-1', 'mutation-1')
+    const { runtime } = createRuntimeForDedupe(
+      vi.fn(async () => [
+        {
+          id: 'worktree-1@@session-incarnated',
+          incarnationId: 'incarnation-current',
+          cwd: '/workspace',
+          title: 'pwsh',
+          worktreeId: 'worktree-1',
+          terminalHandle: handle
+        }
+      ])
+    )
+
+    const recovered = await runtime.dedupeTerminalCreate(
+      'device-a',
+      'id:worktree-1',
+      'mutation-1',
+      true,
+      vi.fn<CreateRun>()
+    )
+
+    expect(recovered.handle).toBe(handle)
+    expect(runtime.getTerminalProcessIncarnation(handle)).toBe(
+      'worktree-1@@session-incarnated:incarnation-current'
+    )
+    runtime.onPtyExit('worktree-1@@session-incarnated', 0)
+    expect(runtime.getTerminalProcessIncarnation(handle)).toBe(
+      'worktree-1@@session-incarnated:incarnation-current'
+    )
+    runtime.onPtyExit('worktree-1@@session-incarnated', 0, 'incarnation-current')
+    const pty = (
+      runtime as unknown as {
+        ptysById: Map<string, { connected: boolean; lastExitCode: number | null }>
+      }
+    ).ptysById.get('worktree-1@@session-incarnated')
+    expect(pty).toMatchObject({ connected: false, lastExitCode: 0 })
   })
 
   it('creates with the same stable handle after authoritative inventory proves absence', async () => {

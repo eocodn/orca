@@ -380,7 +380,7 @@ import {
   MAX_QUICK_COMMANDS,
   type TerminalQuickCommandMutation
 } from '../../shared/terminal-quick-commands'
-import type { PtyIncarnationId } from '../../shared/pty-incarnation'
+import { isPtyIncarnationId, type PtyIncarnationId } from '../../shared/pty-incarnation'
 import {
   buildAgentDraftLaunchPlan,
   buildAgentResumeStartupPlan,
@@ -2600,8 +2600,11 @@ export type ApplyLayoutResult =
   | { ok: false; reason: 'pty-exited' | 'resize-failed' }
 
 type LayoutQueueEntry = {
+  generation: number
   running: Promise<ApplyLayoutResult> | null
+  runningSlot: LayoutQueueSlot | null
   pending: LayoutQueueSlot[]
+  cancelled: boolean
 }
 
 type LayoutQueueWaiter = {
@@ -2612,33 +2615,47 @@ type LayoutQueueWaiter = {
 type LayoutQueueSlot = {
   target: PtyLayoutTarget
   coalescible: boolean
+  cancellationError?: string
   beforeApply?: () => void | Promise<void>
   afterApply?: (result: ApplyLayoutResult) => void | Promise<void>
   waiters: LayoutQueueWaiter[]
 }
 
 class ReferenceCountedPtyGuard {
-  private readonly counts = new Map<string, number>()
+  private readonly counts = new Map<string, Map<number, number>>()
 
-  add(ptyId: string): void {
-    this.counts.set(ptyId, (this.counts.get(ptyId) ?? 0) + 1)
+  add(ptyId: string, generation: number): void {
+    let byGeneration = this.counts.get(ptyId)
+    if (!byGeneration) {
+      byGeneration = new Map()
+      this.counts.set(ptyId, byGeneration)
+    }
+    byGeneration.set(generation, (byGeneration.get(generation) ?? 0) + 1)
   }
 
-  delete(ptyId: string): void {
-    const count = this.counts.get(ptyId) ?? 0
+  delete(ptyId: string, generation: number): void {
+    const byGeneration = this.counts.get(ptyId)
+    const count = byGeneration?.get(generation) ?? 0
     if (count <= 1) {
-      this.counts.delete(ptyId)
+      byGeneration?.delete(generation)
+      if (byGeneration?.size === 0) {
+        this.counts.delete(ptyId)
+      }
       return
     }
-    this.counts.set(ptyId, count - 1)
+    byGeneration?.set(generation, count - 1)
   }
 
-  clear(ptyId: string): void {
-    this.counts.delete(ptyId)
+  clear(ptyId: string, generation: number): void {
+    const byGeneration = this.counts.get(ptyId)
+    byGeneration?.delete(generation)
+    if (byGeneration?.size === 0) {
+      this.counts.delete(ptyId)
+    }
   }
 
-  has(ptyId: string): boolean {
-    return this.counts.has(ptyId)
+  has(ptyId: string, generation: number): boolean {
+    return (this.counts.get(ptyId)?.get(generation) ?? 0) > 0
   }
 }
 
@@ -8837,14 +8854,45 @@ export class OrcaRuntimeService {
     incarnationId?: PtyIncarnationId,
     options: { awaitsRegistration?: boolean } = {}
   ): void {
+    const reservedIncarnation = this.reservePtyRegistrationIncarnation(ptyId, incarnationId)
     if (options.awaitsRegistration !== false) {
       // Why: surface absence cannot distinguish an in-flight admission from a completed headless lifecycle.
-      this.pendingPtyRegistrationIncarnations.set(ptyId, incarnationId ?? null)
+      this.pendingPtyRegistrationIncarnations.set(ptyId, reservedIncarnation)
+      return
     }
     const pty = this.getOrCreatePtyWorktreeRecord(ptyId)
     if (pty) {
-      this.admitPtyLifecycle(pty, incarnationId, { adoptHandles: true })
+      this.admitPtyLifecycle(pty, reservedIncarnation ?? undefined, { adoptHandles: true })
     }
+  }
+
+  preparePtyRegistrationIncarnation(
+    ptyId: string,
+    incarnationId?: PtyIncarnationId
+  ): PtyIncarnationId | null {
+    const reservedIncarnation = this.reservePtyRegistrationIncarnation(ptyId, incarnationId)
+    if (this.pendingPtyRegistrationIncarnations.has(ptyId)) {
+      this.pendingPtyRegistrationIncarnations.set(ptyId, reservedIncarnation)
+    }
+    return reservedIncarnation
+  }
+
+  private reservePtyRegistrationIncarnation(
+    ptyId: string,
+    incarnationId?: PtyIncarnationId
+  ): PtyIncarnationId | null {
+    if (incarnationId !== undefined) {
+      return incarnationId
+    }
+    const pending = this.pendingPtyRegistrationIncarnations.get(ptyId)
+    if (pending) {
+      return pending
+    }
+    const pty = this.ptysById.get(ptyId)
+    if (pty && (!pty.connected || pty.lastExitCode !== null)) {
+      return `runtime-${this.runtimeId}-${this.nextSyntheticPtyIncarnation++}`
+    }
+    return pty?.incarnationId ?? null
   }
 
   registerPty(
@@ -9056,6 +9104,11 @@ export class OrcaRuntimeService {
     captureModelReceipt?: (completion: Promise<void>) => void,
     sourceRanges?: readonly TerminalOutputSourceRange[]
   ): number {
+    const existingPty = this.ptysById.get(ptyId)
+    if (existingPty && !existingPty.connected) {
+      captureModelReceipt?.(Promise.resolve())
+      return this.ptyOutputSequenceById.get(ptyId) ?? 0
+    }
     const outputSequence = (this.ptyOutputSequenceById.get(ptyId) ?? 0) + sequenceChars
     this.ptyOutputSequenceById.set(ptyId, outputSequence)
     this.providerModeTrackersByPtyId.get(ptyId)?.scan(data)
@@ -9115,7 +9168,6 @@ export class OrcaRuntimeService {
       : null
     let ptyTailAfter: ReturnType<typeof appendNormalizedToTailBuffer> | null = null
     if (pty) {
-      this.admitPtyLifecycle(pty, pty.incarnationId ?? undefined, { adoptHandles: false })
       pty.lastOutputAt = at
       const normalized = normalizeTerminalChunk(data, pty.tailPendingAnsi)
       pty.tailPendingAnsi = normalized.pendingAnsi
@@ -10114,11 +10166,19 @@ export class OrcaRuntimeService {
 
   private markPtyDisconnected(pty: RuntimePtyWorktreeRecord): void {
     if (pty.connected) {
+      const generation = this.getPtyLifecycleGeneration(pty.ptyId)
+      this.cancelLayoutQueue(pty.ptyId, generation)
+      this.freshSubscribeGuard.clear(pty.ptyId, generation)
+      this.layouts.delete(pty.ptyId)
       this.advancePtyLifecycleGeneration(pty.ptyId)
       this.rendererGraphLivenessBlockedPtys.add(pty.ptyId)
     }
     pty.connected = false
     pty.disconnectedAt ??= Date.now()
+    for (const leaf of this.getLeavesForPty(pty.ptyId)) {
+      leaf.connected = false
+      leaf.writable = false
+    }
   }
 
   synchronizePtyOutputSequenceFromProvider(
@@ -12507,7 +12567,7 @@ export class OrcaRuntimeService {
         })
       }
 
-      this.freshSubscribeGuard.add(ptyId)
+      const freshSubscribeGeneration = this.beginFreshSubscribe(ptyId)
       let result: ApplyLayoutResult
       try {
         result = await this.enqueueLayout(ptyId, {
@@ -12517,7 +12577,7 @@ export class OrcaRuntimeService {
           ownerClientId: clientId
         })
       } finally {
-        this.freshSubscribeGuard.delete(ptyId)
+        this.endFreshSubscribe(ptyId, freshSubscribeGeneration)
       }
       if (!result.ok) {
         throw new Error('resize_failed')
@@ -12804,6 +12864,18 @@ export class OrcaRuntimeService {
 
   onPtyExit(ptyId: string, exitCode: number, exitIncarnationId?: PtyIncarnationId): void {
     const pty = this.ptysById.get(ptyId)
+    const pendingIncarnation = this.pendingPtyRegistrationIncarnations.get(ptyId)
+    const exitMatchesUnadmittedReplacement =
+      this.pendingPtyRegistrationIncarnations.has(ptyId) &&
+      pendingIncarnation !== undefined &&
+      pendingIncarnation !== null &&
+      pendingIncarnation !== pty?.incarnationId &&
+      (exitIncarnationId === pendingIncarnation ||
+        (exitIncarnationId === undefined && pty?.connected === false))
+    if (exitMatchesUnadmittedReplacement) {
+      this.earlyExitedPtyIncarnations.set(ptyId, pendingIncarnation)
+      return
+    }
     if (exitIncarnationId === undefined && pty?.incarnationId) {
       return
     }
@@ -12825,6 +12897,9 @@ export class OrcaRuntimeService {
       exitIncarnationId ??
       pty?.incarnationId ??
       `runtime:${this.runtimeId}:${this.getPtyLifecycleGeneration(ptyId)}`
+    const exitingLifecycleGeneration = this.getPtyLifecycleGeneration(ptyId)
+    this.cancelLayoutQueue(ptyId, exitingLifecycleGeneration)
+    this.freshSubscribeGuard.clear(ptyId, exitingLifecycleGeneration)
     this.advancePtyLifecycleGeneration(ptyId)
     const exactSurfaceByKey = new Map<
       string,
@@ -12846,7 +12921,6 @@ export class OrcaRuntimeService {
       })
     }
     const exactSurfaces = [...exactSurfaceByKey.values()]
-    const pendingIncarnation = this.pendingPtyRegistrationIncarnations.get(ptyId)
     const exitMatchesPendingRegistration =
       this.pendingPtyRegistrationIncarnations.has(ptyId) &&
       (pendingIncarnation === null ||
@@ -12902,13 +12976,8 @@ export class OrcaRuntimeService {
     if (exitedTeamLeaderHandle) {
       this.claudeAgentTeams.removeTeamForLeaderHandle(exitedTeamLeaderHandle)
     }
-    // Layout state machine: clear `layouts` and `layoutQueues`. Any
-    // already-queued applyLayout work for this ptyId will run, but every
-    // applyLayout re-checks `layouts.has(ptyId)` (or fresh-subscribe) and
-    // short-circuits with `pty-exited`.
+    // Layout state belongs to the exited lifecycle generation.
     this.layouts.delete(ptyId)
-    this.layoutQueues.delete(ptyId)
-    this.freshSubscribeGuard.clear(ptyId)
     const pendingRestore = this.pendingRestoreTimers.get(ptyId)
     if (pendingRestore) {
       clearTimeout(pendingRestore.timer)
@@ -13103,7 +13172,7 @@ export class OrcaRuntimeService {
           ownerSubscriptionKey: this.remoteDesktopOwners.get(ptyId)!
         }
       : { kind: 'desktop', ...this.resolveRemoteDesktopHostReclaimTarget(ptyId) }
-    this.freshSubscribeGuard.add(ptyId)
+    const freshSubscribeGeneration = this.beginFreshSubscribe(ptyId)
     try {
       const result = await this.enqueueLayout(ptyId, layoutTarget)
       // Why: only drop the recorded host size once the reclaim resize actually
@@ -13120,7 +13189,7 @@ export class OrcaRuntimeService {
       }
       return result.ok
     } finally {
-      this.freshSubscribeGuard.delete(ptyId)
+      this.endFreshSubscribe(ptyId, freshSubscribeGeneration)
     }
   }
 
@@ -13307,7 +13376,7 @@ export class OrcaRuntimeService {
     if (this.isResizeSuppressed()) {
       return false
     }
-    this.freshSubscribeGuard.add(ptyId)
+    const freshSubscribeGeneration = this.beginFreshSubscribe(ptyId)
     try {
       const result = await this.enqueueLayout(ptyId, { kind: 'desktop', cols, rows })
       if (result.ok) {
@@ -13315,7 +13384,7 @@ export class OrcaRuntimeService {
       }
       return result.ok
     } finally {
-      this.freshSubscribeGuard.delete(ptyId)
+      this.endFreshSubscribe(ptyId, freshSubscribeGeneration)
     }
   }
 
@@ -13495,9 +13564,9 @@ export class OrcaRuntimeService {
     this.setDriver(ptyId, { kind: 'mobile', clientId })
 
     const needsFreshSubscribeGuard = !this.layouts.has(ptyId)
-    if (needsFreshSubscribeGuard) {
-      this.freshSubscribeGuard.add(ptyId)
-    }
+    const freshSubscribeGeneration = needsFreshSubscribeGuard
+      ? this.beginFreshSubscribe(ptyId)
+      : null
     let result: ApplyLayoutResult
     try {
       result = await this.enqueueLayout(ptyId, {
@@ -13507,8 +13576,8 @@ export class OrcaRuntimeService {
         ownerClientId: winner.clientId
       })
     } finally {
-      if (needsFreshSubscribeGuard) {
-        this.freshSubscribeGuard.delete(ptyId)
+      if (freshSubscribeGeneration !== null) {
+        this.endFreshSubscribe(ptyId, freshSubscribeGeneration)
       }
     }
     return { updated: true, applied: result.ok }
@@ -13743,13 +13812,26 @@ export class OrcaRuntimeService {
     return this.layouts.get(ptyId) ?? null
   }
 
+  private beginFreshSubscribe(ptyId: string): number {
+    const generation = this.getPtyLifecycleGeneration(ptyId)
+    this.freshSubscribeGuard.add(ptyId, generation)
+    return generation
+  }
+
+  private endFreshSubscribe(ptyId: string, generation: number): void {
+    this.freshSubscribeGuard.delete(ptyId, generation)
+  }
+
   // Why: `enqueueLayout`'s "no layouts entry" short-circuit must not fire
   // on the very first transition for a PTY (where the entry doesn't exist
   // yet *because* we're about to create it). handleMobileSubscribe adds
   // the ptyId to `freshSubscribeGuard` before calling enqueueLayout and
   // removes it in a finally block.
-  private isFreshSubscribe(ptyId: string): boolean {
-    return this.freshSubscribeGuard.has(ptyId)
+  private isFreshSubscribe(
+    ptyId: string,
+    generation = this.getPtyLifecycleGeneration(ptyId)
+  ): boolean {
+    return this.freshSubscribeGuard.has(ptyId, generation)
   }
 
   // Why: four-step fallback chain for desktop-restore targets. Always
@@ -13816,22 +13898,56 @@ export class OrcaRuntimeService {
     return this.enqueueLayoutSlot(ptyId, {
       target,
       coalescible: false,
+      cancellationError: 'terminal_incarnation_stale',
       beforeApply: hooks.beforeApply,
       afterApply: hooks.afterApply,
       waiters: []
     })
   }
 
+  private settleCancelledLayoutSlot(slot: LayoutQueueSlot): void {
+    const waiters = slot.waiters.splice(0)
+    for (const waiter of waiters) {
+      if (slot.cancellationError) {
+        waiter.reject(new Error(slot.cancellationError))
+      } else {
+        waiter.resolve({ ok: false, reason: 'pty-exited' })
+      }
+    }
+  }
+
+  private cancelLayoutQueue(ptyId: string, generation: number): void {
+    const entry = this.layoutQueues.get(ptyId)
+    if (!entry || entry.generation !== generation) {
+      return
+    }
+    entry.cancelled = true
+    if (this.layoutQueues.get(ptyId) === entry) {
+      this.layoutQueues.delete(ptyId)
+    }
+    if (entry.runningSlot) {
+      this.settleCancelledLayoutSlot(entry.runningSlot)
+    }
+    for (const slot of entry.pending.splice(0)) {
+      this.settleCancelledLayoutSlot(slot)
+    }
+  }
+
   private enqueueLayoutSlot(ptyId: string, slot: LayoutQueueSlot): Promise<ApplyLayoutResult> {
+    const generation = this.getPtyLifecycleGeneration(ptyId)
     // Why: PTY-exit short-circuit. Fresh-subscribe gate lets the very first
     // transition through even though `layouts` has no entry yet.
-    if (!this.layouts.has(ptyId) && !this.isFreshSubscribe(ptyId)) {
+    if (!this.layouts.has(ptyId) && !this.isFreshSubscribe(ptyId, generation)) {
       return Promise.resolve({ ok: false, reason: 'pty-exited' })
     }
 
     let entry = this.layoutQueues.get(ptyId)
+    if (entry && entry.generation !== generation) {
+      this.cancelLayoutQueue(ptyId, entry.generation)
+      entry = undefined
+    }
     if (!entry) {
-      entry = { running: null, pending: [] }
+      entry = { generation, running: null, runningSlot: null, pending: [], cancelled: false }
       this.layoutQueues.set(ptyId, entry)
     }
     const queue = entry
@@ -13840,7 +13956,8 @@ export class OrcaRuntimeService {
       const waiter = { resolve, reject }
       if (!queue.running) {
         slot.waiters.push(waiter)
-        queue.running = this.runLayoutSlot(ptyId, slot)
+        queue.runningSlot = slot
+        queue.running = this.runLayoutSlot(ptyId, queue, slot)
         return
       }
       const tail = queue.pending.at(-1)
@@ -13854,7 +13971,11 @@ export class OrcaRuntimeService {
     })
   }
 
-  private async runLayoutSlot(ptyId: string, slot: LayoutQueueSlot): Promise<ApplyLayoutResult> {
+  private async runLayoutSlot(
+    ptyId: string,
+    entry: LayoutQueueEntry,
+    slot: LayoutQueueSlot
+  ): Promise<ApplyLayoutResult> {
     let result: ApplyLayoutResult = { ok: false, reason: 'resize-failed' }
     let slotError: unknown = null
     try {
@@ -13862,9 +13983,13 @@ export class OrcaRuntimeService {
     } catch (err) {
       slotError = err
     }
-    if (!slotError) {
+    if (
+      !slotError &&
+      !entry.cancelled &&
+      this.getPtyLifecycleGeneration(ptyId) === entry.generation
+    ) {
       try {
-        result = await this.applyLayout(ptyId, slot.target)
+        result = await this.applyLayout(ptyId, slot.target, entry.generation)
       } catch (err) {
         // Why: ordinary layout callers use a result discriminator; unexpected
         // apply failures must not jam the queue or widen that contract.
@@ -13877,7 +14002,7 @@ export class OrcaRuntimeService {
         slotError = err
       }
     }
-    for (const waiter of slot.waiters) {
+    for (const waiter of slot.waiters.splice(0)) {
       if (slotError) {
         waiter.reject(slotError)
       } else {
@@ -13885,26 +14010,36 @@ export class OrcaRuntimeService {
       }
     }
 
-    const queue = this.layoutQueues.get(ptyId)
-    if (!queue) {
+    if (entry.cancelled || this.layoutQueues.get(ptyId) !== entry) {
       return result
     }
-    const next = queue.pending.shift()
+    const next = entry.pending.shift()
     if (next) {
-      queue.running = this.runLayoutSlot(ptyId, next)
+      entry.runningSlot = next
+      entry.running = this.runLayoutSlot(ptyId, entry, next)
     } else {
-      queue.running = null
+      entry.running = null
+      entry.runningSlot = null
       // Why: drop the entry once empty so the map doesn't grow without bound
       // across short-lived PTYs.
-      this.layoutQueues.delete(ptyId)
+      if (this.layoutQueues.get(ptyId) === entry) {
+        this.layoutQueues.delete(ptyId)
+      }
     }
     return result
   }
 
-  private async applyLayout(ptyId: string, target: PtyLayoutTarget): Promise<ApplyLayoutResult> {
+  private async applyLayout(
+    ptyId: string,
+    target: PtyLayoutTarget,
+    generation: number
+  ): Promise<ApplyLayoutResult> {
     // Why: re-check pty-exit at the head of the slot — the queue may have
     // accepted this target before onPtyExit ran.
-    if (!this.layouts.has(ptyId) && !this.isFreshSubscribe(ptyId)) {
+    if (
+      this.getPtyLifecycleGeneration(ptyId) !== generation ||
+      (!this.layouts.has(ptyId) && !this.isFreshSubscribe(ptyId, generation))
+    ) {
       return { ok: false, reason: 'pty-exited' }
     }
 
@@ -14130,7 +14265,7 @@ export class OrcaRuntimeService {
           viewport.cols,
           viewport.rows
         )
-        this.freshSubscribeGuard.add(ptyId)
+        const freshSubscribeGeneration = this.beginFreshSubscribe(ptyId)
         try {
           await this.enqueueLayout(ptyId, {
             kind: 'phone',
@@ -14139,7 +14274,7 @@ export class OrcaRuntimeService {
             ownerClientId: clientId
           })
         } finally {
-          this.freshSubscribeGuard.delete(ptyId)
+          this.endFreshSubscribe(ptyId, freshSubscribeGeneration)
         }
       }
       return true
@@ -14230,7 +14365,7 @@ export class OrcaRuntimeService {
     // Route the actual resize through the state machine. The fresh-subscribe
     // gate lets enqueueLayout's "no layouts entry" short-circuit pass on
     // the very first transition for this PTY.
-    this.freshSubscribeGuard.add(ptyId)
+    const freshSubscribeGeneration = this.beginFreshSubscribe(ptyId)
     try {
       await this.enqueueLayout(ptyId, {
         kind: 'phone',
@@ -14239,7 +14374,7 @@ export class OrcaRuntimeService {
         ownerClientId: clientId
       })
     } finally {
-      this.freshSubscribeGuard.delete(ptyId)
+      this.endFreshSubscribe(ptyId, freshSubscribeGeneration)
     }
 
     return true
@@ -15872,7 +16007,7 @@ export class OrcaRuntimeService {
       lifecycleGeneration,
       true
     )
-    this.freshSubscribeGuard.add(owner.ptyId)
+    const freshSubscribeGeneration = this.beginFreshSubscribe(owner.ptyId)
     let applied: { cols: number; rows: number } | null = null
     try {
       await this.enqueueExactLayout(
@@ -15921,7 +16056,7 @@ export class OrcaRuntimeService {
         }
       )
     } finally {
-      this.freshSubscribeGuard.delete(owner.ptyId)
+      this.endFreshSubscribe(owner.ptyId, freshSubscribeGeneration)
     }
     if (!applied) {
       throw new Error('terminal_resize_unconfirmed')
@@ -24799,14 +24934,18 @@ export class OrcaRuntimeService {
       return null
     }
     const session = matches[0]
+    if (session.incarnationId !== undefined && !isPtyIncarnationId(session.incarnationId)) {
+      throw new Error('terminal_create_identity_conflict')
+    }
     const authoritativeWorktreeId = session.worktreeId ?? inferWorktreeIdFromPtyId(session.id)
     if (authoritativeWorktreeId !== worktreeId) {
       // Why: a reused address or forged provider record must never adopt a PTY from another workspace.
       throw new Error('terminal_create_identity_conflict')
     }
-    this.adoptControllerTerminalHandle(session.id, terminalHandle)
+    this.adoptControllerTerminalHandle(session.id, terminalHandle, session.incarnationId)
     const pty = this.recordAuthoritativePtyWorktree(session.id, worktreeId, {
-      title: session.title
+      title: session.title,
+      ...(session.incarnationId ? { incarnationId: session.incarnationId } : {})
     })
     const adoptedHandle = this.issuePtyHandle(pty)
     if (adoptedHandle !== terminalHandle) {
@@ -28205,7 +28344,7 @@ export class OrcaRuntimeService {
       if (connectionId !== undefined && pty.connectionId !== connectionId) {
         continue
       }
-      if (!allLivePtyIds.has(pty.ptyId) && !this.leafExistsForPty(pty.ptyId)) {
+      if (!allLivePtyIds.has(pty.ptyId)) {
         if (this.ptyController.hasPty?.(pty.ptyId) === true) {
           // Why: an SSH spawn can become addressable before an overlapping relay list includes it.
           allLivePtyIds.add(pty.ptyId)
@@ -28302,7 +28441,7 @@ export class OrcaRuntimeService {
           })
           this.refreshPtyForegroundAgent(ptyId)
         }
-      } else if (pty && !this.leafExistsForPty(ptyId)) {
+      } else if (pty) {
         this.markPtyDisconnected(pty)
       }
     }

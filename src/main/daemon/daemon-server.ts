@@ -1023,8 +1023,10 @@ export class DaemonServer {
         return { snapshot }
       }
 
-      case 'getSize':
-        return { size: this.host.getAppliedSize(request.payload.sessionId) }
+      case 'getSize': {
+        const size = this.host.getAppliedSize(request.payload.sessionId)
+        return size ? { status: 'ok', size } : { status: 'session-not-found', size: null }
+      }
 
       case 'takePendingOutput':
         // Why no await: with includeSnapshot, drain+serialize must share one sync turn or cold restore replays doubled PTY bytes.
