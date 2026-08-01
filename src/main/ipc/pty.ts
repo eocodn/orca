@@ -295,6 +295,22 @@ type CleanupPendingPty = Readonly<{
 }>
 const cleanupPendingPtyById = new Map<string, CleanupPendingPty>()
 
+export function getPendingPtyCleanupIncarnation(id: string): string | undefined {
+  return cleanupPendingPtyById.get(id)?.incarnationId
+}
+
+export function consumePendingPtyCleanupIfExact(payload: {
+  id: string
+  incarnationId?: string
+}): boolean {
+  const pending = cleanupPendingPtyById.get(payload.id)
+  if (!pending || pending.incarnationId !== payload.incarnationId) {
+    return false
+  }
+  cleanupPendingPtyById.delete(payload.id)
+  return true
+}
+
 function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
   const size = ptySizes.get(id)
   return Object.freeze({
@@ -3547,12 +3563,12 @@ export function registerPtyHandlers(
       acceptPtyDataForRenderer(payload, admission?.sequence)
     })
     localExitUnsub = localProvider.onExit((payload) => {
-      if (
-        payload.incarnationId &&
-        cleanupPendingPtyById.get(payload.id)?.incarnationId === payload.incarnationId
-      ) {
+      const cleanupPending = cleanupPendingPtyById.get(payload.id)
+      if (cleanupPending) {
+        if (cleanupPending.incarnationId !== payload.incarnationId) {
+          return
+        }
         const currentIncarnation = ptyIncarnationById.get(payload.id)
-        const cleanupPending = cleanupPendingPtyById.get(payload.id)
         restorePublicationAfterExactCleanup(
           { id: payload.id, incarnationId: payload.incarnationId },
           cleanupPending?.publicationSnapshot ?? null

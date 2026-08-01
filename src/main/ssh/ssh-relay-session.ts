@@ -41,6 +41,8 @@ import {
   deletePtyOwnership,
   setPtyOwnership,
   restorePtyIncarnation,
+  getPendingPtyCleanupIncarnation,
+  consumePendingPtyCleanupIfExact,
   isCurrentPtyExit
 } from '../ipc/pty'
 import {
@@ -1395,6 +1397,17 @@ export class SshRelaySession {
         this.wakeRecovery(pendingReattach)
         return
       }
+      const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
+      if (
+        pendingCleanupIncarnation !== undefined &&
+        payload.incarnationId === pendingCleanupIncarnation
+      ) {
+        void this.acceptPtyExit(payload).catch(() => {})
+        return
+      }
+      if (pendingCleanupIncarnation !== undefined) {
+        return
+      }
       if (!isCurrentPtyExit(payload)) {
         return
       }
@@ -1661,12 +1674,22 @@ export class SshRelaySession {
   }
 
   private async acceptPtyExit(payload: SshPtyExitPayload): Promise<void> {
+    const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
+    if (
+      pendingCleanupIncarnation !== undefined &&
+      payload.incarnationId !== pendingCleanupIncarnation
+    ) {
+      return
+    }
     await acceptSshPtyOutputExit({
       id: payload.id,
       code: payload.code,
       providerGeneration: payload.providerGeneration,
       ptyIncarnation: payload.ptyIncarnation
     })
+    if (pendingCleanupIncarnation !== undefined && !consumePendingPtyCleanupIfExact(payload)) {
+      return
+    }
     if (isCurrentPtyExit(payload)) {
       this.retireExitedPty(payload, true)
     }

@@ -31,6 +31,7 @@ services:
           src/main/runtime/rpc/errors.test.ts \
           src/main/providers/ssh-pty-provider-resize.test.ts \
           src/main/providers/ssh-pty-provider.test.ts \
+          src/main/ssh/ssh-relay-session-incarnation.test.ts \
           src/main/daemon/daemon-pty-adapter.test.ts \
           src/main/daemon/terminal-host.test.ts \
           src/main/ipc/pty.test.ts \
@@ -101,6 +102,8 @@ services:
       - src/main/providers/ssh-pty-applied-size.ts
       - src/main/providers/ssh-pty-provider-resize.test.ts
       - src/main/providers/ssh-pty-provider.test.ts
+      - src/main/ssh/ssh-relay-session.ts
+      - src/main/ssh/ssh-relay-session-incarnation.test.ts
       - src/main/daemon/daemon-pty-adapter.ts
       - src/main/daemon/daemon-pty-adapter.test.ts
       - src/main/runtime/rpc/errors.ts
@@ -169,5 +172,38 @@ services:
         src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts
         src/main/persistence.ts
         src/main/persistence.test.ts src/shared/runtime-types.ts
+    init: true
+    network_mode: host
+
+  ssh-quality:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        pnpm exec oxfmt --check src/main/ssh/ssh-relay-session.ts
+        src/main/ssh/ssh-relay-session-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-data-delivery.test.ts
+        src/main/ssh/ssh-relay-session-managed-hooks.test.ts
+        src/main/ssh/ssh-relay-session-model-migration.test.ts
+        src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-recovery-races.test.ts
+        src/main/ssh/ssh-relay-session-terminal-error.test.ts
+        src/main/ssh/ssh-relay-session.test.ts &&
+        pnpm exec oxlint src/main/ssh/ssh-relay-session.ts
+        src/main/ssh/ssh-relay-session-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-data-delivery.test.ts
+        src/main/ssh/ssh-relay-session-managed-hooks.test.ts
+        src/main/ssh/ssh-relay-session-model-migration.test.ts
+        src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-recovery-races.test.ts
+        src/main/ssh/ssh-relay-session-terminal-error.test.ts
+        src/main/ssh/ssh-relay-session.test.ts
     init: true
     network_mode: host
