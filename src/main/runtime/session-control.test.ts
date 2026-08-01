@@ -96,4 +96,47 @@ describe('runtime session control', () => {
     expect(durableRevision).toBe('revision-2')
     expect(listAllMobileSessionTabs).toHaveBeenCalledTimes(2)
   })
+
+  it('fails after the bounded session snapshot stability retries are exhausted', async () => {
+    let revisionRead = 0
+    const listAllMobileSessionTabs = vi.fn(async () => [])
+    const runtime = new OrcaRuntimeService(
+      makeStore({
+        getStateRevision: vi.fn(() => `revision-${++revisionRead}`)
+      }) as never
+    )
+    runtime.listAllMobileSessionTabs = listAllMobileSessionTabs
+
+    await expect(runtime.getSessionSnapshot()).rejects.toThrow('session_snapshot_unstable')
+    expect(listAllMobileSessionTabs).toHaveBeenCalledTimes(3)
+  })
+
+  it('propagates synchronous flush failures without reporting a flushed snapshot', async () => {
+    const flushOrThrow = vi.fn(() => {
+      throw new Error('disk full')
+    })
+    const runtime = new OrcaRuntimeService(
+      makeStore({
+        flushOrThrow,
+        getStateRevision: vi.fn(() => 'revision-1')
+      }) as never
+    )
+
+    await expect(runtime.flushSession()).rejects.toThrow('disk full')
+    expect(flushOrThrow).toHaveBeenCalledOnce()
+  })
+
+  it('rejects when the authoritative revision changes after the flush boundary', async () => {
+    const getStateRevision = vi
+      .fn<() => string>()
+      .mockReturnValueOnce('revision-1')
+      .mockReturnValueOnce('revision-1')
+      .mockReturnValueOnce('revision-2')
+    const runtime = new OrcaRuntimeService(
+      makeStore({ flushOrThrow: vi.fn(), getStateRevision }) as never
+    )
+
+    await expect(runtime.flushSession()).rejects.toThrow('session_flush_raced')
+    expect(getStateRevision).toHaveBeenCalledTimes(3)
+  })
 })
