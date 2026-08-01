@@ -103,6 +103,8 @@ vi.mock('../ipc/pty', () => ({
   restorePtyIncarnation: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
   consumePendingPtyCleanupIfExact: vi.fn(() => false),
+  finalizePendingPtyCleanupIfExact: vi.fn(() => false),
+  hasPendingPtyCleanupExact: vi.fn(() => false),
   isCurrentPtyExit: vi.fn(() => true)
 }))
 

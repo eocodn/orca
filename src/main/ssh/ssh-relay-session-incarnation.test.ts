@@ -78,6 +78,8 @@ vi.mock('../ipc/pty', () => ({
   restorePtyIncarnation: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
   consumePendingPtyCleanupIfExact: vi.fn(() => false),
+  finalizePendingPtyCleanupIfExact: vi.fn(() => false),
+  hasPendingPtyCleanupExact: vi.fn(() => false),
   isCurrentPtyExit: vi.fn(() => true),
   answerStartupTerminalColorQueriesForPty: vi.fn((_id: string, data: string) => data)
 }))
@@ -97,6 +99,7 @@ const {
   deletePtyOwnership,
   getPendingPtyCleanupIncarnation,
   consumePendingPtyCleanupIfExact,
+  finalizePendingPtyCleanupIfExact,
   isCurrentPtyExit
 } = await import('../ipc/pty')
 
@@ -106,6 +109,7 @@ describe('SSH relay PTY incarnation exits', () => {
     acceptOutputExitMock.mockResolvedValue(undefined)
     muxRequestMock.mockResolvedValue([])
     mockDeploySuccess()
+    vi.mocked(finalizePendingPtyCleanupIfExact).mockReturnValue(false)
     vi.mocked(isCurrentPtyExit).mockReturnValue(true)
   })
 
@@ -280,7 +284,8 @@ describe('SSH relay PTY incarnation exits', () => {
     }) => void
     vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue('failed-incarnation')
     vi.mocked(consumePendingPtyCleanupIfExact).mockReturnValue(true)
-    vi.mocked(isCurrentPtyExit).mockReturnValue(false)
+    vi.mocked(finalizePendingPtyCleanupIfExact).mockReturnValue(true)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
     acceptOutputExitMock.mockRejectedValueOnce(new Error('ssh_exit_delivery_canceled'))
 
     onExit({
@@ -299,15 +304,19 @@ describe('SSH relay PTY incarnation exits', () => {
         ptyIncarnation: 'failed-incarnation'
       })
     )
-    expect(consumePendingPtyCleanupIfExact).toHaveBeenCalledWith(
+    expect(finalizePendingPtyCleanupIfExact).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'ssh:target-1@@pty-reused',
         incarnationId: 'failed-incarnation'
       })
     )
-    expect(clearProviderPtyState).not.toHaveBeenCalled()
-    expect(deletePtyOwnership).not.toHaveBeenCalled()
-    expect(mockStore.markSshRemotePtyLease).not.toHaveBeenCalled()
+    expect(clearProviderPtyState).toHaveBeenCalledWith('ssh:target-1@@pty-reused')
+    expect(deletePtyOwnership).toHaveBeenCalledWith('ssh:target-1@@pty-reused')
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledWith(
+      'target-1',
+      'pty-reused',
+      'terminated'
+    )
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
     expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
   })

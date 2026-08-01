@@ -111,6 +111,8 @@ vi.mock('../ipc/pty', () => ({
   restorePtyIncarnation: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
   consumePendingPtyCleanupIfExact: vi.fn(() => false),
+  finalizePendingPtyCleanupIfExact: vi.fn(() => false),
+  hasPendingPtyCleanupExact: vi.fn(() => false),
   isCurrentPtyExit: vi.fn(() => true),
   answerStartupTerminalColorQueriesForPty: vi.fn((_id: string, data: string) => data)
 }))
@@ -633,5 +635,54 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
       expect.any(Error)
     )
     consoleError.mockRestore()
+  })
+
+  it('queues a replacement exit while exact cleanup is still pending during reattach', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const attachResult = {
+      incarnationId: 'replacement-incarnation',
+      sourceActivationLease: { commit: vi.fn(), rollback: vi.fn() }
+    }
+    let resolveAttach!: (result: typeof attachResult) => void
+    const attachForReconnect = vi.fn(
+      () => new Promise<typeof attachResult>((resolve) => (resolveAttach = resolve))
+    )
+    vi.mocked(getSshPtyProvider).mockReturnValue({
+      attachForReconnect,
+      dispose: vi.fn()
+    } as unknown as ReturnType<typeof getSshPtyProvider>)
+    vi.mocked(mockStore.getSshRemotePtyLeases).mockReturnValue([detachedLease()] as ReturnType<
+      typeof mockStore.getSshRemotePtyLeases
+    >)
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue('failed-incarnation')
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+    const runtime = { onPtyExit: vi.fn(), registerPty: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+
+    const establish = session.establish(mockConn)
+    await vi.waitFor(() =>
+      expect(attachForReconnect).toHaveBeenCalledWith('pty-live', expect.anything())
+    )
+    emitExitDuringAttach({
+      id: APP_PTY_ID,
+      code: 0,
+      incarnationId: 'replacement-incarnation'
+    })
+    resolveAttach(attachResult)
+    await establish
+
+    expect(acceptOutputExitMock).toHaveBeenCalledWith({
+      id: APP_PTY_ID,
+      code: 0,
+      providerGeneration: 17,
+      ptyIncarnation: 'replacement-incarnation'
+    })
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
   })
 })

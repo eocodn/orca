@@ -43,6 +43,8 @@ import {
   restorePtyIncarnation,
   getPendingPtyCleanupIncarnation,
   consumePendingPtyCleanupIfExact,
+  finalizePendingPtyCleanupIfExact,
+  hasPendingPtyCleanupExact,
   isCurrentPtyExit
 } from '../ipc/pty'
 import {
@@ -1391,10 +1393,14 @@ export class SshRelaySession {
         return
       }
       const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
-      if (pendingCleanupIncarnation !== undefined) {
-        if (payload.incarnationId !== pendingCleanupIncarnation) {
-          return
-        }
+      if (pendingCleanupIncarnation !== undefined && payload.incarnationId === undefined) {
+        return
+      }
+      const exactCleanupPending =
+        hasPendingPtyCleanupExact?.(payload.id, payload.incarnationId) === true ||
+        (pendingCleanupIncarnation !== undefined &&
+          payload.incarnationId === pendingCleanupIncarnation)
+      if (exactCleanupPending) {
         void this.acceptPtyExit(payload).catch(() => {})
         return
       }
@@ -1672,12 +1678,13 @@ export class SshRelaySession {
 
   private async acceptPtyExit(payload: SshPtyExitPayload): Promise<void> {
     const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
-    if (
-      pendingCleanupIncarnation !== undefined &&
-      payload.incarnationId !== pendingCleanupIncarnation
-    ) {
-      return
-    }
+    const exactCleanupPending =
+      hasPendingPtyCleanupExact?.(payload.id, payload.incarnationId) === true ||
+      (pendingCleanupIncarnation !== undefined &&
+        payload.incarnationId === pendingCleanupIncarnation)
+    const finalizeExactCleanup = (): boolean =>
+      finalizePendingPtyCleanupIfExact?.(payload) === true ||
+      consumePendingPtyCleanupIfExact(payload)
     try {
       await acceptSshPtyOutputExit({
         id: payload.id,
@@ -1686,14 +1693,19 @@ export class SshRelaySession {
         ptyIncarnation: payload.ptyIncarnation
       })
     } catch (error) {
-      if (pendingCleanupIncarnation !== undefined && consumePendingPtyCleanupIfExact(payload)) {
-        // Why: the exact provider exit is authoritative for releasing the tombstone even when renderer delivery is canceled.
+      if (exactCleanupPending && finalizeExactCleanup()) {
+        // Why: the exact provider exit is authoritative even when output delivery is canceled; retire relay state after finalizing the main-side cleanup snapshot.
+        if (isCurrentPtyExit(payload)) {
+          this.retireExitedPty(payload, true)
+        }
         return
       }
       throw error
     }
-    if (pendingCleanupIncarnation !== undefined && !consumePendingPtyCleanupIfExact(payload)) {
-      return
+    if (exactCleanupPending) {
+      if (!finalizeExactCleanup()) {
+        return
+      }
     }
     if (isCurrentPtyExit(payload)) {
       this.retireExitedPty(payload, true)
@@ -1852,7 +1864,7 @@ export class SshRelaySession {
       if (exitDuringAttach && !recoveryRequest) {
         if (attachResult.incarnationId) {
           restorePtyIncarnation(appPtyId, attachResult.incarnationId)
-          this.runtime?.acceptPtyIncarnationForExit(appPtyId, attachResult.incarnationId)
+          this.runtime?.acceptPtyIncarnationForExit?.(appPtyId, attachResult.incarnationId)
         }
         await this.acceptPtyExit(exitDuringAttach)
         return
@@ -1981,7 +1993,7 @@ export class SshRelaySession {
       return
     }
     restorePtyIncarnation(appPtyId, ptyIncarnation)
-    this.runtime?.acceptPtyIncarnationForExit(appPtyId, ptyIncarnation)
+    this.runtime?.acceptPtyIncarnationForExit?.(appPtyId, ptyIncarnation)
   }
 
   private restoreReattachedPtyRuntime(

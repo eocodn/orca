@@ -245,12 +245,12 @@ const ptyIncarnationById = new Map<string, string>()
 const pendingPtyIncarnationById = new Map<string, string>()
 
 export function isCurrentPtyExit(payload: { id: string; incarnationId?: string }): boolean {
-  const pending = pendingPtyIncarnationById.get(payload.id)
-  if (pending) {
-    return payload.incarnationId === pending
-  }
   const current = ptyIncarnationById.get(payload.id)
-  return !current || payload.incarnationId === current
+  if (current) {
+    return payload.incarnationId === current
+  }
+  const pending = pendingPtyIncarnationById.get(payload.id)
+  return !pending || payload.incarnationId === pending
 }
 
 function stagePtyIncarnation(id: string, incarnationId: string | undefined): void {
@@ -292,27 +292,93 @@ type PtyPublicationSnapshot = Readonly<{
 type CleanupPendingPty = Readonly<{
   provider: IPtyProvider
   providerConnectionId: string | null | undefined
+  providerGeneration: number | undefined
   incarnationId: string
   publicationSnapshot: PtyPublicationSnapshot | null
 }>
-const cleanupPendingPtyById = new Map<string, CleanupPendingPty>()
+const cleanupPendingPtyById = new Map<string, Map<string, CleanupPendingPty>>()
 let pendingPtyCleanupFinalizer:
   | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => void)
   | null = null
 
 export function getPendingPtyCleanupIncarnation(id: string): string | undefined {
-  return cleanupPendingPtyById.get(id)?.incarnationId
+  return cleanupPendingPtyById.get(id)?.values().next().value?.incarnationId
+}
+
+export function hasPendingPtyCleanupExact(id: string, incarnationId: string | undefined): boolean {
+  return incarnationId !== undefined && cleanupPendingPtyById.get(id)?.has(incarnationId) === true
 }
 
 export function consumePendingPtyCleanupIfExact(payload: {
   id: string
   incarnationId?: string
 }): boolean {
-  const pending = cleanupPendingPtyById.get(payload.id)
-  if (!pending || pending.incarnationId !== payload.incarnationId) {
+  if (!payload.incarnationId) {
     return false
   }
-  cleanupPendingPtyById.delete(payload.id)
+  const pendingByIncarnation = cleanupPendingPtyById.get(payload.id)
+  if (!pendingByIncarnation?.has(payload.incarnationId)) {
+    return false
+  }
+  pendingByIncarnation.delete(payload.incarnationId)
+  if (pendingByIncarnation.size === 0) {
+    cleanupPendingPtyById.delete(payload.id)
+  }
+  return true
+}
+
+function setPendingPtyCleanupForResult(
+  provider: IPtyProvider,
+  result: PtySpawnResult,
+  snapshot: PtyPublicationSnapshot | null
+): void {
+  if (!result.incarnationId) {
+    return
+  }
+  const pending: CleanupPendingPty = {
+    provider,
+    providerConnectionId: providerConnectionId(provider),
+    providerGeneration: providerGeneration(provider),
+    incarnationId: result.incarnationId,
+    publicationSnapshot: snapshot
+  }
+  const pendingByIncarnation = cleanupPendingPtyById.get(result.id)
+  if (pendingByIncarnation) {
+    pendingByIncarnation.set(result.incarnationId, pending)
+  } else {
+    cleanupPendingPtyById.set(result.id, new Map([[result.incarnationId, pending]]))
+  }
+}
+
+function deletePendingPtyCleanupExact(id: string, incarnationId: string | undefined): void {
+  if (!incarnationId) {
+    return
+  }
+  const pendingByIncarnation = cleanupPendingPtyById.get(id)
+  pendingByIncarnation?.delete(incarnationId)
+  if (pendingByIncarnation?.size === 0) {
+    cleanupPendingPtyById.delete(id)
+  }
+}
+
+export function finalizePendingPtyCleanupIfExact(payload: {
+  id: string
+  incarnationId?: string
+}): boolean {
+  if (!payload.incarnationId) {
+    return false
+  }
+  const pending = cleanupPendingPtyById.get(payload.id)?.get(payload.incarnationId)
+  if (!pending || !pendingPtyCleanupFinalizer) {
+    return false
+  }
+  if (!consumePendingPtyCleanupIfExact(payload)) {
+    return false
+  }
+  pendingPtyCleanupFinalizer(
+    { id: payload.id, incarnationId: payload.incarnationId },
+    pending.publicationSnapshot
+  )
   return true
 }
 
@@ -328,17 +394,30 @@ function providerConnectionId(provider: IPtyProvider): string | null | undefined
   return undefined
 }
 
+function providerGeneration(provider: IPtyProvider): number | undefined {
+  const generation = (provider as { providerGeneration?: number }).providerGeneration
+  return Number.isSafeInteger(generation) && generation! > 0 ? generation : undefined
+}
+
 function providerCanReconcileCleanup(pending: CleanupPendingPty, provider: IPtyProvider): boolean {
-  if (pending.provider === provider) {
-    return true
-  }
   if (pending.providerConnectionId === null) {
     return provider === localProvider
   }
   if (pending.providerConnectionId !== undefined) {
-    return sshProviders.get(pending.providerConnectionId) === provider
+    if (sshProviders.get(pending.providerConnectionId) !== provider) {
+      return false
+    }
+    if (pending.provider === provider) {
+      return true
+    }
+    const currentGeneration = providerGeneration(provider)
+    return (
+      pending.providerGeneration !== undefined &&
+      currentGeneration !== undefined &&
+      currentGeneration > pending.providerGeneration
+    )
   }
-  return false
+  return pending.provider === provider
 }
 
 async function providerProvesPtyIncarnationAbsent(
@@ -373,24 +452,25 @@ export async function reconcilePendingPtyCleanup(
   provider: IPtyProvider,
   id: string
 ): Promise<boolean> {
-  const pending = cleanupPendingPtyById.get(id)
-  if (!pending || !providerCanReconcileCleanup(pending, provider)) {
+  const pendingByIncarnation = cleanupPendingPtyById.get(id)
+  if (!pendingByIncarnation || !pendingPtyCleanupFinalizer) {
     return false
   }
-  if (!pendingPtyCleanupFinalizer) {
-    return false
+  let finalized = false
+  for (const pending of Array.from(pendingByIncarnation.values())) {
+    if (!providerCanReconcileCleanup(pending, provider)) {
+      continue
+    }
+    const absent = await providerProvesPtyIncarnationAbsent(provider, id, pending.incarnationId)
+    // Why: provider registration can change while inventory I/O is pending; authorize the state transition against the current provider again.
+    if (!absent || !providerCanReconcileCleanup(pending, provider)) {
+      continue
+    }
+    if (finalizePendingPtyCleanupIfExact({ id, incarnationId: pending.incarnationId })) {
+      finalized = true
+    }
   }
-  if (!(await providerProvesPtyIncarnationAbsent(provider, id, pending.incarnationId))) {
-    return false
-  }
-  if (!consumePendingPtyCleanupIfExact({ id, incarnationId: pending.incarnationId })) {
-    return false
-  }
-  pendingPtyCleanupFinalizer(
-    { id, incarnationId: pending.incarnationId },
-    pending.publicationSnapshot
-  )
-  return true
+  return finalized
 }
 
 function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
@@ -398,7 +478,7 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
     return
   }
   void Promise.all(
-    Array.from(cleanupPendingPtyById, ([id]) => reconcilePendingPtyCleanup(provider, id))
+    Array.from(cleanupPendingPtyById.keys(), (id) => reconcilePendingPtyCleanup(provider, id))
   ).catch((error) => {
     console.warn('[pty] pending cleanup reconciliation failed:', error)
   })
@@ -1549,6 +1629,7 @@ export function getLocalPtyProvider(): IPtyProvider {
  *  Call before registerPtyHandlers so the IPC layer routes through the daemon. */
 export function setLocalPtyProvider(provider: IPtyProvider): void {
   localProvider = provider
+  schedulePendingPtyCleanupReconciliation(provider)
 }
 
 /** Get all PTY IDs owned by a given connectionId (for reconnection reattach). */
@@ -1704,6 +1785,7 @@ let sshOutputIntakeCleanup: (() => void) | null = null
 
 export function rebindLocalProviderListeners(): void {
   rebindProviderListeners?.()
+  schedulePendingPtyCleanupReconciliation(localProvider)
 }
 
 export type PtyRendererDeliveryDebugSnapshot = {
@@ -1939,14 +2021,15 @@ export function registerPtyHandlers(
   type BindingRollbackReceipt = { rollbackIfCurrent: () => boolean }
 
   const assertPtyCleanupComplete = (ptyId: string | undefined): void => {
-    if (ptyId && cleanupPendingPtyById.has(ptyId)) {
+    if (ptyId && (cleanupPendingPtyById.get(ptyId)?.size ?? 0) > 0) {
       throw new Error('pty_cleanup_pending')
     }
   }
 
   const restorePublicationAfterExactCleanup = (
     result: PtySpawnResult,
-    snapshot: PtyPublicationSnapshot | null
+    snapshot: PtyPublicationSnapshot | null,
+    notifyRuntimeExit = true
   ): void => {
     const current = ptyIncarnationById.get(result.id)
     const pending = pendingPtyIncarnationById.get(result.id)
@@ -1969,7 +2052,9 @@ export function registerPtyHandlers(
     if (result.incarnationId) {
       rememberFinalizedCleanupExit(result.id, result.incarnationId)
     }
-    runtime?.onPtyExit(result.id, -1, result.incarnationId)
+    if (notifyRuntimeExit) {
+      runtime?.onPtyExit?.(result.id, -1, result.incarnationId)
+    }
   }
 
   pendingPtyCleanupFinalizer = restorePublicationAfterExactCleanup
@@ -1987,18 +2072,19 @@ export function registerPtyHandlers(
       await provider.shutdown(result.id, { immediate: true })
     } catch (error) {
       console.warn('[pty] failed to prove PTY cleanup after publication failure:', error)
-      cleanupPendingPtyById.set(result.id, {
-        provider,
-        providerConnectionId: providerConnectionId(provider),
-        incarnationId: result.incarnationId,
-        publicationSnapshot: snapshot
-      })
+      if (runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true) {
+        deletePendingPtyCleanupExact(result.id, result.incarnationId)
+        restorePublicationAfterExactCleanup(result, snapshot, false)
+        return
+      }
+      setPendingPtyCleanupForResult(provider, result, snapshot)
+      schedulePendingPtyCleanupReconciliation(provider)
       return
     }
 
-    let absent =
-      runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true ||
-      provider.hasPty?.(result.id) === false
+    const runtimeExitObserved =
+      runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true
+    let absent = runtimeExitObserved || provider.hasPty?.(result.id) === false
     if (!absent && provider.listProcesses) {
       try {
         const processes = await provider.listProcesses()
@@ -2012,16 +2098,12 @@ export function registerPtyHandlers(
       }
     }
     if (!absent) {
-      cleanupPendingPtyById.set(result.id, {
-        provider,
-        providerConnectionId: providerConnectionId(provider),
-        incarnationId: result.incarnationId,
-        publicationSnapshot: snapshot
-      })
+      setPendingPtyCleanupForResult(provider, result, snapshot)
+      schedulePendingPtyCleanupReconciliation(provider)
       return
     }
-    cleanupPendingPtyById.delete(result.id)
-    restorePublicationAfterExactCleanup(result, snapshot)
+    deletePendingPtyCleanupExact(result.id, result.incarnationId)
+    restorePublicationAfterExactCleanup(result, snapshot, !runtimeExitObserved)
   }
 
   // Remove prior handlers so re-registration (e.g. macOS re-activate creating a new window) doesn't double-register.
@@ -3662,7 +3744,7 @@ export function registerPtyHandlers(
       }) ?? null
 
     localDataUnsub = localProvider.onData((payload) => {
-      if (cleanupPendingPtyById.get(payload.id)?.incarnationId === payload.incarnationId) {
+      if (hasPendingPtyCleanupExact(payload.id, payload.incarnationId)) {
         return
       }
       const rawLength = payload.sequenceChars ?? payload.data.length
@@ -3696,16 +3778,18 @@ export function registerPtyHandlers(
       acceptPtyDataForRenderer(payload, admission?.sequence)
     })
     localExitUnsub = localProvider.onExit((payload) => {
-      const cleanupPending = cleanupPendingPtyById.get(payload.id)
-      if (cleanupPending) {
-        if (cleanupPending.incarnationId !== payload.incarnationId) {
+      if (hasPendingPtyCleanupExact(payload.id, payload.incarnationId)) {
+        const cleanupPending = cleanupPendingPtyById
+          .get(payload.id)
+          ?.get(payload.incarnationId ?? '')
+        if (!cleanupPending) {
           return
         }
         restorePublicationAfterExactCleanup(
           { id: payload.id, incarnationId: payload.incarnationId },
           cleanupPending?.publicationSnapshot ?? null
         )
-        cleanupPendingPtyById.delete(payload.id)
+        deletePendingPtyCleanupExact(payload.id, payload.incarnationId)
         // Why: preload pty:exit has no incarnation field, so stale cleanup must not fan out to a replacement renderer pane.
         const currentAfterCleanup = ptyIncarnationById.get(payload.id)
         const pendingAfterCleanup = pendingPtyIncarnationById.get(payload.id)
@@ -4339,7 +4423,6 @@ export function registerPtyHandlers(
       let pendingRegistrationPtyId: string | null = null
       let preparedProvisionalExecutionContext = false
       let bindingRollbackReceipt: BindingRollbackReceipt | null = null
-      let persistenceAttempted = false
       let releaseWorktreeSpawn: (() => void) | undefined
       try {
         releaseWorktreeSpawn = await runtime?.acquireWorktreeTerminalSpawn?.(args.worktreeId)
@@ -4596,7 +4679,6 @@ export function registerPtyHandlers(
               ...(result.incarnationId ? { incarnationId: result.incarnationId } : {}),
               ...(cwd ? { startupCwd: cwd } : {})
             }
-            persistenceAttempted = true
             if (args.connectionId) {
               bindingRollbackReceipt = hostSessionBinding.store.persistPtyBinding(
                 binding,
@@ -4713,7 +4795,7 @@ export function registerPtyHandlers(
         return resolvePaneSpawnReservation(materializedPaneKey, paneSpawnReservation, response)
       } catch (err) {
         bindingRollbackReceipt?.rollbackIfCurrent()
-        if (persistenceAttempted && rejectedRegistrationCandidate) {
+        if (rejectedRegistrationCandidate) {
           runtime?.quarantinePtyAfterPublicationFailure?.(
             rejectedRegistrationCandidate.id,
             rejectedRegistrationCandidate.incarnationId
@@ -5552,7 +5634,6 @@ export function registerPtyHandlers(
       let pendingRegistrationPtyId: string | null = null
       let preparedProvisionalExecutionContext = false
       let bindingRollbackReceipt: BindingRollbackReceipt | null = null
-      let persistenceAttempted = false
       let releaseWorktreeSpawn: (() => void) | undefined
       try {
         releaseWorktreeSpawn = await runtime?.acquireWorktreeTerminalSpawn?.(args.worktreeId)
@@ -5720,7 +5801,6 @@ export function registerPtyHandlers(
               ...(result.incarnationId ? { incarnationId: result.incarnationId } : {}),
               ...(cwd ? { startupCwd: cwd } : {})
             }
-            persistenceAttempted = true
             if (args.connectionId) {
               bindingRollbackReceipt = store.persistPtyBinding(
                 binding,
@@ -5954,7 +6034,7 @@ export function registerPtyHandlers(
         return resolvePaneSpawnReservation(reservationPaneKey, paneSpawnReservation, response)
       } catch (err) {
         bindingRollbackReceipt?.rollbackIfCurrent()
-        if (persistenceAttempted && rejectedRegistrationCandidate) {
+        if (rejectedRegistrationCandidate) {
           runtime?.quarantinePtyAfterPublicationFailure?.(
             rejectedRegistrationCandidate.id,
             rejectedRegistrationCandidate.incarnationId

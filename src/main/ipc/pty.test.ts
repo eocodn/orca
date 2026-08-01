@@ -7855,6 +7855,17 @@ describe('registerPtyHandlers', () => {
       shutdown: vi.fn(async () => {
         throw new Error('shutdown response lost')
       }),
+      listProcesses: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: sessionId,
+            incarnationId: 'inc-reconcile-failed',
+            cwd: '/tmp',
+            title: 'failed'
+          }
+        ])
+        .mockResolvedValue([]),
       authoritativeOwnerListings: false
     })
     setLocalPtyProvider(provider as never)
@@ -7987,6 +7998,173 @@ describe('registerPtyHandlers', () => {
 
     expect(runtime.onPtyExit).toHaveBeenCalledTimes(1)
     expect(runtime.onPtyExit).toHaveBeenLastCalledWith(sessionId, -1, 'inc-no-duplicate')
+  })
+
+  it('does not tombstone an incarnation whose exit was observed before shutdown rejected', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<{ id: string; incarnationId?: string }>
+    }
+    const sessionId = 'pty-cleanup-exit-before-shutdown-rejection'
+    const provider = createAgentClaimProvider({
+      spawn: vi
+        .fn()
+        .mockResolvedValueOnce({ id: sessionId, incarnationId: 'inc-observed-exit' })
+        .mockResolvedValueOnce({ id: sessionId, incarnationId: 'inc-replacement' }),
+      shutdown: vi.fn().mockRejectedValueOnce(new Error('shutdown response lost')),
+      listProcesses: vi.fn(async () => [
+        { id: sessionId, incarnationId: 'inc-observed-exit', cwd: '/tmp', title: 'exited' }
+      ]),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const store = {
+      persistPtyBinding: vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error('disk full')
+        })
+        .mockImplementation(() => ({ rollbackIfCurrent: vi.fn(() => true) }))
+    }
+    let controller: RuntimeSpawnController | null = null
+    const runtime = {
+      setPtyController: vi.fn((value) => {
+        controller = value
+      }),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_cleanup_exit_observed'),
+      preAllocateHandleForPty: vi.fn(() => 'term_cleanup_exit_observed'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      hasObservedExactPtyExit: vi.fn(() => true),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const args = {
+      sessionId,
+      worktreeId: 'wt-1',
+      tabId: 'tab-cleanup-exit-observed',
+      leafId: '11111111-1111-4111-8111-111111111111',
+      persistHostSessionBinding: true
+    }
+
+    await expect(controller!.spawn({ ...args, cols: 90, rows: 30 })).rejects.toThrow(
+      /ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/
+    )
+    await expect(controller!.spawn({ ...args, cols: 100, rows: 40 })).resolves.toEqual({
+      id: sessionId,
+      incarnationId: 'inc-replacement'
+    })
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+  })
+
+  it('rechecks the current provider after cleanup inventory awaits', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+        persistHostSessionBinding: boolean
+      }): Promise<unknown>
+    }
+    const sessionId = 'pty-cleanup-provider-recheck'
+    const oldProvider = createAgentClaimProvider({
+      spawn: vi.fn().mockResolvedValue({ id: sessionId, incarnationId: 'inc-old-provider' }),
+      shutdown: vi.fn().mockRejectedValue(new Error('shutdown response lost')),
+      listProcesses: vi.fn(async () => [
+        { id: sessionId, incarnationId: 'inc-old-provider', cwd: '/tmp', title: 'old' }
+      ]),
+      authoritativeOwnerListings: false
+    })
+    let releaseNewInventory!: (sessions: never[]) => void
+    const newInventory = vi.fn(
+      () => new Promise<never[]>((resolve) => (releaseNewInventory = resolve))
+    )
+    const newProvider = createAgentClaimProvider({
+      listProcesses: newInventory,
+      authoritativeOwnerListings: false
+    })
+    let releaseCurrentInventory!: (sessions: never[]) => void
+    const currentInventory = vi.fn(
+      () => new Promise<never[]>((resolve) => (releaseCurrentInventory = resolve))
+    )
+    const currentProvider = createAgentClaimProvider({
+      listProcesses: currentInventory,
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(oldProvider as never)
+    const store = {
+      persistPtyBinding: vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error('disk full')
+        })
+        .mockImplementation(() => ({ rollbackIfCurrent: vi.fn(() => true) }))
+    }
+    let controller: RuntimeSpawnController | null = null
+    const runtime = {
+      setPtyController: vi.fn((value) => {
+        controller = value
+      }),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term_cleanup_provider_recheck'),
+      preAllocateHandleForPty: vi.fn(() => 'term_cleanup_provider_recheck'),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const args = {
+      sessionId,
+      worktreeId: 'wt-1',
+      tabId: 'tab-cleanup-provider-recheck',
+      leafId: '11111111-1111-4111-8111-111111111111',
+      persistHostSessionBinding: true
+    }
+
+    await expect(controller!.spawn({ ...args, cols: 90, rows: 30 })).rejects.toThrow(
+      /ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/
+    )
+    setLocalPtyProvider(newProvider as never)
+    await vi.waitFor(() => expect(newInventory).toHaveBeenCalledOnce())
+    setLocalPtyProvider(currentProvider as never)
+    releaseNewInventory([])
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    releaseCurrentInventory([])
+    await vi.waitFor(() => expect(runtime.onPtyExit).toHaveBeenCalledOnce())
   })
 
   it('persists the final synthetic incarnation before completing a same-id replacement', async () => {
@@ -8629,6 +8807,49 @@ describe('registerPtyHandlers', () => {
     ]).finally(() => clearTimeout(hangTimer))
     expect(result.id).toEqual(expect.any(String))
     expect(providerSpawn).toHaveBeenCalledTimes(2)
+  })
+
+  it('cleans up a live PTY when a post-spawn registration fails without durable binding', async () => {
+    const shutdown = vi.fn(async () => {})
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({
+        id: 'pty-post-spawn-no-binding',
+        incarnationId: 'inc-post-spawn-no-binding'
+      })),
+      shutdown,
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const runtime = {
+      setPtyController: vi.fn(),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'term-post-spawn-no-binding'),
+      preAllocateHandleForPty: vi.fn(),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(() => {
+        throw new Error('post-spawn registration failed')
+      }),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      spawn(args: Record<string, unknown>): Promise<unknown>
+    }
+
+    await expect(
+      controller.spawn({
+        cols: 80,
+        rows: 24,
+        worktreeId: 'wt-post-spawn-no-binding',
+        tabId: 'tab-post-spawn-no-binding',
+        leafId: '66666666-6666-4666-8666-666666666666'
+      })
+    ).rejects.toThrow('post-spawn registration failed')
+
+    expect(shutdown).toHaveBeenCalledWith('pty-post-spawn-no-binding', { immediate: true })
   })
 
   it('records SSH leases for runtime-owned headless session bindings', async () => {

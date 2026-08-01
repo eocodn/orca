@@ -77,7 +77,9 @@ vi.mock('../ipc/pty', () => ({
   deletePtyOwnership: vi.fn(),
   setPtyOwnership: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
-  consumePendingPtyCleanupIfExact: vi.fn(() => false)
+  consumePendingPtyCleanupIfExact: vi.fn(() => false),
+  finalizePendingPtyCleanupIfExact: vi.fn(() => false),
+  hasPendingPtyCleanupExact: vi.fn(() => false)
 }))
 
 vi.mock('../providers/ssh-filesystem-dispatch', () => ({
