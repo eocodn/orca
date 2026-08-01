@@ -242,6 +242,8 @@ const PRODUCER_FLOW_CONTROL_ENABLED = true
 // Why: post-spawn write/resize/kill calls carry only the PTY ID; map it to its connectionId so ops route to the right provider.
 const ptyOwnership = new Map<string, string | null>()
 const ptyIncarnationById = new Map<string, string>()
+// Why: legacy providers may omit incarnation ids; a local lifecycle token still fences async teardown from same-id replacement.
+const ptyStateTokenById = new Map<string, symbol>()
 const pendingPtyIncarnationById = new Map<string, string>()
 
 const PTY_EXIT_EVIDENCE_MAX_PER_ID = 128
@@ -316,6 +318,8 @@ function stagePtyIncarnation(id: string, incarnationId: string | undefined): voi
 
 function commitPtyIncarnation(id: string, incarnationId: string | undefined): void {
   if (!incarnationId) {
+    pendingPtyIncarnationById.delete(id)
+    ptyStateTokenById.set(id, Symbol(id))
     return
   }
   if (pendingPtyIncarnationById.get(id) !== incarnationId) {
@@ -326,6 +330,7 @@ function commitPtyIncarnation(id: string, incarnationId: string | undefined): vo
   }
   pendingPtyIncarnationById.delete(id)
   ptyIncarnationById.set(id, incarnationId)
+  ptyStateTokenById.set(id, Symbol(id))
 }
 
 function rollbackPtyIncarnation(id: string, incarnationId: string | undefined): void {
@@ -342,6 +347,7 @@ type PtyPublicationSnapshot = Readonly<{
   ownershipPresent: boolean
   ownership: string | null | undefined
   incarnation: string | undefined
+  stateToken: symbol | undefined
   size: { cols: number; rows: number } | undefined
 }>
 type CleanupPendingPty = Readonly<{
@@ -352,6 +358,8 @@ type CleanupPendingPty = Readonly<{
   publicationSnapshot: PtyPublicationSnapshot | null
 }>
 const cleanupPendingPtyById = new Map<string, Map<string | undefined, CleanupPendingPty>>()
+const pendingPtyCleanupRetryAttemptsById = new Map<string, number>()
+const PENDING_PTY_CLEANUP_MAX_RETRIES = 3
 let pendingPtyCleanupFinalizer:
   | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => void)
   | null = null
@@ -555,11 +563,33 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
   if (cleanupPendingPtyById.size === 0) {
     return
   }
-  void Promise.all(
-    Array.from(cleanupPendingPtyById.keys(), (id) => reconcilePendingPtyCleanup(provider, id))
-  ).catch((error) => {
-    console.warn('[pty] pending cleanup reconciliation failed:', error)
-  })
+  for (const id of cleanupPendingPtyById.keys()) {
+    void reconcilePendingPtyCleanup(provider, id).catch((error) => {
+      const attempts = (pendingPtyCleanupRetryAttemptsById.get(id) ?? 0) + 1
+      if (attempts > PENDING_PTY_CLEANUP_MAX_RETRIES) {
+        console.warn('[pty] pending cleanup reconciliation exhausted retries:', error)
+        return
+      }
+      pendingPtyCleanupRetryAttemptsById.set(id, attempts)
+      // Why: a failed finalizer retains its tombstone; retry asynchronously so a transient projection failure cannot permanently block the PTY id.
+      setTimeout(() => {
+        if (!cleanupPendingPtyById.has(id)) {
+          pendingPtyCleanupRetryAttemptsById.delete(id)
+          return
+        }
+        void reconcilePendingPtyCleanup(provider, id)
+          .then(() => {
+            if (!cleanupPendingPtyById.has(id)) {
+              pendingPtyCleanupRetryAttemptsById.delete(id)
+            }
+          })
+          .catch((retryError) => {
+            schedulePendingPtyCleanupReconciliation(provider)
+            console.warn('[pty] pending cleanup reconciliation retry failed:', retryError)
+          })
+      }, 0)
+    })
+  }
 }
 
 function scheduleCurrentPtyCleanupReconciliation(id: string): void {
@@ -589,6 +619,7 @@ function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
     ownershipPresent: ptyOwnership.has(id),
     ownership: ptyOwnership.get(id),
     incarnation: ptyIncarnationById.get(id),
+    stateToken: ptyStateTokenById.get(id),
     size: size ? { ...size } : undefined
   })
 }
@@ -604,6 +635,11 @@ function restorePtyPublication(snapshot: PtyPublicationSnapshot): void {
     ptyIncarnationById.set(snapshot.id, snapshot.incarnation)
   } else {
     ptyIncarnationById.delete(snapshot.id)
+  }
+  if (snapshot.stateToken) {
+    ptyStateTokenById.set(snapshot.id, snapshot.stateToken)
+  } else {
+    ptyStateTokenById.delete(snapshot.id)
   }
   if (snapshot.size) {
     ptySizes.set(snapshot.id, snapshot.size)
@@ -737,6 +773,7 @@ async function reconcileAgentSessionOwnerListings(): Promise<void> {
     for (const session of advertisedOwnerSessions) {
       ptyOwnership.set(session.id, session.connectionId)
       ptyIncarnationById.set(session.id, session.incarnationId)
+      ptyStateTokenById.set(session.id, Symbol(session.id))
     }
   })()
   agentSessionOwnerReconciliation = reconciliation
@@ -1052,30 +1089,45 @@ async function verifyPtyStopped(
   return true
 }
 
+type PtyShutdownTarget = Readonly<{
+  stateToken: symbol
+  incarnationId: string | undefined
+}>
+
+function capturePtyShutdownTarget(id: string): PtyShutdownTarget {
+  const stateToken = ptyStateTokenById.get(id) ?? Symbol(id)
+  ptyStateTokenById.set(id, stateToken)
+  return Object.freeze({ stateToken, incarnationId: ptyIncarnationById.get(id) })
+}
+
 function finishPtyShutdown(
   id: string,
   connectionId: string | null | undefined,
   store: Store | undefined,
-  expectedIncarnationId?: string
-): string | undefined {
+  expectedTarget: PtyShutdownTarget
+): { incarnationId: string | undefined } | undefined {
   const incarnationId = ptyIncarnationById.get(id)
-  if (expectedIncarnationId !== undefined && incarnationId !== expectedIncarnationId) {
+  if (
+    ptyStateTokenById.get(id) !== expectedTarget.stateToken ||
+    (expectedTarget.incarnationId !== undefined && incarnationId !== expectedTarget.incarnationId)
+  ) {
     return undefined
   }
-  clearProviderPtyState(id)
   if (connectionId) {
     store?.markSshRemotePtyLease(connectionId, getRelayPtyId(connectionId, id), 'terminated')
   }
+  clearProviderPtyState(id)
   ptyOwnership.delete(id)
   markClaudePtyExited(id)
-  return incarnationId
+  return { incarnationId }
 }
 
-function isPtyShutdownTargetCurrent(
-  id: string,
-  expectedIncarnationId: string | undefined
-): boolean {
-  return expectedIncarnationId === undefined || ptyIncarnationById.get(id) === expectedIncarnationId
+function isPtyShutdownTargetCurrent(id: string, expectedTarget: PtyShutdownTarget): boolean {
+  return (
+    ptyStateTokenById.get(id) === expectedTarget.stateToken &&
+    (expectedTarget.incarnationId === undefined ||
+      ptyIncarnationById.get(id) === expectedTarget.incarnationId)
+  )
 }
 
 // ─── Host PTY env assembly ──────────────────────────────────────────
@@ -1793,6 +1845,7 @@ export function clearProviderPtyState(
   pendingPtySizes.delete(id)
   pendingPtyIncarnationById.delete(id)
   ptyIncarnationById.delete(id)
+  ptyStateTokenById.delete(id)
   lastInputAtByPty.delete(id)
   interactiveOutputCharsByPty.delete(id)
   const activeChanged = activeRendererPtys.delete(id)
@@ -1864,6 +1917,7 @@ export function restorePtyIncarnation(id: string, incarnationId: string): void {
   }
   pendingPtyIncarnationById.delete(id)
   ptyIncarnationById.set(id, incarnationId)
+  ptyStateTokenById.set(id, Symbol(id))
 }
 
 // Why: localProvider.onData/onExit return unsubscribe functions. Without
@@ -2202,7 +2256,7 @@ export function registerPtyHandlers(
       runtimeExitObservedBeforeQuarantine ||
       (result.incarnationId !== undefined &&
         runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true)
-    let absent = runtimeExitObserved || provider.hasPty?.(result.id) === false
+    let absent = runtimeExitObserved
     if (!absent && provider.listProcesses) {
       try {
         const processes = await provider.listProcesses()
@@ -2216,6 +2270,9 @@ export function registerPtyHandlers(
       } catch {
         absent = false
       }
+    }
+    if (!absent && !provider.listProcesses) {
+      absent = provider.hasPty?.(result.id) === false
     }
     if (!absent) {
       setPendingPtyCleanupForResult(provider, result, snapshot)
@@ -3899,7 +3956,11 @@ export function registerPtyHandlers(
       }
       acceptPtyDataForRenderer(payload, admission?.sequence)
     })
-    localExitUnsub = localProvider.onExit((payload) => {
+    const handleProviderExit = (payload: {
+      id: string
+      code: number
+      incarnationId?: string
+    }): void => {
       if (hasPendingPtyCleanupExact(payload.id, payload.incarnationId)) {
         const cleanupPending = cleanupPendingPtyById
           .get(payload.id)
@@ -3940,6 +4001,24 @@ export function registerPtyHandlers(
         runtime?.onPtyExit(payload.id, payload.code, payload.incarnationId)
       }
       sendPtyExitToRenderer(payload)
+    }
+    localExitUnsub = localProvider.onExit((payload) => {
+      const incarnationId = payload.incarnationId
+      const stateToken = ptyStateTokenById.get(payload.id)
+      if (incarnationId === undefined && stateToken !== undefined) {
+        // Why: legacy providers omit incarnation ids, so an old exit must not retire an id-reused PTY without an authoritative absence check.
+        void providerProvesPtyIncarnationAbsent(localProvider, payload.id, undefined)
+          .then((absent) => {
+            if (absent && ptyStateTokenById.get(payload.id) === stateToken) {
+              handleProviderExit(payload)
+            }
+          })
+          .catch((error) => {
+            console.warn('[pty] identity-less provider exit verification failed:', error)
+          })
+        return
+      }
+      handleProviderExit(payload)
     })
   }
 
@@ -4974,7 +5053,11 @@ export function registerPtyHandlers(
       let connectionId: string | null | undefined = ptyOwnership.get(ptyId)
       const parsedSshId = connectionId === undefined ? parseAppSshPtyId(ptyId) : null
       connectionId ??= parsedSshId?.connectionId
+      const expectedTarget = capturePtyShutdownTarget(ptyId)
       const killWithCurrentProvider = (): boolean => {
+        if (!isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
+          return false
+        }
         let provider: IPtyProvider
         try {
           provider = connectionId ? getProvider(connectionId) : getProviderForPty(ptyId)
@@ -4983,8 +5066,11 @@ export function registerPtyHandlers(
             // Why: runtime/CLI close can target a detached SSH PTY after its
             // provider was unregistered. Tombstone the lease so reconnect does
             // not revive a terminal the user explicitly closed.
-            const incarnationId = finishPtyShutdown(ptyId, connectionId, store)
-            runtime?.onPtyExit(ptyId, -1, incarnationId)
+            const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+            if (!finished) {
+              return false
+            }
+            runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
             rememberSyntheticKillExit(ptyId)
             sendPtyExitToRenderer({ id: ptyId, code: -1 })
             return true
@@ -4992,41 +5078,30 @@ export function registerPtyHandlers(
           return false
         }
         // Why: controller is synchronous, but keep ownership until async shutdown proves whether the provider emitted an exit.
-        const expectedIncarnationId = ptyIncarnationById.get(ptyId)
         void shutdownProviderAndDetectExit(provider, ptyId, { immediate: false })
           .then((providerExitObserved) => {
-            const incarnationId = finishPtyShutdown(
-              ptyId,
-              connectionId,
-              store,
-              expectedIncarnationId
-            )
-            if (expectedIncarnationId !== undefined && incarnationId !== expectedIncarnationId) {
+            const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+            if (!finished) {
               return
             }
             if (!providerExitObserved) {
-              runtime?.onPtyExit(ptyId, -1, incarnationId)
+              runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
               rememberSyntheticKillExit(ptyId)
               sendPtyExitToRenderer({ id: ptyId, code: -1 })
             }
           })
           .catch((err) => {
             if (isPtyAlreadyGoneError(err)) {
-              const incarnationId = finishPtyShutdown(
-                ptyId,
-                connectionId,
-                store,
-                expectedIncarnationId
-              )
-              if (expectedIncarnationId !== undefined && incarnationId !== expectedIncarnationId) {
+              const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+              if (!finished) {
                 return
               }
-              runtime?.onPtyExit(ptyId, -1, incarnationId)
+              runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
               rememberSyntheticKillExit(ptyId)
               sendPtyExitToRenderer({ id: ptyId, code: -1 })
               return
             }
-            if (!isPtyShutdownTargetCurrent(ptyId, expectedIncarnationId)) {
+            if (!isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
               return
             }
             console.warn(
@@ -5045,7 +5120,6 @@ export function registerPtyHandlers(
           console.warn(
             `[pty] Failed to stop PTY ${ptyId}: ${err instanceof Error ? err.message : String(err)}`
           )
-          runtime?.onPtyExit(ptyId, -1, ptyIncarnationById.get(ptyId))
         })
         return true
       }
@@ -5075,7 +5149,7 @@ export function registerPtyHandlers(
       let connectionId: string | null | undefined = ptyOwnership.get(ptyId)
       const parsedSshId = connectionId === undefined ? parseAppSshPtyId(ptyId) : null
       connectionId ??= parsedSshId?.connectionId
-      const expectedIncarnationId = ptyIncarnationById.get(ptyId)
+      const expectedTarget = capturePtyShutdownTarget(ptyId)
       // Why: destructive teardown threads one absolute deadline through every await
       // below; each RPC leaf converts it to the remaining time when it issues, so
       // sequential RPCs share the budget and cannot overrun the sweep deadline.
@@ -5102,7 +5176,7 @@ export function registerPtyHandlers(
         } else {
           await startupPromise
         }
-        if (!isPtyShutdownTargetCurrent(ptyId, expectedIncarnationId)) {
+        if (!isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
           return false
         }
       }
@@ -5113,8 +5187,11 @@ export function registerPtyHandlers(
         if (connectionId) {
           // Why: an absent SSH provider means there is no live target left to
           // await, but the relay lease must still be tombstoned.
-          const incarnationId = finishPtyShutdown(ptyId, connectionId, store)
-          runtime?.onPtyExit(ptyId, -1, incarnationId)
+          const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+          if (!finished) {
+            return false
+          }
+          runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
           rememberSyntheticKillExit(ptyId)
           sendPtyExitToRenderer({ id: ptyId, code: -1 })
           return true
@@ -5148,12 +5225,15 @@ export function registerPtyHandlers(
         )
         return false
       }
-      const incarnationId = finishPtyShutdown(ptyId, connectionId, store, expectedIncarnationId)
-      if (expectedIncarnationId !== undefined && incarnationId !== expectedIncarnationId) {
+      if (providerExitObserved && !isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
+        return true
+      }
+      const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+      if (!finished) {
         return false
       }
       if (!providerExitObserved) {
-        runtime?.onPtyExit(ptyId, -1, incarnationId)
+        runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
         rememberSyntheticKillExit(ptyId)
         sendPtyExitToRenderer({ id: ptyId, code: -1 })
       }
@@ -6731,12 +6811,12 @@ export function registerPtyHandlers(
     const ownedConnectionId = ptyOwnership.get(args.id)
     const parsedSshId = ownedConnectionId === undefined ? parseAppSshPtyId(args.id) : null
     const connectionId = ownedConnectionId ?? parsedSshId?.connectionId
-    const expectedIncarnationId = ptyIncarnationById.get(args.id)
+    const expectedTarget = capturePtyShutdownTarget(args.id)
     // Why: wait for daemon startup before selecting the local provider, else a fallback shutdown falsely succeeds and orphans a restored daemon PTY (#7742).
     const startupPromise = getLocalPtyProviderStartupPromise(connectionId)
     if (startupPromise) {
       await startupPromise
-      if (!isPtyShutdownTargetCurrent(args.id, expectedIncarnationId)) {
+      if (!isPtyShutdownTargetCurrent(args.id, expectedTarget)) {
         return
       }
     }
@@ -6745,11 +6825,11 @@ export function registerPtyHandlers(
       // Why: detached SSH PTYs intentionally keep ownership after their
       // provider is unregistered; hydrated app-scoped ids can also arrive
       // before ownership is rebuilt. Tombstone instead of falling back local.
-      const incarnationId = finishPtyShutdown(args.id, connectionId, store, expectedIncarnationId)
-      if (expectedIncarnationId !== undefined && incarnationId !== expectedIncarnationId) {
+      const finished = finishPtyShutdown(args.id, connectionId, store, expectedTarget)
+      if (!finished) {
         return
       }
-      runtime?.onPtyExit(args.id, -1, incarnationId)
+      runtime?.onPtyExit(args.id, -1, finished.incarnationId)
       rememberSyntheticKillExit(args.id)
       sendPtyExitToRenderer({ id: args.id, code: -1 })
       return
@@ -6770,12 +6850,12 @@ export function registerPtyHandlers(
     }
     // Why: some shutdown paths do not emit onExit through the provider listener.
     // Explicit cleanup is idempotent and covers already-dead PTYs.
-    const incarnationId = finishPtyShutdown(args.id, connectionId, store, expectedIncarnationId)
-    if (expectedIncarnationId !== undefined && incarnationId !== expectedIncarnationId) {
+    const finished = finishPtyShutdown(args.id, connectionId, store, expectedTarget)
+    if (!finished) {
       return
     }
     if (!providerExitObserved) {
-      runtime?.onPtyExit(args.id, -1, incarnationId)
+      runtime?.onPtyExit(args.id, -1, finished.incarnationId)
       rememberSyntheticKillExit(args.id)
       sendPtyExitToRenderer({ id: args.id, code: -1 })
     }

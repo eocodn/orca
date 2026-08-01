@@ -101,6 +101,7 @@ const {
   getPendingPtyCleanupIncarnation,
   consumePendingPtyCleanupIfExact,
   finalizePendingPtyCleanupIfExact,
+  hasPendingPtyCleanupExact,
   consumeSshPtyExitFinalization,
   isCurrentPtyExit
 } = await import('../ipc/pty')
@@ -583,6 +584,54 @@ describe('SSH relay PTY incarnation exits', () => {
     await vi.waitFor(() => expect(clearProviderPtyState).toHaveBeenCalledOnce())
   })
 
+  it('rechecks cleanup authority after output admission completes', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    let cleanupPending = false
+    const payload = {
+      id: 'ssh:target-1@@pty-cleanup-after-admission',
+      code: 0,
+      incarnationId: 'cleanup-after-admission-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'cleanup-after-admission-incarnation'
+    }
+    vi.mocked(getPendingPtyCleanupIncarnation).mockImplementation(() =>
+      cleanupPending ? payload.ptyIncarnation : undefined
+    )
+    vi.mocked(hasPendingPtyCleanupExact).mockImplementation(() => cleanupPending)
+    vi.mocked(finalizePendingPtyCleanupIfExact).mockImplementation(() => {
+      cleanupPending = false
+      return true
+    })
+    acceptOutputExitMock.mockImplementationOnce(async () => {
+      cleanupPending = true
+    })
+
+    onExit(payload)
+
+    await vi.waitFor(() => expect(finalizePendingPtyCleanupIfExact).toHaveBeenCalledOnce())
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledOnce()
+    expect(clearProviderPtyState).toHaveBeenCalledOnce()
+  })
+
   it('drops an admitted exit that completes after its provider generation is torn down', async () => {
     const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
     const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
@@ -672,11 +721,6 @@ describe('SSH relay PTY incarnation exits', () => {
     vi.mocked(isCurrentPtyExit).mockReturnValue(true)
 
     onExit(payload)
-    await Promise.resolve()
-    expect(finalizePendingPtyCleanupIfExact).toHaveBeenCalledOnce()
-    await new Promise<void>((resolve) => setImmediate(resolve))
-
-    onExit(payload)
     await vi.waitFor(() => expect(finalizePendingPtyCleanupIfExact).toHaveBeenCalledTimes(2))
   })
 
@@ -756,12 +800,9 @@ describe('SSH relay PTY incarnation exits', () => {
     })
 
     onExit(payload)
-    await vi.waitFor(() => expect(clearProviderPtyState).toHaveBeenCalledOnce())
-    onExit(payload)
-
     await vi.waitFor(() => expect(clearProviderPtyState).toHaveBeenCalledTimes(2))
     expect(deletePtyOwnership).toHaveBeenCalledOnce()
-    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledOnce()
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledTimes(2)
   })
 
   it('bounds retirement evidence across distinct PTY ids', async () => {
@@ -791,13 +832,12 @@ describe('SSH relay PTY incarnation exits', () => {
     acceptOutputExitMock.mockRejectedValue(new Error('output barrier rejected'))
 
     for (let index = 0; index < total; index += 1) {
-      const incarnation = `incarnation-${index}`
       onExit({
         id: `ssh:target-1@@pty-${index}`,
         code: 0,
-        incarnationId: incarnation,
+        incarnationId: `incarnation-${index}`,
         providerGeneration: 31,
-        ptyIncarnation: incarnation
+        ptyIncarnation: `incarnation-${index}`
       })
     }
 

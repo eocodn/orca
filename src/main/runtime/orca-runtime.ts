@@ -2774,6 +2774,17 @@ export class OrcaRuntimeService {
   private earlyExitedPtyIncarnations = new Map<string, PtyIncarnationId | null>()
   // Why: quarantine disconnects the model, so retain provider evidence per exact incarnation.
   private observedPtyExitIncarnations = new Map<string, Set<PtyIncarnationId>>()
+  // Why: durable retirement can fail after in-memory exit state is recorded; retain the exact surfaces for an idempotent retry.
+  private pendingPtyDurableRetirements = new Map<
+    string,
+    {
+      incarnationId: PtyIncarnationId
+      exactSurfaces: readonly Pick<
+        RetiredTerminalSurface,
+        'worktreeId' | 'parentTabId' | 'leafId'
+      >[]
+    }
+  >()
   private pendingPtyRegistrationIncarnations = new Map<string, PtyIncarnationId | null>()
   private headlessPtyIncarnationById = new Map<string, PtyIncarnationId>()
   private ptyInventoryOverlapGraceById = new Map<string, PtyIncarnationId | null>()
@@ -6517,7 +6528,7 @@ export class OrcaRuntimeService {
     ptyId: string,
     incarnationId: string,
     exactSurfaces: readonly Pick<RetiredTerminalSurface, 'worktreeId' | 'parentTabId' | 'leafId'>[]
-  ): void {
+  ): boolean {
     const retiredSurfaceByKey = new Map<string, RetiredTerminalSurface>()
     for (const surface of exactSurfaces) {
       retiredSurfaceByKey.set(`${surface.worktreeId}\0${surface.parentTabId}\0${surface.leafId}`, {
@@ -6544,7 +6555,7 @@ export class OrcaRuntimeService {
     }
     const retiredSurfaces = [...retiredSurfaceByKey.values()]
     if (retiredSurfaces.length === 0) {
-      return
+      return true
     }
     let publishableRetiredSurfaces = retiredSurfaces
     const session = this.store?.getWorkspaceSession?.()
@@ -6552,7 +6563,7 @@ export class OrcaRuntimeService {
       // Why: publishing absence before its host membership fence is durable lets a crash or
       // stale renderer write resurrect the retired surface.
       if (!this.store?.setWorkspaceSession || !this.store.flushOrThrow) {
-        return
+        return false
       }
       let nextSession = session
       const acceptedSurfaces: RetiredTerminalSurface[] = []
@@ -6564,14 +6575,14 @@ export class OrcaRuntimeService {
         }
       }
       if (acceptedSurfaces.length === 0) {
-        return
+        return true
       }
       try {
         this.store.setWorkspaceSession(nextSession)
         this.store.flushOrThrow()
       } catch (error) {
         console.error('[runtime] failed to persist terminal retirement:', error)
-        return
+        return false
       }
       // Why: one repo epoch can cover multiple exits, but only surfaces individually accepted by persistence may disappear.
       publishableRetiredSurfaces = acceptedSurfaces
@@ -6599,6 +6610,7 @@ export class OrcaRuntimeService {
         this.notifyMobileSessionTabsChanged(worktreeId)
       }
     }
+    return true
   }
 
   private buildHeadlessMobileSessionTerminalTabs(
@@ -9028,6 +9040,9 @@ export class OrcaRuntimeService {
     if (pty) {
       // Why: a reconnect attach reply can prove the exit generation after stale local proof was cleared.
       pty.incarnationId = incarnationId
+      pty.connected = true
+      pty.disconnectedAt = null
+      pty.lastExitCode = null
     }
   }
 
@@ -13045,6 +13060,23 @@ export class OrcaRuntimeService {
     if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
       return
     }
+    if (exitIncarnationId) {
+      const pendingRetirement = this.pendingPtyDurableRetirements.get(
+        `${ptyId}\0${exitIncarnationId}`
+      )
+      if (pendingRetirement) {
+        if (
+          this.retireMobileSessionSurfacesForPty(
+            ptyId,
+            pendingRetirement.incarnationId,
+            pendingRetirement.exactSurfaces
+          )
+        ) {
+          this.pendingPtyDurableRetirements.delete(`${ptyId}\0${exitIncarnationId}`)
+        }
+        return
+      }
+    }
     if (
       exitIncarnationId !== undefined &&
       pty?.incarnationId === exitIncarnationId &&
@@ -13201,7 +13233,20 @@ export class OrcaRuntimeService {
     } else {
       // Why: permanent process exit is absence, not a starting/sleeping tab.
       // Retire before publishing so paired clients never persist a ghost.
-      this.retireMobileSessionSurfacesForPty(ptyId, incarnationId, exactSurfaces)
+      const durableRetirementComplete = this.retireMobileSessionSurfacesForPty(
+        ptyId,
+        incarnationId,
+        exactSurfaces
+      )
+      const retirementKey = `${ptyId}\0${incarnationId}`
+      if (durableRetirementComplete) {
+        this.pendingPtyDurableRetirements.delete(retirementKey)
+      } else {
+        this.pendingPtyDurableRetirements.set(retirementKey, {
+          incarnationId,
+          exactSurfaces
+        })
+      }
     }
 
     for (const leaf of this.getLeavesForPty(ptyId)) {

@@ -117,6 +117,7 @@ const SSH_PTY_REATTACH_MAX_CONCURRENCY = 8
 const SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS = 10_000
 const SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS = 50
 const SSH_PTY_REATTACH_RETRY_JITTER_MS = 200
+const SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS = 3
 const SSH_SOURCE_RECOVERY_CANCELLATION_FAILED = 'ssh_source_recovery_cancellation_failed'
 const SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE = 1024
 type PendingPtyReattach = {
@@ -296,6 +297,7 @@ export class SshRelaySession {
   >()
   private readonly retiredSourceDeliveries = new SshPtyRetiredSourceDeliveries()
   private readonly activePtyExitPromises = new Map<string, Promise<void>>()
+  private readonly ptyExitRetryAttempts = new Map<string, number>()
   private readonly retiredPtyExitIncarnations = new Map<string, Map<string, number>>()
   private readonly retiredPtyExitOrder = new Map<number, { id: string; ptyIncarnation: string }>()
   private nextRetiredPtyExitSequence = 0
@@ -1439,6 +1441,12 @@ export class SshRelaySession {
     const promise = this.acceptPtyExit(payload)
     this.activePtyExitPromises.set(key, promise)
     void promise
+      .then(() => {
+        this.ptyExitRetryAttempts.delete(key)
+      })
+      .catch((error) => {
+        this.schedulePtyExitRetry(payload, error)
+      })
       .finally(() => {
         if (this.activePtyExitPromises.get(key) === promise) {
           this.activePtyExitPromises.delete(key)
@@ -1446,6 +1454,20 @@ export class SshRelaySession {
       })
       .catch(() => {})
     return promise
+  }
+
+  private schedulePtyExitRetry(payload: SshPtyExitPayload, error: unknown): void {
+    const key = JSON.stringify([payload.providerGeneration, payload.id, payload.ptyIncarnation])
+    const attempts = (this.ptyExitRetryAttempts.get(key) ?? 0) + 1
+    if (attempts > SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS) {
+      console.error('[ssh-relay-session] PTY exit retirement retries exhausted:', error)
+      return
+    }
+    this.ptyExitRetryAttempts.set(key, attempts)
+    // Why: provider exits are one-shot; retry the same authoritative payload after transient cleanup failure.
+    setTimeout(() => {
+      void this.acceptPtyExitOnce(payload).catch(() => {})
+    }, 0)
   }
 
   private acceptPtyData(payload: SshPtyDataPayload): Promise<unknown> {
@@ -1710,11 +1732,14 @@ export class SshRelaySession {
     if (this.activePtyProviderGeneration !== payload.providerGeneration) {
       return
     }
-    const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
     const exitIncarnation = payload.incarnationId ?? payload.ptyIncarnation
-    const exactCleanupPending =
-      hasPendingPtyCleanupExact?.(payload.id, exitIncarnation) === true ||
-      (pendingCleanupIncarnation !== undefined && exitIncarnation === pendingCleanupIncarnation)
+    const isExactCleanupPending = (): boolean => {
+      const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
+      return (
+        hasPendingPtyCleanupExact?.(payload.id, exitIncarnation) === true ||
+        (pendingCleanupIncarnation !== undefined && exitIncarnation === pendingCleanupIncarnation)
+      )
+    }
     const finalizeExactCleanup = (): boolean =>
       finalizePendingPtyCleanupIfExact?.({ id: payload.id, incarnationId: exitIncarnation }) ===
         true || consumePendingPtyCleanupIfExact({ id: payload.id, incarnationId: exitIncarnation })
@@ -1730,11 +1755,14 @@ export class SshRelaySession {
       if (this.activePtyProviderGeneration !== payload.providerGeneration) {
         return
       }
-      if (exactCleanupPending && finalizeExactCleanup()) {
+      if (isExactCleanupPending() && finalizeExactCleanup()) {
         // Why: the exact provider exit is authoritative even when output delivery is canceled; retire relay state after finalizing the main-side cleanup snapshot.
         if (isCurrentPtyExit(payload)) {
           this.retireExitedPty(payload, true)
         }
+        return
+      }
+      if (isExactCleanupPending()) {
         return
       }
       if (consumeSshPtyExitFinalization?.(payload)) {
@@ -1744,7 +1772,7 @@ export class SshRelaySession {
         }
         return
       }
-      if (!exactCleanupPending && isCurrentPtyExit(payload)) {
+      if (isCurrentPtyExit(payload)) {
         // Why: an exit that loses the output barrier still needs authoritative teardown.
         this.retireExitedPty(payload)
         return
@@ -1754,8 +1782,8 @@ export class SshRelaySession {
     if (this.activePtyProviderGeneration !== payload.providerGeneration) {
       return
     }
-    if (exactCleanupPending) {
-      if (!finalizeExactCleanup()) {
+    if (isExactCleanupPending()) {
+      if (!finalizeExactCleanup() && isExactCleanupPending()) {
         return
       }
     }
@@ -1774,13 +1802,13 @@ export class SshRelaySession {
     }
     const relayPtyId = toRelaySshPtyId(this.targetId, payload.id)
     this.retiredSourceDeliveries.activate(relayPtyId)
+    this.store.markSshRemotePtyLease(this.targetId, relayPtyId, 'terminated')
     clearProviderPtyState(payload.id)
     deletePtyOwnership(payload.id)
     ptyConsumerRecoveryByTarget.get(this.targetId)?.checkpointsByAppPtyId.delete(payload.id)
     ptyConsumerRecoveryByTarget
       .get(this.targetId)
       ?.checkpointsByAppPtyId.delete(toRelaySshPtyId(this.targetId, payload.id))
-    this.store.markSshRemotePtyLease(this.targetId, relayPtyId, 'terminated')
     if (!deliveryHandled) {
       this.runtime?.onPtyExit(payload.id, payload.code, ptyIncarnation)
       const win = this.getMainWindow()

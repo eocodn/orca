@@ -521,6 +521,62 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     expect(internals.ptyLifecycleGenerationById.get('pty-duplicate-exit')).toBe(firstGeneration)
   })
 
+  it('retries durable retirement after an exact exit was not persisted', async () => {
+    const session = makePersistedSplitSession()
+    const flushOrThrow = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('disk unavailable')
+      })
+      .mockImplementationOnce(() => undefined)
+    const runtime = new OrcaRuntimeService(
+      runtimeStore({
+        getWorkspaceSession: () => session,
+        setWorkspaceSession: vi.fn(),
+        flushOrThrow
+      })
+    )
+    runtime.attachWindow(1)
+    syncSplit(runtime)
+    runtime.registerPty('pty-left', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'retry-durable-incarnation'
+    })
+
+    runtime.onPtyExit('pty-left', 0, 'retry-durable-incarnation')
+    runtime.onPtyExit('pty-left', 0, 'retry-durable-incarnation')
+
+    expect(flushOrThrow).toHaveBeenCalledTimes(2)
+    expect((await runtime.listMobileSessionTabs(`id:${WORKTREE_ID}`)).tabs).toEqual([
+      expect.objectContaining({ id: 'tab::right', status: 'ready' })
+    ])
+  })
+
+  it('treats a reconnect-proven incarnation as a fresh lifecycle', () => {
+    const flushOrThrow = vi.fn()
+    const runtime = new OrcaRuntimeService(
+      runtimeStore({
+        getWorkspaceSession: () => makePersistedSplitSession(),
+        setWorkspaceSession: vi.fn(),
+        flushOrThrow
+      })
+    )
+    runtime.attachWindow(1)
+    syncSplit(runtime)
+    runtime.registerPty('pty-left', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'incarnation-before-reconnect'
+    })
+
+    runtime.onPtyExit('pty-left', -1, 'incarnation-before-reconnect')
+    runtime.acceptPtyIncarnationForExit('pty-left', 'incarnation-after-reconnect')
+    runtime.onPtyExit('pty-left', 0, 'incarnation-after-reconnect')
+
+    expect(flushOrThrow).toHaveBeenCalledTimes(2)
+  })
+
   it('retires a durable surface after reconnect proves a newer incarnation', async () => {
     const session = makePersistedSplitSession()
     const setWorkspaceSession = vi.fn()
