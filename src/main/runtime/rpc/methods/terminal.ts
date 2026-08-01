@@ -72,6 +72,12 @@ import {
   type TerminalOutputSourceRange
 } from '../../../../shared/terminal-output-source-range'
 import type { RemoteTerminalSourceRangeReplacementReservation } from '../../remote-terminal-source-range-consumer'
+import {
+  TERMINAL_MAX_COLS,
+  TERMINAL_MAX_ROWS,
+  TERMINAL_MIN_COLS,
+  TERMINAL_MIN_ROWS
+} from '../../../../shared/terminal-dimensions'
 
 const REQUESTED_SNAPSHOT_BYTE_BUDGET = 2 * 1024 * 1024
 const TERMINAL_OUTPUT_FLUSH_MS = 5
@@ -856,8 +862,8 @@ const TerminalRead = TerminalHandle.extend({
 
 const TerminalResize = TerminalHandle.extend({
   incarnation: requiredString('Missing terminal incarnation').pipe(z.string().max(512)),
-  cols: z.number().int().min(1).max(1000),
-  rows: z.number().int().min(1).max(500)
+  cols: z.number().int().min(TERMINAL_MIN_COLS).max(TERMINAL_MAX_COLS),
+  rows: z.number().int().min(TERMINAL_MIN_ROWS).max(TERMINAL_MAX_ROWS)
 })
 
 // Why: preserve the legacy contract — `title: string | null` only, `undefined` rejected, so the CLI's "reset" signal stays distinct.

@@ -789,9 +789,17 @@ describe('SshPtyProvider', () => {
       )
       .mockResolvedValueOnce({ cols: 100, rows: 30 })
 
-    await expect(provider.getAppliedSize(scopedPty1)).resolves.toBeNull()
+    await expect(provider.getAppliedSize(scopedPty1)).rejects.toThrow('connection lost')
     await expect(provider.getAppliedSize(scopedPty1)).resolves.toEqual({ cols: 100, rows: 30 })
     expect(mux.request).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects a malformed applied-size response instead of treating it as unsupported', async () => {
+    mux.request.mockResolvedValue({ cols: 'wide', rows: 40 })
+
+    await expect(provider.getAppliedSize(scopedPty1)).rejects.toThrow(
+      'invalid_pty_applied_size_response'
+    )
   })
 
   it('shutdown sends pty.shutdown request', async () => {

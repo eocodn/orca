@@ -34,7 +34,7 @@ export function createSshPtyAppliedSizeReader(
         Number(result.cols) <= 0 ||
         Number(result.rows) <= 0
       ) {
-        return null
+        throw new Error('invalid_pty_applied_size_response')
       }
       return { cols: Number(result.cols), rows: Number(result.rows) }
     } catch (error) {
@@ -42,8 +42,9 @@ export function createSshPtyAppliedSizeReader(
         // Why: old relays lack pty.getSize; remember that per SSH provider so
         // each wake re-forwards once without repeatedly probing the same host.
         supported = false
+        return null
       }
-      return null
+      throw error
     }
   }
 }

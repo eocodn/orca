@@ -4156,14 +4156,20 @@ export function registerPtyHandlers(
           const owner = result.agentSessionEnsure.owner
           ptyOwnership.set(result.id, args.connectionId ?? ptyOwnership.get(result.id) ?? null)
           runtime?.registerPreAllocatedHandleForPty(result.id, owner.surface.terminalHandle)
+          const registeredIncarnation = runtime?.registerPty(
+            result.id,
+            owner.surface.worktreeId,
+            args.connectionId ?? null,
+            {
+              tabId: owner.surface.tabId,
+              leafId: owner.surface.leafId,
+              ...(result.incarnationId ? { incarnationId: result.incarnationId } : {})
+            }
+          )
+          result.incarnationId ??= registeredIncarnation ?? undefined
           if (result.incarnationId) {
             ptyIncarnationById.set(result.id, result.incarnationId)
           }
-          runtime?.registerPty(result.id, owner.surface.worktreeId, args.connectionId ?? null, {
-            tabId: owner.surface.tabId,
-            leafId: owner.surface.leafId,
-            ...(result.incarnationId ? { incarnationId: result.incarnationId } : {})
-          })
           return {
             id: result.id,
             ...(result.incarnationId ? { incarnationId: result.incarnationId } : {}),
@@ -4257,7 +4263,7 @@ export function registerPtyHandlers(
           runtime?.registerPreAllocatedHandleForPty(result.id, args.preAllocatedHandle)
         }
         if (args.worktreeId) {
-          runtime?.registerPty(
+          const registeredIncarnation = runtime?.registerPty(
             result.id,
             args.worktreeId,
             args.connectionId ?? null,
@@ -4276,6 +4282,10 @@ export function registerPtyHandlers(
               ? shouldSkipCodexHomeEnvForWindowsShell(daemonShellOverride, cwd)
               : undefined
           )
+          result.incarnationId ??= registeredIncarnation ?? undefined
+          if (result.incarnationId) {
+            ptyIncarnationById.set(result.id, result.incarnationId)
+          }
         } else {
           // Why: non-worktree PTYs have no later surface-registration phase to clear admission intent.
           runtime?.cancelPendingPtyRegistration?.(result.id, result.incarnationId)
@@ -5417,7 +5427,7 @@ export function registerPtyHandlers(
           args.worktreeId.length > 0 &&
           args.worktreeId.length <= 512
         ) {
-          runtime?.registerPty(
+          const registeredIncarnation = runtime?.registerPty(
             result.id,
             args.worktreeId,
             args.connectionId ?? null,
@@ -5436,6 +5446,10 @@ export function registerPtyHandlers(
               ? shouldSkipCodexHomeEnvForWindowsShell(effectiveShellOverride, cwd)
               : undefined
           )
+          result.incarnationId ??= registeredIncarnation ?? undefined
+          if (result.incarnationId) {
+            ptyIncarnationById.set(result.id, result.incarnationId)
+          }
           pendingRegistrationPtyId = null
         } else if (pendingRegistrationPtyId) {
           runtime?.cancelPendingPtyRegistration?.(pendingRegistrationPtyId, result.incarnationId)

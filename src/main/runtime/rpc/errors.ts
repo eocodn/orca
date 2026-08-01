@@ -51,6 +51,7 @@ const RUNTIME_PASSTHROUGH_CODES: ReadonlySet<string> = new Set([
   'terminal_resize_unconfirmed',
   'terminal_resize_mismatch',
   'terminal_size_read_failed',
+  'invalid_terminal_dimensions',
   'no_connected_pty',
   'terminal_tab_close_timeout',
   'terminal_tab_not_found',

@@ -84,6 +84,7 @@ import {
   TERMINAL_INPUT_TOO_LARGE_ERROR,
   iterateTerminalInputChunks
 } from '../../shared/terminal-input'
+import { assertTerminalDimensions } from '../../shared/terminal-dimensions'
 import {
   AGENT_PROMPT_BRACKETED_PASTE_END,
   AGENT_PROMPT_SUBMIT,
@@ -2600,10 +2601,45 @@ export type ApplyLayoutResult =
 
 type LayoutQueueEntry = {
   running: Promise<ApplyLayoutResult> | null
-  pending: {
-    target: PtyLayoutTarget
-    waiters: ((r: ApplyLayoutResult) => void)[]
-  }[]
+  pending: LayoutQueueSlot[]
+}
+
+type LayoutQueueWaiter = {
+  resolve: (result: ApplyLayoutResult) => void
+  reject: (error: unknown) => void
+}
+
+type LayoutQueueSlot = {
+  target: PtyLayoutTarget
+  coalescible: boolean
+  beforeApply?: () => void | Promise<void>
+  afterApply?: (result: ApplyLayoutResult) => void | Promise<void>
+  waiters: LayoutQueueWaiter[]
+}
+
+class ReferenceCountedPtyGuard {
+  private readonly counts = new Map<string, number>()
+
+  add(ptyId: string): void {
+    this.counts.set(ptyId, (this.counts.get(ptyId) ?? 0) + 1)
+  }
+
+  delete(ptyId: string): void {
+    const count = this.counts.get(ptyId) ?? 0
+    if (count <= 1) {
+      this.counts.delete(ptyId)
+      return
+    }
+    this.counts.set(ptyId, count - 1)
+  }
+
+  clear(ptyId: string): void {
+    this.counts.delete(ptyId)
+  }
+
+  has(ptyId: string): boolean {
+    return this.counts.has(ptyId)
+  }
 }
 
 type NativeChatLaunchDraftResolutionTombstone = RuntimeNativeChatLaunchDraftResolution & {
@@ -2827,6 +2863,10 @@ export class OrcaRuntimeService {
   private providerSnapshotsWithLiveModeTransition = new WeakSet<PtyProviderBufferSnapshot>()
   private ptyLifecycleGenerationById = new Map<string, number>()
   private nextPtyLifecycleGeneration = 1
+  private nextSyntheticPtyIncarnation = 1
+  // Why: renderer graphs publish pane identity, not provider liveness; once a
+  // real exit lands, only an authoritative provider admission may revive it.
+  private rendererGraphLivenessBlockedPtys = new Set<string>()
   private recentPtyPathCandidatesById = new Map<string, string[]>()
   // Why: candidates only feed mobile file-tap provenance; desktop-only
   // sessions skip the 3-regex extraction on every PTY chunk until a
@@ -3077,7 +3117,7 @@ export class OrcaRuntimeService {
   // exist yet *because* we're about to create it). `handleMobileSubscribe`
   // adds the ptyId before calling enqueueLayout and removes it after the
   // call resolves.
-  private freshSubscribeGuard = new Set<string>()
+  private freshSubscribeGuard = new ReferenceCountedPtyGuard()
 
   private stats: StatsCollector | null = null
   // Why (§3.3 + §7.1): the renderer-create path and coordinator
@@ -5224,13 +5264,17 @@ export class OrcaRuntimeService {
           : (existing?.ptyGeneration ?? 0)
       const existingPty = ptyId ? this.ptysById.get(ptyId) : undefined
       const tailSource = existing?.ptyId === ptyId ? existing : existingPty
+      const connected =
+        ptyId !== null &&
+        !this.rendererGraphLivenessBlockedPtys.has(ptyId) &&
+        (existingPty?.connected ?? (existing?.ptyId === ptyId ? existing.connected : true))
 
       nextLeaves.set(leafKey, {
         ...leaf,
         ptyId,
         ptyGeneration,
-        connected: ptyId !== null,
-        writable: this.graphStatus === 'ready' && ptyId !== null,
+        connected,
+        writable: this.graphStatus === 'ready' && connected,
         lastOutputAt: tailSource?.lastOutputAt ?? null,
         lastExitCode: tailSource?.lastExitCode ?? null,
         tailBuffer: tailSource?.tailBuffer ?? [],
@@ -5254,7 +5298,7 @@ export class OrcaRuntimeService {
 
       if (leaf.ptyId) {
         this.recordPtyWorktree(leaf.ptyId, leaf.worktreeId, {
-          connected: true,
+          connected,
           lastOutputAt: existing?.ptyId === leaf.ptyId ? existing.lastOutputAt : null,
           preview: existing?.ptyId === leaf.ptyId ? existing.preview : '',
           tabId: leaf.tabId,
@@ -8799,16 +8843,7 @@ export class OrcaRuntimeService {
     }
     const pty = this.getOrCreatePtyWorktreeRecord(ptyId)
     if (pty) {
-      if (incarnationId) {
-        pty.incarnationId = incarnationId
-      }
-      pty.connected = true
-      pty.disconnectedAt = null
-    }
-    for (const leaf of this.getLeavesForPty(ptyId)) {
-      leaf.connected = true
-      leaf.writable = this.graphStatus === 'ready'
-      this.adoptPreAllocatedHandle(leaf)
+      this.admitPtyLifecycle(pty, incarnationId, { adoptHandles: true })
     }
   }
 
@@ -8818,7 +8853,7 @@ export class OrcaRuntimeService {
     connectionId: string | null = null,
     binding?: { tabId: string; leafId: string; incarnationId?: PtyIncarnationId },
     isWsl?: boolean
-  ): void {
+  ): PtyIncarnationId | null {
     this.assertPtyDidNotExitBeforeRegistration(ptyId, binding?.incarnationId)
     // Why: record the renderer pane identity at spawn time so a stalled graph
     // sync can't hide that a live PTY already backs a pending mobile create.
@@ -8826,8 +8861,7 @@ export class OrcaRuntimeService {
       binding && isValidTerminalTabId(binding.tabId) && isTerminalLeafId(binding.leafId)
         ? makePaneKey(binding.tabId, binding.leafId)
         : null
-    this.recordPtyWorktree(ptyId, worktreeId, {
-      connected: true,
+    const pty = this.recordAuthoritativePtyWorktree(ptyId, worktreeId, {
       connectionId,
       ...(binding && this.pendingMobileTerminalCreatesByKey.has(`${worktreeId}::${binding.tabId}`)
         ? { runtimeSessionOwned: true }
@@ -8850,6 +8884,7 @@ export class OrcaRuntimeService {
     if (binding && paneKey) {
       this.ensurePtyBackedMobileSurfaceForRendererTab(worktreeId, binding.tabId)
     }
+    return pty.incarnationId
   }
 
   assertPtyRegistrationAllowed(ptyId: string, incarnationId?: PtyIncarnationId): void {
@@ -9080,8 +9115,7 @@ export class OrcaRuntimeService {
       : null
     let ptyTailAfter: ReturnType<typeof appendNormalizedToTailBuffer> | null = null
     if (pty) {
-      pty.connected = true
-      pty.disconnectedAt = null
+      this.admitPtyLifecycle(pty, pty.incarnationId ?? undefined, { adoptHandles: false })
       pty.lastOutputAt = at
       const normalized = normalizeTerminalChunk(data, pty.tailPendingAnsi)
       pty.tailPendingAnsi = normalized.pendingAnsi
@@ -9111,7 +9145,6 @@ export class OrcaRuntimeService {
 
     for (const leaf of this.getLeavesForPty(ptyId)) {
       this.recordPtyWorktree(ptyId, leaf.worktreeId, {
-        connected: true,
         lastOutputAt: pty?.lastOutputAt ?? at,
         preview: pty?.preview ?? leaf.preview,
         tabId: leaf.tabId,
@@ -10044,6 +10077,48 @@ export class OrcaRuntimeService {
     this.providerBufferAcquisitionsByPtyId.delete(ptyId)
     this.providerVisibleStateByPtyId.delete(ptyId)
     this.providerVisibleRetryAtByPtyId.delete(ptyId)
+  }
+
+  private admitPtyLifecycle(
+    pty: RuntimePtyWorktreeRecord,
+    incarnationId?: PtyIncarnationId,
+    options: { adoptHandles?: boolean } = {}
+  ): void {
+    const incarnationChanged = incarnationId !== undefined && pty.incarnationId !== incarnationId
+    const lifecycleRestarted = !pty.connected || pty.lastExitCode !== null || incarnationChanged
+    const admittedIncarnation =
+      lifecycleRestarted && incarnationId === undefined
+        ? `runtime-${this.runtimeId}-${this.nextSyntheticPtyIncarnation++}`
+        : incarnationId
+    const shouldAdoptHandles =
+      options.adoptHandles === true || (options.adoptHandles !== false && lifecycleRestarted)
+    if (lifecycleRestarted) {
+      this.advancePtyLifecycleGeneration(pty.ptyId)
+    }
+    if (admittedIncarnation !== undefined) {
+      pty.incarnationId = admittedIncarnation
+    }
+    this.rendererGraphLivenessBlockedPtys.delete(pty.ptyId)
+    pty.connected = true
+    pty.disconnectedAt = null
+    pty.lastExitCode = null
+    for (const leaf of this.getLeavesForPty(pty.ptyId)) {
+      leaf.connected = true
+      leaf.writable = this.graphStatus === 'ready'
+      leaf.lastExitCode = null
+      if (shouldAdoptHandles) {
+        this.adoptPreAllocatedHandle(leaf)
+      }
+    }
+  }
+
+  private markPtyDisconnected(pty: RuntimePtyWorktreeRecord): void {
+    if (pty.connected) {
+      this.advancePtyLifecycleGeneration(pty.ptyId)
+      this.rendererGraphLivenessBlockedPtys.add(pty.ptyId)
+    }
+    pty.connected = false
+    pty.disconnectedAt ??= Date.now()
   }
 
   synchronizePtyOutputSequenceFromProvider(
@@ -12729,9 +12804,13 @@ export class OrcaRuntimeService {
 
   onPtyExit(ptyId: string, exitCode: number, exitIncarnationId?: PtyIncarnationId): void {
     const pty = this.ptysById.get(ptyId)
+    if (exitIncarnationId === undefined && pty?.incarnationId) {
+      return
+    }
     if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
       return
     }
+    this.rendererGraphLivenessBlockedPtys.add(ptyId)
     const preservesAbnormalSshSurface = this.isRecoverableSshTransportLoss(
       ptyId,
       pty?.connectionId ?? null,
@@ -12829,7 +12908,7 @@ export class OrcaRuntimeService {
     // short-circuits with `pty-exited`.
     this.layouts.delete(ptyId)
     this.layoutQueues.delete(ptyId)
-    this.freshSubscribeGuard.delete(ptyId)
+    this.freshSubscribeGuard.clear(ptyId)
     const pendingRestore = this.pendingRestoreTimers.get(ptyId)
     if (pendingRestore) {
       clearTimeout(pendingRestore.timer)
@@ -13719,6 +13798,31 @@ export class OrcaRuntimeService {
   }
 
   private enqueueLayout(ptyId: string, target: PtyLayoutTarget): Promise<ApplyLayoutResult> {
+    return this.enqueueLayoutSlot(ptyId, {
+      target,
+      coalescible: true,
+      waiters: []
+    })
+  }
+
+  private enqueueExactLayout(
+    ptyId: string,
+    target: PtyLayoutTarget,
+    hooks: {
+      beforeApply: () => void | Promise<void>
+      afterApply: (result: ApplyLayoutResult) => void | Promise<void>
+    }
+  ): Promise<ApplyLayoutResult> {
+    return this.enqueueLayoutSlot(ptyId, {
+      target,
+      coalescible: false,
+      beforeApply: hooks.beforeApply,
+      afterApply: hooks.afterApply,
+      waiters: []
+    })
+  }
+
+  private enqueueLayoutSlot(ptyId: string, slot: LayoutQueueSlot): Promise<ApplyLayoutResult> {
     // Why: PTY-exit short-circuit. Fresh-subscribe gate lets the very first
     // transition through even though `layouts` has no entry yet.
     if (!this.layouts.has(ptyId) && !this.isFreshSubscribe(ptyId)) {
@@ -13732,38 +13836,53 @@ export class OrcaRuntimeService {
     }
     const queue = entry
 
-    return new Promise<ApplyLayoutResult>((resolve) => {
+    return new Promise<ApplyLayoutResult>((resolve, reject) => {
+      const waiter = { resolve, reject }
       if (!queue.running) {
-        queue.running = this.runLayoutSlot(ptyId, target, [resolve])
+        slot.waiters.push(waiter)
+        queue.running = this.runLayoutSlot(ptyId, slot)
         return
       }
       const tail = queue.pending.at(-1)
-      if (tail && this.coalescesWith(tail.target, target)) {
-        tail.target = target
-        tail.waiters.push(resolve)
+      if (tail?.coalescible && slot.coalescible && this.coalescesWith(tail.target, slot.target)) {
+        tail.target = slot.target
+        tail.waiters.push(waiter)
         return
       }
-      queue.pending.push({ target, waiters: [resolve] })
+      slot.waiters.push(waiter)
+      queue.pending.push(slot)
     })
   }
 
-  private async runLayoutSlot(
-    ptyId: string,
-    target: PtyLayoutTarget,
-    waiters: ((r: ApplyLayoutResult) => void)[]
-  ): Promise<ApplyLayoutResult> {
-    let result: ApplyLayoutResult
+  private async runLayoutSlot(ptyId: string, slot: LayoutQueueSlot): Promise<ApplyLayoutResult> {
+    let result: ApplyLayoutResult = { ok: false, reason: 'resize-failed' }
+    let slotError: unknown = null
     try {
-      result = await this.applyLayout(ptyId, target)
+      await slot.beforeApply?.()
     } catch (err) {
-      // Why: defensive — applyLayout itself catches resize errors, but a
-      // throw from one of the synchronous map writes (e.g. notifier hook)
-      // must not jam the queue forever.
-      console.error('[layout] applyLayout threw', { ptyId, err })
-      result = { ok: false, reason: 'resize-failed' }
+      slotError = err
     }
-    for (const w of waiters) {
-      w(result)
+    if (!slotError) {
+      try {
+        result = await this.applyLayout(ptyId, slot.target)
+      } catch (err) {
+        // Why: ordinary layout callers use a result discriminator; unexpected
+        // apply failures must not jam the queue or widen that contract.
+        console.error('[layout] applyLayout threw', { ptyId, err })
+        result = { ok: false, reason: 'resize-failed' }
+      }
+      try {
+        await slot.afterApply?.(result)
+      } catch (err) {
+        slotError = err
+      }
+    }
+    for (const waiter of slot.waiters) {
+      if (slotError) {
+        waiter.reject(slotError)
+      } else {
+        waiter.resolve(result)
+      }
     }
 
     const queue = this.layoutQueues.get(ptyId)
@@ -13772,7 +13891,7 @@ export class OrcaRuntimeService {
     }
     const next = queue.pending.shift()
     if (next) {
-      queue.running = this.runLayoutSlot(ptyId, next.target, next.waiters)
+      queue.running = this.runLayoutSlot(ptyId, next)
     } else {
       queue.running = null
       // Why: drop the entry once empty so the map doesn't grow without bound
@@ -15499,8 +15618,9 @@ export class OrcaRuntimeService {
     if (incarnationId) {
       return `${record.ptyId}:${incarnationId}`
     }
-    // Why: legacy providers may omit process incarnation; retain the prior restart-degraded fence.
-    return `${this.runtimeId}:${record.ptyId}:${record.ptyGeneration}`
+    // Why: renderer generations only change on pane rebind; lifecycle
+    // generation fences same-id process replacement for legacy providers.
+    return `${this.runtimeId}:${record.ptyId}:${this.getPtyLifecycleGeneration(record.ptyId)}`
   }
 
   getExactWorkerProviderSession(
@@ -15691,7 +15811,13 @@ export class OrcaRuntimeService {
     } catch {
       throw new Error('terminal_size_read_failed')
     }
-    this.assertTerminalControlFence(handle, processIncarnation, lifecycleGeneration, false)
+    this.assertTerminalControlFence(
+      handle,
+      owner.ptyId,
+      processIncarnation,
+      lifecycleGeneration,
+      false
+    )
     const transportLoss =
       !owner.connected &&
       owner.lastExitCode !== null &&
@@ -15733,34 +15859,72 @@ export class OrcaRuntimeService {
     cols: number,
     rows: number
   ): Promise<RuntimeTerminalResize> {
+    assertTerminalDimensions(cols, rows)
     const owner = this.getTerminalControlOwner(handle)
     if (!owner.connected) {
       throw new Error('terminal_not_running')
     }
     const lifecycleGeneration = this.getPtyLifecycleGeneration(owner.ptyId)
-    this.assertTerminalControlFence(handle, expectedIncarnation, lifecycleGeneration, true)
+    this.assertTerminalControlFence(
+      handle,
+      owner.ptyId,
+      expectedIncarnation,
+      lifecycleGeneration,
+      true
+    )
     this.freshSubscribeGuard.add(owner.ptyId)
-    let result: ApplyLayoutResult
+    let applied: { cols: number; rows: number } | null = null
     try {
-      result = await this.enqueueLayout(owner.ptyId, { kind: 'desktop', cols, rows })
+      await this.enqueueExactLayout(
+        owner.ptyId,
+        { kind: 'desktop', cols, rows },
+        {
+          beforeApply: () => {
+            this.assertTerminalControlFence(
+              handle,
+              owner.ptyId,
+              expectedIncarnation,
+              lifecycleGeneration,
+              true
+            )
+          },
+          afterApply: async (result) => {
+            this.assertTerminalControlFence(
+              handle,
+              owner.ptyId,
+              expectedIncarnation,
+              lifecycleGeneration,
+              true
+            )
+            if (!result.ok) {
+              throw new Error('terminal_resize_failed')
+            }
+            try {
+              applied = (await this.ptyController?.getAppliedSize?.(owner.ptyId)) ?? null
+            } catch {
+              throw new Error('terminal_resize_unconfirmed')
+            }
+            if (!applied) {
+              throw new Error('terminal_resize_unconfirmed')
+            }
+            this.assertTerminalControlFence(
+              handle,
+              owner.ptyId,
+              expectedIncarnation,
+              lifecycleGeneration,
+              true
+            )
+            if (applied.cols !== cols || applied.rows !== rows) {
+              throw new Error('terminal_resize_mismatch')
+            }
+          }
+        }
+      )
     } finally {
       this.freshSubscribeGuard.delete(owner.ptyId)
     }
-    if (!result.ok) {
-      throw new Error('terminal_resize_failed')
-    }
-    let applied: { cols: number; rows: number } | null | undefined
-    try {
-      applied = await this.ptyController?.getAppliedSize?.(owner.ptyId)
-    } catch {
-      throw new Error('terminal_resize_unconfirmed')
-    }
     if (!applied) {
       throw new Error('terminal_resize_unconfirmed')
-    }
-    this.assertTerminalControlFence(handle, expectedIncarnation, lifecycleGeneration, true)
-    if (applied.cols !== cols || applied.rows !== rows) {
-      throw new Error('terminal_resize_mismatch')
     }
     return {
       handle,
@@ -15774,6 +15938,7 @@ export class OrcaRuntimeService {
 
   private assertTerminalControlFence(
     handle: string,
+    expectedPtyId: string,
     expectedIncarnation: string,
     expectedLifecycleGeneration: number,
     requireConnected: boolean
@@ -15781,6 +15946,7 @@ export class OrcaRuntimeService {
     const owner = this.getTerminalControlOwner(handle)
     if (
       (requireConnected && !owner.connected) ||
+      owner.ptyId !== expectedPtyId ||
       this.getPtyLifecycleGeneration(owner.ptyId) !== expectedLifecycleGeneration ||
       this.getTerminalProcessIncarnation(handle) !== expectedIncarnation
     ) {
@@ -15796,7 +15962,12 @@ export class OrcaRuntimeService {
   } {
     const live = this.getLivePtyForHandle(handle)
     if (live) {
-      return live.pty
+      return {
+        ptyId: live.pty.ptyId,
+        connected: live.pty.connected,
+        lastExitCode: live.pty.lastExitCode,
+        connectionId: live.pty.connectionId
+      }
     }
     const { leaf } = this.getLiveLeafForHandle(handle)
     if (!leaf.ptyId) {
@@ -24388,11 +24559,17 @@ export class OrcaRuntimeService {
       if (result.wslDistro) {
         this.preparePtyExecutionContext(result.id, result.wslDistro)
       }
-      this.registerPty(result.id, workspace.id, workspace.connectionId, {
-        tabId,
-        leafId,
-        ...(result.incarnationId ? { incarnationId: result.incarnationId } : {})
-      })
+      const registeredIncarnation = this.registerPty(
+        result.id,
+        workspace.id,
+        workspace.connectionId,
+        {
+          tabId,
+          leafId,
+          ...(result.incarnationId ? { incarnationId: result.incarnationId } : {})
+        }
+      )
+      result.incarnationId ??= registeredIncarnation ?? undefined
       const pty = this.getOrCreatePtyWorktreeRecord(result.id)
       if (pty) {
         if (launchOpts.persistHostSessionBinding) {
@@ -24628,8 +24805,7 @@ export class OrcaRuntimeService {
       throw new Error('terminal_create_identity_conflict')
     }
     this.adoptControllerTerminalHandle(session.id, terminalHandle)
-    const pty = this.recordPtyWorktree(session.id, worktreeId, {
-      connected: true,
+    const pty = this.recordAuthoritativePtyWorktree(session.id, worktreeId, {
       title: session.title
     })
     const adoptedHandle = this.issuePtyHandle(pty)
@@ -25757,7 +25933,8 @@ export class OrcaRuntimeService {
     if (result.wslDistro) {
       this.preparePtyExecutionContext(result.id, result.wslDistro)
     }
-    this.registerPty(result.id, workspace.id, workspace.connectionId)
+    const registeredIncarnation = this.registerPty(result.id, workspace.id, workspace.connectionId)
+    result.incarnationId ??= registeredIncarnation ?? undefined
     const createdPty = this.getOrCreatePtyWorktreeRecord(result.id)
     if (createdPty) {
       createdPty.tabId = parentTabId
@@ -27761,6 +27938,34 @@ export class OrcaRuntimeService {
     return pty
   }
 
+  // Why: provider inventory/spawn may revive a PTY; renderer/mobile projections
+  // may only update metadata and must never perform that lifecycle transition.
+  private recordAuthoritativePtyWorktree(
+    ptyId: string,
+    worktreeId: string,
+    state: Partial<
+      Pick<
+        RuntimePtyWorktreeRecord,
+        | 'lastOutputAt'
+        | 'preview'
+        | 'tabId'
+        | 'paneKey'
+        | 'title'
+        | 'connectionId'
+        | 'runtimeSessionOwned'
+        | 'isWsl'
+        | 'wslDistro'
+        | 'incarnationId'
+      >
+    > = {}
+  ): RuntimePtyWorktreeRecord {
+    const wasKnown = this.ptysById.has(ptyId)
+    const { incarnationId, ...metadata } = state
+    const pty = this.recordPtyWorktree(ptyId, worktreeId, metadata)
+    this.admitPtyLifecycle(pty, incarnationId ?? undefined, wasKnown ? {} : { adoptHandles: true })
+    return pty
+  }
+
   private makeRuntimePaneKey(
     leaf: Pick<RuntimeSyncedLeaf, 'tabId' | 'leafId' | 'paneRuntimeId'>
   ): string {
@@ -27962,8 +28167,7 @@ export class OrcaRuntimeService {
       }
       this.restoredOrchestrationAuthorityByPtyId.delete(session.id)
       if (worktreeId) {
-        const pty = this.recordPtyWorktree(session.id, worktreeId, {
-          connected: true,
+        const pty = this.recordAuthoritativePtyWorktree(session.id, worktreeId, {
           ...(session.incarnationId ? { incarnationId: session.incarnationId } : {}),
           ...(session.wslDistro !== undefined
             ? { isWsl: Boolean(session.wslDistro), wslDistro: session.wslDistro }
@@ -28011,12 +28215,12 @@ export class OrcaRuntimeService {
           ) {
             selectedLivePtyIds.add(pty.ptyId)
           }
-          pty.connected = true
-          pty.disconnectedAt = null
+          this.admitPtyLifecycle(pty, pty.incarnationId ?? undefined, {
+            adoptHandles: false
+          })
           continue
         }
-        pty.connected = false
-        pty.disconnectedAt ??= Date.now()
+        this.markPtyDisconnected(pty)
       }
     }
     this.pruneDisconnectedPtyRecords()
@@ -28087,20 +28291,19 @@ export class OrcaRuntimeService {
         const binding = persistedBindingByPtyId.get(ptyId)
         if (!pty && binding) {
           // Why: a live daemon PTY restored from disk needs its pane identity before mobile can issue a safe handle.
-          pty = this.recordPtyWorktree(ptyId, FLOATING_TERMINAL_WORKTREE_ID, {
-            connected: true,
+          pty = this.recordAuthoritativePtyWorktree(ptyId, FLOATING_TERMINAL_WORKTREE_ID, {
             tabId: binding.tabId,
             paneKey: binding.paneKey
           })
         }
         if (pty) {
-          pty.connected = true
-          pty.disconnectedAt = null
+          this.admitPtyLifecycle(pty, pty.incarnationId ?? undefined, {
+            adoptHandles: false
+          })
           this.refreshPtyForegroundAgent(ptyId)
         }
       } else if (pty && !this.leafExistsForPty(ptyId)) {
-        pty.connected = false
-        pty.disconnectedAt ??= Date.now()
+        this.markPtyDisconnected(pty)
       }
     }
     this.pruneDisconnectedPtyRecords()
@@ -28140,6 +28343,7 @@ export class OrcaRuntimeService {
     // Why: pruning can remove a PTY without the normal exit callback.
     this.advancePtyLifecycleGeneration(ptyId)
     this.ptysById.delete(ptyId)
+    this.rendererGraphLivenessBlockedPtys.delete(ptyId)
     this.recentPtyOutputById.delete(ptyId)
     this.setupCompletionTokenByPtyId.delete(ptyId)
     this.clearWaitBlockedCheckState(ptyId)
@@ -28931,8 +29135,7 @@ export class OrcaRuntimeService {
         ? this.issuePtyHandle(
             this.recordPtyWorktree(liveLeafPtyId, snapshot.worktree, {
               tabId: tab.parentTabId,
-              paneKey,
-              connected: true
+              paneKey
             })
           )
         : livePty

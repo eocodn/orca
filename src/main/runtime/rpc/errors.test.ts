@@ -17,6 +17,7 @@ describe('mapRuntimeError', () => {
     'terminal_resize_unconfirmed',
     'terminal_resize_mismatch',
     'terminal_size_read_failed',
+    'invalid_terminal_dimensions',
     'no_connected_pty'
   ])('preserves terminal control code %s', (code) => {
     expect(mapRuntimeError('req', { runtimeId: 'runtime-1' }, new Error(code))).toMatchObject({

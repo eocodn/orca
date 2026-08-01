@@ -42689,6 +42689,91 @@ describe('OrcaRuntimeService', () => {
       })
     })
 
+    it('does not let a stale renderer graph revive an exited or disconnected PTY', async () => {
+      const sshRuntime = new OrcaRuntimeService(store)
+      const sshPtyId = 'ssh:target-1@@pty-stale-graph'
+      sshRuntime.registerPty(sshPtyId, TEST_WORKTREE_ID, 'target-1', {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-ssh'
+      })
+      syncSinglePty(sshRuntime, sshPtyId)
+      const sshHandle = (await sshRuntime.listTerminals()).terminals[0]?.handle
+      if (!sshHandle) {
+        throw new Error('expected SSH terminal handle')
+      }
+
+      sshRuntime.onPtyExit(sshPtyId, -1, 'inc-ssh')
+      syncSinglePty(sshRuntime, sshPtyId)
+
+      await expect(sshRuntime.inspectTerminal(sshHandle)).resolves.toMatchObject({
+        lifecycle: { state: 'disconnected' },
+        reattach: { disposition: 'provider-reconnect-required' }
+      })
+      await expect(
+        sshRuntime.resizeTerminal(sshHandle, 'ssh:target-1@@pty-stale-graph:inc-ssh', 90, 30)
+      ).rejects.toThrow('terminal_not_running')
+
+      const localRuntime = new OrcaRuntimeService(store)
+      localRuntime.registerPty('pty-stale-graph-local', TEST_WORKTREE_ID, null, {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-local'
+      })
+      syncSinglePty(localRuntime, 'pty-stale-graph-local')
+      const localHandle = (await localRuntime.listTerminals()).terminals[0]?.handle
+      if (!localHandle) {
+        throw new Error('expected local terminal handle')
+      }
+
+      localRuntime.onPtyExit('pty-stale-graph-local', 0, 'inc-local')
+      syncSinglePty(localRuntime, 'pty-stale-graph-local')
+
+      await expect(localRuntime.inspectTerminal(localHandle)).rejects.toThrow(
+        'terminal_handle_stale'
+      )
+      await expect(
+        localRuntime.resizeTerminal(localHandle, 'pty-stale-graph-local:inc-local', 90, 30)
+      ).rejects.toThrow('terminal_handle_stale')
+    })
+
+    it('clears transport-loss state on reconnect and fences an inspect crossing it', async () => {
+      const runtime = new OrcaRuntimeService(store)
+      const ptyId = 'ssh:target-1@@pty-reconnect'
+      runtime.registerPty(ptyId, TEST_WORKTREE_ID, 'target-1', {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-reconnect'
+      })
+      syncSinglePty(runtime, ptyId)
+      const handle = (await runtime.listTerminals()).terminals[0]?.handle
+      if (!handle) {
+        throw new Error('expected terminal handle')
+      }
+      runtime.onPtyExit(ptyId, -1, 'inc-reconnect')
+
+      const readback = makeDeferred()
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        getAppliedSize: async () => {
+          await readback.promise
+          return { cols: 80, rows: 24 }
+        }
+      })
+      const crossingInspect = runtime.inspectTerminal(handle)
+
+      runtime.onPtySpawned(ptyId, 'inc-reconnect', { awaitsRegistration: false })
+      readback.resolve()
+
+      await expect(crossingInspect).rejects.toThrow('terminal_incarnation_stale')
+      await expect(runtime.inspectTerminal(handle)).resolves.toMatchObject({
+        lifecycle: { state: 'running', exit: null },
+        reattach: { disposition: 'attached' }
+      })
+    })
+
     it('confirms an exact resize through provider-owned applied size', async () => {
       const { runtime, handle } = await setupTerminal()
       let applied = { cols: 80, rows: 24 }
@@ -42711,6 +42796,184 @@ describe('OrcaRuntimeService', () => {
         applied: { cols: 132, rows: 41 },
         authoritative: true
       })
+    })
+
+    it('serializes exact resizes through readback without coalescing requests', async () => {
+      const { runtime, handle } = await setupTerminal()
+      let applied = { cols: 80, rows: 24 }
+      const mutations: Array<{ cols: number; rows: number }> = []
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        resize: (_ptyId, cols, rows) => {
+          applied = { cols, rows }
+          mutations.push(applied)
+          return true
+        },
+        getAppliedSize: async () => applied
+      })
+
+      const first = runtime.resizeTerminal(handle, 'pty-1:inc-1', 100, 30)
+      const second = runtime.resizeTerminal(handle, 'pty-1:inc-1', 110, 35)
+      const third = runtime.resizeTerminal(handle, 'pty-1:inc-1', 120, 40)
+
+      await Promise.all([
+        expect(first).resolves.toMatchObject({ applied: { cols: 100, rows: 30 } }),
+        expect(second).resolves.toMatchObject({ applied: { cols: 110, rows: 35 } }),
+        expect(third).resolves.toMatchObject({ applied: { cols: 120, rows: 40 } })
+      ])
+      expect(mutations).toEqual([
+        { cols: 100, rows: 30 },
+        { cols: 110, rows: 35 },
+        { cols: 120, rows: 40 }
+      ])
+    })
+
+    it('does not start the next resize until the prior authoritative readback completes', async () => {
+      const { runtime, handle } = await setupTerminal()
+      const firstReadback = makeDeferred()
+      let applied = { cols: 80, rows: 24 }
+      let readbackCount = 0
+      const mutations: Array<{ cols: number; rows: number }> = []
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        resize: (_ptyId, cols, rows) => {
+          applied = { cols, rows }
+          mutations.push(applied)
+          return true
+        },
+        getAppliedSize: async () => {
+          readbackCount += 1
+          if (readbackCount === 1) {
+            await firstReadback.promise
+          }
+          return applied
+        }
+      })
+
+      const first = runtime.resizeTerminal(handle, 'pty-1:inc-1', 100, 30)
+      await vi.waitFor(() => expect(mutations).toEqual([{ cols: 100, rows: 30 }]))
+      const second = runtime.resizeTerminal(handle, 'pty-1:inc-1', 110, 35)
+
+      await Promise.resolve()
+      expect(mutations).toEqual([{ cols: 100, rows: 30 }])
+
+      firstReadback.resolve()
+      await expect(first).resolves.toMatchObject({ applied: { cols: 100, rows: 30 } })
+      await expect(second).resolves.toMatchObject({ applied: { cols: 110, rows: 35 } })
+      expect(mutations).toEqual([
+        { cols: 100, rows: 30 },
+        { cols: 110, rows: 35 }
+      ])
+    })
+
+    it('mints a synthetic incarnation when a legacy PTY id is readmitted', async () => {
+      const runtime = new OrcaRuntimeService(store)
+      runtime.registerPty('pty-legacy-control', TEST_WORKTREE_ID, null, {
+        tabId: 'tab-1',
+        leafId: 'pane:1'
+      })
+      syncSinglePty(runtime, 'pty-legacy-control')
+      const handle = (await runtime.listTerminals()).terminals[0]?.handle
+      if (!handle) {
+        throw new Error('expected terminal handle')
+      }
+      const firstIncarnation = (await runtime.inspectTerminal(handle)).processIncarnation
+
+      runtime.onPtyExit('pty-legacy-control', 0)
+      const syntheticIncarnation = runtime.registerPty(
+        'pty-legacy-control',
+        TEST_WORKTREE_ID,
+        null,
+        {
+          tabId: 'tab-1',
+          leafId: 'pane:1'
+        }
+      )
+      if (!syntheticIncarnation) {
+        throw new Error('expected synthetic incarnation')
+      }
+      const replacementHandle = (await runtime.listTerminals()).terminals[0]?.handle
+      if (!replacementHandle) {
+        throw new Error('expected replacement terminal handle')
+      }
+      const secondIncarnation = (await runtime.inspectTerminal(replacementHandle))
+        .processIncarnation
+
+      expect(secondIncarnation).toBe(`pty-legacy-control:${syntheticIncarnation}`)
+      expect(secondIncarnation).not.toBe(firstIncarnation)
+      await expect(
+        runtime.resizeTerminal(replacementHandle, firstIncarnation, 100, 30)
+      ).rejects.toThrow('terminal_incarnation_stale')
+
+      runtime.onPtyExit('pty-legacy-control', 0)
+      await expect(runtime.inspectTerminal(replacementHandle)).resolves.toMatchObject({
+        lifecycle: { state: 'running', exit: null }
+      })
+      runtime.onPtyExit('pty-legacy-control', 0, syntheticIncarnation)
+      await expect(runtime.inspectTerminal(replacementHandle)).resolves.toMatchObject({
+        lifecycle: { state: 'exited', exit: { code: 0, reason: 'process-exit' } }
+      })
+    })
+
+    it('ignores a late unversioned exit after a legacy PTY id was readmitted', async () => {
+      const runtime = new OrcaRuntimeService(store)
+      runtime.registerPty('pty-legacy-late-exit', TEST_WORKTREE_ID, null, {
+        tabId: 'tab-1',
+        leafId: 'pane:1'
+      })
+      syncSinglePty(runtime, 'pty-legacy-late-exit')
+      const handle = (await runtime.listTerminals()).terminals[0]?.handle
+      if (!handle) {
+        throw new Error('expected terminal handle')
+      }
+
+      runtime.onPtyExit('pty-legacy-late-exit', 0)
+      runtime.registerPty('pty-legacy-late-exit', TEST_WORKTREE_ID, null, {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-current'
+      })
+      runtime.onPtyExit('pty-legacy-late-exit', 0)
+
+      await expect(runtime.inspectTerminal(handle)).resolves.toMatchObject({
+        lifecycle: { state: 'running', exit: null }
+      })
+
+      runtime.onPtyExit('pty-legacy-late-exit', 0, 'inc-current')
+      await expect(runtime.inspectTerminal(handle)).resolves.toMatchObject({
+        lifecycle: { state: 'exited', exit: { code: 0, reason: 'process-exit' } }
+      })
+    })
+
+    it.each([
+      [0, 24],
+      [-1, 24],
+      [80.5, 24],
+      [Number.NaN, 24],
+      [Number.POSITIVE_INFINITY, 24],
+      [1001, 24],
+      [80, 0],
+      [80, 500.5],
+      [80, 501]
+    ])('rejects invalid core dimensions before mutation (%s x %s)', async (cols, rows) => {
+      const { runtime, handle } = await setupTerminal()
+      const resize = vi.fn(() => true)
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        resize,
+        getAppliedSize: async () => ({ cols: 80, rows: 24 })
+      })
+
+      await expect(runtime.resizeTerminal(handle, 'pty-1:inc-1', cols, rows)).rejects.toThrow(
+        'invalid_terminal_dimensions'
+      )
+      expect(resize).not.toHaveBeenCalled()
     })
 
     it('rejects stale incarnations and unconfirmed or concurrently exited resizes', async () => {
@@ -42772,6 +43035,20 @@ describe('OrcaRuntimeService', () => {
       })
       await expect(
         failedResize.runtime.resizeTerminal(failedResize.handle, 'pty-1:inc-1', 132, 41)
+      ).rejects.toThrow('terminal_resize_failed')
+
+      const thrownResize = await setupTerminal()
+      thrownResize.runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        resize: () => {
+          throw new Error('provider unavailable')
+        },
+        getAppliedSize: async () => ({ cols: 132, rows: 41 })
+      })
+      await expect(
+        thrownResize.runtime.resizeTerminal(thrownResize.handle, 'pty-1:inc-1', 132, 41)
       ).rejects.toThrow('terminal_resize_failed')
 
       const mismatchedResize = await setupTerminal()

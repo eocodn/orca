@@ -1162,6 +1162,15 @@ describe('DaemonPtyAdapter (IPtyProvider)', () => {
       expect(await adapter.getAppliedSize(id)).toEqual({ cols: 120, rows: 40 })
     })
 
+    it('propagates daemon transport failures instead of reporting unsupported size', async () => {
+      const internals = adapter as unknown as {
+        client: { request: (method: string, params: unknown) => Promise<unknown> }
+      }
+      vi.spyOn(internals.client, 'request').mockRejectedValueOnce(new Error('daemon unavailable'))
+
+      await expect(adapter.getAppliedSize('missing-session')).rejects.toThrow('daemon unavailable')
+    })
+
     // Why: a resize after exit is a dropped fire-and-forget notify; getAppliedSize must report the PTY's last real size, not the drop.
     it('does not advance when a resize is dropped after the session exited', async () => {
       const { id } = await adapter.spawn({ cols: 200, rows: 50 })

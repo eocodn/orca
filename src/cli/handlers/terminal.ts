@@ -36,6 +36,12 @@ import {
 } from '../flags'
 import { RuntimeClientError } from '../runtime-client'
 import {
+  TERMINAL_MAX_COLS,
+  TERMINAL_MAX_ROWS,
+  TERMINAL_MIN_COLS,
+  TERMINAL_MIN_ROWS
+} from '../../shared/terminal-dimensions'
+import {
   getBrowserWorktreeSelector,
   getOptionalWorktreeSelector,
   getRequiredWorktreeSelector,
@@ -47,13 +53,25 @@ import {
 // long waits instead of failing at the generic 15s transport cap.
 const DEFAULT_TERMINAL_WAIT_RPC_TIMEOUT_MS = 5 * 60 * 1000
 
-function getRequiredPositiveIntegerFlag(
+function getRequiredTerminalDimensionFlag(
   flags: Map<string, string | boolean>,
-  name: string
+  name: 'cols' | 'rows'
 ): number {
-  const value = Number(getRequiredStringFlag(flags, name))
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new RuntimeClientError('invalid_argument', `--${name} must be a positive integer`)
+  const raw = getRequiredStringFlag(flags, name)
+  const min = name === 'cols' ? TERMINAL_MIN_COLS : TERMINAL_MIN_ROWS
+  const max = name === 'cols' ? TERMINAL_MAX_COLS : TERMINAL_MAX_ROWS
+  if (!/^[1-9]\d*$/.test(raw)) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      `--${name} must be a canonical decimal integer from ${min} to ${max}`
+    )
+  }
+  const value = Number(raw)
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new RuntimeClientError(
+      'invalid_argument',
+      `--${name} must be a canonical decimal integer from ${min} to ${max}`
+    )
   }
   return value
 }
@@ -90,8 +108,8 @@ export const TERMINAL_HANDLERS: Record<string, CommandHandler> = {
     const result = await client.call<{ resize: RuntimeTerminalResize }>('terminal.resize', {
       terminal: await getTerminalHandle(flags, cwd, client),
       incarnation: getRequiredStringFlag(flags, 'incarnation'),
-      cols: getRequiredPositiveIntegerFlag(flags, 'cols'),
-      rows: getRequiredPositiveIntegerFlag(flags, 'rows')
+      cols: getRequiredTerminalDimensionFlag(flags, 'cols'),
+      rows: getRequiredTerminalDimensionFlag(flags, 'rows')
     })
     printResult(result, json, formatTerminalResize)
   },

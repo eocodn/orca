@@ -112,6 +112,58 @@ describe('terminal inspect and resize CLI', () => {
     })
   })
 
+  it.each([
+    ['cols', '1e2'],
+    ['cols', '+80'],
+    ['cols', ' 80 '],
+    ['cols', '1001'],
+    ['rows', '501'],
+    ['rows', '40.5']
+  ])('rejects non-canonical or out-of-range --%s value %s locally', async (name, value) => {
+    const flags = new Map<string, string | boolean>([
+      ['terminal', 'term-1'],
+      ['incarnation', 'pty-1:inc-1'],
+      ['cols', '80'],
+      ['rows', '24'],
+      [name, value]
+    ])
+    const call = vi.fn()
+
+    await expect(
+      TERMINAL_HANDLERS['terminal resize']({
+        flags,
+        client: { call } as unknown as RuntimeClient,
+        cwd: '/tmp/worktree',
+        json: true
+      })
+    ).rejects.toThrow(`--${name}`)
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it('accepts the exact dimension maxima locally', async () => {
+    const call = vi.fn().mockResolvedValue({ result: { resize: { handle: 'term-1' } } })
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await TERMINAL_HANDLERS['terminal resize']({
+      flags: new Map([
+        ['terminal', 'term-1'],
+        ['incarnation', 'pty-1:inc-1'],
+        ['cols', '1000'],
+        ['rows', '500']
+      ]),
+      client: { call } as unknown as RuntimeClient,
+      cwd: '/tmp/worktree',
+      json: true
+    })
+
+    expect(call).toHaveBeenCalledWith('terminal.resize', {
+      terminal: 'term-1',
+      incarnation: 'pty-1:inc-1',
+      cols: 1000,
+      rows: 500
+    })
+  })
+
   it('documents the incarnation fence and authoritative readback', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 

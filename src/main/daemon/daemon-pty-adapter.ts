@@ -1109,8 +1109,11 @@ export class DaemonPtyAdapter implements IPtyProvider {
         { sessionId: id }
       )
       return result.size ?? null
-    } catch {
-      return null
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Unknown request type')) {
+        return null
+      }
+      throw error
     }
   }
 
