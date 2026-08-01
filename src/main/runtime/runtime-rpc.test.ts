@@ -3610,13 +3610,19 @@ describe('OrcaRuntimeRpcServer', () => {
     const userDataPath = mkdtempSync(join(tmpdir(), 'orca-runtime-rpc-'))
     const runtime = new OrcaRuntimeService(makeStore() as never)
     const writes: string[] = []
+    let appliedSize = { cols: 80, rows: 24 }
     runtime.setPtyController({
       write: (_ptyId, data) => {
         writes.push(data)
         return true
       },
       kill: () => true,
-      getForegroundProcess: async () => null
+      getForegroundProcess: async () => null,
+      resize: (_ptyId, cols, rows) => {
+        appliedSize = { cols, rows }
+        return true
+      },
+      getAppliedSize: async () => appliedSize
     })
     const server = new OrcaRuntimeRpcServer({ runtime, userDataPath })
 
@@ -3684,6 +3690,47 @@ describe('OrcaRuntimeRpcServer', () => {
     expect(showResponse).toMatchObject({
       id: 'req_show',
       ok: true
+    })
+
+    const inspectResponse = await sendRequest(metadata!.transports[0]!.endpoint, {
+      id: 'req_inspect',
+      authToken: metadata!.authToken,
+      method: 'terminal.inspect',
+      params: { terminal: handle }
+    })
+    expect(inspectResponse).toMatchObject({
+      id: 'req_inspect',
+      ok: true,
+      result: {
+        terminal: {
+          handle,
+          lifecycle: { state: 'running' },
+          size: { cols: 80, rows: 24 },
+          reattach: { disposition: 'attached' }
+        }
+      }
+    })
+    const processIncarnation = (
+      inspectResponse.result as { terminal: { processIncarnation: string } }
+    ).terminal.processIncarnation
+
+    const resizeResponse = await sendRequest(metadata!.transports[0]!.endpoint, {
+      id: 'req_resize',
+      authToken: metadata!.authToken,
+      method: 'terminal.resize',
+      params: { terminal: handle, incarnation: processIncarnation, cols: 132, rows: 41 }
+    })
+    expect(resizeResponse).toMatchObject({
+      id: 'req_resize',
+      ok: true,
+      result: {
+        resize: {
+          handle,
+          requested: { cols: 132, rows: 41 },
+          applied: { cols: 132, rows: 41 },
+          authoritative: true
+        }
+      }
     })
 
     const readResponse = await sendRequest(metadata!.transports[0]!.endpoint, {

@@ -61,3 +61,64 @@ describe('terminal close CLI', () => {
     expect(help).toContain('durable persistence')
   })
 })
+
+describe('terminal inspect and resize CLI', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('reads the authoritative terminal inspection contract', async () => {
+    const call = vi.fn().mockResolvedValue({ result: { terminal: { handle: 'term-1' } } })
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await TERMINAL_HANDLERS['terminal inspect']({
+      flags: new Map([['terminal', 'term-1']]),
+      client: { call } as unknown as RuntimeClient,
+      cwd: '/tmp/worktree',
+      json: true
+    })
+
+    expect(call).toHaveBeenCalledWith('terminal.inspect', { terminal: 'term-1' })
+  })
+
+  it('requires an observed incarnation and forwards exact integer dimensions', async () => {
+    const parsed = parseArgs([
+      'terminal',
+      'resize',
+      '--terminal',
+      'term-1',
+      '--incarnation',
+      'pty-1:inc-1',
+      '--cols',
+      '132',
+      '--rows',
+      '41'
+    ])
+    const call = vi.fn().mockResolvedValue({ result: { resize: { handle: 'term-1' } } })
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await TERMINAL_HANDLERS['terminal resize']({
+      flags: parsed.flags,
+      client: { call } as unknown as RuntimeClient,
+      cwd: '/tmp/worktree',
+      json: true
+    })
+
+    expect(call).toHaveBeenCalledWith('terminal.resize', {
+      terminal: 'term-1',
+      incarnation: 'pty-1:inc-1',
+      cols: 132,
+      rows: 41
+    })
+  })
+
+  it('documents the incarnation fence and authoritative readback', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    printHelp(COMMAND_SPECS, ['terminal', 'resize'])
+
+    const help = String(log.mock.calls[0]?.[0])
+    expect(help).toContain('--incarnation <id>')
+    expect(help).toContain('authoritative')
+  })
+})

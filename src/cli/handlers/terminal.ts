@@ -3,10 +3,12 @@ import type {
   RuntimeTerminalCreate,
   RuntimeTerminalFocus,
   RuntimeTerminalListResult,
+  RuntimeTerminalInspect,
   RuntimeTerminalRead,
   RuntimeTerminalRename,
   RuntimeTerminalSend,
   RuntimeTerminalShow,
+  RuntimeTerminalResize,
   RuntimeTerminalSplit,
   RuntimeTerminalWait
 } from '../../shared/runtime-types'
@@ -17,10 +19,12 @@ import {
   formatTerminalCreate,
   formatTerminalFocus,
   formatTerminalList,
+  formatTerminalInspect,
   formatTerminalRead,
   formatTerminalRename,
   formatTerminalSend,
   formatTerminalShow,
+  formatTerminalResize,
   formatTerminalSplit,
   formatTerminalWait,
   printResult
@@ -43,6 +47,17 @@ import {
 // long waits instead of failing at the generic 15s transport cap.
 const DEFAULT_TERMINAL_WAIT_RPC_TIMEOUT_MS = 5 * 60 * 1000
 
+function getRequiredPositiveIntegerFlag(
+  flags: Map<string, string | boolean>,
+  name: string
+): number {
+  const value = Number(getRequiredStringFlag(flags, name))
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new RuntimeClientError('invalid_argument', `--${name} must be a positive integer`)
+  }
+  return value
+}
+
 const terminalFocusHandler: CommandHandler = async ({ flags, client, cwd, json }) => {
   const result = await client.call<{ focus: RuntimeTerminalFocus }>('terminal.focus', {
     terminal: await getTerminalHandle(flags, cwd, client),
@@ -64,6 +79,21 @@ export const TERMINAL_HANDLERS: Record<string, CommandHandler> = {
       terminal: await getTerminalHandle(flags, cwd, client)
     })
     printResult(result, json, formatTerminalShow)
+  },
+  'terminal inspect': async ({ flags, client, cwd, json }) => {
+    const result = await client.call<{ terminal: RuntimeTerminalInspect }>('terminal.inspect', {
+      terminal: await getTerminalHandle(flags, cwd, client)
+    })
+    printResult(result, json, formatTerminalInspect)
+  },
+  'terminal resize': async ({ flags, client, cwd, json }) => {
+    const result = await client.call<{ resize: RuntimeTerminalResize }>('terminal.resize', {
+      terminal: await getTerminalHandle(flags, cwd, client),
+      incarnation: getRequiredStringFlag(flags, 'incarnation'),
+      cols: getRequiredPositiveIntegerFlag(flags, 'cols'),
+      rows: getRequiredPositiveIntegerFlag(flags, 'rows')
+    })
+    printResult(result, json, formatTerminalResize)
   },
   'terminal read': async ({ flags, client, cwd, json }) => {
     const cursorFlag = getOptionalStringFlag(flags, 'cursor')

@@ -10,6 +10,21 @@ class LineageError extends Error {
 
 describe('mapRuntimeError', () => {
   it.each([
+    'terminal_incarnation_stale',
+    'terminal_incarnation_unavailable',
+    'terminal_not_running',
+    'terminal_resize_failed',
+    'terminal_resize_unconfirmed',
+    'terminal_resize_mismatch',
+    'terminal_size_read_failed',
+    'no_connected_pty'
+  ])('preserves terminal control code %s', (code) => {
+    expect(mapRuntimeError('req', { runtimeId: 'runtime-1' }, new Error(code))).toMatchObject({
+      ok: false,
+      error: { code }
+    })
+  })
+  it.each([
     'folder_workspace_operation_conflict',
     'folder_workspace_operation_id_invalid',
     'folder_workspace_persistence_busy',

@@ -79,6 +79,8 @@ Files:
 Terminals:
   terminal list             List live Orca-managed terminals
   terminal show             Show terminal metadata and preview
+  terminal inspect          Inspect authoritative terminal lifecycle and history state
+  terminal resize           Resize a terminal with authoritative provider readback
   terminal read             Read bounded terminal output
   terminal send             Send input to a live terminal
   terminal wait             Wait for a terminal condition (exit, tui-idle)

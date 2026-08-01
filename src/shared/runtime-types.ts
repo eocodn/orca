@@ -577,6 +577,33 @@ export type RuntimeTerminalShow = RuntimeTerminalSummary & {
   rendererGraphEpoch: number
 }
 
+export type RuntimeTerminalInspect = RuntimeTerminalShow & {
+  processIncarnation: string
+  lifecycle: {
+    state: 'running' | 'disconnected' | 'exited'
+    exit: { code: number; reason: 'process-exit' | 'transport-loss' } | null
+  }
+  size: { cols: number; rows: number } | null
+  history: {
+    oldestCursor: string
+    latestCursor: string
+    truncated: boolean
+    bounded: true
+  }
+  reattach: {
+    disposition: 'attached' | 'provider-reconnect-required' | 'exited'
+  }
+}
+
+export type RuntimeTerminalResize = {
+  handle: string
+  ptyId: string
+  processIncarnation: string
+  requested: { cols: number; rows: number }
+  applied: { cols: number; rows: number }
+  authoritative: true
+}
+
 export type RuntimeTerminalState = 'running' | 'exited' | 'unknown'
 
 export type RuntimeTerminalRead = {

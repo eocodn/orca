@@ -303,6 +303,8 @@ import {
   type RuntimeSpeechModelSummary,
   type RuntimeSpeechSetupState,
   type RuntimeTerminalShow,
+  type RuntimeTerminalInspect,
+  type RuntimeTerminalResize,
   type RuntimeTerminalSummary,
   type RuntimeTerminalVisualGroupNode,
   type RuntimeTerminalVisualLayout,
@@ -1590,6 +1592,7 @@ type RuntimePtyController = {
     signal?: AbortSignal
   ): Promise<boolean>
   getSize?(ptyId: string): { cols: number; rows: number } | null
+  getAppliedSize?(ptyId: string): Promise<{ cols: number; rows: number } | null>
 }
 
 type PtyControllerTerminalIdentity = Readonly<{
@@ -5846,6 +5849,14 @@ export class OrcaRuntimeService {
 
   private isSshOwnedPtyId(ptyId: string | null | undefined): boolean {
     return typeof ptyId === 'string' && parseAppSshPtyId(ptyId) !== null
+  }
+
+  private isRecoverableSshTransportLoss(
+    ptyId: string,
+    connectionId: string | null,
+    exitCode: number
+  ): boolean {
+    return this.isSshOwnedPtyId(ptyId) && connectionId !== null && exitCode < 0
   }
 
   private workspaceSessionHasRuntimeOwnedPtyCandidate(session: WorkspaceSessionState): boolean {
@@ -12721,8 +12732,11 @@ export class OrcaRuntimeService {
     if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
       return
     }
-    const preservesAbnormalSshSurface =
-      this.isSshOwnedPtyId(ptyId) && pty?.connectionId != null && exitCode < 0
+    const preservesAbnormalSshSurface = this.isRecoverableSshTransportLoss(
+      ptyId,
+      pty?.connectionId ?? null,
+      exitCode
+    )
     if (preservesAbnormalSshSurface) {
       this.restoredOrchestrationAuthorityByPtyId.delete(ptyId)
     } else {
@@ -15659,6 +15673,140 @@ export class OrcaRuntimeService {
       paneRuntimeId: leaf.paneRuntimeId,
       ptyId: leaf.ptyId,
       rendererGraphEpoch: this.rendererGraphEpoch
+    }
+  }
+
+  async inspectTerminal(handle: string): Promise<RuntimeTerminalInspect> {
+    const owner = this.getTerminalControlOwner(handle)
+    const processIncarnation = this.getTerminalProcessIncarnation(handle)
+    if (!processIncarnation) {
+      throw new Error('terminal_incarnation_unavailable')
+    }
+    const lifecycleGeneration = this.getPtyLifecycleGeneration(owner.ptyId)
+    const show = await this.showTerminal(handle)
+    const history = await this.readTerminal(handle, { cursor: 0, limit: 1 })
+    let size: { cols: number; rows: number } | null = null
+    try {
+      size = (await this.ptyController?.getAppliedSize?.(owner.ptyId)) ?? null
+    } catch {
+      throw new Error('terminal_size_read_failed')
+    }
+    this.assertTerminalControlFence(handle, processIncarnation, lifecycleGeneration, false)
+    const transportLoss =
+      !owner.connected &&
+      owner.lastExitCode !== null &&
+      this.isRecoverableSshTransportLoss(owner.ptyId, owner.connectionId, owner.lastExitCode)
+    const state = owner.connected ? 'running' : transportLoss ? 'disconnected' : 'exited'
+    return {
+      ...show,
+      processIncarnation,
+      lifecycle: {
+        state,
+        exit:
+          owner.lastExitCode === null
+            ? null
+            : {
+                code: owner.lastExitCode,
+                reason: transportLoss ? 'transport-loss' : 'process-exit'
+              }
+      },
+      size,
+      history: {
+        oldestCursor: history.oldestCursor ?? '0',
+        latestCursor: history.latestCursor ?? '0',
+        truncated: history.truncated,
+        bounded: true
+      },
+      reattach: {
+        disposition: owner.connected
+          ? 'attached'
+          : transportLoss
+            ? 'provider-reconnect-required'
+            : 'exited'
+      }
+    }
+  }
+
+  async resizeTerminal(
+    handle: string,
+    expectedIncarnation: string,
+    cols: number,
+    rows: number
+  ): Promise<RuntimeTerminalResize> {
+    const owner = this.getTerminalControlOwner(handle)
+    if (!owner.connected) {
+      throw new Error('terminal_not_running')
+    }
+    const lifecycleGeneration = this.getPtyLifecycleGeneration(owner.ptyId)
+    this.assertTerminalControlFence(handle, expectedIncarnation, lifecycleGeneration, true)
+    this.freshSubscribeGuard.add(owner.ptyId)
+    let result: ApplyLayoutResult
+    try {
+      result = await this.enqueueLayout(owner.ptyId, { kind: 'desktop', cols, rows })
+    } finally {
+      this.freshSubscribeGuard.delete(owner.ptyId)
+    }
+    if (!result.ok) {
+      throw new Error('terminal_resize_failed')
+    }
+    let applied: { cols: number; rows: number } | null | undefined
+    try {
+      applied = await this.ptyController?.getAppliedSize?.(owner.ptyId)
+    } catch {
+      throw new Error('terminal_resize_unconfirmed')
+    }
+    if (!applied) {
+      throw new Error('terminal_resize_unconfirmed')
+    }
+    this.assertTerminalControlFence(handle, expectedIncarnation, lifecycleGeneration, true)
+    if (applied.cols !== cols || applied.rows !== rows) {
+      throw new Error('terminal_resize_mismatch')
+    }
+    return {
+      handle,
+      ptyId: owner.ptyId,
+      processIncarnation: expectedIncarnation,
+      requested: { cols, rows },
+      applied,
+      authoritative: true
+    }
+  }
+
+  private assertTerminalControlFence(
+    handle: string,
+    expectedIncarnation: string,
+    expectedLifecycleGeneration: number,
+    requireConnected: boolean
+  ): void {
+    const owner = this.getTerminalControlOwner(handle)
+    if (
+      (requireConnected && !owner.connected) ||
+      this.getPtyLifecycleGeneration(owner.ptyId) !== expectedLifecycleGeneration ||
+      this.getTerminalProcessIncarnation(handle) !== expectedIncarnation
+    ) {
+      throw new Error('terminal_incarnation_stale')
+    }
+  }
+
+  private getTerminalControlOwner(handle: string): {
+    ptyId: string
+    connected: boolean
+    lastExitCode: number | null
+    connectionId: string | null
+  } {
+    const live = this.getLivePtyForHandle(handle)
+    if (live) {
+      return live.pty
+    }
+    const { leaf } = this.getLiveLeafForHandle(handle)
+    if (!leaf.ptyId) {
+      throw new Error('no_connected_pty')
+    }
+    return {
+      ptyId: leaf.ptyId,
+      connected: leaf.connected,
+      lastExitCode: leaf.lastExitCode,
+      connectionId: this.ptysById.get(leaf.ptyId)?.connectionId ?? null
     }
   }
 

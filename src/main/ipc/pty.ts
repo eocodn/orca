@@ -4604,6 +4604,8 @@ export function registerPtyHandlers(
       return rendererSerializerReadiness.wait(ptyId, afterGeneration, timeoutMs, signal)
     },
     getSize: (ptyId) => ptySizes.get(ptyId) ?? null,
+    getAppliedSize: async (ptyId) =>
+      (await getProviderForPty(ptyId).getAppliedSize?.(ptyId)) ?? null,
     resize: (ptyId, cols, rows) => {
       try {
         getProviderForPty(ptyId).resize(ptyId, cols, rows)

@@ -35,10 +35,12 @@ export {
   formatTerminalCreate,
   formatTerminalFocus,
   formatTerminalList,
+  formatTerminalInspect,
   formatTerminalRead,
   formatTerminalRename,
   formatTerminalSend,
   formatTerminalShow,
+  formatTerminalResize,
   formatTerminalSplit,
   formatTerminalWait
 } from './terminal-format'

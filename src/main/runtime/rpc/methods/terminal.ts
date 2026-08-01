@@ -854,6 +854,12 @@ const TerminalRead = TerminalHandle.extend({
   limit: OptionalFiniteNumber
 })
 
+const TerminalResize = TerminalHandle.extend({
+  incarnation: requiredString('Missing terminal incarnation').pipe(z.string().max(512)),
+  cols: z.number().int().min(1).max(1000),
+  rows: z.number().int().min(1).max(500)
+})
+
 // Why: preserve the legacy contract — `title: string | null` only, `undefined` rejected, so the CLI's "reset" signal stays distinct.
 const TerminalRename = TerminalHandle.extend({
   title: z.custom<string | null>((value) => value === null || typeof value === 'string', {
@@ -1140,6 +1146,25 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
     params: TerminalHandle,
     handler: async (params, { runtime }) => ({
       terminal: await runtime.showTerminal(params.terminal)
+    })
+  }),
+  defineMethod({
+    name: 'terminal.inspect',
+    params: TerminalHandle,
+    handler: async (params, { runtime }) => ({
+      terminal: await runtime.inspectTerminal(params.terminal)
+    })
+  }),
+  defineMethod({
+    name: 'terminal.resize',
+    params: TerminalResize,
+    handler: async (params, { runtime }) => ({
+      resize: await runtime.resizeTerminal(
+        params.terminal,
+        params.incarnation,
+        params.cols,
+        params.rows
+      )
     })
   }),
   defineMethod({

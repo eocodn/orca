@@ -3,6 +3,7 @@ import type {
   RuntimeTerminalCreate,
   RuntimeTerminalFocus,
   RuntimeTerminalListResult,
+  RuntimeTerminalInspect,
   RuntimeTerminalVisualLayout,
   RuntimeTerminalVisualLayoutNode,
   RuntimeTerminalVisualPaneNode,
@@ -11,6 +12,7 @@ import type {
   RuntimeTerminalRename,
   RuntimeTerminalSend,
   RuntimeTerminalShow,
+  RuntimeTerminalResize,
   RuntimeTerminalSplit,
   RuntimeTerminalWait
 } from '../shared/runtime-types'
@@ -99,6 +101,24 @@ export function formatTerminalShow(result: { terminal: RuntimeTerminalShow }): s
     `writable: ${terminal.writable}`,
     `preview: ${terminal.preview || '<empty>'}`
   ].join('\n')
+}
+
+export function formatTerminalInspect(result: { terminal: RuntimeTerminalInspect }): string {
+  const terminal = result.terminal
+  return [
+    formatTerminalShow({ terminal }),
+    `process incarnation: ${terminal.processIncarnation}`,
+    `lifecycle: ${terminal.lifecycle.state}`,
+    `exit: ${terminal.lifecycle.exit ? `${terminal.lifecycle.exit.reason} (${terminal.lifecycle.exit.code})` : 'none'}`,
+    `size: ${terminal.size ? `${terminal.size.cols}x${terminal.size.rows}` : 'unavailable'}`,
+    `history: ${terminal.history.oldestCursor}..${terminal.history.latestCursor}`,
+    `reattach: ${terminal.reattach.disposition}`
+  ].join('\n')
+}
+
+export function formatTerminalResize(result: { resize: RuntimeTerminalResize }): string {
+  const resize = result.resize
+  return `Resized ${resize.handle} to ${resize.applied.cols}x${resize.applied.rows} (authoritative).`
 }
 
 export function formatTerminalRead(result: { terminal: RuntimeTerminalRead }): string {

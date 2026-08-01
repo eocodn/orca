@@ -87,6 +87,8 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     keys: [
       'terminal list',
       'terminal show',
+      'terminal inspect',
+      'terminal resize',
       'terminal read',
       'terminal send',
       'terminal wait',
