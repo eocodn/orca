@@ -278,9 +278,11 @@ function makeDisposable() {
   return { dispose: vi.fn() }
 }
 
-function makeDeferred() {
-  let resolve!: () => void
-  const promise = new Promise<void>((next) => {
+function makeDeferred(): { promise: Promise<void>; resolve: () => void }
+function makeDeferred<T>(): { promise: Promise<T>; resolve: (value: T) => void }
+function makeDeferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((next) => {
     resolve = next
   })
   return { promise, resolve }
@@ -1141,6 +1143,35 @@ describe('registerPtyHandlers', () => {
     clearProviderPtyState(ptyId)
   })
 
+  it('accepts an identity-less exit after authoritative absence despite a restored current identity', async () => {
+    const ptyId = 'identity-less-restored-owner-pty'
+    let exitHandler:
+      | ((payload: { id: string; code: number; incarnationId?: string }) => void)
+      | undefined
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({ id: ptyId })),
+      listProcesses: vi.fn(async () => []),
+      onExit: vi.fn((handler: typeof exitHandler) => {
+        exitHandler = handler
+        return () => {}
+      })
+    })
+    setLocalPtyProvider(provider as never)
+    registerPtyHandlers(mainWindow as never)
+
+    await handlers.get('pty:spawn')!(null, { cols: 80, rows: 24 })
+    restorePtyIncarnation(ptyId, 'restored-owner-incarnation')
+
+    exitHandler?.({ id: ptyId, code: 19 })
+    await vi.waitFor(() =>
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:exit', {
+        id: ptyId,
+        code: 19
+      })
+    )
+    clearProviderPtyState(ptyId)
+  })
+
   it('does not select a replacement after local provider startup completes', async () => {
     const startupDeferred = makeDeferred()
     const shutdown = vi.fn(async () => undefined)
@@ -1281,6 +1312,159 @@ describe('registerPtyHandlers', () => {
     listProcesses.mockResolvedValue([])
     await expect(reconcilePendingPtyCleanup(provider as never, ptyId)).resolves.toBe(true)
     expect(hasPendingPtyCleanupWithoutIncarnation(ptyId)).toBe(false)
+  })
+
+  it('automatically retries cleanup after a transient inventory failure', async () => {
+    const ptyId = 'pty-cleanup-inventory-retry'
+    const listProcesses = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('provider unavailable'))
+      .mockResolvedValue([])
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({ id: ptyId })),
+      shutdown: vi.fn().mockRejectedValue(new Error('shutdown response lost')),
+      listProcesses
+    })
+    setLocalPtyProvider(provider as never)
+    const store = {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+
+    await expect(
+      handlers.get('pty:spawn')!(null, {
+        cols: 80,
+        rows: 24,
+        cwd: '/tmp/worktree',
+        worktreeId: 'repo::/tmp/worktree',
+        tabId: 'tab-cleanup-inventory-retry',
+        leafId: '77777777-7777-4777-8777-777777777777'
+      })
+    ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+
+    await vi.waitFor(() => expect(listProcesses).toHaveBeenCalledTimes(2))
+    expect(hasPendingPtyCleanupWithoutIncarnation(ptyId)).toBe(false)
+  })
+
+  it('does not let stale identity-less cleanup restore a same-id replacement', async () => {
+    const ptyId = 'pty-cleanup-stale-token'
+    const inventory = makeDeferred<{ id: string; incarnationId?: string }[]>()
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({ id: ptyId })),
+      shutdown: vi.fn(async () => undefined),
+      listProcesses: vi.fn(() => inventory.promise)
+    })
+    setLocalPtyProvider(provider as never)
+    restorePtyIncarnation(ptyId, 'incarnation-before-failure')
+    const runtime = {
+      setPtyController: vi.fn(),
+      createPreAllocatedTerminalHandle: vi.fn(() => null),
+      preAllocateHandleForPty: vi.fn(),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    const store = {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+
+    const spawn = handlers.get('pty:spawn')!(null, {
+      cols: 80,
+      rows: 24,
+      cwd: '/tmp/worktree',
+      worktreeId: 'repo::/tmp/worktree',
+      tabId: 'tab-cleanup-stale-token',
+      leafId: '88888888-8888-4888-8888-888888888888'
+    })
+    await vi.waitFor(() => expect(provider.listProcesses).toHaveBeenCalledOnce())
+    restorePtyIncarnation(ptyId, 'incarnation-replacement')
+    inventory.resolve([])
+
+    await expect(spawn).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+    expect(isCurrentPtyExit({ id: ptyId, incarnationId: 'incarnation-replacement' })).toBe(true)
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    clearProviderPtyState(ptyId)
+  })
+
+  it('keeps an unchanged owner lifecycle token stable during kill', async () => {
+    const ptyId = 'pty-owner-kill-token'
+    const incarnationId = 'incarnation-owner-kill-token'
+    const shutdown = makeDeferred<void>()
+    const owner: AgentSessionOwnerBinding = {
+      claim: recoveredAgentClaim,
+      generation: 'generation-owner-kill-token',
+      phase: 'live',
+      ptyId,
+      surface: recoveredAgentSurface
+    }
+    const provider = createAgentClaimProvider({
+      sessions: [
+        {
+          id: ptyId,
+          incarnationId,
+          cwd: '/tmp/recovered-worktree',
+          title: 'Codex',
+          agentSessionOwners: [owner]
+        }
+      ],
+      shutdown: vi.fn(() => shutdown.promise)
+    })
+    setLocalPtyProvider(provider as never)
+    restorePtyIncarnation(ptyId, incarnationId)
+    const runtime = {
+      setPtyController: vi.fn(),
+      createPreAllocatedTerminalHandle: vi.fn(() => null),
+      preAllocateHandleForPty: vi.fn(),
+      registerPreAllocatedHandleForPty: vi.fn(),
+      registerPty: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      noteTerminalSpawnCommand: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn()
+    }
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      kill: (id: string) => boolean
+      spawn: (args: Record<string, unknown>) => Promise<unknown>
+    }
+
+    expect(controller.kill(ptyId)).toBe(true)
+    await expect(
+      controller.spawn({
+        cols: 80,
+        rows: 24,
+        cwd: '/tmp/recovered-worktree',
+        agentSessionEnsure: { claim: recoveredAgentClaim, surface: recoveredAgentSurface }
+      })
+    ).resolves.toMatchObject({ id: ptyId, agentSessionEnsure: { disposition: 'adopted' } })
+    shutdown.resolve()
+
+    await vi.waitFor(() => expect(runtime.onPtyExit).toHaveBeenCalledWith(ptyId, -1, incarnationId))
+    clearProviderPtyState(ptyId)
   })
 
   it('adopts a live controller-owned local fallback when listings cannot serialize claims', async () => {

@@ -553,6 +553,37 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     ])
   })
 
+  it('automatically retries durable retirement after a one-shot exact exit', async () => {
+    const session = makePersistedSplitSession()
+    const flushOrThrow = vi
+      .fn()
+      .mockImplementationOnce(() => {
+        throw new Error('disk unavailable')
+      })
+      .mockImplementationOnce(() => undefined)
+    const runtime = new OrcaRuntimeService(
+      runtimeStore({
+        getWorkspaceSession: () => session,
+        setWorkspaceSession: vi.fn(),
+        flushOrThrow
+      })
+    )
+    runtime.attachWindow(1)
+    syncSplit(runtime)
+    runtime.registerPty('pty-left', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'one-shot-durable-incarnation'
+    })
+
+    runtime.onPtyExit('pty-left', 0, 'one-shot-durable-incarnation')
+
+    await vi.waitFor(() => expect(flushOrThrow).toHaveBeenCalledTimes(2))
+    expect((await runtime.listMobileSessionTabs(`id:${WORKTREE_ID}`)).tabs).toEqual([
+      expect.objectContaining({ id: 'tab::right', status: 'ready' })
+    ])
+  })
+
   it('treats a reconnect-proven incarnation as a fresh lifecycle', () => {
     const flushOrThrow = vi.fn()
     const runtime = new OrcaRuntimeService(
@@ -575,6 +606,66 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     runtime.onPtyExit('pty-left', 0, 'incarnation-after-reconnect')
 
     expect(flushOrThrow).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries an old pending durable retirement before rejecting its stale exit', () => {
+    vi.useFakeTimers()
+    try {
+      const session = makePersistedSplitSession()
+      const flushOrThrow = vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error('disk unavailable')
+        })
+        .mockImplementationOnce(() => undefined)
+      const runtime = new OrcaRuntimeService(
+        runtimeStore({
+          getWorkspaceSession: () => session,
+          setWorkspaceSession: vi.fn(),
+          flushOrThrow
+        })
+      )
+      runtime.attachWindow(1)
+      syncSplit(runtime)
+      runtime.registerPty('pty-left', WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'left',
+        incarnationId: 'old-pending-incarnation'
+      })
+
+      runtime.onPtyExit('pty-left', 0, 'old-pending-incarnation')
+      runtime.acceptPtyIncarnationForExit('pty-left', 'new-current-incarnation')
+      runtime.onPtyExit('pty-left', 0, 'old-pending-incarnation')
+
+      expect(flushOrThrow).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps exit-proof attach disconnected until a live lifecycle is admitted', () => {
+    const runtime = new OrcaRuntimeService()
+    syncSplit(runtime)
+    runtime.registerPty('pty-left', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'incarnation-before-exit-proof'
+    })
+    runtime.onPtyExit('pty-left', 0, 'incarnation-before-exit-proof')
+
+    runtime.acceptPtyIncarnationForExit('pty-left', 'incarnation-after-exit-proof')
+
+    const internals = runtime as unknown as {
+      ptysById: Map<string, { connected: boolean; lastExitCode: number | null }>
+      leavesByPtyId: Map<string, { connected: boolean; lastExitCode: number | null }[]>
+    }
+    expect(internals.ptysById.get('pty-left')).toMatchObject({
+      connected: false,
+      lastExitCode: null
+    })
+    expect(internals.leavesByPtyId.get('pty-left')).toEqual([
+      expect.objectContaining({ connected: false, lastExitCode: 0 })
+    ])
   })
 
   it('retires a durable surface after reconnect proves a newer incarnation', async () => {

@@ -34,6 +34,7 @@ services:
           src/main/providers/ssh-pty-provider-resize.test.ts \
           src/main/providers/ssh-pty-provider.test.ts \
           src/main/ssh/ssh-relay-session-incarnation.test.ts \
+          src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts \
           src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts \
           src/main/daemon/daemon-pty-adapter.test.ts \
           src/main/daemon/terminal-host.test.ts \
@@ -107,6 +108,7 @@ services:
       - src/main/providers/ssh-pty-provider.test.ts
       - src/main/ssh/ssh-relay-session.ts
       - src/main/ssh/ssh-relay-session-incarnation.test.ts
+      - src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts
       - src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
       - src/main/daemon/daemon-pty-adapter.ts
       - src/main/daemon/daemon-pty-adapter.test.ts
@@ -193,6 +195,7 @@ services:
       - >-
         pnpm exec oxfmt --check src/main/ssh/ssh-relay-session.ts
         src/main/ssh/ssh-relay-session-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts
         src/main/ssh/ssh-relay-session-data-delivery.test.ts
         src/main/ssh/ssh-relay-session-managed-hooks.test.ts
         src/main/ssh/ssh-relay-session-model-migration.test.ts
@@ -204,6 +207,7 @@ services:
         src/preload/ssh-authority-forwarding.test.ts &&
         pnpm exec oxlint src/main/ssh/ssh-relay-session.ts
         src/main/ssh/ssh-relay-session-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts
         src/main/ssh/ssh-relay-session-data-delivery.test.ts
         src/main/ssh/ssh-relay-session-managed-hooks.test.ts
         src/main/ssh/ssh-relay-session-model-migration.test.ts

@@ -45,6 +45,7 @@ import {
   consumePendingPtyCleanupIfExact,
   finalizePendingPtyCleanupIfExact,
   hasPendingPtyCleanupExact,
+  hasPendingPtyCleanupWithoutIncarnation,
   isCurrentPtyExit,
   consumeSshPtyExitFinalization
 } from '../ipc/pty'
@@ -1405,7 +1406,11 @@ export class SshRelaySession {
       }
       const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
       const exitIncarnation = payload.incarnationId ?? payload.ptyIncarnation
-      if (pendingCleanupIncarnation !== undefined && exitIncarnation === undefined) {
+      if (
+        exitIncarnation === undefined &&
+        (pendingCleanupIncarnation !== undefined ||
+          hasPendingPtyCleanupWithoutIncarnation(payload.id))
+      ) {
         return
       }
       const exactCleanupPending =

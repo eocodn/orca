@@ -2785,6 +2785,9 @@ export class OrcaRuntimeService {
       >[]
     }
   >()
+  private pendingPtyDurableRetirementRetryAttempts = new Map<string, number>()
+  private pendingPtyDurableRetirementRetryScheduled = new Set<string>()
+  private readonly pendingPtyDurableRetirementMaxRetries = 3
   private pendingPtyRegistrationIncarnations = new Map<string, PtyIncarnationId | null>()
   private headlessPtyIncarnationById = new Map<string, PtyIncarnationId>()
   private ptyInventoryOverlapGraceById = new Map<string, PtyIncarnationId | null>()
@@ -6524,6 +6527,50 @@ export class OrcaRuntimeService {
     return next
   }
 
+  private schedulePendingPtyDurableRetirementRetry(retirementKey: string): void {
+    if (
+      !this.pendingPtyDurableRetirements.has(retirementKey) ||
+      this.pendingPtyDurableRetirementRetryScheduled.has(retirementKey) ||
+      (this.pendingPtyDurableRetirementRetryAttempts.get(retirementKey) ?? 0) >=
+        this.pendingPtyDurableRetirementMaxRetries
+    ) {
+      return
+    }
+    this.pendingPtyDurableRetirementRetryScheduled.add(retirementKey)
+    setTimeout(() => {
+      this.pendingPtyDurableRetirementRetryScheduled.delete(retirementKey)
+      if (this.pendingPtyDurableRetirements.has(retirementKey)) {
+        this.retryPendingPtyDurableRetirement(retirementKey)
+      }
+    }, 0)
+  }
+
+  private retryPendingPtyDurableRetirement(retirementKey: string): void {
+    const pending = this.pendingPtyDurableRetirements.get(retirementKey)
+    if (!pending) {
+      this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
+      return
+    }
+    const attempts = (this.pendingPtyDurableRetirementRetryAttempts.get(retirementKey) ?? 0) + 1
+    this.pendingPtyDurableRetirementRetryAttempts.set(retirementKey, attempts)
+    if (
+      this.retireMobileSessionSurfacesForPty(
+        retirementKey.slice(0, retirementKey.indexOf('\0')),
+        pending.incarnationId,
+        pending.exactSurfaces
+      )
+    ) {
+      this.pendingPtyDurableRetirements.delete(retirementKey)
+      this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
+      return
+    }
+    if (attempts >= this.pendingPtyDurableRetirementMaxRetries) {
+      console.error('[runtime] durable retirement retries exhausted:', retirementKey)
+      return
+    }
+    this.schedulePendingPtyDurableRetirementRetry(retirementKey)
+  }
+
   private retireMobileSessionSurfacesForPty(
     ptyId: string,
     incarnationId: string,
@@ -9040,8 +9087,8 @@ export class OrcaRuntimeService {
     if (pty) {
       // Why: a reconnect attach reply can prove the exit generation after stale local proof was cleared.
       pty.incarnationId = incarnationId
-      pty.connected = true
-      pty.disconnectedAt = null
+      pty.connected = false
+      pty.disconnectedAt ??= Date.now()
       pty.lastExitCode = null
     }
   }
@@ -13054,28 +13101,18 @@ export class OrcaRuntimeService {
       }
       return
     }
+    if (exitIncarnationId) {
+      const retirementKey = `${ptyId}\0${exitIncarnationId}`
+      if (this.pendingPtyDurableRetirements.has(retirementKey)) {
+        this.retryPendingPtyDurableRetirement(retirementKey)
+        return
+      }
+    }
     if (exitIncarnationId === undefined && pty?.incarnationId) {
       return
     }
     if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
       return
-    }
-    if (exitIncarnationId) {
-      const pendingRetirement = this.pendingPtyDurableRetirements.get(
-        `${ptyId}\0${exitIncarnationId}`
-      )
-      if (pendingRetirement) {
-        if (
-          this.retireMobileSessionSurfacesForPty(
-            ptyId,
-            pendingRetirement.incarnationId,
-            pendingRetirement.exactSurfaces
-          )
-        ) {
-          this.pendingPtyDurableRetirements.delete(`${ptyId}\0${exitIncarnationId}`)
-        }
-        return
-      }
     }
     if (
       exitIncarnationId !== undefined &&
@@ -13241,11 +13278,13 @@ export class OrcaRuntimeService {
       const retirementKey = `${ptyId}\0${incarnationId}`
       if (durableRetirementComplete) {
         this.pendingPtyDurableRetirements.delete(retirementKey)
+        this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
       } else {
         this.pendingPtyDurableRetirements.set(retirementKey, {
           incarnationId,
           exactSurfaces
         })
+        this.schedulePendingPtyDurableRetirementRetry(retirementKey)
       }
     }
 
