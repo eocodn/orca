@@ -161,4 +161,21 @@ describe('native preload SSH authority forwarding', () => {
 
     expect(onStateChanged).not.toHaveBeenCalled()
   })
+
+  it('strips PTY incarnation identity before forwarding exit events to the renderer', async () => {
+    await import('./index')
+    const api = exposeInMainWorld.mock.calls.find(([name]) => name === 'api')?.[1] as PreloadApi
+    const onExit = vi.fn()
+    api.pty.onExit(onExit)
+    const listener = on.mock.calls
+      .toReversed()
+      .find(([channel]) => channel === 'pty:exit')?.[1] as (
+      event: unknown,
+      data: { id: string; code: number; incarnationId: string }
+    ) => void
+
+    listener({}, { id: 'pty-reused', code: 0, incarnationId: 'incarnation-old' })
+
+    expect(onExit).toHaveBeenCalledWith({ id: 'pty-reused', code: 0 })
+  })
 })

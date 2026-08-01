@@ -1165,8 +1165,17 @@ const api = {
     onExit: (
       callback: (data: { id: string; code: number; preserveRendererBinding?: boolean }) => void
     ): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, data: { id: string; code: number }) =>
-        callback(data)
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        data: { id: string; code: number; preserveRendererBinding?: boolean }
+      ) =>
+        callback({
+          id: data.id,
+          code: data.code,
+          ...(data.preserveRendererBinding === undefined
+            ? {}
+            : { preserveRendererBinding: data.preserveRendererBinding })
+        })
       ipcRenderer.on('pty:exit', listener)
       return () => ipcRenderer.removeListener('pty:exit', listener)
     },

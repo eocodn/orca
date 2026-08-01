@@ -18,6 +18,7 @@ services:
           src/shared/folder-workspaces.test.ts \
           src/cli/args.test.ts \
           src/cli/format.test.ts \
+          src/preload/ssh-authority-forwarding.test.ts \
           src/cli/registry-parity.test.ts \
           src/cli/handlers/session.test.ts \
           src/cli/handler-group-manifest.test.ts \
@@ -196,7 +197,9 @@ services:
         src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
         src/main/ssh/ssh-relay-session-recovery-races.test.ts
         src/main/ssh/ssh-relay-session-terminal-error.test.ts
-        src/main/ssh/ssh-relay-session.test.ts &&
+        src/main/ssh/ssh-relay-session.test.ts
+        src/preload/index.ts
+        src/preload/ssh-authority-forwarding.test.ts &&
         pnpm exec oxlint src/main/ssh/ssh-relay-session.ts
         src/main/ssh/ssh-relay-session-incarnation.test.ts
         src/main/ssh/ssh-relay-session-data-delivery.test.ts
@@ -206,5 +209,27 @@ services:
         src/main/ssh/ssh-relay-session-recovery-races.test.ts
         src/main/ssh/ssh-relay-session-terminal-error.test.ts
         src/main/ssh/ssh-relay-session.test.ts
+        src/preload/index.ts
+        src/preload/ssh-authority-forwarding.test.ts
+    init: true
+    network_mode: host
+
+  preload-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - pnpm
+      - exec
+      - vitest
+      - run
+      - --maxWorkers=1
+      - --config
+      - config/vitest.config.ts
+      - src/preload/ssh-authority-forwarding.test.ts
     init: true
     network_mode: host
