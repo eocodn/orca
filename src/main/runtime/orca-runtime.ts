@@ -329,6 +329,8 @@ import {
   type RuntimeMobileSessionTabsRemovedResult,
   type RuntimeMobileSessionTabsResult,
   type RuntimeMobileSessionTabsSnapshot,
+  type RuntimeSessionFlushResult,
+  type RuntimeSessionSnapshot,
   type RuntimeNativeChatLaunchDraftResolution,
   type RuntimeSessionTabCloseReason,
   type RuntimeBrowserDriverState,
@@ -1060,6 +1062,7 @@ type RuntimeStore = {
   getGitHubCache: Store['getGitHubCache']
   getWorkspaceSession?: Store['getWorkspaceSession']
   getWorkspaceSessionHostIds?: Store['getWorkspaceSessionHostIds']
+  getStateRevision?: Store['getStateRevision']
   setWorkspaceSession?: Store['setWorkspaceSession']
   flushOrThrow?: Store['flushOrThrow']
   persistPtyBinding?: Store['persistPtyBinding']
@@ -4493,6 +4496,29 @@ export class OrcaRuntimeService {
 
   getRuntimeId(): string {
     return this.runtimeId
+  }
+
+  async getSessionSnapshot(): Promise<RuntimeSessionSnapshot> {
+    if (!this.store?.getStateRevision) {
+      throw new Error('session_revision_unavailable')
+    }
+    const snapshots = await this.listAllMobileSessionTabs()
+    return {
+      hostGeneration: this.runtimeId,
+      revision: this.store.getStateRevision(),
+      snapshots
+    }
+  }
+
+  async flushSession(): Promise<RuntimeSessionFlushResult> {
+    if (!this.store?.flushOrThrow || !this.store?.getStateRevision) {
+      throw new Error('session_persistence_unavailable')
+    }
+    this.store.flushOrThrow()
+    return {
+      ...(await this.getSessionSnapshot()),
+      flushed: true
+    }
   }
 
   resolveOrchestrationWorkerServer(selector: string): OrchestrationWorkerServer {

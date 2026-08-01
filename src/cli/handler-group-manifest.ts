@@ -61,8 +61,12 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       'folder-workspace inspect',
       'folder-workspace remove'
     ],
-    load: async () =>
-      (await import('./handlers/folder-workspace.js')).FOLDER_WORKSPACE_HANDLERS
+    load: async () => (await import('./handlers/folder-workspace.js')).FOLDER_WORKSPACE_HANDLERS
+  },
+  {
+    name: 'session',
+    keys: ['session snapshot', 'session flush'],
+    load: async () => (await import('./handlers/session.js')).SESSION_HANDLERS
   },
   {
     name: 'worktree',

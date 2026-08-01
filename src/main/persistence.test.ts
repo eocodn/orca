@@ -335,6 +335,20 @@ describe('Store', () => {
     expect(store.getRepos()).toEqual([])
   }, 15_000)
 
+  it('reports a stable revision and changes it after a session mutation', async () => {
+    const store = await createStore()
+    const before = store.getStateRevision()
+
+    store.setWorkspaceSession({
+      ...store.getWorkspaceSession(),
+      activeWorktreeId: 'revision-worktree'
+    })
+
+    const after = store.getStateRevision()
+    expect(after).not.toBe(before)
+    expect(store.getStateRevision()).toBe(after)
+  })
+
   it('clone-reads and synchronously persists the main-owned Codex reset ledger', async () => {
     const store = await createStore()
     const ledger = {

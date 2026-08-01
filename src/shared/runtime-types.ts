@@ -340,6 +340,18 @@ export type RuntimeMobileSessionTabsResult = {
   tabs: RuntimeMobileSessionClientTab[]
 }
 
+export type RuntimeSessionSnapshot = {
+  /** Runtime identity changes whenever the authoritative Host process restarts. */
+  hostGeneration: string
+  /** Durable state content revision; equal state produces an equal revision. */
+  revision: string
+  snapshots: RuntimeMobileSessionTabsResult[]
+}
+
+export type RuntimeSessionFlushResult = RuntimeSessionSnapshot & {
+  flushed: true
+}
+
 export type RuntimeMobileSessionCreateTerminalResult = {
   tab: RuntimeMobileSessionTerminalClientTab
   publicationEpoch: string

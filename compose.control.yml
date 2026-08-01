@@ -18,8 +18,13 @@ services:
           src/shared/folder-workspaces.test.ts \
           src/cli/args.test.ts \
           src/cli/registry-parity.test.ts \
+          src/cli/handlers/session.test.ts \
           src/cli/handler-group-manifest.test.ts \
-          src/main/runtime/rpc/methods/repo.test.ts \
+         src/main/runtime/rpc/methods/repo.test.ts \
+          src/main/runtime/rpc/methods/session-control.test.ts \
+          src/main/runtime/rpc/methods/session-tabs.test.ts \
+          src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts \
+          src/main/runtime/session-control.test.ts \
           src/main/runtime/orca-runtime.test.ts \
           src/main/runtime/orca-runtime-terminal-create-idempotency.test.ts \
           src/main/runtime/runtime-rpc.test.ts \
@@ -76,6 +81,7 @@ services:
       - oxfmt
       - src/cli/handlers/folder-workspace.test.ts
       - src/cli/handlers/folder-workspace.ts
+      - src/cli/handler-group-manifest.ts
       - src/cli/handlers/terminal.test.ts
       - src/cli/handlers/terminal.ts
       - src/cli/runtime/client.ts
@@ -90,6 +96,7 @@ services:
       - src/main/ipc/pty.ts
       - src/main/runtime/orca-runtime.test.ts
       - src/main/runtime/orca-runtime.ts
+      - src/main/runtime/session-control.test.ts
       - src/main/runtime/runtime-rpc.test.ts
       - src/main/providers/ssh-pty-applied-size.ts
       - src/main/providers/ssh-pty-provider-resize.test.ts
@@ -99,6 +106,10 @@ services:
       - src/main/runtime/rpc/errors.ts
       - src/main/runtime/rpc/errors.test.ts
       - src/main/runtime/rpc/methods/terminal.ts
+      - src/main/runtime/rpc/methods/session-control.ts
+      - src/main/runtime/rpc/methods/session-control.test.ts
+      - src/main/runtime/rpc/methods/session-tabs.test.ts
+      - src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts
       - src/shared/runtime-types.ts
       - src/shared/terminal-dimensions.ts
       - src/shared/folder-workspaces.ts
@@ -127,3 +138,36 @@ services:
     volumes:
       - ./:/workspace
       - /workspace/node_modules
+
+  session-quality:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        pnpm exec oxfmt --check src/cli/format.ts src/cli/handler-group-manifest.ts
+        src/cli/registry-parity.test.ts src/cli/specs/index.ts src/cli/specs/session.ts
+        src/cli/session-format.ts src/cli/handlers/session.ts src/cli/handlers/session.test.ts
+        src/main/runtime/orca-runtime.ts src/main/runtime/session-control.test.ts
+        src/main/runtime/rpc/methods/index.ts src/main/runtime/rpc/methods/session-control.ts
+        src/main/runtime/rpc/methods/session-control.test.ts src/main/runtime/rpc/methods/session-tabs.test.ts
+        src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts
+        src/main/persistence.ts
+        src/main/persistence.test.ts src/shared/runtime-types.ts &&
+        pnpm exec oxlint src/cli/format.ts src/cli/handler-group-manifest.ts
+        src/cli/registry-parity.test.ts src/cli/specs/index.ts src/cli/specs/session.ts
+        src/cli/session-format.ts src/cli/handlers/session.ts src/cli/handlers/session.test.ts
+        src/main/runtime/orca-runtime.ts src/main/runtime/session-control.test.ts
+        src/main/runtime/rpc/methods/index.ts src/main/runtime/rpc/methods/session-control.ts
+        src/main/runtime/rpc/methods/session-control.test.ts src/main/runtime/rpc/methods/session-tabs.test.ts
+        src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts
+        src/main/persistence.ts
+        src/main/persistence.test.ts src/shared/runtime-types.ts
+    init: true
+    network_mode: host

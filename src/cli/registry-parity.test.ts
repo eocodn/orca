@@ -17,6 +17,13 @@ describe('registry parity (live tree)', () => {
     const { handlersWithoutSpec } = findRegistryParityGaps(COMMAND_SPECS, handlerKeys)
     expect(handlersWithoutSpec).toEqual([])
   })
+
+  it('registers both session observation and durability commands', () => {
+    expect(COMMAND_SPECS.map((spec) => spec.path.join(' '))).toEqual(
+      expect.arrayContaining(['session snapshot', 'session flush'])
+    )
+    expect(handlerKeys).toEqual(expect.arrayContaining(['session snapshot', 'session flush']))
+  })
 })
 
 describe('findRegistryParityGaps (fixtures)', () => {

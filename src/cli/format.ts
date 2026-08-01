@@ -60,6 +60,7 @@ export {
   formatWorktreePs,
   formatWorktreeShow
 } from './workspace-format'
+export { formatSessionFlush, formatSessionSnapshot } from './session-format'
 
 type CliErrorContext = {
   commandPath?: readonly string[]

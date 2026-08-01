@@ -3680,6 +3680,10 @@ export class Store {
     await Promise.all([this.pendingWrite, this.activeViewPreference.waitForPendingWrite()])
   }
 
+  getStateRevision(): string {
+    return this.buildStateToSave().stateHash
+  }
+
   // Why githubCache is omitted: memory-only this session (see getGithubCacheFile), so refreshes never touch the durable file.
   private getDurableState(): Omit<PersistedState, 'githubCache'> {
     const { githubCache: _memoryOnly, ...durable } = this.state
