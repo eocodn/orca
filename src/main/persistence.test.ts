@@ -5197,11 +5197,21 @@ describe('Store', () => {
     const group = store.createProjectGroup({ name: 'Manual', createdFrom: 'manual' })
 
     expect(() => store.createFolderWorkspace({ projectGroupId: group.id })).toThrow(
-      'Folder-backed project group not found.'
+      'folder_workspace_project_group_not_found'
     )
   })
 
   it('normalizes persisted folder workspaces and drops orphaned records', async () => {
+    const creationFingerprint = JSON.stringify({
+      projectGroupId: 'root',
+      name: 'Docs',
+      folderPath: '/workspace/platform',
+      connectionId: null,
+      linkedTask: null,
+      linkedTaskSourceContext: null,
+      createdWithAgent: null,
+      pendingFirstAgentMessageRename: false
+    })
     writeDataFile({
       schemaVersion: 1,
       repos: [],
@@ -5227,7 +5237,7 @@ describe('Store', () => {
         {
           id: 'fw-1',
           creationOperationId: 'op-1',
-          creationFingerprint: 'fingerprint-1',
+          creationFingerprint,
           projectGroupId: 'root',
           name: '  ',
           folderPath: '',
@@ -5243,7 +5253,7 @@ describe('Store', () => {
         {
           id: 'duplicate-operation',
           creationOperationId: 'op-1',
-          creationFingerprint: 'fingerprint-2',
+          creationFingerprint,
           projectGroupId: 'root',
           name: 'Ambiguous retry',
           folderPath: '/workspace/platform'
@@ -5258,7 +5268,7 @@ describe('Store', () => {
         {
           id: 'canonical-operation',
           creationOperationId: '  op-space  ',
-          creationFingerprint: 'fingerprint-space',
+          creationFingerprint,
           projectGroupId: 'root',
           name: 'Canonical operation',
           folderPath: '/workspace/platform'
@@ -5300,11 +5310,68 @@ describe('Store', () => {
     )
     expect(restored.find((workspace) => workspace.id === 'canonical-operation')).toMatchObject({
       creationOperationId: 'op-space',
-      creationFingerprint: 'fingerprint-space'
+      creationFingerprint
     })
     expect(restored.find((workspace) => workspace.id === 'missing-fingerprint')).not.toHaveProperty(
       'creationOperationId'
     )
+  })
+
+  it('drops malformed persisted folder workspace operation bindings', async () => {
+    writeDataFile({
+      schemaVersion: 1,
+      repos: [],
+      worktreeMeta: {},
+      settings: {},
+      ui: {},
+      githubCache: { pr: {}, issue: {} },
+      projectGroups: [
+        {
+          id: 'root',
+          name: 'Platform',
+          parentPath: '/workspace/platform',
+          parentGroupId: null,
+          createdFrom: 'folder-scan',
+          tabOrder: 0,
+          isCollapsed: false,
+          color: null,
+          createdAt: 1,
+          updatedAt: 1
+        }
+      ],
+      folderWorkspaces: [
+        {
+          id: 'malformed',
+          creationOperationId: 'op-shared',
+          creationFingerprint: 'not-json',
+          projectGroupId: 'root',
+          name: 'Malformed',
+          folderPath: '/workspace/platform'
+        },
+        {
+          id: 'valid',
+          creationOperationId: 'op-shared',
+          creationFingerprint: JSON.stringify({
+            projectGroupId: 'root',
+            name: 'Valid',
+            folderPath: '/workspace/platform',
+            connectionId: null,
+            linkedTask: null,
+            linkedTaskSourceContext: null,
+            createdWithAgent: null,
+            pendingFirstAgentMessageRename: false
+          }),
+          projectGroupId: 'root',
+          name: 'Valid',
+          folderPath: '/workspace/platform'
+        }
+      ]
+    })
+
+    const store = await createStore()
+
+    expect(store.getFolderWorkspace('malformed')).not.toHaveProperty('creationOperationId')
+    expect(store.getFolderWorkspaceByCreationOperationId('op-shared')?.id).toBe('valid')
   })
 
   it('backfills folder-scope SSH provenance from unambiguous child repos on load', async () => {
@@ -5507,6 +5574,73 @@ describe('Store', () => {
     expect(session.terminalLayoutsByTabId['folder-tab']).toBeUndefined()
     expect(session.terminalLayoutsByTabId['repo-tab']).toBeDefined()
     expect(session.browserPagesByWorkspace?.['browser-workspace']).toBeUndefined()
+  })
+
+  it('durably removes a folder workspace before acknowledging deletion', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    const workspace = store.createFolderWorkspace({ projectGroupId: group.id })
+    store.flush()
+
+    expect(store.removeFolderWorkspace(workspace.id)).toBe(true)
+
+    const restored = await createStore()
+    expect(restored.getFolderWorkspace(workspace.id)).toBeUndefined()
+  })
+
+  it('rolls back all folder workspace deletion state when durable persistence fails', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    const workspace = store.createFolderWorkspace({ projectGroupId: group.id })
+    const key = folderWorkspaceKey(workspace.id)
+    const tab = makeTerminalTab({ id: 'folder-delete-rollback', worktreeId: key })
+    store.setWorkspaceSession({
+      ...getDefaultWorkspaceSession(),
+      activeWorkspaceKey: key,
+      activeWorktreeId: key,
+      activeTabId: tab.id,
+      tabsByWorktree: { [key]: [tab] }
+    })
+    store.flush()
+    vi.spyOn(store, 'flushOrThrow').mockImplementationOnce(() => {
+      throw new Error('disk_full')
+    })
+
+    expect(() => store.removeFolderWorkspace(workspace.id)).toThrow('disk_full')
+    expect(store.getFolderWorkspace(workspace.id)).toBeDefined()
+    expect(store.getWorkspaceSession()).toMatchObject({
+      activeWorkspaceKey: key,
+      activeWorktreeId: key,
+      activeTabId: tab.id
+    })
+    expect((store as unknown as { writeTimer: NodeJS.Timeout | null }).writeTimer).not.toBeNull()
+  })
+
+  it('does not acknowledge folder workspace deletion while an async write is in flight', async () => {
+    const store = await createStore()
+    const group = store.createProjectGroup({
+      name: 'Platform',
+      parentPath: '/workspace/platform',
+      createdFrom: 'folder-scan'
+    })
+    const workspace = store.createFolderWorkspace({ projectGroupId: group.id })
+    store.flush()
+    ;(store as unknown as { pendingWrite: Promise<void> | null }).pendingWrite = new Promise(
+      () => {}
+    )
+
+    expect(() => store.removeFolderWorkspace(workspace.id)).toThrow(
+      'folder_workspace_persistence_busy'
+    )
+    expect(store.getFolderWorkspace(workspace.id)).toBeDefined()
   })
 
   // ── 9. Settings: get/update ────────────────────────────────────────

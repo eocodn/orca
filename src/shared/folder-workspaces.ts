@@ -18,6 +18,55 @@ export function normalizeFolderWorkspaceLinkedTask(
   return normalizeWorkspaceLinkedItem(value)
 }
 
+const CREATION_FINGERPRINT_KEYS = [
+  'projectGroupId',
+  'name',
+  'folderPath',
+  'connectionId',
+  'linkedTask',
+  'linkedTaskSourceContext',
+  'createdWithAgent',
+  'pendingFirstAgentMessageRename'
+] as const
+
+function normalizeCreationFingerprint(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length === 0) {
+    return null
+  }
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      JSON.stringify(parsed) !== value
+    ) {
+      return null
+    }
+    const record = parsed as Record<string, unknown>
+    if (
+      Object.keys(record).join('\0') !== CREATION_FINGERPRINT_KEYS.join('\0') ||
+      typeof record.projectGroupId !== 'string' ||
+      typeof record.name !== 'string' ||
+      typeof record.folderPath !== 'string' ||
+      !(record.connectionId === null || typeof record.connectionId === 'string') ||
+      !(record.linkedTask === null || isPlainObject(record.linkedTask)) ||
+      !(record.linkedTaskSourceContext === null || isPlainObject(record.linkedTaskSourceContext)) ||
+      !(record.createdWithAgent === null || typeof record.createdWithAgent === 'string') ||
+      typeof record.pendingFirstAgentMessageRename !== 'boolean'
+    ) {
+      return null
+    }
+    return value
+  } catch {
+    return null
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 export function normalizeFolderWorkspaces(
   value: unknown,
   projectGroups: readonly ProjectGroup[]
@@ -40,12 +89,12 @@ export function normalizeFolderWorkspaces(
       continue
     }
     const raw = candidate as Partial<FolderWorkspace>
+    const creationFingerprint = normalizeCreationFingerprint(raw.creationFingerprint)
     const creationOperationId =
       typeof raw.creationOperationId === 'string' &&
       raw.creationOperationId.trim().length > 0 &&
       raw.creationOperationId.trim().length <= 256 &&
-      typeof raw.creationFingerprint === 'string' &&
-      raw.creationFingerprint.length > 0
+      creationFingerprint !== null
         ? raw.creationOperationId.trim()
         : null
     if (
@@ -76,10 +125,8 @@ export function normalizeFolderWorkspaces(
     workspaces.push({
       id: raw.id,
       ...(creationOperationId !== null ? { creationOperationId } : {}),
-      ...(creationOperationId !== null &&
-      typeof raw.creationFingerprint === 'string' &&
-      raw.creationFingerprint.length > 0
-        ? { creationFingerprint: raw.creationFingerprint }
+      ...(creationOperationId !== null && creationFingerprint !== null
+        ? { creationFingerprint }
         : {}),
       projectGroupId: raw.projectGroupId,
       name: normalizeFolderWorkspaceName(raw.name),

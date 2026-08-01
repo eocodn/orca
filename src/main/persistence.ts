@@ -4152,7 +4152,7 @@ export class Store {
         ? input.folderPath
         : group?.parentPath
     if (!group || !folderPath) {
-      throw new Error('Folder-backed project group not found.')
+      throw new Error('folder_workspace_project_group_not_found')
     }
     const linkedTask = normalizeWorkspaceLinkedItem(input.linkedTask)
     const sourceContext = normalizeStoredTaskSourceContext(input.linkedTaskSourceContext)
@@ -4328,6 +4328,15 @@ export class Store {
 
   removeFolderWorkspace(id: string): boolean {
     const before = this.state.folderWorkspaces?.length ?? 0
+    if (!(this.state.folderWorkspaces ?? []).some((workspace) => workspace.id === id)) {
+      return false
+    }
+    if (this.pendingWrite !== null) {
+      throw new Error('folder_workspace_persistence_busy')
+    }
+    // Deletion spans workspace, session, lineage, and mobile selection state. A full
+    // snapshot keeps that aggregate atomic if the durable acknowledgement write fails.
+    const previousState = structuredClone(this.state)
     this.state.folderWorkspaces = (this.state.folderWorkspaces ?? []).filter(
       (workspace) => workspace.id !== id
     )
@@ -4340,7 +4349,15 @@ export class Store {
     )!
     this.removeWorkspaceLineageForFolderParent(id)
     this.pruneMobileClientTabSelections((worktreeId) => worktreeId === folderWorkspaceKey(id))
-    this.scheduleSave()
+    try {
+      this.flushOrThrow()
+    } catch (error) {
+      this.state = previousState
+      // flushOrThrow clears the shared debounce timer; restore persistence for
+      // state that existed before this deletion attempt.
+      this.scheduleSave()
+      throw error
+    }
     return true
   }
 

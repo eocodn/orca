@@ -13,6 +13,8 @@ import { sendRequest } from './transport'
 import { RuntimeClientError, RuntimeRpcFailureError, type RuntimeRpcSuccess } from './types'
 import type { sendWebSocketRequest } from './websocket-transport'
 import { markEnvironmentUsed, resolveEnvironmentPairingOffer } from './environments'
+import { resolveRuntimeClientExecutionHostId } from './execution-host'
+import { attachMutationRecovery } from './mutation-recovery'
 import { describeRuntimeCompatBlock, evaluateRuntimeCompat } from '../../shared/protocol-compat'
 import {
   MIN_COMPATIBLE_RUNTIME_SERVER_VERSION,
@@ -66,6 +68,14 @@ export class RuntimeClient {
 
   get isRemote(): boolean {
     return this.remotePairing !== null
+  }
+
+  get executionHostId(): 'local' | `runtime:${string}` | null {
+    return resolveRuntimeClientExecutionHostId(
+      this.userDataPath,
+      this.remotePairing !== null,
+      this.environmentSelector
+    )
   }
 
   async call<TResult>(
@@ -279,7 +289,7 @@ export class RuntimeClient {
       if (status.result.app.desktopWindowStatus === 'available') {
         return status
       }
-      await delay(250)
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
 
     throw new RuntimeClientError(
@@ -287,20 +297,6 @@ export class RuntimeClient {
       'Timed out waiting for an Orca desktop window. The runtime may still be running headlessly.'
     )
   }
-}
-
-function attachMutationRecovery(error: unknown, requestId: string | undefined): unknown {
-  if (!requestId || !(error instanceof RuntimeClientError)) {
-    return error
-  }
-  return new RuntimeClientError(
-    error.code,
-    `${error.message} Orchestration mutation request ID: ${requestId}.`,
-    {
-      ...(error.data && typeof error.data === 'object' ? error.data : {}),
-      orchestrationRequestId: requestId
-    }
-  )
 }
 
 function throwDesktopActivationBlocked(): never {
@@ -335,8 +331,4 @@ function resolveRemotePairing(
     )
   }
   return pairing
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

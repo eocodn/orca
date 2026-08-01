@@ -6,6 +6,7 @@ const callMock = vi.fn()
 vi.mock('../runtime-client', () => {
   class RuntimeClient {
     readonly isRemote: boolean
+    readonly executionHostId: 'local' | `runtime:${string}` | null
     call = callMock
     getCliStatus = vi.fn()
     openOrca = vi.fn()
@@ -17,6 +18,11 @@ vi.mock('../runtime-client', () => {
       environmentSelector?: string | null
     ) {
       this.isRemote = Boolean(remotePairingCode || environmentSelector)
+      this.executionHostId = environmentSelector
+        ? 'runtime:environment-1'
+        : remotePairingCode
+          ? null
+          : 'local'
     }
   }
 
@@ -65,7 +71,8 @@ describe('orca folder-workspace CLI', () => {
     const output = JSON.parse(String(vi.mocked(console.log).mock.calls[0][0]))
     expect(output.result.folderWorkspaces[0]).toMatchObject({
       id: 'folder-1',
-      executionHostId: 'local'
+      executionHostId: 'local',
+      runtimeInstanceId: 'runtime-1'
     })
     expect(output._meta.runtimeId).toBe('runtime-1')
   })
@@ -146,7 +153,10 @@ describe('orca folder-workspace CLI', () => {
     )
 
     const output = JSON.parse(String(vi.mocked(console.log).mock.calls[0][0]))
-    expect(output.result.folderWorkspace.executionHostId).toBe('runtime:runtime-1')
+    expect(output.result.folderWorkspace).toMatchObject({
+      executionHostId: 'runtime:environment-1',
+      runtimeInstanceId: 'runtime-1'
+    })
   })
 
   it('removes idempotently and verifies absence from authoritative state', async () => {

@@ -8,7 +8,8 @@ import { RuntimeClientError } from '../runtime-client'
 
 type FolderWorkspaceListResult = { folderWorkspaces: FolderWorkspace[] }
 type HostQualifiedFolderWorkspace = FolderWorkspace & {
-  executionHostId: `runtime:${string}` | 'local'
+  executionHostId: `runtime:${string}` | 'local' | null
+  runtimeInstanceId: string | null
 }
 
 function getCreationOperationId(ctx: HandlerContext): string {
@@ -23,28 +24,21 @@ function getCreationOperationId(ctx: HandlerContext): string {
 }
 
 function executionHostId(
-  response: RuntimeRpcSuccess<unknown>,
-  isRemote: boolean
+  stableHostId: HandlerContext['client']['executionHostId']
 ): HostQualifiedFolderWorkspace['executionHostId'] {
-  if (!isRemote) {
-    return 'local'
-  }
-  const runtimeId = response._meta.runtimeId
-  if (!runtimeId) {
-    throw new RuntimeClientError(
-      'state_conflict',
-      'Remote runtime response has no runtime identity.'
-    )
-  }
-  return `runtime:${runtimeId}`
+  return stableHostId
 }
 
 function qualify(
   workspace: FolderWorkspace,
   response: RuntimeRpcSuccess<unknown>,
-  isRemote: boolean
+  stableHostId: HandlerContext['client']['executionHostId']
 ): HostQualifiedFolderWorkspace {
-  return { ...workspace, executionHostId: executionHostId(response, isRemote) }
+  return {
+    ...workspace,
+    executionHostId: executionHostId(stableHostId),
+    runtimeInstanceId: response._meta.runtimeId ?? null
+  }
 }
 
 function assertSameRuntime(
@@ -67,7 +61,7 @@ async function listQualified(ctx: HandlerContext): Promise<{
   return {
     response,
     workspaces: response.result.folderWorkspaces.map((workspace) =>
-      qualify(workspace, response, ctx.client.isRemote)
+      qualify(workspace, response, ctx.client.executionHostId)
     )
   }
 }
@@ -158,7 +152,8 @@ export const FOLDER_WORKSPACE_HANDLERS: Record<string, CommandHandler> = {
     const result = {
       deleted: removed.result.deleted,
       folderWorkspaceId: id,
-      executionHostId: executionHostId(response, ctx.client.isRemote),
+      executionHostId: executionHostId(ctx.client.executionHostId),
+      runtimeInstanceId: response._meta.runtimeId ?? null,
       authoritative: true as const
     }
     printResult({ ...response, result }, ctx.json, (value) =>
