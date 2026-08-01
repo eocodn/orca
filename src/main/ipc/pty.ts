@@ -250,7 +250,11 @@ export function isCurrentPtyExit(payload: { id: string; incarnationId?: string }
     return payload.incarnationId === current
   }
   const pending = pendingPtyIncarnationById.get(payload.id)
-  return !pending || payload.incarnationId === pending
+  if (pending) {
+    return payload.incarnationId === pending
+  }
+  const cleanupPending = getPendingPtyCleanupIncarnation(payload.id)
+  return cleanupPending === undefined || payload.incarnationId === cleanupPending
 }
 
 function stagePtyIncarnation(id: string, incarnationId: string | undefined): void {
@@ -401,7 +405,7 @@ function providerGeneration(provider: IPtyProvider): number | undefined {
 
 function providerCanReconcileCleanup(pending: CleanupPendingPty, provider: IPtyProvider): boolean {
   if (pending.providerConnectionId === null) {
-    return provider === localProvider && provider === pending.provider
+    return provider === pending.provider
   }
   if (pending.providerConnectionId !== undefined) {
     if (sshProviders.get(pending.providerConnectionId) !== provider) {
@@ -482,6 +486,18 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
   ).catch((error) => {
     console.warn('[pty] pending cleanup reconciliation failed:', error)
   })
+}
+
+function scheduleOriginalPtyCleanupAuthorities(): void {
+  const providers = new Set<IPtyProvider>()
+  for (const pendingByIncarnation of cleanupPendingPtyById.values()) {
+    for (const pending of pendingByIncarnation.values()) {
+      providers.add(pending.provider)
+    }
+  }
+  for (const provider of providers) {
+    schedulePendingPtyCleanupReconciliation(provider)
+  }
 }
 
 function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
@@ -1630,6 +1646,7 @@ export function getLocalPtyProvider(): IPtyProvider {
 export function setLocalPtyProvider(provider: IPtyProvider): void {
   localProvider = provider
   schedulePendingPtyCleanupReconciliation(provider)
+  scheduleOriginalPtyCleanupAuthorities()
 }
 
 /** Get all PTY IDs owned by a given connectionId (for reconnection reattach). */

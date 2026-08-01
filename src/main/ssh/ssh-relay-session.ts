@@ -1411,7 +1411,7 @@ export class SshRelaySession {
         this.wakeRecovery(pendingReattach)
         return
       }
-      if (pendingCleanupIncarnation !== undefined) {
+      if (pendingCleanupIncarnation !== undefined && !isCurrentPtyExit(payload)) {
         return
       }
       if (!isCurrentPtyExit(payload)) {
@@ -1703,6 +1703,11 @@ export class SshRelaySession {
         }
         return
       }
+      if (!exactCleanupPending && isCurrentPtyExit(payload)) {
+        // Why: an exit that loses the output barrier still needs authoritative teardown.
+        this.retireExitedPty(payload)
+        return
+      }
       throw error
     }
     if (exactCleanupPending) {
@@ -1858,11 +1863,9 @@ export class SshRelaySession {
       if (!shouldContinue()) {
         return
       }
-      const exitDuringAttach = pendingReattach.exits.find(
-        (exit) =>
-          !exit.incarnationId ||
-          !attachResult.incarnationId ||
-          exit.incarnationId === attachResult.incarnationId
+      const exitDuringAttach = this.findExactPendingExit(
+        pendingReattach,
+        attachResult.incarnationId
       )
       if (exitDuringAttach && !recoveryRequest) {
         if (attachResult.incarnationId) {
@@ -1944,11 +1947,9 @@ export class SshRelaySession {
       pendingReattach.activated = true
       recoveryActivationLease?.commit()
       recoveryActivationLease = undefined
-      const exitAfterActivation = pendingReattach.exits.find(
-        (exit) =>
-          !exit.incarnationId ||
-          !attachResult.incarnationId ||
-          exit.incarnationId === attachResult.incarnationId
+      const exitAfterActivation = this.findExactPendingExit(
+        pendingReattach,
+        attachResult.incarnationId
       )
       if (exitAfterActivation) {
         await this.acceptPtyExit(exitAfterActivation)
@@ -1987,7 +1988,8 @@ export class SshRelaySession {
     return pending.exits.find(
       (exit) =>
         exit.providerGeneration === pending.providerGeneration &&
-        exit.ptyIncarnation === ptyIncarnation
+        exit.ptyIncarnation === ptyIncarnation &&
+        exit.incarnationId === ptyIncarnation
     )
   }
 

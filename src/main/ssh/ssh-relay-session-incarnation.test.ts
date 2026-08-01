@@ -229,7 +229,7 @@ describe('SSH relay PTY incarnation exits', () => {
       ptyIncarnation: string
     }) => void
     vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue('failed-incarnation')
-    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(false)
 
     onExit({
       id: 'ssh:target-1@@pty-reused',
@@ -245,6 +245,98 @@ describe('SSH relay PTY incarnation exits', () => {
     expect(deletePtyOwnership).not.toHaveBeenCalled()
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
     expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
+  })
+
+  it('accepts a current replacement exit while an older cleanup identity is pending', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue('failed-incarnation')
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+
+    onExit({
+      id: 'ssh:target-1@@pty-reused',
+      code: 7,
+      incarnationId: 'current-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'current-incarnation'
+    })
+
+    await vi.waitFor(() =>
+      expect(acceptOutputExitMock).toHaveBeenCalledWith({
+        id: 'ssh:target-1@@pty-reused',
+        code: 7,
+        providerGeneration: 31,
+        ptyIncarnation: 'current-incarnation'
+      })
+    )
+  })
+
+  it('retires a physical exit when the output barrier rejects before cleanup is pending', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue(undefined)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+    acceptOutputExitMock.mockRejectedValueOnce(new Error('output barrier rejected'))
+
+    onExit({
+      id: 'ssh:target-1@@pty-reused',
+      code: 9,
+      incarnationId: 'current-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'current-incarnation'
+    })
+
+    await vi.waitFor(() =>
+      expect(runtime.onPtyExit).toHaveBeenCalledWith(
+        'ssh:target-1@@pty-reused',
+        9,
+        'current-incarnation'
+      )
+    )
+    expect(clearProviderPtyState).toHaveBeenCalledWith('ssh:target-1@@pty-reused')
+    expect(deletePtyOwnership).toHaveBeenCalledWith('ssh:target-1@@pty-reused')
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledWith(
+      'target-1',
+      'pty-reused',
+      'terminated'
+    )
+    expect(mockWindow.webContents.send).toHaveBeenCalledWith('pty:exit', expect.anything())
   })
 
   it('accepts the exact cleanup exit even when the replacement incarnation is current', async () => {

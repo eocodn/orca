@@ -2772,8 +2772,8 @@ export class OrcaRuntimeService {
   private terminalTopologyRevisionByRepoId = new Map<string, number>()
   // Why: provider exit can beat surface registration; that exact dead incarnation must never publish.
   private earlyExitedPtyIncarnations = new Map<string, PtyIncarnationId | null>()
-  // Why: publication quarantine also disconnects the model, so only provider exit may set this marker.
-  private observedPtyExitIncarnations = new Map<string, PtyIncarnationId>()
+  // Why: quarantine disconnects the model, so retain provider evidence per exact incarnation.
+  private observedPtyExitIncarnations = new Map<string, Set<PtyIncarnationId>>()
   private pendingPtyRegistrationIncarnations = new Map<string, PtyIncarnationId | null>()
   private headlessPtyIncarnationById = new Map<string, PtyIncarnationId>()
   private ptyInventoryOverlapGraceById = new Map<string, PtyIncarnationId | null>()
@@ -9062,13 +9062,22 @@ export class OrcaRuntimeService {
   }
 
   hasObservedExactPtyExit(ptyId: string, incarnationId: PtyIncarnationId): boolean {
-    if (this.observedPtyExitIncarnations.get(ptyId) === incarnationId) {
+    if (this.observedPtyExitIncarnations.get(ptyId)?.has(incarnationId)) {
       return true
     }
     if (this.earlyExitedPtyIncarnations.get(ptyId) === incarnationId) {
       return true
     }
     return false
+  }
+
+  private rememberObservedPtyExit(ptyId: string, incarnationId: PtyIncarnationId): void {
+    const observed = this.observedPtyExitIncarnations.get(ptyId)
+    if (observed) {
+      observed.add(incarnationId)
+      return
+    }
+    this.observedPtyExitIncarnations.set(ptyId, new Set([incarnationId]))
   }
 
   private assertPtyDidNotExitBeforeRegistration(
@@ -13019,7 +13028,7 @@ export class OrcaRuntimeService {
     if (exitMatchesUnadmittedReplacement) {
       this.earlyExitedPtyIncarnations.set(ptyId, pendingIncarnation)
       if (exitIncarnationId) {
-        this.observedPtyExitIncarnations.set(ptyId, exitIncarnationId)
+        this.rememberObservedPtyExit(ptyId, exitIncarnationId)
       }
       return
     }
@@ -13034,7 +13043,7 @@ export class OrcaRuntimeService {
       return
     }
     if (exitIncarnationId) {
-      this.observedPtyExitIncarnations.set(ptyId, exitIncarnationId)
+      this.rememberObservedPtyExit(ptyId, exitIncarnationId)
     }
     this.headlessPtyIncarnationById.delete(ptyId)
     this.rendererGraphLivenessBlockedPtys.add(ptyId)
@@ -28682,6 +28691,7 @@ export class OrcaRuntimeService {
     // Why: pruning can remove a PTY without the normal exit callback.
     this.advancePtyLifecycleGeneration(ptyId)
     this.ptysById.delete(ptyId)
+    this.observedPtyExitIncarnations.delete(ptyId)
     this.rendererGraphLivenessBlockedPtys.delete(ptyId)
     this.recentPtyOutputById.delete(ptyId)
     this.setupCompletionTokenByPtyId.delete(ptyId)

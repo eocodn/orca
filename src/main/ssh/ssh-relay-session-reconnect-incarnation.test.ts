@@ -546,6 +546,46 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
     ).toBe(false)
   })
 
+  it('fences a queued exit when the attach reply omits its incarnation', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const sourceActivationLease = { commit: vi.fn(), rollback: vi.fn() }
+    vi.mocked(getSshPtyProvider).mockReturnValue({
+      attachForReconnect: vi.fn().mockImplementation(async () => {
+        emitExitDuringAttach({
+          id: APP_PTY_ID,
+          code: 0,
+          incarnationId: 'incarnation-stale'
+        })
+        return { sourceActivationLease }
+      }),
+      dispose: vi.fn()
+    } as unknown as ReturnType<typeof getSshPtyProvider>)
+    vi.mocked(mockStore.getSshRemotePtyLeases).mockReturnValue([detachedLease()] as ReturnType<
+      typeof mockStore.getSshRemotePtyLeases
+    >)
+    const runtime = {
+      acceptPtyIncarnationForExit: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtySpawned: vi.fn(),
+      registerPty: vi.fn()
+    }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+
+    await session.establish(mockConn)
+
+    expect(acceptOutputExitMock).not.toHaveBeenCalled()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    expect(sourceActivationLease.commit).toHaveBeenCalledOnce()
+    expect(runtime.registerPty).not.toHaveBeenCalled()
+    expect(restorePtyIncarnation).not.toHaveBeenCalled()
+  })
+
   it('ignores an older incarnation exit while reconnecting a reused PTY id', async () => {
     const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
     const currentIncarnationId = 'incarnation-current'

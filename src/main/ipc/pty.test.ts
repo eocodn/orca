@@ -7700,6 +7700,9 @@ describe('registerPtyHandlers', () => {
     await expect(
       (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 80, rows: 24 })
     ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+    clearProviderPtyState(sessionId)
+    expect(isCurrentPtyExit({ id: sessionId, incarnationId: 'unrelated-incarnation' })).toBe(false)
+    restorePtyIncarnation(sessionId, 'inc-cleanup-1')
     await expect(
       (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 100, rows: 40 })
     ).rejects.toThrow('pty_cleanup_pending')
@@ -8075,7 +8078,7 @@ describe('registerPtyHandlers', () => {
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
   })
 
-  it('does not reconcile cleanup against a replacement local provider', async () => {
+  it('reconciles cleanup through its original local provider after replacement', async () => {
     type RuntimeSpawnController = {
       spawn(args: {
         cols: number
@@ -8091,12 +8094,16 @@ describe('registerPtyHandlers', () => {
     const oldProvider = createAgentClaimProvider({
       spawn: vi.fn().mockResolvedValue({ id: sessionId, incarnationId: 'inc-old-provider' }),
       shutdown: vi.fn().mockRejectedValue(new Error('shutdown response lost')),
-      listProcesses: vi.fn(async () => [
-        { id: sessionId, incarnationId: 'inc-old-provider', cwd: '/tmp', title: 'old' }
-      ]),
+      listProcesses: vi
+        .fn()
+        .mockResolvedValueOnce([
+          { id: sessionId, incarnationId: 'inc-old-provider', cwd: '/tmp', title: 'old' }
+        ])
+        .mockResolvedValueOnce([]),
       authoritativeOwnerListings: false
     })
     const newProvider = createAgentClaimProvider({
+      spawn: vi.fn().mockResolvedValue({ id: sessionId, incarnationId: 'inc-replacement' }),
       listProcesses: vi.fn(async () => []),
       authoritativeOwnerListings: false
     })
@@ -8143,15 +8150,39 @@ describe('registerPtyHandlers', () => {
     await expect(controller!.spawn({ ...args, cols: 90, rows: 30 })).rejects.toThrow(
       /ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/
     )
+    await vi.waitFor(() => expect(oldProvider.listProcesses).toHaveBeenCalledTimes(1))
     setLocalPtyProvider(newProvider as never)
-    await Promise.resolve()
-    await Promise.resolve()
+    await vi.waitFor(() => expect(oldProvider.listProcesses).toHaveBeenCalledTimes(2))
 
-    expect(runtime.onPtyExit).not.toHaveBeenCalled()
-    expect(newProvider.listProcesses).not.toHaveBeenCalled()
-    await expect(controller!.spawn({ ...args, cols: 100, rows: 40 })).rejects.toThrow(
-      'pty_cleanup_pending'
+    await vi.waitFor(() =>
+      expect(runtime.onPtyExit).toHaveBeenCalledWith(sessionId, -1, 'inc-old-provider')
     )
+    expect(newProvider.listProcesses).not.toHaveBeenCalled()
+    await expect(controller!.spawn({ ...args, cols: 100, rows: 40 })).resolves.toEqual({
+      id: sessionId,
+      incarnationId: 'inc-replacement'
+    })
+  })
+
+  it('retains exact exit evidence for concurrent same-id incarnations', () => {
+    const runtime = new OrcaRuntimeService(null)
+    const sessionId = 'pty-cleanup-exit-evidence-by-incarnation'
+
+    runtime.registerPty(sessionId, 'wt-1', null, {
+      tabId: 'tab-1',
+      leafId: 'leaf-1',
+      incarnationId: 'inc-a'
+    })
+    runtime.onPtyExit(sessionId, 0, 'inc-a')
+    runtime.registerPty(sessionId, 'wt-1', null, {
+      tabId: 'tab-1',
+      leafId: 'leaf-1',
+      incarnationId: 'inc-b'
+    })
+    runtime.onPtyExit(sessionId, 0, 'inc-b')
+
+    expect(runtime.hasObservedExactPtyExit(sessionId, 'inc-a')).toBe(true)
+    expect(runtime.hasObservedExactPtyExit(sessionId, 'inc-b')).toBe(true)
   })
 
   it('does not treat quarantine as an observed physical PTY exit', async () => {
