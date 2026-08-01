@@ -113,6 +113,7 @@ vi.mock('../ipc/pty', () => ({
   consumePendingPtyCleanupIfExact: vi.fn(() => false),
   finalizePendingPtyCleanupIfExact: vi.fn(() => false),
   hasPendingPtyCleanupExact: vi.fn(() => false),
+  consumeSshPtyExitFinalization: vi.fn(() => false),
   isCurrentPtyExit: vi.fn(() => true),
   answerStartupTerminalColorQueriesForPty: vi.fn((_id: string, data: string) => data)
 }))
@@ -584,6 +585,57 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
     expect(sourceActivationLease.commit).toHaveBeenCalledOnce()
     expect(runtime.registerPty).not.toHaveBeenCalled()
     expect(restorePtyIncarnation).not.toHaveBeenCalled()
+  })
+
+  it('consumes a queued exit when derived identity proves the attach incarnation', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const incarnationId = 'incarnation-derived-exit'
+    const sourceActivationLease = { commit: vi.fn(), rollback: vi.fn() }
+    vi.mocked(getSshPtyProvider).mockReturnValue({
+      attachForReconnect: vi.fn().mockImplementation(async () => {
+        emitExitDuringAttach({
+          id: APP_PTY_ID,
+          code: 0,
+          ptyIncarnation: incarnationId
+        })
+        return { incarnationId, sourceActivationLease }
+      }),
+      dispose: vi.fn()
+    } as unknown as ReturnType<typeof getSshPtyProvider>)
+    vi.mocked(mockStore.getSshRemotePtyLeases).mockReturnValue([detachedLease()] as ReturnType<
+      typeof mockStore.getSshRemotePtyLeases
+    >)
+    const runtime = {
+      acceptPtyIncarnationForExit: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtySpawned: vi.fn(),
+      registerPty: vi.fn()
+    }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+
+    await session.establish(mockConn)
+
+    expect(acceptOutputExitMock).toHaveBeenCalledWith({
+      id: APP_PTY_ID,
+      code: 0,
+      providerGeneration: 17,
+      ptyIncarnation: incarnationId
+    })
+    expect(runtime.acceptPtyIncarnationForExit).toHaveBeenCalledWith(APP_PTY_ID, incarnationId)
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    expect(sourceActivationLease.commit).not.toHaveBeenCalled()
+    expect(sourceActivationLease.rollback).toHaveBeenCalledOnce()
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledWith(
+      'target-1',
+      'pty-live',
+      'terminated'
+    )
   })
 
   it('ignores an older incarnation exit while reconnecting a reused PTY id', async () => {

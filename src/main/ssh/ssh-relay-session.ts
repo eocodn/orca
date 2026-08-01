@@ -45,7 +45,8 @@ import {
   consumePendingPtyCleanupIfExact,
   finalizePendingPtyCleanupIfExact,
   hasPendingPtyCleanupExact,
-  isCurrentPtyExit
+  isCurrentPtyExit,
+  consumeSshPtyExitFinalization
 } from '../ipc/pty'
 import {
   acceptSshPtyOutputData,
@@ -293,6 +294,7 @@ export class SshRelaySession {
     }>
   >()
   private readonly retiredSourceDeliveries = new SshPtyRetiredSourceDeliveries()
+  private readonly retiredPtyExitIncarnations = new Map<string, Set<string>>()
   private readonly ptyConsumerClientInstanceId: string
   private ptyConsumerSessionState: SshPtyConsumerSessionState | null = null
   private activeCompatibilityAttachmentIds = new Set<string>()
@@ -1273,6 +1275,7 @@ export class SshRelaySession {
     unregisterSshGitProvider(this.targetId)
     this.sourceIdentityByRelayPtyId.clear()
     this.retiredSourceDeliveries.clear()
+    this.retiredPtyExitIncarnations.clear()
     for (const pending of this.pendingPtyReattaches.values()) {
       for (const resolve of pending.recoveryWaiters) {
         resolve()
@@ -1703,6 +1706,13 @@ export class SshRelaySession {
         }
         return
       }
+      if (consumeSshPtyExitFinalization?.(payload)) {
+        // Why: intake may finalize the renderer/runtime exit before a later projection close rejects; only provider/lease cleanup remains here.
+        if (isCurrentPtyExit(payload)) {
+          this.retireExitedPty(payload, true)
+        }
+        return
+      }
       if (!exactCleanupPending && isCurrentPtyExit(payload)) {
         // Why: an exit that loses the output barrier still needs authoritative teardown.
         this.retireExitedPty(payload)
@@ -1721,6 +1731,25 @@ export class SshRelaySession {
   }
 
   private retireExitedPty(payload: SshPtyExitPayload, deliveryHandled = false): void {
+    const ptyIncarnation = payload.ptyIncarnation ?? payload.incarnationId
+    if (ptyIncarnation) {
+      const retired = this.retiredPtyExitIncarnations.get(payload.id)
+      if (retired?.has(ptyIncarnation)) {
+        return
+      }
+      if (retired) {
+        if (retired.size >= 128) {
+          const oldest = retired.values().next().value
+          if (oldest !== undefined) {
+            retired.delete(oldest)
+          }
+        }
+        retired.add(ptyIncarnation)
+      } else {
+        this.retiredPtyExitIncarnations.set(payload.id, new Set([ptyIncarnation]))
+      }
+    }
+    consumeSshPtyExitFinalization?.({ id: payload.id, ptyIncarnation: payload.ptyIncarnation })
     const relayPtyId = toRelaySshPtyId(this.targetId, payload.id)
     this.retiredSourceDeliveries.activate(relayPtyId)
     clearProviderPtyState(payload.id)
@@ -1989,7 +2018,7 @@ export class SshRelaySession {
       (exit) =>
         exit.providerGeneration === pending.providerGeneration &&
         exit.ptyIncarnation === ptyIncarnation &&
-        exit.incarnationId === ptyIncarnation
+        (exit.incarnationId === undefined || exit.incarnationId === ptyIncarnation)
     )
   }
 

@@ -230,6 +230,7 @@ import {
   getLocalPtyProvider,
   isCurrentPtyExit,
   restorePtyIncarnation,
+  getPendingPtyCleanupIncarnation,
   reconcilePendingPtyCleanup,
   type PrepareCodexSessionResume
 } from './pty'
@@ -8164,6 +8165,74 @@ describe('registerPtyHandlers', () => {
     })
   })
 
+  it('reconciles SSH cleanup through a newer provider after the original unregisters', async () => {
+    type RuntimeSpawnController = {
+      spawn(args: {
+        cols: number
+        rows: number
+        connectionId: string
+        sessionId: string
+        worktreeId: string
+        tabId: string
+        leafId: string
+      }): Promise<unknown>
+    }
+    const connectionId = 'ssh-generation-replacement'
+    const sessionId = 'pty-ssh-provider-unregistered'
+    const appPtyId = `ssh:${connectionId}@@${sessionId}`
+    let rejectShutdown!: (error: Error) => void
+    const oldProvider = createAgentClaimProvider({
+      spawn: vi.fn().mockResolvedValue({ id: appPtyId, incarnationId: 'inc-ssh-old' }),
+      shutdown: vi.fn(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectShutdown = reject
+          })
+      ),
+      listProcesses: vi.fn().mockRejectedValue(new Error('relay disposed')),
+      authoritativeOwnerListings: false
+    })
+    ;(oldProvider as { providerGeneration?: number }).providerGeneration = 1
+    const newProvider = createAgentClaimProvider({
+      listProcesses: vi.fn(async () => []),
+      authoritativeOwnerListings: false
+    })
+    ;(newProvider as { providerGeneration?: number }).providerGeneration = 2
+    registerSshPtyProvider(connectionId, oldProvider as never)
+
+    const runtime = {
+      setPtyController: vi.fn(),
+      registerPty: vi.fn(() => {
+        throw new Error('publication failed')
+      }),
+      beginPtyRegistration: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      onPtyExit: vi.fn()
+    }
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as RuntimeSpawnController
+    const spawn = controller.spawn({
+      cols: 90,
+      rows: 30,
+      connectionId,
+      sessionId,
+      worktreeId: 'wt-ssh-cleanup',
+      tabId: 'tab-ssh-cleanup',
+      leafId: '11111111-1111-4111-8111-111111111111'
+    })
+
+    await vi.waitFor(() => expect(oldProvider.shutdown).toHaveBeenCalledOnce())
+    unregisterSshPtyProvider(connectionId)
+    rejectShutdown(new Error('shutdown response lost'))
+    await expect(spawn).rejects.toThrow('publication failed')
+
+    registerSshPtyProvider(connectionId, newProvider as never)
+    await vi.waitFor(() =>
+      expect(runtime.onPtyExit).toHaveBeenCalledWith(appPtyId, -1, 'inc-ssh-old')
+    )
+    expect(getPendingPtyCleanupIncarnation(appPtyId)).toBeUndefined()
+  })
+
   it('retains exact exit evidence for concurrent same-id incarnations', () => {
     const runtime = new OrcaRuntimeService(null)
     const sessionId = 'pty-cleanup-exit-evidence-by-incarnation'
@@ -8183,6 +8252,24 @@ describe('registerPtyHandlers', () => {
 
     expect(runtime.hasObservedExactPtyExit(sessionId, 'inc-a')).toBe(true)
     expect(runtime.hasObservedExactPtyExit(sessionId, 'inc-b')).toBe(true)
+  })
+
+  it('bounds exact exit evidence for a repeatedly reused PTY id', () => {
+    const runtime = new OrcaRuntimeService(null)
+    const sessionId = 'pty-cleanup-exit-evidence-bounded'
+    const incarnations = Array.from({ length: 129 }, (_, index) => `inc-${index}`)
+
+    for (const incarnationId of incarnations) {
+      runtime.registerPty(sessionId, 'wt-1', null, {
+        tabId: 'tab-1',
+        leafId: 'leaf-1',
+        incarnationId
+      })
+      runtime.onPtyExit(sessionId, 0, incarnationId)
+    }
+
+    expect(runtime.hasObservedExactPtyExit(sessionId, incarnations[0]!)).toBe(false)
+    expect(runtime.hasObservedExactPtyExit(sessionId, incarnations.at(-1)!)).toBe(true)
   })
 
   it('does not treat quarantine as an observed physical PTY exit', async () => {

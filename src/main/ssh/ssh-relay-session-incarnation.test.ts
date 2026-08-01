@@ -80,6 +80,7 @@ vi.mock('../ipc/pty', () => ({
   consumePendingPtyCleanupIfExact: vi.fn(() => false),
   finalizePendingPtyCleanupIfExact: vi.fn(() => false),
   hasPendingPtyCleanupExact: vi.fn(() => false),
+  consumeSshPtyExitFinalization: vi.fn(() => false),
   isCurrentPtyExit: vi.fn(() => true),
   answerStartupTerminalColorQueriesForPty: vi.fn((_id: string, data: string) => data)
 }))
@@ -100,6 +101,7 @@ const {
   getPendingPtyCleanupIncarnation,
   consumePendingPtyCleanupIfExact,
   finalizePendingPtyCleanupIfExact,
+  consumeSshPtyExitFinalization,
   isCurrentPtyExit
 } = await import('../ipc/pty')
 
@@ -110,6 +112,7 @@ describe('SSH relay PTY incarnation exits', () => {
     muxRequestMock.mockResolvedValue([])
     mockDeploySuccess()
     vi.mocked(finalizePendingPtyCleanupIfExact).mockReturnValue(false)
+    vi.mocked(consumeSshPtyExitFinalization).mockReturnValue(false)
     vi.mocked(isCurrentPtyExit).mockReturnValue(true)
   })
 
@@ -449,6 +452,88 @@ describe('SSH relay PTY incarnation exits', () => {
       'pty-reused',
       'terminated'
     )
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+    expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
+  })
+
+  it('retires a barrier-rejected duplicate exit only once', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    const payload = {
+      id: 'ssh:target-1@@pty-reused',
+      code: 9,
+      incarnationId: 'current-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'current-incarnation'
+    }
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue(undefined)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+    acceptOutputExitMock.mockRejectedValue(new Error('output barrier rejected'))
+
+    onExit(payload)
+    onExit(payload)
+
+    await vi.waitFor(() => expect(runtime.onPtyExit).toHaveBeenCalledOnce())
+    expect(clearProviderPtyState).toHaveBeenCalledOnce()
+    expect(deletePtyOwnership).toHaveBeenCalledOnce()
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledOnce()
+    expect(mockWindow.webContents.send).toHaveBeenCalledOnce()
+  })
+
+  it('keeps provider teardown single when intake finalized before rejecting', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+    vi.mocked(consumeSshPtyExitFinalization).mockReturnValue(true)
+    acceptOutputExitMock.mockRejectedValueOnce(new Error('projection close rejected'))
+
+    onExit({
+      id: 'ssh:target-1@@pty-finalized',
+      code: 0,
+      incarnationId: 'finalized-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'finalized-incarnation'
+    })
+
+    await vi.waitFor(() => expect(clearProviderPtyState).toHaveBeenCalledOnce())
+    expect(deletePtyOwnership).toHaveBeenCalledOnce()
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledOnce()
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
     expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
   })

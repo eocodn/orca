@@ -9074,6 +9074,13 @@ export class OrcaRuntimeService {
   private rememberObservedPtyExit(ptyId: string, incarnationId: PtyIncarnationId): void {
     const observed = this.observedPtyExitIncarnations.get(ptyId)
     if (observed) {
+      if (observed.size >= 128 && !observed.has(incarnationId)) {
+        // Why: a mounted PTY id can be reused forever; retain a bounded exact-proof window and let provider liveness prove older cleanup tombstones.
+        const oldest = observed.values().next().value
+        if (oldest !== undefined) {
+          observed.delete(oldest)
+        }
+      }
       observed.add(incarnationId)
       return
     }

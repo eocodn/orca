@@ -244,6 +244,52 @@ const ptyOwnership = new Map<string, string | null>()
 const ptyIncarnationById = new Map<string, string>()
 const pendingPtyIncarnationById = new Map<string, string>()
 
+const PTY_EXIT_EVIDENCE_MAX_PER_ID = 128
+const finalizedSshPtyExitById = new Map<string, Map<string, ReturnType<typeof setTimeout>>>()
+
+export function rememberSshPtyExitFinalization(id: string, ptyIncarnation: string): void {
+  const byIncarnation = finalizedSshPtyExitById.get(id) ?? new Map()
+  const previousTimer = byIncarnation.get(ptyIncarnation)
+  if (previousTimer) {
+    clearTimeout(previousTimer)
+  } else if (byIncarnation.size >= PTY_EXIT_EVIDENCE_MAX_PER_ID) {
+    const oldest = byIncarnation.entries().next().value
+    if (oldest) {
+      clearTimeout(oldest[1])
+      byIncarnation.delete(oldest[0])
+    }
+  }
+  const cleanupTimer = setTimeout(() => {
+    const current = finalizedSshPtyExitById.get(id)
+    if (current?.get(ptyIncarnation) === cleanupTimer) {
+      current.delete(ptyIncarnation)
+      if (current.size === 0) {
+        finalizedSshPtyExitById.delete(id)
+      }
+    }
+  }, 30_000)
+  cleanupTimer.unref?.()
+  byIncarnation.set(ptyIncarnation, cleanupTimer)
+  finalizedSshPtyExitById.set(id, byIncarnation)
+}
+
+export function consumeSshPtyExitFinalization(payload: {
+  id: string
+  ptyIncarnation: string
+}): boolean {
+  const byIncarnation = finalizedSshPtyExitById.get(payload.id)
+  const cleanupTimer = byIncarnation?.get(payload.ptyIncarnation)
+  if (!cleanupTimer) {
+    return false
+  }
+  clearTimeout(cleanupTimer)
+  byIncarnation!.delete(payload.ptyIncarnation)
+  if (byIncarnation!.size === 0) {
+    finalizedSshPtyExitById.delete(payload.id)
+  }
+  return true
+}
+
 export function isCurrentPtyExit(payload: { id: string; incarnationId?: string }): boolean {
   const current = ptyIncarnationById.get(payload.id)
   if (current) {
@@ -339,9 +385,14 @@ function setPendingPtyCleanupForResult(
   if (!result.incarnationId) {
     return
   }
+  const registeredConnectionId = providerConnectionId(provider)
   const pending: CleanupPendingPty = {
     provider,
-    providerConnectionId: providerConnectionId(provider),
+    // Why: an SSH relay can unregister before a rejected shutdown records its tombstone; the encoded app id preserves the authority namespace for the next generation.
+    providerConnectionId:
+      registeredConnectionId === undefined
+        ? parseAppSshPtyId(result.id)?.connectionId
+        : registeredConnectionId,
     providerGeneration: providerGeneration(provider),
     incarnationId: result.incarnationId,
     publicationSnapshot: snapshot
@@ -3645,6 +3696,7 @@ export function registerPtyHandlers(
     finalizeExit: (event) => {
       runtime?.onPtyExit(event.id, event.code, event.ptyIncarnation)
       finalizePtyExitForRenderer(event)
+      rememberSshPtyExitFinalization(event.id, event.ptyIncarnation)
     },
     pauseProvider: (generation, id) => {
       const provider = sshProvidersByGeneration.get(generation) as
