@@ -21,7 +21,7 @@ describe('SSH PTY intake to relay ACK contract', () => {
       getModelSequence: () => sequence,
       acceptModel: (event) => {
         sequence += event.rawLength
-        return { sequence, completion: Promise.resolve() }
+        return { admitted: true, sequence, completion: Promise.resolve() }
       },
       project: () => {},
       prepareExit: () => {},

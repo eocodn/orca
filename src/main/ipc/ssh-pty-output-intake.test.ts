@@ -268,6 +268,7 @@ describe('SshPtyOutputIntake', () => {
           throw new Error('model reservation failed')
         }
         return {
+          admitted: true,
           sequence: accepted.rawLength,
           completion: Promise.resolve()
         }
@@ -290,6 +291,39 @@ describe('SshPtyOutputIntake', () => {
     )
     expect(retry.projection.identity.displayStart).toBe(0)
     expect(retry.projection.beforeScanner).toEqual({ tail: '', pendingSubscribe: false })
+  })
+
+  it('rolls back projection and source state when the runtime rejects lifecycle data', async () => {
+    const project = vi.fn()
+    const harness = createHarness({
+      acceptModel: () =>
+        ({ admitted: false, sequence: 0, completion: Promise.resolve() }) as never,
+      project
+    })
+
+    await expect(
+      harness.intake.acceptData(
+        event({
+          source: {
+            spanId: 'late-span',
+            clientGeneration: 2,
+            ownerGeneration: 3,
+            deliveryToken: 'late-token',
+            sourceStartSu: 0,
+            sourceEndSu: 4
+          }
+        })
+      )
+    ).resolves.toMatchObject({ sequence: 0 })
+
+    expect(project).not.toHaveBeenCalled()
+    expect(harness.intake.getDebugSnapshot().projection).toMatchObject({
+      records: 0,
+      rolledBack: 1
+    })
+    expect(harness.intake.getAcceptedSourceCheckpoints(1)).toEqual([
+      expect.objectContaining({ acceptedSourceEndSu: 0 })
+    ])
   })
 
   it('rejects stale provider generations without model capture', async () => {

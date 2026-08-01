@@ -71,6 +71,21 @@ export class DaemonPtyProvider {
     this.client.notify('resize', { sessionId: id, cols, rows })
   }
 
+  async resizeIfCurrent(
+    id: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): Promise<boolean> {
+    const response = await this.client.request<{ applied: boolean }>('resizeIfCurrent', {
+      sessionId: id,
+      expectedIncarnationId,
+      cols,
+      rows
+    })
+    return response.applied
+  }
+
   async shutdown(
     id: string,
     opts: { immediate?: boolean; keepHistory?: boolean; deadlineMs?: number }

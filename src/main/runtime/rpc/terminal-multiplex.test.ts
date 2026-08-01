@@ -398,7 +398,7 @@ describe('terminal multiplex RPC', () => {
             rawLength: event.rawLength,
             sourceRanges: projection.desktopSpan ? [projection.desktopSpan] : undefined
           })
-          return { sequence: modelSequence, completion: Promise.resolve() }
+          return { admitted: true, sequence: modelSequence, completion: Promise.resolve() }
         },
         project: vi.fn(),
         prepareExit,

@@ -122,6 +122,17 @@ export type ResizeRequest = {
   }
 }
 
+export type ResizeIfCurrentRequest = {
+  id: string
+  type: 'resizeIfCurrent'
+  payload: {
+    sessionId: string
+    expectedIncarnationId: string
+    cols: number
+    rows: number
+  }
+}
+
 // ─── Producer flow control (v19+) ───────────────────────────────────
 // Why fire-and-forget notifications (like write/resize): pause/resume ride the
 // hot data path and are best-effort — the daemon-side 5s failsafe, not an RPC
@@ -296,6 +307,7 @@ export type DaemonRequest =
   | CancelCreateOrAttachRequest
   | WriteRequest
   | ResizeRequest
+  | ResizeIfCurrentRequest
   | PausePtyRequest
   | ResumePtyRequest
   | SetSessionBackgroundRequest

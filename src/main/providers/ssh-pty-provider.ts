@@ -210,6 +210,23 @@ export class SshPtyProvider implements IPtyProvider {
     this.mux.notify('pty.resize', { id: this.toRelayPtyId(id), cols, rows })
   }
 
+  async resizeIfCurrent(
+    id: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): Promise<boolean> {
+    const response = (await this.mux.request(
+      'pty.resizeIfCurrent',
+      { id: this.toRelayPtyId(id), expectedIncarnationId, cols, rows },
+      { timeoutMs: 1_000 }
+    )) as { applied?: unknown }
+    if (typeof response?.applied !== 'boolean') {
+      throw new Error('Malformed pty.resizeIfCurrent response')
+    }
+    return response.applied
+  }
+
   async shutdown(
     id: string,
     opts: { immediate?: boolean; keepHistory?: boolean; deadlineMs?: number }

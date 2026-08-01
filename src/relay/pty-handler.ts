@@ -27,6 +27,7 @@ import {
 } from '../shared/cross-platform-path'
 import { splitWorktreeId } from '../shared/worktree-id'
 import { PhysicalExitTracker } from '../shared/physical-exit-tracker'
+import { areValidTerminalDimensions } from '../shared/terminal-dimensions'
 import {
   createShellReadyScanState,
   drainShellReadyHeldBytes,
@@ -715,6 +716,7 @@ export class PtyHandler {
     this.dispatcher.onRequest('pty.getCwd', (p) => this.getCwd(p))
     this.dispatcher.onRequest('pty.getInitialCwd', (p) => this.getInitialCwd(p))
     this.dispatcher.onRequest('pty.getSize', (p) => this.getSize(p))
+    this.dispatcher.onRequest('pty.resizeIfCurrent', (p) => this.resizeIfCurrent(p))
     this.dispatcher.onRequest('pty.clearBuffer', (p) => this.clearBuffer(p))
     this.dispatcher.onRequest('pty.hasChildProcesses', (p) => this.hasChildProcesses(p))
     this.dispatcher.onRequest('pty.getForegroundProcess', (p) => this.getForegroundProcess(p))
@@ -1628,6 +1630,27 @@ export class PtyHandler {
     if (managed && !managed.disposed) {
       managed.pty.resize(cols, rows)
     }
+  }
+
+  private async resizeIfCurrent(
+    params: Record<string, unknown>
+  ): Promise<{ applied: boolean }> {
+    const id = params.id as string
+    const expectedIncarnationId = params.expectedIncarnationId
+    const cols = Number(params.cols)
+    const rows = Number(params.rows)
+    const managed = this.ptys.get(id)
+    if (
+      !managed ||
+      managed.disposed ||
+      typeof expectedIncarnationId !== 'string' ||
+      managed.incarnationId !== expectedIncarnationId ||
+      !areValidTerminalDimensions(cols, rows)
+    ) {
+      return { applied: false }
+    }
+    managed.pty.resize(cols, rows)
+    return { applied: true }
   }
 
   private async getSize(

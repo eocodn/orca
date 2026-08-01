@@ -5980,6 +5980,36 @@ describe('registerPtyHandlers', () => {
     }
   })
 
+  it('does not project daemon data that the runtime rejects after lifecycle exit', async () => {
+    vi.useFakeTimers()
+    try {
+      const provider = installObservableDaemonTestProvider()
+      const runtime = new OrcaRuntimeService(null)
+      const id = 'pty-daemon-late-projection'
+      runtime.registerPty(id, 'wt-1', null, {
+        tabId: 'tab-1',
+        leafId: '11111111-1111-4111-8111-111111111111',
+        incarnationId: 'inc-daemon-late'
+      })
+      registerPtyHandlers(mainWindow as never, runtime)
+      runtime.onPtyExit(id, 0, 'inc-daemon-late')
+      mainWindow.webContents.send.mockClear()
+
+      provider.emitData(id, 'late daemon bytes')
+      await vi.advanceTimersByTimeAsync(50)
+
+      expect(
+        mainWindow.webContents.send.mock.calls.some(
+          (call) => call[0] === 'pty:data' && (call[1] as { id?: string }).id === id
+        )
+      ).toBe(false)
+      expect(getPtyRendererDeliveryDebugSnapshot().pendingChars).toBe(0)
+      expect(runtime.getPtyOutputSequence(id)).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // Why: the cap/flag must never fire in the common case (renderer keeps up), so small output carries no droppedBacklog.
   it('does not flag droppedBacklog for ordinary small output under the cap', async () => {
     vi.useFakeTimers()
@@ -7523,6 +7553,12 @@ describe('registerPtyHandlers', () => {
       incarnationId: 'incarnation-old'
     })
     runtime.onPtyExit('pty-reused-persist-fail', 0, 'incarnation-old')
+    restorePtyIncarnation('pty-reused-persist-fail', 'incarnation-old')
+    let attemptedIncarnation: string | undefined
+    const persistPtyBinding = vi.fn((binding: { incarnationId?: string }) => {
+      attemptedIncarnation = binding.incarnationId
+      throw new Error('disk full')
+    })
     const provider = createAgentClaimProvider({
       spawn: vi.fn(async () => {
         runtime.onPtySpawned('pty-reused-persist-fail')
@@ -7533,9 +7569,7 @@ describe('registerPtyHandlers', () => {
     })
     setLocalPtyProvider(provider as never)
     registerPtyHandlers(mainWindow as never, runtime, undefined, undefined, undefined, {
-      persistPtyBinding: vi.fn(() => {
-        throw new Error('disk full')
-      })
+      persistPtyBinding
     } as never)
     const controller = (
       runtime as unknown as {
@@ -7568,6 +7602,19 @@ describe('registerPtyHandlers', () => {
       connected: false,
       lastExitCode: 0
     })
+    expect(attemptedIncarnation).toMatch(/^runtime-/)
+    expect(
+      isCurrentPtyExit({
+        id: 'pty-reused-persist-fail',
+        incarnationId: 'incarnation-old'
+      })
+    ).toBe(true)
+    expect(
+      isCurrentPtyExit({
+        id: 'pty-reused-persist-fail',
+        incarnationId: attemptedIncarnation
+      })
+    ).toBe(false)
   })
 
   it('reports lower-owner commit before rejecting an early-exited runtime incarnation', async () => {

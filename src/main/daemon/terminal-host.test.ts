@@ -371,6 +371,32 @@ describe('TerminalHost', () => {
       expect(lastSubprocess.resize).toHaveBeenCalledWith(120, 40)
     })
 
+    it('resizes only when the expected incarnation is current', async () => {
+      const created = await host.createOrAttach({
+        sessionId: 'session-1',
+        cols: 80,
+        rows: 24,
+        streamClient: { onData: vi.fn(), onExit: vi.fn() }
+      })
+      const resizeIfCurrent = (
+        host as unknown as {
+          resizeIfCurrent(
+            sessionId: string,
+            expectedIncarnationId: string,
+            cols: number,
+            rows: number
+          ): boolean
+        }
+      ).resizeIfCurrent
+
+      expect(resizeIfCurrent.call(host, 'session-1', 'stale-incarnation', 120, 40)).toBe(false)
+      expect(lastSubprocess.resize).not.toHaveBeenCalled()
+      expect(
+        resizeIfCurrent.call(host, 'session-1', created.incarnationId, 120, 40)
+      ).toBe(true)
+      expect(lastSubprocess.resize).toHaveBeenCalledWith(120, 40)
+    })
+
     it('ignores transient zero-size resize events', async () => {
       await host.createOrAttach({
         sessionId: 'session-1',

@@ -82,6 +82,8 @@ export class SshPtyOutputIntake {
       return Promise.reject(error)
     }
     let projection: LegacySshProjectionSemantics | undefined
+    let projectionCommitted = false
+    let modelAdmitted = true
     let sourceReservation: SshPtyOutputSourceReservation | undefined
     const key = { ptyId: event.id, providerGeneration: event.providerGeneration }
     const tracked: SshPtyTrackedModelAdmission = { key, started: false }
@@ -111,6 +113,7 @@ export class SshPtyOutputIntake {
       }
       try {
         projection = this.projections.commit(reservation)
+        projectionCommitted = true
         if (sourceReservation) {
           this.sourceObligations.commit(
             sourceReservation,
@@ -127,15 +130,24 @@ export class SshPtyOutputIntake {
         }
         throw error
       }
-      let model: { sequence: number; completion: Promise<void> }
+      let model: { admitted: boolean; sequence: number; completion: Promise<void> }
       try {
         model = this.dependencies.acceptModel(event, projection)
+        modelAdmitted = model.admitted !== false
       } catch (error) {
         if (sourceReservation) {
           this.sourceObligations.rollback(sourceReservation)
         }
         this.projections.rollbackCommitted(reservation)
         throw error
+      }
+      if (model.admitted === false) {
+        if (sourceReservation) {
+          this.sourceObligations.rollback(sourceReservation)
+        }
+        this.projections.rollbackCommitted(reservation)
+        projectionCommitted = false
+        return model
       }
       try {
         this.dependencies.project(event, projection)
@@ -150,13 +162,13 @@ export class SshPtyOutputIntake {
         if (!projection) {
           throw outputIntakeError('ssh_projection_receipt_missing')
         }
-        if (sourceReservation) {
+        if (sourceReservation && modelAdmitted) {
           this.sourceObligations.settleModel(sourceReservation.span)
         }
-        return Object.freeze({ ...modelReceipt, projection })
+        return Object.freeze({ ...modelReceipt, admitted: modelAdmitted, projection })
       },
       (error) => {
-        if (projection) {
+        if (projection && projectionCommitted) {
           this.projections.transfer(
             [projection.identity.projectionSemanticsId],
             'model-admission-failed'

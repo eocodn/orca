@@ -42793,6 +42793,10 @@ describe('OrcaRuntimeService', () => {
           applied = { cols, rows }
           return true
         },
+        resizeIfCurrent: async (_ptyId, _expectedIncarnation, cols, rows) => {
+          applied = { cols, rows }
+          return true
+        },
         getAppliedSize: async () => applied
       })
 
@@ -42815,6 +42819,11 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: (_ptyId, cols, rows) => {
+          applied = { cols, rows }
+          mutations.push(applied)
+          return true
+        },
+        resizeIfCurrent: async (_ptyId, _expectedIncarnation, cols, rows) => {
           applied = { cols, rows }
           mutations.push(applied)
           return true
@@ -42849,6 +42858,11 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: (_ptyId, cols, rows) => {
+          applied = { cols, rows }
+          mutations.push(applied)
+          return true
+        },
+        resizeIfCurrent: async (_ptyId, _expectedIncarnation, cols, rows) => {
           applied = { cols, rows }
           mutations.push(applied)
           return true
@@ -42889,6 +42903,11 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: (_ptyId, cols, rows) => {
+          applied = { cols, rows }
+          mutations.push(applied)
+          return true
+        },
+        resizeIfCurrent: async (_ptyId, _expectedIncarnation, cols, rows) => {
           applied = { cols, rows }
           mutations.push(applied)
           return true
@@ -42942,6 +42961,51 @@ describe('OrcaRuntimeService', () => {
       ])
     })
 
+    it('does not let a delayed old-incarnation resize mutate a same-id replacement', async () => {
+      const { runtime, handle } = await setupTerminal()
+      const delivery = makeDeferred()
+      let providerIncarnation = 'inc-1'
+      let applied = { cols: 80, rows: 24 }
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        resize: (_ptyId, cols, rows) => {
+          void delivery.promise.then(() => {
+            applied = { cols, rows }
+          })
+          return true
+        },
+        resizeIfCurrent: async (_ptyId, expectedIncarnation, cols, rows) => {
+          await delivery.promise
+          if (providerIncarnation !== expectedIncarnation) {
+            return false
+          }
+          applied = { cols, rows }
+          return true
+        },
+        getAppliedSize: async () => {
+          await delivery.promise
+          return applied
+        }
+      } as never)
+
+      const resize = runtime.resizeTerminal(handle, 'pty-1:inc-1', 100, 30)
+      await Promise.resolve()
+      runtime.onPtyExit('pty-1', 0, 'inc-1')
+      runtime.registerPty('pty-1', TEST_WORKTREE_ID, null, {
+        tabId: 'tab-1',
+        leafId: 'pane:1',
+        incarnationId: 'inc-2'
+      })
+      providerIncarnation = 'inc-2'
+      delivery.resolve()
+
+      await expect(resize).rejects.toThrow('terminal_incarnation_stale')
+      await Promise.resolve()
+      expect(applied).toEqual({ cols: 80, rows: 24 })
+    })
+
     it('does not let late PTY data revive an exited or transport-lost lifecycle', async () => {
       const runtime = new OrcaRuntimeService(store)
       const ptyId = 'ssh:target-1@@pty-late-data'
@@ -42972,6 +43036,34 @@ describe('OrcaRuntimeService', () => {
       expect(history.tail).not.toContain('stale provider bytes')
     })
 
+    it('does not create a lifecycle from data that arrives after an early registration exit', () => {
+      const runtime = new OrcaRuntimeService(store)
+      const ptyId = `${TEST_WORKTREE_ID}:pty-early-data`
+      runtime.beginPtyRegistration(ptyId, 'inc-early-data')
+      runtime.onPtySpawned(ptyId, 'inc-early-data')
+      runtime.onPtyExit(ptyId, 0, 'inc-early-data')
+      const sequenceBefore = runtime.getPtyOutputSequence(ptyId)
+
+      runtime.onPtyData(
+        ptyId,
+        '\u001b]0;stale title\u0007\u001b]9;9;stale status\u0007late bytes after exit\n',
+        10
+      )
+
+      const internals = runtime as unknown as {
+        ptysById: Map<string, unknown>
+        headlessTerminals: Map<string, unknown>
+        earlyExitedPtyIncarnations: Map<string, string | null>
+      }
+      expect(internals.ptysById.has(ptyId)).toBe(false)
+      expect(internals.headlessTerminals.has(ptyId)).toBe(false)
+      expect(runtime.getPtyOutputSequence(ptyId)).toBe(sequenceBefore)
+      expect(internals.earlyExitedPtyIncarnations.get(ptyId)).toBe('inc-early-data')
+      expect(() => runtime.assertPtyRegistrationAllowed(ptyId, 'inc-early-data')).toThrow(
+        'agent_session_exited_during_start'
+      )
+    })
+
     it('disconnects a leaf-backed PTY when authoritative inventory proves absence', async () => {
       const { runtime, handle } = await setupTerminal()
       runtime.setPtyController({
@@ -42997,6 +43089,45 @@ describe('OrcaRuntimeService', () => {
       })
       await expect(runtime.resizeTerminal(handle, 'pty-1:inc-1', 100, 30)).rejects.toThrow(
         'terminal_not_running'
+      )
+    })
+
+    it('rejects malformed explicit inventory incarnations without mutating authority', async () => {
+      const { runtime, handle } = await setupTerminal()
+      const generationBefore = (
+        runtime as unknown as { ptyLifecycleGenerationById: Map<string, number> }
+      ).ptyLifecycleGenerationById.get('pty-1')
+      runtime.setPtyController({
+        write: () => true,
+        kill: () => true,
+        getForegroundProcess: async () => null,
+        listProcesses: async () => [
+          {
+            id: 'pty-1',
+            incarnationId: 'i'.repeat(129),
+            terminalHandle: 'term_malformed_inventory',
+            title: 'shell',
+            cwd: TEST_WORKTREE_PATH,
+            worktreeId: TEST_WORKTREE_ID,
+            wslDistro: null
+          }
+        ]
+      })
+      const internals = runtime as unknown as {
+        refreshPtyWorktreeRecordsWithControllerInventory: (worktrees: unknown[]) => Promise<unknown>
+        ptyLifecycleGenerationById: Map<string, number>
+      }
+
+      await expect(
+        internals.refreshPtyWorktreeRecordsWithControllerInventory([])
+      ).resolves.toBeNull()
+      expect(internals.ptyLifecycleGenerationById.get('pty-1')).toBe(generationBefore)
+      await expect(runtime.inspectTerminal(handle)).resolves.toMatchObject({
+        incarnationId: 'inc-1',
+        processIncarnation: 'pty-1:inc-1'
+      })
+      await expect(runtime.showTerminal('term_malformed_inventory')).rejects.toThrow(
+        'terminal_handle_stale'
       )
     })
 
@@ -43114,6 +43245,7 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: () => true,
+        resizeIfCurrent: async () => true,
         getAppliedSize: async () => {
           await readback.promise
           return { cols: 132, rows: 41 }
@@ -43134,6 +43266,7 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: () => true,
+        resizeIfCurrent: async () => true,
         getAppliedSize: async () => null
       })
       await expect(
@@ -43161,6 +43294,7 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: () => false,
+        resizeIfCurrent: async () => false,
         getAppliedSize: async () => ({ cols: 132, rows: 41 })
       })
       await expect(
@@ -43175,6 +43309,9 @@ describe('OrcaRuntimeService', () => {
         resize: () => {
           throw new Error('provider unavailable')
         },
+        resizeIfCurrent: async () => {
+          throw new Error('provider unavailable')
+        },
         getAppliedSize: async () => ({ cols: 132, rows: 41 })
       })
       await expect(
@@ -43187,6 +43324,7 @@ describe('OrcaRuntimeService', () => {
         kill: () => true,
         getForegroundProcess: async () => null,
         resize: () => true,
+        resizeIfCurrent: async () => true,
         getAppliedSize: async () => ({ cols: 131, rows: 41 })
       })
       await expect(

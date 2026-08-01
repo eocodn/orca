@@ -1941,6 +1941,40 @@ describe('PtyHandler', () => {
     expect(mockResize).toHaveBeenCalledWith(120, 40)
   })
 
+  it('applies resize only when the expected incarnation is current', async () => {
+    const mockResize = vi.fn()
+    mockPtySpawn.mockReturnValue({
+      ...mockPtyInstance,
+      resize: mockResize,
+      onData: vi.fn(),
+      onExit: vi.fn()
+    })
+
+    const spawned = (await dispatcher.callRequest('pty.spawn', {})) as {
+      id: string
+      incarnationId: string
+    }
+    await expect(
+      dispatcher.callRequest('pty.resizeIfCurrent', {
+        id: spawned.id,
+        expectedIncarnationId: 'stale-incarnation',
+        cols: 120,
+        rows: 40
+      })
+    ).resolves.toEqual({ applied: false })
+    expect(mockResize).not.toHaveBeenCalled()
+
+    await expect(
+      dispatcher.callRequest('pty.resizeIfCurrent', {
+        id: spawned.id,
+        expectedIncarnationId: spawned.incarnationId,
+        cols: 120,
+        rows: 40
+      })
+    ).resolves.toEqual({ applied: true })
+    expect(mockResize).toHaveBeenCalledWith(120, 40)
+  })
+
   it('reports the PTY grid actually applied by node-pty', async () => {
     mockPtySpawn.mockReturnValue({
       ...mockPtyInstance,

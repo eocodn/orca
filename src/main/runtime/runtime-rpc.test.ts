@@ -3622,7 +3622,16 @@ describe('OrcaRuntimeRpcServer', () => {
         appliedSize = { cols, rows }
         return true
       },
+      resizeIfCurrent: async (_ptyId, _expectedIncarnation, cols, rows) => {
+        appliedSize = { cols, rows }
+        return true
+      },
       getAppliedSize: async () => appliedSize
+    })
+    runtime.registerPty('pty-1', 'repo-1::/tmp/worktree-a', null, {
+      tabId: 'tab-1',
+      leafId: 'pane:1',
+      incarnationId: 'inc-runtime-rpc'
     })
     const server = new OrcaRuntimeRpcServer({ runtime, userDataPath })
 
@@ -3772,7 +3781,7 @@ describe('OrcaRuntimeRpcServer', () => {
         timeoutMs: 1000
       }
     })
-    runtime.onPtyExit('pty-1', 9)
+    runtime.onPtyExit('pty-1', 9, 'inc-runtime-rpc')
     const waitResponse = await waitPromise
     expect(waitResponse).toMatchObject({
       id: 'req_wait',

@@ -110,6 +110,13 @@ export type IPtyProvider = {
   probePtyLiveness?: (id: string) => Promise<boolean | null>
   write(id: string, data: string): void
   resize(id: string, cols: number, rows: number): void
+  /** Applies a control mutation only to the exact current process identity. */
+  resizeIfCurrent?(
+    id: string,
+    expectedIncarnationId: PtyIncarnationId,
+    cols: number,
+    rows: number
+  ): Promise<boolean>
   /**
    * Producer-side flow control: stop/restart reading the underlying PTY so a
    * flooding child blocks on write (kernel backpressure) instead of growing

@@ -44,14 +44,14 @@ export type SshPtyOutputExitEvent = Readonly<{
 }>
 
 export type SshPtyOutputReceipt = SshPtyModelAdmissionReceipt &
-  Readonly<{ projection: LegacySshProjectionSemantics }>
+  Readonly<{ admitted: boolean; projection: LegacySshProjectionSemantics }>
 
 export type SshPtyOutputIntakeDependencies = {
   getModelSequence: (id: string) => number
   acceptModel: (
     event: SshPtyOutputDataEvent,
     projection: LegacySshProjectionSemantics
-  ) => { sequence: number; completion: Promise<void> }
+  ) => { admitted: boolean; sequence: number; completion: Promise<void> }
   project: (event: SshPtyOutputDataEvent, projection: LegacySshProjectionSemantics) => void
   prepareExit: (event: SshPtyOutputExitEvent) => void | (() => void)
   finalizeExit: (event: SshPtyOutputExitEvent) => void

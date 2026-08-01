@@ -1468,6 +1468,7 @@ type RuntimeHeadlessTerminal = {
 }
 
 export type RuntimePtyDataAdmission = Readonly<{
+  admitted: boolean
   sequence: number
   completion: Promise<void>
 }>
@@ -1569,6 +1570,12 @@ type RuntimePtyController = {
   hasChildProcesses?(ptyId: string): Promise<boolean>
   clearBuffer?(ptyId: string): Promise<void>
   resize?(ptyId: string, cols: number, rows: number): boolean
+  resizeIfCurrent?(
+    ptyId: string,
+    expectedIncarnationId: PtyIncarnationId,
+    cols: number,
+    rows: number
+  ): Promise<boolean>
   // Why: exact-id mobile polls should not enumerate every local and SSH PTY.
   hasPty?(ptyId: string): boolean | null
   listProcesses?(connectionId?: string | null): Promise<PtyProcessInfo[]>
@@ -2617,6 +2624,7 @@ type LayoutQueueSlot = {
   coalescible: boolean
   cancellationError?: string
   beforeApply?: () => void | Promise<void>
+  resizeMutation?: (cols: number, rows: number) => boolean | Promise<boolean>
   afterApply?: (result: ApplyLayoutResult) => void | Promise<void>
   waiters: LayoutQueueWaiter[]
 }
@@ -9078,6 +9086,7 @@ export class OrcaRuntimeService {
     sourceRanges?: readonly TerminalOutputSourceRange[]
   ): RuntimePtyDataAdmission {
     let completion: Promise<void> | null = null
+    let admitted = false
     const sequence = this.onPtyData(
       ptyId,
       data,
@@ -9087,12 +9096,26 @@ export class OrcaRuntimeService {
       (receipt) => {
         completion = receipt
       },
-      sourceRanges
+      sourceRanges,
+      (value) => {
+        admitted = value
+      }
     )
     if (!completion) {
       throw new Error('PTY model admission receipt was not captured')
     }
-    return Object.freeze({ sequence, completion })
+    return Object.freeze({ admitted, sequence, completion })
+  }
+
+  acceptsPtyDataForCurrentLifecycle(ptyId: string): boolean {
+    if (this.earlyExitedPtyIncarnations.has(ptyId)) {
+      return false
+    }
+    if (this.pendingPtyRegistrationIncarnations.has(ptyId)) {
+      return true
+    }
+    const pty = this.ptysById.get(ptyId)
+    return pty ? pty.connected : true
   }
 
   onPtyData(
@@ -9102,13 +9125,16 @@ export class OrcaRuntimeService {
     sequenceChars = data.length,
     transformed = false,
     captureModelReceipt?: (completion: Promise<void>) => void,
-    sourceRanges?: readonly TerminalOutputSourceRange[]
+    sourceRanges?: readonly TerminalOutputSourceRange[],
+    captureAdmission?: (admitted: boolean) => void
   ): number {
     const existingPty = this.ptysById.get(ptyId)
-    if (existingPty && !existingPty.connected) {
+    if (!this.acceptsPtyDataForCurrentLifecycle(ptyId) || (existingPty && !existingPty.connected)) {
+      captureAdmission?.(false)
       captureModelReceipt?.(Promise.resolve())
       return this.ptyOutputSequenceById.get(ptyId) ?? 0
     }
+    captureAdmission?.(true)
     const outputSequence = (this.ptyOutputSequenceById.get(ptyId) ?? 0) + sequenceChars
     this.ptyOutputSequenceById.set(ptyId, outputSequence)
     this.providerModeTrackersByPtyId.get(ptyId)?.scan(data)
@@ -13892,6 +13918,7 @@ export class OrcaRuntimeService {
     target: PtyLayoutTarget,
     hooks: {
       beforeApply: () => void | Promise<void>
+      resizeMutation: (cols: number, rows: number) => boolean | Promise<boolean>
       afterApply: (result: ApplyLayoutResult) => void | Promise<void>
     }
   ): Promise<ApplyLayoutResult> {
@@ -13900,6 +13927,7 @@ export class OrcaRuntimeService {
       coalescible: false,
       cancellationError: 'terminal_incarnation_stale',
       beforeApply: hooks.beforeApply,
+      resizeMutation: hooks.resizeMutation,
       afterApply: hooks.afterApply,
       waiters: []
     })
@@ -13989,7 +14017,7 @@ export class OrcaRuntimeService {
       this.getPtyLifecycleGeneration(ptyId) === entry.generation
     ) {
       try {
-        result = await this.applyLayout(ptyId, slot.target, entry.generation)
+        result = await this.applyLayout(ptyId, slot.target, entry.generation, slot.resizeMutation)
       } catch (err) {
         // Why: ordinary layout callers use a result discriminator; unexpected
         // apply failures must not jam the queue or widen that contract.
@@ -14032,7 +14060,8 @@ export class OrcaRuntimeService {
   private async applyLayout(
     ptyId: string,
     target: PtyLayoutTarget,
-    generation: number
+    generation: number,
+    resizeMutation?: (cols: number, rows: number) => boolean | Promise<boolean>
   ): Promise<ApplyLayoutResult> {
     // Why: re-check pty-exit at the head of the slot — the queue may have
     // accepted this target before onPtyExit ran.
@@ -14082,7 +14111,9 @@ export class OrcaRuntimeService {
     if (dimsChanged) {
       let ok = false
       try {
-        const r = this.ptyController?.resize?.(ptyId, target.cols, target.rows)
+        const r = resizeMutation
+          ? await resizeMutation(target.cols, target.rows)
+          : this.ptyController?.resize?.(ptyId, target.cols, target.rows)
         ok = r ?? true
       } catch (err) {
         console.error('[layout] ptyController.resize threw', { ptyId, err })
@@ -16007,6 +16038,9 @@ export class OrcaRuntimeService {
       lifecycleGeneration,
       true
     )
+    if (!owner.incarnationId || !this.ptyController?.resizeIfCurrent) {
+      throw new Error('terminal_resize_unconfirmed')
+    }
     const freshSubscribeGeneration = this.beginFreshSubscribe(owner.ptyId)
     let applied: { cols: number; rows: number } | null = null
     try {
@@ -16023,6 +16057,13 @@ export class OrcaRuntimeService {
               true
             )
           },
+          resizeMutation: async (nextCols, nextRows) =>
+            await this.ptyController!.resizeIfCurrent!(
+              owner.ptyId,
+              owner.incarnationId!,
+              nextCols,
+              nextRows
+            ),
           afterApply: async (result) => {
             this.assertTerminalControlFence(
               handle,
@@ -16091,6 +16132,7 @@ export class OrcaRuntimeService {
 
   private getTerminalControlOwner(handle: string): {
     ptyId: string
+    incarnationId: PtyIncarnationId | null
     connected: boolean
     lastExitCode: number | null
     connectionId: string | null
@@ -16099,6 +16141,7 @@ export class OrcaRuntimeService {
     if (live) {
       return {
         ptyId: live.pty.ptyId,
+        incarnationId: live.pty.incarnationId,
         connected: live.pty.connected,
         lastExitCode: live.pty.lastExitCode,
         connectionId: live.pty.connectionId
@@ -16110,6 +16153,7 @@ export class OrcaRuntimeService {
     }
     return {
       ptyId: leaf.ptyId,
+      incarnationId: this.ptysById.get(leaf.ptyId)?.incarnationId ?? null,
       connected: leaf.connected,
       lastExitCode: leaf.lastExitCode,
       connectionId: this.ptysById.get(leaf.ptyId)?.connectionId ?? null
@@ -28189,12 +28233,23 @@ export class OrcaRuntimeService {
       return null
     }
     const sessions = sessionsResult.value
+    const normalizedIncarnationByPtyId = new Map<string, PtyIncarnationId>()
+    for (const session of sessions) {
+      if (session.incarnationId === undefined) {
+        continue
+      }
+      const raw = session.incarnationId as unknown
+      if (typeof raw !== 'string' || raw !== raw.trim() || !isPtyIncarnationId(raw)) {
+        return null
+      }
+      normalizedIncarnationByPtyId.set(session.id, raw)
+    }
     const controllerIdentityByPtyId = new Map<string, PtyControllerTerminalIdentity>()
     const ptyIdByControllerHandle = new Map<string, string>()
     const ambiguousControllerPtyIds = new Set<string>()
     for (const session of sessions) {
       const handle = session.terminalHandle?.trim()
-      const incarnationId = session.incarnationId?.trim()
+      const incarnationId = normalizedIncarnationByPtyId.get(session.id)
       if (!handle?.startsWith('term_') || !incarnationId) {
         continue
       }
@@ -28276,16 +28331,17 @@ export class OrcaRuntimeService {
             inferredWorktreeId ??
             findResolvedWorktreeIdForPath(resolvedWorktrees, session.cwd))
       const persistedSurface = persistedIndexes.surfaceByPtyId.get(session.id)
+      const incarnationId = normalizedIncarnationByPtyId.get(session.id)
       const restoresExactSurface =
         persistedSurface &&
-        session.incarnationId &&
-        persistedSurface.incarnationId === session.incarnationId &&
+        incarnationId &&
+        persistedSurface.incarnationId === incarnationId &&
         Boolean(worktreeId) &&
         runtimeWorktreeIdsEqual(persistedSurface.worktreeId, worktreeId as string)
       this.adoptControllerTerminalHandle(
         session.id,
         controllerIdentity?.handle ?? session.terminalHandle,
-        controllerIdentity?.incarnationId ?? session.incarnationId,
+        controllerIdentity?.incarnationId ?? incarnationId,
         { exactRestoredSurface: Boolean(restoresExactSurface && controllerIdentity) }
       )
       if (
@@ -28307,7 +28363,7 @@ export class OrcaRuntimeService {
       this.restoredOrchestrationAuthorityByPtyId.delete(session.id)
       if (worktreeId) {
         const pty = this.recordAuthoritativePtyWorktree(session.id, worktreeId, {
-          ...(session.incarnationId ? { incarnationId: session.incarnationId } : {}),
+          ...(incarnationId ? { incarnationId } : {}),
           ...(session.wslDistro !== undefined
             ? { isWsl: Boolean(session.wslDistro), wslDistro: session.wslDistro }
             : {}),

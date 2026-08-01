@@ -871,6 +871,16 @@ export class DaemonServer {
         }
         return {}
 
+      case 'resizeIfCurrent':
+        return {
+          applied: this.host.resizeIfCurrent(
+            request.payload.sessionId,
+            request.payload.expectedIncarnationId,
+            request.payload.cols,
+            request.payload.rows
+          )
+        }
+
       case 'pausePty':
         this.host.pauseProducer(request.payload.sessionId)
         return {}

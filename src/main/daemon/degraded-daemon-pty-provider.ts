@@ -101,6 +101,18 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     this.providerFor(id).resize(id, cols, rows)
   }
 
+  async resizeIfCurrent(
+    id: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): Promise<boolean> {
+    const provider = this.providerFor(id)
+    return provider.resizeIfCurrent
+      ? await provider.resizeIfCurrent(id, expectedIncarnationId, cols, rows)
+      : false
+  }
+
   pauseProducer(id: string): void {
     this.providerFor(id).pauseProducer?.(id)
   }

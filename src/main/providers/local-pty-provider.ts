@@ -1051,6 +1051,20 @@ export class LocalPtyProvider implements IPtyProvider {
     ptyProcesses.get(id)?.resize(cols, rows)
   }
 
+  async resizeIfCurrent(
+    id: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): Promise<boolean> {
+    const process = ptyProcesses.get(id)
+    if (!process || ptyIncarnations.get(id) !== expectedIncarnationId) {
+      return false
+    }
+    process.resize(cols, rows)
+    return true
+  }
+
   // Why: node-pty pause() stops reading the master fd, so a flooding child blocks on write — true producer backpressure.
   pauseProducer(id: string): void {
     try {

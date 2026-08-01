@@ -88,6 +88,24 @@ export class TerminalHost {
     this.getAliveSession(sessionId).resize(cols, rows)
   }
 
+  resizeIfCurrent(
+    sessionId: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): boolean {
+    const session = this.sessions.get(sessionId)
+    if (
+      !session ||
+      !session.isAlive ||
+      session.incarnationId !== expectedIncarnationId
+    ) {
+      return false
+    }
+    session.resize(cols, rows)
+    return true
+  }
+
   // Why null-not-throw (unlike write/resize): pause/resume are best-effort hints against a session that may have exited.
   pauseProducer(sessionId: string): void {
     const session = this.sessions.get(sessionId)

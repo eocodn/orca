@@ -6,33 +6,33 @@ services:
       context: .
       dockerfile: Dockerfile.control
     command:
-      - timeout
-      - --signal=TERM
-      - --kill-after=30s
-      - 10m
-      - pnpm
-      - exec
-      - vitest
-      - run
-      - --config
-      - config/vitest.config.ts
-      - src/cli/handlers/folder-workspace.test.ts
-      - src/cli/handlers/terminal.test.ts
-      - src/cli/runtime/execution-host.test.ts
-      - src/shared/folder-workspaces.test.ts
-      - src/cli/args.test.ts
-      - src/cli/registry-parity.test.ts
-      - src/cli/handler-group-manifest.test.ts
-      - src/main/runtime/rpc/methods/repo.test.ts
-      - src/main/runtime/orca-runtime.test.ts
-      - src/main/runtime/orca-runtime-terminal-create-idempotency.test.ts
-      - src/main/runtime/runtime-rpc.test.ts
-      - src/main/runtime/rpc/errors.test.ts
-      - src/main/providers/ssh-pty-provider.test.ts
-      - src/main/daemon/daemon-pty-adapter.test.ts
-      - src/main/ipc/pty.test.ts
-      - src/main/project-groups/folder-workspace-path-status.test.ts
-      - src/main/persistence.test.ts
+      - sh
+      - -euc
+      - |
+        exec timeout --signal=TERM --kill-after=30s 10m pnpm exec vitest run \
+          --maxWorkers=1 \
+          --config config/vitest.config.ts \
+          src/cli/handlers/folder-workspace.test.ts \
+          src/cli/handlers/terminal.test.ts \
+          src/cli/runtime/execution-host.test.ts \
+          src/shared/folder-workspaces.test.ts \
+          src/cli/args.test.ts \
+          src/cli/registry-parity.test.ts \
+          src/cli/handler-group-manifest.test.ts \
+          src/main/runtime/rpc/methods/repo.test.ts \
+          src/main/runtime/orca-runtime.test.ts \
+          src/main/runtime/orca-runtime-terminal-create-idempotency.test.ts \
+          src/main/runtime/runtime-rpc.test.ts \
+          src/main/runtime/rpc/errors.test.ts \
+          src/main/providers/ssh-pty-provider-resize.test.ts \
+          src/main/providers/ssh-pty-provider.test.ts \
+          src/main/daemon/daemon-pty-adapter.test.ts \
+          src/main/daemon/terminal-host.test.ts \
+          src/main/ipc/pty.test.ts \
+          src/main/ipc/ssh-pty-output-intake.test.ts \
+          src/relay/pty-handler.test.ts \
+          src/main/project-groups/folder-workspace-path-status.test.ts \
+          src/main/persistence.test.ts
     init: true
     network_mode: host
 
@@ -62,7 +62,7 @@ services:
       - 10m
       - sh
       - -euc
-      - pnpm exec oxfmt --check src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/handlers/terminal.ts src/cli/handlers/terminal.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/core.ts src/cli/specs/folder-workspace.ts src/cli/specs/terminal.ts src/cli/terminal-format.ts src/main/daemon/daemon-pty-adapter.ts src/main/daemon/daemon-pty-adapter.test.ts src/main/ipc/pty.ts src/main/persistence.ts src/main/persistence.test.ts src/main/providers/ssh-pty-applied-size.ts src/main/providers/ssh-pty-provider.test.ts src/main/runtime/orca-runtime.ts src/main/runtime/orca-runtime.test.ts src/main/runtime/runtime-rpc.test.ts src/main/runtime/rpc/errors.ts src/main/runtime/rpc/errors.test.ts src/main/runtime/rpc/methods/folder-workspace.ts src/main/runtime/rpc/methods/repo.test.ts src/main/runtime/rpc/methods/terminal.ts src/shared/folder-workspaces.ts src/shared/folder-workspaces.test.ts src/shared/runtime-types.ts src/shared/terminal-dimensions.ts src/shared/types.ts && pnpm exec oxlint src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/handlers/terminal.ts src/cli/handlers/terminal.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/core.ts src/cli/specs/folder-workspace.ts src/cli/specs/terminal.ts src/cli/terminal-format.ts src/main/daemon/daemon-pty-adapter.ts src/main/daemon/daemon-pty-adapter.test.ts src/main/providers/ssh-pty-applied-size.ts src/main/providers/ssh-pty-provider.test.ts src/main/runtime/rpc/errors.ts src/main/runtime/rpc/errors.test.ts src/main/runtime/rpc/methods/terminal.ts src/main/runtime/runtime-rpc.test.ts src/shared/folder-workspaces.ts src/shared/folder-workspaces.test.ts src/shared/runtime-types.ts src/shared/terminal-dimensions.ts
+      - pnpm exec oxfmt --check src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/handlers/terminal.ts src/cli/handlers/terminal.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/core.ts src/cli/specs/folder-workspace.ts src/cli/specs/terminal.ts src/cli/terminal-format.ts src/main/daemon/daemon-pty-adapter.ts src/main/daemon/daemon-pty-adapter.test.ts src/main/ipc/pty.ts src/main/persistence.ts src/main/persistence.test.ts src/main/providers/ssh-pty-applied-size.ts src/main/providers/ssh-pty-provider-resize.test.ts src/main/providers/ssh-pty-provider.test.ts src/main/runtime/orca-runtime.ts src/main/runtime/orca-runtime.test.ts src/main/runtime/runtime-rpc.test.ts src/main/runtime/rpc/errors.ts src/main/runtime/rpc/errors.test.ts src/main/runtime/rpc/methods/folder-workspace.ts src/main/runtime/rpc/methods/repo.test.ts src/main/runtime/rpc/methods/terminal.ts src/shared/folder-workspaces.ts src/shared/folder-workspaces.test.ts src/shared/runtime-types.ts src/shared/terminal-dimensions.ts src/shared/types.ts && pnpm exec oxlint src/cli/args.ts src/cli/args.test.ts src/cli/handlers/folder-workspace.ts src/cli/handlers/folder-workspace.test.ts src/cli/handlers/terminal.ts src/cli/handlers/terminal.test.ts src/cli/runtime/client.ts src/cli/runtime/execution-host.ts src/cli/runtime/execution-host.test.ts src/cli/runtime/mutation-recovery.ts src/cli/specs/core.ts src/cli/specs/folder-workspace.ts src/cli/specs/terminal.ts src/cli/terminal-format.ts src/main/daemon/daemon-pty-adapter.ts src/main/daemon/daemon-pty-adapter.test.ts src/main/providers/ssh-pty-applied-size.ts src/main/providers/ssh-pty-provider-resize.test.ts src/main/providers/ssh-pty-provider.test.ts src/main/runtime/rpc/errors.ts src/main/runtime/rpc/errors.test.ts src/main/runtime/rpc/methods/terminal.ts src/main/runtime/runtime-rpc.test.ts src/shared/folder-workspaces.ts src/shared/folder-workspaces.test.ts src/shared/runtime-types.ts src/shared/terminal-dimensions.ts
     init: true
     network_mode: host
 
@@ -92,6 +92,7 @@ services:
       - src/main/runtime/orca-runtime.ts
       - src/main/runtime/runtime-rpc.test.ts
       - src/main/providers/ssh-pty-applied-size.ts
+      - src/main/providers/ssh-pty-provider-resize.test.ts
       - src/main/providers/ssh-pty-provider.test.ts
       - src/main/daemon/daemon-pty-adapter.ts
       - src/main/daemon/daemon-pty-adapter.test.ts

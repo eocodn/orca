@@ -29,7 +29,11 @@ function createHarness(
   const cancellation = vi.fn(cancelSourceDelivery)
   const dependencies: SshPtyOutputIntakeDependencies = {
     getModelSequence: () => 0,
-    acceptModel: (event) => ({ sequence: event.rawLength, completion: Promise.resolve() }),
+    acceptModel: (event) => ({
+      admitted: true,
+      sequence: event.rawLength,
+      completion: Promise.resolve()
+    }),
     project: vi.fn(),
     prepareExit: vi.fn(() => releaseExit),
     finalizeExit: () => exits.push('exit'),

@@ -97,6 +97,15 @@ export class DaemonPtyRouter implements IPtyProvider {
     this.adapterFor(id).resize(id, cols, rows)
   }
 
+  async resizeIfCurrent(
+    id: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): Promise<boolean> {
+    return await this.adapterFor(id).resizeIfCurrent(id, expectedIncarnationId, cols, rows)
+  }
+
   pauseProducer(id: string): void {
     this.adapterFor(id).pauseProducer(id)
   }

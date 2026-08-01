@@ -918,6 +918,24 @@ export class DaemonPtyAdapter implements IPtyProvider {
     this.client.notify('resize', { sessionId: id, cols, rows })
   }
 
+  async resizeIfCurrent(
+    id: string,
+    expectedIncarnationId: string,
+    cols: number,
+    rows: number
+  ): Promise<boolean> {
+    const response = await this.client.request<{ applied: boolean }>('resizeIfCurrent', {
+      sessionId: id,
+      expectedIncarnationId,
+      cols,
+      rows
+    })
+    if (response.applied) {
+      this.markSessionDirty(id)
+    }
+    return response.applied
+  }
+
   pauseProducer(id: string): void {
     if (!this.supportsProducerFlowControl) {
       return

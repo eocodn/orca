@@ -242,13 +242,82 @@ const PRODUCER_FLOW_CONTROL_ENABLED = true
 // Why: post-spawn write/resize/kill calls carry only the PTY ID; map it to its connectionId so ops route to the right provider.
 const ptyOwnership = new Map<string, string | null>()
 const ptyIncarnationById = new Map<string, string>()
+const pendingPtyIncarnationById = new Map<string, string>()
 
 export function isCurrentPtyExit(payload: { id: string; incarnationId?: string }): boolean {
+  const pending = pendingPtyIncarnationById.get(payload.id)
+  if (pending) {
+    return payload.incarnationId === pending
+  }
   const current = ptyIncarnationById.get(payload.id)
   return !current || payload.incarnationId === current
 }
+
+function stagePtyIncarnation(id: string, incarnationId: string | undefined): void {
+  if (incarnationId) {
+    pendingPtyIncarnationById.set(id, incarnationId)
+  }
+}
+
+function commitPtyIncarnation(id: string, incarnationId: string | undefined): void {
+  if (!incarnationId) {
+    return
+  }
+  if (pendingPtyIncarnationById.get(id) !== incarnationId) {
+    if (ptyIncarnationById.get(id) === incarnationId) {
+      return
+    }
+    throw new Error('pty_incarnation_commit_mismatch')
+  }
+  pendingPtyIncarnationById.delete(id)
+  ptyIncarnationById.set(id, incarnationId)
+}
+
+function rollbackPtyIncarnation(id: string, incarnationId: string | undefined): void {
+  if (incarnationId && pendingPtyIncarnationById.get(id) === incarnationId) {
+    pendingPtyIncarnationById.delete(id)
+  }
+}
 // Why: mobile clients must mirror desktop PTY geometry even before the renderer can provide an xterm snapshot (e.g. right after tab creation).
 const ptySizes = new Map<string, { cols: number; rows: number }>()
+
+type PtyPublicationSnapshot = Readonly<{
+  id: string
+  ownershipPresent: boolean
+  ownership: string | null | undefined
+  incarnation: string | undefined
+  size: { cols: number; rows: number } | undefined
+}>
+
+function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
+  const size = ptySizes.get(id)
+  return Object.freeze({
+    id,
+    ownershipPresent: ptyOwnership.has(id),
+    ownership: ptyOwnership.get(id),
+    incarnation: ptyIncarnationById.get(id),
+    size: size ? { ...size } : undefined
+  })
+}
+
+function restorePtyPublication(snapshot: PtyPublicationSnapshot): void {
+  pendingPtyIncarnationById.delete(snapshot.id)
+  if (snapshot.ownershipPresent) {
+    ptyOwnership.set(snapshot.id, snapshot.ownership ?? null)
+  } else {
+    ptyOwnership.delete(snapshot.id)
+  }
+  if (snapshot.incarnation) {
+    ptyIncarnationById.set(snapshot.id, snapshot.incarnation)
+  } else {
+    ptyIncarnationById.delete(snapshot.id)
+  }
+  if (snapshot.size) {
+    ptySizes.set(snapshot.id, snapshot.size)
+  } else {
+    ptySizes.delete(snapshot.id)
+  }
+}
 // Why: the "recent user input" signal is PTY-scoped and must be cleared by every teardown path, incl. SSH/daemon shutdowns that skip the local exit listener.
 const lastInputAtByPty = new Map<string, number>()
 const interactiveOutputCharsByPty = new Map<string, number>()
@@ -658,7 +727,8 @@ async function isProviderAgentSessionOwnerLive(
   if (provider.providesAgentSessionOwnerListings?.(owner.ptyId) !== true) {
     // Why: in-process local owners cannot serialize the controller claim; exact incarnation
     // liveness keeps that claim authoritative until the normal PTY exit releases it.
-    const expectedIncarnation = ptyIncarnationById.get(owner.ptyId)
+    const expectedIncarnation =
+      pendingPtyIncarnationById.get(owner.ptyId) ?? ptyIncarnationById.get(owner.ptyId)
     return expectedIncarnation !== undefined && session.incarnationId === expectedIncarnation
   }
   return Boolean(
@@ -1413,6 +1483,7 @@ export function clearProviderPtyState(
   // Why: SSH exit/teardown paths bypass pty.ts's local onExit but still must release Claude account-switch guards.
   markClaudePtyExited(id)
   ptySizes.delete(id)
+  pendingPtyIncarnationById.delete(id)
   ptyIncarnationById.delete(id)
   lastInputAtByPty.delete(id)
   interactiveOutputCharsByPty.delete(id)
@@ -1483,6 +1554,7 @@ export function restorePtyIncarnation(id: string, incarnationId: string): void {
   if (!isPtyIncarnationId(incarnationId)) {
     throw new Error('Invalid PTY incarnation')
   }
+  pendingPtyIncarnationById.delete(id)
   ptyIncarnationById.set(id, incarnationId)
 }
 
@@ -3359,10 +3431,40 @@ export function registerPtyHandlers(
 
     localDataUnsub = localProvider.onData((payload) => {
       const rawLength = payload.sequenceChars ?? payload.data.length
-      const outputSeq = isLocalProvider
-        ? runtime?.getPtyOutputSequence(payload.id)
-        : runtime?.onPtyData(payload.id, payload.data, Date.now(), rawLength, payload.transformed)
-      acceptPtyDataForRenderer(payload, outputSeq)
+      if (isLocalProvider) {
+        if (
+          runtime?.acceptsPtyDataForCurrentLifecycle &&
+          !runtime.acceptsPtyDataForCurrentLifecycle(payload.id)
+        ) {
+          return
+        }
+        acceptPtyDataForRenderer(payload, runtime?.getPtyOutputSequence(payload.id))
+        return
+      }
+      const admission = runtime?.acceptPtyDataBounded
+        ? runtime.acceptPtyDataBounded(
+            payload.id,
+            payload.data,
+            Date.now(),
+            rawLength,
+            payload.transformed
+          )
+        : runtime?.onPtyData
+          ? {
+              admitted: true,
+              sequence: runtime.onPtyData(
+                payload.id,
+                payload.data,
+                Date.now(),
+                rawLength,
+                payload.transformed
+              )
+            }
+          : undefined
+      if (admission?.admitted === false) {
+        return
+      }
+      acceptPtyDataForRenderer(payload, admission?.sequence)
     })
     localExitUnsub = localProvider.onExit((payload) => {
       if (!isCurrentPtyExit(payload)) {
@@ -3893,6 +3995,9 @@ export function registerPtyHandlers(
       if (args.worktreeId !== undefined) {
         spawnOptions.worktreeId = args.worktreeId
       }
+      let publicationSnapshot = effectiveSessionAppId
+        ? snapshotPtyPublication(effectiveSessionAppId)
+        : null
       const hadSessionSizeBeforeAttach =
         effectiveSessionAppId !== undefined ? ptySizes.has(effectiveSessionAppId) : false
       const sessionSizeBeforeAttach =
@@ -4035,7 +4140,7 @@ export function registerPtyHandlers(
                 if (providerResult.incarnationId) {
                   // Why: local providers cannot serialize controller claims, so liveness proof
                   // needs the exact incarnation before the registry promotes the new owner.
-                  ptyIncarnationById.set(providerResult.id, providerResult.incarnationId)
+                  stagePtyIncarnation(providerResult.id, providerResult.incarnationId)
                 }
                 const providerEnsure = providerResult.agentSessionEnsure
                 return {
@@ -4075,6 +4180,9 @@ export function registerPtyHandlers(
             assertSpawnReplyWasLive(result)
           }
           rejectedRegistrationCandidate ??= result
+          if (!publicationSnapshot || publicationSnapshot.id !== result.id) {
+            publicationSnapshot = snapshotPtyPublication(result.id)
+          }
           if (pendingRegistrationPtyId !== result.id) {
             if (pendingRegistrationPtyId) {
               runtime?.cancelPendingPtyRegistration?.(pendingRegistrationPtyId)
@@ -4089,9 +4197,7 @@ export function registerPtyHandlers(
             result.incarnationId
           )
           result.incarnationId ??= preparedIncarnation ?? undefined
-          if (result.incarnationId) {
-            ptyIncarnationById.set(result.id, result.incarnationId)
-          }
+          stagePtyIncarnation(result.id, result.incarnationId)
           if (result.providerSequence) {
             runtime?.synchronizePtyOutputSequenceFromProvider?.(
               result.id,
@@ -4127,6 +4233,12 @@ export function registerPtyHandlers(
             )
             pendingRegistrationPtyId = null
           }
+          if (rejectedRegistrationCandidate) {
+            rollbackPtyIncarnation(
+              rejectedRegistrationCandidate.id,
+              rejectedRegistrationCandidate.incarnationId
+            )
+          }
           const spawnError = normalizeNodePtySpawnError(err)
           const isIdentityMismatch =
             isSshPtyIdentityMismatchError(spawnError) || isSshPtyIdentityMismatchError(rawMessage)
@@ -4154,6 +4266,9 @@ export function registerPtyHandlers(
           if (isMintedSessionId && sessionId !== undefined) {
             clearProviderPtyState(sessionId)
           }
+          if (!rawMessage.includes(SSH_SESSION_EXPIRED_ERROR) && publicationSnapshot) {
+            restorePtyPublication(publicationSnapshot)
+          }
           throw spawnError
         } finally {
           if (args.preAllocatedHandle) {
@@ -4162,6 +4277,7 @@ export function registerPtyHandlers(
         }
         if (result.agentSessionEnsure?.disposition === 'adopted') {
           const owner = result.agentSessionEnsure.owner
+          commitPtyIncarnation(result.id, result.incarnationId)
           ptyOwnership.set(result.id, args.connectionId ?? ptyOwnership.get(result.id) ?? null)
           runtime?.registerPreAllocatedHandleForPty(result.id, owner.surface.terminalHandle)
           const registeredIncarnation = runtime?.registerPty(
@@ -4175,18 +4291,11 @@ export function registerPtyHandlers(
             }
           )
           result.incarnationId ??= registeredIncarnation ?? undefined
-          if (result.incarnationId) {
-            ptyIncarnationById.set(result.id, result.incarnationId)
-          }
           return {
             id: result.id,
             ...(result.incarnationId ? { incarnationId: result.incarnationId } : {}),
             agentSessionEnsure: result.agentSessionEnsure
           }
-        }
-        ptyOwnership.set(result.id, args.connectionId ?? null)
-        if (result.incarnationId) {
-          ptyIncarnationById.set(result.id, result.incarnationId)
         }
         // Why: record the native-Windows-local-PTY determination before any byte reaches the emulator, so its ConPTY DA1 override exists from byte zero.
         if (
@@ -4216,22 +4325,6 @@ export function registerPtyHandlers(
             lastAttachedAt: Date.now()
           })
         }
-        if (!hostSessionBinding) {
-          persistSshLease()
-        }
-        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
-        if (effectiveSessionAppId !== undefined && effectiveSessionAppId !== result.id) {
-          ptySizes.delete(effectiveSessionAppId)
-        }
-        recordCodexPaneAccountForSpawn({
-          ptyId: result.id,
-          isDaemonHostSpawn,
-          isReattach: result.isReattach === true,
-          pinnedByResume: Boolean(codexResumeHome),
-          launchCodexHomePath: selectedCodexHomePath,
-          target: codexSelectionTarget,
-          settings: getSettings?.()
-        })
         if (hostSessionBinding) {
           try {
             const binding = {
@@ -4252,7 +4345,6 @@ export function registerPtyHandlers(
             }
           } catch (err) {
             console.error('[pty] failed to persist runtime PTY binding after spawn:', err)
-            deletePtyOwnership(result.id)
             if (!result.isReattach) {
               try {
                 await provider.shutdown(result.id, { immediate: true })
@@ -4261,12 +4353,30 @@ export function registerPtyHandlers(
               }
               clearProviderPtyState(result.id)
             }
+            if (publicationSnapshot) {
+              restorePtyPublication(publicationSnapshot)
+            }
             throw Object.assign(new Error(createTerminalSessionStateSaveFailureMessage()), {
               agentSessionOperationOutcome: 'unknown' as const
             })
           }
-          persistSshLease()
         }
+        commitPtyIncarnation(result.id, result.incarnationId)
+        ptyOwnership.set(result.id, args.connectionId ?? null)
+        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
+        if (effectiveSessionAppId !== undefined && effectiveSessionAppId !== result.id) {
+          ptySizes.delete(effectiveSessionAppId)
+        }
+        recordCodexPaneAccountForSpawn({
+          ptyId: result.id,
+          isDaemonHostSpawn,
+          isReattach: result.isReattach === true,
+          pinnedByResume: Boolean(codexResumeHome),
+          launchCodexHomePath: selectedCodexHomePath,
+          target: codexSelectionTarget,
+          settings: getSettings?.()
+        })
+        persistSshLease()
         if (args.preAllocatedHandle) {
           runtime?.registerPreAllocatedHandleForPty(result.id, args.preAllocatedHandle)
         }
@@ -4291,9 +4401,6 @@ export function registerPtyHandlers(
               : undefined
           )
           result.incarnationId ??= registeredIncarnation ?? undefined
-          if (result.incarnationId) {
-            ptyIncarnationById.set(result.id, result.incarnationId)
-          }
         } else {
           // Why: non-worktree PTYs have no later surface-registration phase to clear admission intent.
           runtime?.cancelPendingPtyRegistration?.(result.id, result.incarnationId)
@@ -4632,6 +4739,17 @@ export function registerPtyHandlers(
       } catch {
         return false
       }
+    },
+    resizeIfCurrent: async (ptyId, expectedIncarnationId, cols, rows) => {
+      const provider = getProviderForPty(ptyId)
+      if (!provider.resizeIfCurrent) {
+        return false
+      }
+      const applied = await provider.resizeIfCurrent(ptyId, expectedIncarnationId, cols, rows)
+      if (applied) {
+        ptySizes.set(ptyId, { cols, rows })
+      }
+      return applied
     }
   })
 
@@ -5104,6 +5222,9 @@ export function registerPtyHandlers(
       if (effectiveShellOverride !== undefined) {
         spawnOptions.shellOverride = effectiveShellOverride
       }
+      let publicationSnapshot = effectiveSessionAppId
+        ? snapshotPtyPublication(effectiveSessionAppId)
+        : null
       const hadSessionSizeBeforeAttach =
         effectiveSessionAppId !== undefined ? ptySizes.has(effectiveSessionAppId) : false
       const sessionSizeBeforeAttach =
@@ -5178,6 +5299,9 @@ export function registerPtyHandlers(
             : 0
           result = await provider.spawn(spawnOptions)
           rejectedRegistrationCandidate = result
+          if (!publicationSnapshot || publicationSnapshot.id !== result.id) {
+            publicationSnapshot = snapshotPtyPublication(result.id)
+          }
           if (pendingRegistrationPtyId !== result.id) {
             if (pendingRegistrationPtyId) {
               runtime?.cancelPendingPtyRegistration?.(pendingRegistrationPtyId)
@@ -5192,9 +5316,7 @@ export function registerPtyHandlers(
             result.incarnationId
           )
           result.incarnationId ??= preparedIncarnation ?? undefined
-          if (result.incarnationId) {
-            ptyIncarnationById.set(result.id, result.incarnationId)
-          }
+          stagePtyIncarnation(result.id, result.incarnationId)
           if (result.providerSequence) {
             runtime?.synchronizePtyOutputSequenceFromProvider?.(
               result.id,
@@ -5234,6 +5356,12 @@ export function registerPtyHandlers(
               rejectedRegistrationCandidate?.incarnationId
             )
             pendingRegistrationPtyId = null
+          }
+          if (rejectedRegistrationCandidate) {
+            rollbackPtyIncarnation(
+              rejectedRegistrationCandidate.id,
+              rejectedRegistrationCandidate.incarnationId
+            )
           }
           const spawnError = normalizeNodePtySpawnError(err)
           const isIdentityMismatch =
@@ -5282,6 +5410,9 @@ export function registerPtyHandlers(
               ...getCohortAtEmit()
             })
           }
+          if (!rawMessage.includes(SSH_SESSION_EXPIRED_ERROR) && publicationSnapshot) {
+            restorePtyPublication(publicationSnapshot)
+          }
           throw spawnError
         } finally {
           if (preAllocatedHandle) {
@@ -5292,51 +5423,7 @@ export function registerPtyHandlers(
           daemon: isDaemonHostSpawn,
           reattach: result.isReattach ?? false
         })
-        recordCodexPaneAccountForSpawn({
-          ptyId: result.id,
-          isDaemonHostSpawn,
-          isReattach: result.isReattach === true,
-          pinnedByResume: Boolean(codexResumeHome),
-          launchCodexHomePath: selectedCodexHomePath,
-          target: codexSelectionTarget,
-          settings: getSettings?.()
-        })
-        ptyOwnership.set(result.id, args.connectionId ?? null)
-        if (result.incarnationId) {
-          ptyIncarnationById.set(result.id, result.incarnationId)
-        }
-        if (initiallyHidden) {
-          // Why marked synchronously here: provider data events dispatch on later tasks, so this still lands ahead of the first byte's delivery decision (idempotent if already marked pre-spawn).
-          transitionSpawnHiddenRendererPtyDeliveryState(result.id, true)
-          if (preSpawnHiddenMarkId !== null && preSpawnHiddenMarkId !== result.id) {
-            // Defense: never strand a mark on an id the provider renamed.
-            transitionSpawnHiddenRendererPtyDeliveryState(preSpawnHiddenMarkId, false)
-          }
-          // Why after ptyOwnership.set: provider lookup routes by ownership, and a hidden-spawned agent should be paceable from its first flood.
-          syncPtyBackgroundedDelivery(result.id, 'spawn')
-          closeStartupQueryAuthorityForPty(result.id)
-        }
-        // Why: record the native-Windows-ConPTY determination before the headless seed so the emulator's DA1 override exists from byte zero.
-        if (nativeWindowsConptySpawn) {
-          markNativeWindowsConptyPty(result.id)
-        }
         const relayResultId = getRelayPtyId(args.connectionId, result.id)
-        if (store && args.connectionId) {
-          // Why: remote PTYs live in the SSH relay grace window after Orca detaches; persist IDs immediately so reconnect reattaches instead of spawning a fresh shell.
-          store.upsertSshRemotePtyLease({
-            targetId: args.connectionId,
-            ptyId: relayResultId,
-            ...(typeof args.worktreeId === 'string' ? { worktreeId: args.worktreeId } : {}),
-            ...(typeof args.tabId === 'string' ? { tabId: args.tabId } : {}),
-            ...(validatedLeafId ? { leafId: validatedLeafId } : {}),
-            state: 'attached',
-            lastAttachedAt: Date.now()
-          })
-        }
-        if (preAllocatedHandle) {
-          runtime?.registerPreAllocatedHandleForPty(result.id, preAllocatedHandle)
-        }
-        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
         // Why: patch the load-bearing ptyId binding synchronously so a force-quit in the renderer's ~450 ms debounce window can't orphan daemon history or an SSH relay lease (Issue #217).
         if (
           store &&
@@ -5367,15 +5454,51 @@ export function registerPtyHandlers(
                 console.warn('[pty] failed to clean up PTY after persistence failure:', shutdownErr)
               }
               clearProviderPtyState(result.id)
-              deletePtyOwnership(result.id)
             }
-            if (!result.isReattach && args.connectionId && store) {
-              store.removeSshRemotePtyLease(args.connectionId, relayResultId)
+            if (publicationSnapshot) {
+              restorePtyPublication(publicationSnapshot)
             }
             throw Object.assign(new Error(createTerminalSessionStateSaveFailureMessage()), {
               agentSessionOperationOutcome: 'unknown' as const
             })
           }
+        }
+        commitPtyIncarnation(result.id, result.incarnationId)
+        ptyOwnership.set(result.id, args.connectionId ?? null)
+        ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
+        recordCodexPaneAccountForSpawn({
+          ptyId: result.id,
+          isDaemonHostSpawn,
+          isReattach: result.isReattach === true,
+          pinnedByResume: Boolean(codexResumeHome),
+          launchCodexHomePath: selectedCodexHomePath,
+          target: codexSelectionTarget,
+          settings: getSettings?.()
+        })
+        if (store && args.connectionId) {
+          store.upsertSshRemotePtyLease({
+            targetId: args.connectionId,
+            ptyId: relayResultId,
+            ...(typeof args.worktreeId === 'string' ? { worktreeId: args.worktreeId } : {}),
+            ...(typeof args.tabId === 'string' ? { tabId: args.tabId } : {}),
+            ...(validatedLeafId ? { leafId: validatedLeafId } : {}),
+            state: 'attached',
+            lastAttachedAt: Date.now()
+          })
+        }
+        if (preAllocatedHandle) {
+          runtime?.registerPreAllocatedHandleForPty(result.id, preAllocatedHandle)
+        }
+        if (initiallyHidden) {
+          transitionSpawnHiddenRendererPtyDeliveryState(result.id, true)
+          if (preSpawnHiddenMarkId !== null && preSpawnHiddenMarkId !== result.id) {
+            transitionSpawnHiddenRendererPtyDeliveryState(preSpawnHiddenMarkId, false)
+          }
+          syncPtyBackgroundedDelivery(result.id, 'spawn')
+          closeStartupQueryAuthorityForPty(result.id)
+        }
+        if (nativeWindowsConptySpawn) {
+          markNativeWindowsConptyPty(result.id)
         }
         // Why: when the renderer has declared it will own the serializer for this paneKey, suppress the daemon-snapshot seed so its hydration path is sole authority (keyed on paneKey since the ptyId isn't known yet). See docs/mobile-prefer-renderer-scrollback.md.
         const rendererPreSignaled = validatedPaneKey
@@ -5463,9 +5586,6 @@ export function registerPtyHandlers(
               : undefined
           )
           result.incarnationId ??= registeredIncarnation ?? undefined
-          if (result.incarnationId) {
-            ptyIncarnationById.set(result.id, result.incarnationId)
-          }
           pendingRegistrationPtyId = null
         } else if (pendingRegistrationPtyId) {
           runtime?.cancelPendingPtyRegistration?.(pendingRegistrationPtyId, result.incarnationId)

@@ -33,7 +33,7 @@ export function createSshPtyOutputIntakeHarness(
       sequence += input.rawLength
       const completion = deferred()
       completions.push(completion)
-      return { sequence, completion: completion.promise }
+      return { admitted: true, sequence, completion: completion.promise }
     },
     project: (input) => order.push(`project:${input.data}`),
     prepareExit: vi.fn(),
