@@ -91,9 +91,7 @@ export class SshPtyOutputModelMigration {
       const reason = outcome === 'timeout' ? 'timeout' : 'completion-failed'
       this.resetModel(key.providerGeneration, key.ptyId)
       this.admission.cancelPty(key, `ssh_model_migration_${reason}`)
-      if (outcome === 'timeout') {
-        await running.completion.catch(() => {})
-      }
+      // Why: timeout closes this generation's admission fence; a late provider completion must not block reconnect.
       return Object.freeze({ status: 'checkpoint-unavailable', reason })
     } finally {
       if (timer) {

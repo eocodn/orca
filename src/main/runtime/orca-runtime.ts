@@ -13045,6 +13045,14 @@ export class OrcaRuntimeService {
     if (exitIncarnationId && pty?.incarnationId && exitIncarnationId !== pty.incarnationId) {
       return
     }
+    if (
+      exitIncarnationId !== undefined &&
+      pty?.incarnationId === exitIncarnationId &&
+      pty.connected === false &&
+      pty.lastExitCode !== null
+    ) {
+      return
+    }
     const headlessIncarnation = this.headlessPtyIncarnationById.get(ptyId)
     if (exitIncarnationId && headlessIncarnation && exitIncarnationId !== headlessIncarnation) {
       return

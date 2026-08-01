@@ -499,6 +499,28 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     expect(setWorkspaceSession).not.toHaveBeenCalled()
   })
 
+  it('ignores a duplicate exact exit after the lifecycle is disconnected', () => {
+    const runtime = new OrcaRuntimeService()
+    runtime.registerPty('pty-duplicate-exit', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'incarnation-duplicate'
+    })
+
+    runtime.onPtyExit('pty-duplicate-exit', 0, 'incarnation-duplicate')
+    const internals = runtime as unknown as {
+      ptysById: Map<string, { connected: boolean; lastExitCode: number | null }>
+      ptyLifecycleGenerationById: Map<string, number>
+    }
+    const firstPty = internals.ptysById.get('pty-duplicate-exit')
+    const firstGeneration = internals.ptyLifecycleGenerationById.get('pty-duplicate-exit')
+
+    runtime.onPtyExit('pty-duplicate-exit', 0, 'incarnation-duplicate')
+
+    expect(firstPty).toMatchObject({ connected: false, lastExitCode: 0 })
+    expect(internals.ptyLifecycleGenerationById.get('pty-duplicate-exit')).toBe(firstGeneration)
+  })
+
   it('retires a durable surface after reconnect proves a newer incarnation', async () => {
     const session = makePersistedSplitSession()
     const setWorkspaceSession = vi.fn()

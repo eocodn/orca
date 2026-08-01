@@ -583,6 +583,103 @@ describe('SSH relay PTY incarnation exits', () => {
     await vi.waitFor(() => expect(clearProviderPtyState).toHaveBeenCalledOnce())
   })
 
+  it('drops an admitted exit that completes after its provider generation is torn down', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    let resolveOutput!: () => void
+    acceptOutputExitMock.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (resolveOutput = resolve))
+    )
+    const payload = {
+      id: 'ssh:target-1@@pty-late-generation',
+      code: 0,
+      incarnationId: 'same-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'same-incarnation'
+    }
+
+    onExit(payload)
+    await vi.waitFor(() => expect(acceptOutputExitMock).toHaveBeenCalledOnce())
+    ;(
+      session as unknown as { teardownProviders: (reason: 'connection_lost') => void }
+    ).teardownProviders('connection_lost')
+    ;(
+      session as unknown as { activePtyProviderGeneration: number | null }
+    ).activePtyProviderGeneration = 32
+
+    resolveOutput()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(clearProviderPtyState).not.toHaveBeenCalled()
+    expect(deletePtyOwnership).not.toHaveBeenCalled()
+    expect(mockStore.markSshRemotePtyLease).not.toHaveBeenCalled()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+  })
+
+  it('keeps exact cleanup pending when its finalizer throws', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      incarnationId: string
+      providerGeneration: number
+      ptyIncarnation: string
+    }) => void
+    const payload = {
+      id: 'ssh:target-1@@pty-finalizer-retry',
+      code: 0,
+      incarnationId: 'finalizer-incarnation',
+      providerGeneration: 31,
+      ptyIncarnation: 'finalizer-incarnation'
+    }
+    vi.mocked(getPendingPtyCleanupIncarnation).mockReturnValue(payload.ptyIncarnation)
+    vi.mocked(finalizePendingPtyCleanupIfExact)
+      .mockImplementationOnce(() => {
+        throw new Error('finalizer failed')
+      })
+      .mockReturnValueOnce(true)
+    vi.mocked(isCurrentPtyExit).mockReturnValue(true)
+
+    onExit(payload)
+    await Promise.resolve()
+    expect(finalizePendingPtyCleanupIfExact).toHaveBeenCalledOnce()
+    await new Promise<void>((resolve) => setImmediate(resolve))
+
+    onExit(payload)
+    await vi.waitFor(() => expect(finalizePendingPtyCleanupIfExact).toHaveBeenCalledTimes(2))
+  })
+
   it('keeps provider teardown single when intake finalized before rejecting', async () => {
     const { mockConn, mockStore, mockPortForward, getMainWindow, mockWindow } = createMockDeps()
     const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }

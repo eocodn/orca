@@ -88,6 +88,24 @@ describe('SshPtyOutputModelMigration', () => {
     }
   })
 
+  it('settles generation completion independently after a timed-out admission', async () => {
+    vi.useFakeTimers()
+    try {
+      const harness = createHarness()
+      harness.intake.acceptData(prodEvent())
+      const migration = harness.intake.beginGenerationMigration(1, 10_000)
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      const settled = vi.fn()
+      migration.completion.then(settled)
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(settled).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('fences a running source span before exporting its migration checkpoint', async () => {
     const harness = createHarness()
     const first = harness.intake.acceptData(

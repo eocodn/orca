@@ -1707,6 +1707,9 @@ export class SshRelaySession {
   }
 
   private async acceptPtyExit(payload: SshPtyExitPayload): Promise<void> {
+    if (this.activePtyProviderGeneration !== payload.providerGeneration) {
+      return
+    }
     const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
     const exitIncarnation = payload.incarnationId ?? payload.ptyIncarnation
     const exactCleanupPending =
@@ -1723,6 +1726,10 @@ export class SshRelaySession {
         ptyIncarnation: payload.ptyIncarnation
       })
     } catch (error) {
+      // Why: an admitted exit cannot mutate state after its provider generation has been torn down.
+      if (this.activePtyProviderGeneration !== payload.providerGeneration) {
+        return
+      }
       if (exactCleanupPending && finalizeExactCleanup()) {
         // Why: the exact provider exit is authoritative even when output delivery is canceled; retire relay state after finalizing the main-side cleanup snapshot.
         if (isCurrentPtyExit(payload)) {
@@ -1743,6 +1750,9 @@ export class SshRelaySession {
         return
       }
       throw error
+    }
+    if (this.activePtyProviderGeneration !== payload.providerGeneration) {
+      return
     }
     if (exactCleanupPending) {
       if (!finalizeExactCleanup()) {
