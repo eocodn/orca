@@ -14,7 +14,8 @@ const {
   sourceCancellationCleanupMock,
   attachForReconnectMock,
   ptyDataHandlerRef,
-  ptyExitHandlerRef
+  ptyExitHandlerRef,
+  ptyStateTokens
 } = vi.hoisted(() => ({
   acceptOutputDataMock: vi.fn().mockResolvedValue(undefined),
   acceptOutputExitMock: vi.fn().mockResolvedValue(undefined),
@@ -27,7 +28,8 @@ const {
   sourceCancellationCleanupMock: vi.fn(),
   attachForReconnectMock: vi.fn().mockResolvedValue({}),
   ptyDataHandlerRef: { current: undefined as undefined | ((payload: unknown) => void) },
-  ptyExitHandlerRef: { current: undefined as undefined | ((payload: unknown) => void) }
+  ptyExitHandlerRef: { current: undefined as undefined | ((payload: unknown) => void) },
+  ptyStateTokens: new Map<string, symbol>()
 }))
 
 vi.mock('./ssh-relay-deploy', () => ({ deployAndLaunchRelay: vi.fn() }))
@@ -97,11 +99,21 @@ vi.mock('../ipc/pty', () => ({
   clearPtyOwnershipForConnection: vi.fn(),
   clearProviderPtyState: vi.fn(),
   deletePtyOwnership: vi.fn(),
+  getPtyIncarnation: vi.fn(() => undefined),
+  getPtyStateToken: vi.fn((id: string) => ptyStateTokens.get(id)),
+  getOrCreatePtyStateToken: vi.fn((id: string) => {
+    const current = ptyStateTokens.get(id)
+    if (current) return current
+    const created = Symbol(id)
+    ptyStateTokens.set(id, created)
+    return created
+  }),
   restorePtyIncarnation: vi.fn(),
   getPendingPtyCleanupIncarnation: vi.fn(() => undefined),
   consumePendingPtyCleanupIfExact: vi.fn(() => false),
   finalizePendingPtyCleanupIfExact: vi.fn(() => false),
   hasPendingPtyCleanupExact: vi.fn(() => false),
+  consumeSshPtyExitFinalization: vi.fn(() => false),
   setPtyOwnership: vi.fn()
 }))
 vi.mock('../providers/ssh-filesystem-dispatch', () => ({
@@ -135,6 +147,7 @@ describe('SshRelaySession recovery race fencing', () => {
     vi.clearAllMocks()
     ptyDataHandlerRef.current = undefined
     ptyExitHandlerRef.current = undefined
+    ptyStateTokens.clear()
     attachForReconnectMock.mockResolvedValue({})
     vi.mocked(getPtyIdsForConnection).mockReturnValue([])
     vi.mocked(getSshPtyAcceptedSourceCheckpoints).mockReturnValue([])
@@ -288,6 +301,23 @@ describe('SshRelaySession recovery race fencing', () => {
       'pty-1',
       'attached'
     )
+  })
+
+  it('drops a stale source checkpoint after a not-found reattach', async () => {
+    const targetId = 'stale-checkpoint-after-not-found'
+    const { session, deps } = await prepareRecovery(targetId)
+    attachForReconnectMock
+      .mockRejectedValueOnce(new Error('PTY "pty-1" not found'))
+      .mockResolvedValueOnce({ incarnationId: 'replacement-incarnation' })
+
+    await session.reconnect(deps.mockConn)
+    vi.mocked(getSshPtyAcceptedSourceCheckpoints).mockReturnValue([])
+    await session.reconnect(deps.mockConn)
+
+    expect(attachForReconnectMock).toHaveBeenCalledTimes(2)
+    expect(attachForReconnectMock.mock.calls[1]?.[2]).toMatchObject({
+      status: 'checkpointUnavailable'
+    })
   })
 
   it('settles exact cancellation before publishing an exit with incomplete recovery data', async () => {

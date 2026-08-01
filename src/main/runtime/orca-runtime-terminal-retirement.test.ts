@@ -122,14 +122,14 @@ function syncSplit(runtime: OrcaRuntimeService, snapshot = makeSplitSnapshot()):
     leaves: [
       {
         tabId: 'tab',
-        worktreeId: WORKTREE_ID,
+        worktreeId: snapshot.worktree,
         leafId: 'left',
         paneRuntimeId: 1,
         ptyId: leftPtyId ?? 'pty-left'
       },
       {
         tabId: 'tab',
-        worktreeId: WORKTREE_ID,
+        worktreeId: snapshot.worktree,
         leafId: 'right',
         paneRuntimeId: 2,
         ptyId: rightPtyId ?? 'pty-right'
@@ -862,6 +862,25 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     })
   })
 
+  it('does not fence a pending replacement from an identity-less exit proven for the old incarnation', () => {
+    const runtime = new OrcaRuntimeService()
+    runtime.registerPty('pty-identityless-old-proof', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'old-incarnation'
+    })
+    runtime.beginPtyRegistration('pty-identityless-old-proof', 'new-incarnation')
+
+    runtime.onPtyExit('pty-identityless-old-proof', 0, undefined, {
+      authoritativeIdentityLess: true,
+      expectedIncarnationId: 'old-incarnation'
+    })
+
+    expect(() =>
+      runtime.assertPtyRegistrationAllowed('pty-identityless-old-proof', 'new-incarnation')
+    ).not.toThrow()
+  })
+
   it('retires an admitted headless replacement instead of rejecting it against the old PTY record', async () => {
     vi.useFakeTimers()
     try {
@@ -968,6 +987,11 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     folderWorkspacePresent = false
 
     expect(() => runtime.onPtyExit('pty-left', 0, 'folder-incarnation')).not.toThrow()
+    expect(
+      (runtime as unknown as { ptysById: Map<string, { connected: boolean }> }).ptysById.get(
+        'pty-left'
+      )?.connected
+    ).toBe(false)
   })
 
   it('uses the worktree execution host when the PTY record has already disappeared', async () => {

@@ -579,6 +579,16 @@ function isSupersededPtyCleanup(id: string, pending: CleanupPendingPty): boolean
   )
 }
 
+function isPtyStateClearedAfterPendingCleanup(id: string, pending: CleanupPendingPty): boolean {
+  // Why: after teardown clears lifecycle maps, authoritative provider absence is the remaining proof that this tombstone is stale.
+  return (
+    pending.publicationSnapshot?.stateToken !== undefined &&
+    ptyStateTokenById.get(id) === undefined &&
+    ptyIncarnationById.get(id) === undefined &&
+    pendingPtyIncarnationById.get(id) === undefined
+  )
+}
+
 export async function reconcilePendingPtyCleanup(
   provider: IPtyProvider,
   id: string
@@ -604,7 +614,9 @@ export async function reconcilePendingPtyCleanup(
     }
     if (
       finalizePendingPtyCleanupEntry(id, pending) ||
-      ((absenceProof.superseded || isSupersededPtyCleanup(id, pending)) &&
+      ((absenceProof.superseded ||
+        isSupersededPtyCleanup(id, pending) ||
+        isPtyStateClearedAfterPendingCleanup(id, pending)) &&
         deletePendingPtyCleanupEntry(id, pending))
     ) {
       // Why: authoritative absence proves the failed generation is gone; a newer lifecycle must not inherit its stale spawn fence when publication restoration is intentionally rejected.
@@ -612,6 +624,22 @@ export async function reconcilePendingPtyCleanup(
     }
   }
   return finalized
+}
+
+function providerCanSupersedeCleanupRetry(
+  provider: IPtyProvider,
+  scheduledProvider: IPtyProvider
+): boolean {
+  const candidateGeneration = providerGeneration(provider)
+  const scheduledGeneration = providerGeneration(scheduledProvider)
+  if (candidateGeneration !== undefined && scheduledGeneration !== undefined) {
+    return candidateGeneration > scheduledGeneration
+  }
+  const connectionId = providerConnectionId(provider)
+  if (connectionId !== undefined && connectionId !== null) {
+    return sshProviders.get(connectionId) === provider
+  }
+  return provider === localProvider
 }
 
 function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
@@ -626,6 +654,10 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
         return
       }
       if (scheduled) {
+        // Why: an older provider failure must not cancel the newer provider's only retry.
+        if (!providerCanSupersedeCleanupRetry(provider, scheduled.provider)) {
+          return
+        }
         clearTimeout(scheduled.timer)
         pendingPtyCleanupRetryTimersById.delete(id)
       }

@@ -2322,6 +2322,9 @@ export class SshRelaySession {
       return
     }
     const incarnationId = getPtyIncarnation(appPtyId)
+    const recovery = ptyConsumerRecoveryByTarget.get(this.targetId)
+    recovery?.checkpointsByAppPtyId.delete(appPtyId)
+    recovery?.checkpointsByAppPtyId.delete(ptyId)
     clearProviderPtyState(appPtyId)
     deletePtyOwnership(appPtyId)
     this.store.markSshRemotePtyLease(this.targetId, ptyId, 'expired')

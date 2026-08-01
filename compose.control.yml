@@ -37,6 +37,7 @@ services:
           src/main/ssh/ssh-relay-session-incarnation.test.ts \
           src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts \
           src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts \
+          src/main/ssh/ssh-relay-session-recovery-races.test.ts \
           src/main/daemon/daemon-pty-adapter.test.ts \
           src/main/daemon/terminal-host.test.ts \
           src/main/ipc/pty.test.ts \

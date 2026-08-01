@@ -9140,6 +9140,129 @@ describe('registerPtyHandlers', () => {
     )
   })
 
+  it('does not let a late old-provider failure cancel a newer cleanup retry', async () => {
+    const connectionId = 'ssh-late-old-provider-failure'
+    const sessionId = 'pty-ssh-late-old-provider-failure'
+    const appPtyId = `ssh:${connectionId}@@${sessionId}`
+    let rejectOldInventory!: (error: Error) => void
+    const oldInventory = new Promise<never>((_, reject) => {
+      rejectOldInventory = reject
+    })
+    const oldProvider = createAgentClaimProvider({
+      spawn: vi.fn().mockResolvedValue({ id: appPtyId, incarnationId: 'inc-ssh-old-late' }),
+      shutdown: vi.fn().mockRejectedValue(new Error('shutdown response lost')),
+      listProcesses: vi.fn(() => oldInventory),
+      authoritativeOwnerListings: false
+    })
+    ;(oldProvider as { providerGeneration?: number }).providerGeneration = 1
+    const newListProcesses = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('new relay inventory unavailable'))
+      .mockResolvedValue([])
+    const newProvider = createAgentClaimProvider({
+      listProcesses: newListProcesses,
+      authoritativeOwnerListings: false
+    })
+    ;(newProvider as { providerGeneration?: number }).providerGeneration = 2
+    registerSshPtyProvider(connectionId, oldProvider as never)
+
+    const runtime = {
+      setPtyController: vi.fn(),
+      registerPty: vi.fn(() => {
+        throw new Error('publication failed')
+      }),
+      beginPtyRegistration: vi.fn(),
+      cancelPendingPtyRegistration: vi.fn(),
+      onPtyExit: vi.fn()
+    }
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      spawn: (args: Record<string, unknown>) => Promise<unknown>
+    }
+    const spawn = controller.spawn({
+      cols: 90,
+      rows: 30,
+      connectionId,
+      sessionId,
+      worktreeId: 'wt-ssh-late-old-provider',
+      tabId: 'tab-ssh-late-old-provider',
+      leafId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    })
+    const spawnFailure = spawn.then(
+      () => {
+        throw new Error('spawn unexpectedly resolved')
+      },
+      (error: unknown) => {
+        expect(error).toMatchObject({ message: 'publication failed' })
+      }
+    )
+
+    await vi.waitFor(() => expect(oldProvider.listProcesses).toHaveBeenCalled())
+    unregisterSshPtyProvider(connectionId)
+    registerSshPtyProvider(connectionId, newProvider as never)
+    await vi.waitFor(() => expect(newListProcesses).toHaveBeenCalledOnce())
+    await Promise.resolve()
+    rejectOldInventory(new Error('old relay disposed'))
+    await spawnFailure
+
+    await vi.waitFor(() => expect(newListProcesses).toHaveBeenCalledTimes(2), {
+      timeout: 1_000
+    })
+    expect(getPendingPtyCleanupIncarnation(appPtyId)).toBeUndefined()
+    unregisterSshPtyProvider(connectionId)
+  })
+
+  it('reconciles a cleanup tombstone after its provider state was cleared', async () => {
+    const ptyId = 'pty-cleanup-state-cleared-before-absence'
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn().mockResolvedValue({ id: ptyId, incarnationId: 'inc-state-cleared' }),
+      shutdown: vi.fn().mockRejectedValue(new Error('shutdown response lost')),
+      listProcesses: vi.fn().mockRejectedValue(new Error('provider unavailable')),
+      authoritativeOwnerListings: false
+    })
+    setLocalPtyProvider(provider as never)
+    const runtime = {
+      setPtyController: vi.fn(),
+      registerPty: vi.fn(),
+      onPtyExit: vi.fn()
+    }
+    const store = {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      runtime as never,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      spawn: (args: Record<string, unknown>) => Promise<unknown>
+    }
+
+    await expect(
+      controller.spawn({
+        cols: 80,
+        rows: 24,
+        sessionId: ptyId,
+        worktreeId: 'repo::/tmp/worktree',
+        tabId: 'tab-state-cleared-before-absence',
+        leafId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        persistHostSessionBinding: true
+      })
+    ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+    expect(hasPendingPtyCleanupExact(ptyId, 'inc-state-cleared')).toBe(true)
+
+    clearProviderPtyState(ptyId)
+    provider.listProcesses = vi.fn(async () => [])
+
+    await expect(reconcilePendingPtyCleanup(provider as never, ptyId)).resolves.toBe(true)
+    expect(hasPendingPtyCleanupExact(ptyId, 'inc-state-cleared')).toBe(false)
+  })
+
   it('retains exact cleanup authority when its finalizer fails once', async () => {
     const ptyId = 'pty-finalizer-failure-retry'
     const incarnationId = 'inc-finalizer-failure-retry'

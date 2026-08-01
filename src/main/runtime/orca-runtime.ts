@@ -13296,7 +13296,7 @@ export class OrcaRuntimeService {
       this.pendingPtyRegistrationIncarnations.has(ptyId) &&
       (pendingIncarnation === null ||
         exitIncarnationId === null ||
-        exitIncarnationId === undefined ||
+        (exitIncarnationId === undefined && options.expectedIncarnationId === undefined) ||
         pendingIncarnation === exitIncarnationId)
     if (exitMatchesPendingRegistration) {
       // Why: reused surfaces can look registered while their replacement incarnation still awaits admission.
@@ -13393,13 +13393,21 @@ export class OrcaRuntimeService {
     } else {
       // Why: permanent process exit is absence, not a starting/sleeping tab.
       // Retire before publishing so paired clients never persist a ghost.
-      const executionHostId = pty?.connectionId
-        ? this.getPtyExecutionHostId(pty)
-        : exactSurfaces[0]
-          ? this.getWorkspaceSessionHostIdForWorktree(exactSurfaces[0].worktreeId)
-          : pty
-            ? this.getPtyExecutionHostId(pty)
-            : undefined
+      let executionHostId: ExecutionHostId | undefined
+      if (pty?.connectionId) {
+        executionHostId = this.getPtyExecutionHostId(pty)
+      } else if (exactSurfaces[0]) {
+        try {
+          executionHostId = this.getWorkspaceSessionHostIdForWorktree(exactSurfaces[0].worktreeId)
+        } catch (error) {
+          // Why: folder deletion can race PTY exit; retirement re-resolves each surface and owns the missing-folder policy.
+          if (!(error instanceof Error && error.message === 'folder_workspace_not_found')) {
+            console.error('[runtime] failed to resolve terminal retirement host:', error)
+          }
+        }
+      } else if (pty) {
+        executionHostId = this.getPtyExecutionHostId(pty)
+      }
       const durableRetirementComplete = this.retireMobileSessionSurfacesForPty(
         ptyId,
         incarnationId,
