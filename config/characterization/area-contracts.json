@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "expectedAreaSetSha256": "62edd91709bd746b8769475906792f6426d6f00bdf62739fbe847f618d643669",
+  "expectedAreaSetSha256": "1be15a78ae5833f92269c50c2d7c5a382904f91f68138e1acf559c3a3969a410",
   "areas": [
     {"id":"workspace-registration-restore","owner":"runtime.worktree/folder-workspace and persisted session","observations":["authoritative host-qualified identity","restart restoration","folder workspace without Git"],"failures":["missing path","wrong host generation","concurrent registration"],"layer":"core-integration","coverage":["src/main/runtime/rpc/methods/worktree.test.ts","src/renderer/src/lib/workspace-session.test.ts"]},
     {"id":"worktree-preflight","owner":"runtime.worktree and preflight","observations":["Git read-back","dirty and active-process refusal","idempotent create/delete"],"failures":["partial Git failure","duplicate request","stale detection generation"],"layer":"core-integration","coverage":["src/main/runtime/rpc/methods/preflight.test.ts","src/renderer/src/store/slices/preflight.test.ts"]},
