@@ -1153,6 +1153,25 @@ describe('registerPtyHandlers', () => {
     clearProviderPtyState(ptyId)
   })
 
+  it('accepts a derived PTY incarnation as current exit proof', () => {
+    const ptyId = 'ssh:target-1@@pty-derived-exit'
+    restorePtyIncarnation(ptyId, 'incarnation-derived')
+
+    expect(
+      isCurrentPtyExit({
+        id: ptyId,
+        ptyIncarnation: 'incarnation-derived'
+      } as never)
+    ).toBe(true)
+    expect(
+      isCurrentPtyExit({
+        id: ptyId,
+        ptyIncarnation: 'incarnation-stale'
+      } as never)
+    ).toBe(false)
+    clearProviderPtyState(ptyId)
+  })
+
   it('fails closed when a recovered claimed owner omits incarnation proof', async () => {
     const owner: AgentSessionOwnerBinding = {
       claim: {
@@ -8223,10 +8242,10 @@ describe('registerPtyHandlers', () => {
 
     await vi.waitFor(() => expect(oldProvider.shutdown).toHaveBeenCalledOnce())
     unregisterSshPtyProvider(connectionId)
+    registerSshPtyProvider(connectionId, newProvider as never)
     rejectShutdown(new Error('shutdown response lost'))
     await expect(spawn).rejects.toThrow('publication failed')
 
-    registerSshPtyProvider(connectionId, newProvider as never)
     await vi.waitFor(() =>
       expect(runtime.onPtyExit).toHaveBeenCalledWith(appPtyId, -1, 'inc-ssh-old')
     )

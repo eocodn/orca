@@ -290,17 +290,22 @@ export function consumeSshPtyExitFinalization(payload: {
   return true
 }
 
-export function isCurrentPtyExit(payload: { id: string; incarnationId?: string }): boolean {
+export function isCurrentPtyExit(payload: {
+  id: string
+  incarnationId?: string
+  ptyIncarnation?: string
+}): boolean {
+  const incarnationId = payload.incarnationId ?? payload.ptyIncarnation
   const current = ptyIncarnationById.get(payload.id)
   if (current) {
-    return payload.incarnationId === current
+    return incarnationId === current
   }
   const pending = pendingPtyIncarnationById.get(payload.id)
   if (pending) {
-    return payload.incarnationId === pending
+    return incarnationId === pending
   }
   const cleanupPending = getPendingPtyCleanupIncarnation(payload.id)
-  return cleanupPending === undefined || payload.incarnationId === cleanupPending
+  return cleanupPending === undefined || incarnationId === cleanupPending
 }
 
 function stagePtyIncarnation(id: string, incarnationId: string | undefined): void {
@@ -537,6 +542,14 @@ function schedulePendingPtyCleanupReconciliation(provider: IPtyProvider): void {
   ).catch((error) => {
     console.warn('[pty] pending cleanup reconciliation failed:', error)
   })
+}
+
+function scheduleCurrentPtyCleanupReconciliation(id: string): void {
+  const parsed = parseAppSshPtyId(id)
+  const provider = parsed ? sshProviders.get(parsed.connectionId) : undefined
+  if (provider) {
+    schedulePendingPtyCleanupReconciliation(provider)
+  }
 }
 
 function scheduleOriginalPtyCleanupAuthorities(): void {
@@ -2151,6 +2164,7 @@ export function registerPtyHandlers(
       }
       setPendingPtyCleanupForResult(provider, result, snapshot)
       schedulePendingPtyCleanupReconciliation(provider)
+      scheduleCurrentPtyCleanupReconciliation(result.id)
       return
     }
 
@@ -2173,6 +2187,7 @@ export function registerPtyHandlers(
     if (!absent) {
       setPendingPtyCleanupForResult(provider, result, snapshot)
       schedulePendingPtyCleanupReconciliation(provider)
+      scheduleCurrentPtyCleanupReconciliation(result.id)
       return
     }
     deletePendingPtyCleanupExact(result.id, result.incarnationId)

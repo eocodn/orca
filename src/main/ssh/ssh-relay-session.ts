@@ -118,6 +118,7 @@ const SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS = 10_000
 const SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS = 50
 const SSH_PTY_REATTACH_RETRY_JITTER_MS = 200
 const SSH_SOURCE_RECOVERY_CANCELLATION_FAILED = 'ssh_source_recovery_cancellation_failed'
+const SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE = 1024
 type PendingPtyReattach = {
   mux: SshChannelMultiplexer
   providerGeneration: number
@@ -294,7 +295,10 @@ export class SshRelaySession {
     }>
   >()
   private readonly retiredSourceDeliveries = new SshPtyRetiredSourceDeliveries()
-  private readonly retiredPtyExitIncarnations = new Map<string, Set<string>>()
+  private readonly activePtyExitPromises = new Map<string, Promise<void>>()
+  private readonly retiredPtyExitIncarnations = new Map<string, Map<string, number>>()
+  private readonly retiredPtyExitOrder = new Map<number, { id: string; ptyIncarnation: string }>()
+  private nextRetiredPtyExitSequence = 0
   private readonly ptyConsumerClientInstanceId: string
   private ptyConsumerSessionState: SshPtyConsumerSessionState | null = null
   private activeCompatibilityAttachmentIds = new Set<string>()
@@ -1275,7 +1279,9 @@ export class SshRelaySession {
     unregisterSshGitProvider(this.targetId)
     this.sourceIdentityByRelayPtyId.clear()
     this.retiredSourceDeliveries.clear()
+    this.activePtyExitPromises.clear()
     this.retiredPtyExitIncarnations.clear()
+    this.retiredPtyExitOrder.clear()
     for (const pending of this.pendingPtyReattaches.values()) {
       for (const resolve of pending.recoveryWaiters) {
         resolve()
@@ -1396,15 +1402,15 @@ export class SshRelaySession {
         return
       }
       const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
-      if (pendingCleanupIncarnation !== undefined && payload.incarnationId === undefined) {
+      const exitIncarnation = payload.incarnationId ?? payload.ptyIncarnation
+      if (pendingCleanupIncarnation !== undefined && exitIncarnation === undefined) {
         return
       }
       const exactCleanupPending =
-        hasPendingPtyCleanupExact?.(payload.id, payload.incarnationId) === true ||
-        (pendingCleanupIncarnation !== undefined &&
-          payload.incarnationId === pendingCleanupIncarnation)
+        hasPendingPtyCleanupExact?.(payload.id, exitIncarnation) === true ||
+        (pendingCleanupIncarnation !== undefined && exitIncarnation === pendingCleanupIncarnation)
       if (exactCleanupPending) {
-        void this.acceptPtyExit(payload).catch(() => {})
+        void this.acceptPtyExitOnce(payload).catch(() => {})
         return
       }
       const pendingReattach = this.pendingPtyReattaches.get(payload.id)
@@ -1420,8 +1426,26 @@ export class SshRelaySession {
       if (!isCurrentPtyExit(payload)) {
         return
       }
-      void this.acceptPtyExit(payload).catch(() => {})
+      void this.acceptPtyExitOnce(payload).catch(() => {})
     })
+  }
+
+  private acceptPtyExitOnce(payload: SshPtyExitPayload): Promise<void> {
+    const key = JSON.stringify([payload.providerGeneration, payload.id, payload.ptyIncarnation])
+    const active = this.activePtyExitPromises.get(key)
+    if (active) {
+      return active
+    }
+    const promise = this.acceptPtyExit(payload)
+    this.activePtyExitPromises.set(key, promise)
+    void promise
+      .finally(() => {
+        if (this.activePtyExitPromises.get(key) === promise) {
+          this.activePtyExitPromises.delete(key)
+        }
+      })
+      .catch(() => {})
+    return promise
   }
 
   private acceptPtyData(payload: SshPtyDataPayload): Promise<unknown> {
@@ -1684,13 +1708,13 @@ export class SshRelaySession {
 
   private async acceptPtyExit(payload: SshPtyExitPayload): Promise<void> {
     const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
+    const exitIncarnation = payload.incarnationId ?? payload.ptyIncarnation
     const exactCleanupPending =
-      hasPendingPtyCleanupExact?.(payload.id, payload.incarnationId) === true ||
-      (pendingCleanupIncarnation !== undefined &&
-        payload.incarnationId === pendingCleanupIncarnation)
+      hasPendingPtyCleanupExact?.(payload.id, exitIncarnation) === true ||
+      (pendingCleanupIncarnation !== undefined && exitIncarnation === pendingCleanupIncarnation)
     const finalizeExactCleanup = (): boolean =>
-      finalizePendingPtyCleanupIfExact?.(payload) === true ||
-      consumePendingPtyCleanupIfExact(payload)
+      finalizePendingPtyCleanupIfExact?.({ id: payload.id, incarnationId: exitIncarnation }) ===
+        true || consumePendingPtyCleanupIfExact({ id: payload.id, incarnationId: exitIncarnation })
     try {
       await acceptSshPtyOutputExit({
         id: payload.id,
@@ -1737,19 +1761,7 @@ export class SshRelaySession {
       if (retired?.has(ptyIncarnation)) {
         return
       }
-      if (retired) {
-        if (retired.size >= 128) {
-          const oldest = retired.values().next().value
-          if (oldest !== undefined) {
-            retired.delete(oldest)
-          }
-        }
-        retired.add(ptyIncarnation)
-      } else {
-        this.retiredPtyExitIncarnations.set(payload.id, new Set([ptyIncarnation]))
-      }
     }
-    consumeSshPtyExitFinalization?.({ id: payload.id, ptyIncarnation: payload.ptyIncarnation })
     const relayPtyId = toRelaySshPtyId(this.targetId, payload.id)
     this.retiredSourceDeliveries.activate(relayPtyId)
     clearProviderPtyState(payload.id)
@@ -1759,14 +1771,42 @@ export class SshRelaySession {
       .get(this.targetId)
       ?.checkpointsByAppPtyId.delete(toRelaySshPtyId(this.targetId, payload.id))
     this.store.markSshRemotePtyLease(this.targetId, relayPtyId, 'terminated')
-    if (deliveryHandled) {
+    if (!deliveryHandled) {
+      this.runtime?.onPtyExit(payload.id, payload.code, ptyIncarnation)
+      const win = this.getMainWindow()
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('pty:exit', payload)
+      }
+    }
+    consumeSshPtyExitFinalization?.({ id: payload.id, ptyIncarnation })
+    if (ptyIncarnation) {
+      this.rememberRetiredPtyExit(payload.id, ptyIncarnation)
+    }
+  }
+
+  private rememberRetiredPtyExit(id: string, ptyIncarnation: string): void {
+    const retired = this.retiredPtyExitIncarnations.get(id) ?? new Map<string, number>()
+    if (retired.has(ptyIncarnation)) {
       return
     }
-    this.runtime?.onPtyExit(payload.id, payload.code, payload.incarnationId)
-    const win = this.getMainWindow()
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('pty:exit', payload)
+    if (this.retiredPtyExitOrder.size >= SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE) {
+      const oldest = this.retiredPtyExitOrder.entries().next().value
+      if (oldest) {
+        const [sequence, evidence] = oldest
+        this.retiredPtyExitOrder.delete(sequence)
+        const oldRetired = this.retiredPtyExitIncarnations.get(evidence.id)
+        if (oldRetired?.get(evidence.ptyIncarnation) === sequence) {
+          oldRetired.delete(evidence.ptyIncarnation)
+          if (oldRetired.size === 0) {
+            this.retiredPtyExitIncarnations.delete(evidence.id)
+          }
+        }
+      }
     }
+    const sequence = ++this.nextRetiredPtyExitSequence
+    retired.set(ptyIncarnation, sequence)
+    this.retiredPtyExitIncarnations.set(id, retired)
+    this.retiredPtyExitOrder.set(sequence, { id, ptyIncarnation })
   }
 
   private forwardReattachReplay(appPtyId: string, data: string): void {
@@ -1901,7 +1941,7 @@ export class SshRelaySession {
           restorePtyIncarnation(appPtyId, attachResult.incarnationId)
           this.runtime?.acceptPtyIncarnationForExit?.(appPtyId, attachResult.incarnationId)
         }
-        await this.acceptPtyExit(exitDuringAttach)
+        await this.acceptPtyExitOnce(exitDuringAttach)
         return
       }
       if (recoveryRequest) {
@@ -1946,7 +1986,7 @@ export class SshRelaySession {
               }
             }
             this.preparePtyIncarnationForExit(appPtyId, attachResult.incarnationId)
-            await this.acceptPtyExit(recoveryExit)
+            await this.acceptPtyExitOnce(recoveryExit)
           }
           return
         }
@@ -1956,7 +1996,7 @@ export class SshRelaySession {
           pendingReattach.activated = true
           recoveryActivationLease?.commit()
           recoveryActivationLease = undefined
-          await this.acceptPtyExit(recoveryExit)
+          await this.acceptPtyExitOnce(recoveryExit)
           return
         }
       }
@@ -1981,7 +2021,7 @@ export class SshRelaySession {
         attachResult.incarnationId
       )
       if (exitAfterActivation) {
-        await this.acceptPtyExit(exitAfterActivation)
+        await this.acceptPtyExitOnce(exitAfterActivation)
         return
       }
       if (!recoveryRequest) {
