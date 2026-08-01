@@ -7710,21 +7710,21 @@ describe('registerPtyHandlers', () => {
     if (!emitExit) {
       throw new Error('expected provider exit listener')
     }
-    restorePtyIncarnation(sessionId, 'inc-cleanup-replacement')
     emitExit({ id: sessionId, code: 0, incarnationId: 'inc-cleanup-2' })
-    expect(isCurrentPtyExit({ id: sessionId, incarnationId: 'inc-cleanup-replacement' })).toBe(true)
+    await expect(
+      (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 100, rows: 40 })
+    ).resolves.toEqual({ id: sessionId, incarnationId: 'inc-cleanup-3' })
+    emitExit({ id: sessionId, code: 0, incarnationId: 'inc-cleanup-2' })
+    expect(isCurrentPtyExit({ id: sessionId, incarnationId: 'inc-cleanup-3' })).toBe(true)
     expect(isCurrentPtyExit({ id: sessionId, incarnationId: 'inc-cleanup-2' })).toBe(false)
     expect(
       mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:exit')
     ).toHaveLength(0)
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
     await expect(handlers.get('pty:getSize')!(null, { id: sessionId })).resolves.toEqual({
-      cols: 90,
-      rows: 30
+      cols: 100,
+      rows: 40
     })
-    await expect(
-      (controller as unknown as RuntimeSpawnController).spawn({ ...args, cols: 100, rows: 40 })
-    ).resolves.toEqual({ id: sessionId, incarnationId: 'inc-cleanup-3' })
     expect(provider.spawn).toHaveBeenCalledTimes(3)
   })
 
