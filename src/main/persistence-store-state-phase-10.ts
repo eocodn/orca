@@ -276,6 +276,19 @@ import {
   preserveMissingLeafRecordEntries,
   remapLeafRecordForPersistence
 } from './persistence-layout-records'
+import {
+  mergeContextualTourSeenIds,
+  mergeFeatureInteractions,
+  normalizeGroupBy,
+  normalizeProjectOrderBy,
+  normalizeShowDotfilesByWorktree,
+  normalizeSortBy,
+  stripMainOwnedTelemetryMarkerFromUI
+} from './persistence-state-paths'
+import {
+  normalizeRightSidebarExplorerView,
+  normalizeRightSidebarTab
+} from './persistence-state-migrations'
 
 import { removeWorkspaceSessionOwner,
   removeWorkspaceSessionOwners,

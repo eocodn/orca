@@ -276,6 +276,21 @@ import {
   preserveMissingLeafRecordEntries,
   remapLeafRecordForPersistence
 } from './persistence-layout-records'
+import { retireLegacyInstructionsForClearedTextActionRecipes } from './persistence-state-foundation'
+import {
+  buildWorkspaceDirHistoryForUpdate,
+  normalizeGroupBy,
+  normalizeProjectOrderBy,
+  normalizeShowDotfilesByWorktree,
+  normalizeSortBy,
+  stripLegacyTerminalScrollbackBytes,
+  stripMainOwnedTelemetryMarkerFromUI
+} from './persistence-state-paths'
+import {
+  normalizeNotificationSettings,
+  normalizeRightSidebarExplorerView,
+  normalizeRightSidebarTab
+} from './persistence-state-migrations'
 
 import { removeWorkspaceSessionOwner,
   removeWorkspaceSessionOwners,
