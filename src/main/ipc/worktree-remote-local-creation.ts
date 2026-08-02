@@ -1,28 +1,17 @@
-// Why: worktree create helpers (local + remote) split out of worktrees.ts; the cohesive create flow runs this file just over the per-file line limit.
+// Why: this module owns the local create lifecycle; Git-add dispatch is isolated so lifecycle ordering stays visible here.
 
 import type { BrowserWindow } from 'electron'
-import { posix, win32 } from 'node:path'
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import type { Store } from '../persistence'
 import type {
-  AutomationWorkspaceProvenance,
-  CliWorkspaceProvenance,
-  CreateWorktreeArgs,
   CreateWorktreeResult,
   GitPushTarget,
-  GlobalSettings,
-  LocalBaseRefRefreshResult,
-  LocalBaseRefUpdateSuggestion,
   Repo,
-  Worktree,
-  WorktreeCreateBaseFallback,
-  WorktreeHeadIdentity,
   WorktreeMeta
 } from '../../shared/types'
 import { getPRForBranch } from '../github/client'
-import { listWorktrees, addWorktree, addSparseWorktree } from '../git/worktree'
-import type { AddWorktreeOptions, AddWorktreeResult } from '../git/worktree'
+import { listWorktrees } from '../git/worktree'
 import {
   getBranchConflictKind,
   resolveDefaultBaseRefViaExec,
@@ -98,6 +87,7 @@ import {
 import { formatWorktreeIncludeCopyWarning } from './worktree-include-copy-budget'
 import { resolveWorktreeIncludePaths } from '../git/worktree-include-file'
 import { resolveWorktreeSharedDirectories } from '../git/worktree-shared-directories'
+import { addLocalWorktree } from './worktree-remote-local-git-add'
 
 export async function createLocalWorktree(
   args: CreateWorktreeArgsWithSystemProvenance,
@@ -312,99 +302,21 @@ export async function createLocalWorktree(
     !settings.refreshLocalBaseRefOnWorktreeCreate &&
     !settings.localBaseRefSuggestionDismissed &&
     Boolean(remoteTrackingBase)
-  const remoteTrackingBaseOption = remoteTrackingBase ? { remoteTrackingBase } : undefined
-  const existingBranchOption = {
-    checkoutExistingBranch,
-    ...remoteTrackingBaseOption,
-    ...(suggestLocalBaseRefUpdate ? { suggestLocalBaseRefUpdate } : {})
-  }
-  const addResult: AddWorktreeResult =
-    (await timing.time('git_worktree_add', async () => {
-      if (sparseDirectories.length > 0) {
-        if (checkoutExistingBranch) {
-          return addSparseWorktree(
-            repo.path,
-            worktreePath,
-            branchName,
-            sparseDirectories,
-            baseBranch,
-            settings.refreshLocalBaseRefOnWorktreeCreate,
-            addProjectGitOptions(existingBranchOption)
-          )
-        }
-        if (suggestLocalBaseRefUpdate) {
-          return addSparseWorktree(
-            repo.path,
-            worktreePath,
-            branchName,
-            sparseDirectories,
-            baseBranch,
-            settings.refreshLocalBaseRefOnWorktreeCreate,
-            addProjectGitOptions({ ...remoteTrackingBaseOption, suggestLocalBaseRefUpdate })
-          )
-        }
-        const sparseOptions = addProjectGitOptions(remoteTrackingBaseOption)
-        return sparseOptions
-          ? addSparseWorktree(
-              repo.path,
-              worktreePath,
-              branchName,
-              sparseDirectories,
-              baseBranch,
-              settings.refreshLocalBaseRefOnWorktreeCreate,
-              sparseOptions
-            )
-          : addSparseWorktree(
-              repo.path,
-              worktreePath,
-              branchName,
-              sparseDirectories,
-              baseBranch,
-              settings.refreshLocalBaseRefOnWorktreeCreate
-            )
-      }
-
-      if (checkoutExistingBranch) {
-        return addWorktree(
-          repo.path,
-          worktreePath,
-          branchName,
-          baseBranch,
-          settings.refreshLocalBaseRefOnWorktreeCreate,
-          false,
-          addProjectGitOptions(existingBranchOption)
-        )
-      }
-      if (suggestLocalBaseRefUpdate) {
-        return addWorktree(
-          repo.path,
-          worktreePath,
-          branchName,
-          baseBranch,
-          settings.refreshLocalBaseRefOnWorktreeCreate,
-          false,
-          addProjectGitOptions({ ...remoteTrackingBaseOption, suggestLocalBaseRefUpdate })
-        )
-      }
-      const worktreeOptions = addProjectGitOptions(remoteTrackingBaseOption)
-      return worktreeOptions
-        ? addWorktree(
-            repo.path,
-            worktreePath,
-            branchName,
-            baseBranch,
-            settings.refreshLocalBaseRefOnWorktreeCreate,
-            false,
-            worktreeOptions
-          )
-        : addWorktree(
-            repo.path,
-            worktreePath,
-            branchName,
-            baseBranch,
-            settings.refreshLocalBaseRefOnWorktreeCreate
-          )
-    })) ?? {}
+  const addResult =
+    (await timing.time('git_worktree_add', () =>
+      addLocalWorktree({
+        repoPath: repo.path,
+        worktreePath,
+        branchName,
+        baseBranch,
+        sparseDirectories,
+        refreshLocalBaseRefOnWorktreeCreate: settings.refreshLocalBaseRefOnWorktreeCreate,
+        checkoutExistingBranch,
+        suggestLocalBaseRefUpdate,
+        ...(remoteTrackingBase ? { remoteTrackingBase } : {}),
+        addProjectGitOptions
+      })
+    )) ?? {}
 
   let configuredPushTarget: GitPushTarget | undefined
   if (preparedPushTarget) {
