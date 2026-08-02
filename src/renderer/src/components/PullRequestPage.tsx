@@ -252,6 +252,13 @@ import {
   loadPRFileContents
 } from '@/components/github-pr-file-content-cache'
 import {
+  getPRFileContentsRenderLimit,
+  getPRFileDiffResult,
+  gitHubPRFileToBranchEntry,
+  getPRFileSectionKey,
+  mapPRFileStatus
+} from '@/components/github-pr-file-model'
+import {
   addIssueCommentForRepo,
   addPRReviewCommentForRepo,
   addPRReviewCommentReplyForRepo,
@@ -1505,90 +1512,6 @@ type CachedPRFilesDiffViewState = {
 
 const prFilesDiffViewStateCache = new Map<string, CachedPRFilesDiffViewState>()
 const prFilesDiffScrollTopCache = new Map<string, number>()
-
-function mapPRFileStatus(status: GitHubPRFile['status']): GitBranchChangeEntry['status'] {
-  switch (status) {
-    case 'added':
-      return 'added'
-    case 'removed':
-      return 'deleted'
-    case 'renamed':
-      return 'renamed'
-    case 'copied':
-      return 'copied'
-    case 'changed':
-    case 'modified':
-    case 'unchanged':
-      return 'modified'
-  }
-}
-
-function getPRFileSectionKey(path: string): string {
-  return `combined-commit:${path}`
-}
-
-function gitHubPRFileToBranchEntry(file: GitHubPRFile): GitBranchChangeEntry {
-  return {
-    path: file.path,
-    oldPath: file.oldPath,
-    status: mapPRFileStatus(file.status),
-    added: file.additions,
-    removed: file.deletions
-  }
-}
-
-function getPRFileContentsRenderLimit(contents: GitHubPRFileContents): LargeDiffRenderLimit {
-  if (!contents.originalTooLarge && !contents.modifiedTooLarge) {
-    return getLargeDiffRenderLimit({
-      originalContent: contents.original,
-      modifiedContent: contents.modified
-    })
-  }
-
-  return {
-    limited: true,
-    reason: 'character-count' as const,
-    lineCounts: null,
-    characterCount:
-      contents.original.length +
-      contents.modified.length +
-      (contents.originalTooLarge ? GITHUB_PR_RAW_CONTENT_OVERFLOW_CHARACTER_COUNT : 0) +
-      (contents.modifiedTooLarge ? GITHUB_PR_RAW_CONTENT_OVERFLOW_CHARACTER_COUNT : 0),
-    limits: {
-      maxLinesPerSide: MAX_RENDERED_DIFF_LINES_PER_SIDE,
-      maxCombinedCharacters: MAX_RENDERED_DIFF_COMBINED_CHARACTERS
-    }
-  }
-}
-
-function getPRFileDiffResult(contents: GitHubPRFileContents): GitDiffResult {
-  if (contents.originalIsBinary) {
-    return {
-      kind: 'binary',
-      originalContent: contents.original,
-      modifiedContent: contents.modified,
-      originalIsBinary: true,
-      modifiedIsBinary: contents.modifiedIsBinary
-    }
-  }
-  if (contents.modifiedIsBinary) {
-    return {
-      kind: 'binary',
-      originalContent: contents.original,
-      modifiedContent: contents.modified,
-      originalIsBinary: false,
-      modifiedIsBinary: true
-    }
-  }
-
-  return {
-    kind: 'text',
-    originalContent: contents.original,
-    modifiedContent: contents.modified,
-    originalIsBinary: false,
-    modifiedIsBinary: false
-  }
-}
 
 type PRFilesCombinedDiffViewerProps = {
   files: GitHubPRFile[]
