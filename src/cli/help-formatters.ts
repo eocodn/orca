@@ -207,3 +207,81 @@ export function formatFlagHelp(flag: string): string {
       '--restore-window     Bring the target app/window forward before the operation',
     session: '--session <id>        Snapshot namespace for a related computer-use workflow',
     setup: '--setup run|skip|inherit Setup policy for repo-defined setup hooks',
+    terminal: '--terminal <handle>  Runtime-issued terminal handle',
+    text: '--text <text>          Text payload to send or type',
+    'text-stdin': '--text-stdin          Read text payload from stdin',
+    'task-id': '--task-id <id>        Task id to include in orchestration payload JSON',
+    'task-title': '--task-title <text>    Concise title for an orchestration task',
+    'dispatch-id': '--dispatch-id <id>    Dispatch id to include in orchestration payload JSON',
+    'files-modified': '--files-modified <csv> Comma-separated files for orchestration payload JSON',
+    'report-path': '--report-path <path>  Report path to include in orchestration payload JSON',
+    phase: '--phase <text>        Worker phase to include in orchestration payload JSON',
+    'timeout-ms': '--timeout-ms <ms>     Maximum wait time before timing out',
+    'to-element-index': '--to-element-index <n> Destination element index from get-app-state',
+    'to-x': '--to-x <x>             Destination window-local x coordinate',
+    'to-y': '--to-y <y>             Destination window-local y coordinate',
+    worktree:
+      '--worktree <selector>  Worktree selector such as id:<repo-id>::<path>, name:<displayName>, branch:<branch>, issue:<number>, path:<path>, or active/current',
+    workspace: '--workspace <selector> Existing worktree selector for automation runs',
+    'workspace-status':
+      '--workspace-status <id> Board status id (defaults: todo, in-progress, in-review, completed)',
+    staged: '--staged               Open staged source-control changes',
+    provider: '--provider <agent>     Agent id such as codex, claude, or gemini',
+    'source-context':
+      '--source-context <json|null> Explicit TaskSourceContext for automation task/provider data',
+    trigger: '--trigger <schedule>   Automation schedule preset, cron, or RRULE',
+    schedule: '--schedule <schedule>  Alias for --trigger',
+    time: '--time <HH:MM>        Time used with daily/weekdays/weekly presets',
+    day: '--day <0-6>           Day used with weekly preset, Sunday=0',
+    timezone: '--timezone <tz>       IANA timezone for the automation',
+    enabled: '--enabled              Enable the automation',
+    disabled: '--disabled             Disable the automation',
+    'reuse-session':
+      '--reuse-session        Reuse the previous live session for existing-workspace runs',
+    'fresh-session': '--fresh-session        Disable session reuse for future runs',
+    'workspace-mode': '--workspace-mode <mode> existing or new-per-run',
+    'missed-run-grace-minutes': '--missed-run-grace-minutes <n> Missed-run grace window',
+    'value-stdin': '--value-stdin         Read set-value payload from stdin',
+    'window-id': '--window-id <id>      Target a window id from list-windows',
+    'window-index': '--window-index <n>   Target a window index from list-windows',
+    // Browser automation flags
+    element: '--element <ref>        Element ref from snapshot (e.g. e3)',
+    url: '--url <url>            URL to navigate to',
+    value: '--value <text>         Value to fill or select',
+    input: '--input <text>         Text to type at current focus',
+    expression: '--expression <js>     JavaScript expression to evaluate',
+    amount: '--amount <pixels>      Scroll distance in pixels',
+    index: '--index <n>            Tab index to switch to',
+    page: '--page <id>            Stable browser page id from `orca tab list --json`',
+    profile: '--profile <id>        Browser profile id',
+    'show-profile': '--show-profile        Include tab profile in text output',
+    format: '--format <png|jpeg>    Screenshot image format'
+  }
+
+  if (flag === 'current') {
+    return '--current              Use the current Orca worktree linked Linear issue'
+  }
+  if (flag === 'comments') {
+    return '--comments             Include threaded Linear comments'
+  }
+  if (flag === 'children') {
+    return '--children             Include recursive child issues'
+  }
+  if (flag === 'depth') {
+    return '--depth <n>            Child issue depth for --children/--full'
+  }
+  if (flag === 'attachments') {
+    return '--attachments          Include attachment metadata and URLs'
+  }
+  if (flag === 'relations') {
+    return '--relations            Include blocking, related, and duplicate links'
+  }
+  if (flag === 'activity') {
+    return '--activity             Include issue field-change history'
+  }
+  if (flag === 'full') {
+    return '--full                 Include all supported V1 issue context within caps'
+  }
+
+  return helpByFlag[flag] ?? `--${flag}`
+}
