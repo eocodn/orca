@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
+import { appendNormalizedToTailBuffer } from './terminal-tail-buffer'
 import {
-  appendNormalizedToTailBuffer,
   buildPreview,
   computeTerminalTailWaitState,
   tailGainedNewerBlockedReason,
   type TerminalTailWaitState
-} from './orca-runtime'
+} from './terminal-tail-wait-state'
 
 // These tests pin the onPtyData wait-detection memoization: caching the
 // post-append wait state and reusing it as the next chunk's pre-append state
