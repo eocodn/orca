@@ -1,8 +1,3 @@
-/* eslint-disable max-lines -- Why: keep Claude credential ordering, OAuth usage fetch, and PTY fallback together so usage state can't drift across paths. */
-import { existsSync, lstatSync, readFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import path from 'node:path'
 import { net, session } from 'electron'
 import type {
   ProviderRateLimits,
@@ -11,23 +6,9 @@ import type {
   UsageRateLimitMetadata,
   UsageRateLimitSource
 } from '../../shared/rate-limit-types'
-import { parseWslUncPath } from '../../shared/wsl-paths'
 import type { NetworkProxySettings } from '../../shared/network-proxy'
 import { fetchViaPty } from './claude-pty'
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
-import {
-  deleteActiveClaudeKeychainCredentialsStrict,
-  readActiveClaudeKeychainCredentials,
-  readActiveClaudeKeychainCredentialsStrict,
-  readManagedClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentials,
-  writeManagedClaudeKeychainCredentials
-} from '../claude-accounts/keychain'
-import {
-  readClaudeManagedAuthFile,
-  resolveOwnedClaudeManagedAuthPath,
-  writeClaudeManagedAuthFile
-} from '../claude-accounts/managed-auth-path'
 import {
   isOauthTokenExpiring,
   refreshClaudeOauthCredentials
@@ -42,6 +23,23 @@ import {
   classifyClaudeOAuthUsageError,
   type ClaudeUsageErrorClassification
 } from './claude-usage-error-classification'
+import {
+  parseOAuthCredentialsJson,
+  readOAuthCredentials,
+  type OAuthCredentialReadOptions,
+  type OAuthCredentialReadResult
+} from './claude-oauth-credentials'
+import {
+  canTrustManagedUsagePanelSupplement,
+  getManagedUsagePanelAuthPreparation,
+  readManagedCredentials,
+  readStagedManagedPreviewCredentials,
+  resolveManagedCredentialsLocation,
+  type InactiveClaudeAccountInfo,
+  type ManagedCredentialsLocation,
+  withManagedPreviewKeychainCredentials,
+  writeManagedCredentialsJson
+} from './claude-managed-credentials'
 
 const OAUTH_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA_HEADER = 'oauth-2025-04-20'
@@ -59,177 +57,6 @@ async function ensureProxyFromEnv(): Promise<void> {
     proxySession: session.defaultSession,
     probeUrl: OAUTH_USAGE_URL
   }).catch(() => {})
-}
-
-// ---------------------------------------------------------------------------
-// Credential reading — tries multiple sources for an OAuth bearer token
-// ---------------------------------------------------------------------------
-
-type KeychainCredentials = {
-  claudeAiOauth?: {
-    accessToken?: string
-    refreshToken?: string
-    expiresAt?: number
-  }
-}
-
-type OAuthCredentialReadResult = {
-  token: string | null
-  hasRefreshableCredentials: boolean
-  source: OAuthCredentialSource
-  keychainUnavailable?: boolean
-}
-
-type OAuthCredentialReadOptions = {
-  credentialsFileConfigDir?: string
-  keychainConfigDir?: string
-}
-
-type OAuthCredentialSource = 'scoped-keychain' | 'legacy-keychain' | 'credentials-file' | 'none'
-
-function parseOAuthCredentialsJson(
-  raw: string,
-  source: OAuthCredentialSource
-): OAuthCredentialReadResult {
-  try {
-    const parsed = JSON.parse(raw) as KeychainCredentials
-    const oauth = parsed?.claudeAiOauth
-    const token = oauth?.accessToken
-    const refreshToken = oauth?.refreshToken
-    const hasRefreshableCredentials = typeof refreshToken === 'string' && refreshToken.trim() !== ''
-    if (!token || typeof token !== 'string') {
-      return {
-        token: null,
-        hasRefreshableCredentials,
-        source
-      }
-    }
-    // Why: local expiresAt isn't authoritative for /api/oauth/usage (creds authenticate there after expiry); let the server decide.
-    return {
-      token,
-      hasRefreshableCredentials,
-      source
-    }
-  } catch {
-    return emptyOAuthCredentialReadResult()
-  }
-}
-
-function emptyOAuthCredentialReadResult(): OAuthCredentialReadResult {
-  return {
-    token: null,
-    hasRefreshableCredentials: false,
-    source: 'none'
-  }
-}
-
-function keychainUnavailableOAuthCredentialReadResult(): OAuthCredentialReadResult {
-  return {
-    token: null,
-    hasRefreshableCredentials: false,
-    source: 'none',
-    keychainUnavailable: true
-  }
-}
-
-/**
- * Read OAuth token from macOS Keychain.
- * Why: Claude Code 2.1+ scopes Keychain services by CLAUDE_CONFIG_DIR; older builds used the legacy unsuffixed service.
- */
-async function readFromKeychain(configDir?: string): Promise<OAuthCredentialReadResult> {
-  if (process.platform !== 'darwin') {
-    return emptyOAuthCredentialReadResult()
-  }
-
-  if (configDir) {
-    const scopedCredentials = await readCredentialsFromStrictKeychain(configDir, 'scoped-keychain')
-    if (scopedCredentials.token) {
-      return scopedCredentials
-    }
-    const legacyCredentials = await readCredentialsFromStrictKeychain(undefined, 'legacy-keychain')
-    // Why: a real access token beats refresh-only creds (Orca can't refresh), so a stale scoped item can't shadow a working legacy token.
-    if (legacyCredentials.token) {
-      return legacyCredentials
-    }
-    if (scopedCredentials.hasRefreshableCredentials) {
-      return scopedCredentials
-    }
-    if (legacyCredentials.hasRefreshableCredentials) {
-      return legacyCredentials
-    }
-    return scopedCredentials.keychainUnavailable || legacyCredentials.keychainUnavailable
-      ? keychainUnavailableOAuthCredentialReadResult()
-      : legacyCredentials
-  }
-
-  try {
-    const credentials = await readActiveClaudeKeychainCredentials(configDir)
-    return credentials
-      ? parseOAuthCredentialsJson(credentials, 'legacy-keychain')
-      : emptyOAuthCredentialReadResult()
-  } catch {
-    return keychainUnavailableOAuthCredentialReadResult()
-  }
-}
-
-async function readCredentialsFromStrictKeychain(
-  configDir: string | undefined,
-  source: OAuthCredentialSource
-): Promise<OAuthCredentialReadResult> {
-  try {
-    const credentials = await readActiveClaudeKeychainCredentialsStrict(configDir)
-    return credentials
-      ? parseOAuthCredentialsJson(credentials, source)
-      : emptyOAuthCredentialReadResult()
-  } catch {
-    return keychainUnavailableOAuthCredentialReadResult()
-  }
-}
-
-/**
- * Read OAuth token from ~/.claude/.credentials.json (legacy path).
- * Why: older Claude CLI versions store credentials here; kept as a fallback.
- */
-async function readFromCredentialsFile(configDir?: string): Promise<OAuthCredentialReadResult> {
-  const credPath = path.join(configDir ?? path.join(homedir(), '.claude'), '.credentials.json')
-  try {
-    const raw = await readFile(credPath, 'utf-8')
-    return parseOAuthCredentialsJson(raw, 'credentials-file')
-  } catch {
-    return emptyOAuthCredentialReadResult()
-  }
-}
-
-/**
- * Try credential sources that yield a genuine OAuth bearer token.
- * Why: skip ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY — those are API keys that 401 on the OAuth usage endpoint (PTY fallback serves them).
- */
-async function readOAuthCredentials(
-  options?: OAuthCredentialReadOptions
-): Promise<OAuthCredentialReadResult> {
-  // 1. macOS Keychain (Claude Max/Pro OAuth)
-  const fromKeychain = await readFromKeychain(options?.keychainConfigDir)
-  if (fromKeychain.token) {
-    return fromKeychain
-  }
-  if (fromKeychain.hasRefreshableCredentials) {
-    return fromKeychain
-  }
-
-  // 2. Legacy credentials file
-  const fromFile = await readFromCredentialsFile(options?.credentialsFileConfigDir)
-  if (fromFile.token) {
-    return fromFile
-  }
-  if (fromFile.hasRefreshableCredentials) {
-    return fromFile
-  }
-
-  if (fromKeychain.keychainUnavailable) {
-    return fromKeychain
-  }
-
-  return emptyOAuthCredentialReadResult()
 }
 
 function resolveOAuthCredentialReadOptions(
@@ -965,177 +792,7 @@ function describeError(error: unknown): string {
 // Managed account usage (inactive accounts — fetch-on-open)
 // ---------------------------------------------------------------------------
 
-export type InactiveClaudeAccountInfo = {
-  id: string
-  managedAuthPath: string
-  managedAuthRuntime?: 'host' | 'wsl'
-  wslDistro?: string | null
-  wslLinuxAuthPath?: string | null
-}
-
-type ManagedCredentialsLocation =
-  | { kind: 'keychain'; accountId: string; managedAuthPath: string }
-  | { kind: 'file'; managedAuthPath: string }
-
-// Why: resolve where inactive credentials live without materializing them — ClaudeRuntimeAuthService would overwrite the active account's auth.
-function resolveManagedCredentialsLocation(
-  account: InactiveClaudeAccountInfo
-): ManagedCredentialsLocation | null {
-  if (account.managedAuthRuntime === 'wsl') {
-    const managedAuthPath = resolveOwnedWslClaudeManagedAuthPath(account)
-    return managedAuthPath ? { kind: 'file', managedAuthPath } : null
-  }
-  const managedAuthPath = resolveOwnedClaudeManagedAuthPath(account.id, account.managedAuthPath, {
-    adoptLegacyMarker: true
-  })
-  if (!managedAuthPath) {
-    return null
-  }
-  // macOS stores host managed credentials in the Keychain; other platforms use a file under the managed dir.
-  if (process.platform === 'darwin') {
-    return { kind: 'keychain', accountId: account.id, managedAuthPath }
-  }
-  return { kind: 'file', managedAuthPath }
-}
-
-async function readManagedCredentialsJson(
-  location: ManagedCredentialsLocation
-): Promise<string | null> {
-  try {
-    if (location.kind === 'keychain') {
-      return await readManagedClaudeKeychainCredentials(location.accountId)
-    }
-    return readClaudeManagedAuthFile(location.managedAuthPath, '.credentials.json')
-  } catch {
-    return null
-  }
-}
-
-async function writeManagedCredentialsJson(
-  location: ManagedCredentialsLocation,
-  credentialsJson: string
-): Promise<void> {
-  if (location.kind === 'keychain') {
-    await writeManagedClaudeKeychainCredentials(location.accountId, credentialsJson)
-    return
-  }
-  writeClaudeManagedAuthFile(location.managedAuthPath, '.credentials.json', credentialsJson)
-}
-
-function resolveOwnedWslClaudeManagedAuthPath(account: InactiveClaudeAccountInfo): string | null {
-  if (process.platform !== 'win32') {
-    return null
-  }
-  const wslInfo = parseWslUncPath(account.managedAuthPath)
-  if (!wslInfo || (account.wslDistro && wslInfo.distro !== account.wslDistro)) {
-    return null
-  }
-  const linuxPath = account.wslLinuxAuthPath ?? wslInfo.linuxPath
-  if (
-    !linuxPath.includes('/.local/share/orca/claude-accounts/') ||
-    !linuxPath.endsWith(`/${account.id}/auth`)
-  ) {
-    return null
-  }
-  try {
-    const markerPath = path.join(account.managedAuthPath, '.orca-managed-claude-auth')
-    if (
-      !existsSync(markerPath) ||
-      lstatSync(markerPath).isSymbolicLink() ||
-      readFileSync(markerPath, 'utf-8').trim() !== account.id
-    ) {
-      return null
-    }
-    return account.managedAuthPath
-  } catch {
-    return null
-  }
-}
-
-function getManagedUsagePanelAuthPreparation(
-  account: InactiveClaudeAccountInfo,
-  location: ManagedCredentialsLocation
-): ClaudeRuntimeAuthPreparation | null {
-  if (process.platform === 'win32') {
-    return null
-  }
-  if (account.managedAuthRuntime === 'wsl') {
-    if (!account.wslLinuxAuthPath || !account.wslDistro) {
-      return null
-    }
-    return {
-      configDir: location.managedAuthPath,
-      runtime: 'wsl',
-      wslDistro: account.wslDistro,
-      wslLinuxConfigDir: account.wslLinuxAuthPath,
-      envPatch: { CLAUDE_CONFIG_DIR: account.wslLinuxAuthPath },
-      stripAuthEnv: true,
-      provenance: `managed:${account.id}:inactive-preview`
-    }
-  }
-  return {
-    configDir: location.managedAuthPath,
-    runtime: 'host',
-    wslDistro: null,
-    wslLinuxConfigDir: null,
-    envPatch: { CLAUDE_CONFIG_DIR: location.managedAuthPath },
-    stripAuthEnv: true,
-    provenance: `managed:${account.id}:inactive-preview`
-  }
-}
-
-function windowsAgree(left: RateLimitWindow | null, right: RateLimitWindow | null): boolean {
-  return Boolean(left && right && Math.abs(left.usedPercent - right.usedPercent) <= 1)
-}
-
-function canTrustManagedUsagePanelSupplement(
-  oauthLimits: ProviderRateLimits,
-  cliLimits: ProviderRateLimits,
-  options: { requireMatchingOAuthWindow: boolean }
-): boolean {
-  if (!options.requireMatchingOAuthWindow) {
-    return true
-  }
-  const sharedWindowMatches = [
-    oauthLimits.session && cliLimits.session
-      ? windowsAgree(oauthLimits.session, cliLimits.session)
-      : null,
-    oauthLimits.weekly && cliLimits.weekly
-      ? windowsAgree(oauthLimits.weekly, cliLimits.weekly)
-      : null
-  ].filter((match): match is boolean => match !== null)
-  // Why: an older Claude build may ignore the scoped Keychain, so require matching OAuth windows to keep active-account Fable data from leaking in.
-  return sharedWindowMatches.length > 0 && sharedWindowMatches.every(Boolean)
-}
-
-async function withManagedPreviewKeychainCredentials<T>(
-  location: ManagedCredentialsLocation,
-  credentialsJson: string,
-  fn: () => Promise<T>
-): Promise<T> {
-  if (location.kind !== 'keychain') {
-    return fn()
-  }
-  await writeActiveClaudeKeychainCredentials(credentialsJson, location.managedAuthPath)
-  try {
-    return await fn()
-  } finally {
-    await deleteActiveClaudeKeychainCredentialsStrict(location.managedAuthPath).catch(() => {})
-  }
-}
-
-async function readStagedManagedPreviewCredentials(
-  location: ManagedCredentialsLocation
-): Promise<string | null> {
-  if (location.kind !== 'keychain') {
-    return null
-  }
-  try {
-    return await readActiveClaudeKeychainCredentialsStrict(location.managedAuthPath)
-  } catch {
-    return null
-  }
-}
+export type { InactiveClaudeAccountInfo } from './claude-managed-credentials'
 
 async function fetchManagedUsagePanelSupplement(input: {
   account: InactiveClaudeAccountInfo
@@ -1184,7 +841,7 @@ export async function fetchManagedAccountUsage(
     return abortedClaudeRateLimitResult()
   }
   const location = resolveManagedCredentialsLocation(account)
-  let credentialsJson = location ? await readManagedCredentialsJson(location) : null
+  let credentialsJson = location ? await readManagedCredentials(location) : null
   if (options.signal?.aborted) {
     return abortedClaudeRateLimitResult()
   }
