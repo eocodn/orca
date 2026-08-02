@@ -19,6 +19,8 @@ services:
       - src/main/runtime/terminal-formatting-modules.test.ts
       - src/main/runtime/runtime-domain-boundaries.test.ts
       - src/main/runtime/mobile-notification-replay.test.ts
+      - src/main/runtime/oversized-source-boundaries.test.ts
+      - config/scripts/check-source-line-counts.test.mjs
       - src/main/runtime/orca-runtime-tail-wait-memo.test.ts
       - src/main/runtime/retained-tail-redraw-window.equivalence.test.ts
       - src/main/runtime/orca-runtime-path-candidate-history.test.ts
@@ -37,6 +39,7 @@ services:
       - sh
       - -euc
       - >-
+        node config/scripts/check-source-line-counts.mjs &&
         pnpm exec oxfmt --check
         src/main/runtime/terminal-output-path-candidates.ts
         src/main/runtime/terminal-output-path-candidates.test.ts
@@ -366,6 +369,7 @@ services:
       - src/main/runtime/rpc/methods/session-tabs.test.ts
       - src/main/runtime/rpc/methods/session-tabs-subscriptions.test.ts
       - src/shared/runtime-types.ts
+      - src/shared/types.ts
       - src/shared/terminal-dimensions.ts
       - src/shared/folder-workspaces.ts
       - src/shared/folder-workspaces.test.ts

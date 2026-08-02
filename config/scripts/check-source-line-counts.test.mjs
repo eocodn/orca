@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   collectOversizedSources,
@@ -9,6 +10,7 @@ import {
 } from './check-source-line-counts.mjs'
 
 const temporaryRoots = []
+const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
@@ -44,5 +46,13 @@ describe('source line count gate', () => {
       { lines: 4, path: 'large.cjs' },
       { lines: 4, path: 'large.ts' }
     ])
+  })
+
+  it('is part of both local lint and PR static analysis', () => {
+    const packageJson = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'))
+    const workflow = readFileSync(join(repositoryRoot, '.github/workflows/pr.yml'), 'utf8')
+
+    expect(packageJson.scripts.lint).toContain('pnpm run check:source-lines')
+    expect(workflow).toContain('run: pnpm run check:source-lines')
   })
 })
