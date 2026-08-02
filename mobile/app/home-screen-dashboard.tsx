@@ -62,6 +62,9 @@ import { useResponsiveLayout } from '../src/layout/responsive-layout'
 import { endpointLabel, formatDuration, clientKey, fetchStats, fetchWorktreeInfo, fetchAccountsSnapshot, fetchTaskProviders, repoColor, type StatsSummary, type WorktreeSummary, type HostWorktreeInfo, TASK_PROVIDER_LABELS } from '../src/home-screen-data'
 import { CardGap, ONBOARDING_STEPS, styles } from '../src/home-screen-styles'
 import { HomeScreenFooter } from '../src/home-screen-footer'
+import { HomeScreenDashboardEmpty } from './home-screen-dashboard-empty'
+import { HomeScreenDashboardList } from './home-screen-dashboard-list'
+import { HomeScreenDashboardActions } from './home-screen-dashboard-actions'
 export default function HomeScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -404,7 +407,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* ─── Top bar ─── */}
       <View style={styles.topBar}>
         <View style={styles.brandLockup}>
           <View style={styles.logoMark}>
@@ -421,180 +423,46 @@ export default function HomeScreen() {
       </View>
 
       {hosts.length === 0 ? (
-        /* ─── Empty state: onboarding ─── */
-        <View
-          style={[
-            styles.emptyContainer,
-            { paddingBottom: insets.bottom },
-            isWideLayout && { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }
-          ]}
-        >
-          <View style={styles.emptyHero}>
-            <Text style={styles.emptyTitle}>Connect your desktop</Text>
-            <Text style={styles.emptyBody}>
-              Pair with Orca on your computer to check on your agents, jump into any terminal, and
-              drive work from your phone.
-            </Text>
-            <Pressable style={styles.primaryButton} onPress={() => router.push('/pair-scan')}>
-              <QrCode size={17} color={colors.bgBase} />
-              <Text style={styles.primaryButtonText}>Pair Desktop</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.stepsSection}>
-            <Text style={styles.sectionHeading}>How it works</Text>
-            {ONBOARDING_STEPS.map((step, i) => (
-              <View key={step.title} style={[styles.stepRow, i > 0 && styles.stepRowBorder]}>
-                <View style={styles.stepNum}>
-                  <Text style={styles.stepNumText}>{i + 1}</Text>
-                </View>
-                <View style={styles.stepText}>
-                  <Text style={styles.stepTitle}>{step.title}</Text>
-                  <Text style={styles.stepDesc}>{step.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        <HomeScreenDashboardEmpty
+          insets={insets}
+          isWideLayout={isWideLayout}
+          contentMaxWidth={contentMaxWidth}
+          onPair={() => router.push('/pair-scan')}
+        />
       ) : (
-        /* ─── Populated state ─── */
-        <FlatList
-          data={sortedHosts}
-          keyExtractor={(h) => h.id}
-          // Why: reserve insets.bottom so the last row stays reachable above the system nav bar / home indicator.
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: spacing.xl + insets.bottom },
-            isWideLayout && { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }
-          ]}
-          ListHeaderComponent={
-            <View>
-              <View style={styles.hero}>
-                <Text style={styles.heroTitle}>Welcome back</Text>
-              </View>
-
-              {stats && (
-                <View style={styles.statsRow}>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>
-                      {stats.totalAgentsSpawned.toLocaleString()}
-                    </Text>
-                    <Text style={styles.statLabel}>Agents spawned</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{formatDuration(stats.totalAgentTimeMs)}</Text>
-                    <Text style={styles.statLabel}>Agent time</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{stats.totalPRsCreated.toLocaleString()}</Text>
-                    <Text style={styles.statLabel}>PRs created</Text>
-                  </View>
-                </View>
-              )}
-
-              <Text style={styles.sectionHeading}>Desktops</Text>
-            </View>
-          }
-          ItemSeparatorComponent={CardGap}
-          renderItem={({ item }) => {
-            const state = hostStates[item.id] ?? 'connecting'
-            const attempts = hostAttempts[item.id] ?? 0
-            const lastConnectedAt = hostLastConnected[item.id] ?? null
-            const info = worktreeInfo[item.id]
-            const verdict = classifyConnection({
-              state,
-              reconnectAttempts: attempts,
-              lastConnectedAt,
-              endpoint: item.endpoint
-            })
-            return (
-              <MobileHostCard
-                host={item}
-                state={state}
-                verdict={verdict}
-                path={hostPaths[item.id] ?? 'lan'}
-                worktreeCounts={
-                  info ? { total: info.totalWorktrees, active: info.activeCount } : undefined
-                }
-                onPress={() => router.push(`/h/${item.id}`)}
-                onLongPress={() => {
-                  triggerMediumImpact()
-                  setActionTarget(item)
-                }}
-              />
-            )
-          }}
-          ListFooterComponent={<HomeScreenFooter resumeWorktree={resumeWorktree} primaryConnectedHost={primaryConnectedHost} primaryTaskProviders={primaryTaskProviders} openTasks={openTasks} accountsHosts={accountsHosts} />}
+        <HomeScreenDashboardList
+          hosts={sortedHosts}
+          hostStates={hostStates}
+          hostAttempts={hostAttempts}
+          hostLastConnected={hostLastConnected}
+          hostPaths={hostPaths}
+          worktreeInfo={worktreeInfo}
+          stats={stats}
+          resumeWorktree={resumeWorktree}
+          primaryConnectedHost={primaryConnectedHost}
+          primaryTaskProviders={primaryTaskProviders}
+          accountsHosts={accountsHosts}
+          insets={insets}
+          isWideLayout={isWideLayout}
+          contentMaxWidth={contentMaxWidth}
+          onHostPress={(hostId) => router.push(`/h/${hostId}`)}
+          onHostLongPress={setActionTarget}
+          onOpenTasks={openTasks}
         />
       )}
 
-      {/* ─── Action sheets (shared by both states) ─── */}
-      <ActionSheetModal
-        visible={actionTarget != null}
-        title={actionTarget?.name}
-        message={actionTarget ? endpointLabel(actionTarget.endpoint) : undefined}
-        actions={(() => {
-          const host = actionTarget
-          if (!host) {
-            return []
-          }
-          const state = hostStates[host.id] ?? 'connecting'
-          const isLive =
-            state === 'connected' ||
-            state === 'connecting' ||
-            state === 'handshaking' ||
-            state === 'reconnecting'
-          // Why: label "Connect" (not "Reconnect") when never connected this session, so the verb matches the action.
-          const hasEverConnected = (hostLastConnected[host.id] ?? null) != null
-          const items: ActionSheetAction[] = []
-          items.push({
-            label: hasEverConnected && isLive ? 'Reconnect' : 'Connect',
-            icon: RefreshCw,
-            onPress: () => {
-              setActionTarget(null)
-              void forceReconnectHost(host.id)
-            }
-          })
-          if (isLive) {
-            items.push({
-              label: 'Disconnect',
-              icon: PowerOff,
-              onPress: () => {
-                setActionTarget(null)
-                closeHostClient(host.id)
-              }
-            })
-          }
-          items.push({
-            label: 'Edit host',
-            icon: Edit3,
-            closeBeforePress: true,
-            onPress: () => {
-              setActionTarget(null)
-              navigateToMobileHostEdit(router, host.id)
-            }
-          })
-          items.push({
-            label: 'Remove',
-            destructive: true,
-            closeBeforePress: true,
-            onPress: () => {
-              setConfirmRemove(host)
-            }
-          })
-          return items
-        })()}
-        onClose={() => setActionTarget(null)}
-      />
-
-      <ConfirmModal
-        visible={confirmRemove != null}
-        title="Remove Host"
-        message={`Remove "${confirmRemove?.name}"? You can re-pair later.`}
-        confirmLabel="Remove"
-        destructive
-        onConfirm={() => void handleRemove()}
-        onCancel={() => setConfirmRemove(null)}
+      <HomeScreenDashboardActions
+        router={router}
+        actionTarget={actionTarget}
+        confirmRemove={confirmRemove}
+        hostStates={hostStates}
+        hostLastConnected={hostLastConnected}
+        forceReconnectHost={forceReconnectHost}
+        closeHostClient={closeHostClient}
+        onCloseAction={() => setActionTarget(null)}
+        onConfirmRemove={() => void handleRemove()}
+        onCancelRemove={() => setConfirmRemove(null)}
+        onRequestRemove={setConfirmRemove}
       />
     </SafeAreaView>
   )
