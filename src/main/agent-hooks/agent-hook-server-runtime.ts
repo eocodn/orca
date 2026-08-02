@@ -126,7 +126,13 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     await new Promise<void>((resolve, reject) => {
       // Why: swap the startup reject-handler for a logging one so a later runtime 'error' can't crash main as an unhandled event.
       const onStartupError = (err: Error): void => {
-        this.server?.off('listening', onListening)
+        const failedServer = this.server
+        failedServer?.off('listening', onListening)
+        // Why: a failed listen leaves a non-serving Server object assigned, which would make the next start() return early.
+        if (this.server === failedServer) {
+          this.server = null
+          this.port = 0
+        }
         reject(err)
       }
       const onListening = (): void => {
