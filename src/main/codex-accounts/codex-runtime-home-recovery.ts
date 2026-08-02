@@ -1,0 +1,187 @@
+import { 
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  readlinkSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  unlinkSync
+} from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import {
+  dirname,
+  extname,
+  isAbsolute,
+  join,
+  parse,
+  relative,
+  resolve,
+  win32 as pathWin32
+} from 'node:path'
+import { app } from 'electron'
+import type { CodexManagedAccount } from '../../shared/types'
+import type { Store } from '../persistence'
+import { WSL_CODEX_RUNTIME_HOME_SEGMENTS } from '../pty/codex-home-wsl-env'
+import { writeFileAtomically } from './fs-utils'
+import {
+  getOrcaManagedCodexHomePath,
+  getOrcaUserDataPath,
+  getCodexSessionBackfillStateDirPath,
+  getSystemCodexHomePath,
+  resolveOrcaManagedCodexHomePath,
+  syncCodexGlobalInstructionsIntoManagedHome,
+  syncSystemCodexResourcesIntoManagedHome
+} from '../codex/codex-home-paths'
+import { startCodexAccountSessionBridgeInBackground } from '../codex/codex-account-session-bridge'
+import { startSystemCodexSessionBridgeInBackground } from '../codex/codex-session-bridge'
+import {
+  resolveHostCodexSessionSourceHome,
+  resolveWslCodexSessionSourceHome
+} from '../codex/codex-session-source-home'
+import { startWslCodexSessionBridgeInBackground } from '../codex/wsl-codex-session-bridge'
+import {
+  prepareSystemConfigForFreshRuntimeMirror,
+  syncSystemConfigIntoManagedCodexHome
+} from '../codex/codex-config-mirror'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import {
+  getWslSelectionKey,
+  getSelectedCodexAccountIdForTarget,
+  normalizeCodexRuntimeSelection,
+  setSelectedCodexAccountIdForTarget,
+  type CodexAccountSelectionTarget
+} from './runtime-selection'
+import { getDefaultWslDistro, getWslHome } from '../wsl'
+import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
+import { hasCustomCodexHomeOverride } from '../codex/codex-real-home-path'
+import { invalidateCodexSessionBackfillMarker } from '../codex/codex-session-backfill-marker'
+import { readShellStartupEnvVar } from '../pty/shell-startup-env'
+import { assertOwnedHostCodexManagedHomePath } from './host-codex-managed-home-ownership'
+import {
+  codexAuthIsFresher,
+  codexAuthMatchesManagedAccount,
+  codexAuthMatchesSystemDefaultIdentity
+} from './codex-auth-identity'
+import { migrateLegacySharedAuthToPerAccountHome } from './legacy-shared-auth-migration'
+
+
+import { type CodexSystemDefaultSnapshot,
+  type CodexRuntimeLogoutMarker,
+  type CodexRuntimeLogoutMarkerStatus,
+  type CodexReadBackResult,
+  type CodexReadBackMatch,
+  readLaunchEnvValue,
+  getEffectiveCodexHomeEnv  } from './codex-runtime-home-foundation'
+import { CodexRuntimeHomeServicePhase3 } from './codex-runtime-home-persistence'
+
+export class CodexRuntimeHomeServicePhase4 extends CodexRuntimeHomeServicePhase3 {
+  protected ensureOwnerOnlyMode(targetPath: string): void {
+    if (process.platform === 'win32') {
+      return
+    }
+    try {
+      chmodSync(targetPath, 0o600)
+    } catch {
+      /* Best effort: the next atomic write will set the restrictive mode. */
+    }
+  }
+
+  protected getRuntimeLogoutMarkerStatus(): CodexRuntimeLogoutMarkerStatus {
+    const marker = this.readRuntimeLogoutMarker()
+    if (!marker) {
+      return { kind: 'missing' }
+    }
+    const systemDefaultAuthJson = this.readSystemDefaultAuth()
+    if (systemDefaultAuthJson === marker.systemDefaultAuthJson) {
+      return { kind: 'applies' }
+    }
+    this.clearRuntimeLogoutMarker()
+    return { kind: 'system-default-changed', systemDefaultAuthJson }
+  }
+
+  protected persistRuntimeLogoutMarker(systemDefaultAuthJson = this.readSystemDefaultAuth()): void {
+    const marker: CodexRuntimeLogoutMarker = {
+      systemDefaultAuthJson,
+      loggedOutAt: Date.now()
+    }
+    writeFileAtomically(this.getRuntimeLogoutMarkerPath(), `${JSON.stringify(marker, null, 2)}\n`, {
+      mode: 0o600
+    })
+  }
+
+  protected readRuntimeLogoutMarker(): CodexRuntimeLogoutMarker | null {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(readFileSync(this.getRuntimeLogoutMarkerPath(), 'utf-8')) as unknown
+    } catch {
+      return null
+    }
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      !('systemDefaultAuthJson' in parsed) ||
+      !('loggedOutAt' in parsed)
+    ) {
+      return null
+    }
+    const marker = parsed as { systemDefaultAuthJson: unknown; loggedOutAt: unknown }
+    if (
+      (marker.systemDefaultAuthJson !== null && typeof marker.systemDefaultAuthJson !== 'string') ||
+      typeof marker.loggedOutAt !== 'number'
+    ) {
+      return null
+    }
+    return marker as CodexRuntimeLogoutMarker
+  }
+
+  protected clearRuntimeLogoutMarker(): void {
+    rmSync(this.getRuntimeLogoutMarkerPath(), { force: true })
+  }
+
+  protected readSystemDefaultSnapshot(snapshotPath: string): CodexSystemDefaultSnapshot | null {
+    let rawContents: string
+    try {
+      rawContents = readFileSync(snapshotPath, 'utf-8')
+    } catch {
+      return null
+    }
+    try {
+      const parsed = JSON.parse(rawContents) as unknown
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        !Array.isArray(parsed) &&
+        'authJson' in parsed &&
+        (typeof (parsed as { authJson: unknown }).authJson === 'string' ||
+          (parsed as { authJson: unknown }).authJson === null)
+      ) {
+        return parsed as CodexSystemDefaultSnapshot
+      }
+      // Why: pre-PR snapshots stored raw auth.json; treat objects lacking an authJson wrapper as legacy so upgraders don't lose their auth.
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        !Array.isArray(parsed) &&
+        !('authJson' in parsed)
+      ) {
+        return { authJson: rawContents }
+      }
+    } catch {
+      return null
+    }
+    return null
+  }
+
+  clearSystemDefaultSnapshot(): void {
+    rmSync(this.getSystemDefaultSnapshotPath(), { force: true })
+  }
+}
