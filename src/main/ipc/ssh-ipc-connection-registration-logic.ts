@@ -1,38 +1,19 @@
 // SSH target, relay lifecycle, PTY, and port-forward IPC handlers.
-import { ipcMain, powerMonitor, type BrowserWindow } from 'electron'
+import { ipcMain, type BrowserWindow } from 'electron'
 import { appendFileSync } from 'node:fs'
 import type { Store } from '../persistence'
 import { SshConnectionStore } from '../ssh/ssh-connection-store'
-import type { SshConnectionCallbacks } from '../ssh/ssh-connection'
 import { SshConnectionManager } from '../ssh/ssh-connection-manager'
-import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
-import { SshRelaySession, type SshRelayAiVaultHostInfo } from '../ssh/ssh-relay-session'
+import { SshRelaySession } from '../ssh/ssh-relay-session'
 import { SshPortForwardManager } from '../ssh/ssh-port-forward'
-import type {
-  DetectedPort,
-  EnrichedDetectedPort,
-  SavedPortForward,
-  SshRepoReadoption,
-  SshTarget,
-  SshConnectionStatus,
-  SshConnectionState,
-  DirectSshAuthority
-} from '../../shared/ssh-types'
+import type { SshConnectionState, SshConnectionStatus, SshTarget } from '../../shared/ssh-types'
 import { SSH_TERMINATE_RECONNECT_REQUIRED } from '../../shared/constants'
-import { isRuntimeOwnedSshTargetId } from '../../shared/execution-host'
 import { isAuthError } from '../ssh/ssh-connection-utils'
 import { forceStopRelayForTarget } from '../ssh/ssh-relay-reset'
 import { isSshPtyNotFoundError } from '../providers/ssh-pty-errors'
 import { toAppSshPtyId, toRelaySshPtyId } from '../providers/ssh-pty-id'
 import { registerSshBrowseHandler } from './ssh-browse'
-import {
-  getConnectionIdsForWorktree,
-  enrichSshDetectedPorts,
-  enrichSshForwardEntries,
-  getWorktreeIdsForConnection
-} from '../ports/ssh-advertised-url-enrichment'
-import { advertisedUrlWatcher } from '../ports/advertised-url-watcher'
-import { requestCredential, registerCredentialHandler } from './ssh-passphrase'
+import { registerCredentialHandler } from './ssh-passphrase'
 import {
   clearProviderPtyState,
   deletePtyOwnership,
@@ -40,16 +21,14 @@ import {
   getSshPtyProvider
 } from './pty'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import {
-  initializeSshConnectionGenerationSession,
-  resetSshConnectionGenerations
-} from '../ssh/ssh-connection-generation'
+import { initializeSshConnectionGenerationSession } from '../ssh/ssh-connection-generation'
 import {
   getSshProviderAuthority,
   isCurrentSshProviderAuthority,
-  resetSshProviderAuthorities,
   rotateSshProviderAuthority
 } from '../ssh/ssh-provider-authority'
+import { registerSshTargetHandlers } from './ssh-ipc-connection-registration-targets'
+import { registerSshPortForwardHandlers } from './ssh-ipc-connection-registration-port-forwards'
 
 import { createSshConnectionCallbacks,
   broadcastDetectedPortsFromCurrentWindow,
@@ -68,17 +47,23 @@ import {
   SSH_IPC_CHANNELS,
   getCurrentMainWindow,
   getPublicSshState,
-  removeRegisteredSshTarget,
   activeSessions,
   runTargetLifecycle,
   awaitTargetLifecycle,
+  credentialRequestedForTarget,
+  disconnectRegisteredSshTarget,
+  teardownSshTargetTransport,
+  teardownActiveSshSession,
+  relayGracePeriodForTarget,
   type ConnectAttempt,
   connectInFlight,
+  pendingTransportReconnects,
   resetRelayInFlight,
   invalidateConnectAttempt,
   isCurrentConnectAttempt,
   connectCancelledError,
   relayStateOverrides,
+  testingTargets,
   clearRelayLostBackoff,
   relayLostBackoff,
   clearRelayStateOverride,
@@ -95,7 +80,6 @@ import {
 import {
   registerAdvertisedUrlRefresh,
   registerPowerMonitorReconnect,
-  persistPortForwards,
   persistPortForwardsWithUnrestored,
   broadcastPortForwards
 } from './ssh-ipc-connections'
@@ -146,58 +130,7 @@ export function registerSshHandlers(
   registerPowerMonitorReconnect()
   registerSshBrowseHandler(() => connectionManager)
 
-  // ── Target CRUD ────────────────────────────────────────────────────
-
-  // Why: add/import can re-adopt workspaces orphaned on a removed target id (see ssh-target-readoption); the renderer must refresh its repo list to surface them.
-  function takeRepoReadoptions(): SshRepoReadoption[] {
-    if (!sshStore || sshStore.lastRepoReadoptions.length === 0) {
-      return []
-    }
-    const repoReadoptions = sshStore.lastRepoReadoptions
-    sshStore.lastRepoReadoptions = []
-    for (const targetId of new Set(
-      repoReadoptions.flatMap(({ oldTargetId, newTargetId }) => [oldTargetId, newTargetId])
-    )) {
-      rotateSshProviderAuthority(targetId)
-    }
-    const win = getCurrentMainWindow()
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('repos:changed')
-    }
-    return repoReadoptions
-  }
-
-  ipcMain.handle('ssh:listTargets', () => {
-    return sshStore!.listTargets()
-  })
-
-  ipcMain.handle('ssh:listRemovedTargetLabels', () => {
-    return sshStore!.listRemovedTargetLabels()
-  })
-
-  ipcMain.handle('ssh:addTarget', (_event, args: { target: Omit<SshTarget, 'id'> }) => {
-    const target = sshStore!.addTarget(args.target)
-    // Why: re-adding a removed host can re-adopt orphaned workspaces; refresh the renderer's repo list so they move back onto the live host.
-    const repoReadoptions = takeRepoReadoptions()
-    return { target, repoReadoptions }
-  })
-
-  ipcMain.handle(
-    'ssh:updateTarget',
-    (_event, args: { id: string; updates: Partial<Omit<SshTarget, 'id'>> }) => {
-      return sshStore!.updateTarget(args.id, args.updates)
-    }
-  )
-
-  ipcMain.handle('ssh:removeTarget', async (_event, args: { id: string }) => {
-    await removeRegisteredSshTarget(args.id)
-  })
-
-  ipcMain.handle('ssh:importConfig', (_event, args?: { reAdopt?: boolean }) => {
-    const targets = sshStore!.importFromSshConfig(args)
-    const repoReadoptions = takeRepoReadoptions()
-    return { targets, repoReadoptions }
-  })
+  registerSshTargetHandlers()
 
   // ── Connection lifecycle ───────────────────────────────────────────
 
@@ -587,99 +520,7 @@ export function registerSshHandlers(
     }
   })
 
-  // ── Port forwarding ─────────────────────────────────────────────────
-
-  ipcMain.handle(
-    'ssh:addPortForward',
-    async (
-      _event,
-      args: {
-        targetId: string
-        localPort: number
-        remoteHost: string
-        remotePort: number
-        label?: string
-      }
-    ) => {
-      const conn = connectionManager!.getConnection(args.targetId)
-      if (!conn) {
-        throw new Error(`SSH connection "${args.targetId}" not found`)
-      }
-      const entry = await portForwardManager!.addForward(
-        args.targetId,
-        conn,
-        args.localPort,
-        args.remoteHost,
-        args.remotePort,
-        args.label
-      )
-      persistPortForwards(args.targetId)
-      broadcastPortForwards(getCurrentMainWindow, args.targetId)
-      return entry
-    }
-  )
-
-  ipcMain.handle(
-    'ssh:updatePortForward',
-    async (
-      _event,
-      args: {
-        id: string
-        targetId: string
-        localPort: number
-        remoteHost: string
-        remotePort: number
-        label?: string
-      }
-    ) => {
-      const conn = connectionManager!.getConnection(args.targetId)
-      if (!conn) {
-        throw new Error(`SSH connection "${args.targetId}" not found`)
-      }
-      try {
-        const entry = await portForwardManager!.updateForward(
-          args.id,
-          conn,
-          args.localPort,
-          args.remoteHost,
-          args.remotePort,
-          args.label
-        )
-        persistPortForwards(entry.connectionId)
-        broadcastPortForwards(getCurrentMainWindow, entry.connectionId)
-        return entry
-      } catch (err) {
-        // Why: edit/rollback may have failed, so resync renderer to actual runtime state.
-        persistPortForwards(args.targetId)
-        broadcastPortForwards(getCurrentMainWindow, args.targetId)
-        throw err
-      }
-    }
-  )
-
-  ipcMain.handle('ssh:removePortForward', async (_event, args: { id: string }) => {
-    const removed = await portForwardManager!.removeForwardAndWait(args.id)
-    if (removed) {
-      persistPortForwards(removed.connectionId)
-      broadcastPortForwards(getCurrentMainWindow, removed.connectionId)
-    }
-    return removed
-  })
-
-  ipcMain.handle('ssh:listPortForwards', (_event, args?: { targetId?: string }) => {
-    const all = portForwardManager!.listForwards(args?.targetId)
-    if (!persistedStore || !args?.targetId) {
-      // Why: cross-target entries can't be mapped to worktrees in one call, so serve the raw list.
-      return all
-    }
-    return enrichSshForwardEntries(all, getWorktreeIdsForConnection(persistedStore, args.targetId))
-  })
-
-  ipcMain.handle('ssh:listDetectedPorts', (_event, args: { targetId: string }) => {
-    const session = activeSessions.get(args.targetId)
-    const ports = session?.getPortScanner()?.getDetectedPorts(args.targetId) ?? []
-    return enrichDetected(args.targetId, ports)
-  })
+  registerSshPortForwardHandlers()
 
   return { connectionManager, sshStore }
 }
