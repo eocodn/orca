@@ -52,6 +52,7 @@ import {
   hasSeededUnconfirmedClaudePtys
 } from '../claude-accounts/live-pty-gate'
 import { parseDaemonReadyIdentity } from './daemon-ready-identity'
+import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 
 import {
   logDaemonMilestone,
@@ -69,6 +70,7 @@ import {
   terminateLaunchedDaemonChild,
   isNoSuchProcessError,
   shouldPreserveDaemonWithLiveSessions,
+  WEDGED_DAEMON_GRACE_RETRIES,
 } from './daemon-lifecycle-adoption-process'
 
 let attributedReplaceReason: DaemonReplaceReason | null = null

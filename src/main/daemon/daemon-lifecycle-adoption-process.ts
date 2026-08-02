@@ -52,6 +52,7 @@ import {
   hasSeededUnconfirmedClaudePtys
 } from '../claude-accounts/live-pty-gate'
 import { parseDaemonReadyIdentity } from './daemon-ready-identity'
+import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 
 export function logDaemonMilestone(event: string, details: Record<string, unknown> = {}): void {
   if (isStartupDiagnosticsEnabled()) {
