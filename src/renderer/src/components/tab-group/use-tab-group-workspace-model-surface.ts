@@ -8,7 +8,6 @@ import type {
   TabGroup,
   TerminalTab
 } from '../../../../shared/types'
-import { resolveUnifiedTabLabel } from '../../../../shared/tab-title-resolution'
 import { useAppStore } from '../../store'
 import { destroyWorkspaceWebviews } from '../../store/slices/browser-webview-cleanup'
 import { requestEditorFileClose } from '../editor/editor-autosave'
@@ -28,6 +27,7 @@ import { ensureSimulatorTab, getSimulatorTabForWorktree } from '@/lib/ensure-sim
 import { buildDuplicatedBrowserTabOptions } from '@/lib/duplicate-browser-tab-options'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { browserWorkspaceHasRemoteOwner } from '@/runtime/remote-browser-tab-ownership'
+import { projectTabGroupWorkspaceItems } from './tab-group-workspace-item-projection'
 
 export function recordTerminalTabGroupSplit(createdTerminal: TerminalTab | null | undefined): void {
   if (!createdTerminal) {
@@ -46,8 +46,6 @@ const EMPTY_TERMINAL_TABS: readonly TerminalTab[] = []
 const EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID: NonNullable<
   ReturnType<typeof useAppStore.getState>['terminalLayoutsByTabId']
 > = {}
-
-type TerminalTabItem = TerminalTab & { unifiedTabId: string }
 
 export function useTabGroupWorkspaceModel({
   groupId,
@@ -116,72 +114,24 @@ export function useTabGroupWorkspaceModel({
     [worktreeState.terminalTabs]
   )
 
-  const terminalTabs = useMemo<TerminalTabItem[]>(
+  const { terminalTabs, editorItems, browserItems } = useMemo(
     () =>
-      groupTabs
-        .filter((item) => item.contentType === 'terminal')
-        .map((item) => {
-          const terminalTab = terminalTabById.get(item.entityId)
-          return {
-            id: item.entityId,
-            unifiedTabId: item.id,
-            ptyId: terminalTab?.ptyId ?? null,
-            worktreeId,
-            title: resolveUnifiedTabLabel(
-              {
-                ...item,
-                quickCommandLabel: item.quickCommandLabel ?? terminalTab?.quickCommandLabel,
-                generatedLabel: item.generatedLabel ?? terminalTab?.generatedTitle
-              },
-              worktreeState.generatedTabTitlesEnabled,
-              item.label
-            ),
-            defaultTitle: terminalTab?.defaultTitle,
-            quickCommandLabel: terminalTab?.quickCommandLabel ?? item.quickCommandLabel ?? null,
-            generatedTitle: terminalTab?.generatedTitle ?? item.generatedLabel ?? null,
-            customTitle: item.customLabel ?? terminalTab?.customTitle ?? null,
-            color: item.color ?? terminalTab?.color ?? null,
-            sortOrder: item.sortOrder,
-            createdAt: item.createdAt,
-            generation: terminalTab?.generation,
-            shellOverride: terminalTab?.shellOverride,
-            startupCwd: terminalTab?.startupCwd,
-            // Why: rebuilt from the unified-tab model, so copy store-only launchAgent or the provider icon is missing until the first hook.
-            launchAgent: terminalTab?.launchAgent,
-            pendingActivationSpawn: terminalTab?.pendingActivationSpawn
-          }
-        }),
-    [groupTabs, terminalTabById, worktreeId, worktreeState.generatedTabTitlesEnabled]
-  )
-
-  const editorItems = useMemo<GroupEditorItem[]>(
-    () =>
-      groupTabs
-        .filter(
-          (item) =>
-            item.contentType === 'editor' ||
-            item.contentType === 'diff' ||
-            item.contentType === 'conflict-review' ||
-            item.contentType === 'check-details'
-        )
-        .map((item) => {
-          const file = worktreeState.openFiles.find((candidate) => candidate.id === item.entityId)
-          return file ? { ...file, tabId: item.id } : null
-        })
-        .filter((item): item is GroupEditorItem => item !== null),
-    [groupTabs, worktreeState.openFiles]
-  )
-
-  const browserItems = useMemo<GroupBrowserItem[]>(
-    () =>
-      groupTabs
-        .filter((item) => item.contentType === 'browser')
-        .map((item) => {
-          const bt = worktreeState.browserTabs.find((candidate) => candidate.id === item.entityId)
-          return bt ? { ...bt, tabId: item.id } : null
-        })
-        .filter((item): item is GroupBrowserItem => item !== null),
-    [groupTabs, worktreeState.browserTabs]
+      projectTabGroupWorkspaceItems({
+        groupTabs,
+        terminalTabsById: terminalTabById,
+        worktreeId,
+        generatedTabTitlesEnabled: worktreeState.generatedTabTitlesEnabled,
+        openFiles: worktreeState.openFiles,
+        browserTabs: worktreeState.browserTabs
+      }),
+    [
+      groupTabs,
+      terminalTabById,
+      worktreeId,
+      worktreeState.generatedTabTitlesEnabled,
+      worktreeState.openFiles,
+      worktreeState.browserTabs
+    ]
   )
 
   const closeEditorIfUnreferenced = useCallback(
