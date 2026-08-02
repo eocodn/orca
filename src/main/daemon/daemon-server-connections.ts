@@ -134,12 +134,12 @@ export class DaemonServerPhase2 extends DaemonServerPhase1 {
                 this.transientFactRelay.onSessionData(routedSessionId, data)
                 const lastInputAt = this.lastInputAtBySessionId.get(routedSessionId)
                 const isInteractiveOutput =
-                  data.length <= DaemonServer.INTERACTIVE_OUTPUT_MAX_CHARS &&
+                  data.length <= DaemonServerFoundation.INTERACTIVE_OUTPUT_MAX_CHARS &&
                   lastInputAt !== undefined &&
-                  performance.now() - lastInputAt <= DaemonServer.INTERACTIVE_OUTPUT_WINDOW_MS
+                  performance.now() - lastInputAt <= DaemonServerFoundation.INTERACTIVE_OUTPUT_WINDOW_MS
                 this.streamDataBatcher.enqueue(clientId, routedSessionId, data, {
                   flushImmediately: isInteractiveOutput,
-                  flushMaxChars: DaemonServer.INTERACTIVE_OUTPUT_MAX_CHARS,
+                flushMaxChars: DaemonServerFoundation.INTERACTIVE_OUTPUT_MAX_CHARS,
                   rawLength,
                   transformed,
                   seq,

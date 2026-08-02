@@ -1,70 +1,25 @@
 import * as pty from 'node-pty'
 import { statSync } from 'node:fs'
 import { delimiter, win32 as pathWin32 } from 'node:path'
-import type { SubprocessHandle } from './session'
 import { DaemonProtocolError } from './types'
-import {
-  getAttributionShellLaunchConfig,
-  getShellReadyLaunchConfig,
-  resolvePtyShellPath
-} from './shell-ready'
-import { isValidPtySize, normalizePtySize } from './daemon-pty-size'
 import {
   ensureNodePtySpawnHelperExecutable,
   getNodePtySpawnHelperCandidates,
-  resolveUnixShellPath,
   validateWorkingDirectory
 } from '../providers/local-pty-utils'
 import { wrapShellSpawnForMacosTccAttribution } from '../providers/macos-tcc-login-shell'
-import { resolveWindowsShellLaunchArgs } from '../providers/windows-shell-args'
-import {
-  resolveEffectiveWindowsPowerShell,
-  shouldProbeWindowsPowerShellAvailability,
-  type WindowsPowerShellShellFamily
-} from '../providers/windows-powershell'
-import {
-  buildWindowsPowerShellSpawnAttempts,
-  type WindowsShellSpawnAttempt
-} from '../providers/windows-shell-fallback-chain'
-import { isPwshAvailable } from '../pwsh'
-import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-wsl-env'
-import { removeInheritedNoColor } from '../pty/terminal-color-env'
-import { removeAppImageRuntimeEnv } from '../pty/appimage-terminal-env'
-import { stripInheritedBuildModeEnv } from '../pty/build-mode-env'
-import { parseWslPath } from '../wsl'
-import { addWslEnvKeys } from '../wsl-env'
+import type { WindowsShellSpawnAttempt } from '../providers/windows-shell-fallback-chain'
 import {
   gitCredentialPromptGuardEnv,
   mergeGitConfigEnvProtocol
 } from '../../shared/git-credential-prompt-env'
 import { TERMINAL_GIT_CREDENTIAL_GUARD_POLICY_ENV } from '../../shared/terminal-git-credential-guard'
-import { resolveWslSessionContext } from './wsl-session-context'
-import { addOrcaWslInteropEnv } from '../pty/wsl-orca-env'
-import {
-  POWERLEVEL10K_WIZARD_DISABLE_ENV,
-  seedPowerlevel10kWizardEnv
-} from '../pty/powerlevel10k-wizard-env'
-import { isWindowsGitBashShellPath, resolveWindowsGitBashShellPath } from '../git-bash'
-import { WINDOWS_GIT_BASH_SHELL } from '../../shared/windows-terminal-shell'
-import { resolveAgentForegroundProcessWithAvailability } from '../providers/agent-foreground-process'
-import { readWindowsConptyProcessIds } from '../providers/windows-conpty-process-membership'
-import {
-  isAgentForegroundWrapperProcess,
-  recognizeAgentProcess,
-  recognizeAgentProcessFromCommandLine
-} from '../../shared/agent-process-recognition'
+import { recognizeAgentProcess } from '../../shared/agent-process-recognition'
 import { shouldInspectOuterWrapperForegroundProcess } from '../../shared/foreground-wrapper-agent'
-import {
-  shouldUseShellReadyStartupDelivery,
-  type StartupCommandDelivery
-} from '../../shared/codex-startup-delivery'
-import { isShellProcess } from '../../shared/shell-process-detection'
-import { parsePtySessionId } from './pty-session-id'
-import { getAgentForegroundContextPaths } from '../providers/agent-foreground-context-paths'
-import { assertSafeAgentStartupCwd, resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
-import { ORCA_HERMES_STARTUP_QUERY_ENV } from '../../shared/hermes-startup-query'
+import type { StartupCommandDelivery } from '../../shared/codex-startup-delivery'
+import { resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
 import type { TuiAgent } from '../../shared/types'
-import { forceKillPosixPtyProcessGroups } from '../pty/posix-pty-process-groups'
+import { buildWindowsPowerShellSpawnAttempts } from '../providers/windows-shell-fallback-chain'
 
 const PANE_IDENTITY_ENV_KEYS = [
   'ORCA_PANE_KEY',
@@ -72,23 +27,23 @@ const PANE_IDENTITY_ENV_KEYS = [
   'ORCA_WORKTREE_ID',
   'ORCA_AGENT_LAUNCH_TOKEN'
 ] as const
-const FOREGROUND_AGENT_CACHE_TTL_MS = 1000
-const SHELL_FOREGROUND_REFRESH_RETRY_MS = 5_000
+export const FOREGROUND_AGENT_CACHE_TTL_MS = 1000
+export const SHELL_FOREGROUND_REFRESH_RETRY_MS = 5_000
 // Why: a Windows refresh forks a heavy powershell.exe CIM scan (~10-40x POSIX `ps`); idle shells retry slower, output re-arms the fast retry.
-const WINDOWS_IDLE_SHELL_FOREGROUND_REFRESH_RETRY_MS = 15_000
-const SHELL_FOREGROUND_OUTPUT_HOT_WINDOW_MS = 10_000
-const STARTUP_AGENT_FOREGROUND_BOOTSTRAP_MS = 5_000
+export const WINDOWS_IDLE_SHELL_FOREGROUND_REFRESH_RETRY_MS = 15_000
+export const SHELL_FOREGROUND_OUTPUT_HOT_WINDOW_MS = 10_000
+export const STARTUP_AGENT_FOREGROUND_BOOTSTRAP_MS = 5_000
 const PTY_SPAWN_HEALTH_TIMEOUT_MS = 4_000
 // Why: retry once so a transient slow spawn doesn't route every terminal to the local fallback, losing daemon persistence.
 const PTY_SPAWN_HEALTH_RETRY_ATTEMPTS = 2
-const PENDING_PRE_LISTENER_DATA_MAX_CHARS = 512 * 1024
+export const PENDING_PRE_LISTENER_DATA_MAX_CHARS = 512 * 1024
 
-function shouldInspectOuterWrapperFallback(processName: string | null): boolean {
+export function shouldInspectOuterWrapperFallback(processName: string | null): boolean {
   const recognized = recognizeAgentProcess(processName)
   return recognized !== null && shouldInspectOuterWrapperForegroundProcess(recognized)
 }
 
-function composeGuardedDaemonGitConfigEnv(
+export function composeGuardedDaemonGitConfigEnv(
   env: Record<string, string>,
   explicitEnv: Record<string, string> | undefined,
   launchAgent: TuiAgent | undefined
@@ -120,7 +75,7 @@ export type PtySubprocessOptions = {
   terminalWindowsPowerShellImplementation?: 'auto' | 'powershell.exe' | 'pwsh.exe'
 }
 
-function deleteRequestedDaemonEnvKeys(
+export function deleteRequestedDaemonEnvKeys(
   env: Record<string, string>,
   keys: readonly string[] | undefined
 ): void {
@@ -142,14 +97,14 @@ function deleteRequestedDaemonEnvKeys(
 /**
  * Returns a stable default working directory for daemon-spawned PTYs.
  */
-function getDefaultCwd(): string {
+export function getDefaultCwd(): string {
   return resolveSafePtyDefaultCwd()
 }
 
 /**
  * Removes pane identity inherited from the daemon parent unless explicitly set.
  */
-function removeUnspecifiedPaneIdentityEnv(
+export function removeUnspecifiedPaneIdentityEnv(
   env: Record<string, string>,
   explicitEnv: Record<string, string> | undefined
 ): void {
@@ -163,7 +118,7 @@ function removeUnspecifiedPaneIdentityEnv(
 /**
  * Promotes the agent-teams shim path ahead of inherited PATH entries.
  */
-function promoteAgentTeamsShimPath(
+export function promoteAgentTeamsShimPath(
   env: Record<string, string>,
   requestedPath: string | undefined
 ): void {
@@ -181,7 +136,7 @@ function promoteAgentTeamsShimPath(
 /**
  * Removes stale development hook endpoints inherited by daemon children.
  */
-function removeInheritedDevAgentHookEndpoint(
+export function removeInheritedDevAgentHookEndpoint(
   env: Record<string, string>,
   explicitEnv: Record<string, string> | undefined
 ): void {
@@ -194,7 +149,7 @@ function removeInheritedDevAgentHookEndpoint(
 /**
  * Strips Electron's internal run-as-node flag from user shell environments.
  */
-function removeInheritedElectronRunAsNode(env: Record<string, string>): void {
+export function removeInheritedElectronRunAsNode(env: Record<string, string>): void {
   // Why: user shells must not inherit ELECTRON_RUN_AS_NODE or nested Electron commands run as plain Node.
   delete env.ELECTRON_RUN_AS_NODE
 }
@@ -302,7 +257,7 @@ function preflightMacNodePtySpawnEnvironment(): void {
 /**
  * Ensures POSIX daemon-owned native PTY spawn prerequisites are still valid.
  */
-function preflightUnixPtySpawnEnvironment(): void {
+export function preflightUnixPtySpawnEnvironment(): void {
   if (process.platform === 'win32') {
     return
   }
@@ -322,7 +277,7 @@ function isNativeWindowsPath(path: string): boolean {
 /**
  * Validates explicit native Windows cwd paths before ConPTY launch.
  */
-function preflightWindowsPtySpawnEnvironment(args: {
+export function preflightWindowsPtySpawnEnvironment(args: {
   validationCwd: string
   cwdWasExplicit: boolean
 }): void {
@@ -340,7 +295,7 @@ function preflightWindowsPtySpawnEnvironment(args: {
 /**
  * Validates POSIX spawn cwd before node-pty can fail with an opaque ENOENT.
  */
-function preflightPosixPtySpawnEnvironment(validationCwd: string): void {
+export function preflightPosixPtySpawnEnvironment(validationCwd: string): void {
   if (process.platform === 'win32') {
     return
   }
@@ -350,7 +305,7 @@ function preflightPosixPtySpawnEnvironment(validationCwd: string): void {
 /**
  * Wraps native PTY spawn failures with shell and cwd context.
  */
-function formatPtySpawnError(err: unknown, shellPath: string, spawnCwd: string): Error {
+export function formatPtySpawnError(err: unknown, shellPath: string, spawnCwd: string): Error {
   const message = err instanceof Error ? err.message : String(err)
   const formatted = new DaemonProtocolError(
     `Daemon failed to spawn shell "${shellPath}" with cwd "${spawnCwd}": ${message}`
@@ -473,7 +428,7 @@ function normalizeForegroundProcessName(processName: string | null | undefined):
 /**
  * Falls back to the spawned Windows shell when node-pty reports a terminal name.
  */
-function resolveFallbackForegroundProcess(
+export function resolveFallbackForegroundProcess(
   processName: string | null | undefined,
   shellPath: string
 ): string | null {
@@ -491,7 +446,7 @@ function resolveFallbackForegroundProcess(
  *
  * Why: the daemon has no LocalPtyProvider, so it owns its chain walk; later attempts recompute args so the cmd.exe fallback still gets `chcp 65001`.
  */
-function spawnDaemonPtyWithWindowsFallback(args: {
+export function spawnDaemonPtyWithWindowsFallback(args: {
   shellPath: string
   shellArgs: string[]
   spawnCwd: string

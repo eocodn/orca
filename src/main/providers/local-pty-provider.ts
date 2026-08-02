@@ -6,4 +6,3 @@ export {
   LOCAL_PTY_FORCE_KILL_RETRY_MS
 } from './local-pty-provider-spawn'
 export { _resetLocalPtyProviderStateForTest } from './local-pty-provider-controls'
-

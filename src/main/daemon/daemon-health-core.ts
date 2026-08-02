@@ -5,28 +5,7 @@ import {
   getProcessOutputFields,
   iterateProcessOutputLines
 } from '../../shared/process-output-field-scanner'
-import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
 import { encodeNdjson } from './ndjson'
-import {
-  PROTOCOL_VERSION,
-  type HelloMessage,
-  type HelloResponse,
-  type SystemResolverHealth,
-  type SystemResolverHealthResult
-} from './types'
-
-helpers with kill escalation so the SIGKILL safety checks stay co-located. */
-import { execFile, execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, unlinkSync } from 'node:fs'
-import { connect, type Socket } from 'node:net'
-import { promisify } from 'node:util'
-import {
-  getProcessOutputFields,
-  iterateProcessOutputLines
-} from '../../shared/process-output-field-scanner'
-import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
-import { encodeNdjson } from './ndjson'
-import { getDaemonPidPath } from './daemon-spawner'
 import {
   PROTOCOL_VERSION,
   type HelloMessage,

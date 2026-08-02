@@ -1,6 +1,5 @@
 import * as pty from 'node-pty'
-import { statSync } from 'node:fs'
-import { delimiter, win32 as pathWin32 } from 'node:path'
+import { win32 as pathWin32 } from 'node:path'
 import type { SubprocessHandle } from './session'
 import { DaemonProtocolError } from './types'
 import {
@@ -8,14 +7,8 @@ import {
   getShellReadyLaunchConfig,
   resolvePtyShellPath
 } from './shell-ready'
-import { isValidPtySize, normalizePtySize } from './daemon-pty-size'
-import {
-  ensureNodePtySpawnHelperExecutable,
-  getNodePtySpawnHelperCandidates,
-  resolveUnixShellPath,
-  validateWorkingDirectory
-} from '../providers/local-pty-utils'
-import { wrapShellSpawnForMacosTccAttribution } from '../providers/macos-tcc-login-shell'
+import { normalizePtySize } from './daemon-pty-size'
+import { ensureNodePtySpawnHelperExecutable } from '../providers/local-pty-utils'
 import { resolveWindowsShellLaunchArgs } from '../providers/windows-shell-args'
 import {
   resolveEffectiveWindowsPowerShell,
@@ -33,11 +26,7 @@ import { removeAppImageRuntimeEnv } from '../pty/appimage-terminal-env'
 import { stripInheritedBuildModeEnv } from '../pty/build-mode-env'
 import { parseWslPath } from '../wsl'
 import { addWslEnvKeys } from '../wsl-env'
-import {
-  gitCredentialPromptGuardEnv,
-  mergeGitConfigEnvProtocol
-} from '../../shared/git-credential-prompt-env'
-import { TERMINAL_GIT_CREDENTIAL_GUARD_POLICY_ENV } from '../../shared/terminal-git-credential-guard'
+import { mergeGitConfigEnvProtocol } from '../../shared/git-credential-prompt-env'
 import { resolveWslSessionContext } from './wsl-session-context'
 import { addOrcaWslInteropEnv } from '../pty/wsl-orca-env'
 import {
@@ -46,28 +35,30 @@ import {
 } from '../pty/powerlevel10k-wizard-env'
 import { isWindowsGitBashShellPath, resolveWindowsGitBashShellPath } from '../git-bash'
 import { WINDOWS_GIT_BASH_SHELL } from '../../shared/windows-terminal-shell'
-import { resolveAgentForegroundProcessWithAvailability } from '../providers/agent-foreground-process'
-import { readWindowsConptyProcessIds } from '../providers/windows-conpty-process-membership'
-import {
-  isAgentForegroundWrapperProcess,
-  recognizeAgentProcess,
-  recognizeAgentProcessFromCommandLine
-} from '../../shared/agent-process-recognition'
-import { shouldInspectOuterWrapperForegroundProcess } from '../../shared/foreground-wrapper-agent'
-import {
-  shouldUseShellReadyStartupDelivery,
-  type StartupCommandDelivery
-} from '../../shared/codex-startup-delivery'
-import { isShellProcess } from '../../shared/shell-process-detection'
-import { parsePtySessionId } from './pty-session-id'
-import { getAgentForegroundContextPaths } from '../providers/agent-foreground-context-paths'
-import { assertSafeAgentStartupCwd, resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
+import { recognizeAgentProcessFromCommandLine } from '../../shared/agent-process-recognition'
+import { shouldUseShellReadyStartupDelivery } from '../../shared/codex-startup-delivery'
+import { assertSafeAgentStartupCwd } from '../providers/pty-default-cwd'
 import { ORCA_HERMES_STARTUP_QUERY_ENV } from '../../shared/hermes-startup-query'
-import type { TuiAgent } from '../../shared/types'
-import { forceKillPosixPtyProcessGroups } from '../pty/posix-pty-process-groups'
+import { createDaemonPtySubprocessHandle } from './daemon-pty-subprocess-handle'
 import type { PtySubprocessOptions } from './daemon-pty-spawn-support'
+import {
+  checkPtySpawnHealth,
+  composeGuardedDaemonGitConfigEnv,
+  deleteRequestedDaemonEnvKeys,
+  formatPtySpawnError,
+  getDefaultCwd,
+  preflightPosixPtySpawnEnvironment,
+  preflightUnixPtySpawnEnvironment,
+  preflightWindowsPtySpawnEnvironment,
+  promoteAgentTeamsShimPath,
+  removeInheritedDevAgentHookEndpoint,
+  removeInheritedElectronRunAsNode,
+  removeUnspecifiedPaneIdentityEnv,
+  spawnDaemonPtyWithWindowsFallback
+} from './daemon-pty-spawn-support'
 
-export { PtySubprocessOptions } from './daemon-pty-spawn-support'
+export type { PtySubprocessOptions } from './daemon-pty-spawn-support'
+export { checkPtySpawnHealth } from './daemon-pty-spawn-support'
 
 export function createPtySubprocess(opts: PtySubprocessOptions): SubprocessHandle {
   const size = normalizePtySize(opts.cols, opts.rows)
@@ -211,4 +202,115 @@ export function createPtySubprocess(opts: PtySubprocessOptions): SubprocessHandl
       } else if (env.CODEX_HOME) {
         addWslEnvKeys(env, ['CODEX_HOME', 'ORCA_CODEX_HOME'])
       }
+      if (env.CLAUDE_CONFIG_DIR) {
+        // Why: non-default env vars need WSLENV import to cross Windows wsl.exe into the Linux side.
+        addWslEnvKeys(env, ['CLAUDE_CONFIG_DIR'])
+      }
+      if (env[ORCA_HERMES_STARTUP_QUERY_ENV] !== undefined) {
+        // Why: wsl.exe drops custom Windows env vars unless named in WSLENV.
+        addWslEnvKeys(env, [ORCA_HERMES_STARTUP_QUERY_ENV])
+      }
+    } else if (codexHomeWslInfo || isWslCodexHomeForHost(env.CODEX_HOME)) {
+      // Why: WSL Codex homes are Linux paths; also drop ORCA_CODEX_HOME since shell-ready restores CODEX_HOME from it.
+      delete env.CODEX_HOME
+      delete env.ORCA_CODEX_HOME
+    }
+    if (pathWin32.basename(shellPath).toLowerCase() === 'wsl.exe') {
+      addOrcaWslInteropEnv(env)
+    }
+  } else {
+    // Why: relay-side launch modes can ask for host defaults to stay scrubbed
+    // even after environment normalization above.
+    deleteRequestedDaemonEnvKeys(env, opts.envToDelete)
+    if (opts.env?.TERM) {
+      env.TERM = opts.env.TERM
+    }
+    // Why: set SHELL after the scrub and before launch-config derivation so shell-ready wrappers target the resolved shell.
+    const preferredShellPath = shellPath
+    shellPath = resolveUnixShellPath(shellPath)
+    if (shellPath !== preferredShellPath) {
+      env.SHELL = shellPath
+      console.warn(
+        `[daemon/pty] Preferred shell "${preferredShellPath}" is unavailable, fell back to "${shellPath}"`
+      )
+    }
+    // Why: OpenCode/Codex path restoration and OMP's typed-command status wrapper need shell-ready code after user startup files run.
+    let shellLaunch: ReturnType<typeof getShellReadyLaunchConfig> | null = null
+    if (opts.command && isCodexStartupCommand) {
+      const shouldWaitForShellReady = shouldUseShellReadyStartupDelivery({
+        command: opts.command,
+        startupCommandDelivery: opts.startupCommandDelivery
+      })
+      // Why: payload-bearing Codex startup text can be dropped by rc-file noise; plain Codex stays markerless for the startup-speed path.
+      shellLaunch = shouldWaitForShellReady
+        ? getShellReadyLaunchConfig(shellPath)
+        : getAttributionShellLaunchConfig(shellPath)
+    } else if (opts.command) {
+      shellLaunch = getShellReadyLaunchConfig(shellPath)
+    } else {
+      shellLaunch =
+        env.ORCA_ATTRIBUTION_SHIM_DIR ||
+        env.ORCA_OPENCODE_CONFIG_DIR ||
+        env.ORCA_MIMOCODE_HOME ||
+        env.ORCA_OMP_STATUS_EXTENSION ||
+        env.ORCA_CODEX_HOME ||
+        env.ORCA_AGENT_TEAMS_SHIM_DIR
+          ? getAttributionShellLaunchConfig(shellPath)
+          : null
+    }
+    if (shellLaunch) {
+      Object.assign(env, shellLaunch.env)
+    }
+    shellArgs = shellLaunch?.args ?? ['-l']
+  }
+  seedPowerlevel10kWizardEnv(env, { envToDelete: opts.envToDelete })
+  if (
+    env[POWERLEVEL10K_WIZARD_DISABLE_ENV] !== undefined &&
+    process.platform === 'win32' &&
+    pathWin32.basename(shellPath).toLowerCase() === 'wsl.exe'
+  ) {
+    addWslEnvKeys(env, [POWERLEVEL10K_WIZARD_DISABLE_ENV])
+  }
+  promoteAgentTeamsShimPath(env, opts.env?.PATH)
 
+  // Why: asar packaging can strip +x from node-pty's spawn-helper; the daemon is a separate forked process from the main-process fix.
+  ensureNodePtySpawnHelperExecutable()
+  preflightUnixPtySpawnEnvironment()
+  preflightPosixPtySpawnEnvironment(validationCwd)
+  preflightWindowsPtySpawnEnvironment({
+    validationCwd,
+    cwdWasExplicit: opts.cwd !== undefined
+  })
+
+  let proc: pty.IPty
+  try {
+    const spawned = spawnDaemonPtyWithWindowsFallback({
+      shellPath,
+      shellArgs,
+      spawnCwd,
+      env,
+      cols: size.cols,
+      rows: size.rows,
+      windowsFallbackAttempts
+    })
+    proc = spawned.process
+    // Why: a Windows fallback (e.g. cmd.exe) carries its own argv-embedded startup command; adopt the winning shell's identity + delivery flag.
+    shellPath = spawned.shellPath
+    spawnCwd = spawned.spawnCwd
+    if (spawned.startupCommandDeliveredInShellArgs !== undefined) {
+      startupCommandDeliveredInShellArgs = spawned.startupCommandDeliveredInShellArgs
+    }
+  } catch (err) {
+    if (process.platform === 'win32') {
+      throw formatPtySpawnError(err, shellPath, spawnCwd)
+    }
+    throw err
+  }
+  return createDaemonPtySubprocessHandle({
+    proc,
+    shellPath,
+    startupCommandDeliveredInShellArgs,
+    opts,
+    startupAgentRecognition
+  })
+}

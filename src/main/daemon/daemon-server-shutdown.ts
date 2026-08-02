@@ -1,4 +1,4 @@
-import { DaemonServerFoundation, createServer, type Server, type Socket } from 'node:net'
+import { createServer, type Server, type Socket } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import { writeFileSync, chmodSync } from 'node:fs'
@@ -36,6 +36,7 @@ import {
   isAgentSessionSurfaceBinding
 } from '../../shared/agent-session-host-authority'
 import { TerminalHistorySeedTransferRegistry } from './terminal-history-seed-transfer-registry'
+import { DaemonServerFoundation } from './daemon-server-foundation'
 
 
 import { type DaemonServerOptions,
@@ -173,7 +174,7 @@ export class DaemonServerPhase1 extends DaemonServerFoundation {
       }
     }
     // Why: a non-reading peer must not pin a fenced daemon by holding its ack behind permanent socket backpressure.
-    timer = setTimeout(start, DaemonServer.SHUTDOWN_REPLY_FLUSH_TIMEOUT_MS)
+    timer = setTimeout(start, DaemonServerFoundation.SHUTDOWN_REPLY_FLUSH_TIMEOUT_MS)
     timer.unref()
     socket.once('close', start)
     socket.once('error', start)

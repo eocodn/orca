@@ -72,6 +72,7 @@ export type DaemonServerOptions = {
   }) => SubprocessHandle
 }
 
+
 export type ConnectedClient = {
   clientId: string
   controlSocket: Socket
@@ -90,6 +91,7 @@ export type PendingShutdownReply = {
   start: () => void
 }
 
+export class DaemonServerFoundation {
 
   [key: string]: any
 
@@ -176,7 +178,7 @@ export type PendingShutdownReply = {
         : null)
     this.onIdleShutdown = opts.onIdleShutdown ?? (() => {})
     this.initialAdoptionTimeoutMs =
-      opts.initialAdoptionTestConfig?.timeoutMs ?? DaemonServer.INITIAL_ADOPTION_TIMEOUT_MS
+      opts.initialAdoptionTestConfig?.timeoutMs ?? DaemonServerFoundation.INITIAL_ADOPTION_TIMEOUT_MS
     this.lifecycleClock = opts.initialAdoptionTestConfig?.clock ?? {
       setTimeout: (callback, delayMs) => {
         const timer = setTimeout(callback, delayMs)
@@ -505,4 +507,3 @@ export type PendingShutdownReply = {
 
 
 }
-

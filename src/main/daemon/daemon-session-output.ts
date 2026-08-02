@@ -1,43 +1,12 @@
-import { SessionFoundation, HeadlessEmulator } from './headless-emulator'
-import { isValidPtySize, normalizePtySize } from './daemon-pty-size'
-import { PostReadyFlushGate } from './post-ready-flush-gate'
 import {
-  createShellReadyScanState,
-  drainShellReadyHeldBytes,
-  scanForShellReady,
-  type ShellReadyScanState
-} from '../shell-ready-marker-scanner'
-import { isPowerShellProcess } from '../../shared/shell-process-detection'
-import { killWithDescendantSweep } from '../pty-descendant-termination'
-import type { TuiAgent } from '../../shared/types'
-import { randomUUID } from 'node:crypto'
-import { PhysicalExitTracker } from '../../shared/physical-exit-tracker'
-import {
-  PtyStartupIngress,
-  type PtyIngressEmission,
-  type PtyStartupIngressIntent
-} from '../../shared/pty-startup-ingress'
-import type {
-  PendingOutputRecord,
-  SessionState,
-  ShellReadyState,
-  TakePendingOutputResult,
-  TerminalSnapshot
-} from './types'
-import type { PtyOwnerBackend } from '../../shared/pty-owner-backend'
-
-
-import { SHELL_READY_TIMEOUT_MS,
-  CODEX_SHELL_READY_TIMEOUT_MS,
-  KILL_TIMEOUT_MS,
-  IMMEDIATE_KILL_PHYSICAL_EXIT_TIMEOUT_MS,
-  SESSION_FORCE_KILL_RETRY_MS,
-  SESSION_FORCE_KILL_MAX_ATTEMPTS,
   PENDING_OUTPUT_MAX_BYTES,
-  PRODUCER_PAUSE_FAILSAFE_MS,
-  type SubprocessHandle,
-  type SessionOptions,
-  type AttachedClient  } from './daemon-session-foundation'
+  SESSION_FORCE_KILL_MAX_ATTEMPTS,
+  SESSION_FORCE_KILL_RETRY_MS,
+  SessionFoundation
+} from './daemon-session-foundation'
+import { drainShellReadyHeldBytes, scanForShellReady } from '../shell-ready-marker-scanner'
+import type { PtyIngressEmission } from '../../shared/pty-startup-ingress'
+import type { PendingOutputRecord } from './types'
 
 export class SessionPhase1 extends SessionFoundation {
   dispose(): void {

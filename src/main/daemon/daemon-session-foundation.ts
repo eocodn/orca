@@ -1,22 +1,13 @@
 import { HeadlessEmulator } from './headless-emulator'
 import { isValidPtySize, normalizePtySize } from './daemon-pty-size'
 import { PostReadyFlushGate } from './post-ready-flush-gate'
-import {
-  createShellReadyScanState,
-  drainShellReadyHeldBytes,
-  scanForShellReady,
-  type ShellReadyScanState
-} from '../shell-ready-marker-scanner'
+import { createShellReadyScanState, type ShellReadyScanState } from '../shell-ready-marker-scanner'
 import { isPowerShellProcess } from '../../shared/shell-process-detection'
 import { killWithDescendantSweep } from '../pty-descendant-termination'
 import type { TuiAgent } from '../../shared/types'
 import { randomUUID } from 'node:crypto'
 import { PhysicalExitTracker } from '../../shared/physical-exit-tracker'
-import {
-  PtyStartupIngress,
-  type PtyIngressEmission,
-  type PtyStartupIngressIntent
-} from '../../shared/pty-startup-ingress'
+import { PtyStartupIngress, type PtyStartupIngressIntent } from '../../shared/pty-startup-ingress'
 import type {
   PendingOutputRecord,
   SessionState,
@@ -69,7 +60,6 @@ export type SubprocessHandle = {
   /** Release the native PTY handle via node-pty's destroy(). Idempotent; safe to call after exit. */
   dispose(): void
 }
-
 export type SessionOptions = {
   sessionId: string
   cols: number
@@ -101,7 +91,7 @@ export type AttachedClient = {
   onExit: (code: number, incarnationId: string) => void
 }
 
-
+export class SessionFoundation {
   [key: string]: any
 
   readonly sessionId: string
@@ -148,7 +138,7 @@ export type AttachedClient = {
       cols: size.cols,
       rows: size.rows,
       scrollback: opts.scrollback,
-      wslDistro: opts.wslDistro
+      wslDistro: opts.wslDistro,
       // No onData: the daemon emulator must never reply to query sequences — the renderer's xterm is
       // the authoritative responder and a daemon reply would race ahead and clobber it. See HeadlessEmulator.
     })
@@ -507,7 +497,4 @@ export type AttachedClient = {
     this.startupIngress.snapshotBarrier()
     return held
   }
-
-
 }
-
