@@ -284,6 +284,7 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import { getDataFile } from './persistence-state-foundation'
 
 export class StoreFoundation {
   [key: string]: any
