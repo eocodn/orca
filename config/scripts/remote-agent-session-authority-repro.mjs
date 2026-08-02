@@ -11,11 +11,19 @@ import {
   writeFileSync
 } from 'node:fs'
 import { createRequire } from 'node:module'
-import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
-import { createInterface } from 'node:readline'
 import { cleanupIsolatedDaemons, isProcessAlive } from './remote-agent-session-process-cleanup.mjs'
+import {
+  fixtureCommand,
+  installFixtureAgent,
+  quoteFixtureAgentCommand
+} from './remote-agent-session-fixture-commands.mjs'
+import {
+  reservePort,
+  startServer,
+  stopServer
+} from './remote-agent-session-server.mjs'
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
 const { parsePaneKey } = createRequire(import.meta.url)(
@@ -63,16 +71,33 @@ try {
     ],
     { stdio: 'ignore' }
   )
-  const fixtureAgentPath = installFixtureAgent(binPath)
+  const fixtureAgentPath = installFixtureAgent(binPath, fixtureScript)
   writeFileSync(
     path.join(profilePath, 'orca-data.json'),
     JSON.stringify({
-      settings: { agentCmdOverrides: { codex: quoteFixtureAgentCommand(fixtureAgentPath) } }
+      settings: {
+        agentCmdOverrides: {
+          codex: quoteFixtureAgentCommand(fixtureAgentPath, agentSessionToken)
+        }
+      }
     })
   )
 
   const port = await reservePort()
-  const firstReady = await startServer(port)
+  const firstReady = await startServer(
+    {
+      repoRoot,
+      binPath,
+      profilePath,
+      spawnMarkerPath,
+      exitTriggerPath,
+      inputMarkerPath,
+      agentSessionToken,
+      childProcesses
+    },
+    port
+  )
+  server = firstReady.server
   const pairingCode = firstReady.pairing.url
   activePairingCode = pairingCode
 
@@ -271,8 +296,22 @@ try {
     )
   }
 
-  await stopServer()
-  const restarted = await startServer(port)
+  await stopServer(server, childProcesses)
+  server = null
+  const restarted = await startServer(
+    {
+      repoRoot,
+      binPath,
+      profilePath,
+      spawnMarkerPath,
+      exitTriggerPath,
+      inputMarkerPath,
+      agentSessionToken,
+      childProcesses
+    },
+    port
+  )
+  server = restarted.server
   const restartPairingCode = restarted.pairing.url
   activePairingCode = restartPairingCode
   const [afterRestartTerminals, afterRestartTabs] = await Promise.all([
@@ -301,139 +340,13 @@ try {
     )
   }
   writeFileSync(exitTriggerPath, '')
-  await stopServer().catch(() => {})
+  await stopServer(server, childProcesses).catch(() => {})
+  server = null
   for (const child of childProcesses) {
     child.kill()
   }
   await cleanupIsolatedDaemons(profilePath)
   rmSync(scratch, { recursive: true, force: true })
-}
-
-function installFixtureAgent(targetDir) {
-  const nodePath = process.execPath
-  if (process.platform === 'win32') {
-    const commandPath = path.join(targetDir, 'codex.cmd')
-    writeFileSync(commandPath, `@"${nodePath}" "${fixtureScript}" %*\r\n`)
-    return commandPath
-  }
-  const commandPath = path.join(targetDir, 'codex')
-  writeFileSync(
-    commandPath,
-    `#!/bin/sh\nexec ${shellQuote(nodePath)} ${shellQuote(fixtureScript)} "$@"\n`
-  )
-  chmodSync(commandPath, 0o755)
-  return commandPath
-}
-
-function quoteFixtureAgentCommand(commandPath) {
-  return process.platform === 'win32'
-    ? `"${commandPath.replaceAll('"', '""')}" ${agentSessionToken}`
-    : `${shellQuote(commandPath)} ${agentSessionToken}`
-}
-
-function shellQuote(value) {
-  return `'${value.replaceAll("'", `'\\''`)}'`
-}
-
-function fixtureCommand(scriptPath, markerPath) {
-  if (process.platform === 'win32') {
-    return [process.execPath, scriptPath, markerPath]
-      .map((value) => `"${value.replaceAll('"', '""')}"`)
-      .join(' ')
-  }
-  return [process.execPath, scriptPath, markerPath].map(shellQuote).join(' ')
-}
-
-async function reservePort() {
-  return await new Promise((resolve, reject) => {
-    const listener = net.createServer()
-    listener.once('error', reject)
-    listener.listen(0, '127.0.0.1', () => {
-      const address = listener.address()
-      const port = typeof address === 'object' && address ? address.port : 0
-      listener.close((error) => (error ? reject(error) : resolve(port)))
-    })
-  })
-}
-
-async function startServer(port) {
-  const electronPath = await import('electron').then((module) => module.default)
-  const pathKey = Object.keys(process.env).find((key) => key.toLowerCase() === 'path') ?? 'PATH'
-  const pathDelimiter = process.platform === 'win32' ? ';' : ':'
-  const env = {
-    ...process.env,
-    [pathKey]: `${binPath}${pathDelimiter}${process.env[pathKey] ?? ''}`,
-    ORCA_DEV_USER_DATA_PATH: profilePath,
-    ORCA_USER_DATA_PATH: profilePath,
-    ORCA_REPRO_SPAWN_MARKER: spawnMarkerPath,
-    ORCA_REPRO_EXIT_TRIGGER: exitTriggerPath,
-    ORCA_REPRO_INPUT_MARKER: inputMarkerPath,
-    ORCA_REPRO_AGENT_SESSION_TOKEN: agentSessionToken,
-    ...(process.platform === 'linux' ? { ELECTRON_DISABLE_SANDBOX: '1' } : {})
-  }
-  server = spawn(
-    electronPath,
-    [
-      repoRoot,
-      '--serve',
-      '--serve-json',
-      '--serve-port',
-      String(port),
-      '--serve-pairing-address',
-      `127.0.0.1:${port}`
-    ],
-    { cwd: repoRoot, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }
-  )
-  childProcesses.add(server)
-  let stderr = ''
-  server.stderr.on('data', (chunk) => {
-    stderr += String(chunk)
-  })
-  const lines = createInterface({ input: server.stdout })
-  return await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`server readiness timed out\n${stderr}`))
-    }, 30_000)
-    lines.on('line', (line) => {
-      try {
-        const parsed = JSON.parse(line)
-        if (parsed.type === 'orca_server_ready' && parsed.pairing?.url) {
-          clearTimeout(timeout)
-          resolve(parsed)
-        }
-      } catch {
-        // Startup diagnostics are allowed before the one structured ready line.
-      }
-    })
-    server.once('exit', (code) => {
-      clearTimeout(timeout)
-      reject(new Error(`server exited before readiness with code ${code}\n${stderr}`))
-    })
-    server.once('error', reject)
-  })
-}
-
-async function stopServer() {
-  const current = server
-  server = null
-  if (!current) {
-    return
-  }
-  childProcesses.delete(current)
-  if (current.exitCode !== null) {
-    return
-  }
-  current.kill('SIGTERM')
-  await new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      current.kill('SIGKILL')
-      resolve()
-    }, 8_000)
-    current.once('exit', () => {
-      clearTimeout(timeout)
-      resolve()
-    })
-  })
 }
 
 async function callClient(pairingCode, method, params, responseMode) {
