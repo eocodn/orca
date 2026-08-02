@@ -118,7 +118,6 @@ export function isReadyTerminalTab(
 ): tab is ReadyTerminalSurface {
   return tab.type === 'terminal' && tab.status === 'ready' && tab.terminal.trim().length > 0
 }
-
 export function isTerminalSurfaceTab(
   tab: RuntimeMobileSessionTabsResult['tabs'][number]
 ): tab is TerminalSurface {
@@ -483,4 +482,3 @@ export function buildMirroredAgentStatusPatch(
     sortEpoch: sortRelevantChange ? state.sortEpoch + 1 : state.sortEpoch
   }
 }
-

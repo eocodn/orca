@@ -189,4 +189,3 @@ export async function syncRuntimeGraph(): Promise<void> {
     console.error('[runtime] Failed to sync renderer graph:', error)
   }
 }
-

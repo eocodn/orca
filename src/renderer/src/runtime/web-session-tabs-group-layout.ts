@@ -137,7 +137,6 @@ export function chooseTargetGroupId(
     `${WEB_SESSION_GROUP_PREFIX}${snapshot.worktree}`
   )
 }
-
 export function collectLayoutGroupIds(layout: TabGroupLayoutNode | undefined): Set<string> {
   const result = new Set<string>()
   const visit = (node: TabGroupLayoutNode | undefined): void => {
@@ -400,4 +399,3 @@ export function buildMirroredHostGroups({
 
   return orderedGroups.length > 0 ? orderedGroups : null
 }
-

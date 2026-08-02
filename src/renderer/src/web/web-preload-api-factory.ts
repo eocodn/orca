@@ -499,4 +499,3 @@ export function createWebPreloadApi(): Partial<PreloadApi> {
 
 
 // Why: web has no IPC for native-chat transcripts, so route readSession/subscribe through runtime RPC (as mobile does).
-

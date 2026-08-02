@@ -53,7 +53,6 @@ export function requestRemoteTerminalResyncSnapshot(multiplexer: RemoteRuntimeTe
     multiplexer.sendResyncSnapshot(stream)
   }
 
-
 export function sendDeferredRemoteTerminalResyncSnapshot(multiplexer: RemoteRuntimeTerminalMultiplexer, stream: RemoteRuntimeMultiplexedTerminalState): void {
     if (!stream.resyncInFlight || !stream.resyncPendingSend || stream.pendingSnapshotRequest) {
       return
@@ -185,4 +184,3 @@ export function allocateRemoteTerminalSnapshotRequestId(multiplexer: RemoteRunti
       multiplexer.nextSnapshotRequestId >= 0x7fffffff ? 1 : multiplexer.nextSnapshotRequestId + 1
     return id
   }
-

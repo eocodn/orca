@@ -149,7 +149,6 @@ export function blobToBase64(blob: Blob): Promise<string> {
     reader.readAsDataURL(blob)
   })
 }
-
 export function assertClipboardImageBlobWithinLimit(blob: Blob): void {
   assertClipboardImageByteLengthWithinLimit(blob.size)
 }
@@ -227,4 +226,3 @@ export async function writeWebClipboardText(text: string): Promise<void> {
     throw new Error('Clipboard write is unavailable in this browser context')
   }
 }
-

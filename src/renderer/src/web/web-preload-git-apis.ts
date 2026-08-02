@@ -363,4 +363,3 @@ export function createGitApi(): NonNullable<Partial<PreloadApi>['git']> {
     }
   }
 }
-

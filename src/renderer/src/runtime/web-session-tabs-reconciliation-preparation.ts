@@ -594,4 +594,3 @@ export function prepareWebSessionTabsReconciliation(
     hostToLocalTabId
   }
 }
-

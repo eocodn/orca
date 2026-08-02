@@ -193,7 +193,6 @@ export function getStoredSettings(): GlobalSettings {
     migratedStored
   )
 }
-
 export function writeStoredSettings(
   settings: GlobalSettings,
   explicitActiveRuntimeEnvironmentId?: string | null
@@ -295,4 +294,3 @@ export async function syncRuntimeBackedSettings(
     return localNext
   }
 }
-

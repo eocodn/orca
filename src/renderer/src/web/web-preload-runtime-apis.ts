@@ -153,7 +153,6 @@ export function createRuntimeApi(): NonNullable<Partial<PreloadApi>['runtime']> 
     onBrowserDriverChanged: () => noopUnsubscribe
   }
 }
-
 export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>['runtimeEnvironments']> {
   return {
     list: async () => {
@@ -361,4 +360,3 @@ export function webAiVaultUnavailableResult(executionHostId: ExecutionHostId): A
     scannedAt: new Date().toISOString()
   }
 }
-

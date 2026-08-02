@@ -59,7 +59,6 @@ export function acknowledgeRemoteTerminalOutput(multiplexer: RemoteRuntimeTermin
     )
   }
 
-
 export function sendRemoteTerminalInput(multiplexer: RemoteRuntimeTerminalMultiplexer, stream: RemoteRuntimeMultiplexedTerminalState, text: string): boolean {
     const sent = multiplexer.sendFrame(
       stream.streamId,
@@ -228,4 +227,3 @@ export function flushRemoteTerminalOutputAcknowledgement(multiplexer: RemoteRunt
     }
     return sent
   }
-

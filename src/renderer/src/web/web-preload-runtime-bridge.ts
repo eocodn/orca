@@ -158,7 +158,6 @@ export async function callRuntimeEnvelope<TResult = unknown>(
   updateEnvironmentFromResponse(environment, response)
   return response as RuntimeRpcResponse<TResult>
 }
-
 export async function callEnvironmentEnvelope<TResult = unknown>(
   selector: string,
   method: string,
@@ -439,4 +438,3 @@ export function updateEnvironmentFromResponse(
   const runtimeId = response.ok ? response._meta.runtimeId : (response._meta?.runtimeId ?? null)
   activeEnvironment = updateStoredEnvironmentRuntimeId(environment, runtimeId)
 }
-

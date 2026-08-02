@@ -165,7 +165,6 @@ export async function updateRuntimePRBotAuthorOverride(args: {
   writeStoredSettings(next)
   return next
 }
-
 export function getStoredOnboarding(): OnboardingState {
   const storedRaw = window.localStorage.getItem(ONBOARDING_STORAGE_KEY)
   if (storedRaw) {
@@ -373,4 +372,3 @@ export function mergeSettings(
     })
   }
 }
-

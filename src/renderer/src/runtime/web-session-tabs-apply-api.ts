@@ -131,7 +131,6 @@ export function applyWebSessionTabsSnapshots(
   }
   return Object.keys(mergedPatch).length === 0 ? state : mergedPatch
 }
-
 export function applyFreshWebSessionTabsSnapshot(
   state: WebSessionTabsSyncState,
   snapshot: RuntimeMobileSessionTabsResult,
@@ -173,4 +172,3 @@ export function applyWebSessionTabsStorePatch(
     useAppStore.getState().scheduleAgentStatusFreshness()
   }
 }
-

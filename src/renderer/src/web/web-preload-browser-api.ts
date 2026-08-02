@@ -221,7 +221,6 @@ export function createBrowserApi(): NonNullable<Partial<PreloadApi>['browser']> 
     notifyActiveTabChanged: () => Promise.resolve(false)
   } as unknown as NonNullable<Partial<PreloadApi>['browser']>
 }
-
 export function createEmulatorApi(): NonNullable<Partial<PreloadApi>['emulator']> {
   return {
     onPaneFocus: () => noopUnsubscribe,
@@ -232,4 +231,3 @@ export function createEmulatorApi(): NonNullable<Partial<PreloadApi>['emulator']
     onFrameStreamError: () => noopUnsubscribe
   } as unknown as NonNullable<Partial<PreloadApi>['emulator']>
 }
-

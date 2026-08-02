@@ -249,7 +249,6 @@ export function createFileApi(): NonNullable<Partial<PreloadApi>['fs']> {
     onFsChanged: () => noopUnsubscribe
   }
 }
-
 // Why: track the in-flight abortable status request per token so cancelStatus can abort it and close its remote context.
 export const webGitStatusAbortControllers = new Map<string, AbortController>()
 
@@ -280,4 +279,3 @@ export async function callAbortableRuntimeStatus<TResult>(
     }
   }
 }
-

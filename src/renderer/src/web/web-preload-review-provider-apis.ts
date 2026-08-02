@@ -313,7 +313,6 @@ export function createGitHubApi(): WebGitHubApi {
 
   return githubApi
 }
-
 export function createGitLabApi(): WebGitLabApi {
   const route = <Result>(method: WebGitLabRuntimeMethod, args?: unknown): Promise<Result> =>
     callRuntimeResult<Result>(method, mapRepoPathArg(args))
@@ -382,4 +381,3 @@ export function createRuntimeNamespaceApi(prefix: string): never {
     return callRuntimeResult(method, mapRuntimeNamespaceArg(prefix, args[0]))
   }) as never
 }
-

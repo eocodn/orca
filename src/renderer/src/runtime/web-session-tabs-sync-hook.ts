@@ -511,4 +511,3 @@ export function useWebSessionTabsSync(): void {
     workspaceSessionReady
   ])
 }
-

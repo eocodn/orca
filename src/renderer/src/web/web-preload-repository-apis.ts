@@ -254,7 +254,6 @@ export function createReposApi(): NonNullable<Partial<PreloadApi>['repos']> {
     onChanged: () => noopUnsubscribe
   }
 }
-
 export function createWorktreesApi(): NonNullable<Partial<PreloadApi>['worktrees']> {
   return {
     list: async ({ repoId }) => {
@@ -397,4 +396,3 @@ export function createWorktreesApi(): NonNullable<Partial<PreloadApi>['worktrees
     onRemoteBranchConflict: () => noopUnsubscribe
   }
 }
-

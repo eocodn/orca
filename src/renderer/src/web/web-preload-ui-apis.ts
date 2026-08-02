@@ -150,7 +150,6 @@ export function createHooksApi(): NonNullable<Partial<PreloadApi>['hooks']> {
     }
   }
 }
-
 export function createWebUiApi(): NonNullable<Partial<PreloadApi>['ui']> {
   let zoomLevel = readLocalWebUIState().uiZoomLevel
   return {
@@ -359,4 +358,3 @@ export function createWebUiApi(): NonNullable<Partial<PreloadApi>['ui']> {
     notifyWindowRevealed: () => {}
   }
 }
-

@@ -123,7 +123,6 @@ export type SessionTabsStreamEvent =
 export type SessionTabsListAllResult = {
   snapshots: RuntimeMobileSessionTabsResult[]
 }
-
 export type SnapshotFreshness = {
   publicationEpoch: string
   snapshotVersion: number
@@ -444,4 +443,3 @@ export function resolveHostSessionTabIdForWebSessionTab(
     })
   )
 }
-

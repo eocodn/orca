@@ -55,7 +55,6 @@ export function sendRemoteTerminalFrame(multiplexer: RemoteRuntimeTerminalMultip
     }
   }
 
-
 export function resolveRemoteTerminalReadyIfConnected(multiplexer: RemoteRuntimeTerminalMultiplexer, ): void {
     if (!multiplexer.ready || !multiplexer.subscription) {
       return
@@ -118,4 +117,3 @@ export function closeRemoteTerminalIfIdle(multiplexer: RemoteRuntimeTerminalMult
     multiplexer.ready = false
     multiplexer.releaseIfCurrent(multiplexer.environmentId, this)
   }
-

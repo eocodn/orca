@@ -159,7 +159,6 @@ export function createAccountsApi(): never {
     forgetStalePanes: () => Promise.resolve()
   } as never
 }
-
 export function createUpdaterApi(): NonNullable<Partial<PreloadApi>['updater']> {
   return {
     getVersion: () => Promise.resolve('web'),
@@ -374,4 +373,3 @@ export function createSshApi(): NonNullable<Partial<PreloadApi>['ssh']> {
     submitCredential: () => Promise.resolve()
   }
 }
-

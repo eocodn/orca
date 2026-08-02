@@ -403,4 +403,3 @@ export function detectRemoteTerminalOutputGap(multiplexer: RemoteRuntimeTerminal
   // authoritative snapshot. The request carries no requestId so the server
   // reply renders through the initial-snapshot path (full reset), self-healing
   // without surfacing an error to the user.
-

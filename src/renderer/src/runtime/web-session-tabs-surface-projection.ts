@@ -137,7 +137,6 @@ export function buildTerminalUnifiedTab(
     ...(viewMode ? { viewMode } : {})
   }
 }
-
 export function buildBrowserUnifiedTab(
   tab: BrowserWorkspace,
   hostTab: RuntimeMobileSessionBrowserTab,
@@ -354,4 +353,3 @@ export function buildMirroredBrowserTabs(
     }
   })
 }
-

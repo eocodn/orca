@@ -45,7 +45,6 @@ import {
   buildMobileTerminalSurfaceTabs,
   stableHashString
 } from './runtime-graph-mobile-surface-builders'
-
 import { registeredTabs, tabRegisteredAt, NO_TRANSPORT_GRACE_MS, EMPTY_LAYOUT_BY_WORKTREE, RUNTIME_GRAPH_SYNC_COALESCE_MS, syncScheduled, syncInFlight, syncPendingAfterFlight, syncEnabled, syncTimer, getStoreState, mobileSessionSnapshotVersion, mobileSessionSnapshotCacheByWorktree, jsonContentEquals, cachedEditorDraftsSource, cachedEditorDraftVersionByFileId, mobileSessionPublicationEpoch, setRuntimeGraphStoreStateGetter, hasRegisteredRuntimeTerminalTab, registerRuntimeTerminalTab, focusRuntimeTerminalSurface, setRuntimeGraphSyncEnabled, clearScheduledRuntimeGraphSync, scheduleRuntimeGraphSync, runRuntimeGraphSync, syncRuntimeGraph, type RegisteredTerminalTab, type OpenFileByWorktreeAndId, type OpenFileIndexes, type FallbackEditorTabTarget } from './runtime-graph-sync'
 
 export function buildMobileSessionTabSnapshots(
@@ -300,4 +299,3 @@ import {
   buildMobileTerminalSurfaceTabs,
   stableHashString
 } from './runtime-graph-mobile-surface-builders'
-

@@ -211,7 +211,6 @@ export function createPreflightApi(): NonNullable<Partial<PreloadApi>['preflight
         : Promise.resolve(fallbackWindowsTerminalCapabilities)
   }
 }
-
 export function createCliApi(): NonNullable<Partial<PreloadApi>['cli']> {
   const status = {
     platform: getBrowserPlatform(),
@@ -421,4 +420,3 @@ export function createGrokAccountsApi(): NonNullable<Partial<PreloadApi>['grokAc
     getStatus: () => Promise.resolve(unsigned)
   }
 }
-

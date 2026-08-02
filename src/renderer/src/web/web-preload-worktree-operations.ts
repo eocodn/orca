@@ -151,7 +151,6 @@ export async function listAllRuntimeWorktrees(): Promise<Worktree[]> {
   cachedWorktrees = { loadedAt: Date.now(), worktrees }
   return worktrees
 }
-
 export async function listAllRuntimeDetectedWorktrees(
   callResult: WebRuntimeResultCaller = callRuntimeResult,
   callEnvelope: WebRuntimeEnvelopeCaller = callRuntimeEnvelope,
@@ -339,4 +338,3 @@ export function mapRuntimeNamespaceArg(prefix: string, args: unknown): unknown {
   }
   return mapRepoPathArg(args)
 }
-
