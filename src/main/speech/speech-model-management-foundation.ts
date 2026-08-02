@@ -26,6 +26,7 @@ import {
 
 type DownloadHandle = {
   abort: () => void
+  completion: Promise<void>
 }
 
 type ProgressCallback = (modelId: string, progress: number) => void

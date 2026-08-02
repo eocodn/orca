@@ -71,13 +71,18 @@ export const ModelManagerMethods3 = {
     mkdirSync(stagingDir, { recursive: true })
     let aborted = false
     const abortController = new AbortController()
+    let resolveCompletion!: () => void
+    const completion = new Promise<void>((resolve) => {
+      resolveCompletion = resolve
+    })
 
     const handle: DownloadHandle = {
       abort: () => {
         aborted = true
         // Why: a stalled HTTPS request may never deliver another chunk, so tear it down immediately.
         abortController.abort()
-      }
+      },
+      completion
     }
     this.activeDownloads.set(modelId, handle)
 
@@ -110,6 +115,7 @@ export const ModelManagerMethods3 = {
     } finally {
       this.activeDownloads.delete(modelId)
       this.removeModelDownloadStaging(stagingDir, legacyArchivePath)
+      resolveCompletion()
     }
   },
   cancelDownload(this: any, modelId: string): void {
@@ -128,7 +134,11 @@ export const ModelManagerMethods3 = {
     if (!manifest || !isLocalSpeechModel(manifest)) {
       throw new Error(`Model does not support deletion: ${modelId}`)
     }
+    const download = this.activeDownloads.get(modelId)
     this.cancelDownload(modelId)
+    if (download) {
+      await download.completion
+    }
     const modelDir = this.getModelDir(modelId)
     if (existsSync(modelDir)) {
       await rm(modelDir, { recursive: true, force: true })

@@ -202,6 +202,40 @@ describe('ModelManager', () => {
     }
   })
 
+  it('waits for an in-flight download before deleting its files', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'orca-model-manager-'))
+    try {
+      const manifest = SPEECH_MODEL_CATALOG.find(
+        (model) => model.id === 'zipformer-streaming-zh-14m'
+      )!
+      const manager = new ModelManager(dir)
+      let finishDownload!: () => void
+      const downloadFiles = new Promise<void>((resolve) => {
+        finishDownload = resolve
+      })
+      vi.spyOn(manager, 'downloadModelFiles').mockReturnValue(downloadFiles)
+
+      const download = manager.downloadModel(manifest.id)
+      await expect(manager.getModelState(manifest.id)).resolves.toMatchObject({
+        status: 'downloading'
+      })
+
+      let deletionFinished = false
+      const deletion = manager.deleteModel(manifest.id).then(() => {
+        deletionFinished = true
+      })
+      await Promise.resolve()
+      expect(deletionFinished).toBe(false)
+
+      finishDownload()
+      await expect(download).resolves.toBeUndefined()
+      await expect(deletion).resolves.toBeUndefined()
+      expect(existsSync(manager.getModelDir(manifest.id))).toBe(false)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('aborts an in-flight model download request when cancelled', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'orca-model-manager-'))
     try {
