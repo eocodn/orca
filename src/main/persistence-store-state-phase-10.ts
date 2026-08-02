@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase9 } from './persistence-store-state-phase-9'
-import { StorePhase9 } from './persistence-store-state-phase-9'
 
 export class StorePhase10 extends StorePhase9 {
   updateUI(updates: Partial<PersistedState['ui']>): void {

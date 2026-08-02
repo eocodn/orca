@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase6 } from './persistence-store-pty-state'
-import { StorePhase6 } from './persistence-store-pty-state'
 
 export class StorePhase7 extends StorePhase6 {
   deleteAutomation(id: string): void {

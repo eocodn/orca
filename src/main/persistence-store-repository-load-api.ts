@@ -1,4 +1,9 @@
-import {
+import { persistenceLoadDependencies } from './persistence-store-repository-load-dependencies'
+
+// The split loaders use named bindings while construction stays in the aggregate facade.
+export { persistenceLoadDependencies }
+
+export const {
   app,
   safeStorage,
   readFileSync,
@@ -25,6 +30,19 @@ import {
   homedir,
   createHash,
   randomUUID,
+  decrypt,
+  decryptOptionalSecret,
+  logPersistenceStartupMilestone,
+  migrateTerminalScrollbackRows,
+  migrateTerminalTuiScrollSensitivityDefault,
+  normalizeSortBy,
+  stripLegacyTerminalScrollbackBytes,
+  normalizeRightSidebarTab,
+  normalizeWorkspaceLineageByChildKey,
+  normalizeLoadedOnboardingState,
+  readDeprecatedExperimentFlag,
+  readLegacySidekickFlag,
+  resolveSetupGuideSidebarDismissedOnLoad,
   latestAutomationOccurrenceAtOrBefore,
   nextAutomationOccurrenceAfter,
   getAutomationLegacyRepoId,
@@ -185,104 +203,5 @@ import {
   backfillFolderScopeConnectionIds,
   deleteRemovedTerminalScrollbackSnapshots,
   getDefaultWorktreeMeta,
-  StoreFoundation
-} from './persistence-store-repository-load-api'
-
-export function finalizeLoadedRepositoryState(
-  context: any,
-  result: any | null,
-  fileExistedOnLoad: boolean,
-  allowBackupRecovery: boolean
-): any {
-    if (result === null && allowBackupRecovery) {
-      let hasBackup = false
-      for (let i = 0; i < BACKUP_COUNT; i++) {
-        if (existsSync(backupPath(dataFile, i))) {
-          hasBackup = true
-          break
-        }
-      }
-      if (fileExistedOnLoad || hasBackup) {
-        if (context.restoreFromBackup(dataFile)) {
-          return context.load(false)
-        }
-        console.error('[persistence] No usable state file or backup found, using defaults')
-      }
-    }
-
-    if (result === null) {
-      result = getDefaultPersistedState(homedir())
-    }
-
-    const workspaceSession = pruneWorkspaceSessionBrowserHistory(
-      pruneLocalTerminalScrollbackBuffers(result.workspaceSession, result.repos)
-    )
-    const migratedScrollback = migrateWorkspaceSessionTerminalScrollbackSnapshots(
-      workspaceSession,
-      context.terminalScrollbackSnapshotStorage
-    )
-    if (migratedScrollback.changed) {
-      context.loadNeedsSave = true
-    }
-
-    const repos = clearMissingProjectGroupMemberships(result.repos, result.projectGroups ?? [])
-    const projectHostSetupCompatibility = mergeProjectHostSetupCompatibilityState(result, repos)
-    if (!projectHostSetupCompatibilityStateEqual(result, projectHostSetupCompatibility)) {
-      context.loadNeedsSave = true
-    }
-
-    const automationContextMigration = backfillLegacyAutomationContexts({
-      ...result,
-      repos,
-      ...projectHostSetupCompatibility
-    })
-    if (automationContextMigration.changed) {
-      context.loadNeedsSave = true
-    }
-    result = {
-      ...result,
-      automations: automationContextMigration.state.automations,
-      automationRuns: automationContextMigration.state.automationRuns
-    }
-
-    const folderScopeConnectionMigration = backfillFolderScopeConnectionIds({
-      ...result,
-      repos,
-      ...projectHostSetupCompatibility,
-      workspaceSession: migratedScrollback.session
-    })
-    if (folderScopeConnectionMigration.changed) {
-      context.loadNeedsSave = true
-    }
-    result = folderScopeConnectionMigration.state
-
-    if (normalizeWorktreeLinkedItemMetadata(result)) {
-      context.loadNeedsSave = true
-    }
-
-    if (gcStaleWorktreeMeta(result) > 0) {
-      context.loadNeedsSave = true
-    }
-
-    const migrated = context.migrateTabSwitchKeybindings(
-      context.migrateTelemetry(result, fileExistedOnLoad),
-      fileExistedOnLoad
-    )
-
-    const legacyCache = migrated.githubCache
-    const hasLegacyCache =
-      Object.keys(legacyCache?.pr ?? {}).length > 0 ||
-      Object.keys(legacyCache?.issue ?? {}).length > 0
-    if (hasLegacyCache) {
-      context.loadNeedsSave = true
-      context.githubCacheDirty = true
-    } else {
-      migrated.githubCache = readGithubCacheSnapshot(context.dataFile) ?? migrated.githubCache
-    }
-
-    logPersistenceStartupMilestone('persistence-load-done', {
-      repos: migrated.repos.length,
-      workspaceSessionBytes: Buffer.byteLength(JSON.stringify(migrated.workspaceSession))
-    })
-    return migrated
-}
+  StoreFoundation,
+} = persistenceLoadDependencies

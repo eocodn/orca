@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase11 } from './persistence-store-state-phase-11'
-import { StorePhase11 } from './persistence-store-state-phase-11'
 
 export class StorePhase12 extends StorePhase11 {
   persistPtyBinding(

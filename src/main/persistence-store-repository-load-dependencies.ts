@@ -284,6 +284,27 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import {
+  decrypt,
+  decryptOptionalSecret,
+  logPersistenceStartupMilestone
+} from './persistence-state-foundation'
+import {
+  migrateTerminalScrollbackRows,
+  migrateTerminalTuiScrollSensitivityDefault,
+  normalizeSortBy,
+  stripLegacyTerminalScrollbackBytes
+} from './persistence-state-paths-foundation'
+import {
+  normalizeRightSidebarTab,
+  normalizeWorkspaceLineageByChildKey
+} from './persistence-state-migrations'
+import {
+  normalizeLoadedOnboardingState,
+  readDeprecatedExperimentFlag,
+  readLegacySidekickFlag,
+  resolveSetupGuideSidebarDismissedOnLoad
+} from './persistence-state-ui-normalization'
 import { StoreFoundation } from './persistence-store-foundation'
 
 // Keep construction outside StorePhase1 so loader initialization cannot cycle through state.
@@ -314,6 +335,19 @@ export const persistenceLoadDependencies = {
   homedir,
   createHash,
   randomUUID,
+  decrypt,
+  decryptOptionalSecret,
+  logPersistenceStartupMilestone,
+  migrateTerminalScrollbackRows,
+  migrateTerminalTuiScrollSensitivityDefault,
+  normalizeSortBy,
+  stripLegacyTerminalScrollbackBytes,
+  normalizeRightSidebarTab,
+  normalizeWorkspaceLineageByChildKey,
+  normalizeLoadedOnboardingState,
+  readDeprecatedExperimentFlag,
+  readLegacySidekickFlag,
+  resolveSetupGuideSidebarDismissedOnLoad,
   latestAutomationOccurrenceAtOrBefore,
   nextAutomationOccurrenceAfter,
   getAutomationLegacyRepoId,

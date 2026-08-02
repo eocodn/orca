@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase4 } from './persistence-store-settings-state'
-import { StorePhase4 } from './persistence-store-settings-state'
 
 export class StorePhase5 extends StorePhase4 {
   reorderReposForHost(orderedIds: string[], hostId: ExecutionHostId): boolean {

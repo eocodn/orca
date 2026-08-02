@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase7 } from './persistence-store-ssh-state'
-import { StorePhase7 } from './persistence-store-ssh-state'
 
 export class StorePhase8 extends StorePhase7 {
   migrateWorktreeIdentity(oldWorktreeId: string, newWorktreeId: string): void {

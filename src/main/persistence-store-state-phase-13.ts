@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase12 } from './persistence-store-state-phase-12'
-import { StorePhase12 } from './persistence-store-state-phase-12'
 
 export class StorePhase13 extends StorePhase12 {
   reassignSshTargetId(oldTargetId: string, newTargetId: string): string[] {

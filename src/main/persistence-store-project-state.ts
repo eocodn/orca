@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase1 } from './persistence-store-repository-state'
-import { StorePhase1 } from './persistence-store-repository-state'
 
 export class StorePhase2 extends StorePhase1 {
   protected migrateTabSwitchKeybindings(

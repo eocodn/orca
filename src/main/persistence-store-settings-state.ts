@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase3 } from './persistence-store-automation-state'
-import { StorePhase3 } from './persistence-store-automation-state'
 
 export class StorePhase4 extends StorePhase3 {
   createFolderWorkspace(input: {

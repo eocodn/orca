@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase8 } from './persistence-store-write-lifecycle'
-import { StorePhase8 } from './persistence-store-write-lifecycle'
 
 export class StorePhase9 extends StorePhase8 {
   updateSettings(

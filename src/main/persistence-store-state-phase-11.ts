@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase10 } from './persistence-store-state-phase-10'
-import { StorePhase10 } from './persistence-store-state-phase-10'
 
 export class StorePhase11 extends StorePhase10 {
   protected setLocalWorkspaceSession(session: PersistedState['workspaceSession']): void {

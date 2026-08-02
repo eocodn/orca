@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase5 } from './persistence-store-session-state'
-import { StorePhase5 } from './persistence-store-session-state'
 
 export class StorePhase6 extends StorePhase5 {
   protected syncProjectHostSetupCompatibilityState(): void {

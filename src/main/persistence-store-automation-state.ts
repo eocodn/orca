@@ -285,7 +285,6 @@ import { removeWorkspaceSessionOwner,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import { StorePhase2 } from './persistence-store-project-state'
-import { StorePhase2 } from './persistence-store-project-state'
 
 export class StorePhase3 extends StorePhase2 {
   getRepos(): Repo[] {
