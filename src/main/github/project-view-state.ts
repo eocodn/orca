@@ -1,0 +1,206 @@
+import {
+  acquire,
+  release,
+  extractExecError,
+  ghExecFileAsync,
+  repositoryRateLimitGuard,
+  noteRepositoryRateLimitSpend,
+  runGraphql,
+  isValidOwnerSlug,
+  assertSlug,
+  assertPositiveInt,
+  projectHostAuthenticationError,
+  projectGhExecOptions,
+  type GraphqlVars
+} from './project-view/internals'
+import {
+  classifyProjectError,
+  driftError,
+  errorsIndicateParentField,
+  rateLimitedError,
+  type GhGraphqlErrorShape
+} from './project-view/project-error-classification'
+import type {
+  GetProjectViewTableArgs,
+  GetProjectViewTableResult,
+  GitHubProjectField,
+  GitHubProjectFieldValue,
+  GitHubProjectIteration,
+  GitHubProjectLabel,
+  GitHubProjectOwnerType,
+  GitHubProjectRow,
+  GitHubProjectRowItemType,
+  GitHubProjectSingleSelectOption,
+  GitHubProjectSort,
+  GitHubProjectSummary,
+  GitHubProjectTable,
+  GitHubProjectUser,
+  GitHubProjectView,
+  GitHubProjectViewError,
+  GitHubProjectViewLayout,
+  GitHubProjectViewSummary,
+  ListAccessibleProjectsArgs,
+  ListAccessibleProjectsResult,
+  ListProjectViewsArgs,
+  ListProjectViewsResult,
+  ResolveProjectRefArgs,
+  ResolveProjectRefResult
+} from '../../shared/github-project-types'
+import {
+  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
+// ─── Constants ─────────────────────────────────────────────────────────
+
+// Why: defaults deliberately shrunk to cut quota spend in discovery — the org loop dominates and produced the HTTP 504; overflow owners can paste a URL.
+export const ITEM_PAGE_SIZE = 100
+export const MAX_ITEMS = 500
+export const VIEWS_PAGE_SIZE = 20
+export const FIELDS_PAGE_SIZE = 50
+export const DISCOVERY_PROJECTS_PER_OWNER = 40
+export const DISCOVERY_MAX_ORGS = 20
+export const DISCOVERY_ORG_PAGE_SIZE = 20
+export const DISCOVERY_PROJECTS_PER_ORG = 20
+export const FIELD_VALUES_PAGE_SIZE = 100
+export const PROJECT_VIEW_OWNER_CACHE_MAX_ENTRIES = 512
+
+// ─── Module-scope caches (reset on HMR — intentional) ──────────────────
+
+// Why: owners are user-controlled over a long session; bound cache entries to avoid unbounded retention while keeping the hot-owner fast path.
+export function rememberProjectViewCacheEntry<K, V>(
+  cache: Map<K, V>,
+  key: K,
+  value: V,
+  maxEntries = PROJECT_VIEW_OWNER_CACHE_MAX_ENTRIES
+): void {
+  if (cache.has(key)) {
+    cache.delete(key)
+  }
+  cache.set(key, value)
+  while (cache.size > maxEntries) {
+    const oldest = cache.keys().next()
+    if (oldest.done) {
+      break
+    }
+    cache.delete(oldest.value)
+  }
+}
+
+export function getProjectViewCacheEntry<K, V>(cache: Map<K, V>, key: K): V | undefined {
+  if (!cache.has(key)) {
+    return undefined
+  }
+  const value = cache.get(key) as V
+  rememberProjectViewCacheEntry(cache, key, value)
+  return value
+}
+
+// Why: plain module locals so HMR code swaps re-run capability probes instead of carrying a stale "unsupported" flag.
+export const ownerTypeCache = new Map<string, GitHubProjectOwnerType | null>()
+// Why: keyed per owner (not a process-global flag) so one owner's capability gap doesn't poison others that DO support Issue.parent (bug-scan finding 2).
+export const parentFieldRetriedByOwner = new Map<string, true>()
+export const parentFieldWarningLoggedByOwner = new Map<string, true>()
+// Why: in-flight promise per owner so concurrent fetchAllItems callers share one probe instead of each racing a duplicate first-page probe.
+export const parentFieldProbeInFlight = new Map<string, Promise<void>>()
+
+// Why: GHES owners are a separate namespace and capability surface from
+// github.com owners with the same login — scope cache keys by host so one
+// host's probe result can't leak into another. Normalize github.com so
+// host-less callers share the same probe state as explicitly pinned calls.
+export function ownerScopeKey(owner: string, ownerType: GitHubProjectOwnerType, host?: string): string {
+  const base = `${owner}\u0000${ownerType}`
+  return `${base}\u0000${githubProjectHost(host)}`
+}
+
+export function ownerTypeCacheKey(owner: string, host?: string): string {
+  return `${owner}\u0000${githubProjectHost(host)}`
+}
+
+export function rememberOwnerType(
+  owner: string,
+  ownerType: GitHubProjectOwnerType | null,
+  host?: string
+): void {
+  rememberProjectViewCacheEntry(ownerTypeCache, ownerTypeCacheKey(owner, host), ownerType)
+}
+
+export function getCachedOwnerType(
+  owner: string,
+  host?: string
+): GitHubProjectOwnerType | null | undefined {
+  return getProjectViewCacheEntry(ownerTypeCache, ownerTypeCacheKey(owner, host))
+}
+
+export function markParentFieldRetried(scopeKey: string): void {
+  rememberProjectViewCacheEntry(parentFieldRetriedByOwner, scopeKey, true)
+}
+
+export function hasParentFieldRetried(scopeKey: string): boolean {
+  return getProjectViewCacheEntry(parentFieldRetriedByOwner, scopeKey) === true
+}
+
+export function markParentFieldWarningLogged(scopeKey: string): void {
+  rememberProjectViewCacheEntry(parentFieldWarningLoggedByOwner, scopeKey, true)
+}
+
+export function hasParentFieldWarningLogged(scopeKey: string): boolean {
+  return getProjectViewCacheEntry(parentFieldWarningLoggedByOwner, scopeKey) === true
+}
+
+export function _resetProjectViewCachesForTests(): void {
+  ownerTypeCache.clear()
+  parentFieldRetriedByOwner.clear()
+  parentFieldWarningLoggedByOwner.clear()
+  parentFieldProbeInFlight.clear()
+}
+
+export function _getProjectViewCacheSizesForTests(): {
+  ownerTypes: number
+  parentFieldRetries: number
+  parentFieldWarnings: number
+  parentFieldProbes: number
+} {
+  return {
+    ownerTypes: ownerTypeCache.size,
+    parentFieldRetries: parentFieldRetriedByOwner.size,
+    parentFieldWarnings: parentFieldWarningLoggedByOwner.size,
+    parentFieldProbes: parentFieldProbeInFlight.size
+  }
+}
+
+/** @internal - exposed for cache-bound tests only. */
+export function _rememberProjectViewOwnerTypeForTests(
+  owner: string,
+  ownerType: GitHubProjectOwnerType | null,
+  host?: string
+): void {
+  rememberOwnerType(owner, ownerType, host)
+}
+
+/** @internal - exposed for cache-bound tests only. */
+export function _getProjectViewOwnerTypeForTests(
+  owner: string,
+  host?: string
+): GitHubProjectOwnerType | null | undefined {
+  return getCachedOwnerType(owner, host)
+}
+
+/** @internal - exposed for cache-bound tests only. */
+export function _markProjectViewParentFieldRetriedForTests(scopeKey: string): void {
+  markParentFieldRetried(scopeKey)
+}
+
+/** @internal - exposed for cache-bound tests only. */
+export function _hasProjectViewParentFieldRetriedForTests(scopeKey: string): boolean {
+  return hasParentFieldRetried(scopeKey)
+}
+
+/** @internal - exposed for cache-bound tests only. */
+export function _markProjectViewParentFieldWarningLoggedForTests(scopeKey: string): void {
+  markParentFieldWarningLogged(scopeKey)
+}
+
+/** @internal - exposed for cache-bound tests only. */
+export function _hasProjectViewParentFieldWarningLoggedForTests(scopeKey: string): boolean {
+  return hasParentFieldWarningLogged(scopeKey)
+}
+
+// ─── Normalizers ───────────────────────────────────────────────────────
