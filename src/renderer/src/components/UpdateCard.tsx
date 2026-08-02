@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Why: keeps the updater state machine and its presentation variants in one file. */
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { useAppStore } from '../store'
