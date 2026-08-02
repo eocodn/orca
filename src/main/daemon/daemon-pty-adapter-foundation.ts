@@ -392,7 +392,7 @@ function sameEndpointIdentity(
   )
 }
 
-function exactDaemonIncarnationForPidRecord(
+export function exactDaemonIncarnationForPidRecord(
   identity: DaemonEndpointIdentity,
   pidRecord: ParsedDaemonPid | null
 ): ExactDaemonIncarnation {

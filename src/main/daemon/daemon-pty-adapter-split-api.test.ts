@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  exactDaemonIncarnationForPidRecord,
   isDaemonGoneError,
   isMissingTokenFileError,
   isMissingWindowsNamedPipeError
@@ -22,5 +23,21 @@ describe('daemon PTY adapter split API', () => {
   it('recognizes missing Windows named pipes only on Windows', () => {
     const error = systemError('ENOENT', 'connect')
     expect(isMissingWindowsNamedPipeError(error)).toBe(process.platform === 'win32')
+  })
+
+  it('exposes exact daemon incarnation construction from the foundation API', () => {
+    const identity = { pid: 42, startedAtMs: 123, launchNonce: 'nonce' }
+
+    expect(
+      exactDaemonIncarnationForPidRecord(identity, {
+        pid: 42,
+        startedAtMs: 123,
+        launchNonce: 'nonce',
+        linuxStartTicks: '456',
+        bootId: 'boot-id',
+        entryPath: null,
+        appVersion: null
+      })
+    ).toMatchObject({ identity })
   })
 })

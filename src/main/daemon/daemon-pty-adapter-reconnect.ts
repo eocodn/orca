@@ -93,6 +93,7 @@ import { type PendingDaemonSpawnOperation,
   MAX_CONCURRENT_CHECKPOINTS,
   remainingRequestTimeoutMs,
   TerminalKilledError,
+  exactDaemonIncarnationForPidRecord,
   notifyAuditListeners
 } from './daemon-pty-adapter-foundation'
 import { DaemonPtyAdapterPhase3 } from './daemon-pty-adapter-checkpoint'
