@@ -30,6 +30,33 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import {
+  abandonedLocalUnsubscribes,
+  failedLocalUnsubscribes,
+  watchedRoots,
+  suspendedLocalWatcherListeners,
+  pendingLocalCapacityRetries,
+  inFlightLocalInstalls,
+  pendingLocalInstallPromises,
+  pendingTeardowns,
+  localWatcherRoot,
+  clearLocalCapacityRetry,
+  pendingLocalUnsubscribes
+} from './filesystem-watcher-foundation'
+import {
+  trackLocalUnsubscribe,
+  subscribe
+} from './filesystem-watcher-local'
+import {
+  remoteWatcherKey,
+  clearDormantRemoteWatcher,
+  clearRemoteWatcherResync,
+  scheduleRemoteWatcherRetry
+} from './filesystem-watcher-ipc'
+import {
+  type RemoteWatcherInstallResult,
+  installRemoteWatcher
+} from './filesystem-watcher-retry'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -235,9 +262,18 @@ export const inFlightRemoteInstalls = new Map<string, RemoteWatcherInstallToken>
 export const pendingRemoteInstallPromises = new Map<string, Promise<RemoteWatcherInstallResult>>()
 // Why: block installs beginning after closeAllWatchers (joiner recursion / retry tick bypass the abort loop); a new fs:watchWorktree clears it.
 export let remoteWatchersClosed = false
+export function setRemoteWatchersClosed(value: boolean): void {
+  remoteWatchersClosed = value
+}
 // Why: closeAllWatchers bumps this so a joiner that awaited across shutdown+reopen is refused (the latch alone can't tell it from a fresh call).
 export let remoteWatcherLifecycleGeneration = 0
+export function setRemoteWatcherLifecycleGeneration(value: number): void {
+  remoteWatcherLifecycleGeneration = value
+}
 export let unsubscribeFromProviderRegistrations: (() => void) | null = null
+export function setUnsubscribeFromProviderRegistrations(value: (() => void) | null): void {
+  unsubscribeFromProviderRegistrations = value
+}
 export const REMOTE_WATCH_RETRY_MS = 1_000
 export const REMOTE_WATCH_RETRY_TIMEOUT_MS = 60_000
 // Why: preserve the first and latest resync while bounding full-tree SSH refreshes during flaps.
@@ -337,4 +373,3 @@ export function forgetRemoteWatcherRemovalSnapshot(
   desiredRemoteWatchers.delete(key)
   clearDormantRemoteWatcher(key)
 }
-

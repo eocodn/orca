@@ -30,6 +30,10 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import {
+  suspendedLocalWatcherListeners,
+  WATCHER_TEARDOWN_GRACE_MS
+} from './filesystem-watcher-foundation'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -42,7 +46,23 @@ import { flushBatch,
   retainLocalWatcherPhysicalFailure,
   registerSenderCleanup,
   addLocalWatchListener,
-  subscribe } from './filesystem-watcher-local'
+  subscribe,
+  localWatchersClosed,
+  localWatcherLifecycleGeneration,
+  localWatcherRoot,
+  unwatchableRoots,
+  rememberUnwatchableRoot,
+  watchedRoots,
+  pendingTeardowns,
+  takeLocalCapacityRetryListeners,
+  pendingLocalInstallPromises,
+  inFlightLocalInstalls,
+  addInFlightLocalInstallListener,
+  scheduleLocalCapacityRetry,
+  clearLocalCapacityRetry,
+  pendingLocalCapacityRetries,
+  type LocalWatcherInstallToken,
+  type LocalWatcherInstallResult } from './filesystem-watcher-local'
 export { flushBatch,
   scheduleBatchFlush,
   createWatcher,
@@ -52,9 +72,25 @@ export { flushBatch,
   retainLocalWatcherPhysicalFailure,
   registerSenderCleanup,
   addLocalWatchListener,
-  subscribe } from './filesystem-watcher-local'
+  subscribe,
+  localWatchersClosed,
+  localWatcherLifecycleGeneration,
+  localWatcherRoot,
+  unwatchableRoots,
+  rememberUnwatchableRoot,
+  watchedRoots,
+  pendingTeardowns,
+  takeLocalCapacityRetryListeners,
+  pendingLocalInstallPromises,
+  inFlightLocalInstalls,
+  addInFlightLocalInstallListener,
+  scheduleLocalCapacityRetry,
+  clearLocalCapacityRetry,
+  pendingLocalCapacityRetries,
+  type LocalWatcherInstallToken,
+  type LocalWatcherInstallResult } from './filesystem-watcher-local'
 
-asyncexport function subscribeWhileRemovalAllowed(
+export async function subscribeWhileRemovalAllowed(
   worktreePath: string,
   sender: WebContents,
   generation: number
@@ -169,7 +205,7 @@ asyncexport function subscribeWhileRemovalAllowed(
   }
 }
 
-asyncexport function doInstallLocalWatcher(
+export async function doInstallLocalWatcher(
   rootKey: string,
   rootPath: string,
   worktreePath: string,
@@ -300,4 +336,3 @@ export function unsubscribe(worktreePath: string, senderId: number): void {
     pendingTeardowns.set(rootKey, teardownTimer)
   }
 }
-

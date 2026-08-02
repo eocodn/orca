@@ -136,8 +136,6 @@ export function registerCoreHandlers(
   if (registered) {
     return
   }
-  registered = true
-
   registerAppHandlers(store, { onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch })
   registerCliHandlers()
   registerPreflightHandlers()
@@ -229,4 +227,5 @@ export function registerCoreHandlers(
   registerClipboardHandlers(store)
   registerUpdaterHandlers(store)
   registerSpeechHandlers(store)
+  registered = true
 }

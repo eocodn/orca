@@ -160,8 +160,7 @@ export function getConsistentRepoCatalogForHost(
   )
   return hasContradiction ? null : repos.filter((repo) => getRepoExecutionHostId(repo) === host.id)
 }
-
-asyncexport function listReposForExecutionHost(
+export async function listReposForExecutionHost(
   store: Store,
   args: ListReposForExecutionHostArgs
 ): Promise<HostRepoCatalogSnapshot> {
@@ -275,7 +274,7 @@ export function alignRepoWithRequestedProject(
   return buildProjectHostSetupResult(store, repo)
 }
 
-asyncexport function addLocalRepoFromPath(
+export async function addLocalRepoFromPath(
   store: Store,
   path: string,
   kind: 'git' | 'folder' = 'git'
@@ -353,4 +352,3 @@ asyncexport function addLocalRepoFromPath(
   await prepareLocalWorktreeRootForRepo(store, repo)
   return { repo, alreadyExisted: false }
 }
-

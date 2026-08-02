@@ -30,6 +30,12 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import { registerSenderCleanup } from './filesystem-watcher-local'
+import {
+  forgetDesiredRemoteWatcher,
+  remoteWatcherKey,
+  scheduleRemoteWatcherRetry
+} from './filesystem-watcher-ipc'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -173,7 +179,7 @@ export function cleanupRemoteWatchersForSender(senderId: number): void {
 
 export type RemoteWatcherInstallResult = 'installed' | 'unavailable' | 'cancelled'
 
-asyncexport function installRemoteWatcher(
+export async function installRemoteWatcher(
   sender: WebContents,
   connectionId: string,
   worktreePath: string,
@@ -196,7 +202,7 @@ asyncexport function installRemoteWatcher(
   }
 }
 
-asyncexport function installRemoteWatcherWhileRemovalAllowed(
+export async function installRemoteWatcherWhileRemovalAllowed(
   sender: WebContents,
   connectionId: string,
   worktreePath: string,
@@ -270,7 +276,7 @@ asyncexport function installRemoteWatcherWhileRemovalAllowed(
   }
 }
 
-asyncexport function doInstallRemoteWatcher(
+export async function doInstallRemoteWatcher(
   provider: NonNullable<ReturnType<typeof getSshFilesystemProvider>>,
   key: string,
   connectionId: string,
@@ -369,4 +375,3 @@ export function clearRemoteWatcherResync(key: string): void {
   }
   remoteWatcherResyncStates.delete(key)
 }
-

@@ -138,6 +138,16 @@ import {
   registerSshProviderRequestAbort
 } from '../ssh/ssh-provider-authority'
 import { createSenderScopedRequestCancellations } from './sender-scoped-request-cancellation'
+import {
+  type CreateWorktreeArgsWithSystemProvenance,
+  getProjectHostSetupMetaUpdates
+} from './worktree-ipc-foundation'
+import {
+  listDetectedGitWorktrees,
+  loggedWorktreeListFailures,
+  rememberLocalWorktreeRoots,
+  warnOnce
+} from './worktree-ipc-creation'
 
 import { pruneLineageForMissingRepoWorktrees,
   type SshWorktreeMetaCandidate,
@@ -342,7 +352,7 @@ export function isCapturedRepoCurrent(
   )
 }
 
-asyncexport function listDetectedWorktreesForCapturedRepo(
+export async function listDetectedWorktreesForCapturedRepo(
   store: Store,
   repo: Repo,
   isCurrent: () => boolean,
@@ -463,4 +473,3 @@ asyncexport function listDetectedWorktreesForCapturedRepo(
     return { repoId: repo.id, authoritative: false, source: 'metadata-fallback', worktrees: [] }
   }
 }
-

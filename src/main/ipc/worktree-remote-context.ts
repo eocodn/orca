@@ -66,11 +66,6 @@ import {
   registerOptionalSshWorktreeCreateRoots,
   registerRequiredSshWorktreeCreateRoots
 } from './ssh-worktree-create-root-registration'
-
-export type CreateWorktreeArgsWithSystemProvenance = CreateWorktreeArgs & {
-  automationProvenance?: AutomationWorkspaceProvenance
-  cliProvenance?: CliWorkspaceProvenance
-}
 import {
   sanitizeWorktreeName,
   sanitizeWorktreeDisplayName,
@@ -132,6 +127,11 @@ import {
   WORKTREE_CREATE_MAX_SUFFIX_ATTEMPTS
 } from '../worktree-create-candidates'
 
+export type CreateWorktreeArgsWithSystemProvenance = CreateWorktreeArgs & {
+  automationProvenance?: AutomationWorkspaceProvenance
+  cliProvenance?: CliWorkspaceProvenance
+}
+
 export const SSH_WORKTREE_CREATE_FETCH_FRESHNESS_MS = 30_000
 export const SSH_WORKTREE_CREATE_FETCH_CACHE_MAX = 512
 // Why: bound the fallback `git fetch origin` so a Windows credential-manager GUI hang (STA-1292) can't wedge worktree creation forever.
@@ -170,4 +170,3 @@ export type RemoteLocalBaseRefRefreshability =
       refreshable: false
       result: LocalBaseRefRefreshResult
     }
-

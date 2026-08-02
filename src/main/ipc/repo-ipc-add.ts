@@ -113,6 +113,13 @@ import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { runWithGitReadCacheInvalidation } from '../git/status'
 import { isAdmissibleDirectSshAuthority } from '../../shared/ssh-retained-payload-admission'
 import { isCurrentSshProviderAuthority } from '../ssh/ssh-provider-authority'
+import {
+  activeRemoteClone,
+  remoteCloneInFlightByPath,
+  resolveRemoteHomePath,
+  setActiveRemoteClone
+} from './repo-ipc-clone'
+import type { ActiveRemoteCloneMetadata } from './repo-ipc-clone'
 
 // Why: `method` is the IPC entry point the user took, not what they added (never path/URL/name); repos:create → 'folder_picker'.
 // Why: `isGitRepo` is a non-identifying git-vs-folder signal from the caller's detection; pass undefined when unknown, never default false.
@@ -134,7 +141,7 @@ export { emitRepoAdded,
   alignRepoWithRequestedProject,
   addLocalRepoFromPath } from './repo-ipc-foundation'
 
-asyncexport function addRemoteRepoFromPath(
+export async function addRemoteRepoFromPath(
   store: Store,
   args: {
     connectionId: string
@@ -244,7 +251,7 @@ export function getRemoteRepoFolderName(remotePath: string): string {
   return trimmed.split(/[\\/]/).at(-1) || remotePath
 }
 
-asyncexport function cloneRemoteRepo(
+export async function cloneRemoteRepo(
   store: Store,
   mainWindow: BrowserWindow,
   args: {
@@ -296,7 +303,7 @@ asyncexport function cloneRemoteRepo(
     clonePath,
     controller
   }
-  activeRemoteClone = metadata
+  setActiveRemoteClone(metadata)
   remoteCloneInFlightByPath.add(remoteCloneKey)
   try {
     // Why: match local clone by creating the parent first, or a fresh remote parent surfaces as spawn ENOENT.
@@ -326,7 +333,7 @@ asyncexport function cloneRemoteRepo(
     throw err
   } finally {
     if (activeRemoteClone === metadata) {
-      activeRemoteClone = null
+      setActiveRemoteClone(null)
     }
     remoteCloneInFlightByPath.delete(remoteCloneKey)
   }
@@ -355,4 +362,3 @@ asyncexport function cloneRemoteRepo(
   emitRepoAdded('clone_url', result.alreadyExisted)
   return result.repo
 }
-

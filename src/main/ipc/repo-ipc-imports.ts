@@ -120,7 +120,7 @@ import { isCurrentSshProviderAuthority } from '../ssh/ssh-provider-authority'
 import { registerRepoHandlers } from './repo-ipc-scans'
 export { registerRepoHandlers } from './repo-ipc-scans'
 
-asyncexport function searchBaseRefDetailsForRepo(
+export async function searchBaseRefDetailsForRepo(
   store: Store,
   args: { repoId: string; query: string; limit?: number; hostId?: ExecutionHostId }
 ): Promise<BaseRefSearchResult[]> {

@@ -66,6 +66,8 @@ import {
   registerOptionalSshWorktreeCreateRoots,
   registerRequiredSshWorktreeCreateRoots
 } from './ssh-worktree-create-root-registration'
+import type { IFilesystemProvider } from '../providers/types'
+import { isENOENT } from './filesystem-auth'
 
 import * as context from './worktree-remote-context'
 
@@ -74,7 +76,7 @@ export function normalizeLocalBranchName(branchName: string | undefined): string
   return branchName?.replace(/^refs\/heads\//, '') ?? ''
 }
 
-async function canCheckoutExistingLocalBranch(
+export async function canCheckoutExistingLocalBranch(
   repoPath: string,
   branchName: string,
   baseBranch: string,
@@ -128,7 +130,7 @@ export function hasLocalCommitObjectWithOptions(
   )
 }
 
-async function hasLocalWorktreeBaseRefWithOptions(
+export async function hasLocalWorktreeBaseRefWithOptions(
   repoPath: string,
   baseRef: string,
   gitOptions: { wslDistro?: string }
@@ -175,7 +177,7 @@ export function hasRemoteCommitObject(
   return hasCommitObjectViaGitExec((gitArgs) => provider.exec(gitArgs, repoPath), ref)
 }
 
-async function hasRemoteWorktreeBaseRef(
+export async function hasRemoteWorktreeBaseRef(
   provider: SshGitProvider,
   repoPath: string,
   baseRef: string
@@ -193,7 +195,7 @@ async function hasRemoteWorktreeBaseRef(
 }
 
 // Why: hasRemoteCommitObject resolves only SHAs, not symbolic remote-tracking refs; detect those directly for the fetch-failed local fallback.
-async function hasRemoteTrackingRefSsh(
+export async function hasRemoteTrackingRefSsh(
   provider: SshGitProvider,
   repoPath: string,
   ref: string
@@ -209,7 +211,7 @@ async function hasRemoteTrackingRefSsh(
   }
 }
 
-async function canCheckoutExistingLocalBranchSsh(
+export async function canCheckoutExistingLocalBranchSsh(
   provider: SshGitProvider,
   repoPath: string,
   branchName: string,
@@ -325,7 +327,7 @@ async function hasSshLocalBranchConflict(
   }
 }
 
-async function getSshBranchConflictKind(
+export async function getSshBranchConflictKind(
   provider: SshGitProvider,
   repoPath: string,
   branchName: string,
@@ -428,7 +430,7 @@ export function getSelectedReviewLookupHints(args: SelectedReviewBranchInput): {
   }
 }
 
-async function getSelectedHostedReviewForBranch(
+export async function getSelectedHostedReviewForBranch(
   repo: Pick<Repo, 'path' | 'connectionId'>,
   branchName: string,
   args: SelectedReviewBranchInput
@@ -453,7 +455,7 @@ async function getSelectedHostedReviewForBranch(
   }
 }
 
-async function remotePathExists(
+export async function remotePathExists(
   fsProvider: IFilesystemProvider | null | undefined,
   pathValue: string
 ): Promise<boolean> {
@@ -470,4 +472,3 @@ async function remotePathExists(
     throw error
   }
 }
-

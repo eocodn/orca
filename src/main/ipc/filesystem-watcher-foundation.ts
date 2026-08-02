@@ -30,6 +30,7 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import { registerSenderCleanup, subscribe } from './filesystem-watcher-local'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -76,6 +77,12 @@ export const suspendedLocalWatcherListeners = new Map<
 // Why: an install cancelled by shutdown can't be revived by a waiter that resumes after a later call reopens the subsystem.
 export let localWatchersClosed = false
 export let localWatcherLifecycleGeneration = 0
+export function setLocalWatchersClosed(value: boolean): void {
+  localWatchersClosed = value
+}
+export function setLocalWatcherLifecycleGeneration(value: number): void {
+  localWatcherLifecycleGeneration = value
+}
 export const failedLocalUnsubscribes = new Map<string, unknown>()
 // Why: a drain that timed out no longer gates the delete — Git removal already proceeded past it. Its
 // late failure must not fail-close a *later* close of the same root, which would leave that path
@@ -271,7 +278,7 @@ export function coalesceEvents(
 
 // ── Stat helper for isDirectory ──────────────────────────────────────
 
-asyncexport function tryStatIsDirectory(filePath: string): Promise<boolean | undefined> {
+export async function tryStatIsDirectory(filePath: string): Promise<boolean | undefined> {
   try {
     const s = await stat(filePath)
     return s.isDirectory()
@@ -295,4 +302,3 @@ export function emitOverflowPayload(root: WatchedRoot): void {
     }
   }
 }
-

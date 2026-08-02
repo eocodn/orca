@@ -113,6 +113,7 @@ import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { runWithGitReadCacheInvalidation } from '../git/status'
 import { isAdmissibleDirectSshAuthority } from '../../shared/ssh-retained-payload-admission'
 import { isCurrentSshProviderAuthority } from '../ssh/ssh-provider-authority'
+import { emitRepoAdded } from './repo-ipc-foundation'
 
 // Why: `method` is the IPC entry point the user took, not what they added (never path/URL/name); repos:create → 'folder_picker'.
 // Why: `isGitRepo` is a non-identifying git-vs-folder signal from the caller's detection; pass undefined when unknown, never default false.
@@ -124,7 +125,7 @@ export { addRemoteRepoFromPath,
   getRemoteRepoFolderName,
   cloneRemoteRepo } from './repo-ipc-add'
 
-asyncexport function createRemoteRepo(
+export async function createRemoteRepo(
   store: Store,
   args: {
     connectionId: string
@@ -263,7 +264,7 @@ asyncexport function createRemoteRepo(
   return { repo: result.repo }
 }
 
-asyncexport function resolveRemoteHomePath(connectionId: string, path: string): Promise<string> {
+export async function resolveRemoteHomePath(connectionId: string, path: string): Promise<string> {
   if (path !== '~' && path !== '~/' && !path.startsWith('~/')) {
     return path
   }
@@ -300,6 +301,10 @@ export type ActiveRemoteCloneMetadata = {
 // Why: module-scoped so the abort handle survives macOS window re-creation, when registerRepoHandlers re-runs.
 export let activeClone: ActiveCloneMetadata | null = null
 export let activeRemoteClone: ActiveRemoteCloneMetadata | null = null
+
+export function setActiveRemoteClone(metadata: ActiveRemoteCloneMetadata | null): void {
+  activeRemoteClone = metadata
+}
 export let nextCloneGeneration = 1
 export const latestCloneGenerationByPath = new Map<string, number>()
 export const pendingAbortCleanupByPath = new Map<string, Promise<void>>()
@@ -407,4 +412,3 @@ export const ProjectHostSetupCreateIpcArgs = z.object({
   setupState: z.enum(['ready', 'not-set-up', 'setting-up', 'error', 'unsupported']).optional(),
   setupMethod: z.enum(['imported-existing-folder', 'cloned', 'provisioned']).optional()
 })
-

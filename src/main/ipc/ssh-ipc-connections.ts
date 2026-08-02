@@ -95,7 +95,10 @@ import { sshStore,
   RELAY_LOST_STABILIZED_MS,
   clearRelayLostBackoff,
   broadcastSshState,
-  withSshRemotePlatform } from './ssh-ipc-foundation'
+  withSshRemotePlatform,
+  clearRelayStateOverride,
+  setAdvertisedUrlWatcherUnsubscribe,
+  setPowerMonitorUnsubscribe } from './ssh-ipc-foundation'
 export { sshStore,
   connectionManager,
   portForwardManager,
@@ -141,7 +144,8 @@ export { sshStore,
   RELAY_LOST_STABILIZED_MS,
   clearRelayLostBackoff,
   broadcastSshState,
-  withSshRemotePlatform } from './ssh-ipc-foundation'
+  withSshRemotePlatform,
+  clearRelayStateOverride } from './ssh-ipc-foundation'
 
 export function publishRelayOverride(
   getMainWindow: () => BrowserWindow | null,
@@ -153,10 +157,6 @@ export function publishRelayOverride(
   const state = withSshRemotePlatform(targetId, { targetId, status, error, reconnectAttempt })
   relayStateOverrides.set(targetId, state)
   broadcastSshState(getMainWindow, targetId, state)
-}
-
-export function clearRelayStateOverride(targetId: string): void {
-  relayStateOverrides.delete(targetId)
 }
 
 export function connectionSupportsFolderDownload(targetId: string): boolean {
@@ -254,7 +254,7 @@ export function persistPortForwardsWithUnrestored(targetId: string): void {
   sshStore!.updateTarget(targetId, { portForwards: saved.length > 0 ? saved : undefined })
 }
 
-asyncexport function restorePortForwards(
+export async function restorePortForwards(
   targetId: string,
   getMainWindow: () => BrowserWindow | null
 ): Promise<void> {
@@ -296,7 +296,7 @@ asyncexport function restorePortForwards(
 export function registerAdvertisedUrlRefresh(getMainWindow: () => BrowserWindow | null): void {
   advertisedUrlWatcherUnsubscribe?.()
   // Why: SSH port scans only emit on raw host/port/PID changes, but a terminal can print the advertised URL later, so the watcher must also refresh the renderer.
-  advertisedUrlWatcherUnsubscribe = advertisedUrlWatcher.onDidChange(({ worktreeId }) => {
+  setAdvertisedUrlWatcherUnsubscribe(advertisedUrlWatcher.onDidChange(({ worktreeId }) => {
     if (!persistedStore) {
       return
     }
@@ -314,14 +314,14 @@ export function registerAdvertisedUrlRefresh(getMainWindow: () => BrowserWindow 
       }
       broadcastPortForwards(getMainWindow, targetId)
     }
-  })
+  }))
 }
 
 // Why: macOS can resume before the network is back, so a failed first probe gets one retry before the link is declared dead (#7773).
 export const RESUME_PROBE_TIMEOUT_MS = 5_000
 export const RESUME_PROBE_ATTEMPTS = 2
 
-asyncexport function isRelayLinkAliveAfterResume(session: SshRelaySession): Promise<boolean> {
+export async function isRelayLinkAliveAfterResume(session: SshRelaySession): Promise<boolean> {
   const mux = session.getMux()
   if (!mux || mux.isDisposed()) {
     return false
@@ -371,9 +371,8 @@ export function registerPowerMonitorReconnect(): void {
   }
   powerMonitor.on('suspend', onSuspend)
   powerMonitor.on('resume', onResume)
-  powerMonitorUnsubscribe = () => {
+  setPowerMonitorUnsubscribe(() => {
     powerMonitor.off('suspend', onSuspend)
     powerMonitor.off('resume', onResume)
-  }
+  })
 }
-

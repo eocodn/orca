@@ -33,16 +33,17 @@ import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { getSshGitUsername, resolveLocalGitUsername } from '../git/git-username'
 import { getGitCloneFailureMessage } from '../../shared/git-clone-failure-message'
 import { invalidateAuthorizedRootsCache } from './filesystem-auth'
-import { detectRepoIconAndUpstream } from './repo-icon-autodetect'
-import { prepareLocalWorktreeRootForRepo } from './worktree-root-preparation'
+import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
+import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { runWithGitReadCacheInvalidation } from '../git/status'
 import {
   cloneRemoteRepo,
   emitCloneProgressFromText,
   emitRepoAdded,
   getRepoForExecutionHost,
-  searchBaseRefDetailsForRepo,
+  searchBaseRefDetailsForRepo
 } from './repo-ipc-handlers'
+import { notifyReposChanged } from './repo-ipc-imports'
 import { registerProjectGroupHandlers } from './repo-ipc-project-group-registration'
 import { registerRepositoryCatalogHandlers } from './repo-ipc-repository-catalog-registration'
 import { registerRepositoryMutationHandlers } from './repo-ipc-repository-mutation-registration'

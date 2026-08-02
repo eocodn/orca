@@ -138,6 +138,9 @@ import {
   registerSshProviderRequestAbort
 } from '../ssh/ssh-provider-authority'
 import { createSenderScopedRequestCancellations } from './sender-scoped-request-cancellation'
+import { getProjectHostSetupMetaUpdates, resolveWorktreeMetaWithDiscoveryBackfill } from './worktree-ipc-foundation'
+import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree-id'
+import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
 
 import { runRemoteArchiveHook,
   type WorktreeRemovalInFlight,
@@ -482,4 +485,3 @@ export function listFolderWorkspaces(store: Store, repo: Repo): Worktree[] {
       return (b.createdAt ?? b.lastActivityAt) - (a.createdAt ?? a.lastActivityAt)
     })
 }
-

@@ -68,6 +68,16 @@ import {
 } from './ssh-worktree-create-root-registration'
 
 import * as context from './worktree-remote-context'
+import { getRepoIdFromWorktreeId } from '../../shared/worktree-id'
+import {
+  cleanupUnusedWorktreePushTargetRemoteWithExec,
+  sameGitHubRemoteUrl,
+  type WorktreePushTargetStore
+} from './worktree-push-target-cleanup'
+import {
+  configureCreatedWorktreePushTargetWithExec,
+  prepareWorktreePushTargetWithExec
+} from './worktree-push-target-setup'
 
 
 export async function prepareWorktreePushTarget(
@@ -211,7 +221,7 @@ async function ensureUniqueRemoteNameSsh(
   throw new Error(`Could not find an available remote name for ${preferred}.`)
 }
 
-async function prepareWorktreePushTargetSsh(
+export async function prepareWorktreePushTargetSsh(
   provider: SshGitProvider,
   repoPath: string,
   target: GitPushTarget,
@@ -276,7 +286,7 @@ export async function cleanupUnusedWorktreePushTargetRemoteSsh(
   }
 }
 
-async function configureCreatedWorktreePushTargetSsh(
+export async function configureCreatedWorktreePushTargetSsh(
   provider: SshGitProvider,
   worktreePath: string,
   branchName: string,
@@ -288,4 +298,3 @@ async function configureCreatedWorktreePushTargetSsh(
   )
   return target
 }
-

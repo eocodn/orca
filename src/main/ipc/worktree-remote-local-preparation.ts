@@ -67,12 +67,27 @@ import {
   registerRequiredSshWorktreeCreateRoots
 } from './ssh-worktree-create-root-registration'
 
-import { type CreateWorktreeArgsWithSystemProvenance } from './worktree-remote-context'
+import {
+  type CreateWorktreeArgsWithSystemProvenance,
+  CREATE_BASE_FALLBACK_FETCH_TIMEOUT_MS
+} from './worktree-remote-context'
 import { type StagedStartupResult } from './worktree-remote-context'
-import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals } from './worktree-remote-base'
-import { resolveCreateBranchName, canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
+import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals, resolveCreateBranchName } from './worktree-remote-base'
+import { canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
 import { prepareWorktreePushTarget, configureCreatedWorktreePushTarget } from './worktree-remote-push'
 import { notifyWorktreesChanged, emitCreateWorktreeProgress } from './worktree-remote-events'
+import { createWorktreeCreateTimingRecorder } from '../worktree-create-timing'
+import {
+  computeWorkspaceRoot,
+  getWorktreePathSettings,
+  sanitizeWorktreeDisplayName,
+  sanitizeWorktreeName
+} from './worktree-logic'
+import {
+  getLocalProjectGitExecOptions,
+  getLocalProjectWorktreeGitOptions
+} from '../project-runtime-git-options'
+import { normalizeSparseDirectories } from './sparse-checkout-directories'
 
 export async function prepareLocalWorktreeCreation(
   args: CreateWorktreeArgsWithSystemProvenance,
@@ -277,6 +292,7 @@ export async function prepareLocalWorktreeCreation(
     legacyFetchPromise,
     workspaceRoot,
     sparseDirectories,
-    sparsePresetId
+    sparsePresetId,
+    username
   }
 }

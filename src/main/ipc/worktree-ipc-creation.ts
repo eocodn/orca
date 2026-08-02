@@ -82,6 +82,7 @@ import { resolveGitHubReviewHeadRemote } from '../github/review-head-remote'
 import { listRepoWorktrees } from '../repo-worktrees'
 import { getSshGitProvider, requireSshGitProvider } from '../providers/ssh-git-dispatch'
 import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
+import { getLocalProjectWorktreeGitOptions } from '../project-runtime-git-options'
 import {
   createIssueCommandRunnerScript,
   getEffectiveHooks,
@@ -180,7 +181,7 @@ export { type CreateWorktreeArgsWithSystemProvenance,
   getWorktreeRemovalInFlightKey,
   getArchiveHooksForRemoval } from './worktree-ipc-foundation'
 
-asyncexport function runRemoteArchiveHook(
+export async function runRemoteArchiveHook(
   repo: Repo,
   worktreePath: string,
   script: string
@@ -357,7 +358,7 @@ export function __getDetectedWorktreeScanCacheStatsForTests(): {
   }
 }
 
-asyncexport function listDetectedGitWorktrees(
+export async function listDetectedGitWorktrees(
   store: Store,
   repo: Repo
 ): Promise<DetectedWorktreeScanResult> {
@@ -434,4 +435,3 @@ export function rememberLocalWorktreeRoots(
     ...gitWorktrees.map((worktree) => worktree.path)
   ])
 }
-

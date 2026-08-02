@@ -77,6 +77,26 @@ import { resolveCreateBranchNameSsh, hasRemoteWorktreeBaseRef, hasRemoteTracking
 import { configureCreatedWorktreePushTargetSsh } from './worktree-remote-push'
 import { readRemoteEffectiveHooks, readRemoteOrcaYaml, createRemoteSetupRunnerScript, getOrStartRemoteWorktreeCreateBasePlan, refreshLocalBaseRefForRemoteWorktreeCreate, getRemoteLocalBaseRefUpdateSuggestionForWorktreeCreate } from './worktree-remote-refresh'
 import { notifyWorktreesChanged } from './worktree-remote-events'
+import { createWorktreeCreateTimingRecorder } from '../worktree-create-timing'
+import {
+  computeRemoteWorktreePath,
+  getWorktreeCreationLayout,
+  getWorktreePathSettings,
+  hasRepoWorktreeBasePath,
+  mergeWorktree,
+  sanitizeWorktreeDisplayName,
+  sanitizeWorktreeName,
+  shouldSetDisplayName
+} from './worktree-logic'
+import { worktreeWorkspaceKey } from '../../shared/workspace-scope'
+import { normalizeSparseDirectories } from './sparse-checkout-directories'
+import {
+  getBranchNameOverrideCandidate,
+  getWorktreeCreateCandidate,
+  WORKTREE_CREATE_MAX_SUFFIX_ATTEMPTS
+} from '../worktree-create-candidates'
+import { prepareWorktreePushTargetSsh } from './worktree-remote-push'
+import { unsetRemoteWorktreeCreationBase } from './worktree-remote-base'
 
 export async function createRemoteWorktree(
   args: CreateWorktreeArgsWithSystemProvenance,

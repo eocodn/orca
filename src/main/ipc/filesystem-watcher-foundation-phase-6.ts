@@ -30,6 +30,44 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import {
+  senderCleanupRegistered,
+  unwatchableRoots,
+  suspendedLocalWatcherListeners,
+  localWatchersClosed,
+  localWatcherLifecycleGeneration,
+  pendingLocalCapacityRetries,
+  pendingTeardowns,
+  inFlightLocalInstalls,
+  watchedRoots,
+  pendingLocalUnsubscribes,
+  failedLocalUnsubscribes,
+  setLocalWatchersClosed,
+  setLocalWatcherLifecycleGeneration
+} from './filesystem-watcher-foundation'
+import { trackLocalUnsubscribe } from './filesystem-watcher-local'
+import {
+  suspendedRemoteWatcherListeners,
+  remoteWatchers,
+  desiredRemoteWatchers,
+  dormantRemoteWatchers,
+  loggedUnavailableRemoteWatchers,
+  pendingRemoteWatcherRetries,
+  pendingRemoteWatcherRetryListeners,
+  remoteWatcherResyncStates,
+  inFlightRemoteInstalls,
+  pendingRemoteInstallPromises,
+  remoteWatchersClosed,
+  remoteWatcherLifecycleGeneration,
+  REMOTE_WATCH_DORMANT_RETRY_MS,
+  REMOTE_WATCH_DORMANT_RETRY_MAX_MS,
+  setRemoteWatchersClosed,
+  setRemoteWatcherLifecycleGeneration
+} from './filesystem-watcher-removal'
+import {
+  type RemoteWatcherInstallResult,
+  installRemoteWatcher
+} from './filesystem-watcher-retry'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -68,7 +106,7 @@ export function scheduleDormantRemoteWatcherRearm(
   dormantRemoteWatchers.set(key, { delayMs, timer })
 }
 
-asyncexport function rearmDormantRemoteWatcher(
+export async function rearmDormantRemoteWatcher(
   key: string,
   connectionId: string,
   worktreePath: string,
@@ -260,10 +298,10 @@ export async function closeAllWatchers(): Promise<void> {
   dormantRemoteWatchers.clear()
   loggedUnavailableRemoteWatchers.clear()
   // Why: latch both subsystems shut so late installs can't register; generation bumps reject older-lifecycle waiters.
-  remoteWatchersClosed = true
-  remoteWatcherLifecycleGeneration += 1
-  localWatchersClosed = true
-  localWatcherLifecycleGeneration += 1
+  setRemoteWatchersClosed(true)
+  setRemoteWatcherLifecycleGeneration(remoteWatcherLifecycleGeneration + 1)
+  setLocalWatchersClosed(true)
+  setLocalWatcherLifecycleGeneration(localWatcherLifecycleGeneration + 1)
   pendingRemoteInstallPromises.clear()
   // Why: cancel in-flight provider.watch() calls so their resolved unwatch handles aren't installed post-shutdown.
   for (const token of inFlightRemoteInstalls.values()) {

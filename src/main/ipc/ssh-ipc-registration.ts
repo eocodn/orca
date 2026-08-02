@@ -50,8 +50,39 @@ import {
   rotateSshProviderAuthority
 } from '../ssh/ssh-provider-authority'
 
-import { registerSshHandlers } from './ssh-ipc-pty'
-export { registerSshHandlers } from './ssh-ipc-pty'
+import {
+  sshStore,
+  connectionManager,
+  portForwardManager,
+  advertisedUrlWatcherUnsubscribe,
+  powerMonitorUnsubscribe,
+  SSH_IPC_CHANNELS,
+  activeSessions,
+  relayLostBackoff,
+  clearRelayLostBackoff,
+  relayStateOverrides,
+  connectInFlight,
+  targetLifecycleInFlight,
+  pendingTransportReconnects,
+  resetRelayInFlight,
+  testingTargets,
+  credentialRequestedForTarget,
+  persistedStore,
+  registeredConnectSshTarget,
+  registeredGetSshState,
+  currentGetMainWindow,
+  currentRuntime,
+  setAdvertisedUrlWatcherUnsubscribe,
+  setPowerMonitorUnsubscribe,
+  setSshStore,
+  setConnectionManager,
+  setPortForwardManager,
+  setPersistedStore,
+  setRegisteredConnectSshTarget,
+  setRegisteredGetSshState,
+  setCurrentGetMainWindow,
+  setCurrentRuntime
+} from './ssh-ipc-foundation'
 
 export function getSshConnectionManager(): SshConnectionManager | null {
   return connectionManager
@@ -59,9 +90,9 @@ export function getSshConnectionManager(): SshConnectionManager | null {
 
 export async function resetSshHandlerStateForTests(): Promise<void> {
   advertisedUrlWatcherUnsubscribe?.()
-  advertisedUrlWatcherUnsubscribe = null
+  setAdvertisedUrlWatcherUnsubscribe(null)
   powerMonitorUnsubscribe?.()
-  powerMonitorUnsubscribe = null
+  setPowerMonitorUnsubscribe(null)
   for (const ch of SSH_IPC_CHANNELS) {
     ipcMain.removeHandler(ch)
   }
@@ -86,14 +117,14 @@ export async function resetSshHandlerStateForTests(): Promise<void> {
 
   await connectionManager?.disconnectAll()
   portForwardManager?.dispose()
-  connectionManager = null
-  portForwardManager = null
-  sshStore = null
-  persistedStore = null
-  registeredConnectSshTarget = null
-  registeredGetSshState = null
-  currentGetMainWindow = () => null
-  currentRuntime = undefined
+  setConnectionManager(null)
+  setPortForwardManager(null)
+  setSshStore(null)
+  setPersistedStore(null)
+  setRegisteredConnectSshTarget(null)
+  setRegisteredGetSshState(null)
+  setCurrentGetMainWindow(() => null)
+  setCurrentRuntime(undefined)
 }
 
 export function getSshConnectionStore(): SshConnectionStore | null {

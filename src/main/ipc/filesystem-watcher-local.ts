@@ -30,6 +30,8 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import { cleanupRemoteWatchersForSender } from './filesystem-watcher-retry'
+import { subscribeWhileRemovalAllowed } from './filesystem-watcher-remote'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -100,7 +102,7 @@ export { DEBOUNCE_TRAILING_MS,
   tryStatIsDirectory,
   emitOverflowPayload } from './filesystem-watcher-foundation'
 
-asyncexport function flushBatch(root: WatchedRoot): Promise<void> {
+export async function flushBatch(root: WatchedRoot): Promise<void> {
   const overflowed = root.batch.overflowed
   const rawEvents = root.batch.events.splice(0)
   root.batch.overflowed = false
@@ -169,7 +171,7 @@ export function scheduleBatchFlush(root: WatchedRoot): void {
 
 // ── Watcher creation ─────────────────────────────────────────────────
 
-asyncexport function createWatcher(
+export async function createWatcher(
   rootKey: string,
   rootPath: string,
   signal?: AbortSignal
@@ -339,7 +341,7 @@ export function addLocalWatchListener(rootKey: string, sender: WebContents): voi
   registerSenderCleanup(sender)
 }
 
-asyncexport function subscribe(
+export async function subscribe(
   worktreePath: string,
   sender: WebContents,
   generation = localWatcherLifecycleGeneration
@@ -354,4 +356,3 @@ asyncexport function subscribe(
     finishInstall()
   }
 }
-

@@ -355,7 +355,7 @@ export function getCompletedNestedRepoScan(args: {
   return completed.scan
 }
 
-asyncexport function cleanupOwnedCloneTarget(metadata: ActiveCloneMetadata): Promise<void> {
+export async function cleanupOwnedCloneTarget(metadata: ActiveCloneMetadata): Promise<void> {
   if (!metadata.claimedTarget.canCleanup || !metadata.claimedTarget.ownedDirectoryIdentity) {
     return
   }
@@ -377,7 +377,7 @@ asyncexport function cleanupOwnedCloneTarget(metadata: ActiveCloneMetadata): Pro
   await cleanupClaimedCloneTarget(metadata.path, metadata.claimedTarget)
 }
 
-asyncexport function isGitAvailable(): Promise<boolean> {
+export async function isGitAvailable(): Promise<boolean> {
   try {
     await gitExecFileAsync(['--version'], {
       cwd: process.cwd(),
@@ -412,7 +412,7 @@ export function settleCloneAbortCleanup(metadata: ActiveCloneMetadata): void {
   metadata.resolvePendingAbortCleanup = null
 }
 
-asyncexport function runWithClonePathLock<T>(clonePathKey: string, task: () => Promise<T>): Promise<T> {
+export async function runWithClonePathLock<T>(clonePathKey: string, task: () => Promise<T>): Promise<T> {
   const previous = cloneInFlightByPath.get(clonePathKey) ?? Promise.resolve()
   let release!: () => void
   const current = new Promise<void>((resolve) => {
@@ -440,7 +440,7 @@ export function sanitizeNestedRepoImportError(context: string, error: unknown): 
   return 'Repository could not be imported'
 }
 
-asyncexport function resolveSshProjectGroupPath(connectionId: string, path: string): Promise<string> {
+export async function resolveSshProjectGroupPath(connectionId: string, path: string): Promise<string> {
   if (path === '~' || path === '~/' || path.startsWith('~/')) {
     const mux = getActiveMultiplexer(connectionId)
     if (mux) {
@@ -456,4 +456,3 @@ asyncexport function resolveSshProjectGroupPath(connectionId: string, path: stri
   }
   return path
 }
-

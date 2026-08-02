@@ -61,6 +61,54 @@ export let powerMonitorUnsubscribe: (() => void) | null = null
 export let currentGetMainWindow: () => BrowserWindow | null = () => null
 export let currentRuntime: OrcaRuntimeService | undefined
 
+export function clearRelayStateOverride(targetId: string): void {
+  relayStateOverrides.delete(targetId)
+}
+
+export function setSshStore(value: SshConnectionStore | null): void {
+  sshStore = value
+}
+
+export function setConnectionManager(value: SshConnectionManager | null): void {
+  connectionManager = value
+}
+
+export function setPortForwardManager(value: SshPortForwardManager | null): void {
+  portForwardManager = value
+}
+
+export function setPersistedStore(value: Store | null): void {
+  persistedStore = value
+}
+
+export function setRegisteredConnectSshTarget(
+  value: ((targetId: string) => Promise<SshConnectionState>) | null
+): void {
+  registeredConnectSshTarget = value
+}
+
+export function setRegisteredGetSshState(
+  value: ((targetId: string) => SshConnectionState | undefined) | null
+): void {
+  registeredGetSshState = value
+}
+
+export function setCurrentGetMainWindow(value: () => BrowserWindow | null): void {
+  currentGetMainWindow = value
+}
+
+export function setCurrentRuntime(value: OrcaRuntimeService | undefined): void {
+  currentRuntime = value
+}
+
+export function setAdvertisedUrlWatcherUnsubscribe(unsubscribe: (() => void) | null): void {
+  advertisedUrlWatcherUnsubscribe = unsubscribe
+}
+
+export function setPowerMonitorUnsubscribe(unsubscribe: (() => void) | null): void {
+  powerMonitorUnsubscribe = unsubscribe
+}
+
 export const SSH_IPC_CHANNELS = [
   'ssh:listTargets',
   'ssh:listRemovedTargetLabels',
@@ -177,7 +225,7 @@ export function runTargetLifecycle(targetId: string, operation: () => Promise<vo
   return trackedPromise
 }
 
-asyncexport function awaitTargetLifecycle(targetId: string): Promise<void> {
+export async function awaitTargetLifecycle(targetId: string): Promise<void> {
   while (true) {
     const lifecycle = targetLifecycleInFlight.get(targetId)
     if (!lifecycle) {
@@ -187,7 +235,7 @@ asyncexport function awaitTargetLifecycle(targetId: string): Promise<void> {
   }
 }
 
-asyncexport function teardownSshTargetTransport(
+export async function teardownSshTargetTransport(
   targetId: string,
   teardown: (session: SshRelaySession) => void
 ): Promise<void> {
@@ -216,7 +264,7 @@ asyncexport function teardownSshTargetTransport(
   }
 }
 
-asyncexport function teardownActiveSshSession(
+export async function teardownActiveSshSession(
   targetId: string,
   teardown: (session: SshRelaySession) => void
 ): Promise<void> {
@@ -336,4 +384,3 @@ export function withSshRemotePlatform(targetId: string, state: SshConnectionStat
     ...(remotePlatform ? { remotePlatform } : {})
   }
 }
-

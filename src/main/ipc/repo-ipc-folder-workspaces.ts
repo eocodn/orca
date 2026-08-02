@@ -140,6 +140,7 @@ import { ProjectHostSetupUpdateIpcArgs,
   runWithClonePathLock,
   sanitizeNestedRepoImportError,
   resolveSshProjectGroupPath } from './repo-ipc-projects'
+import { activeNestedRepoScans } from './repo-ipc-clone'
 export { ProjectHostSetupUpdateIpcArgs,
   ProjectHostSetupDeleteIpcArgs,
   FolderWorkspaceLinkedTaskArgs,
@@ -164,7 +165,7 @@ export { ProjectHostSetupUpdateIpcArgs,
   sanitizeNestedRepoImportError,
   resolveSshProjectGroupPath } from './repo-ipc-projects'
 
-asyncexport function scanNestedReposForIpc(args: {
+export async function scanNestedReposForIpc(args: {
   path: string
   connectionId?: string
   options?: unknown
@@ -228,7 +229,7 @@ asyncexport function scanNestedReposForIpc(args: {
   })
 }
 
-asyncexport function runNestedRepoScanForIpc(
+export async function runNestedRepoScanForIpc(
   event: IpcMainInvokeEvent,
   args: z.infer<typeof ProjectGroupScanNestedArgs>
 ): Promise<NestedRepoScanResult> {
@@ -263,4 +264,3 @@ asyncexport function runNestedRepoScanForIpc(
     }
   }
 }
-

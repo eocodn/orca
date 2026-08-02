@@ -30,6 +30,29 @@ import {
 } from './watcher-removal-drain'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
 import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
+import {
+  remoteWatcherResyncStates,
+  pendingRemoteWatcherRetryListeners,
+  pendingRemoteWatcherRetries,
+  loggedUnavailableRemoteWatchers,
+  desiredRemoteWatchers,
+  dormantRemoteWatchers,
+  remoteWatchers,
+  suspendedRemoteWatcherListeners,
+  inFlightRemoteInstalls,
+  remoteWatchersClosed,
+  REMOTE_WATCH_RETRY_TIMEOUT_MS,
+  REMOTE_WATCH_RESYNC_COALESCE_MS,
+  REMOTE_WATCH_RETRY_MS,
+  unsubscribeFromProviderRegistrations,
+  setUnsubscribeFromProviderRegistrations,
+  setRemoteWatchersClosed,
+} from './filesystem-watcher-removal'
+import { localWatchersClosed, setLocalWatchersClosed } from './filesystem-watcher-foundation'
+import {
+  reinstallRemoteWatchersForConnection
+} from './filesystem-watcher-foundation-phase-6'
+import { subscribe, registerSenderCleanup } from './filesystem-watcher-local'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
@@ -233,8 +256,8 @@ export function registerFilesystemWatcherHandlers(): void {
   // Why: re-registration replaces the handler set, so drop the previous subscription instead of
   // stacking a second re-arm on every provider registration.
   unsubscribeFromProviderRegistrations?.()
-  unsubscribeFromProviderRegistrations = onSshFilesystemProviderRegistered(
-    reinstallRemoteWatchersForConnection
+  setUnsubscribeFromProviderRegistrations(
+    onSshFilesystemProviderRegistered(reinstallRemoteWatchersForConnection)
   )
 
   ipcMain.handle(
@@ -242,7 +265,7 @@ export function registerFilesystemWatcherHandlers(): void {
     async (event, args: { worktreePath: string; connectionId?: string }): Promise<void> => {
       if (args.connectionId) {
         // Why: a real new watch reopens the subsystem after closeAllWatchers latched it shut (also resets tests between cases).
-        remoteWatchersClosed = false
+        setRemoteWatchersClosed(false)
         const key = remoteWatcherKey(args.connectionId, args.worktreePath)
         // Why: record intent before the install so a provider registering mid-flight (or long after
         // this attempt gives up) can still re-arm this listener.
@@ -265,7 +288,7 @@ export function registerFilesystemWatcherHandlers(): void {
         return
       }
       // Why: reopen the local subsystem for tests and post-shutdown reattachment; stale callers keep the prior generation.
-      localWatchersClosed = false
+      setLocalWatchersClosed(false)
       await subscribe(args.worktreePath, event.sender)
     }
   )
@@ -351,4 +374,3 @@ export function clearDormantRemoteWatcher(key: string): void {
   clearTimeout(dormant.timer)
   dormantRemoteWatchers.delete(key)
 }
-

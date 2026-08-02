@@ -138,6 +138,7 @@ import {
   registerSshProviderRequestAbort
 } from '../ssh/ssh-provider-authority'
 import { createSenderScopedRequestCancellations } from './sender-scoped-request-cancellation'
+import { LINEAGE_HYDRATION_TIMEOUT_MS } from './worktree-ipc-creation'
 
 import { hasValidDirectSshAuthority,
   hasValidLineageSshAuthority,
@@ -153,6 +154,11 @@ import { hasValidDirectSshAuthority,
   resolveFolderLineageOwner,
   resolveWorkspaceLineageOwner,
   filterLineageForHost } from './worktree-ipc-metadata'
+import {
+  findExactRepoOwner,
+  isCapturedRepoCurrent,
+  listDetectedWorktreesForCapturedRepo,
+  resolveRepoOwnershipEvidence } from './worktree-ipc-local'
 export { hasValidDirectSshAuthority,
   hasValidLineageSshAuthority,
   type LineageOwner,
@@ -167,8 +173,12 @@ export { hasValidDirectSshAuthority,
   resolveFolderLineageOwner,
   resolveWorkspaceLineageOwner,
   filterLineageForHost } from './worktree-ipc-metadata'
+export { findExactRepoOwner,
+  isCapturedRepoCurrent,
+  listDetectedWorktreesForCapturedRepo,
+  resolveRepoOwnershipEvidence } from './worktree-ipc-local'
 
-asyncexport function hydrateLineageWithinDeadline(runtime: OrcaRuntimeService): Promise<boolean> {
+export async function hydrateLineageWithinDeadline(runtime: OrcaRuntimeService): Promise<boolean> {
   let timeout: ReturnType<typeof setTimeout> | undefined
   const hydration = Promise.resolve()
     .then(() => runtime.hydrateInferredWorktreeLineage())
@@ -188,7 +198,7 @@ asyncexport function hydrateLineageWithinDeadline(runtime: OrcaRuntimeService): 
   }
 }
 
-asyncexport function listDesktopLineageForHost(
+export async function listDesktopLineageForHost(
   store: Store,
   runtime: OrcaRuntimeService,
   args: ListDesktopLineageForHostArgs
@@ -264,7 +274,7 @@ asyncexport function listDesktopLineageForHost(
   }
 }
 
-asyncexport function listHostQualifiedDetectedWorktrees(
+export async function listHostQualifiedDetectedWorktrees(
   store: Store,
   args: ListDetectedWorktreesArgs,
   providerAbort?: { signal: AbortSignal; status: () => 'canceled' | 'timed-out' }
@@ -377,4 +387,3 @@ asyncexport function listHostQualifiedDetectedWorktrees(
     result
   }
 }
-

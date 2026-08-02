@@ -153,7 +153,7 @@ export type RemoveWorktreeArgs = {
 
 export type DetectedWorktreeRequestArgs = { repoId: string } | ListDetectedWorktreesArgs
 
-asyncexport function stopPtysForDestructiveWorktreeRemoval(
+export async function stopPtysForDestructiveWorktreeRemoval(
   runtime: OrcaRuntimeService,
   worktreeId: string,
   connectionId?: string
@@ -266,7 +266,7 @@ export function normalizeLinkedWorkItemFields<
   }
 }
 
-asyncexport function mapWithConcurrency<T, R>(
+export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,
   fn: (item: T) => Promise<R>
@@ -344,7 +344,7 @@ export function resolveWorktreeMetaWithDiscoveryBackfill(
   })
 }
 
-asyncexport function isAlreadyRemovedWorktreePath(
+export async function isAlreadyRemovedWorktreePath(
   repo: Repo,
   worktreePath: string,
   localWorktreeGitOptions: { wslDistro?: string } = {}
@@ -364,7 +364,7 @@ asyncexport function isAlreadyRemovedWorktreePath(
   return isWorktreePathMissing(worktreePath, (path) => fsProvider.stat(path))
 }
 
-asyncexport function isLocalGitRepository(
+export async function isLocalGitRepository(
   runtimeWorktreePath: string,
   localWorktreeGitOptions: { wslDistro?: string } = {}
 ): Promise<boolean> {
@@ -405,7 +405,7 @@ export function getWorktreeRemovalInFlightKey(worktreeId: string, hostId?: Execu
   return `${hostId ?? ''}\0${worktreeId}`
 }
 
-asyncexport function getArchiveHooksForRemoval(repo: Repo): Promise<OrcaHooks | null> {
+export async function getArchiveHooksForRemoval(repo: Repo): Promise<OrcaHooks | null> {
   if (!repo.connectionId) {
     return getEffectiveHooks(repo)
   }
@@ -423,4 +423,3 @@ asyncexport function getArchiveHooksForRemoval(repo: Repo): Promise<OrcaHooks | 
     return getEffectiveHooksFromConfig(repo, null)
   }
 }
-

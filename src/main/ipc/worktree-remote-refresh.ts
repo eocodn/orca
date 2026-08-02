@@ -76,9 +76,12 @@ import {
 } from './worktree-remote-context'
 import { countNonEmptyGitOutputLines, getSshWorktreeCreateBasePlanKey, refreshRemoteTrackingBaseForWorktreeCreate, fetchRemoteForWorktreeCreate } from './worktree-remote-base'
 import { hasRemoteWorktreeBaseRef, hasRemoteTrackingRefSsh } from './worktree-remote-branch'
+import type { IFilesystemProvider } from '../providers/types'
+import { joinWorktreeRelativePath } from '../runtime/runtime-relative-paths'
+import { shouldWaitForSetupBeforeAgentStartup } from '../../shared/setup-agent-startup-policy'
 
 
-async function readRemoteEffectiveHooks(
+export async function readRemoteEffectiveHooks(
   repo: Repo,
   fsProvider: IFilesystemProvider,
   hooksRootPath: string
@@ -86,7 +89,7 @@ async function readRemoteEffectiveHooks(
   return getEffectiveHooksFromConfig(repo, await readRemoteOrcaYaml(fsProvider, hooksRootPath))
 }
 
-async function readRemoteOrcaYaml(
+export async function readRemoteOrcaYaml(
   fsProvider: IFilesystemProvider,
   hooksRootPath: string
 ): Promise<ReturnType<typeof parseOrcaYaml>> {
@@ -98,7 +101,7 @@ async function readRemoteOrcaYaml(
   }
 }
 
-async function createRemoteSetupRunnerScript(
+export async function createRemoteSetupRunnerScript(
   repo: Repo,
   worktreePath: string,
   script: string,
@@ -251,7 +254,7 @@ export async function prefetchRemoteWorktreeCreateBase(
   await fetchRemoteForWorktreeCreate(provider, repo, 'origin')
 }
 
-async function refreshLocalBaseRefForRemoteWorktreeCreate(
+export async function refreshLocalBaseRefForRemoteWorktreeCreate(
   provider: SshGitProvider,
   repoPath: string,
   remoteTrackingBase: RemoteTrackingBase
@@ -359,7 +362,7 @@ async function evaluateRemoteLocalBaseRefRefreshability(
   }
 }
 
-async function getRemoteLocalBaseRefUpdateSuggestionForWorktreeCreate(
+export async function getRemoteLocalBaseRefUpdateSuggestionForWorktreeCreate(
   provider: SshGitProvider,
   repoPath: string,
   remoteTrackingBase: RemoteTrackingBase
@@ -390,4 +393,3 @@ async function getRemoteLocalBaseRefUpdateSuggestionForWorktreeCreate(
     behind: evaluation.behind
   }
 }
-

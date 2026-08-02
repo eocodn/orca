@@ -66,6 +66,19 @@ import {
   registerOptionalSshWorktreeCreateRoots,
   registerRequiredSshWorktreeCreateRoots
 } from './ssh-worktree-create-root-registration'
+import { parseWorkspaceKey, worktreeWorkspaceKey } from '../../shared/workspace-scope'
+import type { BranchPrefixSettings } from '../../shared/branch-prefix'
+import { computeValidatedBranchName } from './worktree-branch-name'
+import {
+  buildSetupRunnerCommand,
+  getSetupRunnerCommandPlatformForPath
+} from '../../shared/setup-runner-command'
+import { createSequencedSetupAgentCommands } from '../../shared/setup-agent-sequencing'
+import {
+  markCodexProjectTrusted,
+  markCopilotFolderTrusted,
+  markCursorWorkspaceTrusted
+} from '../agent-trust-presets'
 
 import * as context from './worktree-remote-context'
 import {
@@ -80,9 +93,6 @@ import {
   sshWorktreeCreateFetchInflight,
   sshWorktreeCreateFetchQueueTail
 } from './worktree-remote-context'
-import { resolveCreateBranchName, resolveCreateBranchNameSsh } from './worktree-remote-branch'
-
-
 export function appendWorktreeCreateWarning(current: string | undefined, next: string): string {
   return current ? `${current} Also ${next[0]?.toLowerCase() ?? ''}${next.slice(1)}` : next
 }
@@ -154,7 +164,7 @@ export function countNonEmptyGitOutputLines(output: string): number {
   return output.split(/\r?\n/).filter((line) => line.trim().length > 0).length
 }
 
-async function spawnLocalStartupAndSetupTerminals(args: {
+export async function spawnLocalStartupAndSetupTerminals(args: {
   runtime: OrcaRuntimeService | undefined
   worktree: Pick<Worktree, 'id' | 'path'>
   startup: CreateWorktreeArgs['startup']
@@ -389,7 +399,7 @@ async function getOrStartSshWorktreeCreateFetch(
   return promise
 }
 
-async function refreshRemoteTrackingBaseForWorktreeCreate(
+export async function refreshRemoteTrackingBaseForWorktreeCreate(
   provider: SshGitProvider,
   repo: Repo,
   base: RemoteTrackingBase
@@ -405,7 +415,7 @@ async function refreshRemoteTrackingBaseForWorktreeCreate(
   )
 }
 
-async function fetchRemoteForWorktreeCreate(
+export async function fetchRemoteForWorktreeCreate(
   provider: SshGitProvider,
   repo: Repo,
   remote: string
@@ -424,7 +434,7 @@ export function __resetSshWorktreeCreateFetchCacheForTests(): void {
   sshWorktreeCreateBasePlanInflight.clear()
 }
 
-async function unsetRemoteWorktreeCreationBase(
+export async function unsetRemoteWorktreeCreationBase(
   provider: SshGitProvider,
   worktreePath: string,
   branchName: string
@@ -439,7 +449,7 @@ async function unsetRemoteWorktreeCreationBase(
   }
 }
 
-async function resolveCreateBranchName(
+export async function resolveCreateBranchName(
   repoPath: string,
   branchNameOverride: string | undefined,
   sanitizedName: string,
@@ -460,7 +470,7 @@ async function resolveCreateBranchName(
   return branchNameOverride
 }
 
-async function resolveCreateBranchNameSsh(
+export async function resolveCreateBranchNameSsh(
   provider: SshGitProvider,
   repoPath: string,
   branchNameOverride: string | undefined,
@@ -477,4 +487,3 @@ async function resolveCreateBranchNameSsh(
   await provider.exec(['check-ref-format', '--branch', branchNameOverride], repoPath)
   return branchNameOverride
 }
-

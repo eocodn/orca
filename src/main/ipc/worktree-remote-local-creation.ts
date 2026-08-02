@@ -69,11 +69,35 @@ import {
 
 import { type CreateWorktreeArgsWithSystemProvenance } from './worktree-remote-context'
 import { type StagedStartupResult } from './worktree-remote-context'
-import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals } from './worktree-remote-base'
-import { resolveCreateBranchName, canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
+import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals, resolveCreateBranchName } from './worktree-remote-base'
+import { canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
 import { prepareWorktreePushTarget, configureCreatedWorktreePushTarget } from './worktree-remote-push'
 import { notifyWorktreesChanged, emitCreateWorktreeProgress } from './worktree-remote-events'
 import { prepareLocalWorktreeCreation } from './worktree-remote-local-preparation'
+import {
+  computeWorktreePath,
+  ensurePathWithinWorkspace,
+  getWorktreeCreationLayout,
+  getWorktreePathSettings,
+  mergeWorktree,
+  shouldSetDisplayName
+} from './worktree-logic'
+import { worktreeWorkspaceKey } from '../../shared/workspace-scope'
+import {
+  getBranchNameOverrideCandidate,
+  getWorktreeCreateCandidate,
+  WORKTREE_CREATE_MAX_SUFFIX_ATTEMPTS
+} from '../worktree-create-candidates'
+import { findCreatedWorktree } from './created-worktree-reconciliation'
+import { registerWorktreeRootsForRepo } from './filesystem-auth'
+import {
+  createWorktreeCopiedPaths,
+  createWorktreeLinkedPaths,
+  createWorktreeSharedPaths
+} from './worktree-symlinks'
+import { formatWorktreeIncludeCopyWarning } from './worktree-include-copy-budget'
+import { resolveWorktreeIncludePaths } from '../git/worktree-include-file'
+import { resolveWorktreeSharedDirectories } from '../git/worktree-shared-directories'
 
 export async function createLocalWorktree(
   args: CreateWorktreeArgsWithSystemProvenance,
@@ -101,7 +125,8 @@ export async function createLocalWorktree(
     legacyFetchPromise,
     workspaceRoot,
     sparseDirectories,
-    sparsePresetId
+    sparsePresetId,
+    username
   } = await prepareLocalWorktreeCreation(args, repo, store, mainWindow, runtime)
   let baseBranch = resolvedBaseBranch
   let effectiveRequestedName = requestedName
