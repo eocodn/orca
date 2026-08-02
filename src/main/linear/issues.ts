@@ -29,6 +29,17 @@ import {
 } from './client'
 import { buildLinearListIssueFilter } from './issue-list-filter'
 import { mapLinearIssue } from './mappers'
+import {
+  AGENT_ISSUE_WRITE_FIELDS,
+  ALL_ISSUES_QUERY,
+  ATTACHMENT_BY_UUID_QUERY,
+  COMMENT_BY_UUID_QUERY,
+  ISSUE_BY_UUID_QUERY,
+  ISSUE_COMMENTS_QUERY,
+  SEARCH_ISSUES_QUERY,
+  VIEWER_ASSIGNED_ISSUES_QUERY,
+  VIEWER_CREATED_ISSUES_QUERY
+} from './linear-issue-queries'
 
 export type LinearIssueListOptions = {
   teamId?: string
@@ -140,184 +151,6 @@ export type LinearAttachmentWriteRecord = {
   url: string
   issue: { id: string; identifier: string; url: string }
 }
-
-const LINEAR_ISSUE_NODE_FIELDS = `
-  id
-  identifier
-  title
-  branchName
-  description
-  url
-  dueDate
-  priority
-  estimate
-  updatedAt
-  labelIds
-  state {
-    name
-    type
-    color
-  }
-  team {
-    id
-    name
-    key
-  }
-  assignee {
-    id
-    displayName
-    avatarUrl
-  }
-  labels(first: 50) {
-    nodes {
-      id
-      name
-    }
-  }
-`
-
-const SEARCH_ISSUES_QUERY = `
-  query OrcaLinearIssueSearch($term: String!, $first: Int) {
-    searchIssues(term: $term, first: $first) {
-      nodes {
-        ${LINEAR_ISSUE_NODE_FIELDS}
-      }
-    }
-  }
-`
-
-const ALL_ISSUES_QUERY = `
-  query OrcaLinearIssues(
-    $first: Int,
-    $after: String,
-    $filter: IssueFilter,
-    $orderBy: PaginationOrderBy
-  ) {
-    issues(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-      nodes {
-        ${LINEAR_ISSUE_NODE_FIELDS}
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-    }
-  }
-`
-
-const VIEWER_ASSIGNED_ISSUES_QUERY = `
-  query OrcaLinearViewerAssignedIssues(
-    $first: Int,
-    $after: String,
-    $filter: IssueFilter,
-    $orderBy: PaginationOrderBy
-  ) {
-    viewer {
-      assignedIssues(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-        nodes {
-          ${LINEAR_ISSUE_NODE_FIELDS}
-        }
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-      }
-    }
-  }
-`
-
-const VIEWER_CREATED_ISSUES_QUERY = `
-  query OrcaLinearViewerCreatedIssues(
-    $first: Int,
-    $after: String,
-    $filter: IssueFilter,
-    $orderBy: PaginationOrderBy
-  ) {
-    viewer {
-      createdIssues(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-        nodes {
-          ${LINEAR_ISSUE_NODE_FIELDS}
-        }
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-      }
-    }
-  }
-`
-
-const AGENT_ISSUE_WRITE_FIELDS = `
-  id
-  identifier
-  title
-  description
-  url
-  team { id key name }
-  state { id name }
-  parent { id identifier }
-  project { id name }
-  assignee { id displayName }
-  priority
-  estimate
-  dueDate
-  labelIds
-  labels(first: 50) { nodes { id name } }
-`
-
-const ISSUE_BY_UUID_QUERY = `
-  query OrcaLinearIssueByUuid($id: String!) {
-    issue(id: $id) {
-      ${AGENT_ISSUE_WRITE_FIELDS}
-    }
-  }
-`
-
-const COMMENT_BY_UUID_QUERY = `
-  query OrcaLinearCommentByUuid($id: String!) {
-    comment(id: $id) {
-      id
-      url
-      body
-      parent { id }
-      issue { id identifier url }
-    }
-  }
-`
-
-const ATTACHMENT_BY_UUID_QUERY = `
-  query OrcaLinearAttachmentByUuid($id: String!) {
-    attachment(id: $id) {
-      id
-      title
-      url
-      issue { id identifier url }
-    }
-  }
-`
-
-// Why: fetch comments with their author in a single request. Accessing
-// `.user` on the SDK's Comment model lazily issues one user(id) query per
-// comment, so the previous loop was an N+1 (issue + comments + N user
-// fetches, all sequential while holding a shared Linear concurrency slot).
-// first: 50 matches the SDK default page size the previous code relied on.
-const ISSUE_COMMENTS_QUERY = `
-  query OrcaLinearIssueComments($id: String!) {
-    issue(id: $id) {
-      comments(first: 50) {
-        nodes {
-          id
-          body
-          createdAt
-          user {
-            displayName
-            avatarUrl
-          }
-        }
-      }
-    }
-  }
-`
 
 type LinearIssueByUuidResponse = {
   issue?:
