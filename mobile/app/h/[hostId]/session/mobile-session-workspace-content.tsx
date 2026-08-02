@@ -3,7 +3,7 @@ import {
   Text, TextInput, View
 } from 'react-native'
 import {
-  AlertTriangle, ArrowUp, ChevronDown, ChevronsRight, File, Keyboard as KeyboardIcon,
+  AlertTriangle, ArrowUp, ChevronDown, ChevronsRight, File, Keyboard as KeyboardIcon, X,
   Monitor, Plus, Smartphone
 } from 'lucide-react-native'
 import { MobileBrowserPane } from '../../../../src/browser/MobileBrowserPane'
@@ -17,12 +17,13 @@ import { getTerminalCommandKeyboardType, getTerminalLiveInputKeyboardType } from
 import { colors } from '../../../../src/theme/mobile-theme'
 import { FileReader, MarkdownReader } from './mobile-session-file-readers'
 import { styles } from './mobile-session-styles'
+import { dismissMobileSessionCreateWarningState } from '../../../../src/session/mobile-session-create-warning-state'
 
 type WorkspaceContext = Record<string, any>
 
 export function renderMobileSessionContent(context: WorkspaceContext) {
-  const { client, worktreeId, activePanel, sessionContentRowWidth, canDockPanel, setActivePanel,
-    handleSessionContentRowLayout, createWarning, setCreateWarningState, dismissMobileSessionCreateWarningState,
+  const { client, worktreeId, hostId, worktreeName, connState, activePanel, sessionContentRowWidth, canDockPanel, setActivePanel,
+    handleSessionContentRowLayout, createWarning, setCreateWarningState,
     showLoadingState, showEmptyState, createError, createTabBusy, setCreateError, setShowCreateTabDrawer,
     activeMarkdownTab, markdownDocs, readMarkdownTab, updateMarkdownLocalContent, saveMarkdownTab,
     copyMarkdownLocalContent, discardMarkdownLocalContent, keyboardLift, activeFileTab, fileDocs,
@@ -40,13 +41,13 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
     setShowCustomKeyModal, liveInputEnabled, focusLiveInput, isAttaching, liveInputRef,
     liveInputCapture, handleLiveInputChange, handleLiveInputKeyPress, handleLiveInputSubmit,
     commandInputRef, autocompleteEnabled, input, setInput, canCompose, handleSend,
+    handleFileOpenStart, handleOpenedFileDiff,
     getTerminalCommandKeyboardType: resolveCommandKeyboardType = getTerminalCommandKeyboardType,
     getTerminalLiveInputKeyboardType: resolveLiveKeyboardType = getTerminalLiveInputKeyboardType,
     createTerminalLiveAccessoryInput: makeAccessoryInput = createTerminalLiveAccessoryInput
   } = context
   const Keyboard = NativeKeyboard
   return (
-        {/* Content-row host (KTD2): on wide, content shares this row with the docked panel as the flex-1 left child. */}
         <View style={styles.sessionContentRow} onLayout={handleSessionContentRowLayout}>
           <View style={styles.sessionContentMain}>
             {createWarning ? (

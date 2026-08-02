@@ -1,8 +1,10 @@
 import { StyleSheet } from 'react-native'
+import { View } from 'react-native'
+import { createElement } from 'react'
 import { colors, spacing, radii } from './theme/mobile-theme'
 
 export function CardGap() {
-  return <View style={styles.cardGap} />
+  return createElement(View, { style: styles.cardGap })
 }
 
 export const ONBOARDING_STEPS = [
@@ -404,4 +406,3 @@ export const styles = StyleSheet.create({
     lineHeight: 17
   }
 })
-

@@ -1,5 +1,5 @@
 import type { RpcClient } from '../transport/rpc-client'
-import type { TuiAgent, PersistedTrustedOrcaHooks } from '../../../src/shared/types'
+import type { TuiAgent } from '../../../src/shared/types'
 import type { SetupHookTrust } from '../tasks/setup-hook-trust'
 
 
@@ -59,8 +59,6 @@ export function repoBadgeColor(repo: Repo | null): string {
   return repo?.badgeColor || repoColor(repo?.displayName ?? 'repository')
 }
 
-// ── Main modal ──────────────────────────────────────────────────────
-
 export type Props = {
   visible: boolean
   client: RpcClient | null
@@ -75,7 +73,3 @@ export type Props = {
   onCreated: (worktreeId: string, name: string) => void
   onClose: () => void
 }
-
-export function NewWorktreeModal({
-  visible,
-

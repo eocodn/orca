@@ -11,6 +11,11 @@ import {
 } from 'lucide-react-native'
 import { MobileAgentIcon } from '../../../../src/components/MobileAgentIcon'
 import { StatusDot } from '../../../../src/components/StatusDot'
+import { triggerMediumImpact } from '../../../../src/platform/haptics'
+import {
+  getMobileSessionTabTitle,
+  resolveMobileTerminalTabAgentId
+} from '../../../../src/session/mobile-terminal-tab-agent'
 import { MobileSessionHeaderIconButton } from '../../../../src/session/MobileSessionHeaderIconButton'
 import { QuickCommandsTabButton } from './QuickCommandsTabButton'
 import { colors } from '../../../../src/theme/mobile-theme'
@@ -46,10 +51,7 @@ export function renderMobileSessionChrome(context: WorkspaceContext) {
     tabLayoutsRef,
     activeSessionTabId,
     switchSessionTab,
-    triggerMediumImpact,
     openSessionTabActionSheetAfterKeyboardDismiss,
-    resolveMobileTerminalTabAgentId,
-    getMobileSessionTabTitle,
     creating,
     creatingBrowser,
     creatingMarkdown,
@@ -231,5 +233,7 @@ export function renderMobileSessionChrome(context: WorkspaceContext) {
             </View>
           )}
         </SafeAreaView>
+      </View>
+    </View>
   )
 }

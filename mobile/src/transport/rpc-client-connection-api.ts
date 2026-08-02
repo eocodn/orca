@@ -107,7 +107,7 @@ export function createRpcClientApi(deps: ApiDependencies): RpcClient {
           console.log('[net] sendRequest TIMEOUT', {
             method,
             timeoutMs,
-            connectionState.state
+            state: connectionState.state
           })
           // Why: the frame was written 30s ago — the host may have processed it.
           reject(markRpcDeliveryUnknown(new Error(`Request timed out: ${method}`)))
@@ -169,7 +169,10 @@ export function createRpcClientApi(deps: ApiDependencies): RpcClient {
         }
       } else {
         // Registered now; the outbound subscribe is (re-)sent once the channel reaches 'connected'.
-        console.log('[net] subscribe queued — waiting for connected', { method, connectionState.state })
+        console.log('[net] subscribe queued — waiting for connected', {
+          method,
+          state: connectionState.state
+        })
       }
 
       return () => {
