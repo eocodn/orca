@@ -240,7 +240,7 @@ export const SshRelaySessionMethods4 = {
       }
       throw err
     }
-  }
+  },
   async reconnect(this: any, conn: SshConnection, graceTimeSeconds?: number): Promise<void> {
     // Why: reconnect only from 'ready'/'reconnecting' — from 'deploying' it would tear down a mux establish() is still using; 'idle' has no session yet.
     if (this._state !== 'ready' && this._state !== 'reconnecting') {
@@ -403,7 +403,7 @@ export const SshRelaySessionMethods4 = {
         this.abortController = null
       }
     }
-  }
+  },
   dispose(this: any): void {
     if (this._state === 'disposed') {
       return
@@ -418,7 +418,7 @@ export const SshRelaySessionMethods4 = {
     this.currentConnection = null
     this._state = 'disposed'
     ptyConsumerRecoveryByTarget.delete(this.targetId)
-  }
+  },
   detach(this: any): void {
     if (this._state === 'disposed') {
       return

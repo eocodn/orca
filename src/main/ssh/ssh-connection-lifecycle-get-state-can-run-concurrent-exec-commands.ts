@@ -58,13 +58,13 @@ type SshRemoteFileOptions = foundation.SshRemoteFileOptions
 export const SshConnectionMethods1 = {
   getState(this: any): SshConnectionState {
     return { ...this.state }
-  }
+  },
   getClient(this: any): SshClient | null {
     return this.client
-  }
+  },
   usesSystemSshTransport(this: any): boolean {
     return this.useSystemSshTransport
-  }
+  },
   canRunConcurrentExecCommands(this: any): boolean {
     if (!this.useSystemSshTransport) {
       return true

@@ -192,7 +192,7 @@ export const SshRelaySessionMethods7 = {
         this.runtime.releaseOrchestrationCompatibilitySshAttachment(runtimeAuthority.attachmentId)
       }
     })
-  }
+  },
   async installPluginsOnRelay(this: any, mux: SshChannelMultiplexer): Promise<void> {
     if (!isRemoteAgentHooksEnabled() || !this.areAgentStatusHooksEnabled()) {
       return
@@ -218,11 +218,11 @@ export const SshRelaySessionMethods7 = {
         }`
       )
     }
-  }
+  },
   areAgentStatusHooksEnabled(this: any): boolean {
     const store = this.store as { getSettings?: Store['getSettings'] }
     return isAgentStatusHooksEnabled(store.getSettings?.())
-  }
+  },
   wireUpRemoteWorkspaceEvents(this: any, mux: SshChannelMultiplexer): void {
     mux.onNotification((method, params) => {
       notifyRemoteWorkspaceHandlers(this.targetId, method, params)

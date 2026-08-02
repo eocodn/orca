@@ -58,15 +58,15 @@ type SshRemoteFileOptions = foundation.SshRemoteFileOptions
 export const SshConnectionMethods2 = {
   getTarget(this: any): SshTarget {
     return { ...this.target }
-  }
+  },
   getSystemSshResolvedConfig(this: any): SshResolvedConfig | null {
     return cloneResolvedConfig(this.systemSshResolvedConfig)
-  }
+  },
   getHostKeyFingerprint(this: any): string | undefined {
     // Why: system SSH does not expose its negotiated key; a fingerprint from a
     // failed ssh2 attempt may identify a different load-balanced execution host.
     return this.useSystemSshTransport ? undefined : this.hostKeyFingerprint
-  }
+  },
   setCallbacks(this: any, callbacks: SshConnectionCallbacks): void {
     this.callbacks = callbacks
   }

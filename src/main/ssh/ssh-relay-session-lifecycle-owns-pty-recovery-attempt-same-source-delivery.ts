@@ -130,7 +130,7 @@ export const SshRelaySessionMethods17 = {
       this.activePtyProviderGeneration === pending.providerGeneration &&
       !pending.mux.isDisposed()
     )
-  }
+  },
   sameSourceDelivery(this: any,
     left: Readonly<{
       deliveryToken: string

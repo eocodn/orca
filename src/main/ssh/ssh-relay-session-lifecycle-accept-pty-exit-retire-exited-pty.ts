@@ -194,7 +194,7 @@ export const SshRelaySessionMethods12 = {
       }
     }
     await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
-  }
+  },
   async proveLegacyExitAbsence(this: any,
     payload: SshPtyExitPayload,
     exitIncarnation: string | undefined
@@ -212,7 +212,7 @@ export const SshRelaySessionMethods12 = {
     const sessions = await provider.listProcesses()
     // Why: legacy identities are synthetic; only an authoritative inventory can distinguish an old exit from a live same-id replacement.
     return !sessions.some((session) => session.id === payload.id)
-  }
+  },
   async retireCurrentPtyExitIfAuthoritative(this: any,
     payload: SshPtyExitPayload,
     deliveryHandled: boolean,
@@ -233,7 +233,7 @@ export const SshRelaySessionMethods12 = {
       return true
     }
     return false
-  }
+  },
   retireExitedPty(this: any, payload: SshPtyExitPayload, deliveryHandled = false): void {
     const ptyIncarnation = payload.ptyIncarnation ?? payload.incarnationId
     const canonicalIncarnation = payload.incarnationId ?? ptyIncarnation

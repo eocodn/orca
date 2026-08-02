@@ -125,16 +125,16 @@ type SshRelayAiVaultHostInfo = foundation.SshRelayAiVaultHostInfo
 export const SshRelaySessionMethods2 = {
   getState(this: any): RelaySessionState {
     return this._state
-  }
+  },
   isDisposed(this: any): boolean {
     return (this._state as RelaySessionState) === 'disposed'
-  }
+  },
   requireReadyConnection(this: any): SshConnection {
     if (!this.currentConnection) {
       throw new Error('SSH connection is not active')
     }
     return this.currentConnection
-  }
+  },
   getMux(this: any): SshChannelMultiplexer | null {
     return this.mux
   }

@@ -140,7 +140,7 @@ export const SshRelaySessionMethods11 = {
         payload.source.sourceEndSu
       )
     }
-  }
+  },
   admitRecoveryData(this: any, pending: PendingPtyReattach, payload: SshPtyDataPayload): void {
     if (pending.restoreRequired) {
       return
@@ -165,7 +165,7 @@ export const SshRelaySessionMethods11 = {
     }
     pending.nextRecoverySourceSu = payload.source.sourceEndSu
     pending.recoveryData.push(payload)
-  }
+  },
   installPtyRecoveryNotifications(this: any, mux: SshChannelMultiplexer): void {
     for (const cleanup of this.ptyRecoveryNotificationCleanups) {
       cleanup()
@@ -272,7 +272,7 @@ export const SshRelaySessionMethods11 = {
         }
       })
     ]
-  }
+  },
   wakeRecovery(this: any, pending: PendingPtyReattach): void {
     for (const resolve of pending.recoveryWaiters) {
       resolve()

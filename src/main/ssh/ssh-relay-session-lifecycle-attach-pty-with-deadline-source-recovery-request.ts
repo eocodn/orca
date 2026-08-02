@@ -160,7 +160,7 @@ export const SshRelaySessionMethods15 = {
         clearTimeout(timer)
       }
     }
-  }
+  },
   async waitForPtyReattachRetry(this: any): Promise<void> {
     const delayMs =
       SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS +
@@ -169,7 +169,7 @@ export const SshRelaySessionMethods15 = {
       const timer = setTimeout(resolve, delayMs)
       timer.unref?.()
     })
-  }
+  },
   handlePtyReattachFailure(this: any,
     ptyId: string,
     appPtyId: string,
@@ -230,7 +230,7 @@ export const SshRelaySessionMethods15 = {
     if (win && !win.isDestroyed()) {
       win.webContents.send('pty:exit', { id: appPtyId, code: -1 })
     }
-  }
+  },
   async sourceRecoveryRequest(this: any,
     appPtyId: string
   ): Promise<PtySourceRecoveryRequest | undefined> {

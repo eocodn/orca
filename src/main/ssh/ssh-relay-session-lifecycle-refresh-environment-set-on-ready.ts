@@ -135,13 +135,13 @@ export const SshRelaySessionMethods1 = {
     this.portForwardManager = portForwardManager
     this.runtime = runtime
     this.onDetectedPortsChanged = onDetectedPortsChanged
-  }
+  },
   setOnRelayLost(this: any, cb: (targetId: string) => void): void {
     this._onRelayLost = cb
-  }
+  },
   setOnTerminalRelayError(this: any, cb: (targetId: string, err: RelayVersionMismatchError) => void): void {
     this._onTerminalRelayError = cb
-  }
+  },
   setOnReady(this: any, cb: (targetId: string) => void): void {
     this._onReady = cb
   }

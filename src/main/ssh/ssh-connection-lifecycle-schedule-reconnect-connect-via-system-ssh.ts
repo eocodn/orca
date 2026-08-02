@@ -73,7 +73,7 @@ export const SshConnectionMethods9 = {
       }
       await this.runReconnectAttempt(attempt)
     }, RECONNECT_BACKOFF_MS[attempt])
-  }
+  },
   async runReconnectAttempt(this: any, attempt: number): Promise<void> {
     try {
       // Why: reset before connecting so the 'connected' broadcast carries reconnectAttempt=0, which ssh.ts uses to trigger relay re-establishment.
@@ -95,7 +95,7 @@ export const SshConnectionMethods9 = {
       this.state.reconnectAttempt = attempt + 1
       this.scheduleReconnect()
     }
-  }
+  },
   closeTransportsForReconnect(this: any): void {
     this.connectGeneration += 1
     const client = this.client
@@ -120,7 +120,7 @@ export const SshConnectionMethods9 = {
     this.systemSshControlMasterDisabledForSession = false
     this.systemSshGssapiOnlyForSession = false
     this.useSystemSshTransport = false
-  }
+  },
   async connectViaSystemSsh(this: any): Promise<SystemSshProcess> {
     if (this.disposed) {
       throw new Error('Connection disposed')

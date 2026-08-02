@@ -105,7 +105,7 @@ export const SshConnectionMethods5 = {
     } finally {
       linkedSignal.dispose()
     }
-  }
+  },
   async writeBuffer(this: any,
     remotePath: string,
     contents: Buffer,
@@ -128,7 +128,7 @@ export const SshConnectionMethods5 = {
       exclusive: options?.exclusive,
       ...this.getSystemSshBuildArgsOptions()
     })
-  }
+  },
   async connect(this: any): Promise<void> {
     if (this.disposed) {
       throw new Error('Connection disposed')
@@ -167,7 +167,7 @@ export const SshConnectionMethods5 = {
     const finalError = lastError ?? new Error('Connection failed')
     this.setState('error', finalError.message)
     throw finalError
-  }
+  },
   async attemptConnect(this: any): Promise<void> {
     this.setState('connecting')
     this.proxyProcess?.kill()

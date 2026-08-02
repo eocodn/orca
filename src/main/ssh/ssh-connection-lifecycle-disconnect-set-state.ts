@@ -82,7 +82,7 @@ export const SshConnectionMethods10 = {
     this.systemSshGssapiOnlyForSession = false
     this.useSystemSshTransport = false
     this.setState('disconnected')
-  }
+  },
   setState(this: any, status: SshConnectionStatus, error?: string): void {
     this.state = {
       ...this.state,

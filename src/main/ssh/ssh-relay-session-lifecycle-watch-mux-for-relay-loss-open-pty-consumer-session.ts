@@ -133,7 +133,7 @@ export const SshRelaySessionMethods5 = {
         this._onRelayLost?.(this.targetId)
       }
     })
-  }
+  },
   async registerProviders(this: any,
     mux: SshChannelMultiplexer,
     shouldContinue: (() => boolean) | undefined,
@@ -277,7 +277,7 @@ export const SshRelaySessionMethods5 = {
     this.wireUpRemoteWorkspaceEvents(mux)
     void this.installManagedHooksOnRemote(mux, shouldContinue)
     return true
-  }
+  },
   negotiatedPtyConsumerOwner(this: any, serverBuildId?: string): SshPtyConsumerOwnerState | null {
     const state = this.ptyConsumerSessionState
     if (state && state.mode !== 'legacy-fallback') {
@@ -287,7 +287,7 @@ export const SshRelaySessionMethods5 = {
     return !serverBuildId || recovery?.serverBuildId === serverBuildId
       ? (recovery?.owner ?? null)
       : null
-  }
+  },
   async openPtyConsumerSession(this: any,
     mux: SshChannelMultiplexer,
     serverBuildId: string | undefined,

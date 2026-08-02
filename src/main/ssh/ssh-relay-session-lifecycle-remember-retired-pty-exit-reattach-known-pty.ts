@@ -146,7 +146,7 @@ export const SshRelaySessionMethods13 = {
     retired.set(ptyIncarnation, sequence)
     this.retiredPtyExitIncarnations.set(id, retired)
     this.retiredPtyExitOrder.set(sequence, { id, ptyIncarnation })
-  }
+  },
   forwardReattachReplay(this: any, appPtyId: string, data: string): void {
     if (!data) {
       return
@@ -155,7 +155,7 @@ export const SshRelaySessionMethods13 = {
     if (win && !win.isDestroyed()) {
       win.webContents.send('pty:replay', { id: appPtyId, data })
     }
-  }
+  },
   async reattachKnownPtys(this: any,
     mux: SshChannelMultiplexer,
     shouldContinue: () => boolean
@@ -220,7 +220,7 @@ export const SshRelaySessionMethods13 = {
     await Promise.all(
       Array.from({ length: Math.min(SSH_PTY_REATTACH_MAX_CONCURRENCY, ptyIds.length) }, worker)
     )
-  }
+  },
   async reattachKnownPty(this: any, args: {
     ptyProvider: SshPtyProvider
     ptyId: string

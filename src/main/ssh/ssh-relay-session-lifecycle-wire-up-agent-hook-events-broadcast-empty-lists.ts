@@ -202,7 +202,7 @@ export const SshRelaySessionMethods8 = {
         }`
       )
     })
-  }
+  },
   teardownProviders(this: any,
     reason: 'shutdown' | 'connection_lost',
     outputGenerationReason: string = reason
@@ -268,7 +268,7 @@ export const SshRelaySessionMethods8 = {
     }
     this.pendingPtyReattaches.clear()
     this.ptyRecoveryRetention.clear()
-  }
+  },
   async registerRelayRoots(this: any, mux: SshChannelMultiplexer): Promise<void> {
     const remoteRepos = this.store.getRepos().filter((r) => r.connectionId === this.targetId)
 
@@ -293,7 +293,7 @@ export const SshRelaySessionMethods8 = {
         }
       })
     )
-  }
+  },
   broadcastEmptyLists(this: any): void {
     const win = this.getMainWindow()
     if (!win || win.isDestroyed()) {

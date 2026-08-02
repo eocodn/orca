@@ -125,7 +125,7 @@ type SshRelayAiVaultHostInfo = foundation.SshRelayAiVaultHostInfo
 export const SshRelaySessionMethods3 = {
   getHostPlatform(this: any): RemoteHostPlatform | null {
     return this.remoteCliBridgeEnv?.hostPlatform ?? this.hostPlatform
-  }
+  },
   getAiVaultHostInfo(this: any): SshRelayAiVaultHostInfo | null {
     const env = this.remoteCliBridgeEnv
     if (!env) {
@@ -137,10 +137,10 @@ export const SshRelaySessionMethods3 = {
       remoteHome: env.remoteHome,
       hostPlatform: env.hostPlatform
     }
-  }
+  },
   getPortScanner(this: any): PortScanner | null {
     return this.portScanner
-  }
+  },
   prepareForHostSleep(this: any): void {
     const mux = this.mux
     if (!mux || mux.isDisposed() || this.isDisposed()) {

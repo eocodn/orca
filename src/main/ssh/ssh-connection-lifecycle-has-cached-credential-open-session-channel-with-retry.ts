@@ -58,7 +58,7 @@ type SshRemoteFileOptions = foundation.SshRemoteFileOptions
 export const SshConnectionMethods3 = {
   hasCachedCredential(this: any): boolean {
     return this.cachedPassphrase != null || this.cachedPassword != null
-  }
+  },
   async exec(this: any, cmd: string, options?: SshExecOptions): Promise<ClientChannel> {
     if (options?.signal?.aborted) {
       throw createSshOperationAbortError()
@@ -85,7 +85,7 @@ export const SshConnectionMethods3 = {
         ),
       options?.signal
     )
-  }
+  },
   async sftp(this: any, options?: AbortSignal | { signal?: AbortSignal }): Promise<SFTPWrapper> {
     // Why: relay transfers pass a signal directly, while filesystem factories use an options object.
     const signal = options && 'aborted' in options ? options : options?.signal
@@ -109,7 +109,7 @@ export const SshConnectionMethods3 = {
         ),
       signal
     )
-  }
+  },
   async openSessionChannelWithRetry<T>(this: any,
     open: () => Promise<T>,
     signal?: AbortSignal

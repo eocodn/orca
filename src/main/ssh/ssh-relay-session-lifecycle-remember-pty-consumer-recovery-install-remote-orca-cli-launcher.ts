@@ -140,7 +140,7 @@ export const SshRelaySessionMethods6 = {
         previous?.modelMigrationsByAppPtyId ??
         new Map<string, Promise<SshPtyOutputMigrationResult>>()
     })
-  }
+  },
   configureRelayGraceTime(this: any,
     mux: SshChannelMultiplexer,
     graceTimeSeconds: number | undefined
@@ -148,7 +148,7 @@ export const SshRelaySessionMethods6 = {
     mux.notify(SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD, {
       graceTimeSeconds: normalizeRelayGracePeriodSeconds(graceTimeSeconds)
     })
-  }
+  },
   async installManagedHooksOnRemote(this: any,
     mux: SshChannelMultiplexer,
     shouldContinue?: () => boolean
@@ -208,7 +208,7 @@ export const SshRelaySessionMethods6 = {
         }`
       )
     }
-  }
+  },
   async installRemoteOrcaCliLauncher(this: any): Promise<void> {
     if (!this.remoteCliBridgeEnv) {
       return

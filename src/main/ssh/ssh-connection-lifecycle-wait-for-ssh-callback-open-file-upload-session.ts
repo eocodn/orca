@@ -196,7 +196,7 @@ export const SshConnectionMethods4 = {
         finish(error instanceof Error ? error : new Error(String(error)))
       }
     })
-  }
+  },
   async uploadDirectory(this: any,
     localDir: string,
     remoteDir: string,
@@ -246,7 +246,7 @@ export const SshConnectionMethods4 = {
     } finally {
       linkedSignal.dispose()
     }
-  }
+  },
   async downloadFile(this: any,
     remotePath: string,
     localPath: string,
@@ -267,7 +267,7 @@ export const SshConnectionMethods4 = {
       hostPlatform: options?.hostPlatform,
       ...this.getSystemSshBuildArgsOptions()
     })
-  }
+  },
   async openFileUploadSession(this: any, options?: SshRemoteFileOptions): Promise<FileUploadSession> {
     if (!this.useSystemSshTransport) {
       const sftp = await this.sftp()

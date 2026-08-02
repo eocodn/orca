@@ -154,7 +154,7 @@ export const SshRelaySessionMethods16 = {
     void migration.completion.then(() => {
       closeSshPtyOutputGeneration(providerGeneration, closeReason)
     })
-  }
+  },
   async finishSourceRecovery(this: any,
     relayPtyId: string,
     appPtyId: string,
@@ -277,7 +277,7 @@ export const SshRelaySessionMethods16 = {
       })
     )
     return true
-  }
+  },
   async waitForRecoveryFence(this: any,
     pending: PendingPtyReattach,
     shouldContinue: () => boolean
@@ -313,7 +313,7 @@ export const SshRelaySessionMethods16 = {
     ) {
       pending.restoreRequired = 'recoveryFenceTimeout'
     }
-  }
+  },
   async abandonPtySourceRecovery(this: any,
     relayPtyId: string,
     appPtyId: string,

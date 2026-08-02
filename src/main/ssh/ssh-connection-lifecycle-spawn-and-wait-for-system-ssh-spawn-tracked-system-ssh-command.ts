@@ -131,13 +131,13 @@ export const SshConnectionMethods7 = {
       throw this.createCancelledConnectAttemptError()
     }
     return proc
-  }
+  },
   isCurrentConnectAttempt(this: any, connectGeneration: number): boolean {
     return !this.disposed && connectGeneration === this.connectGeneration
-  }
+  },
   createCancelledConnectAttemptError(this: any): Error {
     return new Error('SSH connection attempt was cancelled')
-  }
+  },
   spawnTrackedSystemSshCommand(this: any, command: string, options?: SshExecOptions): ClientChannel {
     if (options?.signal?.aborted) {
       throw createSshOperationAbortError()

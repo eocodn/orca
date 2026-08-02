@@ -135,7 +135,7 @@ export const SshRelaySessionMethods10 = {
     setTimeout(() => {
       void this.acceptPtyExitOnce(payload).catch(() => {})
     }, 0)
-  }
+  },
   acceptPtyData(this: any, payload: SshPtyDataPayload): Promise<unknown> {
     const consumerOwner = this.negotiatedPtyConsumerOwner()
     const offeredSource = payload.source
@@ -197,7 +197,7 @@ export const SshRelaySessionMethods10 = {
       ...(typeof payload.seq === 'number' ? { sequence: payload.seq } : {}),
       ...(source ? { source } : {})
     })
-  }
+  },
   quarantineReattachData(this: any, pending: PendingPtyReattach, payload: SshPtyDataPayload): void {
     this.observePrivateRecoveryFrame(pending, payload)
     if (pending.restoreRequired) {
@@ -212,7 +212,7 @@ export const SshRelaySessionMethods10 = {
       return
     }
     this.routeQuarantinedReattachData(pending, payload)
-  }
+  },
   routeQuarantinedReattachData(this: any,
     pending: PendingPtyReattach,
     payload: SshPtyDataPayload

@@ -138,14 +138,14 @@ export const SshRelaySessionMethods14 = {
         ? exit.incarnationId === ptyIncarnation
         : exit.ptyIncarnation === ptyIncarnation
     })
-  }
+  },
   preparePtyIncarnationForExit(this: any, appPtyId: string, ptyIncarnation: string | undefined): void {
     if (!ptyIncarnation) {
       return
     }
     restorePtyIncarnation(appPtyId, ptyIncarnation)
     this.runtime?.acceptPtyIncarnationForExit?.(appPtyId, ptyIncarnation)
-  }
+  },
   restoreReattachedPtyRuntime(this: any,
     appPtyId: string,
     incarnationId: string,
@@ -174,7 +174,7 @@ export const SshRelaySessionMethods14 = {
       return
     }
     this.runtime?.onPtySpawned(appPtyId, incarnationId, { awaitsRegistration: false })
-  }
+  },
   async attachPtyWithRetry(this: any,
     ptyProvider: SshPtyProvider,
     ptyId: string,

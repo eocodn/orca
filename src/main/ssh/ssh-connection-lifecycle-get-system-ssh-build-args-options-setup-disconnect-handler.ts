@@ -68,7 +68,7 @@ export const SshConnectionMethods8 = {
       options.gssapiOnly = true
     }
     return options
-  }
+  },
   respawnProxy(this: any,
     config: ConnectConfig,
     proxy: ReturnType<typeof resolveEffectiveProxy> | null | undefined
@@ -80,7 +80,7 @@ export const SshConnectionMethods8 = {
     const p = spawnProxyCommand(proxy, config.host!, config.port!, config.username!)
     this.proxyProcess = p.process
     config.sock = p.sock
-  }
+  },
   doSsh2Connect(this: any, config: ConnectConfig, connectGeneration: number): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const client = new SshClient()
@@ -153,7 +153,7 @@ export const SshConnectionMethods8 = {
       client.on('error', onStartupError)
       client.connect(config)
     })
-  }
+  },
   setupDisconnectHandler(this: any, client: SshClient): void {
     const onDrop = () => {
       if (this.disposed || this.client !== client) {

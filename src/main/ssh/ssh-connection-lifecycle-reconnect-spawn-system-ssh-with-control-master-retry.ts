@@ -69,7 +69,7 @@ export const SshConnectionMethods6 = {
     this.state.reconnectAttempt = 0
     this.setState('reconnecting')
     await this.runReconnectAttempt(0)
-  }
+  },
   async doSystemSshProbe(this: any, connectGeneration: number): Promise<void> {
     this.useSystemSshTransport = true
     this.client = null
@@ -153,7 +153,7 @@ export const SshConnectionMethods6 = {
       this.systemSshResolvedConfig = null
       throw err
     }
-  }
+  },
   async doSystemSshProbeWithControlMasterRetry(this: any,
     connectGeneration: number,
     resolved: SshResolvedConfig | null,
@@ -182,7 +182,7 @@ export const SshConnectionMethods6 = {
         throw retryErr
       }
     }
-  }
+  },
   async spawnSystemSshWithControlMasterRetry(this: any,
     controlPath: string | null,
     connectGeneration: number

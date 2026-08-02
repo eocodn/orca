@@ -140,13 +140,13 @@ export const SshRelaySessionMethods9 = {
       }
       this.onDetectedPortsChanged?.(targetId, ports, platform)
     })
-  }
+  },
   stopPortScanning(this: any): void {
     if (this.portScanner) {
       this.portScanner.stopScanning(this.targetId)
       this.portScanner = null
     }
-  }
+  },
   wireUpPtyEvents(this: any,
     ptyProvider: SshPtyProvider,
     mux: SshChannelMultiplexer,
@@ -219,7 +219,7 @@ export const SshRelaySessionMethods9 = {
       }
       void this.acceptPtyExitOnce(payload).catch(() => {})
     })
-  }
+  },
   acceptPtyExitOnce(this: any, payload: SshPtyExitPayload): Promise<void> {
     const key = JSON.stringify([payload.providerGeneration, payload.id, payload.ptyIncarnation])
     const active = this.activePtyExitPromises.get(key)
