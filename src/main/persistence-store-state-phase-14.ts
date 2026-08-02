@@ -276,6 +276,7 @@ import {
   preserveMissingLeafRecordEntries,
   remapLeafRecordForPersistence
 } from './persistence-layout-records'
+import { getGithubCacheFile } from './persistence-state-foundation'
 
 import { removeWorkspaceSessionOwner,
   removeWorkspaceSessionOwners,

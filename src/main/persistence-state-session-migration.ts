@@ -280,6 +280,7 @@ import {
 import { collectMigrationUnsupportedPtyEntries,
   legacyMigrationUnsupportedRowsToAliasEntries,
   normalizeTerminalLayoutSnapshotForPersistence } from './persistence-state-layout'
+import { mergeLegacyPaneKeyAliasEntries } from './persistence-state-ssh'
 export { collectMigrationUnsupportedPtyEntries,
   legacyMigrationUnsupportedRowsToAliasEntries,
   normalizeTerminalLayoutSnapshotForPersistence } from './persistence-state-layout'
@@ -564,4 +565,3 @@ export function normalizeLegacyPaneKeyAliasEntries(value: unknown): LegacyPaneKe
     return Boolean(stable && ((legacy && legacy.tabId === stable.tabId) || relocatedSource))
   })
 }
-
