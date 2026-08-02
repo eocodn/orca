@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-/* oxlint-disable max-lines -- Why: the entry point keeps process lifecycle and handler registration in one file so the boot sequence stays in topological order. */
 
-/* eslint-disable max-lines -- Why: splitting the entrypoint's startup/reconnect/registration would hide the startup order, the key invariant here. */
+
+
 
 // Orca Relay — lightweight daemon deployed to remote hosts over SCP and launched via an SSH exec channel.
 // Communicates over stdin/stdout using the framed JSON-RPC protocol.
@@ -60,6 +60,8 @@ import { DispatcherClientWriter } from './dispatcher-client-writer'
 import { SshPtyConsumerSessionAdapter } from './ssh-pty-consumer-session-adapter'
 import { RelayPtySourcePublication } from './relay-pty-source-publication'
 
+import { runConnectMode, runOrcaCliMode } from './relay-startup-connect'
+import { runRelaySocketLifecycle } from './relay-startup-socket'
 const DEFAULT_GRACE_MS = DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS * 1000
 const SOCK_NAME = 'relay.sock'
 const CONNECT_TIMEOUT_MS = 5_000
@@ -182,303 +184,6 @@ function readEndpointCredential(credentialFile: string | undefined): string | un
 // ── Connect mode ─────────────────────────────────────────────────────
 // Why: --connect bridges a new SSH channel's stdin/stdout to the existing relay's socket so the client keeps talking to the process that owns the live PTYs.
 
-function runConnectMode(sockPath: string, endpointCredential?: string): void {
-  const myVersion = readLaunchVersion()
-  const sock = createConnection({ path: sockPath })
-  const stdoutWriter = new DispatcherClientWriter(
-    (data, onSettled) =>
-      process.stdout.write(data, (error) => {
-        onSettled(error ? { ok: false, error } : { ok: true })
-      }),
-    {
-      supportsWriteCallback: true,
-      writableLength: () => process.stdout.writableLength,
-      writableHighWaterMark: () => process.stdout.writableHighWaterMark,
-      waitWriteDrain: (callback) => {
-        process.stdout.once('drain', callback)
-        return () => process.stdout.off('drain', callback)
-      }
-    },
-    () => {
-      sock.destroy()
-      process.exit(1)
-    }
-  )
-
-  const connectTimeout = setTimeout(() => {
-    process.stderr.write(`[relay-connect] Connection timed out after ${CONNECT_TIMEOUT_MS}ms\n`)
-    sock.destroy()
-    process.exit(1)
-  }, CONNECT_TIMEOUT_MS)
-
-  sock.on('connect', () => {
-    clearTimeout(connectTimeout)
-    runConnectHandshake(
-      sock,
-      myVersion,
-      {
-        onAccepted: (leftover: Buffer) => {
-          stdoutWriter.enqueue('control', () => Buffer.from(RELAY_SENTINEL), RELAY_SENTINEL.length)
-          if (leftover.length > 0) {
-            stdoutWriter.enqueue('control', () => leftover, leftover.length)
-          }
-          process.stdin.pipe(sock)
-          sock.on('data', (data: Buffer) => {
-            sock.pause()
-            let offset = 0
-            const writeNext = (): void => {
-              if (offset >= data.length) {
-                sock.resume()
-                return
-              }
-              const bytes = Math.min(stdoutWriter.producerFrameCapacity, data.length - offset)
-              if (bytes <= 0) {
-                stdoutWriter.close(new Error('Relay stdout has no producer capacity'))
-                return
-              }
-              const chunk = data.subarray(offset, offset + bytes)
-              if (
-                !stdoutWriter.enqueue(
-                  'ordinary',
-                  () => chunk,
-                  chunk.length,
-                  (result) => {
-                    if (!result.ok) {
-                      return
-                    }
-                    offset += bytes
-                    writeNext()
-                  }
-                )
-              ) {
-                stdoutWriter.close(new Error('Relay stdout bridge capacity exceeded'))
-              }
-            }
-            writeNext()
-          })
-        }
-      },
-      endpointCredential
-    )
-  })
-
-  // Why: Node swallows EPIPE on stdout, so the bridge would zombie and drop frames; exit on stdout error so the relay enters grace promptly.
-  process.stdout.on('error', () => {
-    stdoutWriter.close(new Error('Relay stdout closed'))
-  })
-
-  sock.on('error', (err) => {
-    clearTimeout(connectTimeout)
-    process.stderr.write(`[relay-connect] Socket error: ${err.message}\n`)
-    process.exit(1)
-  })
-
-  sock.on('close', async () => {
-    await stdoutWriter.waitForIdle()
-    process.exit(0)
-  })
-}
-
-async function runOrcaCliMode(
-  sockPath: string,
-  argv: string[],
-  endpointCredential?: string
-): Promise<void> {
-  const myVersion = readLaunchVersion()
-  const stdin = shouldReadRemoteCliStdin(argv) ? await readOrcaCliStdin() : undefined
-  const sock = createConnection({ path: sockPath })
-  const stdoutWriter = new DispatcherClientWriter(
-    (data, onSettled) =>
-      process.stdout.write(data, (error) => {
-        onSettled(error ? { ok: false, error } : { ok: true })
-      }),
-    {
-      supportsWriteCallback: true,
-      writableLength: () => process.stdout.writableLength,
-      writableHighWaterMark: () => process.stdout.writableHighWaterMark,
-      waitWriteDrain: (callback) => {
-        process.stdout.once('drain', callback)
-        return () => process.stdout.off('drain', callback)
-      }
-    },
-    () => process.exit(1)
-  )
-  let nextSeq = 1
-  let highestReceivedSeq = 0
-  const requestId = 1
-  const postOutputRequestId = 2
-  let initialExitCode = 0
-
-  const sendRequest = (): void => {
-    const env = pickRemoteCliEnv(process.env)
-    const frame = encodeJsonRpcFrame(
-      {
-        jsonrpc: '2.0',
-        id: requestId,
-        method: 'orca.cli',
-        params: {
-          argv,
-          cwd: process.cwd(),
-          env,
-          ...(stdin !== undefined ? { stdin } : {})
-        }
-      },
-      nextSeq++,
-      highestReceivedSeq
-    )
-    sock.write(frame)
-  }
-
-  const finish = (exitCode: number): void => {
-    sock.destroy()
-    process.exit(exitCode)
-  }
-
-  const sendPostOutput = (postOutput: unknown): void => {
-    sock.write(
-      encodeJsonRpcFrame(
-        {
-          jsonrpc: '2.0',
-          id: postOutputRequestId,
-          method: 'orca.cli.postOutput',
-          params: { postOutput, env: pickRemoteCliEnv(process.env) }
-        },
-        nextSeq++,
-        highestReceivedSeq
-      )
-    )
-  }
-
-  const writeOutput = (
-    result: { stdout?: unknown; stderr?: unknown },
-    onFlushed: (error?: Error) => void
-  ): void => {
-    let pending = 0
-    let completed = false
-    const settle = (error?: Error): void => {
-      if (completed) {
-        return
-      }
-      if (error) {
-        completed = true
-        onFlushed(error)
-        return
-      }
-      pending -= 1
-      if (pending === 0) {
-        completed = true
-        onFlushed()
-      }
-    }
-    if (typeof result.stdout === 'string' && result.stdout.length > 0) {
-      pending += 1
-      const output = Buffer.from(result.stdout)
-      stdoutWriter.enqueue(
-        'control',
-        () => output,
-        output.length,
-        (settlement) => settle(settlement.ok ? undefined : settlement.error)
-      )
-    }
-    if (typeof result.stderr === 'string' && result.stderr.length > 0) {
-      pending += 1
-      process.stderr.write(result.stderr, 'utf8', (error) => settle(error ?? undefined))
-    }
-    if (pending === 0) {
-      completed = true
-      onFlushed()
-    }
-  }
-
-  const decoder = new FrameDecoder((frame: DecodedFrame) => {
-    if (frame.id > highestReceivedSeq) {
-      highestReceivedSeq = frame.id
-    }
-    if (frame.type !== MessageType.Regular) {
-      return
-    }
-    const msg = parseJsonRpcMessage(frame.payload)
-    if (
-      !('id' in msg) ||
-      (msg.id !== requestId && msg.id !== postOutputRequestId) ||
-      !('result' in msg || 'error' in msg)
-    ) {
-      return
-    }
-    const response = msg as JsonRpcResponse
-    if (response.error) {
-      process.stderr.write(`${response.error.message}\n`)
-      finish(1)
-      return
-    }
-    if (response.id === postOutputRequestId) {
-      finish(initialExitCode)
-      return
-    }
-    const result = (response.result ?? {}) as {
-      stdout?: unknown
-      stderr?: unknown
-      exitCode?: unknown
-      postOutput?: unknown
-    }
-    initialExitCode = typeof result.exitCode === 'number' ? result.exitCode : 0
-    writeOutput(result, (error) => {
-      if (error) {
-        finish(1)
-        return
-      }
-      if (result.postOutput === undefined) {
-        finish(initialExitCode)
-        return
-      }
-      sendPostOutput(result.postOutput)
-    })
-  })
-
-  const connectTimeout = setTimeout(() => {
-    process.stderr.write(`[orca-cli] Relay connection timed out after ${CONNECT_TIMEOUT_MS}ms\n`)
-    sock.destroy()
-    process.exit(1)
-  }, CONNECT_TIMEOUT_MS)
-
-  sock.on('connect', () => {
-    clearTimeout(connectTimeout)
-    runConnectHandshake(
-      sock,
-      myVersion,
-      {
-        onAccepted: (leftover) => {
-          if (leftover.length > 0) {
-            decoder.feed(leftover)
-          }
-          sock.on('data', (chunk) =>
-            decoder.feed(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-          )
-          sendRequest()
-        }
-      },
-      endpointCredential
-    )
-  })
-
-  sock.on('error', (err) => {
-    clearTimeout(connectTimeout)
-    process.stderr.write(`[orca-cli] Relay socket error: ${err.message}\n`)
-    process.exit(1)
-  })
-}
-
-async function readOrcaCliStdin(): Promise<string | undefined> {
-  if (process.stdin.isTTY) {
-    return undefined
-  }
-  const chunks: Buffer[] = []
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
-  }
-  return Buffer.concat(chunks).toString('utf8')
-}
-
 // ── Normal mode ──────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -513,26 +218,25 @@ async function main(): Promise<void> {
     installRelayLogRotation(logFile)
   }
 
-  let ownsSocketPath = false
-  let ownedSocketIdentity: SocketIdentity | null = null
+  const socketOwnership = { ownsSocketPath: false, ownedSocketIdentity: null as SocketIdentity | null }
   const ownsCurrentSocketPath = (): boolean => {
     if (isWindowsNamedPipePath(sockPath)) {
-      return ownsSocketPath
+      return socketOwnership.ownsSocketPath
     }
     const currentIdentity = readSocketIdentity(sockPath)
     return (
-      ownsSocketPath &&
-      ownedSocketIdentity !== null &&
+      socketOwnership.ownsSocketPath &&
+      socketOwnership.ownedSocketIdentity !== null &&
       currentIdentity !== null &&
-      sameSocketIdentity(currentIdentity, ownedSocketIdentity)
+      sameSocketIdentity(currentIdentity, socketOwnership.ownedSocketIdentity)
     )
   }
   const cleanupOwnedSocket = (): void => {
     if (ownsCurrentSocketPath()) {
       cleanupSocket(sockPath)
     }
-    ownsSocketPath = false
-    ownedSocketIdentity = null
+    socketOwnership.ownsSocketPath = false
+    socketOwnership.ownedSocketIdentity = null
   }
 
   // Why: after an uncaught exception Node's state may be corrupted; log and exit rather than risk data corruption or zombie PTYs.
@@ -547,7 +251,7 @@ async function main(): Promise<void> {
   })
 
   // Why: guards writes after the stdin/SSH channel drops so keepalive/pty.data frames don't hit a dead pipe (EPIPE).
-  let stdoutAlive = true
+  const transportState = { stdoutAlive: true, flushStdoutDrainWaiters: () => {} }
   // Why: one-shot waiters parked when stdout saturates (write() === false); flushed on 'drain' and every stdout-death path.
   const stdoutDrainWaiters = new Set<() => void>()
   const flushStdoutDrainWaiters = (): void => {
@@ -557,9 +261,10 @@ async function main(): Promise<void> {
     }
   }
   process.stdout.on('drain', flushStdoutDrainWaiters)
+  transportState.flushStdoutDrainWaiters = flushStdoutDrainWaiters
   const dispatcher = new RelayDispatcher(
     (data, onSettled) => {
-      if (!stdoutAlive) {
+      if (!transportState.stdoutAlive) {
         onSettled({ ok: false, error: new Error('Relay stdout is closed') })
         return false
       }
@@ -568,7 +273,7 @@ async function main(): Promise<void> {
           onSettled(error ? { ok: false, error } : { ok: true })
         })
       } catch (error) {
-        stdoutAlive = false
+        transportState.stdoutAlive = false
         flushStdoutDrainWaiters()
         onSettled({
           ok: false,
@@ -582,7 +287,7 @@ async function main(): Promise<void> {
       writableLength: () => process.stdout.writableLength,
       writableHighWaterMark: () => process.stdout.writableHighWaterMark,
       waitWriteDrain: (cb) => {
-        if (!stdoutAlive) {
+        if (!transportState.stdoutAlive) {
           cb()
           return
         }
@@ -819,401 +524,11 @@ async function main(): Promise<void> {
     }
   })
 
-  // ── Socket server for reconnection ──────────────────────────────────
-  // Why: the SSH channel dies on app restart; a Unix socket lets a new --connect bridge reach the dispatcher that owns live PTYs.
-
-  const socketClients = new Map<Socket, number>()
-  let socketServer: Server | null = null
-  const startedAt = Date.now()
-  let acceptedSocketConnections = 0
-  let hasAcceptedSocketClient = false
-  let graceDeadlineAt: number | null = null
-  let graceReason: string | null = null
-
-  dispatcher.onRequest('relay.status', async () => ({
-    pid: process.pid,
-    uptimeMs: Date.now() - startedAt,
-    detached,
-    stdoutAlive,
-    memory: process.memoryUsage(),
-    ptys: {
-      active: ptyHandler.activePtyCount
-    },
-    ptySourceCredit: {
-      enabled: true,
-      session: ptyConsumerSessionAdapter.getDebugSnapshot(),
-      publication: ptySourcePublication.getDebugSnapshot()
-    },
-    socket: {
-      path: sockPath,
-      owned: ownsSocketPath,
-      listening: socketServer?.listening ?? false,
-      clients: socketClients.size,
-      acceptedConnections: acceptedSocketConnections
-    },
-    grace: {
-      active: ptyHandler.graceTimerActive,
-      deadlineAt: graceDeadlineAt,
-      reason: graceReason
-    }
-  }))
-
-  function cancelGrace(reason: string): void {
-    if (ptyHandler.graceTimerActive) {
-      relayLogLine(`[relay] Grace canceled: ${reason}`)
-    }
-    graceDeadlineAt = null
-    graceReason = null
-    ptyHandler.cancelGraceTimer()
-  }
-
-  function attachAcceptedSocket(sock: Socket, leftover: Buffer): void {
-    // Why: remove the initial stdin data listener once a socket client is accepted, so stale SSH-channel bytes can't interleave.
-    process.stdin.pause()
-    process.stdin.removeAllListeners('data')
-
-    hasAcceptedSocketClient = true
-    acceptedSocketConnections++
-    relayLogLine(
-      `[relay] Socket client accepted (clients=${socketClients.size + 1}, accepted=${acceptedSocketConnections})`
-    )
-    cancelGrace('socket client accepted')
-
-    // Why: same backpressure surface as stdout — bulk frames wait for socket drain so they can't bury interactive PTY frames.
-    const sockDrainWaiters = new Set<() => void>()
-    const flushSockDrainWaiters = (): void => {
-      for (const cb of Array.from(sockDrainWaiters)) {
-        sockDrainWaiters.delete(cb)
-        cb()
-      }
-    }
-    sock.on('drain', flushSockDrainWaiters)
-    sock.on('close', flushSockDrainWaiters)
-    sock.on('error', flushSockDrainWaiters)
-    const clientId = dispatcher.attachClient(
-      (data, onSettled) => {
-        if (!sock.destroyed) {
-          return sock.write(data, (error) => {
-            onSettled(error ? { ok: false, error } : { ok: true })
-          })
-        }
-        onSettled({ ok: false, error: new Error('Relay socket is closed') })
-        return false
-      },
-      {
-        supportsWriteCallback: true,
-        writableLength: () => sock.writableLength,
-        writableHighWaterMark: () => sock.writableHighWaterMark,
-        close: () => sock.destroy(),
-        waitWriteDrain: (cb) => {
-          if (sock.destroyed) {
-            cb()
-            return
-          }
-          sockDrainWaiters.add(cb)
-          return () => sockDrainWaiters.delete(cb)
-        }
-      },
-      {
-        principal: `relay-endpoint:${launchVersion}`,
-        authenticated: endpointCredential !== undefined,
-        allowSessionOwner: endpointCredential !== undefined,
-        authenticationKind: endpointCredential ? 'endpoint-credential' : 'unproved'
-      },
-      {
-        pauseReads: () => sock.pause(),
-        resumeReads: () => sock.resume()
-      }
-    )
-    socketClients.set(sock, clientId)
-
-    // Why: feed handshake-buffered leftover bytes before wiring sock.on('data') so frame ordering is preserved.
-    if (leftover.length > 0) {
-      dispatcher.feedClient(clientId, leftover)
-    }
-
-    sock.on('data', (chunk: Buffer) => {
-      cancelGrace('socket client data')
-      dispatcher.feedClient(clientId, chunk)
-    })
-  }
-
-  async function startSocketServer(): Promise<Server> {
-    const server = createServer((sock) => {
-      // Why: pre-dispatcher version handshake — see relay-handshake.ts.
-      setupDaemonHandshake(sock, {
-        launchVersion,
-        endpointCredential,
-        onAccepted: attachAcceptedSocket
-      })
-
-      // Why: destroy on 'end' (FIN from --connect's dying channel) so the 'close' handler fires promptly and the daemon enters grace.
-      sock.on('end', () => {
-        if (!sock.destroyed) {
-          sock.destroy()
-        }
-      })
-
-      sock.on('error', () => {
-        // Why: Node emits 'error' then 'close'; the close handler owns cleanup and grace startup.
-      })
-
-      sock.on('close', () => {
-        const clientId = socketClients.get(sock)
-        socketClients.delete(sock)
-        if (clientId !== undefined) {
-          dispatcher.detachClient(clientId)
-        }
-        relayLogLine(`[relay] Socket client closed (clients=${socketClients.size})`)
-        if (!stdoutAlive && socketClients.size === 0) {
-          startGrace('socket client closed')
-        }
-      })
-    })
-
-    // Why: umask 0o177 before listen makes the socket 0o600 atomically, closing the chmod-after-listen TOCTOU window.
-    const shouldSetSocketUmask = !isWindowsNamedPipePath(sockPath)
-    const prevUmask = shouldSetSocketUmask ? process.umask(0o177) : 0
-    let umaskRestored = false
-    const restoreUmask = (): void => {
-      if (shouldSetSocketUmask && !umaskRestored) {
-        process.umask(prevUmask)
-        umaskRestored = true
-      }
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      let staleRetryAttempted = false
-
-      function removeStartupListeners(): void {
-        server.off('listening', onListening)
-        server.off('error', onInitialError)
-        server.off('error', failInitial)
-      }
-
-      function listenForStartupError(onError: (err: NodeJS.ErrnoException) => void): void {
-        server.once('listening', onListening)
-        server.once('error', onError)
-        server.listen(sockPath)
-      }
-
-      function onListening(): void {
-        removeStartupListeners()
-        restoreUmask()
-        ownsSocketPath = true
-        ownedSocketIdentity = readSocketIdentity(sockPath)
-        server.on('error', (err) => {
-          relayLogLine(`[relay] Socket server error: ${err.message}`)
-        })
-        relayLogLine(`[relay] Socket server listening: ${sockPath}`)
-        resolve()
-      }
-
-      function failInitial(err: NodeJS.ErrnoException): void {
-        removeStartupListeners()
-        restoreUmask()
-        if (err.code === 'EADDRINUSE') {
-          relayLogLine(
-            `[relay] Socket path already in use: ${sockPath}; another relay is likely active. Use --connect instead of starting a new daemon.`
-          )
-        } else {
-          relayLogLine(`[relay] Socket server error before listen: ${err.message}`)
-        }
-        reject(err)
-      }
-
-      function unlinkIfStillStale(blockedIdentity: SocketIdentity | null): boolean {
-        const currentIdentity = readSocketIdentity(sockPath)
-        if (currentIdentity === null) {
-          return true
-        }
-        if (blockedIdentity === null || !sameSocketIdentity(currentIdentity, blockedIdentity)) {
-          return false
-        }
-        try {
-          unlinkSync(sockPath)
-          return true
-        } catch (unlinkErr) {
-          const e = unlinkErr as NodeJS.ErrnoException
-          return e.code === 'ENOENT'
-        }
-      }
-
-      // Why: EADDRINUSE may be a stale socket from a crashed relay, not a live one; probe-connect to tell them apart before unlinking.
-      function onInitialError(err: NodeJS.ErrnoException): void {
-        if (err.code !== 'EADDRINUSE' || staleRetryAttempted) {
-          failInitial(err)
-          return
-        }
-        if (isWindowsNamedPipePath(sockPath)) {
-          failInitial(err)
-          return
-        }
-        staleRetryAttempted = true
-        const blockedIdentity = readSocketIdentity(sockPath)
-        const probe = createConnection({ path: sockPath })
-        let probeSettled = false
-        let probeTimeout: NodeJS.Timeout | null = null
-        const finishProbe = (callback: () => void): void => {
-          if (probeSettled) {
-            return
-          }
-          probeSettled = true
-          if (probeTimeout) {
-            clearTimeout(probeTimeout)
-          }
-          callback()
-        }
-        probe.once('connect', () => {
-          finishProbe(() => {
-            probe.destroy()
-            failInitial(err)
-          })
-        })
-        probe.once('error', (probeErr: NodeJS.ErrnoException) => {
-          finishProbe(() => {
-            if (probeErr.code !== 'ECONNREFUSED' && probeErr.code !== 'ENOENT') {
-              failInitial(err)
-              return
-            }
-            if (!unlinkIfStillStale(blockedIdentity)) {
-              failInitial(err)
-              return
-            }
-            relayLogLine(`[relay] Removed stale socket at ${sockPath} and retrying listen`)
-            removeStartupListeners()
-            listenForStartupError(failInitial)
-          })
-        })
-        probeTimeout = setTimeout(() => {
-          finishProbe(() => {
-            probe.destroy()
-            failInitial(err)
-          })
-        }, STALE_SOCKET_PROBE_TIMEOUT_MS)
-      }
-
-      listenForStartupError(onInitialError)
-    })
-
-    return server
-  }
-
-  try {
-    socketServer = await startSocketServer()
-    // Why: publish endpoint.env only after socket ownership is proven, so a refused duplicate daemon can't poison hook coordinates.
-    hookServer.publishEndpointFile()
-  } catch {
-    process.exit(1)
-  }
-
-  // ── stdin/stdout transport (initial connection) ─────────────────────
-
-  // Why: without this handler an EPIPE/ERR_STREAM_DESTROYED on stdout becomes an uncaught exception, exiting before grace starts.
-  process.stdout.on('error', () => {
-    stdoutAlive = false
-    flushStdoutDrainWaiters()
-    dispatcher.invalidateClient()
+  await runRelaySocketLifecycle({
+    dispatcher, detached, graceTimeMs, sockPath, endpointCredential, launchVersion,
+    ptyHandler, ptyConsumerSessionAdapter, ptySourcePublication, fsHandler, gitHandler,
+    hookServer, transportState, socketOwnership, ownsCurrentSocketPath, cleanupOwnedSocket
   })
-
-  function startGrace(reason: string): void {
-    const startupEmptyDetached =
-      detached && !hasAcceptedSocketClient && ptyHandler.activePtyCount === 0
-    // Why: a detached relay that never accepted a client has no PTY state and shouldn't linger forever.
-    const timeoutMs = startupEmptyDetached
-      ? graceTimeMs === 0
-        ? EMPTY_DETACHED_STARTUP_GRACE_MS
-        : Math.min(graceTimeMs, EMPTY_DETACHED_STARTUP_GRACE_MS)
-      : graceTimeMs
-    graceDeadlineAt = timeoutMs === 0 ? null : Date.now() + timeoutMs
-    graceReason = reason
-    relayLogLine(
-      `[relay] Grace started (${reason}): timeoutMs=${timeoutMs}, startupEmptyDetached=${startupEmptyDetached}, ptys=${ptyHandler.activePtyCount}, clients=${socketClients.size}`
-    )
-    ptyHandler.startGraceTimer(() => {
-      relayLogLine(`[relay] Grace expired (${reason}); shutting down`)
-      shutdown()
-    }, timeoutMs)
-  }
-
-  if (detached) {
-    // Why: detached stdin is /dev/null, so listening would EOF → grace → shutdown before --connect arrives; use the socket instead.
-    startGrace('detached startup')
-  } else {
-    process.stdin.on('data', (chunk: Buffer) => {
-      cancelGrace('stdin data')
-      dispatcher.feed(chunk)
-    })
-
-    process.stdin.on('end', () => {
-      // Why: stdin close means the SSH channel is gone; mark stdout dead so its write callback no-ops instead of hitting a dead pipe.
-      stdoutAlive = false
-      flushStdoutDrainWaiters()
-      dispatcher.invalidateClient()
-      if (socketClients.size === 0) {
-        startGrace('stdin ended')
-      }
-    })
-
-    process.stdin.on('error', () => {
-      stdoutAlive = false
-      flushStdoutDrainWaiters()
-      dispatcher.invalidateClient()
-      if (socketClients.size === 0) {
-        startGrace('stdin error')
-      }
-    })
-  }
-
-  let shutdownInFlight = false
-  function shutdown(): void {
-    if (shutdownInFlight) {
-      return
-    }
-    shutdownInFlight = true
-    relayLogLine(
-      `[relay] Shutdown: ptys=${ptyHandler.activePtyCount}, clients=${socketClients.size}, ownsSocket=${ownsSocketPath}`
-    )
-    graceDeadlineAt = null
-    graceReason = null
-    void ptyHandler
-      .dispose()
-      .then(() => {
-        dispatcher.dispose()
-        fsHandler.dispose()
-        gitHandler.dispose()
-        hookServer.stop()
-        // Why: server.close() unlinks the listen path; skip if a newer relay rebound it, else we strand that newer daemon.
-        if (socketServer && ownsCurrentSocketPath()) {
-          socketServer.close()
-        }
-        cleanupOwnedSocket()
-        process.exit(0)
-      })
-      .catch((error) => {
-        // Why: keep owning a PTY whose native kill was rejected so a transient signal failure doesn't orphan a remote shell.
-        shutdownInFlight = false
-        relayLogLine(
-          `[relay] Shutdown deferred: ${error instanceof Error ? error.message : String(error)}`
-        )
-      })
-  }
-
-  process.on('SIGTERM', shutdown)
-  process.on('SIGINT', shutdown)
-  // Why: default SIGHUP exits immediately, killing PTYs before grace; ignore it so the relay survives SSH disconnect.
-  process.on('SIGHUP', () => {
-    relayLogLine('[relay] Received SIGHUP (SSH session dropped), ignoring')
-  })
-  process.on('exit', (code) => {
-    relayLogLine(`[relay] Process exiting with code ${code}`)
-  })
-
-  dispatcher.writePrimaryBytes(Buffer.from(RELAY_SENTINEL))
-  if (detached) {
-    stdoutAlive = false
-    dispatcher.invalidateClient()
-  }
 }
 
 function cleanupSocket(sockPath: string): void {
