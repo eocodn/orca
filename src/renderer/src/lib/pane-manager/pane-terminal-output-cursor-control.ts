@@ -1,6 +1,6 @@
 const CURSOR_SHOW_SEQUENCE = '\x1b[?25h'
 const CURSOR_HIDE_SEQUENCE = '\x1b[?25l'
-const SYNCHRONIZED_OUTPUT_END_SEQUENCE = '\x1b[?2026l'
+export const SYNCHRONIZED_OUTPUT_END_SEQUENCE = '\x1b[?2026l'
 
 export function findCursorPositionSequenceEnd(
   data: string,
