@@ -1,0 +1,178 @@
+import { webContents } from 'electron'
+import type {
+  BrowserCaptureStartResult,
+  BrowserCaptureStopResult,
+  BrowserCheckResult,
+  BrowserClearResult,
+  BrowserClickResult,
+  BrowserConsoleEntry,
+  BrowserConsoleResult,
+  BrowserCookie,
+  BrowserCookieDeleteResult,
+  BrowserCookieGetResult,
+  BrowserCookieSetResult,
+  BrowserDragResult,
+  BrowserEvalResult,
+  BrowserFillResult,
+  BrowserFocusResult,
+  BrowserGeolocationResult,
+  BrowserGotoResult,
+  BrowserHoverResult,
+  BrowserInterceptDisableResult,
+  BrowserInterceptEnableResult,
+  BrowserInterceptedRequest,
+  BrowserKeypressResult,
+  BrowserNetworkEntry,
+  BrowserNetworkLogResult,
+  BrowserPdfResult,
+  BrowserScreenshotResult,
+  BrowserScrollResult,
+  BrowserSelectAllResult,
+  BrowserSelectResult,
+  BrowserSnapshotResult,
+  BrowserTabInfo,
+  BrowserTabListResult,
+  BrowserTabSwitchResult,
+  BrowserTypeResult,
+  BrowserUploadResult,
+  BrowserViewportResult,
+  BrowserWaitResult
+} from '../../shared/runtime-types'
+import {
+  buildSnapshot,
+  type CdpCommandSender,
+  type RefEntry,
+  type SnapshotResult
+} from './snapshot-engine'
+import { insertTextThroughCdp } from './browser-text-insertion'
+import type { BrowserManager } from './browser-manager'
+import { ANTI_DETECTION_SCRIPT } from './anti-detection'
+
+import * as foundation from './cdp-command-bridge-foundation'
+const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
+type QueuedCommand = foundation.QueuedCommand
+type TabState = foundation.TabState
+
+export const CdpBridgeMethods2 = {
+  async snapshot(this: any): Promise<BrowserSnapshotResult> {
+    return this.enqueueCommand(async () => {
+      const guest = this.getActiveGuest()
+      const sender = this.makeCdpSender(guest)
+      await this.ensureDebuggerAttached(guest)
+
+      const tabId = this.resolveTabId(guest.id)
+      const state = this.getOrCreateTabState(tabId)
+
+      const result = await buildSnapshot(sender, state.iframeSessions, (sessionId) =>
+        this.makeCdpSender(guest, sessionId)
+      )
+      state.snapshotResult = result
+
+      const navId = await this.getNavigationId(sender)
+      state.navigationId = navId
+
+      return {
+        browserPageId: tabId,
+        snapshot: result.snapshot,
+        refs: result.refs,
+        url: guest.getURL(),
+        title: guest.getTitle()
+      }
+    })
+  }
+  async click(this: any, element: string): Promise<BrowserClickResult> {
+    return this.enqueueCommand(async () => {
+      const guest = this.getActiveGuest()
+      const sender = this.makeCdpSender(guest)
+      await this.ensureDebuggerAttached(guest)
+
+      const node = await this.resolveRef(guest, sender, element)
+      const refSender = this.senderForRef(guest, node)
+
+      await this.scrollIntoView(refSender, node.backendDOMNodeId)
+      const localCenter = await this.getElementCenter(refSender, node.backendDOMNodeId)
+      const { cx, cy } = await this.getPageCoordinates(guest, node, localCenter.cx, localCenter.cy)
+
+      // Why: mouseMoved fires mouseenter/mouseover so sites reveal hover-dependent menus/targets before the click lands.
+      await sender('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy })
+      await sender('Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x: cx,
+        y: cy,
+        button: 'left',
+        clickCount: 1
+      })
+      await sender('Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        x: cx,
+        y: cy,
+        button: 'left',
+        clickCount: 1
+      })
+
+      return { clicked: element }
+    })
+  }
+  async hover(this: any, element: string): Promise<BrowserHoverResult> {
+    return this.enqueueCommand(async () => {
+      const guest = this.getActiveGuest()
+      const sender = this.makeCdpSender(guest)
+      await this.ensureDebuggerAttached(guest)
+
+      const node = await this.resolveRef(guest, sender, element)
+      const refSender = this.senderForRef(guest, node)
+      await this.scrollIntoView(refSender, node.backendDOMNodeId)
+      const localCenter = await this.getElementCenter(refSender, node.backendDOMNodeId)
+      const { cx, cy } = await this.getPageCoordinates(guest, node, localCenter.cx, localCenter.cy)
+
+      await sender('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cx, y: cy })
+
+      return { hovered: element }
+    })
+  }
+  async drag(this: any, fromElement: string, toElement: string): Promise<BrowserDragResult> {
+    return this.enqueueCommand(async () => {
+      const guest = this.getActiveGuest()
+      const sender = this.makeCdpSender(guest)
+      await this.ensureDebuggerAttached(guest)
+
+      const fromNode = await this.resolveRef(guest, sender, fromElement)
+      const toNode = await this.resolveRef(guest, sender, toElement)
+      const fromSender = this.senderForRef(guest, fromNode)
+      const toSender = this.senderForRef(guest, toNode)
+
+      await this.scrollIntoView(fromSender, fromNode.backendDOMNodeId)
+      const fromLocal = await this.getElementCenter(fromSender, fromNode.backendDOMNodeId)
+      const from = await this.getPageCoordinates(guest, fromNode, fromLocal.cx, fromLocal.cy)
+      const toLocal = await this.getElementCenter(toSender, toNode.backendDOMNodeId)
+      const to = await this.getPageCoordinates(guest, toNode, toLocal.cx, toLocal.cy)
+
+      // Why: interpolate the drag so intermediate elements fire dragenter/dragover, which many drag-and-drop libs require.
+      await sender('Input.dispatchMouseEvent', { type: 'mouseMoved', x: from.cx, y: from.cy })
+      await sender('Input.dispatchMouseEvent', {
+        type: 'mousePressed',
+        x: from.cx,
+        y: from.cy,
+        button: 'left'
+      })
+
+      const steps = 10
+      for (let i = 1; i <= steps; i++) {
+        const x = from.cx + ((to.cx - from.cx) * i) / steps
+        const y = from.cy + ((to.cy - from.cy) * i) / steps
+        await sender('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 1 })
+        await new Promise((r) => setTimeout(r, 10))
+      }
+
+      await sender('Input.dispatchMouseEvent', {
+        type: 'mouseReleased',
+        x: to.cx,
+        y: to.cy,
+        button: 'left'
+      })
+
+      return { dragged: { from: fromElement, to: toElement } }
+    })
+  }
+}
+export type CdpBridgeMethods2Surface = typeof CdpBridgeMethods2

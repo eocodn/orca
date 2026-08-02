@@ -1,0 +1,341 @@
+import { randomUUID } from 'node:crypto'
+
+import { shell, webContents } from 'electron'
+import { ORCA_BROWSER_BLANK_URL } from '../../shared/constants'
+import {
+  normalizeBrowserNavigationUrl,
+  normalizeExternalBrowserUrl,
+  redactKagiSessionToken,
+  toSecureCertificateEndpoint
+} from '../../shared/browser-url'
+import type {
+  BrowserDownloadFinishedEvent,
+  BrowserDownloadProgressEvent,
+  BrowserDownloadRequestedEvent,
+  BrowserPermissionDeniedEvent,
+  BrowserPopupEvent
+} from '../../shared/browser-guest-events'
+import type {
+  BrowserGrabCancelReason,
+  BrowserGrabPayload,
+  BrowserGrabRect,
+  BrowserGrabResult,
+  BrowserGrabScreenshot
+} from '../../shared/browser-grab-types'
+import { buildGuestOverlayScript } from './grab-guest-script'
+import { clampGrabPayload } from './browser-grab-payload'
+import { captureSelectionScreenshot as captureGrabSelectionScreenshot } from './browser-grab-screenshot'
+import { BrowserGrabSessionController } from './browser-grab-session-controller'
+import { browserDownloadDestinationReservations } from './browser-download-destination'
+import {
+  resolveRendererWebContents,
+  setupGrabShortcutForwarding,
+  setupGuestContextMenu,
+  setupGuestMouseWheelZoomForwarding,
+  setupGuestShortcutForwarding
+} from './browser-guest-ui'
+import { ANTI_DETECTION_SCRIPT } from './anti-detection'
+import { openPopupWithOriginBar, type PopupChildWindowOptions } from './popup-origin-bar-window'
+import {
+  BROWSER_CLICKED_LINK_ROUTING_WORLD_ID,
+  buildBrowserClickedLinkRoutingScript,
+  buildBrowserIframeClickedLinkRoutingScript
+} from './browser-clicked-link-routing'
+import { cleanElectronUserAgent } from './browser-session-ua'
+import type {
+  BrowserViewportOverride,
+  BrowserCertificateFailure,
+  BrowserLoadError
+} from '../../shared/types'
+import {
+  type BrowserAnnotationViewportBridgeOptions,
+  BROWSER_ANNOTATION_VIEWPORT_BRIDGE_WORLD_ID,
+  buildBrowserAnnotationViewportBridgeScript
+} from '../../shared/browser-annotation-viewport-bridge'
+import type { KeybindingOverrides } from '../../shared/keybindings'
+import {
+  BrowserCertificateTrustController,
+  type ManagedBrowserGuestContext
+} from './browser-certificate-trust-controller'
+
+import * as foundation from './browser-manager-lifecycle-foundation'
+const { AUTOMATION_VISIBILITY_ACQUIRE_TIMEOUT_MS, SAFE_POPUP_WINDOW_OPTIONS, buildMobileUserAgent, cleanupLateAutomationVisibilityToken, createNoopRestoreForTimedOutAutomationAcquire, extractChromeMajor, isAutomationVisibilityToken, isChromiumInternalErrorUrl, releaseAutomationVisibilityToken, resolveWithTimeout, safeOrigin } = foundation
+type ActiveDownload = foundation.ActiveDownload
+type BrowserDownloadDoneState = foundation.BrowserDownloadDoneState
+type BrowserGuestRegistration = foundation.BrowserGuestRegistration
+type PendingPermissionEvent = foundation.PendingPermissionEvent
+type PendingPopupEvent = foundation.PendingPopupEvent
+type PopupOwnerContext = foundation.PopupOwnerContext
+
+export const BrowserManagerMethods3 = {
+  resolvePopupOwnerContext(this: any, guestWebContentsId: number): PopupOwnerContext | null {
+    const browserTabId = this.tabIdByWebContentsId.get(guestWebContentsId)
+    if (browserTabId) {
+      return { browserTabId, rootGuestWebContentsId: guestWebContentsId }
+    }
+    const inherited = this.popupOwnerContextByGuestId.get(guestWebContentsId)
+    if (
+      inherited &&
+      this.webContentsIdByTabId.get(inherited.browserTabId) === inherited.rootGuestWebContentsId
+    ) {
+      return inherited
+    }
+    this.popupOwnerContextByGuestId.delete(guestWebContentsId)
+    return null
+  }
+  resolveRendererForBrowserTab(this: any, browserTabId: string): Electron.WebContents | null {
+    const rendererWebContentsId = this.rendererWebContentsIdByTabId.get(browserTabId)
+    if (!rendererWebContentsId) {
+      return null
+    }
+    const renderer = webContents.fromId(rendererWebContentsId)
+    if (!renderer || renderer.isDestroyed()) {
+      return null
+    }
+    return renderer
+  }
+  async ensureWebviewVisible(this: any, guestWebContentsId: number): Promise<() => void> {
+    const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
+    if (!browserPageId) {
+      return () => {}
+    }
+    const browserWorkspaceId = this.workspaceIdByPageId.get(browserPageId) ?? browserPageId
+    const worktreeId = this.worktreeIdByTabId.get(browserPageId) ?? null
+    const renderer = this.resolveRendererForBrowserTab(browserPageId)
+    if (!renderer || renderer.isDestroyed()) {
+      return () => {}
+    }
+
+    const prev = await renderer
+      .executeJavaScript(
+        `(function() {
+          var store = window.__store;
+          if (!store) return null;
+          var state = store.getState();
+          var prevTabType = state.activeTabType;
+          var prevActiveWorktreeId = state.activeWorktreeId || null;
+          var prevActiveBrowserWorkspaceId = state.activeBrowserTabId || null;
+          var prevActiveBrowserPageId = null;
+          var prevFocusedGroupTabId = null;
+          var targetWorktreeId = ${JSON.stringify(worktreeId)};
+          var browserWorkspaceId = ${JSON.stringify(browserWorkspaceId)};
+          var browserPageId = ${JSON.stringify(browserPageId)};
+          var browserTabsByWorktree = state.browserTabsByWorktree || {};
+
+          if (prevActiveWorktreeId) {
+            var prevFocusedGroupId = (state.activeGroupIdByWorktree || {})[prevActiveWorktreeId];
+            var prevGroups = (state.groupsByWorktree || {})[prevActiveWorktreeId] || [];
+            for (var pg = 0; pg < prevGroups.length; pg++) {
+              if (prevGroups[pg].id === prevFocusedGroupId) {
+                prevFocusedGroupTabId = prevGroups[pg].activeTabId;
+                break;
+              }
+            }
+          }
+
+          if (prevActiveBrowserWorkspaceId) {
+            for (var prevWtId in browserTabsByWorktree) {
+              var prevBrowserTabs = browserTabsByWorktree[prevWtId] || [];
+              for (var pbt = 0; pbt < prevBrowserTabs.length; pbt++) {
+                if (prevBrowserTabs[pbt].id === prevActiveBrowserWorkspaceId) {
+                  prevActiveBrowserPageId = prevBrowserTabs[pbt].activePageId || null;
+                  break;
+                }
+              }
+              if (prevActiveBrowserPageId) break;
+            }
+          }
+
+          if (
+            targetWorktreeId &&
+            prevActiveWorktreeId !== targetWorktreeId &&
+            typeof state.setActiveWorktree === 'function'
+          ) {
+            state.setActiveWorktree(targetWorktreeId);
+            state = store.getState();
+          }
+
+          var foundWorkspace = null;
+          for (var wtId in browserTabsByWorktree) {
+            var tabs = browserTabsByWorktree[wtId] || [];
+            for (var i = 0; i < tabs.length; i++) {
+              if (tabs[i].id === browserWorkspaceId) {
+                foundWorkspace = tabs[i];
+                if (!targetWorktreeId) {
+                  targetWorktreeId = wtId;
+                }
+                break;
+              }
+            }
+            if (foundWorkspace) break;
+          }
+
+          var hasTargetPage = false;
+          var targetPages = (state.browserPagesByWorkspace || {})[browserWorkspaceId] || [];
+          for (var pageIndex = 0; pageIndex < targetPages.length; pageIndex++) {
+            if (targetPages[pageIndex].id === browserPageId) {
+              hasTargetPage = true;
+              break;
+            }
+          }
+
+          if (foundWorkspace) {
+            if (typeof state.setActiveBrowserTab === 'function') {
+              state.setActiveBrowserTab(browserWorkspaceId);
+              state = store.getState();
+            } else {
+              var allTabs = state.unifiedTabsByWorktree || {};
+              var found = null;
+              for (var unifiedWtId in allTabs) {
+                var unifiedTabs = allTabs[unifiedWtId] || [];
+                for (var unifiedIndex = 0; unifiedIndex < unifiedTabs.length; unifiedIndex++) {
+                  if (
+                    unifiedTabs[unifiedIndex].contentType === 'browser' &&
+                    unifiedTabs[unifiedIndex].entityId === browserWorkspaceId
+                  ) {
+                    found = unifiedTabs[unifiedIndex];
+                    break;
+                  }
+                }
+                if (found) break;
+              }
+              if (found) {
+                state.activateTab(found.id);
+              }
+              state.setActiveTabType('browser');
+              state = store.getState();
+            }
+            // Why: activating the workspace alone is not enough for screenshot
+            // capture when a browser workspace contains multiple pages. The
+            // compositor only paints the currently mounted page guest.
+            if (
+              hasTargetPage &&
+              foundWorkspace.activePageId !== browserPageId &&
+              typeof state.setActiveBrowserPage === 'function'
+            ) {
+              state.setActiveBrowserPage(browserWorkspaceId, browserPageId);
+              state = store.getState();
+            }
+          }
+
+          return {
+            prevTabType: prevTabType,
+            prevActiveWorktreeId: prevActiveWorktreeId,
+            prevActiveBrowserWorkspaceId: prevActiveBrowserWorkspaceId,
+            prevActiveBrowserPageId: prevActiveBrowserPageId,
+            prevFocusedGroupTabId: prevFocusedGroupTabId,
+            targetWorktreeId: targetWorktreeId,
+            targetBrowserWorkspaceId: foundWorkspace ? browserWorkspaceId : null,
+            targetBrowserPageId: foundWorkspace && hasTargetPage ? browserPageId : null
+          };
+        })()`
+      )
+      .catch(() => null)
+
+    const needsRestore =
+      prev &&
+      (prev.prevTabType !== 'browser' ||
+        prev.prevActiveWorktreeId !== prev.targetWorktreeId ||
+        prev.prevFocusedGroupTabId !== null ||
+        prev.prevActiveBrowserWorkspaceId !== prev.targetBrowserWorkspaceId ||
+        prev.prevActiveBrowserPageId !== prev.targetBrowserPageId)
+
+    if (!needsRestore) {
+      return () => {}
+    }
+
+    return () => {
+      if (!prev || !renderer || renderer.isDestroyed()) {
+        return
+      }
+      renderer
+        .executeJavaScript(
+          `(function() {
+            var store = window.__store;
+            if (!store) return;
+            var state = store.getState();
+            if (
+              ${JSON.stringify(prev?.prevActiveWorktreeId)} &&
+              ${JSON.stringify(prev?.prevActiveWorktreeId)} !==
+                ${JSON.stringify(prev?.targetWorktreeId)} &&
+              typeof state.setActiveWorktree === 'function'
+            ) {
+              state.setActiveWorktree(${JSON.stringify(prev?.prevActiveWorktreeId)});
+              state = store.getState();
+            }
+            if (
+              ${JSON.stringify(prev?.prevActiveBrowserWorkspaceId)} &&
+              ${JSON.stringify(prev?.prevActiveBrowserWorkspaceId)} !==
+                ${JSON.stringify(prev?.targetBrowserWorkspaceId)} &&
+              typeof state.setActiveBrowserTab === 'function'
+            ) {
+              state.setActiveBrowserTab(${JSON.stringify(prev?.prevActiveBrowserWorkspaceId)});
+              state = store.getState();
+            }
+            if (
+              ${JSON.stringify(prev?.prevActiveBrowserWorkspaceId)} &&
+              ${JSON.stringify(prev?.prevActiveBrowserPageId)} &&
+              ${JSON.stringify(prev?.prevActiveBrowserPageId)} !==
+                ${JSON.stringify(prev?.targetBrowserPageId)} &&
+              typeof state.setActiveBrowserPage === 'function'
+            ) {
+              // Why: Orca remembers the last browser workspace/page even when
+              // the user is currently in terminal/editor view. Screenshot prep
+              // temporarily switches that hidden browser selection state, so
+              // restore it independently of the visible tab type.
+              state.setActiveBrowserPage(
+                ${JSON.stringify(prev?.prevActiveBrowserWorkspaceId)},
+                ${JSON.stringify(prev?.prevActiveBrowserPageId)}
+              );
+              state = store.getState();
+            }
+            if (
+              ${JSON.stringify(prev?.prevTabType)} !== 'browser' &&
+              ${JSON.stringify(prev?.prevFocusedGroupTabId)}
+            ) {
+              state.activateTab(${JSON.stringify(prev?.prevFocusedGroupTabId)});
+            }
+            if (${JSON.stringify(prev?.prevTabType)} !== 'browser') {
+              state.setActiveTabType(${JSON.stringify(prev?.prevTabType)});
+            }
+          })()`
+        )
+        .catch(() => {})
+    }
+  }
+  async acquireAutomationVisibility(this: any, guestWebContentsId: number): Promise<() => void> {
+    const browserPageId = this.resolveBrowserTabIdForGuestWebContentsId(guestWebContentsId)
+    if (!browserPageId) {
+      return () => {}
+    }
+    const renderer = this.resolveRendererForBrowserTab(browserPageId)
+    if (!renderer || renderer.isDestroyed()) {
+      return () => {}
+    }
+
+    // Why: agent commands need a paintable webview for lazy-loading sites without stealing the user's visible tab.
+    const acquirePromise = renderer
+      .executeJavaScript(
+        `(async function() {
+            var bridge = window.__orcaBrowserAutomationVisibility;
+            if (!bridge || typeof bridge.acquire !== 'function') return null;
+            return await bridge.acquire(${JSON.stringify(browserPageId)});
+          })()`
+      )
+      .catch(() => null)
+    const { value: token, timedOut } = await resolveWithTimeout(
+      acquirePromise,
+      AUTOMATION_VISIBILITY_ACQUIRE_TIMEOUT_MS,
+      null
+    )
+
+    if (!isAutomationVisibilityToken(token)) {
+      return createNoopRestoreForTimedOutAutomationAcquire(renderer, acquirePromise, timedOut)
+    }
+
+    return () => {
+      releaseAutomationVisibilityToken(renderer, token)
+    }
+  }
+}
+export type BrowserManagerMethods3Surface = typeof BrowserManagerMethods3
