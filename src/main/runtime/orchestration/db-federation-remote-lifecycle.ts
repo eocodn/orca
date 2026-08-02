@@ -70,6 +70,12 @@ import {
 import { OrchestrationDatabaseWorkerDispatch } from './db-worker-dispatch'
 
 export class OrchestrationDatabaseFederationRemoteLifecycle extends OrchestrationDatabaseWorkerDispatch {
+  getRemoteDispatchAttachment(dispatchId: string): RemoteDispatchAttachmentRow | undefined {
+    return this.db
+      .prepare('SELECT * FROM remote_dispatch_attachments WHERE dispatch_id = ?')
+      .get(dispatchId) as RemoteDispatchAttachmentRow | undefined
+  }
+
   beginRemoteAttachmentStop(dispatchId: string): RemoteDispatchAttachmentRow {
     const attachment = this.getRemoteDispatchAttachment(dispatchId)
     if (!attachment) {

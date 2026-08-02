@@ -184,12 +184,6 @@ export class OrchestrationDatabaseFederation extends OrchestrationDatabaseFedera
     }
   }
 
-  getRemoteDispatchAttachment(dispatchId: string): RemoteDispatchAttachmentRow | undefined {
-    return this.db
-      .prepare('SELECT * FROM remote_dispatch_attachments WHERE dispatch_id = ?')
-      .get(dispatchId) as RemoteDispatchAttachmentRow | undefined
-  }
-
   recordRemoteAttachmentStage(params: {
     dispatchId: string
     stage: string

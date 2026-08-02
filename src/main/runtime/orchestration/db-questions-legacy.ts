@@ -69,7 +69,11 @@ import {
 } from './db-foundation'
 import { OrchestrationDatabaseDeliveries } from './db-deliveries'
 
-export class OrchestrationDatabaseLegacyQuestions extends OrchestrationDatabaseDeliveries {
+export abstract class OrchestrationDatabaseLegacyQuestions extends OrchestrationDatabaseDeliveries {
+  abstract getMessageById(id: string): MessageRow | undefined
+  abstract getQuestion(messageId: string): QuestionRow | undefined
+  protected abstract getQuestionRaw(messageId: string): QuestionRow | undefined
+
   findPendingLegacyQuestions(params: {
     principalId: string
     question: string

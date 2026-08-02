@@ -69,7 +69,15 @@ import {
 } from './db-foundation'
 import { OrchestrationDatabaseFoundation } from './db-foundation'
 
-export class OrchestrationDatabaseSchemaMigrations extends OrchestrationDatabaseFoundation {
+export abstract class OrchestrationDatabaseSchemaMigrations extends OrchestrationDatabaseFoundation {
+  protected abstract hasColumn(table: string, column: string): boolean
+  protected abstract migrateLegacyContractStorage(): void
+  protected abstract backfillLegacyQuestionThreads(): void
+  protected abstract migrateLegacySchedulerLossProvenance(): void
+  protected abstract createUndeliveredInboxIndexIfPossible(): void
+  protected abstract messagesTypeCheckAllowsHeartbeat(): boolean
+  protected abstract messagesTypeCheckAllowsQuestion(): boolean
+
   protected migrate(): void {
     const storedVersion = this.db.pragma('user_version', { simple: true }) as number
     const current = resolveOrchestrationMigrationStartVersion(
