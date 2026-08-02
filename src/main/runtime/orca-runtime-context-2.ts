@@ -63,7 +63,8 @@ export type RuntimeVisibleTerminalState = {
   lines: string[]
   isAlternateScreen: boolean
   sequence: number
-  generation: number}
+  generation: number
+}
 
 export type ProviderBufferAcquisition = {
   generation: number

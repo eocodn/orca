@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { exposeUtcTimestamp, isEquivalentPaneKey } from './orchestration/db-contract-helpers'
 import { resolvePtyIncarnationState } from './pty-runtime-lifecycle'
@@ -36,5 +37,18 @@ describe('oversized source responsibility boundaries', () => {
         fallbackBaseRef: 'main'
       })
     ).toBe('origin/main')
+  })
+
+  it('keeps split runtime declarations on separate boundaries', () => {
+    const contextSource = readFileSync(new URL('./orca-runtime-context-2.ts', import.meta.url), 'utf8')
+    const multiplexSource = readFileSync(
+      new URL('./rpc/methods/terminal-multiplex-method.ts', import.meta.url),
+      'utf8'
+    )
+
+    expect(contextSource).toContain('generation: number\n}')
+    expect(multiplexSource).toMatch(
+      /export const TERMINAL_MULTIPLEX_METHODS: RpcAnyMethod\[\] = \[\n  defineStreamingMethod\(/u
+    )
   })
 })
