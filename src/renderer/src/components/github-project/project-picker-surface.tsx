@@ -4,14 +4,11 @@
 // from `listAccessibleProjects` and is cached for 5 minutes. Paste-to-add
 // accepts org/user project URLs and `owner/number` shorthand.
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ChevronDown, Loader, Pin, Search } from 'lucide-react'
+import { ChevronDown, Loader, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { GhAuthErrorHelp } from '@/components/github-project/GhAuthErrorHelp'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { cn } from '@/lib/utils'
-import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { useAppStore } from '@/store'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import type {
@@ -19,13 +16,9 @@ import type {
   GitHubProjectSettings,
   GitHubProjectSummary,
   GitHubProjectViewError,
-  GitHubProjectViewSummary,
-  ListAccessibleProjectsResult,
-  ListProjectViewsResult,
-  ResolveProjectRefResult
+  GitHubProjectViewSummary
 } from '../../../../shared/github-project-types'
 import {
-  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
   hasBoundedGitHubProjectRefInputText,
   isGitHubProjectRefInputTooLarge
 } from '../../../../shared/github-project-ref-input'
@@ -40,6 +33,27 @@ import {
   githubProjectHost,
   githubProjectIdentityKey
 } from '../../../../shared/github-project-identity'
+import {
+  getProjectPickerBrowseHost,
+  getProjectPickerRuntimeScope,
+  listAccessibleProjectsForRuntime,
+  listProjectViewsForRuntime,
+  resolveProjectRefForRuntime
+} from './project-picker-runtime'
+import {
+  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
+  parseProjectInput
+} from './project-picker-input'
+import {
+  AuthErrorBanner,
+  PartialFailuresBanner,
+  PickerRow,
+  Section,
+  ViewPickStep
+} from './project-picker-presentational'
+
+export { getProjectPickerBrowseHost } from './project-picker-runtime'
+export { parseProjectInput } from './project-picker-input'
 
 export type ResolvedProjectSelection = {
   owner: string
@@ -58,65 +72,6 @@ type Props = {
     title?: string
   } | null
   onSelect: (selection: ResolvedProjectSelection) => void
-}
-
-function getProjectPickerRuntimeScope(
-  settings: Parameters<typeof getActiveRuntimeTarget>[0],
-  host: string
-): string {
-  const target = getActiveRuntimeTarget(settings)
-  const runtimeScope = target.kind === 'environment' ? `runtime:${target.environmentId}` : 'local'
-  return `${runtimeScope}\0${host.toLowerCase()}`
-}
-
-async function listAccessibleProjectsForRuntime(
-  settings: Parameters<typeof getActiveRuntimeTarget>[0],
-  host: string
-): Promise<ListAccessibleProjectsResult> {
-  const target = getActiveRuntimeTarget(settings)
-  const args = { host }
-  return target.kind === 'environment'
-    ? callRuntimeRpc<ListAccessibleProjectsResult>(target, 'github.project.listAccessible', args, {
-        timeoutMs: 60_000
-      })
-    : window.api.gh.listAccessibleProjects(args)
-}
-
-export function getProjectPickerBrowseHost(activeProject: { host?: string } | null): string {
-  return githubProjectHost(activeProject?.host).toLowerCase()
-}
-
-async function listProjectViewsForRuntime(
-  settings: Parameters<typeof getActiveRuntimeTarget>[0],
-  args: {
-    owner: string
-    ownerType: GitHubProjectOwnerType
-    projectNumber: number
-    host?: string
-  }
-): Promise<ListProjectViewsResult> {
-  const target = getActiveRuntimeTarget(settings)
-  return target.kind === 'environment'
-    ? callRuntimeRpc<ListProjectViewsResult>(target, 'github.project.listViews', args, {
-        timeoutMs: 30_000
-      })
-    : window.api.gh.listProjectViews(args)
-}
-
-async function resolveProjectRefForRuntime(
-  settings: Parameters<typeof getActiveRuntimeTarget>[0],
-  input: string,
-  host?: string
-): Promise<ResolveProjectRefResult> {
-  const target = getActiveRuntimeTarget(settings)
-  return target.kind === 'environment'
-    ? callRuntimeRpc<ResolveProjectRefResult>(
-        target,
-        'github.project.resolveRef',
-        { input, ...(host ? { host } : {}) },
-        { timeoutMs: 30_000 }
-      )
-    : window.api.gh.resolveProjectRef({ input, ...(host ? { host } : {}) })
 }
 
 export default function ProjectPicker({ activeProject, onSelect }: Props): React.JSX.Element {
@@ -649,262 +604,4 @@ export default function ProjectPicker({ activeProject, onSelect }: Props): React
       </PopoverContent>
     </Popover>
   )
-}
-
-function Section({
-  label,
-  children
-}: {
-  label: string
-  children: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <div className="py-1">
-      <div className="px-2 pb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function PickerRow({
-  title,
-  subtitle,
-  onClick,
-  zombie,
-  canPin,
-  onPin,
-  onRemovePin
-}: {
-  title: string
-  subtitle: string
-  onClick: () => void
-  zombie?: boolean
-  canPin?: boolean
-  onPin?: () => void
-  onRemovePin?: () => void
-}): React.JSX.Element {
-  return (
-    <div className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-muted/50">
-      <button type="button" onClick={onClick} className="flex flex-1 min-w-0 flex-col text-left">
-        <span className="truncate text-sm">{title}</span>
-        <span className="truncate text-[10px] text-muted-foreground">{subtitle}</span>
-      </button>
-      {zombie ? (
-        <div className="flex items-center gap-1">
-          <AlertTriangle className="size-3.5 text-amber-500" />
-          <button
-            type="button"
-            className="text-[10px] text-muted-foreground hover:text-foreground"
-            onClick={onRemovePin}
-          >
-            {translate('auto.components.github.project.ProjectPicker.5009ffc2f3', 'Remove pin')}
-          </button>
-        </div>
-      ) : null}
-      {canPin ? (
-        <button
-          type="button"
-          title={translate('auto.components.github.project.ProjectPicker.8ab5447c64', 'Pin')}
-          className="can-hover:opacity-0 group-hover:opacity-100"
-          onClick={onPin}
-        >
-          <Pin className="size-3.5" />
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
-function ViewPickStep({
-  loading,
-  views,
-  onPick,
-  onBack
-}: {
-  loading: boolean
-  views: GitHubProjectViewSummary[]
-  onPick: (view: GitHubProjectViewSummary) => void | Promise<void>
-  onBack: () => void
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between border-b border-border/50 p-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          {translate('auto.components.github.project.ProjectPicker.a51b3337ab', '← Back')}
-        </button>
-        <span className="text-xs font-medium">
-          {translate('auto.components.github.project.ProjectPicker.9bf55fa1e8', 'Choose a view')}
-        </span>
-        <span />
-      </div>
-      <div className="max-h-[340px] overflow-y-auto p-1 scrollbar-sleek">
-        {loading ? (
-          <div className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground">
-            <Loader className="size-3 animate-spin" />{' '}
-            {translate('auto.components.github.project.ProjectPicker.72a05c04a6', 'Loading views…')}
-          </div>
-        ) : views.length === 0 ? (
-          <div className="px-2 py-2 text-xs text-muted-foreground">
-            {translate(
-              'auto.components.github.project.ProjectPicker.9b36829267',
-              'No views found.'
-            )}
-          </div>
-        ) : (
-          views.map((v) => {
-            const supported = v.layout === 'TABLE_LAYOUT'
-            return (
-              <button
-                key={v.id}
-                type="button"
-                disabled={!supported}
-                onClick={() => void onPick(v)}
-                className={cn(
-                  'flex w-full flex-col items-start rounded px-2 py-1 text-left',
-                  supported ? 'hover:bg-muted/50' : 'cursor-not-allowed opacity-50'
-                )}
-              >
-                <span className="text-sm">{v.name}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {v.layout === 'TABLE_LAYOUT'
-                    ? translate('auto.components.github.project.ProjectPicker.1a2b8e512e', 'Table')
-                    : v.layout === 'BOARD_LAYOUT'
-                      ? translate(
-                          'auto.components.github.project.ProjectPicker.d34ef9b554',
-                          'Board (unsupported)'
-                        )
-                      : translate(
-                          'auto.components.github.project.ProjectPicker.ab1a2c357d',
-                          'Roadmap (unsupported)'
-                        )}
-                </span>
-              </button>
-            )
-          })
-        )}
-      </div>
-    </div>
-  )
-}
-
-function PartialFailuresBanner({
-  failures
-}: {
-  failures: { owner: string; message: string }[]
-}): React.JSX.Element {
-  // Why: a single generic sentence is preferable to enumerating every failed
-  // owner inline — the list is unbounded and the user only needs to know
-  // (1) their list is incomplete and (2) paste-to-add is the escape hatch.
-  // Hover exposes the underlying error messages for debugging.
-  const summary =
-    failures.length === 1 && failures[0].owner !== '*'
-      ? `Couldn't load projects from ${failures[0].owner}.`
-      : `Some organizations didn't load (${failures.length}).`
-  const detail = failures
-    .map((f) => `${f.owner === '*' ? 'orgs' : f.owner}: ${f.message}`)
-    .join('\n')
-  return (
-    <div
-      className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
-      title={detail}
-    >
-      <div className="flex items-start gap-1.5">
-        <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-        <div>
-          <div>{summary}</div>
-          <div className="mt-0.5 text-[11px] opacity-80">
-            {translate(
-              'auto.components.github.project.ProjectPicker.96739284c3',
-              'Paste a project URL below to reach missing ones.'
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AuthErrorBanner({
-  error,
-  host
-}: {
-  error: GitHubProjectViewError
-  host: string
-}): React.JSX.Element {
-  if (error.type === 'auth_required' || error.type === 'scope_missing') {
-    return (
-      <GhAuthErrorHelp
-        error={error as GitHubProjectViewError & { type: 'auth_required' | 'scope_missing' }}
-        variant="banner"
-        host={host}
-      />
-    )
-  }
-  // Non-auth errors keep the legacy single-line banner.
-  return (
-    <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-      <div>{error.message}</div>
-    </div>
-  )
-}
-
-export function parseProjectInput(
-  input: string
-): { owner: string; number: number; host?: string; viewNumber?: number } | null {
-  const trimmed = input.trim()
-  if (!trimmed) {
-    return null
-  }
-  if (isGitHubProjectRefInputTooLarge(trimmed)) {
-    return null
-  }
-  // owner/number
-  const short = /^([A-Za-z0-9][A-Za-z0-9-]*)\/(\d+)$/.exec(trimmed)
-  if (short) {
-    const number = Number(short[2])
-    return Number.isSafeInteger(number) && number > 0 ? { owner: short[1], number } : null
-  }
-  try {
-    const url = new URL(trimmed)
-    if (
-      (url.protocol !== 'https:' && url.protocol !== 'http:') ||
-      url.username ||
-      url.password ||
-      !url.host
-    ) {
-      return null
-    }
-    const parts = url.pathname.split('/').filter(Boolean)
-    const hasView = parts.length === 6 && parts[4] === 'views'
-    // /orgs/{owner}/projects/{n} or /users/{owner}/projects/{n}[/views/{viewNumber}]
-    if (
-      (parts[0] === 'orgs' || parts[0] === 'users') &&
-      /^[A-Za-z0-9][A-Za-z0-9-]*$/.test(parts[1] ?? '') &&
-      parts[2] === 'projects' &&
-      (parts.length === 4 || hasView)
-    ) {
-      const owner = parts[1]
-      const number = Number(parts[3])
-      const viewNumber = hasView ? Number(parts[5]) : undefined
-      if (
-        !Number.isSafeInteger(number) ||
-        number < 1 ||
-        (hasView && (!Number.isSafeInteger(viewNumber) || (viewNumber ?? 0) < 1))
-      ) {
-        return null
-      }
-      // Why: URL.host preserves non-default GHES ports; URL.hostname would
-      // silently route a project on :8443 to the server's default port.
-      return { owner, number, host: url.host.toLowerCase(), viewNumber }
-    }
-  } catch {
-    return null
-  }
-  return null
 }
