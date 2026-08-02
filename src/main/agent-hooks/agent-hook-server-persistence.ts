@@ -1,36 +1,31 @@
-import { AgentHookServerRuntime } from "./agent-hook-server-runtime"
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import { createHash, randomBytes, randomUUID } from "node:crypto"
-import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import * as hookShared from "./agent-hook-server-shared"
-import type { AgentHookSource, AgentHookStatusChangeEntry, AgentHookProviderSessionIdentity, AgentHookAuthorityEvidence, AgentHookAuthorityAttestation } from "./agent-hook-server-shared"
-import { AGENT_KIND_VALUES, type AgentKind } from "../../shared/telemetry-events"
-import { ORCA_HOOK_PROTOCOL_VERSION } from "../../shared/agent-hook-types"
-import { clearAllListenerCaches, clearPaneCacheState, clearClaudeAnsweredQuestionWait, createHookListenerState, getEndpointFileName, hasCodexTranscriptSubagents, hasPendingAgentResultText, HOOK_REQUEST_SLOWLORIS_MS, markClaudeLeadTurnInterrupted, markCodexLeadTurnInterrupted, MAX_PANE_KEY_LEN, movePaneCacheState, normalizeHookPayload, parseFormEncodedBody, readRequestBody, reapRestoredClaudeSubagentsForDeadPane, reconcileRemoteCodexState, resolveHookSource, preparePendingGrokResultDiscovery, seedClaudeSubagentRosterFromSnapshots, seedCodexStateFromSnapshot, warnOnHookEnvOrVersionMismatch, writeEndpointFile, type AgentHookEventPayload, type HookListenerState } from "../../shared/agent-hook-listener"
-import { claudeRosterHasRestoredSnapshotSubagent, claudeRosterHasWorkingSubagent, claudeRosterToSnapshots } from "../../shared/claude-subagent-roster"
-import { CLAUDE_STATUSLINE_PATHNAME, parseClaudeStatusLineBody, type ClaudeStatusLineRateLimits } from "../../shared/claude-statusline-rate-limits"
-import { AGENT_STATUS_STALE_AFTER_MS, type AgentStatusClearIpcPayload, type AgentStatusIpcPayload, type AgentType, type AgentStatusState, type ParsedAgentStatusPayload, normalizeAgentStatusPayload } from "../../shared/agent-status-types"
-import { resolveAgentStatusIdentity, shouldSuppressInheritedTerminalStatus } from "../../shared/agent-status-identity"
-import { isAgentInterruptInputIntent, type AgentInterruptInferenceRequest } from "../../shared/agent-interrupt-intent"
-import { isAskUserQuestionTool, type AgentQuestionAnsweredInferenceRequest } from "../../shared/agent-question-answered-intent"
-import { parseLegacyNumericPaneKey, parsePaneKey } from "../../shared/stable-pane-id"
-import type { LegacyPaneKeyAliasEntry } from "../../shared/types"
-import { getAgentResumeArgv, normalizeAgentProviderSession, type AgentProviderSessionMetadata } from "../../shared/agent-session-resume"
-import { isCommandCodeNewTurnWhileWorking } from "../../shared/command-code-turn-boundary"
-
-const { agentTypeToPromptSentAgentKind, equivalentInterruptAgentType, isValidPaneKey, dropHydratedIdleClaudeSubagents, isValidPiProviderSessionOnly, sanitizeHydratedEntry, readPersistedLaunchTokenHash, sanitizePersistedAuthorityCommitment, authorityCommitmentsMatch, toAgentStatusIpcPayload, equivalentParsedAgentStatusPayload, trackEmptyPaneKeyHook, isToolProgressWorkingAfterInterrupt, paneCacheKeyTabId, paneCacheKeyMatchesTab, shouldKeepClaudePermissionVisible, isClaudePermissionResumingApprovedTool, shouldInheritClaudeToolUseIdForPermission, attachClaudePermissionToolUseId, LAST_STATUS_FILE_NAME, ASSISTANT_MESSAGE_RETRY_ATTEMPTS, ASSISTANT_MESSAGE_RETRY_MS, CODEX_SUBAGENT_POLL_MS, INTERRUPTED_DONE_LATE_WORKING_SUPPRESSION_MS, LAST_STATUS_FILE_VERSION, STATUS_PERSIST_DEBOUNCE_MS, TOOL_PROGRESS_HOOK_EVENTS, AGENT_PROMPT_SENT_AGENT_KINDS, HYDRATE_MAX_AGE_MS, CLOSED_AGENT_STATUS_TAB_IDS_MAX, CLOSED_AGENT_STATUS_PANE_KEYS_MAX, PANE_KEY_ALIASES_MAX } = hookShared
+import { AgentHookServerRuntime } from './agent-hook-server-runtime'
+import { createHash, randomUUID } from 'node:crypto'
+import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import * as hookShared from './agent-hook-server-shared'
+import {
+  authorityCommitmentsMatch,
+  dropHydratedIdleClaudeSubagents,
+  HYDRATE_MAX_AGE_MS,
+  isValidPaneKey,
+  LAST_STATUS_FILE_VERSION,
+  readPersistedLaunchTokenHash,
+  sanitizeHydratedEntry,
+  sanitizePersistedAuthorityCommitment,
+  STATUS_PERSIST_DEBOUNCE_MS
+} from './agent-hook-server-shared'
+import {
+  seedClaudeSubagentRosterFromSnapshots,
+  seedCodexStateFromSnapshot,
+  writeEndpointFile,
+  type HookListenerState
+} from '../../shared/agent-hook-listener'
+import { ORCA_HOOK_PROTOCOL_VERSION } from '../../shared/agent-hook-types'
 
 type EnrichedAgentHookEventPayload = hookShared.EnrichedAgentHookEventPayload
 type PersistedAgentHookEventPayload = hookShared.PersistedAgentHookEventPayload
-type PersistedAgentAuthorityCommitment = hookShared.PersistedAgentAuthorityCommitment
-type StatusChangeListener = hookShared.StatusChangeListener
-type ProviderSessionChangeListener = hookShared.ProviderSessionChangeListener
-type PaneStatusClearListener = hookShared.PaneStatusClearListener
-type PaneKeyAliasPersistenceListener = hookShared.PaneKeyAliasPersistenceListener
-type PaneKeyAliasEntry = hookShared.PaneKeyAliasEntry
+type PersistedAgentHookAuthorityCommitment = hookShared.PersistedAgentHookAuthorityCommitment
 type LastStatusFile = hookShared.LastStatusFile
-type AgentPromptSentDedupeEntry = hookShared.AgentPromptSentDedupeEntry
 
 export class AgentHookServer extends AgentHookServerRuntime {
   get endpointFilePath(): string | null {
@@ -203,36 +198,6 @@ export class AgentHookServer extends AgentHookServerRuntime {
     this.hydratedAuthorityCommitments = Object.freeze(
       Array.from(this.persistedAuthorityCommitmentsByPaneKey.values())
     )
-  }
-
-  protected recordCurrentAuthorityObservation(payload: AgentHookEventPayload): void {
-    const evidence = this.toAuthorityEvidence(payload)
-    if (evidence) {
-      this.currentAuthorityObservations.set(evidence.paneKey, evidence)
-      this.persistedAuthorityCommitmentsByPaneKey.set(evidence.paneKey, evidence)
-      this.hydratedLaunchTokenHashByPaneKey.set(evidence.paneKey, evidence.launchTokenHash)
-    }
-  }
-
-  protected toAuthorityEvidence(
-    payload: AgentHookEventPayload | EnrichedAgentHookEventPayload,
-    launchTokenHashOverride?: string
-  ): AgentHookAuthorityEvidence | null {
-    const launchToken = payload.launchToken?.trim()
-    const launchTokenHash =
-      launchTokenHashOverride ??
-      (launchToken ? createHash('sha256').update(launchToken).digest('hex') : null)
-    if (!launchTokenHash) {
-      return null
-    }
-    return Object.freeze({
-      paneKey: payload.paneKey,
-      launchTokenHash,
-      connectionId: payload.connectionId,
-      ...(payload.tabId ? { tabId: payload.tabId } : {}),
-      ...(payload.worktreeId ? { worktreeId: payload.worktreeId } : {}),
-      observedAt: 'receivedAt' in payload ? payload.receivedAt : Date.now()
-    })
   }
 
   protected serializeStatusFile(): string {

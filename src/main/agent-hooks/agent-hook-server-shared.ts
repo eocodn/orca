@@ -1,53 +1,11 @@
 // Why: this main-process adapter keeps listener internals in shared/ (`src/shared/agent-hook-listener.ts`) so the relay can host the same pipeline without Electron. See docs/design/agent-status-over-ssh.md §5.
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 
 import { track } from '../telemetry/client'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
 import { AGENT_KIND_VALUES, type AgentKind } from '../../shared/telemetry-events'
-import { ORCA_HOOK_PROTOCOL_VERSION } from '../../shared/agent-hook-types'
-import {
-  clearAllListenerCaches,
-  clearPaneCacheState,
-  clearClaudeAnsweredQuestionWait,
-  createHookListenerState,
-  getEndpointFileName,
-  hasCodexTranscriptSubagents,
-  hasPendingAgentResultText,
-  HOOK_REQUEST_SLOWLORIS_MS,
-  markClaudeLeadTurnInterrupted,
-  markCodexLeadTurnInterrupted,
-  MAX_PANE_KEY_LEN,
-  movePaneCacheState,
-  normalizeHookPayload,
-  parseFormEncodedBody,
-  readRequestBody,
-  reapRestoredClaudeSubagentsForDeadPane,
-  reconcileRemoteCodexState,
-  resolveHookSource,
-  preparePendingGrokResultDiscovery,
-  seedClaudeSubagentRosterFromSnapshots,
-  seedCodexStateFromSnapshot,
-  warnOnHookEnvOrVersionMismatch,
-  writeEndpointFile,
-  type AgentHookEventPayload,
-  type HookListenerState
-} from '../../shared/agent-hook-listener'
-import {
-  claudeRosterHasRestoredSnapshotSubagent,
-  claudeRosterHasWorkingSubagent,
-  claudeRosterToSnapshots
-} from '../../shared/claude-subagent-roster'
+import { MAX_PANE_KEY_LEN, type AgentHookEventPayload } from '../../shared/agent-hook-listener'
 import type { AgentHookSource } from '../../shared/agent-hook-relay'
 import {
-  CLAUDE_STATUSLINE_PATHNAME,
-  parseClaudeStatusLineBody,
-  type ClaudeStatusLineRateLimits
-} from '../../shared/claude-statusline-rate-limits'
-import {
-  AGENT_STATUS_STALE_AFTER_MS,
   type AgentStatusClearIpcPayload,
   type AgentStatusIpcPayload,
   type AgentType,
@@ -55,26 +13,10 @@ import {
   type ParsedAgentStatusPayload,
   normalizeAgentStatusPayload
 } from '../../shared/agent-status-types'
-import {
-  resolveAgentStatusIdentity,
-  shouldSuppressInheritedTerminalStatus
-} from '../../shared/agent-status-identity'
-import {
-  isAgentInterruptInputIntent,
-  type AgentInterruptInferenceRequest
-} from '../../shared/agent-interrupt-intent'
-import {
-  isAskUserQuestionTool,
-  type AgentQuestionAnsweredInferenceRequest
-} from '../../shared/agent-question-answered-intent'
+import { isAskUserQuestionTool } from '../../shared/agent-question-answered-intent'
 import { parseLegacyNumericPaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import type { LegacyPaneKeyAliasEntry } from '../../shared/types'
-import {
-  getAgentResumeArgv,
-  normalizeAgentProviderSession,
-  type AgentProviderSessionMetadata
-} from '../../shared/agent-session-resume'
-import { isCommandCodeNewTurnWhileWorking } from '../../shared/command-code-turn-boundary'
+import { getAgentResumeArgv, normalizeAgentProviderSession, type AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
 
 export type { AgentHookSource }
 

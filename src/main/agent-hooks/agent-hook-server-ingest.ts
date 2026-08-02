@@ -1,36 +1,23 @@
-import { AgentHookServerAuthority } from "./agent-hook-server-authority"
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import { createHash, randomBytes, randomUUID } from "node:crypto"
-import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
-import * as hookShared from "./agent-hook-server-shared"
-import type { AgentHookSource, AgentHookStatusChangeEntry, AgentHookProviderSessionIdentity, AgentHookAuthorityEvidence, AgentHookAuthorityAttestation } from "./agent-hook-server-shared"
-import { AGENT_KIND_VALUES, type AgentKind } from "../../shared/telemetry-events"
-import { ORCA_HOOK_PROTOCOL_VERSION } from "../../shared/agent-hook-types"
-import { clearAllListenerCaches, clearPaneCacheState, clearClaudeAnsweredQuestionWait, createHookListenerState, getEndpointFileName, hasCodexTranscriptSubagents, hasPendingAgentResultText, HOOK_REQUEST_SLOWLORIS_MS, markClaudeLeadTurnInterrupted, markCodexLeadTurnInterrupted, MAX_PANE_KEY_LEN, movePaneCacheState, normalizeHookPayload, parseFormEncodedBody, readRequestBody, reapRestoredClaudeSubagentsForDeadPane, reconcileRemoteCodexState, resolveHookSource, preparePendingGrokResultDiscovery, seedClaudeSubagentRosterFromSnapshots, seedCodexStateFromSnapshot, warnOnHookEnvOrVersionMismatch, writeEndpointFile, type AgentHookEventPayload, type HookListenerState } from "../../shared/agent-hook-listener"
-import { claudeRosterHasRestoredSnapshotSubagent, claudeRosterHasWorkingSubagent, claudeRosterToSnapshots } from "../../shared/claude-subagent-roster"
-import { CLAUDE_STATUSLINE_PATHNAME, parseClaudeStatusLineBody, type ClaudeStatusLineRateLimits } from "../../shared/claude-statusline-rate-limits"
-import { AGENT_STATUS_STALE_AFTER_MS, type AgentStatusClearIpcPayload, type AgentStatusIpcPayload, type AgentType, type AgentStatusState, type ParsedAgentStatusPayload, normalizeAgentStatusPayload } from "../../shared/agent-status-types"
-import { resolveAgentStatusIdentity, shouldSuppressInheritedTerminalStatus } from "../../shared/agent-status-identity"
-import { isAgentInterruptInputIntent, type AgentInterruptInferenceRequest } from "../../shared/agent-interrupt-intent"
-import { isAskUserQuestionTool, type AgentQuestionAnsweredInferenceRequest } from "../../shared/agent-question-answered-intent"
-import { parseLegacyNumericPaneKey, parsePaneKey } from "../../shared/stable-pane-id"
-import type { LegacyPaneKeyAliasEntry } from "../../shared/types"
-import { getAgentResumeArgv, normalizeAgentProviderSession, type AgentProviderSessionMetadata } from "../../shared/agent-session-resume"
-import { isCommandCodeNewTurnWhileWorking } from "../../shared/command-code-turn-boundary"
-
-const { agentTypeToPromptSentAgentKind, equivalentInterruptAgentType, isValidPaneKey, dropHydratedIdleClaudeSubagents, isValidPiProviderSessionOnly, sanitizeHydratedEntry, readPersistedLaunchTokenHash, sanitizePersistedAuthorityCommitment, authorityCommitmentsMatch, toAgentStatusIpcPayload, equivalentParsedAgentStatusPayload, trackEmptyPaneKeyHook, isToolProgressWorkingAfterInterrupt, paneCacheKeyTabId, paneCacheKeyMatchesTab, shouldKeepClaudePermissionVisible, isClaudePermissionResumingApprovedTool, shouldInheritClaudeToolUseIdForPermission, attachClaudePermissionToolUseId, LAST_STATUS_FILE_NAME, ASSISTANT_MESSAGE_RETRY_ATTEMPTS, ASSISTANT_MESSAGE_RETRY_MS, CODEX_SUBAGENT_POLL_MS, INTERRUPTED_DONE_LATE_WORKING_SUPPRESSION_MS, LAST_STATUS_FILE_VERSION, STATUS_PERSIST_DEBOUNCE_MS, TOOL_PROGRESS_HOOK_EVENTS, AGENT_PROMPT_SENT_AGENT_KINDS, HYDRATE_MAX_AGE_MS, CLOSED_AGENT_STATUS_TAB_IDS_MAX, CLOSED_AGENT_STATUS_PANE_KEYS_MAX, PANE_KEY_ALIASES_MAX } = hookShared
+import { AgentHookServerAuthority } from './agent-hook-server-authority'
+import * as hookShared from './agent-hook-server-shared'
+import { track } from '../telemetry/client'
+import { normalizeAgentProviderSession } from '../../shared/agent-session-resume'
+import {
+  normalizeAgentStatusPayload,
+  type ParsedAgentStatusPayload
+} from '../../shared/agent-status-types'
+import {
+  equivalentParsedAgentStatusPayload,
+  isValidPiProviderSessionOnly
+} from './agent-hook-server-shared'
+import { parsePaneKey } from '../../shared/stable-pane-id'
+import {
+  MAX_PANE_KEY_LEN,
+  warnOnHookEnvOrVersionMismatch,
+  type AgentHookEventPayload
+} from '../../shared/agent-hook-listener'
 
 type EnrichedAgentHookEventPayload = hookShared.EnrichedAgentHookEventPayload
-type PersistedAgentHookEventPayload = hookShared.PersistedAgentHookEventPayload
-type PersistedAgentAuthorityCommitment = hookShared.PersistedAgentAuthorityCommitment
-type StatusChangeListener = hookShared.StatusChangeListener
-type ProviderSessionChangeListener = hookShared.ProviderSessionChangeListener
-type PaneStatusClearListener = hookShared.PaneStatusClearListener
-type PaneKeyAliasPersistenceListener = hookShared.PaneKeyAliasPersistenceListener
-type PaneKeyAliasEntry = hookShared.PaneKeyAliasEntry
-type LastStatusFile = hookShared.LastStatusFile
-type AgentPromptSentDedupeEntry = hookShared.AgentPromptSentDedupeEntry
 
 export class AgentHookServerIngest extends AgentHookServerAuthority {
   ingestTerminalStatus(event: {
@@ -225,7 +212,9 @@ export class AgentHookServerIngest extends AgentHookServerAuthority {
     })
     const event: AgentHookEventPayload = {
       paneKey,
-      launchToken: envelope.launchToken,
+      ...(typeof envelope.launchToken === 'string' && envelope.launchToken.trim().length > 0
+        ? { launchToken: envelope.launchToken }
+        : {}),
       tabId,
       worktreeId,
       connectionId: trimmedConnectionId,
