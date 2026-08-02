@@ -42,171 +42,24 @@ export type { StepId, StepNumber } from './use-onboarding-flow-types'
 
 export type OnboardingFlowController = ReturnType<typeof useOnboardingFlow>
 
-type TaskSourcesSnapshotProps = EventProps<'onboarding_task_sources_snapshot'>
-type TaskSourcesGithubStatus = TaskSourcesSnapshotProps['github_status']
-type TaskSourcesLinearStatus = TaskSourcesSnapshotProps['linear_status']
-type TaskSourcesExitAction = TaskSourcesSnapshotProps['exit_action']
-
-function shouldSkipIntegrationsStep(
-  status: ReturnType<typeof useAppStore.getState>['preflightStatus']
-): boolean {
-  return status?.gh.installed === true
-}
-
-function shouldSkipWindowsTerminalStep(isWindows: boolean): boolean {
-  return !isWindows
-}
-
-type OnboardingStepSkipOptions = {
-  skipIntegrations: boolean
-  skipWindowsTerminal: boolean
-}
-
-function isSkippedStepIndex(index: number, options: OnboardingStepSkipOptions): boolean {
-  const step = STEPS[index]
-  return (
-    (options.skipIntegrations && step?.id === 'integrations') ||
-    (options.skipWindowsTerminal && step?.id === 'windows_terminal')
-  )
-}
-
-function resolveStepIndex(
-  index: number,
-  skipOptions: OnboardingStepSkipOptions,
-  direction: 'forward' | 'backward'
-): number {
-  const lastIndex = STEPS.length - 1
-  let nextIndex = Math.min(Math.max(index, 0), lastIndex)
-  while (isSkippedStepIndex(nextIndex, skipOptions)) {
-    const candidate = nextIndex + (direction === 'forward' ? 1 : -1)
-    if (candidate < 0 || candidate > lastIndex) {
-      return direction === 'forward' ? lastIndex : 0
-    }
-    nextIndex = candidate
-  }
-  return nextIndex
-}
-
-function createNestedRepoScanId(): string {
-  return `nested-repo-scan-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function getGitHubTaskSourceStatus(
-  status: ReturnType<typeof useAppStore.getState>['preflightStatus'],
-  loading: boolean
-): TaskSourcesGithubStatus {
-  if (loading || !status) {
-    return 'checking'
-  }
-  if (!status.gh.installed) {
-    return 'not_installed'
-  }
-  return status.gh.authenticated ? 'connected' : 'not_authenticated'
-}
-
-function getLinearTaskSourceStatus(
-  status: ReturnType<typeof useAppStore.getState>['linearStatus'],
-  checked: boolean
-): TaskSourcesLinearStatus {
-  if (status.connected) {
-    return 'connected'
-  }
-  return checked ? 'not_connected' : 'checking'
-}
-
-type OnboardingStepId = (typeof STEPS)[number]['id']
-
-type OnboardingProgressSnapshot = Pick<
-  OnboardingState,
-  'flowVersion' | 'lastCompletedStep' | 'outcome'
->
-
-export function remapOpenOnboardingLastCompletedStep({
-  flowVersion,
-  lastCompletedStep,
-  outcome
-}: OnboardingProgressSnapshot): number {
-  if (flowVersion === ONBOARDING_FLOW_VERSION) {
-    return lastCompletedStep
-  }
-  if (outcome === 'completed' && lastCompletedStep >= 4) {
-    return ONBOARDING_FINAL_STEP
-  }
-  // Why: in v3 (four-step, pre-Windows-terminal) step 4 already meant notifications, so resume there.
-  if (flowVersion === 3) {
-    return Math.min(4, lastCompletedStep)
-  }
-  // Why: v2 (five-step) and older seven-step data used step 4 for removed agent setup, not integrations.
-  if (flowVersion === 2) {
-    if (lastCompletedStep === 3) {
-      return 2
-    }
-    if (lastCompletedStep >= 4) {
-      return 3
-    }
-    return lastCompletedStep
-  }
-  if (lastCompletedStep === 3) {
-    return 2
-  }
-  if (lastCompletedStep === 4) {
-    return 2
-  }
-  if (lastCompletedStep >= 5) {
-    return 3
-  }
-  return lastCompletedStep
-}
-
-type SkippedOnboardingPreferenceOptions = {
-  currentStepId: OnboardingStepId
-  themeBeforePreview: GlobalSettings['theme'] | null
-  settingsTheme: GlobalSettings['theme'] | undefined
-  selectedAgent: TuiAgent | null
-  setTheme: (theme: GlobalSettings['theme']) => void
-  applyTheme: (theme: GlobalSettings['theme']) => void
-  updateSettings: (updates: Partial<GlobalSettings>) => Promise<void> | void
-  setError: (message: string | null) => void
-}
-
-export async function prepareSkippedOnboardingPreferences({
-  currentStepId,
-  themeBeforePreview,
-  settingsTheme,
-  selectedAgent,
-  setTheme,
-  applyTheme,
-  updateSettings,
-  setError
-}: SkippedOnboardingPreferenceOptions): Promise<boolean> {
-  try {
-    // Why: theme tiles save immediately for a stable preview, but skip must not keep this step's choice.
-    if (currentStepId === 'theme') {
-      const themeToRestore = themeBeforePreview ?? settingsTheme
-      if (themeToRestore) {
-        setTheme(themeToRestore)
-        applyTheme(themeToRestore)
-        await updateSettings({ theme: themeToRestore })
-      }
-    }
-    // Why: the repo step seeds folder terminals from saved settings, so preserve the visible agent choice on skip.
-    if (currentStepId === 'agent' && selectedAgent) {
-      await updateSettings({ defaultTuiAgent: selectedAgent })
-    }
-    return true
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    setError(message)
-    toast.error(
-      translate(
-        'auto.components.onboarding.use.onboarding.flow.52acfbef51',
-        'Could not save progress'
-      ),
-      { description: message }
-    )
-    return false
-  }
-}
+import {
+  TaskSourcesSnapshotProps,
+  TaskSourcesGithubStatus,
+  TaskSourcesLinearStatus,
+  TaskSourcesExitAction,
+  shouldSkipIntegrationsStep,
+  shouldSkipWindowsTerminalStep,
+  OnboardingStepSkipOptions,
+  isSkippedStepIndex,
+  resolveStepIndex,
+  createNestedRepoScanId,
+  getGitHubTaskSourceStatus,
+  getLinearTaskSourceStatus,
+  OnboardingStepId,
+  OnboardingProgressSnapshot,
+  remapOpenOnboardingLastCompletedStep,
+  SkippedOnboardingPreferenceOptions,
+} from './onboarding-flow-policy'
 
 export function useOnboardingFlow(
   onboarding: OnboardingState,
@@ -1265,3 +1118,4 @@ export function useOnboardingFlow(
     clone
   }
 }
+
