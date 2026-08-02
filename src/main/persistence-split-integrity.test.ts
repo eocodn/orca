@@ -58,6 +58,45 @@ describe('persistence split integrity', () => {
     }
   })
 
+  it('routes primary-state migrations through the load API facade', () => {
+    const loaderApi = readSource('./persistence-store-repository-load-api.ts')
+    const primaryLoader = readSource('./persistence-store-repository-load-primary-state.ts')
+    const bindings = [
+      'logPersistenceStartupMilestone',
+      'decrypt',
+      'decryptOptionalSecret',
+      'migrateTerminalScrollbackRows',
+      'migrateTerminalTuiScrollSensitivityDefault',
+      'normalizeFloatingWorkspaceTrustedCwds',
+      'canonicalizePersistedFloatingWorkspaceDirectory',
+      'migrateAgentYoloDefaults',
+      'normalizeLoadedOnboardingState',
+      'normalizeWorkspaceLineageByChildKey',
+      'readLegacySidekickFlag',
+      'normalizeNotificationSettings',
+      'normalizeSortBy',
+      'readDeprecatedExperimentFlag',
+      'resolveSetupGuideSidebarDismissedOnLoad',
+      'normalizeRightSidebarTab',
+      'normalizeShowDotfilesByWorktree',
+      'parseWorkspaceSessionsByHostId',
+      'normalizeSshTarget',
+      'normalizeSshRemotePtyLease',
+      'normalizeClaudeLivePtySessionIds',
+      'normalizeMigrationUnsupportedPtyEntries',
+      'normalizeLegacyPaneKeyAliasEntries'
+    ]
+
+    const primaryApiImports = importedNamesFrom(
+      primaryLoader,
+      './persistence-store-repository-load-api'
+    )
+    for (const binding of bindings) {
+      expect(loaderApi).toMatch(new RegExp(`\\b${binding}\\b`))
+      expect(primaryApiImports).toMatch(new RegExp(`\\b${binding}\\b`))
+    }
+  })
+
   it('keeps StoreFoundation backup and pane-migration bindings imported', () => {
     const foundation = readSource('./persistence-store-foundation.ts')
 

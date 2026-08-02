@@ -1,7 +1,37 @@
 import { persistenceLoadDependencies } from './persistence-store-repository-load-dependencies'
+import {
+  canonicalizePersistedFloatingWorkspaceDirectory,
+  normalizeFloatingWorkspaceTrustedCwds,
+  normalizeSshRemotePtyLease
+} from './persistence-state-automation'
+import {
+  migrateAgentYoloDefaults,
+  normalizeShowDotfilesByWorktree,
+  parseWorkspaceSessionsByHostId
+} from './persistence-state-paths-foundation'
+import { normalizeNotificationSettings } from './persistence-state-migrations'
+import { normalizeSshTarget } from './persistence-state-ui-normalization'
+import {
+  normalizeClaudeLivePtySessionIds,
+  normalizeLegacyPaneKeyAliasEntries,
+  normalizeMigrationUnsupportedPtyEntries
+} from './persistence-state-session-migration'
 
 // The split loaders use named bindings while construction stays in the aggregate facade.
 export { persistenceLoadDependencies }
+export {
+  canonicalizePersistedFloatingWorkspaceDirectory,
+  migrateAgentYoloDefaults,
+  normalizeClaudeLivePtySessionIds,
+  normalizeFloatingWorkspaceTrustedCwds,
+  normalizeLegacyPaneKeyAliasEntries,
+  normalizeMigrationUnsupportedPtyEntries,
+  normalizeNotificationSettings,
+  normalizeShowDotfilesByWorktree,
+  normalizeSshRemotePtyLease,
+  normalizeSshTarget,
+  parseWorkspaceSessionsByHostId
+}
 
 export const {
   app,
