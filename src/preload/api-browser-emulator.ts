@@ -1,14 +1,13 @@
 import type * as ApiExternal from "./api-types-external"
-import type * as ApiFacade from "./api-types"
 type TaskSourceContext = ApiExternal.TaskSourceContext; type ProjectExecutionRuntimeResolution = ApiExternal.ProjectExecutionRuntimeResolution; type BrowserCookieImportResult = ApiExternal.BrowserCookieImportResult; type BrowserCertificateFailure = ApiExternal.BrowserCertificateFailure; type BrowserCertificateProceedResult = ApiExternal.BrowserCertificateProceedResult; type BrowserLoadError = ApiExternal.BrowserLoadError; type BrowserSessionProfile = ApiExternal.BrowserSessionProfile; type BrowserSessionProfileScope = ApiExternal.BrowserSessionProfileScope; type BrowserSessionProfileSource = ApiExternal.BrowserSessionProfileSource; type BrowserViewportOverride = ApiExternal.BrowserViewportOverride; type PathSource = ApiExternal.PathSource; type ShellHydrationFailureReason = ApiExternal.ShellHydrationFailureReason; type StatsSummary = ApiExternal.StatsSummary; type BrowserSetGrabModeArgs = ApiExternal.BrowserSetGrabModeArgs; type BrowserSetGrabModeResult = ApiExternal.BrowserSetGrabModeResult; type BrowserAwaitGrabSelectionArgs = ApiExternal.BrowserAwaitGrabSelectionArgs; type BrowserGrabResult = ApiExternal.BrowserGrabResult; type BrowserCancelGrabArgs = ApiExternal.BrowserCancelGrabArgs; type BrowserCaptureSelectionScreenshotArgs = ApiExternal.BrowserCaptureSelectionScreenshotArgs; type BrowserCaptureSelectionScreenshotResult = ApiExternal.BrowserCaptureSelectionScreenshotResult; type BrowserExtractHoverArgs = ApiExternal.BrowserExtractHoverArgs; type BrowserExtractHoverResult = ApiExternal.BrowserExtractHoverResult; type BrowserContextMenuDismissedEvent = ApiExternal.BrowserContextMenuDismissedEvent; type BrowserContextMenuRequestedEvent = ApiExternal.BrowserContextMenuRequestedEvent; type BrowserDownloadFinishedEvent = ApiExternal.BrowserDownloadFinishedEvent; type BrowserDownloadProgressEvent = ApiExternal.BrowserDownloadProgressEvent; type BrowserDownloadRequestedEvent = ApiExternal.BrowserDownloadRequestedEvent; type BrowserPermissionDeniedEvent = ApiExternal.BrowserPermissionDeniedEvent; type BrowserPopupEvent = ApiExternal.BrowserPopupEvent; type BrowserSetAnnotationViewportBridgeArgs = ApiExternal.BrowserSetAnnotationViewportBridgeArgs; 
 
-type GitLabRepoSelectorArgs = {
+export type GitLabRepoSelectorArgs = {
   repoPath: string
   repoId?: string | null
   sourceContext?: TaskSourceContext | null
 }
 
-type GitHubRepoSelectorArgs = {
+export type GitHubRepoSelectorArgs = {
   repoPath: string
   repoId?: string | null
   sourceContext?: TaskSourceContext | null
@@ -258,4 +257,3 @@ export type DiagnosticsUploadPayload =
   | {
       readonly canceled: true
     }
-

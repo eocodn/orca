@@ -11,7 +11,6 @@ export function createPreloadApiUi(): Record<string, unknown> {
       ...createPreloadApiUiBrowser().ui,
       ...createPreloadApiUiTerminal().ui,
       ...createPreloadApiUiWindow().ui
-    } satisfies PreloadApi['ui']
+    } as PreloadApi['ui']
   }
 }
-

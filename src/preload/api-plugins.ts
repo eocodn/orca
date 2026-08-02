@@ -1,5 +1,4 @@
 import type * as ApiExternal from "./api-types-external"
-import type * as ApiFacade from "./api-types"
 type AppIdentity = ApiExternal.AppIdentity; type WriteTerminalRenderDesyncEvidenceArgs = ApiExternal.WriteTerminalRenderDesyncEvidenceArgs; type WriteTerminalRenderDesyncEvidenceResult = ApiExternal.WriteTerminalRenderDesyncEvidenceResult; type PluginManifest = ApiExternal.PluginManifest; type PluginMarketplaceGitSource = ApiExternal.PluginMarketplaceGitSource; type MarkdownDocument = ApiExternal.MarkdownDocument; type FloatingTerminalCwdRequest = ApiExternal.FloatingTerminalCwdRequest; type PersistedUIState = ApiExternal.PersistedUIState; type WorkspaceSessionState = ApiExternal.WorkspaceSessionState; type ExecutionHostId = ApiExternal.ExecutionHostId; 
 
 export type AppApi = {
@@ -179,4 +178,3 @@ export type PluginMarketplaceHostInstallPreview = {
   bundled: boolean
   blockedByKillList?: { reason: string; advisoryUrl?: string }
 }
-
