@@ -92,7 +92,10 @@ import { type PendingDaemonSpawnOperation,
   MAX_TOMBSTONES,
   MAX_CONCURRENT_CHECKPOINTS,
   remainingRequestTimeoutMs,
-  TerminalKilledError } from './daemon-pty-adapter-foundation'
+  TerminalKilledError,
+  isMissingTokenFileError,
+  isMissingWindowsNamedPipeError
+} from './daemon-pty-adapter-foundation'
 import { DaemonPtyAdapterPhase2 } from './daemon-pty-adapter-session'
 
 export class DaemonPtyAdapterPhase3 extends DaemonPtyAdapterPhase2 {

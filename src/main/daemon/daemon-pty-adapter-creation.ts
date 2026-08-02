@@ -92,7 +92,9 @@ import { DaemonPtyAdapterFoundation,type PendingDaemonSpawnOperation,
   MAX_TOMBSTONES,
   MAX_CONCURRENT_CHECKPOINTS,
   remainingRequestTimeoutMs,
-  TerminalKilledError } from './daemon-pty-adapter-foundation'
+  TerminalKilledError,
+  isDaemonGoneError
+} from './daemon-pty-adapter-foundation'
 
 export class DaemonPtyAdapterPhase1 extends DaemonPtyAdapterFoundation {
   protected async doSpawn(

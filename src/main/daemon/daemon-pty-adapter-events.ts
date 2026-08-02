@@ -92,7 +92,10 @@ import { type PendingDaemonSpawnOperation,
   MAX_TOMBSTONES,
   MAX_CONCURRENT_CHECKPOINTS,
   remainingRequestTimeoutMs,
-  TerminalKilledError } from './daemon-pty-adapter-foundation'
+  TerminalKilledError,
+  isDaemonGoneError,
+  isMissingTokenFileError
+} from './daemon-pty-adapter-foundation'
 import { DaemonPtyAdapterPhase4 } from './daemon-pty-adapter-reconnect'
 
 export class DaemonPtyAdapterPhase5 extends DaemonPtyAdapterPhase4 {
@@ -149,7 +152,7 @@ export class DaemonPtyAdapterPhase5 extends DaemonPtyAdapterPhase4 {
         })
         // Why: .finally() re-throws, so a rejected checkpoint would surface as an unhandled rejection here.
         .catch(() => {})
-    }, DaemonPtyAdapter.CHECKPOINT_INTERVAL_MS)
+    }, this.checkpointIntervalMs())
   }
 
   protected markSessionDirty(sessionId: string): void {
@@ -262,7 +265,7 @@ export class DaemonPtyAdapterPhase5 extends DaemonPtyAdapterPhase4 {
     }
     const elapsed = Date.now() - last
     // Why elapsed < 0 counts as expired: a backward wall-clock jump must not extend the deferral window.
-    return elapsed >= 0 && elapsed < DaemonPtyAdapter.FULL_CHECKPOINT_COOLDOWN_MS
+    return elapsed >= 0 && elapsed < this.fullCheckpointCooldownMs()
   }
 
   // Why 'deferred' exists: a full snapshot inside the cooldown is postponed and the session stays dirty for retry;

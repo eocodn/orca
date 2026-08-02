@@ -235,6 +235,14 @@ export class DaemonPtyAdapterFoundation implements IPtyProvider {
   protected static FULL_CHECKPOINT_COOLDOWN_MS = 45_000
   protected lastFullCheckpointAt = new Map<string, number>()
 
+  protected checkpointIntervalMs(): number {
+    return (this.constructor as typeof DaemonPtyAdapterFoundation).CHECKPOINT_INTERVAL_MS
+  }
+
+  protected fullCheckpointCooldownMs(): number {
+    return (this.constructor as typeof DaemonPtyAdapterFoundation).FULL_CHECKPOINT_COOLDOWN_MS
+  }
+
   supportsGitCredentialGuardHost(): boolean {
     return this.protocolVersion >= GIT_CREDENTIAL_GUARD_HOST_PROTOCOL_VERSION
   }
@@ -422,7 +430,10 @@ function removeListener<T>(listeners: T[], listener: T): void {
   }
 }
 
-function notifyAuditListeners<T>(listeners: readonly ((value: T) => void)[], value: T): void {
+export function notifyAuditListeners<T>(
+  listeners: readonly ((value: T) => void)[],
+  value: T
+): void {
   for (const listener of listeners.slice()) {
     try {
       listener(value)
@@ -434,7 +445,7 @@ function notifyAuditListeners<T>(listeners: readonly ((value: T) => void)[], val
 
 // Why: syscall='connect' distinguishes a dead-socket ENOENT/ECONNREFUSED from token-file ENOENT (no syscall);
 // message strings incl. wedged-daemon "Hello response timed out" (#8689) also warrant a respawn.
-function isDaemonGoneError(err: unknown): boolean {
+export function isDaemonGoneError(err: unknown): boolean {
   if (!(err instanceof Error)) {
     return false
   }
@@ -451,7 +462,7 @@ function isDaemonGoneError(err: unknown): boolean {
   )
 }
 
-function isMissingTokenFileError(err: unknown): boolean {
+export function isMissingTokenFileError(err: unknown): boolean {
   if (!(err instanceof Error)) {
     return false
   }
@@ -459,11 +470,10 @@ function isMissingTokenFileError(err: unknown): boolean {
   return errno.code === 'ENOENT' && errno.syscall === 'open'
 }
 
-function isMissingWindowsNamedPipeError(err: unknown): boolean {
+export function isMissingWindowsNamedPipeError(err: unknown): boolean {
   if (process.platform !== 'win32' || !(err instanceof Error)) {
     return false
   }
   const errno = err as NodeJS.ErrnoException
   return errno.code === 'ENOENT' && errno.syscall === 'connect'
 }
-
