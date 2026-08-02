@@ -233,23 +233,12 @@ import {
   getCheckCounts,
   getChecksSummaryLabel
 } from '@/components/pr-check-counts'
-
-// Why: the item URL is the only host-aware repository identity present on every work item across IPC.
-function parseOwnerRepoFromItemUrl(url: string): GitHubOwnerRepo | null {
-  try {
-    const parsed = new URL(url)
-    if ((parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || !parsed.host) {
-      return null
-    }
-    const segments = parsed.pathname.split('/').filter(Boolean)
-    if (segments.length < 2) {
-      return null
-    }
-    return { owner: segments[0], repo: segments[1], host: parsed.host }
-  } catch {
-    return null
-  }
-}
+import {
+  formatGitHubWorkItemRelativeTime as formatRelativeTime,
+  getGitHubWorkItemStateLabel as getStateLabel,
+  getGitHubWorkItemStateTone,
+  parseOwnerRepoFromItemUrl
+} from '@/components/github-work-item-display'
 
 const MonacoCodeExcerpt = lazy(() => import('@/components/editor/MonacoCodeExcerpt'))
 
@@ -341,25 +330,6 @@ type PullRequestPageProps = {
   projectOrigin?: PullRequestPageProjectOrigin
 }
 
-function formatRelativeTime(input: string): string {
-  const date = new Date(input)
-  if (Number.isNaN(date.getTime())) {
-    return 'recently'
-  }
-  const diffMs = date.getTime() - Date.now()
-  const diffMinutes = Math.round(diffMs / 60_000)
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-  if (Math.abs(diffMinutes) < 60) {
-    return formatter.format(diffMinutes, 'minute')
-  }
-  const diffHours = Math.round(diffMinutes / 60)
-  if (Math.abs(diffHours) < 24) {
-    return formatter.format(diffHours, 'hour')
-  }
-  const diffDays = Math.round(diffHours / 24)
-  return formatter.format(diffDays, 'day')
-}
-
 function findMentionQuery(value: string, caret: number): MentionQuery | null {
   const beforeCaret = value.slice(0, caret)
   const match = /(^|[\s([{,])@([A-Za-z0-9-]*)$/.exec(beforeCaret)
@@ -371,6 +341,13 @@ function findMentionQuery(value: string, caret: number): MentionQuery | null {
     atIndex: beforeCaret.length - query.length - 1,
     query
   }
+}
+
+function getStateTone(item: GitHubWorkItem): string {
+  if (item.type !== 'pr' && item.state === 'closed') {
+    return 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300'
+  }
+  return getGitHubWorkItemStateTone(item)
 }
 
 function buildMentionOptions({
@@ -420,41 +397,6 @@ function buildMentionOptions({
   }
 
   return Array.from(byLogin.values())
-}
-
-function getStateLabel(item: GitHubWorkItem): string {
-  if (item.type === 'pr') {
-    if (item.state === 'merged') {
-      return 'Merged'
-    }
-    if (item.state === 'draft') {
-      return 'Draft'
-    }
-    if (item.state === 'closed') {
-      return 'Closed'
-    }
-    return 'Open'
-  }
-  return item.state === 'closed' ? 'Closed' : 'Open'
-}
-
-function getStateTone(item: GitHubWorkItem): string {
-  if (item.type === 'pr') {
-    if (item.state === 'merged') {
-      return 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-300'
-    }
-    if (item.state === 'draft') {
-      return 'border-slate-500/30 bg-slate-500/10 text-slate-600 dark:text-slate-300'
-    }
-    if (item.state === 'closed') {
-      return 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300'
-    }
-    return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
-  }
-  if (item.state === 'closed') {
-    return 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300'
-  }
-  return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
 }
 
 function WorkItemStateBadge({
