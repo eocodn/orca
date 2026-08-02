@@ -1,6 +1,6 @@
 // Main-process startup, window lifecycle, serve mode, and shutdown implementation.
-import { existsSync, statSync } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import os from 'node:os'
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, type Tray } from 'electron'
 import { initTccPromptNotice, stopTccPromptNotice } from './macos-tcc-prompt-notice'
@@ -73,7 +73,6 @@ import {
   recordRuntimeRpcStartFailure,
   showRuntimeRpcStartupFailureDialog
 } from './runtime/runtime-rpc-startup-failure'
-import { resolveAdvertisedPairingEndpoint } from './runtime/pairing-endpoint'
 import { ServeReadinessPublisher } from './server/serve-readiness'
 import { reserveServeStdoutForReadiness } from './server/serve-stdout-boundary'
 import { DesktopRelayService } from './runtime/relay/desktop-relay-service'
@@ -100,10 +99,7 @@ import {
 import { configureRemoteServerUpdater } from './runtime/remote-server-updater'
 import type { TuiAgent, UpdateCheckOptions } from '../shared/types'
 import { recordUpdaterLifecycle } from './updater-lifecycle-diagnostics'
-import {
-  installServeSupervisorDisconnectQuit,
-  notifyServeSupervisorReady
-} from './serve-update-handoff'
+import { installServeSupervisorDisconnectQuit } from './serve-update-handoff'
 import {
   configureElectronNetworkCompatibility,
   configureDevUserDataPath,
@@ -303,6 +299,13 @@ import { preserveAgentAuthBeforeRestart } from './agent-auth-restart-preservatio
 import { CliInstaller } from './cli/cli-installer'
 import { installLinuxBareOrcaDispatcher } from './cli/linux-bare-orca-dispatcher'
 import { reconcileManagedWslCliRegistrations } from './cli/wsl-cli-registration-reconciliation'
+import {
+  getBundledWebClientRoot,
+  getServeOptions,
+  installServeSignalHandlers,
+  printServeReady,
+  type ServeOptions
+} from './main-process-serve-startup-lifecycle'
 
 let mainWindow: BrowserWindow | null = null
 /** Whether a manual app.quit() (Cmd+Q) is in progress; lets the close handler skip the running-process confirmation and go straight to close. */
@@ -1666,140 +1669,6 @@ const syntheticTitleSpinnerByPaneKey = new Map<
 >()
 let syntheticTitleSpinnerTimer: ReturnType<typeof setInterval> | null = null
 
-type ServeOptions = {
-  json: boolean
-  wsPort?: number
-  pairingAddress: string | null
-  noPairing: boolean
-  mobilePairing: boolean
-  recipeJson: boolean
-  projectRoot: string | null
-}
-
-function getServeOptions(argv = process.argv): ServeOptions {
-  const valueAfter = (flag: string): string | null => {
-    const index = argv.indexOf(flag)
-    if (index === -1) {
-      return null
-    }
-    const value = argv[index + 1]
-    return value && !value.startsWith('--') ? value : null
-  }
-  const rawPort = valueAfter('--serve-port')
-  let wsPort: number | undefined
-  if (rawPort) {
-    const parsedPort = Number(rawPort)
-    if (!Number.isInteger(parsedPort) || parsedPort < 0 || parsedPort > 65535) {
-      throw new Error(`Invalid --serve-port value: ${rawPort}`)
-    }
-    wsPort = parsedPort
-  }
-  return {
-    json: argv.includes('--serve-json'),
-    ...(wsPort !== undefined ? { wsPort } : {}),
-    pairingAddress: valueAfter('--serve-pairing-address'),
-    noPairing: argv.includes('--serve-no-pairing'),
-    mobilePairing: argv.includes('--serve-mobile-pairing'),
-    recipeJson: argv.includes('--serve-recipe-json'),
-    projectRoot: valueAfter('--serve-project-root')
-  }
-}
-
-function getBundledWebClientRoot(): string | undefined {
-  const appPath = app.getAppPath()
-  const roots = [
-    join(appPath, 'out', 'web'),
-    // Why: unpacked electron-vite entrypoints set appPath to out/main, next to the web bundle.
-    join(appPath, '..', 'web')
-  ]
-  return roots.find((root) => existsSync(join(root, 'web-index.html')))
-}
-
-async function renderTerminalPairingQr(pairingUrl: string): Promise<string | null> {
-  // Why dynamic: qrcode is only reachable from mobile pairing, so launch should
-  // not parse it for the majority who never pair a device.
-  const QRCode = await import('qrcode')
-  try {
-    return await QRCode.toString(pairingUrl, { type: 'terminal', small: true })
-  } catch {
-    try {
-      return await QRCode.toString(pairingUrl, { type: 'utf8' })
-    } catch {
-      return null
-    }
-  }
-}
-
-async function printServeReady(options: ServeOptions): Promise<void> {
-  if (!runtime || !runtimeRpc) {
-    throw new Error('Runtime server must be initialized before printing serve readiness')
-  }
-  if (options.recipeJson) {
-    if (!options.projectRoot) {
-      throw new Error('--serve-recipe-json requires --serve-project-root')
-    }
-    if (!isAbsolute(options.projectRoot)) {
-      throw new Error(`--serve-project-root must be absolute: ${options.projectRoot}`)
-    }
-    const projectRootStats = statSync(options.projectRoot)
-    if (!projectRootStats.isDirectory()) {
-      throw new Error(`--serve-project-root must be a directory: ${options.projectRoot}`)
-    }
-  }
-  const boundEndpoint = runtimeRpc.getWebSocketEndpoint()
-  const advertised = boundEndpoint
-    ? resolveAdvertisedPairingEndpoint(boundEndpoint, options.pairingAddress)
-    : null
-  const pairing = options.noPairing
-    ? ({
-        available: false,
-        reason: 'disabled_by_operator',
-        guidance: 'Restart without --no-pairing to create a client pairing offer.'
-      } as const)
-    : runtimeRpc.createPairingOffer({
-        address: options.pairingAddress,
-        name: `${options.mobilePairing ? 'Mobile' : 'CLI'} ${new Date().toLocaleDateString()}`,
-        scope: options.mobilePairing ? 'mobile' : 'runtime'
-      })
-  const pairingQr =
-    pairing.available && options.mobilePairing
-      ? await renderTerminalPairingQr(pairing.pairingUrl)
-      : null
-  await serveReadinessPublisher.publish(
-    {
-      runtimeId: runtime.getRuntimeId(),
-      boundEndpoint,
-      advertisedEndpoint: advertised?.ok ? advertised.endpoint : null,
-      // Why: the WSL reconciliation barrier fails open, so 'pending' warns a WSL PTY launch may still race a repair.
-      managedWslCliReconciliation: managedWslCliReconciliationStatus,
-      pairing: pairing.available
-        ? {
-            available: true,
-            url: pairing.pairingUrl,
-            endpoint: pairing.endpoint,
-            deviceId: pairing.deviceId,
-            webClientUrl: pairing.webClientUrl,
-            scope: options.mobilePairing ? 'mobile' : 'runtime',
-            qr: pairingQr
-          }
-        : pairing
-    },
-    options.recipeJson
-      ? { mode: 'recipe-json', projectRoot: options.projectRoot! }
-      : { mode: options.json ? 'json' : 'human' }
-  )
-  notifyServeSupervisorReady(runtime.getRuntimeId())
-}
-
-function installServeSignalHandlers(): void {
-  const quit = (): void => {
-    // Why: route SIGINT/SIGTERM through Electron's normal quit so runtime metadata, daemon checkpoints, and telemetry flush.
-    app.quit()
-  }
-  process.once('SIGINT', quit)
-  process.once('SIGTERM', quit)
-}
-
 // Why: on PTY teardown drop the spinner entry explicitly, else the shared timer keeps ticking with sendSyntheticTitle no-oping forever.
 registerPaneKeyTeardownListener((paneKey) => {
   stopSyntheticTitleSpinner(paneKey)
@@ -2835,7 +2704,12 @@ void app.whenReady().then(async () => {
     // Why: serve deletes worktrees too, and the history GC that normally drains delete tombstones is
     // armed from the main window — without this, a quit mid-removal leaks the tree until a desktop launch.
     scheduleAllPendingHistoryTreeRemovals()
-    await printServeReady(serveOptions)
+    await printServeReady(serveOptions, {
+      runtime,
+      runtimeRpc,
+      readinessPublisher: serveReadinessPublisher,
+      managedWslCliReconciliationStatus
+    })
     return
   }
 
