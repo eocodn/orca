@@ -246,6 +246,52 @@ describe('SshPortForwardManager', () => {
     expect(resolved).toBe(true)
   })
 
+  it('rejects an update that arrives after async removal has started', async () => {
+    let resolveClose!: () => void
+    const forward = createFakeSystemSshForward()
+    forward.close.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveClose = resolve
+      })
+    )
+    startSystemSshPortForwardProcessMock.mockReturnValue(forward)
+    const conn = createSystemSshConn()
+    const entry = await manager.addForward('conn-1', conn as never, 3000, '127.0.0.1', 8080)
+
+    const removal = manager.removeForwardAndWait(entry.id)
+
+    await expect(
+      manager.updateForward(entry.id, conn as never, 3001, '127.0.0.1', 8081)
+    ).rejects.toThrow('port_forward_cancelled')
+
+    resolveClose()
+    await removal
+    expect(manager.listForwards('conn-1')).toHaveLength(0)
+  })
+
+  it('rejects a new forward while connection cleanup is still closing', async () => {
+    let resolveClose!: () => void
+    const forward = createFakeSystemSshForward()
+    forward.close.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveClose = resolve
+      })
+    )
+    startSystemSshPortForwardProcessMock.mockReturnValue(forward)
+    const conn = createSystemSshConn()
+    await manager.addForward('conn-1', conn as never, 3000, '127.0.0.1', 8080)
+
+    const cleanup = manager.removeAllForwards('conn-1')
+
+    await expect(
+      manager.addForward('conn-1', conn as never, 3001, '127.0.0.1', 8081)
+    ).rejects.toThrow('port_forward_cancelled')
+
+    resolveClose()
+    await cleanup
+    expect(manager.listForwards('conn-1')).toHaveLength(0)
+  })
+
   it('shares an in-flight close when overlapping removals target the same forward', async () => {
     let resolveClose!: () => void
     const forward = createFakeSystemSshForward()

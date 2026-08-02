@@ -1953,6 +1953,7 @@ type RuntimeWorktreeRemovalTarget = {
   id: string
   repoId: string
   path: string
+  hostId?: ExecutionHostId
   pushTarget?: GitPushTarget
 }
 
@@ -1969,6 +1970,10 @@ type PreservedBranchCleanupTarget = {
 
 function getRuntimeWorktreeRemovalOptionsKey(force: boolean, runHooks: boolean): string {
   return `${force ? 'force' : 'normal'}:${runHooks ? 'run-hooks' : 'skip-hooks'}`
+}
+
+function getRuntimeWorktreeRemovalKey(target: RuntimeWorktreeRemovalTarget): string {
+  return `${target.hostId ?? 'legacy'}\0${target.id}`
 }
 
 function getRuntimeFolderWorkspaceRootId(repo: Repo): string {
@@ -6503,8 +6508,19 @@ export class OrcaRuntimeService {
         ) {
           return false
         }
-        // Why: without an exact in-memory retirement fence, preserve unrelated surfaces while the folder host is absent.
-        return true
+        const candidatePty = candidatePtyId ? this.ptysById.get(candidatePtyId) : undefined
+        if (!candidatePtyId || !candidatePty) {
+          // Why: missing candidate identity is not evidence against an unrelated retained surface.
+          return true
+        }
+        const candidatePane = parsePaneKey(candidatePty?.paneKey ?? '')
+        // Why: an absent folder host cannot authorize a stale graph frame; only the exact live PTY surface may survive.
+        return Boolean(
+          candidatePty?.connected &&
+          candidatePty.worktreeId === worktreeId &&
+          candidatePty.tabId === parentTabId &&
+          candidatePane?.leafId === leafId
+        )
       }
     }
     const session = this.getWorkspaceSessionForWorktree(worktreeId)
@@ -6824,6 +6840,7 @@ export class OrcaRuntimeService {
     const nextSessionByHostId = new Map<ExecutionHostId, WorkspaceSessionState>()
     const sessionBeforeRetirementByHostId = new Map<ExecutionHostId, WorkspaceSessionState>()
     const acceptedSurfaces: RetiredTerminalSurface[] = []
+    let durableIncarnationMismatch = false
     for (const surface of retiredSurfaces) {
       let hostId: ExecutionHostId
       try {
@@ -6866,6 +6883,16 @@ export class OrcaRuntimeService {
       if (retiredSession !== nextSession) {
         acceptedSurfaces.push(surface)
         nextSessionByHostId.set(hostId, retiredSession)
+      } else if (
+        currentSession.terminalPtyIncarnationsByPaneKey?.[
+          `${surface.parentTabId}:${surface.leafId}`
+        ] !== undefined &&
+        currentSession.terminalPtyIncarnationsByPaneKey[
+          `${surface.parentTabId}:${surface.leafId}`
+        ] !== surface.incarnationId
+      ) {
+        // Why: a different durable incarnation proves this exit cannot retire the persisted surface; keep the old retry authority.
+        durableIncarnationMismatch = true
       }
     }
     if (sessionBeforeRetirementByHostId.size > 0) {
@@ -6875,6 +6902,9 @@ export class OrcaRuntimeService {
         return false
       }
       if (acceptedSurfaces.length === 0) {
+        if (durableIncarnationMismatch) {
+          return false
+        }
         if (options.ensureDurableFlush) {
           try {
             this.store.flushOrThrow()
@@ -19110,7 +19140,7 @@ export class OrcaRuntimeService {
       throw new Error('runtime_unavailable')
     }
     const repo = await this.resolveRepoSelector(repoSelector)
-    this.store.removeProject(repo.id)
+    this.store.removeProjectForHost(repo.id, getRepoExecutionHostId(repo))
     this.terminalTopologyRevisionByRepoId.delete(repo.id)
     this.invalidateResolvedWorktreeCache()
     this.invalidateWorktreeScanCacheForRepo(repo.id)
@@ -23973,10 +24003,16 @@ export class OrcaRuntimeService {
   ): Promise<RuntimeWorktreeRemovalTarget> {
     try {
       const worktree = await this.resolveWorktreeSelector(worktreeSelector)
+      const repo = this.store?.getRepos().find((candidate) => candidate.id === worktree.repoId)
       const removalTarget = {
         id: worktree.id,
         repoId: worktree.repoId,
-        path: worktree.path
+        path: worktree.path,
+        ...(worktree.hostId
+          ? { hostId: worktree.hostId }
+          : repo
+            ? { hostId: getRepoExecutionHostId(repo) }
+            : {})
       }
       return worktree.pushTarget
         ? { ...removalTarget, pushTarget: worktree.pushTarget }
@@ -23993,7 +24029,16 @@ export class OrcaRuntimeService {
       // Why: delete requests can arrive after Git no longer lists the worktree.
       // Only exact IDs with persisted Orca metadata are accepted here so
       // branch/path selectors cannot resolve to an arbitrary missing path.
-      return meta.pushTarget ? { ...removalTarget, pushTarget: meta.pushTarget } : removalTarget
+      const repo = this.store?.getRepos().find((candidate) => candidate.id === removalTarget.repoId)
+      return {
+        ...removalTarget,
+        ...(meta.hostId
+          ? { hostId: meta.hostId }
+          : repo
+            ? { hostId: getRepoExecutionHostId(repo) }
+            : {}),
+        ...(meta.pushTarget ? { pushTarget: meta.pushTarget } : {})
+      }
     }
   }
 
@@ -24137,7 +24182,8 @@ export class OrcaRuntimeService {
     const store = this.store
     const removalTarget = await this.resolveWorktreeRemovalTarget(worktreeSelector)
     const optionsKey = getRuntimeWorktreeRemovalOptionsKey(force, runHooks)
-    const inFlightRemoval = this.removeManagedWorktreeInFlight.get(removalTarget.id)
+    const removalKey = getRuntimeWorktreeRemovalKey(removalTarget)
+    const inFlightRemoval = this.removeManagedWorktreeInFlight.get(removalKey)
     if (inFlightRemoval) {
       if (inFlightRemoval.optionsKey === optionsKey) {
         return inFlightRemoval.promise
@@ -24151,7 +24197,15 @@ export class OrcaRuntimeService {
       // Why: CLI, mobile and headless serve delete through here rather than the IPC handler; without
       // this span their freezes are as invisible as desktop deletes were before `worktree.remove`.
       return withWorktreeSpan({ stage: 'remove', path: removalTarget.path }, async () => {
-        const repo = store.getRepo(removalTarget.repoId)
+        const repo =
+          store
+            .getRepos()
+            .find(
+              (candidate) =>
+                candidate.id === removalTarget.repoId &&
+                (!removalTarget.hostId ||
+                  getRepoExecutionHostId(candidate) === removalTarget.hostId)
+            ) ?? store.getRepo(removalTarget.repoId)
         if (!repo) {
           throw new Error('repo_not_found')
         }
@@ -24652,7 +24706,7 @@ export class OrcaRuntimeService {
         }
       })
     })()
-    this.removeManagedWorktreeInFlight.set(removalTarget.id, { optionsKey, promise: removal })
+    this.removeManagedWorktreeInFlight.set(removalKey, { optionsKey, promise: removal })
     try {
       const result = await removal
       this.emitWorktreeLifecycle({
@@ -24662,8 +24716,8 @@ export class OrcaRuntimeService {
       })
       return result
     } finally {
-      if (this.removeManagedWorktreeInFlight.get(removalTarget.id)?.promise === removal) {
-        this.removeManagedWorktreeInFlight.delete(removalTarget.id)
+      if (this.removeManagedWorktreeInFlight.get(removalKey)?.promise === removal) {
+        this.removeManagedWorktreeInFlight.delete(removalKey)
       }
     }
   }
@@ -28511,9 +28565,13 @@ export class OrcaRuntimeService {
       return []
     }
     const byWorktreeId = new Map<string, GitWorktreeInfo>()
+    const repoHostId = getRepoExecutionHostId(repo)
     for (const [worktreeId, meta] of Object.entries(store.getAllWorktreeMeta())) {
       const parsed = splitWorktreeId(worktreeId)
       if (!parsed || parsed.repoId !== repo.id) {
+        continue
+      }
+      if (meta.hostId !== undefined && meta.hostId !== repoHostId) {
         continue
       }
       // Why: mirror worktrees:list's disconnected-SSH fallback — keep persisted SSH worktrees while the provider reconnects instead of zero rows.

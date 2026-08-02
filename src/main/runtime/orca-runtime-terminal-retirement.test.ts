@@ -850,6 +850,48 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     }
   })
 
+  it('retains an old durable retirement when a replacement exit does not match persistence', async () => {
+    vi.useFakeTimers()
+    try {
+      let session = makePersistedSplitSession()
+      session.terminalPtyIncarnationsByPaneKey = { 'tab:left': 'durable-old' }
+      const flushOrThrow = vi.fn(() => {
+        throw new Error('disk unavailable')
+      })
+      const runtime = new OrcaRuntimeService(
+        runtimeStore({
+          getWorkspaceSession: () => session,
+          setWorkspaceSession: vi.fn((nextSession) => {
+            session = nextSession
+          }),
+          flushOrThrow
+        })
+      )
+      runtime.attachWindow(1)
+      syncSplit(runtime)
+      runtime.registerPty('pty-left', WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'left',
+        incarnationId: 'durable-old'
+      })
+
+      runtime.onPtyExit('pty-left', 0, 'durable-old')
+      runtime.acceptPtyIncarnationForExit('pty-left', 'replacement-after-persist-failure')
+      runtime.onPtyExit('pty-left', 0, 'replacement-after-persist-failure')
+      await vi.advanceTimersByTimeAsync(0)
+
+      const pendingKeys = [
+        ...(runtime as unknown as { pendingPtyDurableRetirements: Map<string, unknown> })
+          .pendingPtyDurableRetirements.keys()
+      ]
+      expect(pendingKeys.some((key) => key.includes('durable-old'))).toBe(true)
+      expect(session.terminalPtyIncarnationsByPaneKey?.['tab:left']).toBe('durable-old')
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+
   it('retains a failed old retirement until a disconnected replacement is admitted', async () => {
     let session = makePersistedSplitSession()
     session.terminalPtyIncarnationsByPaneKey = {
@@ -1272,6 +1314,37 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
         'pty-left'
       )?.connected
     ).toBe(false)
+  })
+
+  it('rejects a stale folder surface whose candidate PTY belongs to another worktree', async () => {
+    const folderWorktree = 'folder:gone-folder'
+    const session = makePersistedSplitSession(folderWorktree)
+    const runtime = new OrcaRuntimeService(
+      runtimeStore({
+        getFolderWorkspaces: () => [],
+        getWorkspaceSession: () => session,
+        setWorkspaceSession: vi.fn(),
+        flushOrThrow: vi.fn()
+      })
+    )
+    runtime.attachWindow(1)
+    syncSplit(runtime, makeSplitSnapshot('pty-left', 'pty-right', folderWorktree))
+    runtime.registerPty('pty-left', 'repo::/other-worktree', null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'foreign-folder-candidate'
+    })
+    runtime.registerPty('pty-right', folderWorktree, null, {
+      tabId: 'tab',
+      leafId: 'right',
+      incarnationId: 'valid-folder-candidate'
+    })
+
+    syncSplit(runtime, makeSplitSnapshot('pty-left', 'pty-right', folderWorktree))
+
+    await expect(runtime.listMobileSessionTabs(`id:${folderWorktree}`)).resolves.not.toMatchObject({
+      tabs: expect.arrayContaining([expect.objectContaining({ id: 'tab::left' })])
+    })
   })
 
   it('uses the worktree host when filtering a stale graph leaf after PTY exit', () => {

@@ -30,6 +30,7 @@ export class SshPortForwardManager {
   private closingForwards = new Map<string, Promise<PortForwardEntry | null>>()
   private pendingForwardStarts = new Map<string, PendingForwardStart>()
   private forwardMutationCoordinator = new SshPortForwardMutationCoordinator()
+  private connectionCleanupFences = new Map<string, Promise<void>>()
   private nextId = 1
   private providers: SshPortForwardProvider[]
   private callbacks: SshPortForwardManagerCallbacks
@@ -58,6 +59,9 @@ export class SshPortForwardManager {
     remotePort: number,
     label?: string
   ): Promise<PortForwardEntry> {
+    if (this.connectionCleanupFences.has(connectionId)) {
+      throw new Error('port_forward_cancelled')
+    }
     return this.addForwardWithId(
       `pf-${this.nextId++}`,
       connectionId,
@@ -137,7 +141,11 @@ export class SshPortForwardManager {
     remotePort: number,
     label?: string
   ): Promise<PortForwardEntry> {
-    if (this.disposed) {
+    if (
+      this.disposed ||
+      this.closingForwards.has(id) ||
+      this.connectionCleanupFences.has(this.forwards.get(id)?.entry.connectionId ?? '')
+    ) {
       throw new Error('port_forward_cancelled')
     }
     return this.forwardMutationCoordinator.run(id, this.forwards.get(id)?.entry.connectionId ?? '',
@@ -267,6 +275,26 @@ export class SshPortForwardManager {
   }
 
   async removeAllForwards(connectionId: string): Promise<void> {
+    const existingCleanup = this.connectionCleanupFences.get(connectionId)
+    if (existingCleanup) {
+      return existingCleanup
+    }
+    let releaseCleanup!: () => void
+    const cleanupFence = new Promise<void>((resolve) => {
+      releaseCleanup = resolve
+    })
+    this.connectionCleanupFences.set(connectionId, cleanupFence)
+    try {
+      await this.removeAllForwardsUnderFence(connectionId)
+    } finally {
+      releaseCleanup()
+      if (this.connectionCleanupFences.get(connectionId) === cleanupFence) {
+        this.connectionCleanupFences.delete(connectionId)
+      }
+    }
+  }
+
+  private async removeAllForwardsUnderFence(connectionId: string): Promise<void> {
     const mutationIds = this.forwardMutationCoordinator.idsForConnection(connectionId)
     for (const id of mutationIds) {
       this.forwardMutationCoordinator.cancel(id, connectionId)

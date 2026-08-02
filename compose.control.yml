@@ -256,11 +256,13 @@ services:
         pnpm exec oxfmt --check src/main/index.ts src/main/ipc/pty.ts
         src/main/ipc/pty.test.ts src/main/ipc/superseded-pty-exit-evidence.ts
         src/main/ipc/superseded-pty-exit-evidence.test.ts
-        src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts &&
+        src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts
+        src/main/ssh/ssh-port-forward-mutation-coordinator.ts &&
         pnpm exec oxlint src/main/index.ts src/main/ipc/pty.ts
         src/main/ipc/pty.test.ts src/main/ipc/superseded-pty-exit-evidence.ts
         src/main/ipc/superseded-pty-exit-evidence.test.ts
         src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts
+        src/main/ssh/ssh-port-forward-mutation-coordinator.ts
     init: true
     network_mode: host
 

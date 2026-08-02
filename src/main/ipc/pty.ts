@@ -391,6 +391,31 @@ let pendingPtyCleanupFinalizer:
   | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => boolean)
   | null = null
 
+type PtyCleanupAuthoritySnapshot = ReadonlyMap<string | undefined, CleanupPendingPty>
+
+function snapshotPtyCleanupAuthority(id: string | undefined): PtyCleanupAuthoritySnapshot | null {
+  if (!id) {
+    return null
+  }
+  return new Map(cleanupPendingPtyById.get(id))
+}
+
+function ptyCleanupAuthorityChanged(
+  id: string,
+  snapshot: PtyCleanupAuthoritySnapshot
+): boolean {
+  const current = cleanupPendingPtyById.get(id)
+  if (!current || current.size === 0 || current.size !== snapshot.size) {
+    return current !== undefined && current.size > 0
+  }
+  for (const [incarnationId, pending] of current) {
+    if (snapshot.get(incarnationId) !== pending) {
+      return true
+    }
+  }
+  return false
+}
+
 function rememberSupersededPtyExit(id: string, incarnationId: string): void {
   supersededPtyExitEvidence.remember(id, incarnationId)
 }
@@ -2440,8 +2465,17 @@ export function registerPtyHandlers(
 
   type BindingRollbackReceipt = { rollbackIfCurrent: () => boolean }
 
-  const assertPtyCleanupComplete = (ptyId: string | undefined): void => {
-    if (ptyId && (cleanupPendingPtyById.get(ptyId)?.size ?? 0) > 0) {
+  const assertPtyCleanupComplete = (
+    ptyId: string | undefined,
+    authorityAtProviderSpawnStart?: PtyCleanupAuthoritySnapshot | null
+  ): void => {
+    if (
+      ptyId &&
+      (cleanupPendingPtyById.get(ptyId)?.size ?? 0) > 0 &&
+      (authorityAtProviderSpawnStart === undefined ||
+        authorityAtProviderSpawnStart === null ||
+        ptyCleanupAuthorityChanged(ptyId, authorityAtProviderSpawnStart))
+    ) {
       throw new Error('pty_cleanup_pending')
     }
   }
@@ -2654,8 +2688,8 @@ export function registerPtyHandlers(
       },
       onSpawned: (id, incarnationId) => runtime?.onPtySpawned(id, incarnationId),
       onExit: (id, code, incarnationId) => {
-        if (localProvider !== configuredLocalProvider && localProvider.hasPty?.(id) === true) {
-          // Why: a retained local process can exit after daemon replacement; a live same-id daemon PTY owns that lifecycle now.
+        if (localProvider !== configuredLocalProvider) {
+          // Why: after provider replacement, the retained callback has no authority over the new provider's same-id lifecycle.
           return
         }
         if (!isCurrentPtyExit({ id, incarnationId })) {
@@ -3733,33 +3767,54 @@ export function registerPtyHandlers(
     flushTimer = null
   }
 
-  const syntheticKillExitPtyIds = new Map<string, NodeJS.Timeout>()
+  const syntheticKillExitPtyIds = new Map<
+    string,
+    { stateToken: symbol; incarnationId?: string; cleanupTimer: NodeJS.Timeout }
+  >()
   const finalizedCleanupExitPtyIds = new Map<
     string,
     { incarnationId: string; cleanupTimer: NodeJS.Timeout }
   >()
   const reversibleStopOwnersByPtyId = new Map<string, number>()
 
-  function rememberSyntheticKillExit(id: string): void {
+  function rememberSyntheticKillExit(id: string, target: PtyShutdownTarget): void {
     const existing = syntheticKillExitPtyIds.get(id)
     if (existing) {
-      clearTimeout(existing)
+      clearTimeout(existing.cleanupTimer)
     }
     // Why a timed window: providers may report the real exit after kill completes; skip only that late duplicate, not a future reused id forever.
     const cleanupTimer = setTimeout(() => {
-      syntheticKillExitPtyIds.delete(id)
+      if (syntheticKillExitPtyIds.get(id)?.cleanupTimer === cleanupTimer) {
+        syntheticKillExitPtyIds.delete(id)
+      }
     }, SYNTHETIC_KILL_EXIT_DUPLICATE_WINDOW_MS)
     cleanupTimer.unref?.()
-    syntheticKillExitPtyIds.set(id, cleanupTimer)
+    syntheticKillExitPtyIds.set(id, {
+      stateToken: target.stateToken,
+      ...(target.incarnationId ? { incarnationId: target.incarnationId } : {}),
+      cleanupTimer
+    })
   }
 
-  function consumeSyntheticKillExit(id: string): boolean {
-    const cleanupTimer = syntheticKillExitPtyIds.get(id)
-    if (!cleanupTimer) {
+  function consumeSyntheticKillExit(payload: {
+    id: string
+    incarnationId?: string
+    ptyIncarnation?: string
+  }): boolean {
+    const marker = syntheticKillExitPtyIds.get(payload.id)
+    if (!marker) {
       return false
     }
-    clearTimeout(cleanupTimer)
-    syntheticKillExitPtyIds.delete(id)
+    const incarnationId = payload.incarnationId ?? payload.ptyIncarnation
+    const matches =
+      marker.incarnationId !== undefined
+        ? incarnationId === marker.incarnationId
+        : incarnationId === undefined && ptyStateTokenById.get(payload.id) === marker.stateToken
+    if (!matches) {
+      return false
+    }
+    clearTimeout(marker.cleanupTimer)
+    syntheticKillExitPtyIds.delete(payload.id)
     return true
   }
 
@@ -4414,7 +4469,7 @@ export function registerPtyHandlers(
       if (!isCurrentPtyExit(payload) && !verifiedIdentityLessExit && !providerClearedExit) {
         return
       }
-      if (consumeSyntheticKillExit(payload.id)) {
+      if (consumeSyntheticKillExit(payload)) {
         return
       }
       if (consumeFinalizedCleanupExit(payload)) {
@@ -5135,8 +5190,19 @@ export function registerPtyHandlers(
               surface: args.agentSessionEnsure.surface,
               spawn: async () => {
                 assertClientStillConnected()
+                const providerSpawnPtyId = pendingRegistrationPtyId ?? expectedPtyId
+                const cleanupAuthorityBeforeProviderSpawn = snapshotPtyCleanupAuthority(
+                  providerSpawnPtyId
+                )
+                assertPtyCleanupComplete(providerSpawnPtyId)
                 providerResult = await provider.spawn(spawnOptions)
                 rejectedRegistrationCandidate = providerResult
+                if (providerResult.id === providerSpawnPtyId) {
+                  assertPtyCleanupComplete(
+                    providerResult.id,
+                    cleanupAuthorityBeforeProviderSpawn
+                  )
+                }
                 // Why: a successful lower-owner return proves physical work committed even if admission sees an early exit.
                 reportPtySpawnCommitted()
                 assertSpawnReplyWasLive(providerResult)
@@ -5180,8 +5246,13 @@ export function registerPtyHandlers(
             result.agentSessionEnsure = ensured
           } else {
             assertClientStillConnected()
+            const cleanupAuthorityBeforeProviderSpawn =
+              snapshotPtyCleanupAuthority(expectedPtyId)
             result = await provider.spawn(spawnOptions)
             rejectedRegistrationCandidate = result
+            if (expectedPtyId === result.id) {
+              assertPtyCleanupComplete(result.id, cleanupAuthorityBeforeProviderSpawn)
+            }
             // Why: daemon/relay returns cross the physical commit boundary before controller admission.
             reportPtySpawnCommitted()
             assertSpawnReplyWasLive(result)
@@ -5542,7 +5613,7 @@ export function registerPtyHandlers(
               return false
             }
             runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-            rememberSyntheticKillExit(ptyId)
+            rememberSyntheticKillExit(ptyId, expectedTarget)
             sendPtyExitToRenderer({ id: ptyId, code: -1 })
             return true
           }
@@ -5563,7 +5634,7 @@ export function registerPtyHandlers(
               sendPtyExitToRenderer(observation.identityLessExitPayload)
             } else if (!observation.providerExitObserved) {
               runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-              rememberSyntheticKillExit(ptyId)
+              rememberSyntheticKillExit(ptyId, expectedTarget)
               sendPtyExitToRenderer({ id: ptyId, code: -1 })
             }
           })
@@ -5574,7 +5645,7 @@ export function registerPtyHandlers(
                 return
               }
               runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-              rememberSyntheticKillExit(ptyId)
+              rememberSyntheticKillExit(ptyId, expectedTarget)
               sendPtyExitToRenderer({ id: ptyId, code: -1 })
               return
             }
@@ -5669,7 +5740,7 @@ export function registerPtyHandlers(
             return false
           }
           runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-          rememberSyntheticKillExit(ptyId)
+          rememberSyntheticKillExit(ptyId, expectedTarget)
           sendPtyExitToRenderer({ id: ptyId, code: -1 })
           return true
         }
@@ -5720,7 +5791,7 @@ export function registerPtyHandlers(
         sendPtyExitToRenderer(observation.identityLessExitPayload)
       } else if (!observation.providerExitObserved) {
         runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-        rememberSyntheticKillExit(ptyId)
+        rememberSyntheticKillExit(ptyId, expectedTarget)
         sendPtyExitToRenderer({ id: ptyId, code: -1 })
       }
       return true
@@ -6380,8 +6451,13 @@ export function registerPtyHandlers(
           const sequenceBeforeProviderSpawn = expectedPtyId
             ? (runtime?.getPtyOutputSequence?.(expectedPtyId) ?? 0)
             : 0
+          const cleanupAuthorityBeforeProviderSpawn =
+            snapshotPtyCleanupAuthority(expectedPtyId)
           result = await provider.spawn(spawnOptions)
           rejectedRegistrationCandidate = result
+          if (expectedPtyId === result.id) {
+            assertPtyCleanupComplete(result.id, cleanupAuthorityBeforeProviderSpawn)
+          }
           if (!publicationSnapshot || publicationSnapshot.id !== result.id) {
             publicationSnapshot = snapshotPtyPublication(result.id)
           }
@@ -7322,7 +7398,7 @@ export function registerPtyHandlers(
         return
       }
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)
-      rememberSyntheticKillExit(args.id)
+      rememberSyntheticKillExit(args.id, expectedTarget)
       sendPtyExitToRenderer({ id: args.id, code: -1 })
       return
     }
@@ -7354,7 +7430,7 @@ export function registerPtyHandlers(
       sendPtyExitToRenderer(observation.identityLessExitPayload)
     } else if (!observation.providerExitObserved) {
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)
-      rememberSyntheticKillExit(args.id)
+      rememberSyntheticKillExit(args.id, expectedTarget)
       sendPtyExitToRenderer({ id: args.id, code: -1 })
     }
   })
@@ -7367,6 +7443,13 @@ export function registerPtyHandlers(
       ({ provider, connectionId }) =>
         connectionId === null ? provider.listProcesses() : provider.listProcesses().catch(() => []),
       ({ provider, connectionId }, sessions) => {
+        const isCurrentProvider =
+          connectionId === null
+            ? localProvider === provider
+            : sshProviders.get(connectionId) === provider
+        if (!isCurrentProvider) {
+          return
+        }
         for (const rawSession of sessions) {
           const session = admission.admit(rawSession)
           // Why: kill actions only send back the PTY id, so rebuild ownership while listing to keep reconnect-discovered remote sessions routed to their provider.
