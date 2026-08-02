@@ -243,7 +243,10 @@ import { createHeadlessAutomationOutputSnapshotBuffer } from './automations/head
 import { buildHeadlessAutomationWorktreeCreateArgs } from './automations/headless-workspace-create'
 import { AgentAwakeService } from './agent-awake-service'
 import { registerSystemResumeBroadcast } from './system-resume-broadcast'
-import { settleTeardownWithinDeadline } from './quit-teardown-deadline'
+import {
+  settleTeardownWithinDeadline,
+  WILL_QUIT_TEARDOWN_DEADLINE_MS
+} from './quit-teardown-deadline'
 import { PluginService } from './plugins/plugin-service'
 import { PluginKillListService } from './plugins/plugin-kill-list-service'
 import { getPluginsDataDir } from './plugins/plugin-discovery'
@@ -2958,8 +2961,12 @@ app.on('will-quit', (e) => {
   killAllPty()
   const durableRetirementsFlushed = runtime?.flushPendingPtyDurableRetirements() ?? true
   if (!durableRetirementsFlushed) {
-    console.warn('[shutdown] Pending PTY durable retirements remain after synchronous drain')
+    console.warn('[shutdown] Pending PTY durable retirements require an asynchronous drain')
   }
+  const durableRetirementsDrain =
+    runtime?.waitForPendingPtyDurableRetirements({
+      timeoutMs: WILL_QUIT_TEARDOWN_DEADLINE_MS
+    }) ?? Promise.resolve(true)
   const watcherShutdown = shutdownWatchersOnce()
   store?.flush()
   // Why: usage-cache writes are queued off the main thread, so a quit right after setEnabled or a
@@ -3008,6 +3015,14 @@ app.on('will-quit', (e) => {
       .then((pendingTeardowns) => {
         if (pendingTeardowns.length > 0) {
           console.warn('[shutdown] Quit teardown deadline reached', { pendingTeardowns })
+        }
+      })
+      .then(() => durableRetirementsDrain)
+      .then((drained) => {
+        if (!drained) {
+          console.error(
+            '[shutdown] Durable PTY retirements remain unresolved; durable state was not acknowledged'
+          )
         }
       })
       .then(() => shutdownTelemetry())

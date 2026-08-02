@@ -246,6 +246,34 @@ describe('SshPortForwardManager', () => {
     expect(resolved).toBe(true)
   })
 
+  it('shares an in-flight close when overlapping removals target the same forward', async () => {
+    let resolveClose!: () => void
+    const forward = createFakeSystemSshForward()
+    forward.close.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveClose = resolve
+      })
+    )
+    startSystemSshPortForwardProcessMock.mockReturnValue(forward)
+    const conn = createSystemSshConn()
+    await manager.addForward('conn-1', conn as never, 3000, '127.0.0.1', 8080)
+
+    const firstRemoval = manager.removeAllForwards('conn-1')
+    const secondRemoval = manager.removeAllForwards('conn-1')
+    await Promise.resolve()
+
+    expect(forward.close).toHaveBeenCalledOnce()
+    let secondResolved = false
+    void secondRemoval.then(() => {
+      secondResolved = true
+    })
+    await Promise.resolve()
+    expect(secondResolved).toBe(false)
+
+    resolveClose()
+    await Promise.all([firstRemoval, secondRemoval])
+  })
+
   it('removes an unexpectedly exited system SSH forward and calls the close callback', async () => {
     const onForwardClosed = vi.fn()
     manager.setCallbacks({ onForwardClosed })
@@ -432,5 +460,108 @@ describe('SshPortForwardManager', () => {
         remotePort: 8080
       })
     ])
+  })
+
+  it('serializes concurrent updates so an older replacement is closed', async () => {
+    const initial = {
+      entry: {
+        id: 'pf-1',
+        connectionId: 'conn-1',
+        localHost: '127.0.0.1',
+        localPort: 3000,
+        remoteHost: 'localhost',
+        remotePort: 8080
+      },
+      close: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn()
+    }
+    const replacementA = {
+      entry: { ...initial.entry, localPort: 3001, remotePort: 8081 },
+      close: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn()
+    }
+    const replacementB = {
+      entry: { ...initial.entry, localPort: 3002, remotePort: 8082 },
+      close: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn()
+    }
+    const provider = {
+      canHandle: vi.fn().mockReturnValue(true),
+      start: vi
+        .fn()
+        .mockResolvedValueOnce(initial)
+        .mockResolvedValueOnce(replacementA)
+        .mockResolvedValueOnce(replacementB)
+    }
+    const concurrentManager = new SshPortForwardManager({}, [provider])
+    const conn = {} as never
+    const entry = await concurrentManager.addForward('conn-1', conn, 3000, 'localhost', 8080)
+
+    await Promise.all([
+      concurrentManager.updateForward(entry.id, conn, 3001, 'localhost', 8081),
+      concurrentManager.updateForward(entry.id, conn, 3002, 'localhost', 8082)
+    ])
+
+    expect(replacementA.close).toHaveBeenCalledOnce()
+    expect(concurrentManager.listForwards('conn-1')).toEqual([replacementB.entry])
+  })
+
+  it('cancels a forward that is still starting when connection cleanup begins', async () => {
+    let resolveStart!: (forward: unknown) => void
+    const startPromise = new Promise((resolve) => {
+      resolveStart = resolve
+    })
+    const lateForward = {
+      entry: {
+        id: 'pf-1',
+        connectionId: 'conn-1',
+        localHost: '127.0.0.1',
+        localPort: 3000,
+        remoteHost: 'localhost',
+        remotePort: 8080
+      },
+      close: vi.fn().mockResolvedValue(undefined),
+      dispose: vi.fn()
+    }
+    const provider = {
+      canHandle: vi.fn().mockReturnValue(true),
+      start: vi.fn().mockReturnValue(startPromise)
+    }
+    const concurrentManager = new SshPortForwardManager({}, [provider])
+    const adding = concurrentManager.addForward('conn-1', {} as never, 3000, 'localhost', 8080)
+    await Promise.resolve()
+
+    const cleanup = concurrentManager.removeAllForwards('conn-1')
+    resolveStart(lateForward)
+
+    await cleanup
+    await expect(adding).rejects.toThrow('port_forward_cancelled')
+    expect(lateForward.close).toHaveBeenCalledOnce()
+    expect(concurrentManager.listForwards('conn-1')).toHaveLength(0)
+  })
+
+  it('does not roll back an update after connection cleanup fences the mutation', async () => {
+    let resolveReplacementStartup!: () => void
+    const initialForward = createFakeSystemSshForward()
+    const replacementForward = createFakeSystemSshForward()
+    replacementForward.waitForStartup.mockImplementation(
+      () => new Promise<void>((resolve) => (resolveReplacementStartup = resolve))
+    )
+    startSystemSshPortForwardProcessMock
+      .mockReturnValueOnce(initialForward)
+      .mockReturnValueOnce(replacementForward)
+    const conn = createSystemSshConn()
+    const entry = await manager.addForward('conn-1', conn as never, 3000, '127.0.0.1', 8080)
+
+    const update = manager.updateForward(entry.id, conn as never, 3001, '127.0.0.1', 8081)
+    await vi.waitFor(() => expect(startSystemSshPortForwardProcessMock).toHaveBeenCalledTimes(2))
+
+    const cleanup = manager.removeAllForwards('conn-1')
+    resolveReplacementStartup()
+
+    await cleanup
+    await expect(update).rejects.toThrow('port_forward_cancelled')
+    expect(manager.listForwards('conn-1')).toHaveLength(0)
+    expect(startSystemSshPortForwardProcessMock).toHaveBeenCalledTimes(2)
   })
 })

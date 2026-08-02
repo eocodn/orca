@@ -45,7 +45,9 @@ services:
           src/main/daemon/daemon-pty-adapter.test.ts \
           src/main/daemon/terminal-host.test.ts \
           src/main/ipc/pty.test.ts \
+          src/main/ipc/superseded-pty-exit-evidence.test.ts \
           src/main/ipc/ssh-pty-output-intake.test.ts \
+          src/main/ssh/ssh-port-forward.test.ts \
           src/relay/pty-handler.test.ts \
           src/main/project-groups/folder-workspace-path-status.test.ts \
           src/main/persistence.test.ts
@@ -105,6 +107,8 @@ services:
       - src/cli/specs/terminal.ts
       - src/cli/terminal-format.ts
       - src/main/ipc/pty.ts
+      - src/main/ipc/superseded-pty-exit-evidence.ts
+      - src/main/ipc/superseded-pty-exit-evidence.test.ts
       - src/main/runtime/orca-runtime.test.ts
       - src/main/runtime/orca-runtime-terminal-retirement.test.ts
       - src/main/runtime/orca-runtime.ts
@@ -114,6 +118,8 @@ services:
       - src/main/providers/ssh-pty-provider-resize.test.ts
       - src/main/providers/ssh-pty-provider.test.ts
       - src/main/ssh/ssh-relay-session.ts
+      - src/main/ssh/ssh-port-forward.ts
+      - src/main/ssh/ssh-port-forward.test.ts
       - src/main/ssh/ssh-relay-session-incarnation.test.ts
       - src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts
       - src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
@@ -232,6 +238,29 @@ services:
         src/main/ssh/ssh-relay-session.test.ts
         src/preload/index.ts
         src/preload/ssh-authority-forwarding.test.ts
+    init: true
+    network_mode: host
+
+  retirement-quality:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        pnpm exec oxfmt --check src/main/index.ts src/main/ipc/pty.ts
+        src/main/ipc/pty.test.ts src/main/ipc/superseded-pty-exit-evidence.ts
+        src/main/ipc/superseded-pty-exit-evidence.test.ts
+        src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts &&
+        pnpm exec oxlint src/main/index.ts src/main/ipc/pty.ts
+        src/main/ipc/pty.test.ts src/main/ipc/superseded-pty-exit-evidence.ts
+        src/main/ipc/superseded-pty-exit-evidence.test.ts
+        src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts
     init: true
     network_mode: host
 

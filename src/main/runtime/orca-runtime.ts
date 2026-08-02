@@ -228,6 +228,7 @@ import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
 import {
   LOCAL_EXECUTION_HOST_ID,
   getRepoExecutionHostId,
+  getWorktreeExecutionHostId,
   parseExecutionHostId,
   toSshExecutionHostId,
   type ExecutionHostId
@@ -2677,6 +2678,8 @@ type NativeChatLaunchDraftResolutionTombstone = RuntimeNativeChatLaunchDraftReso
 }
 
 const MAX_NATIVE_CHAT_LAUNCH_DRAFT_RESOLUTION_TOMBSTONES = 200
+const MAX_DELETED_FOLDER_TERMINAL_RETIREMENT_FENCES = 4096
+const MAX_TERMINAL_SURFACE_RETIREMENT_FENCES = 4096
 
 async function hasLocalWorktreeBaseRef(
   repoPath: string,
@@ -2774,6 +2777,10 @@ export class OrcaRuntimeService {
   }>()
   // Why: one watermark per repo replaces per-closed-pane fences while preserving stale-write safety.
   private terminalTopologyRevisionByRepoId = new Map<string, number>()
+  // Why: a deleted folder has no durable host session left to carry its stale-snapshot fence.
+  private deletedFolderTerminalRetirementFences = new Set<string>()
+  // Why: a successful in-memory retirement must reject an older renderer snapshot until a live replacement owns the pane.
+  private terminalSurfaceRetirementFences = new Set<string>()
   // Why: provider exit can beat surface registration; that exact dead incarnation must never publish.
   private earlyExitedPtyIncarnations = new Map<string, PtyIncarnationId | null>()
   // Why: quarantine disconnects the model, so retain provider evidence per exact incarnation.
@@ -4711,11 +4718,8 @@ export class OrcaRuntimeService {
     }
     const resolvedWorktreeId = scope?.type === 'worktree' ? scope.worktreeId : worktreeId
     const repo = this.store?.getRepo?.(getRepoIdFromWorktreeId(resolvedWorktreeId))
-    return repo ? getRepoExecutionHostId(repo) : LOCAL_EXECUTION_HOST_ID
-  }
-
-  private getPtyExecutionHostId(pty: RuntimePtyWorktreeRecord | undefined): ExecutionHostId {
-    return pty?.connectionId ? toSshExecutionHostId(pty.connectionId) : LOCAL_EXECUTION_HOST_ID
+    const worktreeMeta = this.store?.getWorktreeMeta?.(resolvedWorktreeId)
+    return getWorktreeExecutionHostId(worktreeMeta ?? {}, repo)
   }
 
   private getWorkspaceSessionForWorktree(worktreeId: string): WorkspaceSessionState | null {
@@ -5625,9 +5629,18 @@ export class OrcaRuntimeService {
     if (this.getAvailableAuthoritativeWindow() && options.allowAttachedWindow !== true) {
       return reconciledWorktreeIds
     }
-    const session = worktreeId
-      ? this.getWorkspaceSessionForWorktree(worktreeId)
-      : this.store?.getWorkspaceSession?.()
+    let session: WorkspaceSessionState | null | undefined
+    try {
+      session = worktreeId
+        ? this.getWorkspaceSessionForWorktree(worktreeId)
+        : this.store?.getWorkspaceSession?.()
+    } catch (error) {
+      if (error instanceof Error && error.message === 'folder_workspace_not_found') {
+        // Why: a deleted folder has no durable session to hydrate; retain its in-memory fence.
+        return reconciledWorktreeIds
+      }
+      throw error
+    }
     if (!session) {
       return reconciledWorktreeIds
     }
@@ -6472,16 +6485,78 @@ export class OrcaRuntimeService {
     leafId: string,
     candidatePtyId: string | null | undefined
   ): boolean {
-    const candidatePty = candidatePtyId ? this.ptysById.get(candidatePtyId) : undefined
-    const session = this.store?.getWorkspaceSession?.(
-      candidatePty ? this.getPtyExecutionHostId(candidatePty) : undefined
-    )
+    const workspaceScope = parseWorkspaceKey(worktreeId)
+    if (workspaceScope?.type === 'folder') {
+      const fencePrefix = `${worktreeId}\0`
+      const folderStillExists = this.store
+        ?.getFolderWorkspaces?.()
+        ?.some((workspace) => workspace.id === workspaceScope.folderWorkspaceId)
+      if (folderStillExists === true) {
+        for (const fence of this.deletedFolderTerminalRetirementFences) {
+          if (fence.startsWith(fencePrefix)) {
+            this.deletedFolderTerminalRetirementFences.delete(fence)
+          }
+        }
+      } else if (folderStillExists === false) {
+        if (
+          this.deletedFolderTerminalRetirementFences.has(`${worktreeId}\0${parentTabId}\0${leafId}`)
+        ) {
+          return false
+        }
+        // Why: without an exact in-memory retirement fence, preserve unrelated surfaces while the folder host is absent.
+        return true
+      }
+    }
+    const session = this.getWorkspaceSessionForWorktree(worktreeId)
     const repoId = getRepoIdFromWorktreeId(worktreeId)
+    const paneKey = `${parentTabId}:${leafId}`
+    if (session?.terminalSurfaceTombstonesByPaneKey?.[paneKey]?.worktreeId === worktreeId) {
+      return false
+    }
+    const hasHostAuthoritativeMembership = hasHostAuthoritativeTerminalMembership(
+      session ?? undefined,
+      worktreeId
+    )
+    const pty = candidatePtyId ? this.ptysById.get(candidatePtyId) : undefined
+    const pane = parsePaneKey(pty?.paneKey ?? '')
+    const candidateMatchesCurrentSurface = Boolean(
+      pty?.connected &&
+      pty.worktreeId === worktreeId &&
+      pty.tabId === parentTabId &&
+      pane?.leafId === leafId
+    )
+    const retirementFenceKey = `${worktreeId}\0${parentTabId}\0${leafId}`
+    if (this.terminalSurfaceRetirementFences.has(retirementFenceKey)) {
+      if (candidateMatchesCurrentSurface) {
+        this.terminalSurfaceRetirementFences.delete(retirementFenceKey)
+      } else {
+        return false
+      }
+    }
     if (
-      !hasHostAuthoritativeTerminalMembership(session, worktreeId) &&
-      (session !== undefined || !this.terminalTopologyRevisionByRepoId.has(repoId))
+      !hasHostAuthoritativeMembership &&
+      ((session !== null && session !== undefined) ||
+        !this.terminalTopologyRevisionByRepoId.has(repoId))
     ) {
       return true
+    }
+    const hasAuthoritativePtyIdentity = Boolean(pty?.tabId && pty.paneKey)
+    const runtimeSnapshotHasSurface = this.mobileSessionSnapshotHasSurface(
+      worktreeId,
+      parentTabId,
+      leafId
+    )
+    if (
+      hasHostAuthoritativeMembership &&
+      pty &&
+      ((!pty.connected && !runtimeSnapshotHasSurface) ||
+        (pty.connected &&
+          hasAuthoritativePtyIdentity &&
+          !candidateMatchesCurrentSurface &&
+          !runtimeSnapshotHasSurface))
+    ) {
+      // Why: host authority rejects an exited surface only after the runtime snapshot drops it.
+      return false
     }
     if (this.mobileSessionSnapshotHasSurface(worktreeId, parentTabId, leafId)) {
       return true
@@ -6489,14 +6564,7 @@ export class OrcaRuntimeService {
     if (!candidatePtyId) {
       return false
     }
-    const pty = this.ptysById.get(candidatePtyId)
-    const pane = parsePaneKey(pty?.paneKey ?? '')
-    return Boolean(
-      pty?.connected &&
-      pty.worktreeId === worktreeId &&
-      pty.tabId === parentTabId &&
-      pane?.leafId === leafId
-    )
+    return candidateMatchesCurrentSurface
   }
 
   private reconcileMobileSessionRetirementFences(
@@ -6517,20 +6585,23 @@ export class OrcaRuntimeService {
   ): RuntimeMobileSessionTabsSnapshot {
     let next = snapshot
     for (const tab of snapshot.tabs) {
+      if (tab.type !== 'terminal') {
+        continue
+      }
+      const authoritativePtyId = tab.ptyId ?? tab.parentLayout?.ptyIdsByLeafId?.[tab.leafId]
       if (
-        tab.type !== 'terminal' ||
         this.isMobileSessionSurfaceMembershipAllowed(
           snapshot.worktree,
           tab.parentTabId,
           tab.leafId,
-          tab.ptyId
+          authoritativePtyId
         )
       ) {
         continue
       }
       const retired = retireTerminalSurfacesFromSnapshot({
         snapshot: next,
-        ptyId: tab.ptyId ?? '',
+        ptyId: authoritativePtyId ?? '',
         exactSurfaces: [{ parentTabId: tab.parentTabId, leafId: tab.leafId }],
         exactOnly: true
       })
@@ -6562,9 +6633,88 @@ export class OrcaRuntimeService {
 
   flushPendingPtyDurableRetirements(): boolean {
     for (const retirementKey of [...this.pendingPtyDurableRetirements.keys()]) {
-      this.retryPendingPtyDurableRetirement(retirementKey)
+      try {
+        this.retryPendingPtyDurableRetirement(retirementKey)
+      } catch (error) {
+        console.error('[runtime] durable PTY retirement flush failed:', error)
+      }
     }
     return this.pendingPtyDurableRetirements.size === 0
+  }
+
+  async waitForPendingPtyDurableRetirements(
+    options: { timeoutMs?: number } = {}
+  ): Promise<boolean> {
+    const deadline =
+      options.timeoutMs === undefined ? Number.POSITIVE_INFINITY : Date.now() + options.timeoutMs
+    while (this.pendingPtyDurableRetirements.size > 0) {
+      for (const [retirementKey] of this.pendingPtyDurableRetirements) {
+        if (!this.pendingPtyDurableRetirementRetryScheduled.has(retirementKey)) {
+          try {
+            this.retryPendingPtyDurableRetirement(retirementKey)
+          } catch (error) {
+            console.error('[runtime] durable PTY retirement retry threw:', error)
+          }
+        }
+      }
+      if (this.pendingPtyDurableRetirements.size === 0) {
+        return true
+      }
+      if (Date.now() >= deadline) {
+        console.error('[runtime] durable PTY retirement drain timed out', {
+          pendingRetirements: [...this.pendingPtyDurableRetirements.keys()]
+        })
+        return false
+      }
+      // Why: shutdown must wait for authoritative persistence; this timer is intentionally referenced so a failed flush cannot be mistaken for completion.
+      const remainingMs = deadline - Date.now()
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(100, remainingMs)))
+    }
+    return true
+  }
+
+  private retryPendingPtyDurableRetirementsForPty(
+    ptyId: string,
+    excludedIncarnationId?: string
+  ): void {
+    for (const [retirementKey, pending] of this.pendingPtyDurableRetirements) {
+      if (pending.ptyId === ptyId && pending.incarnationId !== excludedIncarnationId) {
+        this.retryPendingPtyDurableRetirement(retirementKey)
+      }
+    }
+  }
+
+  private settleOlderPendingPtyDurableRetirements(
+    ptyId: string,
+    currentIncarnationId: string,
+    currentSurfaces: readonly Pick<
+      RetiredTerminalSurface,
+      'worktreeId' | 'parentTabId' | 'leafId'
+    >[],
+    currentRetirementComplete: boolean
+  ): void {
+    const currentSurfaceKeys = new Set(
+      currentSurfaces.map(
+        (surface) => `${surface.worktreeId}\0${surface.parentTabId}\0${surface.leafId}`
+      )
+    )
+    for (const [retirementKey, pending] of this.pendingPtyDurableRetirements) {
+      if (pending.ptyId !== ptyId || pending.incarnationId === currentIncarnationId) {
+        continue
+      }
+      const sameSurfaces =
+        pending.exactSurfaces.length > 0 &&
+        pending.exactSurfaces.every((surface) =>
+          currentSurfaceKeys.has(`${surface.worktreeId}\0${surface.parentTabId}\0${surface.leafId}`)
+        )
+      if (currentRetirementComplete && sameSurfaces) {
+        this.pendingPtyDurableRetirements.delete(retirementKey)
+        this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
+        this.pendingPtyDurableRetirementRetryScheduled.delete(retirementKey)
+      } else {
+        this.schedulePendingPtyDurableRetirementRetry(retirementKey)
+      }
+    }
   }
 
   private retryPendingPtyDurableRetirement(retirementKey: string): void {
@@ -6573,29 +6723,61 @@ export class OrcaRuntimeService {
       this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
       return
     }
-    const currentPty = this.ptysById.get(pending.ptyId)
     const pendingRegistration = this.pendingPtyRegistrationIncarnations.get(pending.ptyId)
+    const currentPty = this.ptysById.get(pending.ptyId)
     const headlessIncarnation = this.headlessPtyIncarnationById.get(pending.ptyId)
-    if (
-      (currentPty !== undefined && currentPty.incarnationId !== pending.incarnationId) ||
-      (this.pendingPtyRegistrationIncarnations.has(pending.ptyId) &&
-        pendingRegistration !== pending.incarnationId) ||
-      (headlessIncarnation !== undefined && headlessIncarnation !== pending.incarnationId)
-    ) {
-      // Why: an old durable retry may discover the same pane already admitted to a newer PTY lifecycle; removing its surface would retire the replacement.
+    if (headlessIncarnation !== undefined && headlessIncarnation !== pending.incarnationId) {
+      // Why: a headless replacement is already authoritative; its surface must not be retired by an old retry.
       this.pendingPtyDurableRetirements.delete(retirementKey)
       this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
       return
     }
+    if (
+      currentPty !== undefined &&
+      currentPty.incarnationId !== pending.incarnationId &&
+      !currentPty.connected &&
+      currentPty.lastExitCode === null
+    ) {
+      // Why: an identity-only reconnect proof is not an admitted replacement; retain the old retry until admission.
+      return
+    }
+    if (
+      this.pendingPtyRegistrationIncarnations.has(pending.ptyId) &&
+      pendingRegistration !== pending.incarnationId
+    ) {
+      // Why: a replacement that has not been admitted yet may still be canceled; retain the old retirement until that outcome is known.
+      return
+    }
+    let exactSurfaces = pending.exactSurfaces
+    if (currentPty?.connected === true && currentPty.incarnationId !== pending.incarnationId) {
+      exactSurfaces = pending.exactSurfaces.filter((surface) => {
+        let hostId: ExecutionHostId
+        try {
+          hostId = this.getWorkspaceSessionHostIdForWorktree(surface.worktreeId)
+        } catch {
+          return false
+        }
+        const session = this.store?.getWorkspaceSession?.(hostId)
+        return (
+          session?.terminalPtyIncarnationsByPaneKey?.[
+            `${surface.parentTabId}:${surface.leafId}`
+          ] === pending.incarnationId
+        )
+      })
+      if (exactSurfaces.length === 0) {
+        // Why: a legacy session without an exact old binding has no durable state that is safe to remove.
+        this.pendingPtyDurableRetirements.delete(retirementKey)
+        this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
+        return
+      }
+    }
+    // Why: persistence retirement checks the exact old incarnation; retry even after newer admission so the old durable binding is not stranded.
     const attempts = (this.pendingPtyDurableRetirementRetryAttempts.get(retirementKey) ?? 0) + 1
     this.pendingPtyDurableRetirementRetryAttempts.set(retirementKey, attempts)
     if (
-      this.retireMobileSessionSurfacesForPty(
-        pending.ptyId,
-        pending.incarnationId,
-        pending.exactSurfaces,
-        { ensureDurableFlush: true }
-      )
+      this.retireMobileSessionSurfacesForPty(pending.ptyId, pending.incarnationId, exactSurfaces, {
+        ensureDurableFlush: true
+      })
     ) {
       this.pendingPtyDurableRetirements.delete(retirementKey)
       this.pendingPtyDurableRetirementRetryAttempts.delete(retirementKey)
@@ -6650,7 +6832,24 @@ export class OrcaRuntimeService {
       } catch (error) {
         if (error instanceof Error && error.message === 'folder_workspace_not_found') {
           // Why: deleting the folder workspace removes its durable session authority; only the in-memory PTY surface remains to retire.
+          if (
+            !this.deletedFolderTerminalRetirementFences.has(
+              `${surface.worktreeId}\0${surface.parentTabId}\0${surface.leafId}`
+            ) &&
+            this.deletedFolderTerminalRetirementFences.size >=
+              MAX_DELETED_FOLDER_TERMINAL_RETIREMENT_FENCES
+          ) {
+            const oldestFence = this.deletedFolderTerminalRetirementFences.values().next().value
+            if (oldestFence !== undefined) {
+              this.deletedFolderTerminalRetirementFences.delete(oldestFence)
+              console.warn('[runtime] evicted oldest deleted-folder terminal retirement fence')
+            }
+          }
+          this.deletedFolderTerminalRetirementFences.add(
+            `${surface.worktreeId}\0${surface.parentTabId}\0${surface.leafId}`
+          )
           console.warn('[runtime] skipping durable retirement for deleted folder workspace')
+          acceptedSurfaces.push(surface)
           continue
         }
         console.error('[runtime] failed to resolve terminal retirement host:', error)
@@ -6719,6 +6918,18 @@ export class OrcaRuntimeService {
           repoId,
           (this.terminalTopologyRevisionByRepoId.get(repoId) ?? 0) + 1
         )
+      }
+    }
+    for (const surface of publishableRetiredSurfaces) {
+      const fence = `${surface.worktreeId}\0${surface.parentTabId}\0${surface.leafId}`
+      if (!this.terminalSurfaceRetirementFences.has(fence)) {
+        if (this.terminalSurfaceRetirementFences.size >= MAX_TERMINAL_SURFACE_RETIREMENT_FENCES) {
+          const oldestFence = this.terminalSurfaceRetirementFences.values().next().value
+          if (oldestFence !== undefined) {
+            this.terminalSurfaceRetirementFences.delete(oldestFence)
+          }
+        }
+        this.terminalSurfaceRetirementFences.add(fence)
       }
     }
     for (const [worktreeId, snapshot] of this.mobileSessionTabsByWorktree) {
@@ -9130,6 +9341,7 @@ export class OrcaRuntimeService {
     if (binding && paneKey) {
       this.ensurePtyBackedMobileSurfaceForRendererTab(worktreeId, binding.tabId)
     }
+    this.retryPendingPtyDurableRetirementsForPty(ptyId)
     return pty.incarnationId
   }
 
@@ -9190,6 +9402,7 @@ export class OrcaRuntimeService {
     ) {
       this.earlyExitedPtyIncarnations.delete(ptyId)
     }
+    this.retryPendingPtyDurableRetirementsForPty(ptyId, incarnationId)
   }
 
   admitHeadlessPtyLifecycle(ptyId: string, incarnationId: PtyIncarnationId): void {
@@ -13395,13 +13608,14 @@ export class OrcaRuntimeService {
       this.resolvePtyExitWaiters(pty, ptyId)
       this.pruneDisconnectedPtyTranscript(pty)
     }
+    let durableRetirementComplete = false
     if (preservesIntentionalHandlelessSurface || preservesAbnormalSshSurface) {
       // Why: relay loss is recoverable; keep the HUB-owned pane addressable through the bounded reconnect grace.
       this.touchMobileSessionSnapshotsForPty(ptyId, { immediate: true })
     } else {
       // Why: permanent process exit is absence, not a starting/sleeping tab.
       // Retire before publishing so paired clients never persist a ghost.
-      const durableRetirementComplete = this.retireMobileSessionSurfacesForPty(
+      durableRetirementComplete = this.retireMobileSessionSurfacesForPty(
         ptyId,
         incarnationId,
         exactSurfaces
@@ -13419,6 +13633,13 @@ export class OrcaRuntimeService {
         this.schedulePendingPtyDurableRetirementRetry(retirementKey)
       }
     }
+
+    this.settleOlderPendingPtyDurableRetirements(
+      ptyId,
+      incarnationId,
+      exactSurfaces,
+      durableRetirementComplete
+    )
 
     for (const leaf of this.getLeavesForPty(ptyId)) {
       this.detachedPreAllocatedLeaves.delete(ptyId)
@@ -29433,8 +29654,9 @@ export class OrcaRuntimeService {
         clientNavigationId
       )
     }
+    const fencedSnapshot = this.applyMobileSessionRetirementFences(snapshot)
     return this.clientSessionTabSelections.project(
-      this.toMobileSessionTabsResult(snapshot),
+      this.toMobileSessionTabsResult(fencedSnapshot),
       clientNavigationId
     )
   }

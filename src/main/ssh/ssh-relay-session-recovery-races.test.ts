@@ -243,6 +243,18 @@ describe('SshRelaySession recovery race fencing', () => {
     return { session, deps }
   }
 
+  it('continues relay recovery when forward cleanup reports a failure', async () => {
+    const { session, deps } = await prepareRecovery('forward-cleanup-failure')
+    vi.mocked(deps.mockPortForward.removeAllForwards).mockRejectedValueOnce(
+      new Error('forward teardown failed')
+    )
+
+    await expect(session.reconnect(deps.mockConn)).resolves.toBeUndefined()
+
+    expect(muxDisposeMock).toHaveBeenCalledWith('connection_lost')
+    expect(session.getState()).toBe('ready')
+  })
+
   it('publishes held recovery data before an exact exit without waiting for completion', async () => {
     const targetId = 'exit-with-complete-private-body'
     const { session, deps } = await prepareRecovery(targetId)
@@ -680,7 +692,7 @@ describe('SshRelaySession recovery race fencing', () => {
       expect(sourceAckCleanupMock.mock.calls).toHaveLength(before.ack + 1)
       expect(sourceCancellationCleanupMock.mock.calls).toHaveLength(before.cancellation + 1)
       expect(vi.mocked(unregisterSshPtyProvider).mock.calls).toHaveLength(before.unregister + 1)
-      expect(unregisterSshPtyProvider).toHaveBeenLastCalledWith(targetId)
+      expect(unregisterSshPtyProvider).toHaveBeenLastCalledWith(targetId, expect.anything())
       expect(activationLease.transferToRecovery).toHaveBeenCalledOnce()
       expect(activationLease.commit).not.toHaveBeenCalled()
       expect(activationLease.rollback).not.toHaveBeenCalled()

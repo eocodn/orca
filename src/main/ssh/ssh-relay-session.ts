@@ -532,12 +532,28 @@ export class SshRelaySession {
     const abortController = new AbortController()
     this.abortController = abortController
 
+    const ownsAttempt = (): boolean =>
+      this.abortController === abortController &&
+      !abortController.signal.aborted &&
+      !this.isDisposed()
+
     this._state = 'reconnecting'
     this.currentConnection = conn
 
     // Why: stop scanning before teardownProviders so the poll timer can't fire against a disposed multiplexer.
     this.stopPortScanning()
-    await this.portForwardManager.removeAllForwards(this.targetId)
+    try {
+      await this.portForwardManager.removeAllForwards(this.targetId)
+    } catch (error) {
+      // Why: a failed forward close must not strand relay recovery; provider teardown below is the next authoritative cleanup boundary.
+      console.warn(
+        `[ssh-relay-session] Forward cleanup failed during reconnect for ${this.targetId}:`,
+        error
+      )
+    }
+    if (!ownsAttempt()) {
+      return
+    }
     this.broadcastEmptyLists()
     this.teardownProviders('connection_lost')
 
@@ -576,11 +592,6 @@ export class SshRelaySession {
 
       const mux = new SshChannelMultiplexer(transport)
       this.mux = mux
-
-      const ownsAttempt = (): boolean =>
-        this.abortController === abortController &&
-        !abortController.signal.aborted &&
-        !this.isDisposed()
 
       const consumerSessionState = await this.openPtyConsumerSession(
         mux,
@@ -1313,7 +1324,7 @@ export class SshRelaySession {
       ;(fsProvider as { dispose: () => void }).dispose()
     }
 
-    unregisterSshPtyProvider(this.targetId)
+    unregisterSshPtyProvider(this.targetId, ptyProvider)
     unregisterSshFilesystemProvider(this.targetId)
     unregisterSshGitProvider(this.targetId)
     this.sourceIdentityByRelayPtyId.clear()

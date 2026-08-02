@@ -183,12 +183,41 @@ describe('SshRelaySession host binding races', () => {
       .mockResolvedValueOnce(deployment(hostB))
 
     const staleReconnect = session.reconnect(mockConn)
+    await vi.waitFor(() => expect(deployAndLaunchRelay).toHaveBeenCalledOnce())
     const winningReconnect = session.reconnect(mockConn)
     await winningReconnect
     resolveStale(deployment(hostA))
     await staleReconnect
 
     expect(session.getHostPlatform()).toEqual(hostB)
+  })
+
+  it('does not let a stale reconnect tear down the winning provider after port cleanup', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const session = new SshRelaySession('target-1', getMainWindow, mockStore, mockPortForward)
+    await session.establish(mockConn)
+
+    let releaseStaleCleanup!: () => void
+    const staleCleanup = new Promise<void>((resolve) => {
+      releaseStaleCleanup = resolve
+    })
+    vi.mocked(mockPortForward.removeAllForwards)
+      .mockImplementationOnce(() => staleCleanup)
+      .mockResolvedValue(undefined)
+
+    const staleReconnect = session.reconnect(mockConn)
+    await vi.waitFor(() => expect(mockPortForward.removeAllForwards).toHaveBeenCalledOnce())
+    const winningReconnect = session.reconnect(mockConn)
+    await winningReconnect
+    const winningMux = session.getMux()
+    expect(session.getState()).toBe('ready')
+
+    releaseStaleCleanup()
+    await staleReconnect
+
+    expect(session.getState()).toBe('ready')
+    expect(session.getMux()).toBe(winningMux)
+    expect(winningMux?.isDisposed()).toBe(false)
   })
 
   it('passes grace time to deployAndLaunchRelay', async () => {
@@ -259,7 +288,7 @@ describe('SshRelaySession host binding races', () => {
     await expect(session.establish(mockConn)).rejects.toThrow('store error')
     expect(session.getState()).toBe('idle')
     expect(session.getMux()).toBeNull()
-    expect(unregisterSshPtyProvider).toHaveBeenCalledWith('target-1')
+    expect(unregisterSshPtyProvider).toHaveBeenCalledWith('target-1', expect.anything())
     expect(unregisterSshFilesystemProvider).toHaveBeenCalledWith('target-1')
     expect(unregisterSshGitProvider).toHaveBeenCalledWith('target-1')
   })

@@ -13,6 +13,7 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import type * as FsPromises from 'node:fs/promises'
 import type {
   PersistedState,
   Project,
@@ -11936,8 +11937,7 @@ describe('Store host-partitioned workspace sessions', () => {
     const renameGate = new Promise<void>((resolve) => {
       releaseRename = resolve
     })
-    const actualFsPromises =
-      await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    const actualFsPromises = await vi.importActual<typeof FsPromises>('node:fs/promises')
     vi.doMock('node:fs/promises', () => ({
       ...actualFsPromises,
       rename: async (...args: Parameters<typeof actualFsPromises.rename>) => {
