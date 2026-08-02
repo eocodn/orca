@@ -77,14 +77,14 @@ export const ModelManagerMethods4 = {
     if (!this.validateModelFiles(manifest, stagingDir)) {
       throw new Error('Model files missing after download')
     }
-  }
+  },
   getPartialDownloadBytes(this: any, filePath: string): number {
     try {
       return statSync(filePath).size
     } catch {
       return 0
     }
-  }
+  },
   async downloadFileWithRetry(this: any,
     url: string,
     filePath: string,
@@ -184,7 +184,7 @@ export const ModelManagerMethods4 = {
         )
       }
     }
-  }
+  },
   downloadFile(this: any,
     url: string,
     dest: string,

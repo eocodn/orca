@@ -111,14 +111,14 @@ export const ModelManagerMethods3 = {
       this.activeDownloads.delete(modelId)
       this.removeModelDownloadStaging(stagingDir, legacyArchivePath)
     }
-  }
+  },
   cancelDownload(this: any, modelId: string): void {
     const handle = this.activeDownloads.get(modelId)
     if (handle) {
       handle.abort()
       this.updateState(modelId, 'not-downloaded')
     }
-  }
+  },
   async deleteModel(this: any, modelId: string): Promise<void> {
     await this.migrationReady
     if (!getCatalogModel(modelId)) {
@@ -143,7 +143,7 @@ export const ModelManagerMethods3 = {
       }
     }
     this.modelStates.delete(modelId)
-  }
+  },
   updateState(this: any,
     modelId: string,
     status: SpeechModelStatus,

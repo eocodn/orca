@@ -91,13 +91,13 @@ export const SttServiceMethods2 = {
       worker.on('error', onError)
       worker.on('exit', onExit)
     })
-  }
+  },
   isActive(this: any): boolean {
     return this.worker !== null || this.cloudSession !== null
-  }
+  },
   getActiveModelId(this: any): string | null {
     return this.activeModelId
-  }
+  },
   async prepareModelForDeletion(this: any, modelId: string): Promise<void> {
     if (this.startingModelId === modelId || (this.activeOwner && this.activeModelId === modelId)) {
       throw new Error('voice_model_in_use')

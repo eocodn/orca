@@ -20,13 +20,13 @@ export const SttServiceMethods3 = {
       return join(process.resourcesPath, 'app.asar', 'out', 'main', 'stt-worker.js')
     }
     return join(__dirname, 'stt-worker.js')
-  }
+  },
   clearIdleTeardownTimer(this: any): void {
     if (this.idleTeardownTimer) {
       clearTimeout(this.idleTeardownTimer)
       this.idleTeardownTimer = null
     }
-  }
+  },
   scheduleIdleTeardown(this: any): void {
     this.clearIdleTeardownTimer()
     // Why: keep the native recognizer warm for repeated dictations, but release
@@ -36,7 +36,7 @@ export const SttServiceMethods3 = {
       void this.teardownIdleWorker()
     }, IDLE_WORKER_TEARDOWN_MS)
     this.idleTeardownTimer.unref?.()
-  }
+  },
   async teardownIdleWorker(this: any,
     options: { ignoreTerminateErrors?: boolean } = { ignoreTerminateErrors: true }
   ): Promise<void> {

@@ -48,7 +48,7 @@ export const SttServiceMethods1 = {
       this.startingModelId = null
       this.canceledOwners.delete(owner)
     }
-  }
+  },
   async _startDictation(this: any,
     modelId: string,
     sink: SttEventSink,
@@ -248,7 +248,7 @@ export const SttServiceMethods1 = {
       }
       throw error
     }
-  }
+  },
   feedAudio(this: any, samples: Float32Array, sampleRate: number, owner = 'desktop'): void {
     if (this.stopping) {
       return
@@ -265,7 +265,7 @@ export const SttServiceMethods1 = {
       return
     }
     this.worker?.postMessage({ type: 'feed', samples, sampleRate }, [samples.buffer as ArrayBuffer])
-  }
+  },
   async stopDictation(this: any,
     owner = 'desktop',
     options: { cancelStarting?: boolean } = { cancelStarting: true }

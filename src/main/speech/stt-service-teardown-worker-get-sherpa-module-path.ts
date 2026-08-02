@@ -44,12 +44,12 @@ export const SttServiceMethods4 = {
       this.activeOwner = null
       this.eventSink = null
     }
-  }
+  },
   cleanupActiveWorkerLifecycleListeners(this: any): void {
     const cleanup = this.cleanupWorkerLifecycleListeners
     this.cleanupWorkerLifecycleListeners = null
     cleanup?.()
-  }
+  },
   getSherpaModulePath(this: any): string {
     // Why: the main sherpa-onnx npm package uses WASM, which cannot access
     // the host filesystem to load model files. The platform-specific native

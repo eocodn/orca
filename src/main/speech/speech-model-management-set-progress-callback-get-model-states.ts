@@ -40,10 +40,10 @@ export const ModelManagerMethods1 = {
     return () => {
       this.progressCallbacks.delete(cb)
     }
-  }
+  },
   getModelsDir(this: any): string {
     return this.modelsDir
-  }
+  },
   prepareModelsDir(this: any, requestedModelsDir: string): SpeechModelCacheDir {
     let lastError: unknown = null
     for (const candidate of getSpeechModelCacheDirCandidates(requestedModelsDir)) {
@@ -59,7 +59,7 @@ export const ModelManagerMethods1 = {
     }
 
     throw lastError instanceof Error ? lastError : new Error(String(lastError))
-  }
+  },
   async getModelStates(this: any): Promise<SpeechModelState[]> {
     const states: SpeechModelState[] = []
     for (const manifest of SPEECH_MODEL_CATALOG) {

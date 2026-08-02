@@ -81,7 +81,7 @@ export const ModelManagerMethods5 = {
       stream.on('error', onError)
       stream.on('end', onEnd)
     })
-  }
+  },
   removeModelDownloadStaging(this: any, stagingDir: string, legacyArchivePath: string): void {
     for (const path of [stagingDir, legacyArchivePath]) {
       try {
@@ -90,7 +90,7 @@ export const ModelManagerMethods5 = {
         // best-effort
       }
     }
-  }
+  },
   removeModelDownloadFiles(this: any,
     modelDir: string,
     stagingDir: string,

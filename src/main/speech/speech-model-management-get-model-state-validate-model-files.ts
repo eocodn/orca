@@ -61,10 +61,10 @@ export const ModelManagerMethods2 = {
     }
 
     return { id: modelId, status: 'not-downloaded' }
-  }
+  },
   getModelDir(this: any, modelId: string): string {
     return this.getSafeModelDir(modelId)
-  }
+  },
   getSafeModelDir(this: any, modelId: string, root: string = this.modelsDir): string {
     const manifest = getCatalogModel(modelId)
     if (!manifest) {
@@ -77,7 +77,7 @@ export const ModelManagerMethods2 = {
       throw new Error(`Invalid model id: ${modelId}`)
     }
     return modelDir
-  }
+  },
   validateModelFiles(this: any, manifest: SpeechModelManifest, modelDir: string): boolean {
     if (!manifest.downloadFiles) {
       return false
