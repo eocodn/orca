@@ -6,10 +6,7 @@ import {
   release,
   type LocalGitExecOptions
 } from './gh-utils'
-import {
-  resolveGitHubRepoExecution,
-  type GitHubApiRepository
-} from './github-api-repository'
+import { resolveGitHubRepoExecution, type GitHubApiRepository } from './github-api-repository'
 
 function mapReviewCommentResponse(
   data: {

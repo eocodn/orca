@@ -46,7 +46,7 @@ import type {
   ResolveProjectRefArgs,
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
-import { fetchProjectViewsPage } from './project-view-config'
+import { fetchProjectViewsPage } from "./project-view-config"
 
 export async function listProjectViews(
   args: ListProjectViewsArgs

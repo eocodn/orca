@@ -47,7 +47,6 @@ import type {
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
 import { githubProjectHost } from '../../shared/github-project-identity'
-
 // ─── Constants ─────────────────────────────────────────────────────────
 
 // Why: defaults deliberately shrunk to cut quota spend in discovery — the org loop dominates and produced the HTTP 504; overflow owners can paste a URL.

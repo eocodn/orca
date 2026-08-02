@@ -51,8 +51,8 @@ import {
   isGitHubProjectRefInputTooLarge
 } from '../../shared/github-project-ref-input'
 import { githubProjectHost } from '../../shared/github-project-identity'
-import { ownerQueryRoot } from './project-view-config'
-import { getCachedOwnerType, rememberOwnerType } from './project-view-state'
+import { ownerQueryRoot } from "./project-view-config"
+import { getCachedOwnerType, rememberOwnerType } from "./project-view-state"
 
 export type ParsedPaste =
   | { kind: 'org'; owner: string; number: number; host: string; viewNumber?: number }
