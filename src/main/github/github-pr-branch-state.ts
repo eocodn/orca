@@ -93,7 +93,7 @@ import {
   type GitHubRepoExecOptions,
   type GitHubApiRepository
 } from './github-api-repository'
-} from './issues'
+import { githubRepoIdentityKey } from '../../shared/github-repository-identity-key'
 import {
   mapCheckRunRESTStatus,
   mapCheckRunRESTConclusion,

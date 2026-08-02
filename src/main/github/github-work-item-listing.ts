@@ -91,7 +91,6 @@ import {
   type GitHubRepoExecOptions,
   type GitHubApiRepository
 } from './github-api-repository'
-} from './issues'
 import {
   mapCheckRunRESTStatus,
   mapCheckRunRESTConclusion,

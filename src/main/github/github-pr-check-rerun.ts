@@ -88,7 +88,6 @@ import {
   type GitHubRepoExecOptions,
   type GitHubApiRepository
 } from './github-api-repository'
-} from './issues'
 import {
   mapCheckRunRESTStatus,
   mapCheckRunRESTConclusion,
@@ -248,8 +247,3 @@ query($owner: String!, $repo: String!, $pr: Int!) {
     }
   }
 }`
-
-/**
- * Get all comments on a PR — both top-level conversation comments and inline
- * review comments (including suggestions). Uses GraphQL for review threads
- * to get resolution status, REST for issue-level comments.

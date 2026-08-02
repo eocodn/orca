@@ -91,7 +91,6 @@ import {
   type GitHubRepoExecOptions,
   type GitHubApiRepository
 } from './github-api-repository'
-} from './issues'
 import {
   mapCheckRunRESTStatus,
   mapCheckRunRESTConclusion,
@@ -336,8 +335,3 @@ export async function getPRChecksViaRestFallback(
     release()
   }
 }
-
-/**
- * Get detailed check statuses for a PR.
- * Uses GitHub's combined GraphQL rollup so check runs and legacy commit statuses
- * arrive in one cached request; suite-only approval blockers are included too.

@@ -46,8 +46,14 @@ import type {
   ResolveProjectRefArgs,
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
+import { githubProjectHost } from '../../shared/github-project-identity'
 import {
-  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
+  DISCOVERY_MAX_ORGS,
+  DISCOVERY_ORG_PAGE_SIZE,
+  DISCOVERY_PROJECTS_PER_ORG,
+  DISCOVERY_PROJECTS_PER_OWNER,
+  rememberOwnerType
+} from './project-view-state'
 import { ownerQueryRoot } from "./project-view-config"
 
 export type RawViewerDiscovery = {

@@ -48,8 +48,11 @@ import type {
 } from '../../shared/github-project-types'
 import {
   GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
-import { ownerQueryRoot } from "./project-view-config"
-import { getCachedOwnerType, rememberOwnerType } from "./project-view-state"
+  isGitHubProjectRefInputTooLarge
+} from '../../shared/github-project-ref-input'
+import { githubProjectHost } from '../../shared/github-project-identity'
+import { ownerQueryRoot } from './project-view-config'
+import { getCachedOwnerType, rememberOwnerType } from './project-view-state'
 
 export type ParsedPaste =
   | { kind: 'org'; owner: string; number: number; host: string; viewNumber?: number }

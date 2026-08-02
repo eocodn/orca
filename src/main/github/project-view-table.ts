@@ -47,8 +47,13 @@ import type {
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
 import {
-  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
-import { fetchProjectViewsPage, fetchViewFieldsContinuation, finalizeView } from "./project-view-config"
+  fetchProjectViewsPage,
+  fetchViewFieldsContinuation,
+  finalizeView,
+  matchesSelector,
+  type RawProjectView
+} from './project-view-config'
+import type { RawProjectV2Field } from './project-view-normalizers'
 import { fetchAllItems, fetchItemsCountOnly } from "./project-view-items"
 import { githubProjectHost } from "../../shared/github-project-identity"
 

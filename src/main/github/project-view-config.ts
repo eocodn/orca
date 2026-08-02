@@ -46,8 +46,12 @@ import type {
   ResolveProjectRefArgs,
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
+import { githubProjectHost } from '../../shared/github-project-identity'
 import {
-  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
+  FIELDS_PAGE_SIZE,
+  FIELD_VALUES_PAGE_SIZE,
+  VIEWS_PAGE_SIZE
+} from './project-view-state'
 import { normalizeField, type RawProjectV2Field } from "./project-view-normalizers"
 
 // ─── GraphQL query fragments ───────────────────────────────────────────

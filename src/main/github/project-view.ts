@@ -1,4 +1,4 @@
-export { isValidOwnerSlug, isValidRepoSlug, isValidSlug } from "./project-view-internals"
+export { isValidOwnerSlug, isValidRepoSlug, isValidSlug } from "./project-view/internals"
 export { classifyProjectError } from "./project-view/project-error-classification"
 export { updateProjectItemFieldValue, clearProjectItemFieldValue, updateIssueBySlug, updatePullRequestBySlug, addIssueCommentBySlug, updateIssueCommentBySlug, deleteIssueCommentBySlug, listLabelsBySlug, listAssignableUsersBySlug, listIssueTypesBySlug, updateIssueTypeBySlug, getWorkItemDetailsBySlug } from "./project-view/mutations"
 export { _resetProjectViewCachesForTests, _getProjectViewCacheSizesForTests, _rememberProjectViewOwnerTypeForTests, _getProjectViewOwnerTypeForTests, _markProjectViewParentFieldRetriedForTests, _hasProjectViewParentFieldRetriedForTests, _markProjectViewParentFieldWarningLoggedForTests, _hasProjectViewParentFieldWarningLoggedForTests } from "./project-view-state"

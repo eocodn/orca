@@ -8,16 +8,6 @@ import type {
   PRRefreshOutcome
 } from '../../shared/types'
 import { getPRForBranchOutcome, type GitHubPRBranchLookupOptions } from './client'
-export import { webContents } from 'electron'
-import type {
-  GitHubPRRefreshAlias,
-  GitHubPRRefreshCandidate,
-  GitHubPRRefreshEvent,
-  GitHubPRRefreshReason,
-  GitHubPRRefreshSkippedReason,
-  PRRefreshOutcome
-} from '../../shared/types'
-import { getPRForBranchOutcome, type GitHubPRBranchLookupOptions } from './client'
 import { getOriginGitHubApiRepository } from './github-api-repository'
 import { ghRepoExecOptions, githubRepoContext } from './gh-utils'
 import {
@@ -396,4 +386,3 @@ export function queuedEntriesByPriority(): QueueEntry[] {
 
 export { shouldAcceptMergedFallbackPR, hostedReviewOptionArgs, MIN_BACKGROUND_REFRESH_AGE_MS, MERGEABILITY_PENDING_REFRESH_MS, MANUAL_MERGEABILITY_PENDING_REFRESH_MS, BACKGROUND_BUDGET_WINDOW_MS, MIN_BACKGROUND_SPACING_MS, BACKGROUND_BUDGET_MAX, POST_PUSH_DELAY_MS, BACKOFF_BASE_MS, BACKOFF_MAX_MS, DIAGNOSTIC_BREADCRUMB_MIN_INTERVAL_MS, ACTIVE_BURST_WINDOW_MS, ACTIVE_BURST_MAX, sequence, queueOrder, draining, queue, backgroundStarts, activeStartsByScope, errorBackoff, manualRetryGates, lastBackgroundStartAt, noteManualRetryGate, resetKeyRetryState, visibleByWindow, outcomeObserver, diagnosticsCounters, setPRRefreshOutcomeObserver, removeInvisibleVisibleRefreshes, recordPRRefreshQueueDiagnostic, clearActiveBurstWindow, clearVisiblePRRefreshWindow, pruneWorktreePRRefreshAliases, nextSequence, nextQueueOrder, broadcast, refreshKey, isVisibleKey, isManual, bypassesFreshnessDelay, isBackground, isBudgetedBackground, isBudgetedQueueEntry, validateCandidate, shouldSkipFresh, shouldBroadcastQueued, freshRetryAt, aliasFromCandidate, visibleCandidateAfterOutcome, setVisibleFollowUp, removeQueuedAliasForInvalidCandidate, nextVisibleErrorRetryAt, withErrorSchedule, scheduleVisibleFollowUp, refreshIntervalForCandidate, hasResolvedMergeStateStatus, isMergeabilityPendingOutcome, backgroundRefreshBuckets, noteBackgroundStart, nextBudgetDelay, activeBurstScope, pruneActiveStarts, nextActiveBurstDelay, noteActiveStart, activeOrder, entryDelay, isActiveBurstDelayed, nextQueuedWakeDelay, scheduleDrain, queuedEntriesByPriority }
 export { type QueueEntry, type PRRefreshOutcomeObserver, type PRBranchLookupCandidate, type drainTimer }
-

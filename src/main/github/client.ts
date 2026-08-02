@@ -18,7 +18,8 @@ export {
   starOrca,
   getAuthenticatedViewer
 } from './github-client-foundation'
-export type { PullRequestPushTarget, MainWorkItem } from './github-client-foundation'
+export type { PullRequestPushTarget } from './github-client-foundation'
+export type { MainWorkItem } from './github-work-item-mapping'
 export { listWorkItems } from './github-work-item-listing'
 export { countWorkItems, getRepoSlug, getRepoUpstream } from './github-work-item-count'
 export { createGitHubPullRequest } from './github-pr-creation'

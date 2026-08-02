@@ -46,11 +46,23 @@ import type {
   ResolveProjectRefArgs,
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
-import {
-  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
 import { normalizeItem, type RawProjectV2Field, type RawItem } from "./project-view-normalizers"
-import { ownerQueryRoot } from "./project-view-config"
-import { PROJECT_VIEW_OWNER_CACHE_MAX_ENTRIES } from "./project-view-state"
+import {
+  FIELD_CONFIG_FRAGMENT,
+  FIELD_VALUES_SELECTION,
+  itemContentSelection,
+  ownerQueryRoot
+} from "./project-view-config"
+import {
+  ITEM_PAGE_SIZE,
+  MAX_ITEMS,
+  hasParentFieldRetried,
+  hasParentFieldWarningLogged,
+  markParentFieldRetried,
+  markParentFieldWarningLogged,
+  ownerScopeKey,
+  parentFieldProbeInFlight
+} from "./project-view-state"
 
 // ─── Items fetch (paginated) ──────────────────────────────────────────
 

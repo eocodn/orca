@@ -46,8 +46,6 @@ import type {
   ResolveProjectRefArgs,
   ResolveProjectRefResult
 } from '../../shared/github-project-types'
-import {
-  GITHUB_PROJECT_REF_INPUT_TOO_LARGE_ERROR,
 export type RawProjectV2Field = {
   __typename?: string
   id?: string
