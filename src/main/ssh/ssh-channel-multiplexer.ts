@@ -1,5 +1,3 @@
-/* eslint-disable max-lines -- Why: the SSH relay protocol state machine keeps
-   request, notification, keepalive, and cancellation semantics paired. */
 import {
   FrameDecoder,
   MessageType,
@@ -17,9 +15,9 @@ import {
 import {
   SshMultiplexerTransportWriter,
   type MultiplexerTransport,
-  type MultiplexerWriteSettlement,
-  type MultiplexerWriterLane
+  type MultiplexerWriteSettlement
 } from './ssh-multiplexer-transport-writer'
+import { messageLane } from './ssh-multiplexer-message-lane'
 
 export type { MultiplexerTransport, MultiplexerWriteSettlement }
 
@@ -627,8 +625,4 @@ export class SshChannelMultiplexer {
       this.unackedTimestamps.set(seq, now)
     }
   }
-}
-
-function messageLane(msg: JsonRpcMessage): MultiplexerWriterLane {
-  return 'method' in msg && msg.method === 'pty.data' ? 'ordinary' : 'control'
 }
