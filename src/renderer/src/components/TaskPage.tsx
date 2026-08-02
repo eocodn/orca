@@ -99,6 +99,15 @@ import {
   getTaskSourceAvailabilityNotice,
   getTaskSourceContextSummary
 } from './task-source-context-summary'
+import {
+  buildGitLabProviderIdentity,
+  getGitHubWorkItemWorkspaceSeed,
+  getGitLabWorkItemWorkspaceSeed,
+  getJiraIssueWorkspaceSeed,
+  getTaskPageRepoCacheInput,
+  getTaskPageRepoSourceContext,
+  getTaskSourceHostAvailabilityForHost
+} from './task-page-source-context'
 import type {
   TaskSourceAvailabilityNotice,
   TaskSourceHostAvailability
@@ -396,124 +405,7 @@ const GITHUB_TASK_ROW_SURFACE_CLASS =
 const GITHUB_TASK_ROW_HOVER_SURFACE_CLASS =
   'group-hover/github-task-row:[background:color-mix(in_srgb,var(--muted)_70%,var(--background))]'
 
-function getGitHubWorkItemWorkspaceSeed(item: GitHubWorkItem): string {
-  return getLinkedWorkItemWorkspaceName(item)?.seedName ?? getLinkedWorkItemSuggestedName(item)
-}
-
-function getGitLabWorkItemWorkspaceSeed(item: GitLabWorkItem): string {
-  return (
-    getLinkedWorkItemWorkspaceName({
-      type: item.type,
-      provider: 'gitlab',
-      number: item.number,
-      title: item.title
-    })?.seedName ?? getLinkedWorkItemSuggestedName(item)
-  )
-}
-
-function getJiraIssueWorkspaceSeed(issue: JiraIssue): string {
-  return (
-    getLinkedWorkItemWorkspaceName({
-      type: 'issue',
-      provider: 'jira',
-      number: 0,
-      title: `${issue.key} ${issue.title}`,
-      jiraIdentifier: issue.key
-    })?.seedName ?? getLinkedWorkItemSuggestedName(issue)
-  )
-}
-
-function getTaskPageRepoSourceContext(
-  repo: Repo | null | undefined,
-  provider: 'github' | 'gitlab',
-  gitlabProjectRef?: GitLabProjectRef | null
-): TaskSourceContext | null {
-  if (!repo) {
-    return null
-  }
-  const projection = projectHostSetupProjectionFromRepos([repo])
-  const project = projection.projects[0]
-  const setup = projection.setups[0]
-  const providerIdentity =
-    provider === 'github' && project?.providerIdentity?.provider === 'github'
-      ? project.providerIdentity
-      : provider === 'gitlab' && gitlabProjectRef
-        ? buildGitLabProviderIdentity(gitlabProjectRef)
-        : null
-  return normalizeTaskSourceContext({
-    provider,
-    projectId: setup?.projectId ?? project?.id ?? repo.id,
-    hostId: setup?.hostId ?? getRepoExecutionHostId(repo),
-    projectHostSetupId: setup?.id,
-    repoId: repo.id,
-    providerIdentity
-  })
-}
-
-function buildGitLabProviderIdentity(projectRef: GitLabProjectRef) {
-  const pathParts = projectRef.path
-    .split('/')
-    .map((part) => part.trim())
-    .filter(Boolean)
-  const projectName = pathParts.at(-1) ?? null
-  const namespace = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : null
-  return {
-    provider: 'gitlab' as const,
-    projectId: projectRef.path,
-    namespace,
-    project: projectName,
-    webUrl: `https://${projectRef.host}/${projectRef.path}`
-  }
-}
-
-function getTaskSourceHostAvailabilityForHost(
-  host: ExecutionHostRegistryEntry | null | undefined,
-  hostId: TaskSourceContext['hostId']
-): TaskSourceHostAvailability | null {
-  if (!host) {
-    return null
-  }
-  if (host.kind === 'runtime') {
-    if (!host.capabilities) {
-      return {
-        hostId,
-        reason: 'checking-task-source-capability'
-      }
-    }
-    if (!host.capabilities.includes(TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY)) {
-      return {
-        hostId,
-        reason: 'missing-task-source-capability'
-      }
-    }
-  }
-  if (host.health === 'local' || host.health === 'available') {
-    return null
-  }
-  return {
-    hostId,
-    health: host.health,
-    status: host.connectionStatus
-  }
-}
-
-function getTaskPageRepoCacheInput(repo: Repo): {
-  id: string
-  path: string
-  executionHostId?: string | null
-  sourceCacheScope?: string | null
-} {
-  const sourceContext = getTaskPageRepoSourceContext(repo, 'github')
-  return {
-    id: repo.id,
-    path: repo.path,
-    executionHostId: repo.executionHostId,
-    sourceCacheScope:
-      sourceContext?.provider === 'github' ? getTaskSourceCacheScope(sourceContext) : null
-  }
-}
-
-// Why: sticky header bg must be opaque or scrolled rows bleed through; the ::before gap-cover keeps horizontally-scrolled columns off the px-3 padding strip.
+// Why: the opaque sticky cell covers horizontally scrolled rows behind the title gutter.
 const GITHUB_TASK_STICKY_ID_HEADER_CLASS = cn(
   'sticky left-3 z-30 before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:bg-inherit',
   GITHUB_TASK_ROW_SURFACE_CLASS
