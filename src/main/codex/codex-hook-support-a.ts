@@ -80,7 +80,7 @@ import {
 } from './codex-managed-trust-reconciliation'
 import type { CodexTrustGrantLedgerHome } from './codex-trust-grant-ledger'
 import { mutateRealHomeHooksPreservingUserTrust } from './codex-user-hook-trust-rebase'
-import { removeSystemManagedHookTrustEntries, cleanupLegacySystemManagedHooks, stripLegacyManagedProfileBlock, cleanupLegacyCodexProfileHooks, cleanupLegacyManagedHookRepresentations, removeRuntimeManagedHookTrustEntries, removeWslRuntimeManagedHookTrustEntries, removeStaleWslRuntimeManagedHookTrustEntries, getManagedScript, installManagedHooksIntoWslRuntime, refreshWslRuntimeUserHooks, getWslHookReconciliationAction, getWslReconciliationKey } from './codex-hook-support-b'
+import { getManagedScript } from './codex-hook-support-b'
 
 
 // Why: Pre/PostToolUse feed the live in-flight-tool readout; PermissionRequest exits with no decision so Codex still shows its approval UI while Orca flips the pane to waiting.
@@ -180,6 +180,10 @@ let systemCodexHomeHookSweepSuppressed: () => boolean = () => false
 
 export function setSystemCodexHomeHookSweepSuppressed(gate: () => boolean): void {
   systemCodexHomeHookSweepSuppressed = gate
+}
+
+export function isSystemCodexHomeHookSweepSuppressed(): boolean {
+  return systemCodexHomeHookSweepSuppressed()
 }
 
 export { createCodexWslRuntimeHookInstallPlan }

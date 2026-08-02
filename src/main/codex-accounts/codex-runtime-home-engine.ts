@@ -1,5 +1,2 @@
 export * from './codex-runtime-home-foundation'
-export { CodexRuntimeHomeServicePhase1 as CodexRuntimeHomeService } from './codex-runtime-home-selection'
-export { CodexRuntimeHomeServicePhase2 as CodexRuntimeHomeService } from './codex-runtime-home-migration'
-export { CodexRuntimeHomeServicePhase3 as CodexRuntimeHomeService } from './codex-runtime-home-persistence'
 export { CodexRuntimeHomeServicePhase4 as CodexRuntimeHomeService } from './codex-runtime-home-recovery'

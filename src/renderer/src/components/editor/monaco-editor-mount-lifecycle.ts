@@ -241,7 +241,12 @@ export function useMonacoEditorMountLifecycle(
         }
       })
 
-      editorInstance.onDidDispose(() => {
+      let didCleanup = false
+      const cleanupEditorLifecycle = (): void => {
+        if (didCleanup) {
+          return
+        }
+        didCleanup = true
         cursorPositionSub.dispose()
         scrollStateSub.dispose()
         gutterMouseDownSub.dispose()
@@ -254,11 +259,22 @@ export function useMonacoEditorMountLifecycle(
         if (autoHeightFrame !== null) {
           window.cancelAnimationFrame(autoHeightFrame)
         }
+        if (scrollThrottleTimerRef.current !== null) {
+          clearTimeout(scrollThrottleTimerRef.current)
+          scrollThrottleTimerRef.current = null
+        }
+        unregisterFileSearchSelectionRef.current?.()
+        unregisterFileSearchSelectionRef.current = null
+        markdownDocLinkDecorationsRef.current?.dispose()
+        markdownDocLinkDecorationsRef.current = null
         uninstallE2EProbe()
         editorRef.current = null
         setMountedEditor(null)
         setCommentPopover(null)
-      })
+        setSelectionAnnotationTarget(null)
+        setGutterMenuOpen(false)
+      }
+      editorInstance.onDidDispose(cleanupEditorLifecycle)
 
       const pendingReveal = useAppStore.getState().pendingEditorReveal
       const revealMatchesEditor = pendingReveal?.fileId

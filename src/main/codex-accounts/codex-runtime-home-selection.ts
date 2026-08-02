@@ -1,4 +1,4 @@
-import { CodexRuntimeHomeServiceFoundation,
+import {
   appendFileSync,
   copyFileSync,
   existsSync,
@@ -78,6 +78,7 @@ import { type CodexSystemDefaultSnapshot,
   type CodexRuntimeLogoutMarkerStatus,
   type CodexReadBackResult,
   type CodexReadBackMatch,
+  CodexRuntimeHomeServiceFoundation,
   readLaunchEnvValue,
   getEffectiveCodexHomeEnv  } from './codex-runtime-home-foundation'
 

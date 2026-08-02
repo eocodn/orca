@@ -102,6 +102,8 @@ export function useGitLabItemDialogState({
   }, [item, repoSelector, refreshNonce])
 
   useEffect(() => {
+    setDetails(null)
+    setError(null)
     setEditingDetails(false)
     setTitleDraft('')
     setBodyDraft('')

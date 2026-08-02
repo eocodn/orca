@@ -110,6 +110,7 @@ export function getEffectiveCodexHomeEnv(launchEnv: NodeJS.ProcessEnv): NodeJS.P
   }
 }
 
+export class CodexRuntimeHomeServiceFoundation {
 
   [key: string]: any
 
@@ -517,4 +518,3 @@ export function prepareWslRuntimeSeedConfig(
     parseWslUncPath(sourceHomePath)?.linuxPath ?? sourceHomePath
   )
 }
-

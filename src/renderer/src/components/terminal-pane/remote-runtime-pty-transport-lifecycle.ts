@@ -39,7 +39,17 @@ export function createRemoteRuntimePtyTransportLifecycle(
       context.terminalEnded = false
       context.connecting = true
       context.emitRecoveryState(true)
-      if (context.destroyed || !context.opts.worktreeId) return
+      if (context.destroyed) {
+        context.connecting = false
+        context.emitRecoveryState()
+        return
+      }
+      if (!context.opts.worktreeId) {
+        context.connecting = false
+        context.recovery.markDisconnected()
+        context.storedCallbacks.onError?.('Remote runtime terminal requires a worktree.')
+        return
+      }
       try {
         if (isWebTerminalSurfaceTabId(context.opts.tabId ?? '')) {
           return await context.attachHostSessionMirror(options, true, undefined, connectLifecycleEpoch)

@@ -61,6 +61,7 @@ export function RemoteBrowserPagePane({
         addressBarValue: base.addressBarValue,
         browserTab,
         busy: base.busy,
+        certificateChallengeId: base.certificateFailure?.challengeId ?? null,
         certificateFailure: base.certificateFailure,
         contextMenu: base.contextMenu,
         contextMenuRef: base.contextMenuRef,

@@ -82,7 +82,6 @@ import type { CodexTrustGrantLedgerHome } from './codex-trust-grant-ledger'
 import { mutateRealHomeHooksPreservingUserTrust } from './codex-user-hook-trust-rebase'
 import * as supportA from './codex-hook-support-a'
 import * as supportB from './codex-hook-support-b'
-import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
 
 const {
   getConfigPath,

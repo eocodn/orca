@@ -1,4 +1,4 @@
-import { CodexAccountServiceFoundation, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
@@ -77,6 +77,7 @@ import { LOGIN_TIMEOUT_MS,
   type CodexResetCreditRejectedBeforeProviderResult,
   type CodexResetCreditConsumeResult,
   type CodexResetCreditAttempt,
+  CodexAccountServiceFoundation,
   CodexResetCreditScopeRejection,
   resetScopeKey,
   resetAccountScopeKey,

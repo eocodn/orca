@@ -1,2 +1,3 @@
-// Public view facade; orchestration and presentation are kept in concrete modules.
-export { default } from './automations-page-renderer'
+// Public view facade; orchestration owns state while sibling modules own presentation details.
+export * from './automations-page-orchestration'
+export { default } from './automations-page-orchestration'

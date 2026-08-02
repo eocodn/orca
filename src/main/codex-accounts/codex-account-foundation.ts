@@ -241,6 +241,7 @@ export function loginAuthChanged(
   return initial !== undefined && current !== undefined && current !== null && current !== initial
 }
 
+export class CodexAccountServiceFoundation {
 
   [key: string]: any
 
@@ -540,4 +541,3 @@ export function loginAuthChanged(
 
 
 }
-

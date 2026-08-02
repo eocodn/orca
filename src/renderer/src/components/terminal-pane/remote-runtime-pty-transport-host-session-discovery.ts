@@ -82,7 +82,11 @@ export function installRemoteRuntimePtyHostSessionDiscovery(
         environmentId: context.currentRuntimeEnvironmentId,
         worktreeId: context.opts.worktreeId!,
         load: () =>
-          context.callRuntime<RuntimeMobileSessionTabsResult>('session.tabs.list', { worktree })
+          context.callRuntime<RuntimeMobileSessionTabsResult>(
+            'session.tabs.list',
+            { worktree },
+            remainingMs
+          )
       })
       const handle = context.findReadyHostSessionHandle(listed, hostTabId)
       if (handle) return handle

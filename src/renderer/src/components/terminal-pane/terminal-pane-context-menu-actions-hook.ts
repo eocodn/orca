@@ -1,5 +1,4 @@
-// Concrete context-menu action implementation.
- * recovery, inherited-cwd split behavior, and agent-fork state in one hook. */
+// Concrete context-menu action implementation; keeps paste recovery, inherited-cwd splits, and agent forks together.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { ManagedPane, PaneManager } from '@/lib/pane-manager/pane-manager'

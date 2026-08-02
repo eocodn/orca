@@ -80,8 +80,25 @@ import {
 } from './codex-managed-trust-reconciliation'
 import type { CodexTrustGrantLedgerHome } from './codex-trust-grant-ledger'
 import { mutateRealHomeHooksPreservingUserTrust } from './codex-user-hook-trust-rebase'
-import { getConfigPath, writeCodexHooksJson, getCodexConfigTomlPath, getManagedScriptPath, getManagedCommand, getCodexManagedHookInstallMaterial, setSystemCodexHomeHookSweepSuppressed, wrapReadablePosixHookCommand, getSystemConfigPath, getSystemCodexConfigTomlPath, getLegacyCodexProfileTomlPath, collectManagedTrustEntries, removeSelfComputedMatchingTrustEntries, removeStaleRuntimeHookTrustEntries, commandUsesCodexPluginOnlyPlaceholder, removeCodexPluginEnvironmentCommands, getRuntimeHooksWithSystemUserHooks, getTrustedSystemUserHookSignatures, resolveTrustedSystemHookState, getTrustedSystemHookHashesByEvent, collectMirroredRuntimeUserHookTrustEntries, moveMirroredRuntimeUserTrustAfterManagedStatusHook, escapeRegex, buildHookTrustHeaderKeyPattern, applyMirroredRuntimeUserHookTrustStates, dedupeHookDefinitions, CODEX_EVENTS, CODEX_EVENT_LABEL, CODEX_MANAGED_EVENT_LABELS, CODEX_PLUGIN_ONLY_HOOK_PLACEHOLDERS } from './codex-hook-support-a'
+import {
+  CODEX_EVENT_LABEL,
+  CODEX_EVENTS,
+  CODEX_MANAGED_EVENT_LABELS,
+  collectManagedTrustEntries,
+  getConfigPath,
+  getLegacyCodexProfileTomlPath,
+  getManagedCommand,
+  getManagedScriptPath,
+  getSystemConfigPath,
+  getSystemCodexConfigTomlPath,
+  isSystemCodexHomeHookSweepSuppressed,
+  removeSelfComputedMatchingTrustEntries,
+  wrapReadablePosixHookCommand,
+  writeCodexHooksJson
+} from './codex-hook-support-a'
 
+const LEGACY_ORCA_PROFILE_BLOCK_START = '# BEGIN ORCA AGENT STATUS HOOKS'
+const LEGACY_ORCA_PROFILE_BLOCK_END = '# END ORCA AGENT STATUS HOOKS'
 
 export function removeSystemManagedHookTrustEntries(systemHomePath: string, hooksJsonPath: string): void {
   removeCodexManagedHookTrustEntries({
@@ -94,7 +111,7 @@ export function removeSystemManagedHookTrustEntries(systemHomePath: string, hook
   })
 }
 export function cleanupLegacySystemManagedHooks(): void {
-  if (systemCodexHomeHookSweepSuppressed()) {
+  if (isSystemCodexHomeHookSweepSuppressed()) {
     return
   }
   const legacyConfigPath = getSystemConfigPath()

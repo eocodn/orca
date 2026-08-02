@@ -1,136 +1,16 @@
-import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs'
-import { join, win32 as pathWin32 } from 'node:path'
 import type { SFTPWrapper } from 'ssh2'
-import type { AgentHookInstallState, AgentHookInstallStatus } from '../../shared/agent-hook-types'
-import {
-  buildManagedCommandHook,
-  createManagedCommandMatcher,
-  buildWindowsAgentHookCurlPostCommand,
-  getSharedManagedScriptPath,
-  hookDefinitionHasManagedCommand,
-  MANAGED_HOOK_TIMEOUT_SECONDS,
-  readHooksJson,
-  readHooksJsonWithRaw,
-  removeManagedCommands,
-  wrapPosixHookCommand,
-  wrapWindowsCmdHookCommand,
-  writeHooksJson,
-  writeManagedScript,
-  type HookDefinition
-} from '../agent-hooks/installer-utils'
-import { resolveHooksJsonWritePath } from '../agent-hooks/hook-config-write-path'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
-import {
-  readHooksJsonRemote,
-  readTextFileRemote,
-  writeHooksJsonRemote,
-  writeManagedScriptRemote,
-  writeTextFileRemoteAtomic
-} from '../agent-hooks/installer-utils-remote'
-import {
-  buildPosixHookPayloadCapture,
-  buildWindowsHookEnvironmentGuardLines,
-  buildWindowsHookStdinDrainEpilogue,
-  POSIX_HOOK_STDIN_DRAIN_COMMAND
-} from '../agent-hooks/hook-stdin-contract'
-import {
-  codexHookSourcePathsEqual,
-  computeTrustKey,
-  computeTrustedHash,
-  escapeTomlString,
-  getCodexExplicitHomeHookSourcePath,
-  normalizeCodexHookSourcePath,
-  normalizeCodexProjectPathForLookup,
-  normalizeHookTrustKeyForLookup,
-  parseTrustKey,
-  readHookTrustEntries,
-  removeHookTrustEntries,
-  upsertHookTrustEntriesInContent,
-  upsertHookTrustEntries,
-  writeConfigAtomically,
-  type CodexEventLabel,
-  type CodexHookTrustState,
-  type CodexTrustEntry
-} from './config-toml-trust'
-import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
-import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
-import {
-  createCodexWslRuntimeHookInstallPlan,
-  type CodexWslRuntimeHookInstallPlan,
-  type CodexWslRuntimeHookTarget,
-  type WslCanonicalPathSettlement
-} from './codex-wsl-hook-install-plan'
-import {
-  CODEX_HOOK_EVENT_LABEL,
-  createCodexHookTrustEntry,
-  getCodexHookTrustSignature,
-  getCodexManagedScriptFileName
-} from './codex-hook-identity'
-import {
-  promoteCodexRuntimeHookApprovalsToSystem,
-  snapshotCodexRuntimeHookTrustProvenance
-} from './hook-trust-promotion'
-import { grantManagedCodexHookTrust } from './codex-hook-trust-grant'
-import { readCurrentCodexTrustGrantLedgerHome } from './codex-trust-grant-host'
-import {
-  getCodexLedgerTrustedHash,
-  readCodexTrustGrantLedgerHomeForReconciliation,
-  removeCodexManagedHookTrustEntries,
-  removeStaleWslCodexManagedHookTrustEntries
-} from './codex-managed-trust-reconciliation'
-import type { CodexTrustGrantLedgerHome } from './codex-trust-grant-ledger'
-import { mutateRealHomeHooksPreservingUserTrust } from './codex-user-hook-trust-rebase'
-import * as supportA from './codex-hook-support-a'
-import * as supportB from './codex-hook-support-b'
 import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
-
-const {
-  getConfigPath,
-  writeCodexHooksJson,
-  getCodexConfigTomlPath,
-  getManagedScriptPath,
-  getManagedCommand,
-  getCodexManagedHookInstallMaterial,
-  setSystemCodexHomeHookSweepSuppressed,
-  wrapReadablePosixHookCommand,
-  getSystemConfigPath,
-  getSystemCodexConfigTomlPath,
-  getLegacyCodexProfileTomlPath,
-  collectManagedTrustEntries,
-  removeSelfComputedMatchingTrustEntries,
-  removeStaleRuntimeHookTrustEntries,
-  commandUsesCodexPluginOnlyPlaceholder,
-  removeCodexPluginEnvironmentCommands,
-  getRuntimeHooksWithSystemUserHooks,
-  getTrustedSystemUserHookSignatures,
-  resolveTrustedSystemHookState,
-  getTrustedSystemHookHashesByEvent,
-  collectMirroredRuntimeUserHookTrustEntries,
-  moveMirroredRuntimeUserTrustAfterManagedStatusHook,
-  escapeRegex,
-  buildHookTrustHeaderKeyPattern,
-  applyMirroredRuntimeUserHookTrustStates,
-  dedupeHookDefinitions,
-  CODEX_EVENTS,
-  CODEX_EVENT_LABEL,
-  CODEX_MANAGED_EVENT_LABELS,
-  CODEX_PLUGIN_ONLY_HOOK_PLACEHOLDERS
-} = supportA
-const {
-  removeSystemManagedHookTrustEntries,
-  cleanupLegacySystemManagedHooks,
-  stripLegacyManagedProfileBlock,
-  cleanupLegacyCodexProfileHooks,
-  cleanupLegacyManagedHookRepresentations,
-  removeRuntimeManagedHookTrustEntries,
-  removeWslRuntimeManagedHookTrustEntries,
-  removeStaleWslRuntimeManagedHookTrustEntries,
+import type { CodexTrustEntry } from './config-toml-trust'
+import { getOrcaManagedCodexHomePath } from './codex-home-paths'
+import type { CodexWslRuntimeHookTarget } from './codex-wsl-hook-install-plan'
+import {
   getManagedScript,
   installManagedHooksIntoWslRuntime,
   refreshWslRuntimeUserHooks,
+  removeStaleWslRuntimeManagedHookTrustEntries,
   getWslHookReconciliationAction,
   getWslReconciliationKey
-} = supportB
+} from './codex-hook-support-b'
 
 import * as codexHookRuntimeInstallation from './codex-hook-runtime-installation'
 import * as codexHookStatus from './codex-hook-status'
@@ -151,36 +31,40 @@ export class CodexHookService {
     return generation
   }
 
-installForRuntimeHome(
+  installForRuntimeHome(
     runtimeHomePath: string | null | undefined,
     target?: CodexWslRuntimeHookTarget
   ): AgentHookInstallStatus | null {
     return codexHookRuntimeInstallation.installForRuntimeHome(this, runtimeHomePath, target)
   }
 
-refreshRuntimeUserHooksForRuntimeHome(
+  refreshRuntimeUserHooksForRuntimeHome(
     runtimeHomePath: string | null | undefined,
     target?: CodexWslRuntimeHookTarget
   ): AgentHookInstallStatus | null {
-    return codexHookRuntimeInstallation.refreshRuntimeUserHooksForRuntimeHome(this, runtimeHomePath, target)
+    return codexHookRuntimeInstallation.refreshRuntimeUserHooksForRuntimeHome(
+      this,
+      runtimeHomePath,
+      target
+    )
   }
 
-getStatus(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
+  getStatus(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
     return codexHookStatus.getStatus(this, runtimeHomePath)
   }
 
-private getStatusAfterInstall(
+  private getStatusAfterInstall(
     recentGrantEntries: readonly CodexTrustEntry[] | null,
     runtimeHomePath: string = getOrcaManagedCodexHomePath()
   ): AgentHookInstallStatus {
     return codexHookStatus.getStatusAfterInstall(this, recentGrantEntries, runtimeHomePath)
   }
 
-install(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
+  install(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
     return codexHookInstallation.install(this, runtimeHomePath)
   }
 
-async installRemote(
+  async installRemote(
     sftp: SFTPWrapper,
     remoteHome: string,
     options?: {
@@ -193,13 +77,13 @@ async installRemote(
     return codexHookRemote.installRemote(this, sftp, remoteHome, options)
   }
 
-refreshRuntimeUserHooks(
+  refreshRuntimeUserHooks(
     runtimeHomePath: string = getOrcaManagedCodexHomePath()
   ): AgentHookInstallStatus {
     return codexHookRemote.refreshRuntimeUserHooks(this, runtimeHomePath)
   }
 
-remove(): AgentHookInstallStatus {
+  remove(): AgentHookInstallStatus {
     return codexHookRemoval.remove(this)
   }
 }
