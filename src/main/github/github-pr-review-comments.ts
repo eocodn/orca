@@ -87,7 +87,6 @@ import {
   type GitHubRepoExecOptions,
   type GitHubApiRepository
 } from './github-api-repository'
-} from './issues'
 import {
   mapCheckRunRESTStatus,
   mapCheckRunRESTConclusion,
@@ -101,105 +100,9 @@ import {
 import { mapGraphQLReactionGroups, type GitHubGraphQLReactionGroup } from './comment-reactions'
 import {
   getRateLimit,
-  noteRepositoryRateLimitSpend,
-  repositoryRateLimitGuard,
   spendsSharedGitHubComQuota,
   type RateLimitBucketKind
 } from './rate-limit'
- */
-export async function setPRFileViewed(args: {
-  repoPath: string
-  connectionId?: string | null
-  localGitOptions?: LocalGitExecOptions
-  prRepo?: GitHubApiRepository | null
-  pullRequestId: string
-  path: string
-  viewed: boolean
-}): Promise<boolean> {
-  const { ownerRepo, ghOptions } = await resolveGitHubRepoExecution(
-    args.repoPath,
-    args.prRepo,
-    args.connectionId,
-    args.localGitOptions
-  )
-  if (!ownerRepo) {
-    return false
-  }
-  const mutation = args.viewed ? 'markFileAsViewed' : 'unmarkFileAsViewed'
-  const query = `mutation($pullRequestId: ID!, $path: String!) {
-    ${mutation}(input: { pullRequestId: $pullRequestId, path: $path }) {
-      pullRequest { id }
-    }
-  }`
-  await acquire()
-  try {
-    await ghExecFileAsync(
-      [
-        'api',
-        'graphql',
-        '-f',
-        `query=${query}`,
-        '-f',
-        `pullRequestId=${args.pullRequestId}`,
-        '-f',
-        `path=${args.path}`
-      ],
-      ghOptions
-    )
-    return true
-  } catch (err) {
-    console.warn(`${mutation} failed:`, err)
-    return false
-  } finally {
-    release()
-  }
-}
-
-/**
- * Resolve or unresolve a PR review thread via GraphQL.
- */
-export async function resolveReviewThread(
-  repoPath: string,
-  threadId: string,
-  resolve: boolean,
-  connectionId?: string | null,
-  prRepo?: GitHubApiRepository | null,
-  localGitOptions: LocalGitExecOptions = {}
-): Promise<boolean> {
-  const mutation = resolve ? 'resolveReviewThread' : 'unresolveReviewThread'
-  const query = `mutation($threadId: ID!) { ${mutation}(input: { threadId: $threadId }) { thread { isResolved } } }`
-  const { ownerRepo, ghOptions } = await resolveGitHubRepoExecution(
-    repoPath,
-    prRepo,
-    connectionId,
-    localGitOptions
-  )
-  if (!ownerRepo) {
-    return false
-  }
-  const guard = repositoryRateLimitGuard(ownerRepo, 'graphql', ghOptions)
-  if (guard.blocked) {
-    console.warn(
-      `${mutation} skipped: GitHub GraphQL rate limit nearly exhausted (${guard.remaining}/${guard.limit})`
-    )
-    return false
-  }
-  await acquire()
-  try {
-    noteRepositoryRateLimitSpend(ownerRepo, 'graphql', 1, ghOptions)
-    await ghExecFileAsync(
-      ['api', 'graphql', '-f', `query=${query}`, '-f', `threadId=${threadId}`],
-      ghOptions
-    )
-    return true
-  } catch (err) {
-    console.warn(`${mutation} failed:`, err)
-    return false
-  } finally {
-    release()
-  }
-}
-
 export function mapReviewCommentResponse(
   data: {
     id?: number
@@ -340,7 +243,3 @@ export async function addPRReviewComment(
     release()
   }
 }
-
-/**
- * Merge a PR by number using gh CLI.
- * method: 'merge' | 'squash' | 'rebase' (default: 'squash')
