@@ -1,1 +1,1 @@
-export * from './agent-hook-transport.ts'
+export * from './agent-hook-transport'

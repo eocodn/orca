@@ -138,7 +138,7 @@ function cronDateMatches(rule: ParsedCron, timestamp: number): boolean {
   return dayOfMonthMatches && dayOfWeekMatches
 }
 
-function cronHasPossibleOccurrence(rule: ParsedCron, anchor: number): boolean {
+export function cronHasPossibleOccurrence(rule: ParsedCron, anchor: number): boolean {
   let day = startOfLocalDay(anchor)
   for (let i = 0; i < CRON_SCAN_DAYS; i += 1) {
     if (cronDateMatches(rule, day)) {

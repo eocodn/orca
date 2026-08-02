@@ -1,13 +1,15 @@
 import type { AutomationSchedulePreset } from './automations-types'
 import {
   DAY_CODES,
-  parseAutomationRrule,
   parseCronExpression,
   parseSchedule,
   type ParsedCron,
   type AutomationCronScheduleClassification
 } from './automation-schedule-parser'
-import { cronHasPossibleOccurrence } from './automation-schedule-occurrence'
+import {
+  cronHasPossibleOccurrence,
+  parseAutomationRrule
+} from './automation-schedule-occurrence'
 
 function formatTime(hour: number, minute: number): string {
   const date = new Date()

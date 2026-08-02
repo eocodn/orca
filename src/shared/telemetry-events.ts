@@ -1,1 +1,1 @@
-export * from './telemetry-event-schema-registry.ts'
+export * from './telemetry-event-schema-registry'

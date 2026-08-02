@@ -27,7 +27,7 @@ export const DIGIT_INDEX_ACTION_IDS: readonly KeybindingActionId[] = [
 const DIGIT_INDEX_ACTION_ID_SET = new Set<KeybindingActionId>(DIGIT_INDEX_ACTION_IDS)
 
 // The representative key for a digit-index chord is a single 1-9 number key.
-const DIGIT_INDEX_KEY_PATTERN = /^[1-9]$/
+export const DIGIT_INDEX_KEY_PATTERN = /^[1-9]$/
 
 export function isDigitIndexActionId(actionId: KeybindingActionId): boolean {
   return DIGIT_INDEX_ACTION_ID_SET.has(actionId)
@@ -50,4 +50,3 @@ export function isPluginKeybindingActionId(value: string): value is PluginKeybin
     )
   )
 }
-

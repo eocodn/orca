@@ -108,7 +108,7 @@ function supportedSourceControlAiAgentSummary(): string {
     .join(', ')}, or Custom command.`
 }
 
-function copyRecord<T>(value: T | undefined): T | undefined {
+export function copyRecord<T>(value: T | undefined): T | undefined {
   return value === undefined ? undefined : structuredClone(value)
 }
 

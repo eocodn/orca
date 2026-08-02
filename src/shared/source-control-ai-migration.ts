@@ -1,18 +1,14 @@
-import type { CommitMessageAiSettings, TuiAgent } from './types'
-import type { SourceControlAiSettings, SourceControlActionRecipe } from './source-control-ai-types'
+import type { CommitMessageAiSettings } from './types'
+import type { SourceControlAiSettings } from './source-control-ai-types'
 import {
   DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
   SOURCE_CONTROL_ACTION_IDS,
-  readSourceControlActionDefault,
   type SourceControlActionId
 } from './source-control-ai-actions'
 import {
   DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS,
-  CUSTOM_AGENT_ID,
-  type CustomAgentId,
   actionRecipeFromLegacyCommitMessageAi,
-  commandTemplateFromOperationInstruction,
-  isCustomAgentId
+  commandTemplateFromOperationInstruction
 } from './source-control-ai-normalization'
 
 export function getDefaultSourceControlAiSettings(): SourceControlAiSettings {

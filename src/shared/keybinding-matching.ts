@@ -1,11 +1,10 @@
 import type { KeybindingActionId, KeybindingInput, KeybindingMatchOptions, KeybindingOverrides, ModifierToken, ParsedKeybinding } from "./keybinding-contract"
 import { DEFINITIONS_BY_ID, DIGIT_INDEX_KEY_PATTERN, getKeybindingPlatform, isDigitIndexActionId } from "./keybinding-registry"
-import { canonicalizeParsedKeybinding, parseKeybinding } from "./keybinding-parser"
+import { canonicalizeParsedKeybinding, hasModifier, parseKeybinding } from "./keybinding-parser"
 import {
   PUNCTUATION_KEY_TOKENS,
   canFallBackToPhysicalCode,
   getEffectiveKeybindingsForAction,
-  hasModifier,
   keybindingIsActiveInContext,
   logicalKeyTokenFromInput,
   numpadCodeKeyTokenFromInput,

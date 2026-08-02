@@ -6,23 +6,21 @@ import type {
 } from './source-control-ai-types'
 import {
   DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
-  normalizeSourceControlActionRecipe,
   normalizeSourceControlAiActionDefaults,
-  readSourceControlActionDefault,
-  type SourceControlActionRecipe
+  readSourceControlActionDefault
 } from './source-control-ai-actions'
 import {
   CUSTOM_AGENT_ID,
-  DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS,
+  isCustomAgentId,
+  type CustomAgentId
+} from './commit-message-agent-spec'
+import {
   actionRecipeFromLegacyCommitMessageAi,
   applyLegacyAgentToActionRecipe,
   commandTemplateFromOperationInstruction,
   copyRecord,
   hasEntries,
-  isCustomAgentId,
-  isLegacyBranchInstructionTemplate,
-  normalizeRepoSourceControlAiOverrides,
-  type CustomAgentId
+  isLegacyBranchInstructionTemplate
 } from './source-control-ai-normalization'
 import { sourceControlAiSettingsFromLegacy, getDefaultSourceControlAiSettings } from './source-control-ai-migration'
 
