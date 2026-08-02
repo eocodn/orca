@@ -132,83 +132,47 @@ const {
   getWslReconciliationKey
 } = supportB
 
-import * as codexHookRuntimeInstallation from './codex-hook-runtime-installation'
-import * as codexHookStatus from './codex-hook-status'
-import * as codexHookInstallation from './codex-hook-installation'
-import * as codexHookRemote from './codex-hook-remote'
-import * as codexHookRemoval from './codex-hook-removal'
+export function remove(service: any): AgentHookInstallStatus {
 
-export class CodexHookService {
-  private readonly wslReconciliationGeneration = new Map<string, number>()
-
-  private supersedeWslReconciliation(runtimeHomePath: string | null | undefined): number {
-    if (!runtimeHomePath) {
-      return 0
+    const configPath = getConfigPath()
+    const configExists = existsSync(configPath)
+    const config = readHooksJson(configPath)
+    if (!config) {
+      // Why: a malformed hooks.json shouldn't strand old hooks in ~/.codex or the legacy profile after disabling.
+      cleanupLegacyManagedHookRepresentations()
+      return {
+        agent: 'codex',
+        state: 'error',
+        configPath,
+        managedHooksPresent: false,
+        detail: 'Could not parse Codex hooks.json'
+      }
     }
-    const key = getWslReconciliationKey(runtimeHomePath)
-    const generation = (this.wslReconciliationGeneration.get(key) ?? 0) + 1
-    this.wslReconciliationGeneration.set(key, generation)
-    return generation
-  }
 
-installForRuntimeHome(
-    runtimeHomePath: string | null | undefined,
-    target?: CodexWslRuntimeHookTarget
-  ): AgentHookInstallStatus | null {
-    return codexHookRuntimeInstallation.installForRuntimeHome(this, runtimeHomePath, target)
-  }
-
-refreshRuntimeUserHooksForRuntimeHome(
-    runtimeHomePath: string | null | undefined,
-    target?: CodexWslRuntimeHookTarget
-  ): AgentHookInstallStatus | null {
-    return codexHookRuntimeInstallation.refreshRuntimeUserHooksForRuntimeHome(this, runtimeHomePath, target)
-  }
-
-getStatus(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
-    return codexHookStatus.getStatus(this, runtimeHomePath)
-  }
-
-private getStatusAfterInstall(
-    recentGrantEntries: readonly CodexTrustEntry[] | null,
-    runtimeHomePath: string = getOrcaManagedCodexHomePath()
-  ): AgentHookInstallStatus {
-    return codexHookStatus.getStatusAfterInstall(this, recentGrantEntries, runtimeHomePath)
-  }
-
-install(runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
-    return codexHookInstallation.install(this, runtimeHomePath)
-  }
-
-async installRemote(
-    sftp: SFTPWrapper,
-    remoteHome: string,
-    options?: {
-      /** Explicit CODEX_HOME dir (flat layout). WSL sessions read Orca's managed runtime home, not ~/.codex, so the default location leaves them hookless. */
-      codexHomeDir?: string
-      /** Skip the trust write when config.toml is absent — the WSL launch path seeds it only-if-absent, so creating it here would cancel that seed. */
-      deferTrustUntilConfigToml?: boolean
+    const nextHooks = { ...config.hooks }
+    // Why: same broad matcher as install() so stale entries from older builds get cleaned even if scriptPath moved.
+    const isManagedCommand = createManagedCommandMatcher(getCodexManagedScriptFileName())
+    for (const [eventName, definitions] of Object.entries(nextHooks)) {
+      if (!Array.isArray(definitions)) {
+        // Why: a non-array event value would make removeManagedCommands throw; skip it.
+        continue
+      }
+      const cleaned = removeManagedCommands(definitions, isManagedCommand)
+      if (cleaned.length === 0) {
+        delete nextHooks[eventName]
+      } else {
+        nextHooks[eventName] = cleaned
+      }
     }
-  ): Promise<AgentHookInstallStatus> {
-    return codexHookRemote.installRemote(this, sftp, remoteHome, options)
-  }
+    if (configExists) {
+      // Why: remove() may be the only repair path for a file whose top-level plugin metadata makes Codex reject hooks.json.
+      writeCodexHooksJson(configPath, nextHooks)
+    }
 
-refreshRuntimeUserHooks(
-    runtimeHomePath: string = getOrcaManagedCodexHomePath()
-  ): AgentHookInstallStatus {
-    return codexHookRemote.refreshRuntimeUserHooks(this, runtimeHomePath)
-  }
+    // Why: drop trust entries so config.toml doesn't accumulate dead [hooks.state] blocks across install/remove cycles.
+    removeRuntimeManagedHookTrustEntries(configPath)
 
-remove(): AgentHookInstallStatus {
-    return codexHookRemoval.remove(this)
-  }
-}
-export const codexHookService = new CodexHookService()
+    cleanupLegacyManagedHookRepresentations()
 
-export const _internals = {
-  getManagedScript,
-  installManagedHooksIntoWslRuntime,
-  refreshWslRuntimeUserHooks,
-  removeStaleWslRuntimeManagedHookTrustEntries,
-  getWslHookReconciliationAction
+    return service.getStatus()
 }
