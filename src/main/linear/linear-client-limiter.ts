@@ -73,6 +73,30 @@ let legacyViewerLoadedFromDisk = false
 let cachedWorkspaceFile: LinearWorkspaceFile | null = null
 let workspaceFileLoadedFromDisk = false
 
-export { MAX_CONCURRENT, running, queue, acquire, release, LEGACY_WORKSPACE_ID, LINEAR_PUBLIC_FILE_URL_EXPIRY_SECONDS, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk }
-export { type LinearWorkspaceFile, type LinearClientForWorkspace }
+function resetLinearClientState(): void {
+  cachedTokens = new Map()
+  credentialErrors.clear()
+  cachedLegacyViewer = null
+  legacyViewerLoadedFromDisk = false
+  cachedWorkspaceFile = null
+  workspaceFileLoadedFromDisk = false
+}
 
+function setCachedLegacyViewer(value: LinearViewer | null): void {
+  cachedLegacyViewer = value
+}
+
+function setLegacyViewerLoaded(value: boolean): void {
+  legacyViewerLoadedFromDisk = value
+}
+
+function setCachedWorkspaceFile(value: LinearWorkspaceFile | null): void {
+  cachedWorkspaceFile = value
+}
+
+function setWorkspaceFileLoaded(value: boolean): void {
+  workspaceFileLoadedFromDisk = value
+}
+
+export { MAX_CONCURRENT, running, queue, acquire, release, LEGACY_WORKSPACE_ID, LINEAR_PUBLIC_FILE_URL_EXPIRY_SECONDS, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk, resetLinearClientState, setCachedLegacyViewer, setLegacyViewerLoaded, setCachedWorkspaceFile, setWorkspaceFileLoaded }
+export { type LinearWorkspaceFile, type LinearClientForWorkspace }

@@ -17,7 +17,7 @@ import type {
 } from '../../shared/types'
 
 // ── Concurrency limiter — max 4 parallel Linear API calls ────────────
-import { LEGACY_WORKSPACE_ID, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk } from './linear-client-limiter'
+import { LEGACY_WORKSPACE_ID, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk, resetLinearClientState, setCachedLegacyViewer, setLegacyViewerLoaded } from './linear-client-limiter'
 import { getWorkspaceTokenPath, emptyWorkspaceFile, getWorkspaceFile, writeWorkspaceFile, getWorkspaceState, clearLegacyViewerOnDisk, saveWorkspaceToken } from './linear-client-storage'
 function saveToken(apiKey: string): void {
   saveWorkspaceToken(LEGACY_WORKSPACE_ID, apiKey)
@@ -82,12 +82,7 @@ function clearToken(workspaceId?: string): void {
     for (const workspace of state.workspaces) {
       clearTokenFile(workspace.id)
     }
-    cachedTokens = new Map()
-    credentialErrors.clear()
-    cachedLegacyViewer = null
-    legacyViewerLoadedFromDisk = false
-    cachedWorkspaceFile = emptyWorkspaceFile()
-    workspaceFileLoadedFromDisk = true
+    resetLinearClientState()
     clearLegacyViewerOnDisk()
     writeWorkspaceFile(emptyWorkspaceFile())
     return
@@ -95,8 +90,8 @@ function clearToken(workspaceId?: string): void {
 
   clearTokenFile(workspaceId)
   if (workspaceId === LEGACY_WORKSPACE_ID) {
-    cachedLegacyViewer = null
-    legacyViewerLoadedFromDisk = false
+    setCachedLegacyViewer(null)
+    setLegacyViewerLoaded(false)
     clearLegacyViewerOnDisk()
     return
   }
@@ -155,8 +150,8 @@ function replaceLegacyWorkspace(workspace: LinearWorkspace, token: string): void
   saveWorkspaceToken(workspace.id, token)
   clearTokenFile(LEGACY_WORKSPACE_ID)
   clearLegacyViewerOnDisk()
-  cachedLegacyViewer = null
-  legacyViewerLoadedFromDisk = true
+  setCachedLegacyViewer(null)
+  setLegacyViewerLoaded(true)
   upsertWorkspace(workspace, { select: true })
 }
 
@@ -186,4 +181,3 @@ function resolveWorkspaceId(workspaceId?: string | null): string | null {
 // decrypting the token and surfacing a keychain prompt is expected.
 
 export { saveToken, loadToken, hasStoredToken, clearTokenFile, clearToken, workspaceFromLinearData, upsertWorkspace, replaceLegacyWorkspace, resolveWorkspaceId }
-

@@ -17,7 +17,7 @@ import type {
 } from '../../shared/types'
 
 // ── Concurrency limiter — max 4 parallel Linear API calls ────────────
-import { LEGACY_WORKSPACE_ID, type LinearClientForWorkspace, LINEAR_PUBLIC_FILE_URL_EXPIRY_SECONDS, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk } from './linear-client-limiter'
+import { LEGACY_WORKSPACE_ID, type LinearClientForWorkspace, LINEAR_PUBLIC_FILE_URL_EXPIRY_SECONDS, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, setCachedLegacyViewer, setLegacyViewerLoaded } from './linear-client-limiter'
 import { getLegacyViewer, getWorkspaceFile, writeWorkspaceFile, getLegacyWorkspace, getWorkspaceState, clearLegacyViewerOnDisk, saveWorkspaceToken } from './linear-client-storage'
 import { loadToken, clearTokenFile, clearToken, workspaceFromLinearData, upsertWorkspace, replaceLegacyWorkspace, resolveWorkspaceId } from './linear-client-workspaces'
 function getClient(workspaceId?: string | null): LinearClient | null {
@@ -106,8 +106,8 @@ async function connect(
     ) {
       clearTokenFile(LEGACY_WORKSPACE_ID)
       clearLegacyViewerOnDisk()
-      cachedLegacyViewer = null
-      legacyViewerLoadedFromDisk = true
+      setCachedLegacyViewer(null)
+      setLegacyViewerLoaded(true)
     }
     upsertWorkspace(workspace, { select: true })
     return { ok: true, viewer: workspace, workspace }
@@ -215,4 +215,3 @@ function initLinearToken(): void {
 }
 
 export { getClient, getClients, getPublicFileUrlClient, isAuthError, connect, disconnect, selectWorkspace, getStatus, testConnection, initLinearToken }
-

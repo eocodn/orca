@@ -29,7 +29,7 @@ const JIRA_API_USER_AGENT = 'Orca'
 
 const MAX_CONCURRENT = 4
 let running = 0
-import { type JiraSiteFile, cachedSiteFile, siteFileLoaded, cachedTokens, credentialErrors, getSiteFilePath, getTokenPath, ensureOrcaDir, ensureTokenDir, emptySiteFile, hasStoredToken, normalizeSite } from './jira-client-limiter'
+import { type JiraSiteFile, cachedSiteFile, siteFileLoaded, cachedTokens, credentialErrors, getSiteFilePath, getTokenPath, ensureOrcaDir, ensureTokenDir, emptySiteFile, hasStoredToken, normalizeSite, setCachedSiteFile, setSiteFileLoaded } from './jira-client-limiter'
 function readSiteFileFromDisk(): JiraSiteFile {
   const path = getSiteFilePath()
   if (!existsSync(path)) {
@@ -62,8 +62,8 @@ function readSiteFileFromDisk(): JiraSiteFile {
 
 function getSiteFile(): JiraSiteFile {
   if (!siteFileLoaded || !cachedSiteFile) {
-    cachedSiteFile = readSiteFileFromDisk()
-    siteFileLoaded = true
+    setCachedSiteFile(readSiteFileFromDisk())
+    setSiteFileLoaded(true)
   }
   return cachedSiteFile
 }
@@ -82,13 +82,13 @@ function writeSiteFile(file: JiraSiteFile): void {
         ? file.selectedSiteId
         : activeSiteId
 
-  cachedSiteFile = {
+  setCachedSiteFile({
     version: 1,
     activeSiteId,
     selectedSiteId,
     sites
-  }
-  siteFileLoaded = true
+  })
+  setSiteFileLoaded(true)
   writeFileSync(getSiteFilePath(), JSON.stringify(cachedSiteFile, null, 2), {
     encoding: 'utf-8',
     mode: 0o600
@@ -149,4 +149,3 @@ function deleteToken(siteId: string): void {
 }
 
 export { readSiteFileFromDisk, getSiteFile, writeSiteFile, writeEncryptedToken, readToken, saveToken, deleteToken }
-

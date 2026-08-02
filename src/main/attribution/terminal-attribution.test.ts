@@ -779,6 +779,7 @@ exit 1
     expect(pathEntries).not.toContain(posixDir)
     expect(baseEnv.ORCA_ATTRIBUTION_SHIM_DIR).toBeUndefined()
     expect(existsSync(join(win32Dir, 'git.cmd'))).toBe(true)
+    expect(readFileSync(join(win32Dir, 'git.cmd'), 'utf8')).toContain('orca_is_git_commit')
   })
 
   it('keeps POSIX shims first for Windows Git Bash and WSL shells', () => {

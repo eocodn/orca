@@ -121,6 +121,14 @@ const cachedTokens = new Map<string, string>()
 // failing reads without re-touching the keychain on every status poll.
 const credentialErrors = new Map<string, string>()
 
+function setCachedSiteFile(value: JiraSiteFile | null): void {
+  cachedSiteFile = value
+}
+
+function setSiteFileLoaded(value: boolean): void {
+  siteFileLoaded = value
+}
+
 function getOrcaDir(): string {
   return join(homedir(), '.orca')
 }
@@ -189,6 +197,5 @@ function normalizeSite(input: unknown): JiraSite | null {
   }
 }
 
-export { queue, createJiraRequestAbortError, acquire, release, apiBasePath, JiraApiError, cachedSiteFile, siteFileLoaded, cachedTokens, credentialErrors, getOrcaDir, getSiteFilePath, getTokenDir, getTokenPath, ensureOrcaDir, ensureTokenDir, emptySiteFile, hasStoredToken, normalizeSite }
+export { queue, createJiraRequestAbortError, acquire, release, apiBasePath, JiraApiError, cachedSiteFile, siteFileLoaded, cachedTokens, credentialErrors, getOrcaDir, getSiteFilePath, getTokenDir, getTokenPath, ensureOrcaDir, ensureTokenDir, emptySiteFile, hasStoredToken, normalizeSite, setCachedSiteFile, setSiteFileLoaded }
 export { type QueuedJiraRequest, type JiraSiteFile, type JiraClientForSite }
-

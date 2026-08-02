@@ -46,7 +46,7 @@ import {
   type MediaResolutionStats
 } from './attachment-images'
 import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
-import { ISSUE_DETAIL_FIELDS, type ISSUE_SUMMARY_FIELDS, ISSUE_SUMMARY_TIMEOUT_MS, ISSUE_SEARCH_TIMEOUT_MS, type JiraRecord, clampLimit, type JiraIssueSearchFailure } from './jira-issue-primitives'
+import { ISSUE_DETAIL_FIELDS, ISSUE_SUMMARY_FIELDS, ISSUE_SUMMARY_TIMEOUT_MS, ISSUE_SEARCH_TIMEOUT_MS, type JiraRecord, clampLimit, type JiraIssueSearchFailure } from './jira-issue-primitives'
 import { withJiraDeadline, settleJiraSummaryRead, getErrorStatus, toIssueSearchFailureError, shouldSurfaceSiteFailure, mapUser, issueUrl, toBodyText } from './jira-issue-deadlines'
 import { mapJiraIssue, type MediaRequest, collectIssueMediaRequest, prepareMediaResolver, flushMediaResolutionWarn, sortAndLimitIssues, filterToJql, searchIssuesForClient } from './jira-issue-mappers'
 async function listIssues(
@@ -347,4 +347,3 @@ async function addIssueComment(
 }
 
 export { listIssues, searchIssues, getIssue, getIssueSummary, createIssue, updateIssue, addIssueComment }
-

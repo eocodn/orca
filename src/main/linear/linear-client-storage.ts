@@ -17,7 +17,7 @@ import type {
 } from '../../shared/types'
 
 // ── Concurrency limiter — max 4 parallel Linear API calls ────────────
-import { LEGACY_WORKSPACE_ID, type LinearWorkspaceFile, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk } from './linear-client-limiter'
+import { LEGACY_WORKSPACE_ID, type LinearWorkspaceFile, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk, setCachedLegacyViewer, setLegacyViewerLoaded, setCachedWorkspaceFile, setWorkspaceFileLoaded } from './linear-client-limiter'
 import { hasStoredToken } from './linear-client-workspaces'
 function getOrcaDir(): string {
   return join(homedir(), '.orca')
@@ -86,8 +86,8 @@ function readLegacyViewerFromDisk(): LinearViewer | null {
 
 function getLegacyViewer(): LinearViewer | null {
   if (!legacyViewerLoadedFromDisk) {
-    cachedLegacyViewer = readLegacyViewerFromDisk()
-    legacyViewerLoadedFromDisk = true
+    setCachedLegacyViewer(readLegacyViewerFromDisk())
+    setLegacyViewerLoaded(true)
   }
   return cachedLegacyViewer
 }
@@ -172,8 +172,8 @@ function readWorkspaceFileFromDisk(): LinearWorkspaceFile {
 
 function getWorkspaceFile(): LinearWorkspaceFile {
   if (!workspaceFileLoadedFromDisk || !cachedWorkspaceFile) {
-    cachedWorkspaceFile = readWorkspaceFileFromDisk()
-    workspaceFileLoadedFromDisk = true
+    setCachedWorkspaceFile(readWorkspaceFileFromDisk())
+    setWorkspaceFileLoaded(true)
   }
   return cachedWorkspaceFile
 }
@@ -199,13 +199,13 @@ function writeWorkspaceFile(file: LinearWorkspaceFile): void {
         ? file.selectedWorkspaceId
         : activeWorkspaceId
 
-  cachedWorkspaceFile = {
+  setCachedWorkspaceFile({
     version: 1,
     activeWorkspaceId,
     selectedWorkspaceId,
     workspaces: persistedWorkspaces
-  }
-  workspaceFileLoadedFromDisk = true
+  })
+  setWorkspaceFileLoaded(true)
   writeFileSync(getWorkspaceFilePath(), JSON.stringify(cachedWorkspaceFile, null, 2), {
     encoding: 'utf-8',
     mode: 0o600
@@ -289,4 +289,3 @@ function saveWorkspaceToken(workspaceId: string, apiKey: string): void {
 // Backward-compatible export for the legacy single-workspace storage path.
 
 export { getOrcaDir, getLegacyTokenPath, getLegacyViewerPath, getWorkspaceFilePath, getWorkspaceTokenDir, getWorkspaceTokenPath, ensureOrcaDir, ensureWorkspaceTokenDir, readLegacyViewerFromDisk, getLegacyViewer, normalizeWorkspace, emptyWorkspaceFile, readWorkspaceFileFromDisk, getWorkspaceFile, writeWorkspaceFile, getLegacyWorkspace, getWorkspaceState, clearLegacyViewerOnDisk, writeEncryptedToken, saveWorkspaceToken }
-
