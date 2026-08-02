@@ -13,27 +13,33 @@ import {
   resolveCommitMessageAgentChoice
 } from './commit-message-agent-spec'
 import { LOCAL_COMMIT_MESSAGE_HOST_KEY } from './commit-message-host-key'
-import {
-  resolveSourceControlActionCommandTemplate,
-  type SourceControlActionId
-} from './source-control-ai-actions'
+import type { SourceControlActionId, SourceControlActionRecipe } from './source-control-ai-actions'
 import type {
-  SourceControlAiModelChoice,
+  RepoSourceControlAiOverrides,
   SourceControlAiOperation,
   SourceControlAiPrCreationDefaults,
   SourceControlAiSettings
 } from './source-control-ai-types'
+import type { CustomAgentId } from './commit-message-agent-spec'
 import {
   DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS,
-  copyRecord,
-  hasEntries,
-  isLegacyBranchInstructionTemplate,
-  normalizeRepoSourceControlAiOverrides
+  OPERATION_LABEL,
+  type ResolveSourceControlAiResult,
+  commandTemplateFromOperationInstruction,
+  hasActionAgentRecipe,
+  normalizeRepoSourceControlAiOverrides,
+  supportedSourceControlAiAgentSummary
 } from './source-control-ai-normalization'
-import { getDefaultSourceControlAiSettings } from './source-control-ai-migration'
+import {
+  readSourceControlActionDefault,
+  resolveSourceControlActionCommandTemplate
+} from './source-control-ai-actions'
+import type {
+  ResolveSourceControlAiInput,
+  ResolveSourceControlAiPrCreationDefaultsInput
+} from './source-control-ai-normalization'
 import {
   normalizeSourceControlAiSettings,
-  projectSourceControlAiToLegacyCommitMessageAi,
   readSourceControlAiModelChoiceForHost
 } from './source-control-ai-settings'
 

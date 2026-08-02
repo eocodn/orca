@@ -3,12 +3,12 @@ import type { SourceControlAiSettings } from './source-control-ai-types'
 import {
   DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
   SOURCE_CONTROL_ACTION_IDS,
-  type SourceControlActionId
 } from './source-control-ai-actions'
 import {
   DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS,
   actionRecipeFromLegacyCommitMessageAi,
-  commandTemplateFromOperationInstruction
+  commandTemplateFromOperationInstruction,
+  copyRecord
 } from './source-control-ai-normalization'
 
 export function getDefaultSourceControlAiSettings(): SourceControlAiSettings {

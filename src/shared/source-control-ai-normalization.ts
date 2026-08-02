@@ -1,26 +1,19 @@
 import {
   CUSTOM_AGENT_ID,
-  getCommitMessageAgentSpec,
-  getCommitMessageModel,
   listCommitMessageAgentCapabilities,
   type CustomAgentId,
-  isCustomAgentId,
-  resolveCommitMessageAgentChoice
+  isCustomAgentId
 } from './commit-message-agent-spec'
-import { LOCAL_COMMIT_MESSAGE_HOST_KEY } from './commit-message-host-key'
 import {
   DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
   normalizeSourceControlActionRecipe,
-  normalizeSourceControlAiActionDefaults,
   readSourceControlActionDefault,
-  resolveSourceControlActionCommandTemplate,
   SOURCE_CONTROL_ACTION_IDS,
   SOURCE_CONTROL_TEXT_ACTION_IDS,
   type SourceControlActionId,
   type SourceControlActionRecipe
 } from './source-control-ai-actions'
 import type {
-  CommitMessageAiModelCapability,
   CommitMessageAiSettings,
   GlobalSettings,
   Repo,
@@ -63,7 +56,7 @@ export type ResolveSourceControlAiResult =
   | { ok: true; value: ResolvedSourceControlAiOperation }
   | { ok: false; error: string }
 
-type ResolveSourceControlAiInput = {
+export type ResolveSourceControlAiInput = {
   settings: Pick<
     GlobalSettings,
     'defaultTuiAgent' | 'agentCmdOverrides' | 'commitMessageAi' | 'sourceControlAi'
@@ -85,7 +78,7 @@ type RepoSourceControlActionOverride = NonNullable<
   NonNullable<RepoSourceControlAiOverrides['actionOverrides']>[SourceControlActionId]
 >
 
-const OPERATION_LABEL: Record<SourceControlAiOperation, string> = {
+export const OPERATION_LABEL: Record<SourceControlAiOperation, string> = {
   commitMessage: 'commit messages',
   pullRequest: 'pull request details',
   branchName: 'branch names'
@@ -102,7 +95,7 @@ const PR_CREATION_DEFAULT_KEYS = [
   'openAfterCreate'
 ] as const
 
-function supportedSourceControlAiAgentSummary(): string {
+export function supportedSourceControlAiAgentSummary(): string {
   return `Supported agents: ${listCommitMessageAgentCapabilities()
     .map((capability) => capability.label)
     .join(', ')}, or Custom command.`
@@ -368,7 +361,7 @@ export function actionRecipeFromLegacyCommitMessageAi(legacy: CommitMessageAiSet
   }
 }
 
-function legacyPromptFromCommandTemplate(
+export function legacyPromptFromCommandTemplate(
   template: string | undefined,
   fallback: string | undefined
 ): string {
@@ -382,13 +375,13 @@ function legacyPromptFromCommandTemplate(
   return trimmed
 }
 
-function hasActionAgentRecipe(recipe: {
+export function hasActionAgentRecipe(recipe: {
   agentId?: TuiAgent | CustomAgentId | null
 }): recipe is { agentId: TuiAgent | CustomAgentId | null } {
   return Object.prototype.hasOwnProperty.call(recipe, 'agentId')
 }
 
-function legacyCommitMessageCoreChanges(
+export function legacyCommitMessageCoreChanges(
   legacy: CommitMessageAiSettings,
   projected: CommitMessageAiSettings
 ): Record<'enabled' | 'agentId' | 'customPrompt' | 'customAgentCommand', boolean> {
@@ -400,7 +393,7 @@ function legacyCommitMessageCoreChanges(
   }
 }
 
-function hasLegacyCommitMessageCoreChanges(
+export function hasLegacyCommitMessageCoreChanges(
   changes: Record<'enabled' | 'agentId' | 'customPrompt' | 'customAgentCommand', boolean>
 ): boolean {
   return Object.values(changes).some(Boolean)
@@ -423,7 +416,7 @@ export function applyLegacyAgentToActionRecipe(
   return next
 }
 
-function shouldImportLegacyBranchPrompt(
+export function shouldImportLegacyBranchPrompt(
   base: SourceControlAiSettings,
   projectedLegacy: CommitMessageAiSettings
 ): boolean {
@@ -442,7 +435,7 @@ function shouldImportLegacyBranchPrompt(
   )
 }
 
-function shouldImportLegacyBranchAgent(
+export function shouldImportLegacyBranchAgent(
   base: SourceControlAiSettings,
   projectedLegacy: CommitMessageAiSettings
 ): boolean {

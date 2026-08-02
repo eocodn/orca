@@ -1,26 +1,26 @@
 import type { CommitMessageAiSettings, TuiAgent } from './types'
-import type {
-  RepoSourceControlAiOverrides,
-  SourceControlAiModelChoice,
-  SourceControlAiSettings
-} from './source-control-ai-types'
+import type { SourceControlAiModelChoice, SourceControlAiSettings } from './source-control-ai-types'
 import {
   DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
+  SOURCE_CONTROL_TEXT_ACTION_IDS,
   normalizeSourceControlAiActionDefaults,
   readSourceControlActionDefault
 } from './source-control-ai-actions'
-import {
-  CUSTOM_AGENT_ID,
-  isCustomAgentId,
-  type CustomAgentId
-} from './commit-message-agent-spec'
+import { isCustomAgentId } from './commit-message-agent-spec'
+import { LOCAL_COMMIT_MESSAGE_HOST_KEY } from './commit-message-host-key'
 import {
   actionRecipeFromLegacyCommitMessageAi,
   applyLegacyAgentToActionRecipe,
   commandTemplateFromOperationInstruction,
   copyRecord,
+  hasActionAgentRecipe,
+  hasLegacyCommitMessageCoreChanges,
   hasEntries,
-  isLegacyBranchInstructionTemplate
+  isLegacyBranchInstructionTemplate,
+  legacyCommitMessageCoreChanges,
+  legacyPromptFromCommandTemplate,
+  shouldImportLegacyBranchAgent,
+  shouldImportLegacyBranchPrompt
 } from './source-control-ai-normalization'
 import { sourceControlAiSettingsFromLegacy, getDefaultSourceControlAiSettings } from './source-control-ai-migration'
 
