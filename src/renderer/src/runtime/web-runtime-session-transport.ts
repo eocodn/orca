@@ -1,40 +1,16 @@
-/* eslint-disable max-lines */
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type {
-  BrowserTabCreateResult,
   RuntimeMobileSessionCreateTerminalResult,
   RuntimeMobileSessionTabCloseResult,
   RuntimeMobileSessionTabMove,
   RuntimeMobileSessionTabMoveResult,
   RuntimeMobileSessionTabsResult,
   RuntimeSessionTabCloseReason,
-  RuntimeTerminalCreate,
-  RuntimeTerminalClose,
-  RuntimeTerminalSplit
 } from '../../../shared/runtime-types'
-import type { TerminalPaneSplitSource } from '../../../shared/feature-education-telemetry'
-import type { StartupCommandDelivery } from '../../../shared/codex-startup-delivery'
-import type {
-  SleepingAgentLaunchConfig,
-  AgentProviderSessionMetadata
-} from '../../../shared/agent-session-resume'
-import { AGENT_SESSION_OMP_RESUME_PATH_RUNTIME_CAPABILITY } from '../../../shared/protocol-version'
-import type {
-  AgentLaunchPreferences,
-  AgentPromptDelivery,
-  RuntimeCreateAgentSessionResult,
-  RuntimeEnsureAgentSessionResult
-} from '../../../shared/agent-session-host-authority'
-import type { TerminalPaneLayoutNode, TuiAgent } from '../../../shared/types'
 import type { AppState } from '../store/types'
 import { getRuntimeEnvironmentIdForWorktree } from '../lib/worktree-runtime-owner'
 import { useAppStore } from '../store'
 import { unwrapRuntimeRpcResult } from './runtime-rpc-client'
-import {
-  createAgentSessionCreateOperation,
-  withAgentSessionCreateOperationId
-} from './agent-session-create-operation'
-import { parseRemoteRuntimePtyId } from './runtime-terminal-stream'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 import { recordWebSessionFocusIntent } from './web-session-focus-intent'
 import { clearWebSessionCloseIntent, recordWebSessionCloseIntent } from './web-session-close-intent'
@@ -49,19 +25,19 @@ import {
   toWebTerminalSurfaceTabId
 } from './web-terminal-surface-id'
 import {
-  deliverLaunchPromptToAgentTab,
-  seedNativeChatLaunchDraftForAgentTab
-} from '../lib/agent-launch-prompt-delivery'
-import {
   listRemoteRuntimeSessionTabsAfterCurrentInFlight,
   listRemoteRuntimeSessionTabsDeduped
 } from './remote-runtime-session-tabs-inflight'
-import { runRemoteAgentSessionLaunch } from './remote-agent-session-launch'
 import { translate } from '../i18n/i18n'
 import { getRuntimeEnvironmentRevision } from './runtime-environment-revision'
-import { parsePaneKey } from '../../../shared/stable-pane-id'
 import { toRuntimeExecutionHostId } from '../../../shared/execution-host'
-
+import {
+  captureRuntimeEnvironmentCall,
+  captureWebSessionIntentOwner,
+  matchesWebSessionIntentOwner,
+  pendingRuntimeWorktreeRecoveryRefreshes,
+  RUNTIME_WORKTREE_RECOVERY_REFRESH_DELAYS_MS
+} from './web-runtime-session-terminal-creation'
 export {
   HOST_TERMINAL_SURFACE_SEPARATOR,
   isWebTerminalSurfaceTabId,
@@ -77,415 +53,20 @@ export function isWebRuntimeSessionActive(
   return Boolean(activeRuntimeEnvironmentId?.trim())
 }
 
-export type WebRuntimeTerminalCreateOutcome =
-  | { status: 'created' }
-  | { status: 'failed'; message: string }
+export type { WebRuntimeTerminalCreateOutcome } from './web-runtime-session-terminal-creation'
+export {
+  createWebRuntimeAgentSessionTerminal,
+  createWebRuntimeAgentSessionTerminalWithLaunchDraft,
+  createWebRuntimeSessionTerminal
+} from './web-runtime-session-terminal-creation'
 
-const pendingWebRuntimeSplitMirrorTelemetry = new Map<string, Set<string>>()
-const WEB_RUNTIME_SPLIT_MIRROR_SUPPRESSION_TTL_MS = 30_000
-let pendingWebRuntimeSplitMirrorTelemetryId = 0
-const pendingRuntimeWorktreeRecoveryRefreshes = new Map<string, symbol>()
-const RUNTIME_WORKTREE_RECOVERY_REFRESH_DELAYS_MS = [250, 500, 1_000, 2_000, 4_000] as const
 
-function captureRuntimeEnvironmentCall(
-  environmentId: string,
-  expectedEnvironmentPairingRevision = getRuntimeEnvironmentRevision(environmentId)
-): (args: {
-  method: string
-  params?: unknown
-  timeoutMs?: number
-}) => Promise<RuntimeRpcResponse<unknown>> {
-  return (args) =>
-    window.api.runtimeEnvironments.call({
-      selector: environmentId,
-      ...args,
-      expectedEnvironmentPairingRevision
-    })
-}
 
-function captureWebSessionIntentOwner(environmentId: string): WebSessionIntentOwner {
-  return {
-    environmentId,
-    pairingRevision: getRuntimeEnvironmentRevision(environmentId)
-  }
-}
+export { createWebRuntimeSessionBrowserTab } from './web-runtime-session-browser-creation'
 
-function matchesWebSessionIntentOwner(owner: WebSessionIntentOwner): boolean {
-  return getRuntimeEnvironmentRevision(owner.environmentId) === owner.pairingRevision
-}
 
-type CreateWebRuntimeSessionTerminalArgs = {
-  worktreeId: string
-  environmentId?: string | null
-  afterTabId?: string
-  targetGroupId?: string
-  command?: string
-  cwd?: string
-  env?: Record<string, string>
-  envToDelete?: string[]
-  startupCommandDelivery?: StartupCommandDelivery
-  launchConfig?: SleepingAgentLaunchConfig
-  launchToken?: string
-  agent?: TuiAgent
-  launchAgent?: TuiAgent
-  agentSessionKind?: 'fresh' | 'resume'
-  prompt?: string
-  promptDelivery?: AgentPromptDelivery
-  /** Explicit CLI override; omission leaves the remote host's defaults authoritative. */
-  agentArgs?: string | null
-  launchPreferences?: AgentLaunchPreferences
-  providerSession?: AgentProviderSessionMetadata
-  viewMode?: 'terminal' | 'chat'
-  activate?: boolean
-  selectWorktree?: boolean
-}
 
-type CreatedWebRuntimeSessionTerminal = {
-  outcome: WebRuntimeTerminalCreateOutcome
-  hostTabId?: string
-}
-
-type CreatedAgentTerminalIdentity = Pick<RuntimeTerminalCreate, 'tabId' | 'paneKey'> & {
-  leafId?: string
-}
-
-function createdTerminalLeafId(terminal: CreatedAgentTerminalIdentity): string | undefined {
-  const pane = parsePaneKey(terminal.paneKey ?? '')
-  return pane && pane.tabId === terminal.tabId ? pane.leafId : undefined
-}
-
-export async function createWebRuntimeSessionTerminal(
-  args: CreateWebRuntimeSessionTerminalArgs
-): Promise<WebRuntimeTerminalCreateOutcome> {
-  return (await createWebRuntimeSessionTerminalResult(args)).outcome
-}
-
-export async function createWebRuntimeAgentSessionTerminal(
-  args: CreateWebRuntimeSessionTerminalArgs & {
-    agent: TuiAgent
-    promptAfterReady: string
-    submitPrompt: boolean
-    forcePromptPaste: boolean
-  }
-): Promise<{
-  outcome: WebRuntimeTerminalCreateOutcome
-  promptDelivered: boolean
-}> {
-  const created = await createWebRuntimeSessionTerminalResult(args)
-  if (created.outcome.status === 'failed' || !created.hostTabId) {
-    return { outcome: created.outcome, promptDelivered: false }
-  }
-
-  const promptDelivered = await deliverLaunchPromptToAgentTab({
-    tabId: toWebTerminalSurfaceTabId(created.hostTabId),
-    content: args.promptAfterReady,
-    agent: args.agent,
-    submit: args.submitPrompt,
-    forcePaste: args.forcePromptPaste
-  })
-  return { outcome: created.outcome, promptDelivered }
-}
-
-/**
- * Launch a web-host agent terminal whose draft already rode in on the launch
- * command (argv prefill). No post-ready paste runs for that delivery, so seed
- * the chat-composer copy here once the mirrored host tab id is known.
- */
-export async function createWebRuntimeAgentSessionTerminalWithLaunchDraft(
-  args: CreateWebRuntimeSessionTerminalArgs & {
-    agent: TuiAgent
-    launchDraft: string
-  }
-): Promise<WebRuntimeTerminalCreateOutcome> {
-  const created = await createWebRuntimeSessionTerminalResult(args)
-  if (created.outcome.status !== 'failed' && created.hostTabId) {
-    seedNativeChatLaunchDraftForAgentTab({
-      tabId: toWebTerminalSurfaceTabId(created.hostTabId),
-      agent: args.agent,
-      text: args.launchDraft
-    })
-  }
-  return created.outcome
-}
-
-async function createWebRuntimeSessionTerminalResult(
-  args: CreateWebRuntimeSessionTerminalArgs
-): Promise<CreatedWebRuntimeSessionTerminal> {
-  const environmentId =
-    args.environmentId?.trim() ??
-    useAppStore.getState().settings?.activeRuntimeEnvironmentId?.trim() ??
-    null
-  if (!environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return {
-      outcome: {
-        status: 'failed',
-        message: translate(
-          'auto.runtime.webRuntimeSession.remoteHostDisconnected',
-          'The workspace is not connected to a remote Orca host.'
-        )
-      }
-    }
-  }
-  const intentOwner = captureWebSessionIntentOwner(environmentId)
-  const callEnvironment = captureRuntimeEnvironmentCall(environmentId, intentOwner.pairingRevision)
-
-  if (args.selectWorktree !== false) {
-    selectWebRuntimeSessionWorktree(args.worktreeId, environmentId)
-  }
-  let hostCreated = false
-  let createdTabId: string | undefined
-  let createdLeafId: string | undefined
-  try {
-    const agent = args.launchAgent ?? args.agent
-    const agentArgsOverride =
-      args.agentArgs !== undefined ? args.agentArgs : args.launchConfig?.agentArgs
-    if (agent) {
-      let legacyAlreadyPlacedInGroup = false
-      // Why: structured creation cannot yet express afterTabId; keep the exact legacy placement contract until it can.
-      // Why: focus belongs to the paired client; a headless execution host has no renderer to focus.
-      const hostAuthority = args.afterTabId
-        ? undefined
-        : args.agentSessionKind === 'resume'
-          ? args.providerSession
-            ? async () =>
-                unwrapRuntimeRpcResult(
-                  (await callEnvironment({
-                    method: 'terminal.ensureAgentSession',
-                    params: {
-                      kind: 'explicit',
-                      worktree: toRuntimeWorktreeSelector(args.worktreeId),
-                      agent,
-                      providerSession: args.providerSession!,
-                      ...(args.launchConfig?.ompResumeFilePath
-                        ? { ompResumeFilePath: args.launchConfig.ompResumeFilePath }
-                        : {}),
-                      ...(agentArgsOverride !== undefined ? { agentArgs: agentArgsOverride } : {}),
-                      ...(args.launchPreferences
-                        ? { launchPreferences: args.launchPreferences }
-                        : {}),
-                      presentation: 'background'
-                    },
-                    timeoutMs: 15_000
-                  })) as RuntimeRpcResponse<RuntimeEnsureAgentSessionResult>
-                )
-            : undefined
-          : async () =>
-              await createAgentSessionCreateOperation().run(async (clientOperationId) =>
-                unwrapRuntimeRpcResult(
-                  (await callEnvironment({
-                    method: 'terminal.createAgentSession',
-                    params: withAgentSessionCreateOperationId(
-                      {
-                        worktree: toRuntimeWorktreeSelector(args.worktreeId),
-                        agent,
-                        ...(args.prompt ? { prompt: args.prompt } : {}),
-                        ...(args.promptDelivery ? { promptDelivery: args.promptDelivery } : {}),
-                        ...(agentArgsOverride !== undefined
-                          ? { agentArgs: agentArgsOverride }
-                          : {}),
-                        ...(args.launchPreferences
-                          ? { launchPreferences: args.launchPreferences }
-                          : {}),
-                        ...(args.cwd ? { startupCwd: args.cwd } : {}),
-                        ...(args.viewMode ? { viewMode: args.viewMode } : {}),
-                        presentation: 'background'
-                      },
-                      clientOperationId
-                    ),
-                    timeoutMs: 15_000
-                  })) as RuntimeRpcResponse<RuntimeCreateAgentSessionResult>
-                )
-              )
-      const created = await runRemoteAgentSessionLaunch<{
-        terminal: CreatedAgentTerminalIdentity
-      }>({
-        environmentId,
-        ...(hostAuthority ? { hostAuthority } : {}),
-        ...(args.agentSessionKind === 'resume' && agent === 'omp'
-          ? { hostAuthorityCapability: AGENT_SESSION_OMP_RESUME_PATH_RUNTIME_CAPABILITY }
-          : {}),
-        legacy: async () => {
-          const response = await callEnvironment({
-            method: 'session.tabs.createTerminal',
-            params: {
-              worktree: toRuntimeWorktreeSelector(args.worktreeId),
-              afterTabId: args.afterTabId ? toHostSessionTabId(args.afterTabId) : undefined,
-              targetGroupId: args.targetGroupId,
-              command: args.command,
-              cwd: args.cwd,
-              ...(args.env ? { env: args.env } : {}),
-              ...(args.envToDelete ? { envToDelete: args.envToDelete } : {}),
-              startupCommandDelivery: args.startupCommandDelivery,
-              ...(args.launchConfig ? { launchConfig: args.launchConfig } : {}),
-              ...(args.launchToken ? { launchToken: args.launchToken } : {}),
-              ...(args.agent ? { agent: args.agent } : {}),
-              ...(args.launchAgent ? { launchAgent: args.launchAgent } : {}),
-              ...(args.viewMode ? { viewMode: args.viewMode } : {}),
-              // Why: old hosts understand activate:false; new hosts use select/navigation for caller-local focus.
-              activate: false,
-              select: args.activate !== false,
-              navigation: 'caller'
-            },
-            timeoutMs: 15_000
-          })
-          const legacyCreated = unwrapRuntimeRpcResult(
-            response as RuntimeRpcResponse<RuntimeMobileSessionCreateTerminalResult>
-          )
-          legacyAlreadyPlacedInGroup = true
-          return {
-            terminal: {
-              tabId: legacyCreated.tab.id,
-              leafId: legacyCreated.tab.leafId
-            }
-          }
-        }
-      })
-      hostCreated = true
-      createdTabId = created.terminal.tabId
-      createdLeafId = legacyAlreadyPlacedInGroup
-        ? created.terminal.leafId
-        : createdTerminalLeafId(created.terminal)
-      if (args.targetGroupId && createdTabId && !legacyAlreadyPlacedInGroup) {
-        await callEnvironment({
-          method: 'session.tabs.move',
-          params: {
-            worktree: toRuntimeWorktreeSelector(args.worktreeId),
-            tabId: createdTabId,
-            targetGroupId: args.targetGroupId,
-            kind: 'move-to-group'
-          },
-          timeoutMs: 15_000
-        })
-      }
-    } else {
-      const response = await callEnvironment({
-        method: 'session.tabs.createTerminal',
-        params: {
-          worktree: toRuntimeWorktreeSelector(args.worktreeId),
-          afterTabId: args.afterTabId ? toHostSessionTabId(args.afterTabId) : undefined,
-          targetGroupId: args.targetGroupId,
-          command: args.command,
-          cwd: args.cwd,
-          ...(args.env ? { env: args.env } : {}),
-          ...(args.envToDelete ? { envToDelete: args.envToDelete } : {}),
-          startupCommandDelivery: args.startupCommandDelivery,
-          ...(args.launchConfig ? { launchConfig: args.launchConfig } : {}),
-          ...(args.launchToken ? { launchToken: args.launchToken } : {}),
-          ...(args.viewMode ? { viewMode: args.viewMode } : {}),
-          // Why: old hosts understand activate:false; new hosts use select/navigation for caller-local focus.
-          activate: false,
-          select: args.activate !== false,
-          navigation: 'caller'
-        },
-        timeoutMs: 15_000
-      })
-      const created = unwrapRuntimeRpcResult(
-        response as RuntimeRpcResponse<RuntimeMobileSessionCreateTerminalResult>
-      )
-      hostCreated = true
-      createdTabId = created.tab.id
-      createdLeafId = created.tab.leafId
-    }
-    if (args.activate !== false && createdTabId && matchesWebSessionIntentOwner(intentOwner)) {
-      // Why: record focus intent so the reconcile follows the snapshot's active
-      // tab to THIS new terminal, instead of sticky-keeping the prior tab.
-      recordWebSessionFocusIntent(intentOwner, args.worktreeId, createdTabId, createdLeafId)
-    }
-    await refreshWebRuntimeSessionTabsSnapshot(environmentId, args.worktreeId, {
-      expectedEnvironmentPairingRevision: intentOwner.pairingRevision,
-      // Why: the publication can beat the RPC response; replay it once after caller focus intent exists.
-      acceptCurrentSnapshot: args.activate !== false && Boolean(createdTabId)
-    })
-    return {
-      outcome: { status: 'created' },
-      ...(createdTabId ? { hostTabId: createdTabId } : {})
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    console.warn(
-      hostCreated
-        ? '[web-runtime-session] terminal created but reconciliation failed:'
-        : '[web-runtime-session] failed to create terminal:',
-      message
-    )
-    // Why: once the host accepted creation, reporting failure invites the user
-    // to retry with a new operation ID and can duplicate a fresh agent.
-    return {
-      outcome: hostCreated ? { status: 'created' } : { status: 'failed', message },
-      ...(createdTabId ? { hostTabId: createdTabId } : {})
-    }
-  }
-}
-
-export async function createWebRuntimeSessionBrowserTab(args: {
-  worktreeId: string
-  environmentId?: string | null
-  url?: string
-  profileId?: string | null
-  targetGroupId?: string
-  selectWorktree?: boolean
-}): Promise<boolean> {
-  const environmentId =
-    args.environmentId?.trim() ??
-    useAppStore.getState().settings?.activeRuntimeEnvironmentId?.trim() ??
-    null
-  if (!environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return false
-  }
-  const intentOwner = captureWebSessionIntentOwner(environmentId)
-  const callEnvironment = captureRuntimeEnvironmentCall(environmentId, intentOwner.pairingRevision)
-
-  const shouldSelectWorktree = args.selectWorktree !== false
-  const stagedFromWorktreeId = useAppStore.getState().activeWorktreeId
-  if (shouldSelectWorktree) {
-    selectWebRuntimeSessionWorktree(args.worktreeId, environmentId)
-  }
-  try {
-    const response = await callEnvironment({
-      method: 'browser.tabCreate',
-      params: {
-        worktree: toRuntimeWorktreeSelector(args.worktreeId),
-        url: args.url,
-        profileId: args.profileId ?? undefined,
-        // Why: user clicked "New Browser Tab", so mark it active in the snapshot, else the reconcile snaps back to a terminal.
-        activate: true,
-        // Why: place the new browser in the clicked split group so the host snapshot is authoritative for it (no left-snap).
-        ...(args.targetGroupId ? { targetGroupId: args.targetGroupId } : {}),
-        // Why: web clients need the local tab now; waiting for host webview registration makes the workspace appear to close.
-        waitForRegistration: false
-      },
-      timeoutMs: 15_000
-    })
-    const created = unwrapRuntimeRpcResult(response as RuntimeRpcResponse<BrowserTabCreateResult>)
-    // Why: record focus intent (tab id === browserPageId on a headless host) so the reconcile follows to the new browser tab.
-    if (matchesWebSessionIntentOwner(intentOwner)) {
-      recordWebSessionFocusIntent(intentOwner, args.worktreeId, created.browserPageId)
-    }
-    stageWebRuntimeBrowserTab({
-      environmentId,
-      worktreeId: args.worktreeId,
-      remotePageId: created.browserPageId,
-      url: args.url,
-      targetGroupId: args.targetGroupId,
-      restoreFocus:
-        shouldSelectWorktree &&
-        (stagedFromWorktreeId === args.worktreeId ||
-          useAppStore.getState().activeWorktreeId === args.worktreeId)
-    })
-    void refreshWebRuntimeSessionTabsSnapshot(environmentId, args.worktreeId, {
-      expectedEnvironmentPairingRevision: intentOwner.pairingRevision
-    })
-    return true
-  } catch (error) {
-    console.warn(
-      '[web-runtime-session] failed to create browser tab:',
-      error instanceof Error ? error.message : String(error)
-    )
-    return false
-  }
-}
-
-function stageWebRuntimeBrowserTab(args: {
+export function stageWebRuntimeBrowserTab(args: {
   environmentId: string
   worktreeId: string
   remotePageId: string
@@ -534,11 +115,11 @@ function stageWebRuntimeBrowserTab(args: {
   })
 }
 
-function selectWebRuntimeSessionWorktree(worktreeId: string, environmentId: string): void {
+export function selectWebRuntimeSessionWorktree(worktreeId: string, environmentId: string): void {
   useAppStore.getState().setActiveWorktree(worktreeId, toRuntimeExecutionHostId(environmentId))
 }
 
-function findLocalBrowserPageForRemotePage(
+export function findLocalBrowserPageForRemotePage(
   state: AppState,
   environmentId: string,
   remotePageId: string
@@ -960,269 +541,16 @@ async function callWebRuntimeSessionTabMethod(
   }
 }
 
-export function splitWebRuntimeTerminal(
-  ptyId: string | null | undefined,
-  direction: 'horizontal' | 'vertical',
-  telemetrySource: TerminalPaneSplitSource
-): boolean {
-  if (!ptyId) {
-    return false
-  }
-  const remote = parseRemoteRuntimePtyId(ptyId)
-  const environmentId = remote?.environmentId?.trim()
-  if (!remote || !environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return false
-  }
+export {
+  clearWebRuntimeTerminalBuffer,
+  closeWebRuntimeTerminal,
+  consumePendingWebRuntimeSplitMirrorTelemetry,
+  setWebRuntimeTabProps,
+  splitWebRuntimeTerminal,
+  updateWebRuntimePaneLayout
+} from './web-runtime-session-terminal-operations'
 
-  // Why: split must run on the host pane; a local split mints a web-only pane the host mirrors back as a tab, not a split.
-  const pendingMirrorSuppressionId = reservePendingWebRuntimeSplitMirrorTelemetry(ptyId, direction)
-  const releasePendingMirrorSuppression = schedulePendingWebRuntimeSplitMirrorTelemetryRelease(
-    ptyId,
-    direction,
-    pendingMirrorSuppressionId
-  )
-  void window.api.runtimeEnvironments
-    .call({
-      selector: environmentId,
-      method: 'terminal.split',
-      params: {
-        terminal: remote.handle,
-        direction,
-        telemetrySource
-      },
-      timeoutMs: 15_000
-    })
-    .then((response) => {
-      unwrapRuntimeRpcResult(response as RuntimeRpcResponse<{ split: RuntimeTerminalSplit }>)
-    })
-    .catch((error) => {
-      releasePendingMirrorSuppression()
-      console.warn(
-        '[web-runtime-session] failed to split terminal:',
-        error instanceof Error ? error.message : String(error)
-      )
-    })
-  return true
-}
 
-export function consumePendingWebRuntimeSplitMirrorTelemetry(
-  sourcePtyId: string | null | undefined,
-  direction: 'horizontal' | 'vertical'
-): boolean {
-  if (!sourcePtyId) {
-    return false
-  }
-  const key = getPendingWebRuntimeSplitMirrorTelemetryKey(sourcePtyId, direction)
-  const ids = pendingWebRuntimeSplitMirrorTelemetry.get(key)
-  const id = ids?.values().next().value
-  if (!ids || !id) {
-    return false
-  }
-  ids.delete(id)
-  if (ids.size === 0) {
-    pendingWebRuntimeSplitMirrorTelemetry.delete(key)
-  }
-  return true
-}
-
-function reservePendingWebRuntimeSplitMirrorTelemetry(
-  sourcePtyId: string,
-  direction: 'horizontal' | 'vertical'
-): string {
-  const id = String(++pendingWebRuntimeSplitMirrorTelemetryId)
-  const key = getPendingWebRuntimeSplitMirrorTelemetryKey(sourcePtyId, direction)
-  const ids = pendingWebRuntimeSplitMirrorTelemetry.get(key) ?? new Set<string>()
-  ids.add(id)
-  pendingWebRuntimeSplitMirrorTelemetry.set(key, ids)
-  return id
-}
-
-function schedulePendingWebRuntimeSplitMirrorTelemetryRelease(
-  sourcePtyId: string,
-  direction: 'horizontal' | 'vertical',
-  id: string
-): () => void {
-  let released = false
-  const release = (): void => {
-    if (released) {
-      return
-    }
-    released = true
-    releasePendingWebRuntimeSplitMirrorTelemetry(sourcePtyId, direction, id)
-  }
-  const timeout = globalThis.setTimeout(release, WEB_RUNTIME_SPLIT_MIRROR_SUPPRESSION_TTL_MS)
-  return () => {
-    globalThis.clearTimeout(timeout)
-    release()
-  }
-}
-
-function releasePendingWebRuntimeSplitMirrorTelemetry(
-  sourcePtyId: string,
-  direction: 'horizontal' | 'vertical',
-  id: string
-): void {
-  const key = getPendingWebRuntimeSplitMirrorTelemetryKey(sourcePtyId, direction)
-  const ids = pendingWebRuntimeSplitMirrorTelemetry.get(key)
-  if (!ids) {
-    return
-  }
-  ids.delete(id)
-  if (ids.size === 0) {
-    pendingWebRuntimeSplitMirrorTelemetry.delete(key)
-  }
-}
-
-function getPendingWebRuntimeSplitMirrorTelemetryKey(
-  sourcePtyId: string,
-  direction: 'horizontal' | 'vertical'
-): string {
-  return `${direction}:${sourcePtyId}`
-}
-
-export function closeWebRuntimeTerminal(ptyId: string | null | undefined): boolean {
-  if (!ptyId) {
-    return false
-  }
-  const remote = parseRemoteRuntimePtyId(ptyId)
-  const environmentId = remote?.environmentId?.trim()
-  if (!remote || !environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return false
-  }
-
-  // Why: host owns the real pane graph; close the host terminal first so later snapshots can't resurrect the removed pane.
-  void window.api.runtimeEnvironments
-    .call({
-      selector: environmentId,
-      method: 'terminal.close',
-      params: {
-        terminal: remote.handle
-      },
-      timeoutMs: 15_000
-    })
-    .then((response) => {
-      unwrapRuntimeRpcResult(response as RuntimeRpcResponse<{ close: RuntimeTerminalClose }>)
-    })
-    .catch((error) => {
-      console.warn(
-        '[web-runtime-session] failed to close terminal pane:',
-        error instanceof Error ? error.message : String(error)
-      )
-    })
-  return true
-}
-
-// Why: pane geometry is host-authoritative for remote tabs; local-only changes revert on next snapshot, so push to host.
-export async function updateWebRuntimePaneLayout(args: {
-  worktreeId: string
-  tabId: string
-  root: TerminalPaneLayoutNode | null
-  expandedLeafId: string | null
-  titlesByLeafId?: Record<string, string>
-}): Promise<boolean> {
-  const environmentId =
-    getRuntimeEnvironmentIdForWorktree(useAppStore.getState(), args.worktreeId) ?? null
-  if (!environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return false
-  }
-  const callEnvironment = captureRuntimeEnvironmentCall(environmentId)
-  const hostTabId = isWebTerminalSurfaceTabId(args.tabId)
-    ? toHostSessionTabId(args.tabId)
-    : args.tabId
-  try {
-    const response = await callEnvironment({
-      method: 'session.tabs.updatePaneLayout',
-      params: {
-        worktree: toRuntimeWorktreeSelector(args.worktreeId),
-        tabId: hostTabId,
-        root: args.root,
-        expandedLeafId: args.expandedLeafId,
-        ...(args.titlesByLeafId ? { titlesByLeafId: args.titlesByLeafId } : {})
-      },
-      timeoutMs: 15_000
-    })
-    unwrapRuntimeRpcResult(response as RuntimeRpcResponse<{ updated: true }>)
-    return true
-  } catch (error) {
-    console.warn(
-      '[web-runtime-session] failed to update pane layout:',
-      error instanceof Error ? error.message : String(error)
-    )
-    return false
-  }
-}
-
-// Why: tab color/pin are host-authoritative; mirror the change so it persists (undefined field = leave as-is on host).
-export function setWebRuntimeTabProps(args: {
-  worktreeId: string
-  tabId: string
-  color?: string | null
-  isPinned?: boolean
-  viewMode?: 'terminal' | 'chat'
-}): boolean {
-  const environmentId =
-    getRuntimeEnvironmentIdForWorktree(useAppStore.getState(), args.worktreeId) ?? null
-  if (!environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return false
-  }
-  const callEnvironment = captureRuntimeEnvironmentCall(environmentId)
-  const state = useAppStore.getState()
-  void import('./web-session-tabs-sync')
-    .then(({ resolveHostSessionTabIdForWebSessionTab }) => {
-      const hostTabId =
-        resolveHostSessionTabIdForWebSessionTab(state, {
-          environmentId,
-          worktreeId: args.worktreeId,
-          tabId: args.tabId
-        }) ?? (isWebTerminalSurfaceTabId(args.tabId) ? toHostSessionTabId(args.tabId) : args.tabId)
-      return callEnvironment({
-        method: 'session.tabs.setTabProps',
-        params: {
-          worktree: toRuntimeWorktreeSelector(args.worktreeId),
-          tabId: hostTabId,
-          ...(args.color !== undefined ? { color: args.color } : {}),
-          ...(args.isPinned !== undefined ? { isPinned: args.isPinned } : {}),
-          ...(args.viewMode !== undefined ? { viewMode: args.viewMode } : {})
-        },
-        timeoutMs: 15_000
-      })
-    })
-    .then((response) => {
-      unwrapRuntimeRpcResult(response as RuntimeRpcResponse<{ updated: true }>)
-    })
-    .catch((error) => {
-      console.warn(
-        '[web-runtime-session] failed to set tab props:',
-        error instanceof Error ? error.message : String(error)
-      )
-    })
-  return true
-}
-
-// Why: local pane.terminal.clear() is undone by the next host snapshot replay; clear the host buffer so it sticks.
-export function clearWebRuntimeTerminalBuffer(ptyId: string | null | undefined): boolean {
-  if (!ptyId) {
-    return false
-  }
-  const remote = parseRemoteRuntimePtyId(ptyId)
-  const environmentId = remote?.environmentId?.trim()
-  if (!remote || !environmentId || !isWebRuntimeSessionActive(environmentId)) {
-    return false
-  }
-  void window.api.runtimeEnvironments
-    .call({
-      selector: environmentId,
-      method: 'terminal.clearBuffer',
-      params: { terminal: remote.handle },
-      timeoutMs: 15_000
-    })
-    .then((response) => {
-      unwrapRuntimeRpcResult(response as RuntimeRpcResponse<{ clear: unknown }>)
-    })
-    .catch((error) => {
-      console.warn(
-        '[web-runtime-session] failed to clear terminal buffer:',
-        error instanceof Error ? error.message : String(error)
       )
     })
   return true

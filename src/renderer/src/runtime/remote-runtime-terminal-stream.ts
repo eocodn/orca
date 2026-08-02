@@ -1,4 +1,3 @@
-/* eslint-disable max-lines -- Why: the remote terminal multiplexer owns one bridged subscription, stream lifecycle, binary frame parsing, and remote lock events as a single transport contract. */
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../shared/remote-runtime-client-error-classification'
 import {
@@ -88,7 +87,7 @@ export type RemoteRuntimeMultiplexedTerminal = {
   close: () => void
 }
 
-type RemoteRuntimeMultiplexedTerminalState = {
+export type RemoteRuntimeMultiplexedTerminalState = {
   streamId: number
   terminal: string
   callbacks: RemoteRuntimeMultiplexedTerminalCallbacks
@@ -125,7 +124,7 @@ type RemoteRuntimeMultiplexedTerminalState = {
   watchdog: RemoteTerminalStreamWatchdog
 }
 
-type RemoteRuntimeSnapshotInfo = {
+export type RemoteRuntimeSnapshotInfo = {
   cols?: number
   rows?: number
   seq?: number
@@ -1332,103 +1331,14 @@ export function resetRemoteRuntimeTerminalMultiplexersForTests(): void {
   e2eReleasedRemoteAckChars = 0
 }
 
-function concatBytes(chunks: Uint8Array<ArrayBufferLike>[]): Uint8Array<ArrayBufferLike> {
-  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0)
-  const out = new Uint8Array(total)
-  let offset = 0
-  for (const chunk of chunks) {
-    out.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return out
-}
-
-function clearSnapshot(stream: RemoteRuntimeMultiplexedTerminalState): void {
-  stream.snapshotChunks = []
-  stream.snapshotBytes = 0
-  stream.snapshotOverflowed = false
-  stream.snapshotTarget = 'initial'
-  stream.snapshotInfo = null
-}
-
-function clearAckFlushTimer(stream: RemoteRuntimeMultiplexedTerminalState): void {
-  if (stream.ackFlushTimer !== null) {
-    clearTimeout(stream.ackFlushTimer)
-    stream.ackFlushTimer = null
-  }
-}
-
-function discardOutputAcknowledgements(stream: RemoteRuntimeMultiplexedTerminalState): void {
-  clearAckFlushTimer(stream)
-  stream.pendingAckBytes = 0
-  stream.heldAckBytes = 0
-}
-
-function clearPendingSnapshotRequest(stream: RemoteRuntimeMultiplexedTerminalState): void {
-  const request = stream.pendingSnapshotRequest
-  stream.pendingSnapshotRequest = null
-  if (request) {
-    clearTimeout(request.timer)
-  }
-}
-
-function clearResyncTimer(stream: RemoteRuntimeMultiplexedTerminalState): void {
-  const timer = stream.resyncTimer
-  stream.resyncTimer = null
-  if (timer) {
-    clearTimeout(timer)
-  }
-}
-
-function rejectPendingSnapshotRequest(
-  stream: RemoteRuntimeMultiplexedTerminalState,
-  message: string
-): void {
-  const request = stream.pendingSnapshotRequest
-  if (!request) {
-    return
-  }
-  clearPendingSnapshotRequest(stream)
-  request.reject(new Error(message))
-}
-
-function decodeSnapshotInfo(
-  payload: Uint8Array<ArrayBufferLike>
-): RemoteRuntimeSnapshotInfo | null {
-  const raw = decodeTerminalStreamJson<{
-    cols?: unknown
-    rows?: unknown
-    seq?: unknown
-    source?: unknown
-    requestId?: unknown
-    truncated?: unknown
-    pendingEscapeTailAnsi?: unknown
-  }>(payload)
-  if (!raw) {
-    return null
-  }
-  return {
-    cols: typeof raw.cols === 'number' ? raw.cols : undefined,
-    rows: typeof raw.rows === 'number' ? raw.rows : undefined,
-    seq: typeof raw.seq === 'number' ? raw.seq : undefined,
-    source: raw.source === 'headless' || raw.source === 'renderer' ? raw.source : undefined,
-    requestId: typeof raw.requestId === 'number' ? raw.requestId : undefined,
-    truncated: raw.truncated === true,
-    pendingEscapeTailAnsi:
-      typeof raw.pendingEscapeTailAnsi === 'string' ? raw.pendingEscapeTailAnsi : undefined
-  }
-}
-
-function isTerminalDriverState(
-  value: unknown
-): value is { kind: 'idle' } | { kind: 'desktop' } | { kind: 'mobile'; clientId: string } {
-  if (!value || typeof value !== 'object' || !('kind' in value)) {
-    return false
-  }
-  const driver = value as { kind?: unknown; clientId?: unknown }
-  return (
-    driver.kind === 'idle' ||
-    driver.kind === 'desktop' ||
-    (driver.kind === 'mobile' && typeof driver.clientId === 'string')
-  )
-}
+import {
+  clearAckFlushTimer,
+  clearPendingSnapshotRequest,
+  clearResyncTimer,
+  clearSnapshot,
+  concatBytes,
+  decodeSnapshotInfo,
+  discardOutputAcknowledgements,
+  isTerminalDriverState,
+  rejectPendingSnapshotRequest
+} from './remote-runtime-terminal-stream-state'
