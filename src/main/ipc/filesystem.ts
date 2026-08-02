@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { readdir, readFile, writeFile, stat, lstat, open, rename, rm } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'

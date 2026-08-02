@@ -1,16 +1,6 @@
-/* eslint-disable max-lines -- Why: notification IPC keeps permission, dispatch, custom sound asset, and sound-loading handlers colocated so renderer/main contracts stay auditable. */
 import { app, BrowserWindow, Notification, ipcMain, shell } from 'electron'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, isAbsolute, normalize } from 'node:path'
-import beepSoundPath from '../../../resources/notification-sounds/beep.mp3?asset'
-import blipSoundPath from '../../../resources/notification-sounds/blip.mp3?asset'
-import blopSoundPath from '../../../resources/notification-sounds/blop.mp3?asset'
-import bongSoundPath from '../../../resources/notification-sounds/bong.mp3?asset'
-import clackSoundPath from '../../../resources/notification-sounds/clack.mp3?asset'
-import dingSoundPath from '../../../resources/notification-sounds/ding.mp3?asset'
-import sonarSoundPath from '../../../resources/notification-sounds/sonar.mp3?asset'
-import thumpSoundPath from '../../../resources/notification-sounds/thump.mp3?asset'
-import twoToneSoundPath from '../../../resources/notification-sounds/two-tone.mp3?asset'
 import type { Store } from '../persistence'
 import type {
   NotificationDeliveryProbeResult,
@@ -28,6 +18,10 @@ import { readNotificationAuthorizationStatus } from './notification-authorizatio
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import { setTrayAttention } from '../tray/system-tray'
 import { isMainWindowVisible } from '../window/main-window-visibility'
+import {
+  BUILT_IN_NOTIFICATION_SOUNDS,
+  NOTIFICATION_SOUND_MIME_BY_EXTENSION
+} from './notification-sound-assets'
 
 const NOTIFICATION_COOLDOWN_MS = 5000
 const MAX_RECENT_NOTIFICATION_KEYS = 50
@@ -37,25 +31,6 @@ const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024
 const MACOS_PACKAGED_BUNDLE_ID = 'com.stablyai.orca'
 const MACOS_NOTIFICATION_SETTINGS_URL =
   'x-apple.systempreferences:com.apple.Notifications-Settings.extension'
-const NOTIFICATION_SOUND_MIME_BY_EXTENSION: ReadonlyMap<string, string> = new Map([
-  ['.ogg', 'audio/ogg'],
-  ['.mp3', 'audio/mpeg'],
-  ['.wav', 'audio/wav'],
-  ['.m4a', 'audio/mp4'],
-  ['.aac', 'audio/aac'],
-  ['.flac', 'audio/flac']
-])
-const BUILT_IN_NOTIFICATION_SOUNDS: ReadonlyMap<string, string> = new Map([
-  ['two-tone', twoToneSoundPath],
-  ['bong', bongSoundPath],
-  ['thump', thumpSoundPath],
-  ['blip', blipSoundPath],
-  ['sonar', sonarSoundPath],
-  ['blop', blopSoundPath],
-  ['ding', dingSoundPath],
-  ['clack', clackSoundPath],
-  ['beep', beepSoundPath]
-])
 type NotificationSoundId = NotificationSettings['customSoundId']
 
 // Why: keep a strong reference so GC can't collect notifications (and their click handlers) before the user interacts with them.
