@@ -16,6 +16,7 @@ import { readFile } from 'node:fs/promises'
 import { DatabaseSync } from 'node:sqlite'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { BrowserSessionProfileSource } from '../../shared/types'
 
 // Why: write the diag log to userData, not world-readable /tmp, so only the current user can read it.
 import { _diagLog, getDiagLogPath, reasonWithDiagLog, COOKIE_IMPORT_ERROR_SUMMARY_MAX_CHARS } from './browser-cookie-import-pipeline-diag-log-cookie-import-error-summary-max-chars'
