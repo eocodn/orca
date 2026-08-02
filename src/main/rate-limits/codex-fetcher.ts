@@ -15,7 +15,6 @@ import {
   classifyCodexRateLimitWindows,
   CODEX_SESSION_WINDOW_MINUTES,
   CODEX_WEEKLY_WINDOW_MINUTES,
-  type CodexRateLimitWindowsSnapshot,
   type CodexRateWindowSnapshot
 } from './codex-rate-limit-window-classification'
 import { resolveCodexCommand } from '../codex-cli/command'
@@ -36,9 +35,8 @@ import {
   createAuthFilesystemOperation,
   type SharedAuthFilesystemOperation
 } from './auth-filesystem-operation'
+import { fetchCodexRateLimitsViaRpc } from './codex-rpc-fetch'
 
-const RPC_TIMEOUT_MS = 10_000
-const WSL_RPC_TIMEOUT_MS = 25_000
 const PTY_TIMEOUT_MS = 15_000
 // Why: codex ≥0.145 renders a '›' composer with placeholder text after it, so a
 // prompt-anchored send can never fire; nudge /status after a short boot grace.
@@ -64,12 +62,6 @@ export type FetchCodexRateLimitsOptions = {
 // JSON-RPC helpers
 // ---------------------------------------------------------------------------
 
-type RpcResponse = {
-  id: number
-  result?: unknown
-  error?: { code: number; message: string }
-}
-
 type RateLimitResetCredits = {
   availableCount: number
   totalEarnedCount?: number
@@ -82,20 +74,6 @@ type RateLimitResetCredits = {
 }
 
 // Why: the Codex app-server wraps rate limit data as { rateLimits: { primary, secondary, ... } }.
-type RpcRateLimitsResponse = {
-  rateLimits?: CodexRateLimitWindowsSnapshot | null
-  rateLimitResetCredits?: {
-    availableCount?: number
-    totalEarnedCount?: number
-    nextExpiresAt?: number | null
-    credits?: {
-      status?: string
-      expiresAt?: number | string | null
-      grantedAt?: number | string | null
-    }[]
-  } | null
-}
-
 type CodexAuthFile = {
   tokens?: {
     access_token?: string
@@ -188,10 +166,6 @@ function cloneProcessEnvWithoutCodexHome(): NodeJS.ProcessEnv {
   return env
 }
 
-function buildRpcMessage(id: number, method: string, params?: unknown): string {
-  return `${JSON.stringify({ jsonrpc: '2.0', id, method, params: params ?? {} })}\n`
-}
-
 function getCodexHomePath(codexHomePath?: string | null): string {
   return codexHomePath ?? process.env.CODEX_HOME ?? join(homedir(), '.codex')
 }
@@ -238,30 +212,6 @@ function getNextAvailableCreditExpiry(
       .filter((expiresAt): expiresAt is number => typeof expiresAt === 'number')
       .sort((a, b) => a - b) ?? []
   return expiries[0] ?? null
-}
-
-function mapRpcRateLimitResetCredits(
-  raw: RpcRateLimitsResponse['rateLimitResetCredits']
-): RateLimitResetCredits | null | undefined {
-  if (!raw) {
-    return raw
-  }
-  if (typeof raw.availableCount !== 'number' || !Number.isFinite(raw.availableCount)) {
-    return null
-  }
-  const credits = raw.credits?.map((credit) => ({
-    status: normalizeCreditStatus(credit.status),
-    expiresAt: parseCreditTimestamp(credit.expiresAt),
-    grantedAt: parseCreditTimestamp(credit.grantedAt)
-  }))
-  return {
-    availableCount: Math.max(0, Math.floor(raw.availableCount)),
-    ...(typeof raw.totalEarnedCount === 'number' && Number.isFinite(raw.totalEarnedCount)
-      ? { totalEarnedCount: Math.max(0, Math.floor(raw.totalEarnedCount)) }
-      : {}),
-    nextExpiresAt: parseCreditTimestamp(raw.nextExpiresAt) ?? getNextAvailableCreditExpiry(credits),
-    ...(credits ? { credits } : {})
-  }
 }
 
 function mapBackendRateLimitResetCredits(
@@ -602,229 +552,6 @@ async function withBackendSessionWindow(
 }
 
 // ---------------------------------------------------------------------------
-// RPC fetch — spawn `codex -s read-only -a untrusted app-server`
-// ---------------------------------------------------------------------------
-
-async function fetchViaRpc(options?: FetchCodexRateLimitsOptions): Promise<ProviderRateLimits> {
-  if (options?.signal?.aborted) {
-    return abortedCodexRateLimitResult()
-  }
-  return new Promise<ProviderRateLimits>((resolve) => {
-    let buffer = ''
-    let stderr = ''
-    let resolved = false
-    let rpcId = 0
-
-    const codexArgs = ['-s', 'read-only', '-a', 'untrusted', 'app-server']
-    const wslCodex = options?.codexHomePath
-      ? buildWslCodexCommand(options.codexHomePath, codexArgs, { isolateRpcStdio: true })
-      : null
-    // Why: cold WSL startup + app-server init can exceed the host RPC budget, causing a false "unavailable" on launch.
-    const rpcTimeoutMs = wslCodex ? WSL_RPC_TIMEOUT_MS : RPC_TIMEOUT_MS
-    const codexCommand = wslCodex ? 'codex' : resolveCodexCommand()
-    // Why: .cmd/.bat launchers can't be spawned directly and shell:true triggers DEP0190 — route them through cmd.exe /c.
-    const { spawnCmd, spawnArgs } = wslCodex
-      ? { spawnCmd: wslCodex.command, spawnArgs: wslCodex.args }
-      : getSpawnArgsForWindows(codexCommand, codexArgs)
-    const child = spawn(spawnCmd, spawnArgs, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      cwd: resolveHiddenRateLimitPtyCwd(),
-      // Why: scope the selected account to this subprocess only; never mutate process.env globally.
-      // Why windowsHide: without it, background cmd.exe /c polls flash a console window on Windows.
-      windowsHide: true,
-      env: {
-        ...(wslCodex ? cloneProcessEnvWithoutCodexHome() : process.env),
-        ...(options?.codexHomePath && !wslCodex ? { CODEX_HOME: options.codexHomePath } : {})
-      }
-    })
-
-    let timeout: ReturnType<typeof setTimeout> | null = null
-
-    function cleanupListeners(): void {
-      if (timeout) {
-        clearTimeout(timeout)
-        timeout = null
-      }
-      options?.signal?.removeEventListener('abort', onAbort)
-      child.stdout.off('data', onStdoutData)
-      child.stderr.off('data', onStderrData)
-      child.off('error', onError)
-      child.off('close', onClose)
-    }
-
-    function settle(result: ProviderRateLimits, options?: { kill?: boolean }): void {
-      if (resolved) {
-        return
-      }
-      resolved = true
-      cleanupListeners()
-      if (options?.kill) {
-        child.kill()
-      }
-      resolve(result)
-    }
-
-    function onAbort(): void {
-      settle(abortedCodexRateLimitResult(), { kill: true })
-    }
-
-    if (options?.signal) {
-      if (options.signal.aborted) {
-        onAbort()
-        return
-      }
-      options.signal.addEventListener('abort', onAbort, { once: true })
-    }
-
-    timeout = setTimeout(() => {
-      settle(
-        {
-          provider: 'codex',
-          session: null,
-          weekly: null,
-          updatedAt: Date.now(),
-          error: 'RPC timeout',
-          status: 'error'
-        },
-        { kill: true }
-      )
-    }, rpcTimeoutMs)
-
-    function sendRpc(method: string, params?: unknown): number {
-      const id = ++rpcId
-      child.stdin.write(buildRpcMessage(id, method, params))
-      return id
-    }
-
-    // Why: JSON-RPC/LSP handshake — send `initialized` after initialize or the server rejects methods as "Not initialized".
-    let rateLimitsId: number | null = null
-
-    const initId = sendRpc('initialize', {
-      clientInfo: { name: 'orca', version: '1.0.0' }
-    })
-
-    function sendNotification(method: string): void {
-      child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method, params: {} })}\n`)
-    }
-
-    function onStdoutData(chunk: Buffer): void {
-      buffer += chunk.toString()
-
-      // JSON-RPC messages are newline-delimited
-      let newlineIdx: number
-      while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-        const line = buffer.slice(0, newlineIdx).trim()
-        buffer = buffer.slice(newlineIdx + 1)
-        if (!line) {
-          continue
-        }
-
-        try {
-          const msg = JSON.parse(line) as RpcResponse
-
-          // Skip server-initiated notifications (no id field)
-          if (msg.id == null) {
-            continue
-          }
-
-          if (msg.id === initId) {
-            // Initialize succeeded — send `initialized`, then request rate limits.
-            sendNotification('initialized')
-            rateLimitsId = sendRpc('account/rateLimits/read')
-            continue
-          }
-
-          if (rateLimitsId !== null && msg.id === rateLimitsId) {
-            if (resolved) {
-              return
-            }
-
-            if (msg.error) {
-              settle(
-                {
-                  provider: 'codex',
-                  session: null,
-                  weekly: null,
-                  updatedAt: Date.now(),
-                  error: withMacTailscaleDnsHint(msg.error.message, stderr),
-                  status: 'error'
-                },
-                { kill: true }
-              )
-              return
-            }
-
-            const wrapper = msg.result as RpcRateLimitsResponse | undefined
-            const result = wrapper?.rateLimits
-            const classifiedWindows = classifyCodexRateLimitWindows(result)
-            const session = mapRpcWindow(classifiedWindows.session, CODEX_SESSION_WINDOW_MINUTES)
-            const weekly = mapRpcWindow(classifiedWindows.weekly, CODEX_WEEKLY_WINDOW_MINUTES)
-            const rateLimitResetCredits = mapRpcRateLimitResetCredits(
-              wrapper?.rateLimitResetCredits
-            )
-
-            settle(
-              {
-                provider: 'codex',
-                session,
-                weekly,
-                ...(rateLimitResetCredits !== undefined ? { rateLimitResetCredits } : {}),
-                updatedAt: Date.now(),
-                error: null,
-                status: 'ok'
-              },
-              { kill: true }
-            )
-          }
-        } catch {
-          // Non-JSON line from the RPC server — ignore
-        }
-      }
-    }
-
-    function onStderrData(chunk: Buffer): void {
-      stderr += chunk.toString()
-      // Why: this background poll only needs recent failure context for hints.
-      if (stderr.length > MAX_DIAGNOSTIC_OUTPUT_LENGTH) {
-        stderr = stderr.slice(-MAX_DIAGNOSTIC_OUTPUT_LENGTH)
-      }
-    }
-
-    function onError(err: Error): void {
-      const isEnoent = (err as NodeJS.ErrnoException).code === 'ENOENT'
-      const isBareCommand = codexCommand === 'codex'
-      settle({
-        provider: 'codex',
-        session: null,
-        weekly: null,
-        updatedAt: Date.now(),
-        error: isEnoent
-          ? isBareCommand
-            ? 'Codex CLI not found'
-            : 'Codex CLI found but could not run — Node.js may not be in your PATH'
-          : withMacTailscaleDnsHint(err.message, stderr),
-        status: isEnoent && isBareCommand ? 'unavailable' : 'error'
-      })
-    }
-
-    function onClose(): void {
-      settle({
-        provider: 'codex',
-        session: null,
-        weekly: null,
-        updatedAt: Date.now(),
-        error: withMacTailscaleDnsHint('RPC process exited unexpectedly', stderr),
-        status: 'error'
-      })
-    }
-
-    child.stdout.on('data', onStdoutData)
-    child.stderr.on('data', onStderrData)
-    child.on('error', onError)
-    child.on('close', onClose)
-  })
-}
-
 // ---------------------------------------------------------------------------
 // PTY fallback — spawn `codex`, send `/status`, parse rendered output
 // ---------------------------------------------------------------------------
@@ -1177,7 +904,7 @@ export async function fetchCodexRateLimits(
 
   // Path B: try RPC
   try {
-    const rpcResult = await fetchViaRpc(options)
+    const rpcResult = await fetchCodexRateLimitsViaRpc(options)
     if (options?.signal?.aborted) {
       return abortedCodexRateLimitResult()
     }
