@@ -556,4 +556,3 @@ function spawnDaemonPtyWithWindowsFallback(args: {
  * The returned handle records whether the startup command was already embedded
  * in Windows shell args so the daemon host does not write it a second time.
  */
-

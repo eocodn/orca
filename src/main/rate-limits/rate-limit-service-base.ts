@@ -35,7 +35,6 @@ export type InactiveCodexAccountInfo = {
   id: string
   managedHomePath: string
 }
-
 type CodexHomePathResolver = (target?: CodexAccountSelectionTarget) => string | null
 type ClaudeAuthPreparationResolver = (
   target?: ClaudeAccountSelectionTarget
@@ -323,4 +322,3 @@ export class RateLimitServiceBase  {
   protected updateState(..._args: any[]): any {}
   protected pushToRenderer(..._args: any[]): any {}
 }
-

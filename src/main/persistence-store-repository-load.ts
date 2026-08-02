@@ -834,5 +834,3 @@ export function loadRepositoryState(context: any, allowBackupRecovery = true): a
     return migrated
 }
 
-
-

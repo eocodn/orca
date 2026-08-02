@@ -51,7 +51,6 @@ export async function listLabels(
     release()
   }
 }
-
 export async function listAssignableUsers(
   repoPath: string,
   preference?: IssueSourcePreference,
@@ -119,4 +118,3 @@ export async function listAssignableUsers(
     release()
   }
 }
-

@@ -35,7 +35,6 @@ export type InactiveCodexAccountInfo = {
   id: string
   managedHomePath: string
 }
-
 type CodexHomePathResolver = (target?: CodexAccountSelectionTarget) => string | null
 type ClaudeAuthPreparationResolver = (
   target?: ClaudeAccountSelectionTarget
@@ -676,6 +675,5 @@ protected async runFetchAllCycle(
     return result
   }
 }
-
 
 

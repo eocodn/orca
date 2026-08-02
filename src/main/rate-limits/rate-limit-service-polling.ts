@@ -35,7 +35,6 @@ export type InactiveCodexAccountInfo = {
   id: string
   managedHomePath: string
 }
-
 type CodexHomePathResolver = (target?: CodexAccountSelectionTarget) => string | null
 type ClaudeAuthPreparationResolver = (
   target?: ClaudeAccountSelectionTarget
@@ -311,6 +310,5 @@ setPollingInterval(ms: number): void {
     await this.runActiveWindowRefreshPlan(plan)
   }
 }
-
 
 

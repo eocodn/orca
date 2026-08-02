@@ -93,7 +93,6 @@ export function removeSystemManagedHookTrustEntries(systemHomePath: string, hook
     timeoutSec: MANAGED_HOOK_TIMEOUT_SECONDS
   })
 }
-
 export function cleanupLegacySystemManagedHooks(): void {
   if (systemCodexHomeHookSweepSuppressed()) {
     return
@@ -534,4 +533,3 @@ export function getWslHookReconciliationAction(args: {
 export function getWslReconciliationKey(runtimeHomePath: string): string {
   return normalizeCodexProjectPathForLookup(runtimeHomePath)
 }
-

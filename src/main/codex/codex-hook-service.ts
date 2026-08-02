@@ -676,7 +676,6 @@ export class CodexHookService {
     return this.getStatus()
   }
 }
-
 export const codexHookService = new CodexHookService()
 
 export const _internals = {
@@ -686,4 +685,3 @@ export const _internals = {
   removeStaleWslRuntimeManagedHookTrustEntries,
   getWslHookReconciliationAction
 }
-

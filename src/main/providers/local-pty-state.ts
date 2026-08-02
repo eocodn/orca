@@ -133,7 +133,6 @@ export const startupIngressByPty = new Map<string, PtyStartupIngress>()
 export function getDefaultCwd(): string {
   return resolveSafePtyDefaultCwd()
 }
-
 /**
  * Removes inherited pane identity unless this PTY explicitly supplies it.
  */
@@ -465,4 +464,3 @@ export function requestPtyTermination(id: string, proc: pty.IPty): void {
   // Why: shutdown and orphan cleanup can race; keep onExit + tracker installed until the OS proves the child was reaped.
   destroyPtyProcess(proc, { alreadyKilled: true })
 }
-

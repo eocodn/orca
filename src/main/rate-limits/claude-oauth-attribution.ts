@@ -35,7 +35,6 @@ export function recordAttempt(
   }
   return state.attemptedSources
 }
-
 export function withClaudeUsageMetadata(
   limits: ProviderRateLimits,
   metadata: UsageRateLimitMetadata
@@ -380,4 +379,3 @@ export type FetchManagedAccountUsageOptions = {
   networkProxySettings?: NetworkProxySettings
   signal?: AbortSignal
 }
-

@@ -35,7 +35,6 @@ export type InactiveCodexAccountInfo = {
   id: string
   managedHomePath: string
 }
-
 type CodexHomePathResolver = (target?: CodexAccountSelectionTarget) => string | null
 type ClaudeAuthPreparationResolver = (
   target?: ClaudeAccountSelectionTarget
@@ -381,6 +380,5 @@ attach(mainWindow: BrowserWindow): void {
     await this.fetchClaudeOnly({ force: true })
   }
 }
-
 
 

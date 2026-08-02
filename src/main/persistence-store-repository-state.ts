@@ -485,4 +485,3 @@ export const persistenceLoadDependencies = {
   getDefaultWorktreeMeta,
   StoreFoundation
 }
-

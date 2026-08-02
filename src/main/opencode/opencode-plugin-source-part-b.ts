@@ -477,4 +477,3 @@ export const OPENCODE_PLUGIN_SOURCE_PART_B = [
     '};',
     ''
 ] as const
-
