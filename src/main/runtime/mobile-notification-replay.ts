@@ -79,12 +79,14 @@ export class MobileNotificationReplayBuffer {
   // Omitting `epoch` keeps the seq-only cut, for clients that predate the field.
   getMissedSince(lastSeenSeq: number, epoch?: string): ReplayableMobileNotification[] {
     if (epoch !== undefined && epoch !== this.epochId) {
-      return [...this.buffer]
+      return this.buffer.map((entry) => ({ ...entry }))
     }
     if (lastSeenSeq >= this.seq) {
       return []
     }
-    return this.buffer.filter((entry) => entry.notificationSeq > lastSeenSeq)
+    return this.buffer
+      .filter((entry) => entry.notificationSeq > lastSeenSeq)
+      .map((entry) => ({ ...entry }))
   }
 
   // Test/inspection helper: number of events currently retained.

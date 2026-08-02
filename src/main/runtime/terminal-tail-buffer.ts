@@ -112,7 +112,7 @@ export function maxUpwardCursorReach(
   previousRedrawCursor: RetainedTailRedrawCursor | null
 ): number {
   let reach = previousRedrawCursor ? previousRedrawCursor.rowFromEnd : 0
-  const cursorUpPattern = /\x1b\[(\d*)(?:;[\d;]*)?A/g
+  const cursorUpPattern = new RegExp(`${String.fromCharCode(0x1b)}\\[(\\d*)(?:;[\\d;]*)?A`, 'g')
   let match: RegExpExecArray | null
   while ((match = cursorUpPattern.exec(normalizedChunk)) !== null) {
     reach += match[1] ? Number.parseInt(match[1], 10) : 1

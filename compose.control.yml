@@ -17,6 +17,8 @@ services:
       - src/main/runtime/terminal-wait-detection.test.ts
       - src/main/runtime/terminal-tail-wait-state.test.ts
       - src/main/runtime/terminal-formatting-modules.test.ts
+      - src/main/runtime/runtime-domain-boundaries.test.ts
+      - src/main/runtime/mobile-notification-replay.test.ts
       - src/main/runtime/orca-runtime-tail-wait-memo.test.ts
       - src/main/runtime/retained-tail-redraw-window.equivalence.test.ts
       - src/main/runtime/orca-runtime-path-candidate-history.test.ts
@@ -43,6 +45,45 @@ services:
         src/main/runtime/terminal-tail-wait-state.ts
         src/main/runtime/terminal-tail-wait-state.test.ts
         src/main/runtime/terminal-formatting-modules.test.ts
+        src/main/runtime/runtime-domain-boundaries.test.ts
+        src/main/runtime/mobile-notification-replay.test.ts
+        src/main/runtime/runtime-message-waiters.ts
+        src/main/runtime/runtime-notification-registry.ts
+        src/main/runtime/mobile-notification-replay.ts
+        src/main/runtime/runtime-client-settings-commands.ts
+        src/main/runtime/runtime-automation-commands.ts
+        src/main/runtime/pty-layout-queue.ts
+        src/main/runtime/pty-generation-reference-count.ts
+        src/main/runtime/runtime-repo-hook-commands.ts
+        src/main/runtime/remote-orca-directory-ignore.ts
+        src/main/runtime/runtime-worktree-summary.ts
+        src/main/runtime/runtime-worktree-session-bindings.ts
+        src/main/runtime/runtime-worktree-status.ts
+        src/main/runtime/runtime-worktree-summary-core.ts
+        src/main/runtime/runtime-worktree-summary-paths.ts
+        src/main/runtime/runtime-worktree-selection.ts
+        src/main/runtime/runtime-agent-launch-resolution.ts
+        src/main/runtime/runtime-branch-review-selection.ts
+        src/main/runtime/runtime-folder-workspace-selection.ts
+        src/main/runtime/terminal-input-commands.ts
+        src/main/runtime/orca-runtime-linear-query-commands.ts
+        src/main/runtime/orca-runtime-linear-connection-commands.ts
+        src/main/runtime/orca-runtime-review-query-commands.ts
+        src/main/runtime/orca-runtime-review-mutation-commands.ts
+        src/main/runtime/orca-runtime-repo-work-item-commands.ts
+        src/main/runtime/terminal-output-state.ts
+        src/main/runtime/terminal-output-sequence.ts
+        src/main/runtime/terminal-output-subscriptions.ts
+        src/main/runtime/terminal-output-replay.ts
+        src/main/runtime/orca-runtime-jira-commands.ts
+        src/main/runtime/orca-runtime-jira-read-commands.ts
+        src/main/runtime/orca-runtime-jira-write-commands.ts
+        src/main/runtime/orca-runtime-github-project-commands.ts
+        src/main/runtime/orca-runtime-github-project-query-commands.ts
+        src/main/runtime/orca-runtime-github-project-mutation-commands.ts
+        src/main/runtime/worktree-resolution-state.ts
+        src/main/runtime/resolved-worktree-state.ts
+        src/main/runtime/worktree-scan-state.ts
         src/main/runtime/terminal-output-normalization.ts
         src/main/runtime/terminal-read-pagination.ts
         src/main/runtime/terminal-tail-ansi.ts
@@ -60,6 +101,45 @@ services:
         src/main/runtime/terminal-tail-wait-state.ts
         src/main/runtime/terminal-tail-wait-state.test.ts
         src/main/runtime/terminal-formatting-modules.test.ts
+        src/main/runtime/runtime-domain-boundaries.test.ts
+        src/main/runtime/mobile-notification-replay.test.ts
+        src/main/runtime/runtime-message-waiters.ts
+        src/main/runtime/runtime-notification-registry.ts
+        src/main/runtime/mobile-notification-replay.ts
+        src/main/runtime/runtime-client-settings-commands.ts
+        src/main/runtime/runtime-automation-commands.ts
+        src/main/runtime/pty-layout-queue.ts
+        src/main/runtime/pty-generation-reference-count.ts
+        src/main/runtime/runtime-repo-hook-commands.ts
+        src/main/runtime/remote-orca-directory-ignore.ts
+        src/main/runtime/runtime-worktree-summary.ts
+        src/main/runtime/runtime-worktree-session-bindings.ts
+        src/main/runtime/runtime-worktree-status.ts
+        src/main/runtime/runtime-worktree-summary-core.ts
+        src/main/runtime/runtime-worktree-summary-paths.ts
+        src/main/runtime/runtime-worktree-selection.ts
+        src/main/runtime/runtime-agent-launch-resolution.ts
+        src/main/runtime/runtime-branch-review-selection.ts
+        src/main/runtime/runtime-folder-workspace-selection.ts
+        src/main/runtime/terminal-input-commands.ts
+        src/main/runtime/orca-runtime-linear-query-commands.ts
+        src/main/runtime/orca-runtime-linear-connection-commands.ts
+        src/main/runtime/orca-runtime-review-query-commands.ts
+        src/main/runtime/orca-runtime-review-mutation-commands.ts
+        src/main/runtime/orca-runtime-repo-work-item-commands.ts
+        src/main/runtime/terminal-output-state.ts
+        src/main/runtime/terminal-output-sequence.ts
+        src/main/runtime/terminal-output-subscriptions.ts
+        src/main/runtime/terminal-output-replay.ts
+        src/main/runtime/orca-runtime-jira-commands.ts
+        src/main/runtime/orca-runtime-jira-read-commands.ts
+        src/main/runtime/orca-runtime-jira-write-commands.ts
+        src/main/runtime/orca-runtime-github-project-commands.ts
+        src/main/runtime/orca-runtime-github-project-query-commands.ts
+        src/main/runtime/orca-runtime-github-project-mutation-commands.ts
+        src/main/runtime/worktree-resolution-state.ts
+        src/main/runtime/resolved-worktree-state.ts
+        src/main/runtime/worktree-scan-state.ts
         src/main/runtime/terminal-output-normalization.ts
         src/main/runtime/terminal-read-pagination.ts
         src/main/runtime/terminal-tail-ansi.ts
@@ -121,6 +201,8 @@ services:
           src/main/runtime/terminal-wait-detection.test.ts \
           src/main/runtime/terminal-tail-wait-state.test.ts \
           src/main/runtime/terminal-formatting-modules.test.ts \
+          src/main/runtime/runtime-domain-boundaries.test.ts \
+          src/main/runtime/mobile-notification-replay.test.ts \
           src/main/ipc/ssh-pty-output-intake.test.ts \
           src/main/ssh/ssh-port-forward.test.ts \
           src/relay/pty-handler.test.ts \
@@ -185,6 +267,19 @@ services:
       - src/main/ipc/superseded-pty-exit-evidence.ts
       - src/main/ipc/superseded-pty-exit-evidence.test.ts
       - src/main/runtime/orca-runtime.test.ts
+      - src/main/runtime/orca-runtime.ts
+      - src/main/runtime/runtime-agent-launch-resolution.ts
+      - src/main/runtime/runtime-branch-review-selection.ts
+      - src/main/runtime/runtime-folder-workspace-selection.ts
+      - src/main/runtime/runtime-message-waiters.ts
+      - src/main/runtime/runtime-notification-registry.ts
+      - src/main/runtime/mobile-notification-replay.ts
+      - src/main/runtime/runtime-worktree-selection.ts
+      - src/main/runtime/runtime-worktree-summary.ts
+      - src/main/runtime/runtime-worktree-session-bindings.ts
+      - src/main/runtime/runtime-worktree-status.ts
+      - src/main/runtime/runtime-worktree-summary-core.ts
+      - src/main/runtime/runtime-worktree-summary-paths.ts
       - src/main/runtime/orca-runtime-terminal-retirement.test.ts
       - src/main/runtime/orca-runtime.ts
       - src/main/runtime/terminal-output-path-candidates.ts
@@ -194,6 +289,40 @@ services:
       - src/main/runtime/terminal-tail-wait-state.ts
       - src/main/runtime/terminal-tail-wait-state.test.ts
       - src/main/runtime/terminal-formatting-modules.test.ts
+      - src/main/runtime/runtime-domain-boundaries.test.ts
+      - src/main/runtime/mobile-notification-replay.test.ts
+      - src/main/runtime/runtime-message-waiters.ts
+      - src/main/runtime/runtime-notification-registry.ts
+      - src/main/runtime/runtime-client-settings-commands.ts
+      - src/main/runtime/runtime-automation-commands.ts
+      - src/main/runtime/pty-layout-queue.ts
+      - src/main/runtime/pty-generation-reference-count.ts
+      - src/main/runtime/runtime-repo-hook-commands.ts
+      - src/main/runtime/remote-orca-directory-ignore.ts
+      - src/main/runtime/runtime-worktree-summary.ts
+      - src/main/runtime/runtime-worktree-selection.ts
+      - src/main/runtime/runtime-agent-launch-resolution.ts
+      - src/main/runtime/runtime-branch-review-selection.ts
+      - src/main/runtime/runtime-folder-workspace-selection.ts
+      - src/main/runtime/terminal-input-commands.ts
+      - src/main/runtime/orca-runtime-linear-query-commands.ts
+      - src/main/runtime/orca-runtime-linear-connection-commands.ts
+      - src/main/runtime/orca-runtime-review-query-commands.ts
+      - src/main/runtime/orca-runtime-review-mutation-commands.ts
+      - src/main/runtime/orca-runtime-repo-work-item-commands.ts
+      - src/main/runtime/terminal-output-state.ts
+      - src/main/runtime/terminal-output-sequence.ts
+      - src/main/runtime/terminal-output-subscriptions.ts
+      - src/main/runtime/terminal-output-replay.ts
+      - src/main/runtime/orca-runtime-jira-commands.ts
+      - src/main/runtime/orca-runtime-jira-read-commands.ts
+      - src/main/runtime/orca-runtime-jira-write-commands.ts
+      - src/main/runtime/orca-runtime-github-project-commands.ts
+      - src/main/runtime/orca-runtime-github-project-query-commands.ts
+      - src/main/runtime/orca-runtime-github-project-mutation-commands.ts
+      - src/main/runtime/worktree-resolution-state.ts
+      - src/main/runtime/resolved-worktree-state.ts
+      - src/main/runtime/worktree-scan-state.ts
       - src/main/runtime/terminal-output-normalization.ts
       - src/main/runtime/terminal-read-pagination.ts
       - src/main/runtime/terminal-tail-ansi.ts
@@ -205,6 +334,14 @@ services:
       - src/main/runtime/terminal-wait-results.ts
       - src/main/runtime/session-control.test.ts
       - src/main/runtime/runtime-rpc.test.ts
+      - src/main/runtime/orca-runtime.ts
+      - src/main/runtime/runtime-agent-launch-resolution.ts
+      - src/main/runtime/runtime-branch-review-selection.ts
+      - src/main/runtime/runtime-folder-workspace-selection.ts
+      - src/main/runtime/runtime-message-waiters.ts
+      - src/main/runtime/runtime-notification-registry.ts
+      - src/main/runtime/runtime-worktree-selection.ts
+      - src/main/runtime/runtime-worktree-summary.ts
       - src/main/providers/ssh-pty-applied-size.ts
       - src/main/providers/ssh-pty-provider-resize.test.ts
       - src/main/providers/ssh-pty-provider.test.ts

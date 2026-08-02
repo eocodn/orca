@@ -4,7 +4,6 @@
 import {
   detectAgentStatusFromTitle,
   isClaudeManagementTitle,
-  isCursorAgentTitle,
   isCursorNativeAgentTitle,
   isShellProcess,
   normalizeTerminalTitle
@@ -79,12 +78,9 @@ import {
   type ProcessedAgentStatusChunk
 } from '../../shared/agent-status-osc'
 import { buildOrchestrationTaskDisplayMetadata } from '../../shared/orchestration-task-display'
-import { iterateTerminalInputChunks } from '../../shared/terminal-input'
 import { assertTerminalDimensions } from '../../shared/terminal-dimensions'
 import {
-  AGENT_PROMPT_BRACKETED_PASTE_END,
   AGENT_PROMPT_SUBMIT,
-  AGENT_PROMPT_SUBMIT_DELAY_MS,
   buildAgentPromptPasteBytes
 } from '../../shared/agent-prompt-injection'
 import { gitExecFileAsync, gitSpawn, nonInteractiveGitEnv } from '../git/runner'
@@ -100,7 +96,7 @@ import { GIT_FETCH_SKIP_AUTO_MAINTENANCE_CONFIG_ARGS } from '../../shared/git-fe
 import { createHash, randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
-import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { resolveWorktreeCreateBase } from '../worktree-create-base'
 import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
 import { OrchestrationDb } from './orchestration/db'
@@ -114,7 +110,6 @@ import {
   createSetupCompletionScanner
 } from './orchestration/setup-completion-signal'
 import type { RuntimeOrchestrationEnvelope } from '../../shared/runtime-rpc-envelope'
-import { ORCHESTRATION_MESSAGE_WAIT_DEFAULT_TIMEOUT_MS } from '../../shared/orchestration-message-wait-timeout'
 import type { TerminalRevealIdentity } from '../../shared/terminal-reveal-identity'
 import type {
   OrchestrationCompatibilityEvidence,
@@ -131,13 +126,7 @@ import type {
 import { syncFederatedDispatch } from './orchestration/federation-sync'
 import { formatMessagesForInjection } from './orchestration/formatter'
 import { selectExactWorkerProviderSession } from './orchestration/worker-provider-session'
-import type {
-  Automation,
-  AutomationCreateInput,
-  AutomationRun,
-  AutomationUpdateInput,
-  AutomationWorkspaceMode
-} from '../../shared/automations-types'
+import type { Automation, AutomationRun } from '../../shared/automations-types'
 import type {
   AutomationWorkspaceProvenance,
   CliWorkspaceProvenance,
@@ -148,9 +137,7 @@ import type {
   ForceDeleteWorktreeBranchResult,
   GitHubPrStartPoint,
   GitPushTarget,
-  BranchPrefixStrategy,
   GitWorktreeInfo,
-  GitHubCreateIssueFields,
   GitHubOwnerRepo,
   GlobalSettings,
   PersistedUIState,
@@ -178,15 +165,8 @@ import type {
   WorktreeBaseStatusEvent,
   WorktreeRemoteBranchConflictEvent,
   WorktreeStartupLaunch,
-  LinearCustomViewModel,
-  JiraConnectArgs,
-  JiraCreateIssueArgs,
-  JiraIssueFilter,
-  JiraIssueUpdate,
-  JiraSiteSelection,
   LinearIssueUpdate,
   LinearProjectSummary,
-  LinearWorkspaceSelection,
   NestedRepoScanResult,
   ProjectGroup,
   FolderWorkspace,
@@ -205,17 +185,11 @@ import type {
   WorkspaceLinkedItem,
   DirEntry,
   FilesystemPathFlavor,
-  GitHubIssueUpdate,
-  GitHubPullRequestStateUpdate,
-  GitHubPRFile,
-  GitHubPRReviewCommentInput,
   GitLabIssueUpdate,
   GitLabMRInlineCommentInput,
   GitLabProjectRef,
   GitLabWorkItem,
-  ListWorkItemsResult,
   MRListState,
-  PRRefreshOutcome,
   ClaudeRateLimitAccountsState,
   CodexRateLimitAccountsState
 } from '../../shared/types'
@@ -295,7 +269,6 @@ import {
   type RuntimeTerminalWaitCondition,
   type RuntimeWorktreePsSummary,
   type RuntimeWorktreeAgentRow,
-  type RuntimeWorktreeStatus,
   type RuntimeSpeechModelSummary,
   type RuntimeSpeechSetupState,
   type RuntimeTerminalShow,
@@ -344,7 +317,6 @@ import { isLinearUuid } from '../../shared/linear-uuid'
 import type { FeatureInteractionId } from '../../shared/feature-interactions'
 import type { TerminalPaneSplitSource } from '../../shared/feature-education-telemetry'
 import {
-  FOLDER_WORKSPACE_INSTANCE_SEPARATOR,
   WORKTREE_ID_SEPARATOR,
   getRepoIdFromWorktreeId,
   splitWorktreeId,
@@ -355,7 +327,6 @@ import {
   getProjectHostSetupForRepo,
   getProjectHostSetupWorktreeMeta
 } from '../../shared/project-host-setup-projection'
-import { parsePtySessionId } from '../../shared/pty-session-id-format'
 import { clampLinearIssueListLimit } from '../../shared/linear-issue-read-limits'
 import { isFolderRepo } from '../../shared/repo-kind'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
@@ -367,16 +338,11 @@ import {
   createSequencedSetupAgentCommands,
   SETUP_AGENT_SEQUENCE_STARTUP_COMMAND_ENV
 } from '../../shared/setup-agent-sequencing'
-import { TASK_PROVIDERS } from '../../shared/task-providers'
 import { FIRST_PANE_ID } from '../../shared/pane-key'
 import { isTerminalLeafId, makePaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import { parseAppSshPtyId } from '../../shared/ssh-pty-id'
 import { isValidHostTerminalTabId, isValidTerminalTabId } from '../../shared/terminal-tab-id'
-import {
-  applyTerminalQuickCommandMutation,
-  MAX_QUICK_COMMANDS,
-  type TerminalQuickCommandMutation
-} from '../../shared/terminal-quick-commands'
+import type { TerminalQuickCommandMutation } from '../../shared/terminal-quick-commands'
 import { isPtyIncarnationId, type PtyIncarnationId } from '../../shared/pty-incarnation'
 import {
   buildAgentDraftLaunchPlan,
@@ -389,21 +355,13 @@ import {
   isExpectedAgentProcess,
   recognizeAgentProcess
 } from '../../shared/agent-process-recognition'
-import {
-  haveSameDisabledTuiAgents,
-  isTuiAgentEnabled,
-  pickTuiAgent
-} from '../../shared/tui-agent-selection'
+import { isTuiAgentEnabled, pickTuiAgent } from '../../shared/tui-agent-selection'
 import {
   resolveTuiAgentLaunchArgs,
   resolveTuiAgentLaunchEnv
 } from '../../shared/tui-agent-launch-defaults'
 import { resolveLocalWindowsAgentStartupShell } from '../../shared/windows-terminal-shell'
-import {
-  getTuiAgentLaunchCommand,
-  isTuiAgent,
-  TUI_AGENT_CONFIG
-} from '../../shared/tui-agent-config'
+import { isTuiAgent, TUI_AGENT_CONFIG } from '../../shared/tui-agent-config'
 import { createDraftPasteReadyScanner } from '../../shared/draft-paste-ready-scanner'
 import { detectInstalledAgentsWithShellPathHydration, detectRemoteAgents } from '../ipc/preflight'
 import {
@@ -444,7 +402,6 @@ import {
 } from '../../shared/worktree-ownership'
 import {
   createAgentScratchWorktreePathMatcher,
-  isAgentScratchRepoRootPath,
   type AgentScratchWorktreePathMatcher
 } from '../../shared/agent-scratch-worktrees'
 import {
@@ -488,7 +445,19 @@ import {
   buildHeadlessTerminalSplitLayout,
   countTerminalLayoutLeaves
 } from './headless-terminal-split-layout'
-import { RECENT_PTY_OUTPUT_LIMIT, RecentPtyOutputBuffer } from './recent-pty-output-buffer'
+import { RECENT_PTY_OUTPUT_LIMIT } from './recent-pty-output-buffer'
+import { TerminalOutputState, type RuntimeTerminalDataMeta } from './terminal-output-state'
+import { RuntimeGithubProjectCommands } from './orca-runtime-github-project-commands'
+import { RuntimeJiraCommands } from './orca-runtime-jira-commands'
+import { WorktreeResolutionState } from './worktree-resolution-state'
+import { RuntimeTerminalInputCommands } from './terminal-input-commands'
+import { RuntimeLinearQueryCommands } from './orca-runtime-linear-query-commands'
+import { RuntimeLinearConnectionCommands } from './orca-runtime-linear-connection-commands'
+import { RuntimeReviewQueryCommands } from './orca-runtime-review-query-commands'
+import { RuntimeReviewMutationCommands } from './orca-runtime-review-mutation-commands'
+import { RuntimeRepoWorkItemCommands } from './orca-runtime-repo-work-item-commands'
+import { RuntimeMessageWaiters, type MessageWaitResult } from './runtime-message-waiters'
+export type { MessageWaitResult } from './runtime-message-waiters'
 import {
   buildHeadlessTabGroupMove,
   buildHeadlessTabGroupSplit
@@ -585,7 +554,6 @@ import {
 } from './client-session-tab-selection'
 import type {
   PtyProviderBufferSnapshot,
-  IFilesystemProvider,
   IPtyProvider,
   PtyProcessInfo,
   PtyTransientFact
@@ -602,49 +570,15 @@ import {
 } from './claude-agent-teams-shim-env'
 import {
   addClaudeTeammateModeAuto,
-  addClaudeTeammateModeInProcess,
-  type ClaudeAgentTeamsMode
+  addClaudeTeammateModeInProcess
 } from '../../shared/claude-agent-teams-tmux-compat'
-import { joinWorktreeRelativePath } from './runtime-relative-paths'
 import { collectMemorySnapshot } from '../memory/collector'
 import { app, BrowserWindow, ipcMain, Notification } from 'electron'
 import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
 import type { BrowserBackend } from '../browser/browser-backend'
 import { BrowserError } from '../browser/cdp-bridge'
-import {
-  getPRForBranch,
-  getPRForBranchOutcome,
-  getRepoSlug,
-  getRepoUpstream,
-  getWorkItem,
-  listIssues as listGitHubIssues,
-  listWorkItems,
-  countWorkItems,
-  getPRChecks,
-  getPRCheckDetails,
-  rerunPRChecks,
-  getPRComments,
-  getIssue,
-  resolveReviewThread,
-  setPRFileViewed,
-  getWorkItemByOwnerRepo,
-  updatePRTitle,
-  updatePRDetails,
-  mergePR,
-  setPRAutoMerge,
-  updatePRState,
-  requestPRReviewers,
-  removePRReviewers,
-  createIssue,
-  updateIssue,
-  addIssueComment,
-  addPRReviewComment,
-  addPRReviewCommentReply,
-  listLabels,
-  listAssignableUsers,
-  type MainWorkItem,
-  type GitHubPRBranchLookupOptions
-} from '../github/client'
+import { getRepoSlug, getRepoUpstream } from '../github/client'
+import type { getPRForBranch } from '../github/client'
 import { resolveGitHubPrStartPoint } from '../github/pr-start-point'
 import {
   fetchGitHubPullRequestHeadRef,
@@ -659,8 +593,6 @@ import { isTransientReviewHeadFetchError } from '../git/fetch-error-classificati
 import { resolveGitHubReviewHeadRemote } from '../github/review-head-remote'
 import { fetchCompareBaseRefWithLocalFallback } from '../git/compare-base-ref-fetch'
 import { pickPreferredGitRemote } from '../../shared/preferred-git-remote'
-import { getWorkItemDetails, getPRFileContents } from '../github/work-item-details'
-import { getRateLimit } from '../github/rate-limit'
 import {
   closeMR as closeGitLabMR,
   createIssue as createGitLabIssue,
@@ -694,7 +626,6 @@ import {
   type GitLabIssueListState
 } from '../gitlab/gitlab-preload-args'
 import { recordGitLabProjectRecent } from '../gitlab/gitlab-project-recents'
-import { inspectSetupScriptImportCandidates } from '../../shared/setup-script-imports'
 import type {
   CreateHostedReviewInput,
   CreateHostedReviewResult,
@@ -703,7 +634,6 @@ import type {
   HostedReviewInfo
 } from '../../shared/hosted-review'
 import { getHostedReviewForBranch as getHostedReviewForBranchFromRepo } from '../source-control/hosted-review'
-import type { ForgeProviderId } from '../source-control/forge-provider'
 import {
   createHostedReview as createHostedReviewFromRepo,
   getHostedReviewCreationEligibility as getHostedReviewCreationEligibilityFromRepo
@@ -727,40 +657,24 @@ import {
   removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
   recoverLocalWindowsWorktreeRemoval
 } from '../local-worktree-removal-recovery'
+import { getStatus as getLinearStatus, isAuthError as isLinearAuthError } from '../linear/client'
 import {
-  connect as connectLinear,
-  disconnect as disconnectLinear,
-  getStatus as getLinearStatus,
-  isAuthError as isLinearAuthError,
-  selectWorkspace as selectLinearWorkspace,
-  testConnection as testLinearConnection
-} from '../linear/client'
-import {
-  addIssueComment as addLinearIssueComment,
   addIssueCommentForAgent as addLinearIssueCommentForAgent,
   createIssueAttachment as createLinearIssueAttachment,
   createIssueForAgent as createLinearIssueForAgent,
-  createIssue as createLinearIssue,
   getAttachmentByUuidForAgent as getLinearAttachmentByUuidForAgent,
   getCommentByUuidForAgent as getLinearCommentByUuidForAgent,
-  getIssue as getLinearIssue,
   getIssueByUuidForAgent as getLinearIssueByUuidForAgent,
   getIssueCommentThreadRoot as getLinearIssueCommentThreadRoot,
-  getIssueComments as getLinearIssueComments,
   listIssues as listLinearIssues,
-  searchIssues as searchLinearIssues,
   updateIssueForAgent as updateLinearIssueForAgent,
-  updateIssue as updateLinearIssue,
-  LinearWriteFailure,
-  type LinearListFilter,
-  type LinearIssueListOptions
+  LinearWriteFailure
 } from '../linear/issues'
 import {
   LinearAgentAccessError,
   getLinearCurrentIssueFromWorktree,
   readLinearIssueContext,
-  resolveLegacyLinearLinkWorkspace,
-  searchLinearIssuesForAgents
+  resolveLegacyLinearLinkWorkspace
 } from '../linear/issue-context'
 import {
   classifyLinearError,
@@ -771,90 +685,19 @@ import {
 import { listMcpIssues } from '../linear/mcp-issue-list'
 import { writeIssueRelation } from '../linear/issue-relation-write'
 import {
-  createProject as createLinearProject,
-  getCustomView as getLinearCustomView,
   getProject as getLinearProject,
-  listCustomViewIssues as listLinearCustomViewIssues,
-  listCustomViewProjects as listLinearCustomViewProjects,
-  listCustomViews as listLinearCustomViews,
   listProjectsByExactName as listLinearProjectsByExactName,
-  listProjectIssues as listLinearProjectIssues,
   listProjectTeams as listLinearProjectTeams,
-  listProjects as listLinearProjects,
-  type LinearProjectCreateInput
+  listProjects as listLinearProjects
 } from '../linear/projects'
 import {
-  getTeamLabels as getLinearTeamLabels,
   getTeamLabelsOrThrow as getLinearTeamLabelsOrThrow,
-  getTeamMembers as getLinearTeamMembers,
   getTeamMembersOrThrow as getLinearTeamMembersOrThrow,
-  getTeamStates as getLinearTeamStates,
   getTeamStatesOrThrow as getLinearTeamStatesOrThrow,
   getViewerForWorkspaceOrThrow as getLinearViewerForWorkspaceOrThrow,
   listTeamsForAgent as listLinearTeamsForAgent,
-  listTeams as listLinearTeams,
   listTeamsOrThrow as listLinearTeamsOrThrow
 } from '../linear/teams'
-import {
-  connect as connectJira,
-  disconnect as disconnectJira,
-  getStatus as getJiraStatus,
-  selectSite as selectJiraSite,
-  testConnection as testJiraConnection
-} from '../jira/client'
-import {
-  addIssueComment as addJiraIssueComment,
-  createIssue as createJiraIssue,
-  getIssue as getJiraIssue,
-  getIssueSummary as getJiraIssueSummary,
-  getIssueComments as getJiraIssueComments,
-  getProjectStatusOrder as getJiraProjectStatusOrder,
-  listAssignableUsers as listJiraAssignableUsers,
-  listCreateFields as listJiraCreateFields,
-  listIssueTypes as listJiraIssueTypes,
-  listIssues as listJiraIssues,
-  listPriorities as listJiraPriorities,
-  listProjects as listJiraProjects,
-  listTransitions as listJiraTransitions,
-  searchIssues as searchJiraIssues,
-  updateIssue as updateJiraIssue
-} from '../jira/issues'
-import {
-  clearProjectItemFieldValue,
-  getProjectViewTable,
-  getWorkItemDetailsBySlug,
-  listAccessibleProjects,
-  listProjectViews,
-  resolveProjectRef,
-  addIssueCommentBySlug,
-  deleteIssueCommentBySlug,
-  listAssignableUsersBySlug,
-  listIssueTypesBySlug,
-  listLabelsBySlug,
-  updateIssueCommentBySlug,
-  updateIssueBySlug,
-  updateIssueTypeBySlug,
-  updateProjectItemFieldValue,
-  updatePullRequestBySlug
-} from '../github/project-view'
-import type {
-  ClearProjectItemFieldArgs,
-  GetProjectViewTableArgs,
-  ListAccessibleProjectsArgs,
-  ListAssignableUsersBySlugArgs,
-  ListIssueTypesBySlugArgs,
-  ListLabelsBySlugArgs,
-  ListProjectViewsArgs,
-  ProjectWorkItemDetailsBySlugArgs,
-  ResolveProjectRefArgs,
-  AddIssueCommentBySlugArgs,
-  DeleteIssueCommentBySlugArgs,
-  UpdateIssueBySlugArgs,
-  UpdateIssueCommentBySlugArgs,
-  UpdateIssueTypeBySlugArgs,
-  UpdateProjectItemFieldArgs,
-  UpdatePullRequestBySlugArgs
-} from '../../shared/github-project-types'
 import {
   getBaseRefDefault,
   getDefaultRemote,
@@ -891,18 +734,11 @@ import type { AddWorktreeOptions, AddWorktreeResult } from '../git/worktree'
 import { isENOENT, invalidateAuthorizedRootsCache } from '../ipc/filesystem-auth'
 import {
   createSetupRunnerScript,
-  getDefaultTabCommandTrustContent,
   getDefaultTabsLaunch,
   getEffectiveHooks,
-  getEffectiveSetupRunPolicy,
-  hasUnrecognizedOrcaYamlKeys,
-  hasHooksFile,
   loadHooks,
-  parseOrcaYaml,
-  readIssueCommand,
   runHook,
-  shouldRunSetupForCreate,
-  writeIssueCommand
+  shouldRunSetupForCreate
 } from '../hooks'
 import {
   DEFAULT_REPO_BADGE_COLOR,
@@ -941,7 +777,6 @@ import type { Store } from '../persistence'
 import type { StatsCollector } from '../stats/collector'
 import { AgentDetector } from '../stats/agent-detector'
 import {
-  computeValidatedBranchName,
   computeWorktreePath,
   computeWorkspaceRoot,
   ensurePathWithinWorkspace,
@@ -956,7 +791,6 @@ import {
   areWorktreePathsEqual
 } from '../ipc/worktree-logic'
 import { findCreatedWorktree } from '../ipc/created-worktree-reconciliation'
-import { worktreePathComparisonKey } from '../ipc/worktree-path-comparison'
 import {
   assertWorktreeDoesNotContainRegisteredWorktree,
   canCleanupUnregisteredOrcaLeftoverDirectory,
@@ -964,7 +798,6 @@ import {
   canSafelyRemoveOrphanedWorktreeDirectory,
   findRegisteredDeletableWorktree,
   isDangerousWorktreeRemovalPath,
-  isWorktreePathMissing,
   ORPHANED_WORKTREE_DIRECTORY_MESSAGE,
   stripOrcaProvenanceMetaUpdates,
   UNREGISTERED_MISSING_WORKTREE_MESSAGE
@@ -999,10 +832,8 @@ import {
 } from './terminal-view-attribute-store'
 import { killAllProcessesForWorktree, teardownRpcDeadline } from './worktree-teardown'
 import { stopMissingWorktreeTerminals } from './missing-worktree-terminal-reconciliation'
-import {
-  MobileNotificationReplayBuffer,
-  type ReplayableMobileNotification
-} from './mobile-notification-replay'
+import type { ReplayableMobileNotification } from './mobile-notification-replay'
+import { RuntimeNotificationRegistry } from './runtime-notification-registry'
 import { MOBILE_SUBSCRIBE_SCROLLBACK_ROWS } from './scrollback-limits'
 import {
   createMobileSessionTabsNotifyCoalescer,
@@ -1030,7 +861,6 @@ import type {
 } from '../codex-accounts/service'
 import type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
 import type { RateLimitService } from '../rate-limits/service'
-import { applyPRBotAuthorOverride } from '../../shared/pr-bot-author-overrides'
 import type { CodexRateLimitResetOutcome, RateLimitState } from '../../shared/rate-limit-types'
 import type { CodexResetCreditExpectedScope } from '../../shared/codex-reset-credit-scope'
 import type { VoiceSettings } from '../../shared/speech-types'
@@ -1047,10 +877,169 @@ import {
   resolveNestedRepoSelection
 } from '../project-groups/nested-repo-import'
 import { createNestedRepoImportTargetResolver } from '../project-groups/nested-repo-import-target'
+import {
+  RuntimeClientSettingsCommands,
+  type RuntimeClientSettings
+} from './runtime-client-settings-commands'
+import {
+  RuntimeAutomationCommands,
+  type RuntimeAutomationCreateInput,
+  type RuntimeAutomationUpdateInput
+} from './runtime-automation-commands'
+import {
+  PtyLayoutQueue,
+  type ApplyLayoutResult,
+  type PtyLayoutState,
+  type PtyLayoutTarget
+} from './pty-layout-queue'
+import { PtyGenerationReferenceCount } from './pty-generation-reference-count'
+import { RuntimeRepoHookCommands } from './runtime-repo-hook-commands'
+import {
+  branchSelectorMatches,
+  buildRuntimeWorktreeSummaryPathIndex,
+  canonicalizeTerminalSessionWorktreeId,
+  classifyAgentTitle,
+  classifyLatestAgentTitle,
+  compareWorktreePs,
+  findResolvedWorktreeIdForPath,
+  findRuntimeWorktreeSummaryByPath,
+  getExplicitWorktreeIdSelector,
+  getLatestAgentCandidateTitle,
+  getLatestAgentCandidateTitleInfo,
+  getLatestLeafTitle,
+  getLatestPtyTitle,
+  getLeafWorktreeStatus,
+  getSavedTabWorktreeStatus,
+  includeTargetResolvedWorktree,
+  indexPersistedPtySurfaceBindings,
+  indexPersistedPtyWorktreeBindings,
+  inferWorktreeIdFromPtyId,
+  mapExplicitAgentStateToRuntimeTerminalStatus,
+  maxTimestamp,
+  mergeWorktreeStatus,
+  notifyRuntimeListeners,
+  parseRuntimeWorktreeId,
+  resolveTerminalSessionWorktreeId,
+  resolveWorktreeScanCacheTtlMs,
+  runtimePathsEqual,
+  runtimeWorktreeIdentityKey,
+  runtimeWorktreeIdsEqual,
+  type RuntimeWorktreeSummaryPathIndex,
+  setBoundedMapEntry,
+  setsEqual,
+  terminalTitleBlocksExplicitAgentStatus,
+  waitForWorktreeTerminalMutation,
+  withTimeout,
+  withTimeoutResult
+} from './runtime-worktree-summary'
+export { resolveWorktreeScanCacheTtlMs }
+import {
+  getRuntimeWorktreeRemovalKey,
+  getRuntimeWorktreeRemovalOptionsKey,
+  isLocalRuntimeGitRepository,
+  isRuntimeWorktreePathMissing,
+  omitUndefinedProperties,
+  parseExactWorktreeIdSelector,
+  type PreservedBranchCleanupTarget,
+  type RuntimeWorktreeRemovalInFlight,
+  type RuntimeWorktreeRemovalTarget
+} from './runtime-worktree-selection'
+import {
+  addListenerToMap,
+  canCheckoutExistingLocalBranch,
+  clampTerminalViewport,
+  getLocalGitHubPrForBranch,
+  getSelectedHostedReviewForBranch,
+  getSelectedReviewBranch,
+  hasLocalGitOptions,
+  isAllowedPushTargetRemoteConflict,
+  isMatchingSelectedGitHubPr,
+  resolveCreateBranchName
+} from './runtime-branch-review-selection'
+import {
+  getRuntimeFolderWorkspaceInstanceId,
+  getRuntimeFolderWorkspaceRootId,
+  listRuntimeFolderWorkspaces,
+  mergeRuntimeFolderWorkspace
+} from './runtime-folder-workspace-selection'
+import {
+  copySleepingAgentLaunchConfig,
+  deterministicAgentSessionUuid,
+  inferCapturedClaudeAgentTeamsMode,
+  isAgentSessionOperationOutcomeUnknown,
+  isCursorAgentOrchestrationTarget,
+  mergeTerminalEnvDeletionKeys,
+  normalizeSparsePresetDirectoriesForSave,
+  normalizeSparsePresetName,
+  resolveBareAgentLaunchCommand
+} from './runtime-agent-launch-resolution'
+
+const FETCH_FRESHNESS_MS = 30_000
+const REMOTE_FETCH_TIMEOUT_MS = 60_000
+const REMOTE_FETCH_CACHE_MAX = 512
+const DRIFT_PROBE_SUBJECT_LIMIT = 5
+const PTY_CONTROLLER_LIST_TIMEOUT_MS = 3_000
+const WORKTREE_TERMINAL_SLEEP_TIMEOUT_MS = 12_000
+export type { ApplyLayoutResult, PtyLayoutState, PtyLayoutTarget } from './pty-layout-queue'
+export type {
+  RuntimeAutomationCreateInput,
+  RuntimeAutomationUpdateInput
+} from './runtime-automation-commands'
 
 function sanitizeNestedRepoRuntimeImportError(context: string, error: unknown): string {
   console.warn(`[project-groups] ${context}`, error)
   return 'Repository could not be imported'
+}
+
+function runtimeRepoMatchesExecutionHost(
+  repo: Pick<Repo, 'connectionId' | 'executionHostId'>,
+  executionHostId?: ExecutionHostId | null
+): boolean {
+  if (executionHostId == null) {
+    return true
+  }
+  if (repo.executionHostId != null) {
+    return repo.executionHostId === executionHostId
+  }
+  return repo.connectionId == null
+}
+
+function assertProjectHostSetupHostIsSupported(hostId: ExecutionHostId | null | undefined): void {
+  if (parseExecutionHostId(hostId)?.kind !== 'ssh') {
+    return
+  }
+  throw new Error(
+    'SSH hosts are not supported by this operation. Set the project up from the Orca desktop app, which owns the SSH connection.'
+  )
+}
+
+async function pathExists(pathValue: string): Promise<boolean> {
+  try {
+    await stat(pathValue)
+    return true
+  } catch (error) {
+    if (isENOENT(error)) {
+      return false
+    }
+    throw error
+  }
+}
+
+function resolveServerBrowsePath(pathValue: string): string {
+  const trimmed = pathValue.trim() || '~'
+  if (trimmed.includes('\0')) {
+    throw new Error('Path cannot contain null bytes')
+  }
+  if (trimmed === '~') {
+    return homedir()
+  }
+  if (/^~[\\/]/.test(trimmed)) {
+    return resolve(homedir(), trimmed.slice(2))
+  }
+  if (isAbsolute(trimmed)) {
+    return resolve(trimmed)
+  }
+  return resolve(homedir(), trimmed)
 }
 
 type RuntimeAccountServices = {
@@ -1189,61 +1178,6 @@ type RuntimeStore = {
   ) => unknown
 }
 
-export type RuntimeAutomationCreateInput = Omit<
-  AutomationCreateInput,
-  'projectId' | 'workspaceId' | 'workspaceMode' | 'timezone'
-> & {
-  repo?: string
-  workspace?: string
-  workspaceMode?: AutomationWorkspaceMode
-  timezone?: string
-}
-
-export type RuntimeAutomationUpdateInput = Omit<
-  AutomationUpdateInput,
-  'projectId' | 'workspaceId'
-> & {
-  repo?: string
-  workspace?: string
-}
-
-function normalizeSparsePresetName(name: string): string {
-  const trimmed = name.trim()
-  if (!trimmed) {
-    throw new Error('Preset name is required.')
-  }
-  if (trimmed.length > 80) {
-    throw new Error('Preset name is too long.')
-  }
-  return trimmed
-}
-
-function normalizeSparsePresetDirectoriesForSave(directories: string[]): string[] {
-  let normalized: string[]
-  try {
-    normalized = normalizeSparseDirectories(directories)
-  } catch (err) {
-    if (
-      err instanceof Error &&
-      err.message === 'Sparse checkout directories must be repo-relative paths.'
-    ) {
-      throw new Error('Preset directories must be repo-relative paths.')
-    }
-    throw err
-  }
-  if (normalized.length === 0) {
-    throw new Error('Preset must have at least one directory.')
-  }
-  return normalized
-}
-
-function hasRuntimeAutomationUpdateValue<K extends keyof RuntimeAutomationUpdateInput>(
-  updates: RuntimeAutomationUpdateInput,
-  key: K
-): boolean {
-  return Object.hasOwn(updates, key) && updates[key] !== undefined
-}
-
 type RuntimeLeafRecord = RuntimeSyncedLeaf & {
   ptyGeneration: number
   connected: boolean
@@ -1273,13 +1207,6 @@ type RuntimeLeafRecord = RuntimeSyncedLeaf & {
   lastOscTitle: string | null
   lastOscTitleAt: number | null
   paneTitleUpdatedAt: number | null
-}
-
-function isCursorAgentOrchestrationTarget(
-  leaf: RuntimeLeafRecord,
-  tabTitle: string | null | undefined
-): boolean {
-  return [leaf.lastOscTitle, leaf.paneTitle, tabTitle].some(isCursorAgentTitle)
 }
 
 type RuntimePtyWorktreeRecord = {
@@ -1369,113 +1296,14 @@ type TerminalCreateOptions = {
   deferMobileSessionPublish?: boolean
 }
 
-function mergeTerminalEnvDeletionKeys(
-  first: readonly string[] | undefined,
-  second: readonly string[] | undefined
-): string[] | undefined {
-  const merged = [...new Set([...(first ?? []), ...(second ?? [])])]
-  return merged.length > 0 ? merged : undefined
-}
-
-type AgentSessionCreateOperation = {
-  fingerprint: string
-  promise: Promise<RuntimeCreateAgentSessionResult>
-}
-
-function isAgentSessionOperationOutcomeUnknown(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'agentSessionOperationOutcome' in error &&
-    error.agentSessionOperationOutcome === 'unknown'
-  )
-}
-
 const AGENT_SESSION_OPERATION_PER_CLIENT_LIMIT = 512
 const AGENT_SESSION_OPERATION_GLOBAL_LIMIT = 4_096
 const SESSION_SNAPSHOT_STABILITY_ATTEMPTS = 3
-
-function deterministicAgentSessionUuid(seed: string): string {
-  const hex = createHash('sha256').update(seed).digest('hex').slice(0, 32).split('')
-  hex[12] = '4'
-  hex[16] = ((Number.parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16)
-  const value = hex.join('')
-  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`
-}
 
 type PtyForegroundAgentRefresh = {
   promise: Promise<boolean>
   startedAfterTitleObservation: number
   requestedAfterTitleObservation: number
-}
-
-function copySleepingAgentLaunchConfig(
-  config: SleepingAgentLaunchConfig
-): SleepingAgentLaunchConfig {
-  return {
-    ...(config.agentCommand ? { agentCommand: config.agentCommand } : {}),
-    agentArgs: config.agentArgs,
-    agentEnv: { ...config.agentEnv },
-    ...(config.ompResumeFilePath ? { ompResumeFilePath: config.ompResumeFilePath } : {})
-  }
-}
-
-function normalizeAgentLaunchCommandForMatch(command: string): string {
-  return command.trim().replace(/\s+/g, ' ')
-}
-
-function resolveBareAgentLaunchCommand(args: {
-  command: string | undefined
-  settings: {
-    agentCmdOverrides?: Partial<Record<TuiAgent, string>> | null
-    disabledTuiAgents?: Iterable<unknown> | null
-  }
-  platform: NodeJS.Platform
-  isRemote: boolean
-}): TuiAgent | null {
-  const command = args.command ? normalizeAgentLaunchCommandForMatch(args.command) : ''
-  if (!command) {
-    return null
-  }
-
-  const cmdOverrides = args.settings.agentCmdOverrides ?? {}
-  for (const agent of Object.keys(TUI_AGENT_CONFIG) as TuiAgent[]) {
-    if (!isTuiAgentEnabled(agent, args.settings.disabledTuiAgents)) {
-      continue
-    }
-    const override = cmdOverrides[agent]?.trim()
-    const defaultLaunchCommand = getTuiAgentLaunchCommand(TUI_AGENT_CONFIG[agent], args.platform, {
-      isRemote: args.isRemote
-    })
-    const launchCommands = override ? [defaultLaunchCommand, override] : [defaultLaunchCommand]
-    if (
-      launchCommands.some((candidate) => command === normalizeAgentLaunchCommandForMatch(candidate))
-    ) {
-      return agent
-    }
-  }
-
-  return null
-}
-
-function inferCapturedClaudeAgentTeamsMode(
-  launchConfig: SleepingAgentLaunchConfig | undefined,
-  command: string | undefined,
-  currentMode: ClaudeAgentTeamsMode | undefined
-): ClaudeAgentTeamsMode | undefined {
-  const capturedCommand = launchConfig?.agentCommand?.trim() || command?.trim() || ''
-  const capturedArgs = launchConfig?.agentArgs?.trim() ?? ''
-  const capturedLaunch = `${capturedCommand} ${capturedArgs}`.trim()
-  if (/(^|\s)--teammate-mode(?:=|\s+)auto(?:\s|$)/.test(capturedLaunch)) {
-    return 'native-panes-shim'
-  }
-  if (/(^|\s)--teammate-mode(?:=|\s+)in-process(?:\s|$)/.test(capturedLaunch)) {
-    return 'in-process'
-  }
-  if (launchConfig && /(^|\s)--resume(?:\s|=|$)/.test(command?.trim() ?? '')) {
-    return 'off'
-  }
-  return currentMode
 }
 
 export type RuntimeTerminalAgentStatusEvent = {
@@ -1525,6 +1353,11 @@ type RuntimeAgentRowSnapshot = {
   updatedAt: number
 }
 
+type AgentSessionCreateOperation = {
+  fingerprint: string
+  promise: Promise<RuntimeCreateAgentSessionResult>
+}
+
 type RuntimeHeadlessTerminal = {
   emulator: HeadlessEmulator
   // Why: serialize can race with newer writes appended to writeChain; return
@@ -1539,13 +1372,7 @@ export type RuntimePtyDataAdmission = Readonly<{
   completion: Promise<void>
 }>
 
-export type RuntimeTerminalDataMeta = Readonly<{
-  seq?: number
-  rawLength?: number
-  transformed?: boolean
-  cwd?: string
-  sourceRanges?: readonly TerminalOutputSourceRange[]
-}>
+export type { RuntimeTerminalDataMeta } from './terminal-output-state'
 
 type RuntimeVisibleTerminalState = {
   lines: string[]
@@ -1940,504 +1767,6 @@ type TerminalWaiter = {
   abortCleanup: (() => void) | null
 }
 
-type MessageWaiter = {
-  handle: string
-  typeFilter: string[] | undefined
-  resolve: (result: MessageWaitResult) => void
-  timeout: NodeJS.Timeout | null
-  abortCleanup: (() => void) | null
-}
-
-export type MessageWaitResult = 'notified' | 'timed_out' | 'cancelled' | 'waiter_exists'
-
-function omitUndefinedProperties<T extends Record<string, unknown>>(value: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined)
-  ) as Partial<T>
-}
-
-async function isRuntimeWorktreePathMissing(
-  repo: Repo,
-  worktreePath: string,
-  localWorktreeGitOptions: { wslDistro?: string } = {}
-): Promise<boolean> {
-  if (!repo.connectionId) {
-    const access = getLocalWorktreePathAccess(localWorktreeGitOptions)
-    return isWorktreePathMissing(
-      toLocalWorktreeRuntimePath(worktreePath, localWorktreeGitOptions),
-      access.statPath
-    )
-  }
-
-  const fsProvider = getSshFilesystemProvider(repo.connectionId)
-  if (!fsProvider) {
-    return false
-  }
-  return isWorktreePathMissing(worktreePath, (path) => fsProvider.stat(path))
-}
-
-async function isLocalRuntimeGitRepository(
-  runtimeWorktreePath: string,
-  localWorktreeGitOptions: { wslDistro?: string } = {}
-): Promise<boolean> {
-  try {
-    await gitExecFileAsync(['status', '--short'], {
-      cwd: runtimeWorktreePath,
-      ...localWorktreeGitOptions
-    })
-    return true
-  } catch (error) {
-    return !gitStatusErrorMeansNotRepository(error)
-  }
-}
-
-function gitStatusErrorMeansNotRepository(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : error && typeof error === 'object' && 'message' in error
-        ? String((error as { message: unknown }).message)
-        : typeof error === 'string'
-          ? error
-          : ''
-  const stderr =
-    error && typeof error === 'object' && 'stderr' in error
-      ? String((error as { stderr: unknown }).stderr)
-      : ''
-  return /not a git repository/i.test(`${message}\n${stderr}`)
-}
-
-type RuntimeWorktreeRemovalTarget = {
-  id: string
-  repoId: string
-  path: string
-  hostId?: ExecutionHostId
-  pushTarget?: GitPushTarget
-}
-
-type RuntimeWorktreeRemovalInFlight = {
-  optionsKey: string
-  promise: Promise<RemoveWorktreeResult & { warning?: string }>
-}
-
-type PreservedBranchCleanupTarget = {
-  branchName: string
-  head: string
-  pushTarget?: GitPushTarget
-}
-
-function getRuntimeWorktreeRemovalOptionsKey(force: boolean, runHooks: boolean): string {
-  return `${force ? 'force' : 'normal'}:${runHooks ? 'run-hooks' : 'skip-hooks'}`
-}
-
-function getRuntimeWorktreeRemovalKey(target: RuntimeWorktreeRemovalTarget): string {
-  return `${target.hostId ?? 'legacy'}\0${target.id}`
-}
-
-function getRuntimeFolderWorkspaceRootId(repo: Repo): string {
-  return `${repo.id}::${repo.path}`
-}
-
-// Null executionHostId means host-unaware: path-only callers match any repo, and the first runtime
-// host can adopt a legacy (unstamped) repo. But an unstamped repo with a connectionId is an SSH repo
-// (resolves to ssh:<id>), so it must not be adopted/matched by a runtime host at the same path.
-function runtimeRepoMatchesExecutionHost(
-  repo: Pick<Repo, 'connectionId' | 'executionHostId'>,
-  executionHostId?: ExecutionHostId | null
-): boolean {
-  if (executionHostId == null) {
-    return true
-  }
-  if (repo.executionHostId != null) {
-    return repo.executionHostId === executionHostId
-  }
-  return repo.connectionId == null
-}
-
-// Why: this runtime only has local git and local fs, so an ssh: host here would clone and
-// probe the wrong machine and then register the result as remote. SSH setup is owned by the
-// desktop IPC path (addRemoteRepoFromPath / cloneRemoteRepo), which the renderer routes to;
-// only `local` and `runtime:` legitimately reach these RPCs.
-function assertProjectHostSetupHostIsSupported(hostId: ExecutionHostId | null | undefined): void {
-  if (parseExecutionHostId(hostId)?.kind !== 'ssh') {
-    return
-  }
-  throw new Error(
-    'SSH hosts are not supported by this operation. Set the project up from the Orca desktop app, which owns the SSH connection.'
-  )
-}
-
-function getRuntimeFolderWorkspaceInstanceId(repo: Repo, instanceId: string): string {
-  return `${getRuntimeFolderWorkspaceRootId(repo)}${FOLDER_WORKSPACE_INSTANCE_SEPARATOR}${instanceId}`
-}
-
-function getRuntimeFolderWorkspaceInstanceIdentity(repo: Repo, worktreeId: string): string {
-  const prefix = `${getRuntimeFolderWorkspaceRootId(repo)}${FOLDER_WORKSPACE_INSTANCE_SEPARATOR}`
-  return worktreeId.startsWith(prefix) ? worktreeId.slice(prefix.length) : randomUUID()
-}
-
-function isRuntimeFolderWorkspaceIdForRepo(repo: Repo, worktreeId: string): boolean {
-  const rootId = getRuntimeFolderWorkspaceRootId(repo)
-  return (
-    worktreeId === rootId ||
-    worktreeId.startsWith(`${rootId}${FOLDER_WORKSPACE_INSTANCE_SEPARATOR}`)
-  )
-}
-
-function mergeRuntimeFolderWorkspace(repo: Repo, worktreeId: string, meta: WorktreeMeta): Worktree {
-  return {
-    id: worktreeId,
-    ...(meta.instanceId !== undefined ? { instanceId: meta.instanceId } : {}),
-    repoId: repo.id,
-    ...(meta.projectId !== undefined ? { projectId: meta.projectId } : {}),
-    ...(meta.hostId !== undefined ? { hostId: meta.hostId } : {}),
-    ...(meta.projectHostSetupId !== undefined
-      ? { projectHostSetupId: meta.projectHostSetupId }
-      : {}),
-    path: repo.path,
-    head: '',
-    branch: '',
-    isBare: false,
-    isMainWorktree: worktreeId === getRuntimeFolderWorkspaceRootId(repo),
-    displayName: meta.displayName || repo.displayName,
-    comment: meta.comment || '',
-    linkedIssue: meta.linkedIssue ?? null,
-    linkedPR: meta.linkedPR ?? null,
-    linkedLinearIssue: meta.linkedLinearIssue ?? null,
-    linkedLinearIssueWorkspaceId: meta.linkedLinearIssueWorkspaceId ?? null,
-    linkedLinearIssueOrganizationUrlKey: meta.linkedLinearIssueOrganizationUrlKey ?? null,
-    linkedGitLabMR: meta.linkedGitLabMR ?? null,
-    linkedGitLabIssue: meta.linkedGitLabIssue ?? null,
-    linkedBitbucketPR: meta.linkedBitbucketPR ?? null,
-    linkedAzureDevOpsPR: meta.linkedAzureDevOpsPR ?? null,
-    linkedGiteaPR: meta.linkedGiteaPR ?? null,
-    linkedWorkItem: meta.linkedWorkItem ?? null,
-    linkedTaskSourceContext: meta.linkedTaskSourceContext ?? null,
-    isArchived: meta.isArchived ?? false,
-    isUnread: meta.isUnread ?? false,
-    isPinned: meta.isPinned ?? false,
-    sortOrder: meta.sortOrder ?? 0,
-    ...(meta.manualOrder !== undefined ? { manualOrder: meta.manualOrder } : {}),
-    lastActivityAt: meta.lastActivityAt ?? 0,
-    ...(meta.createdAt !== undefined ? { createdAt: meta.createdAt } : {}),
-    ...(meta.createdWithAgent !== undefined ? { createdWithAgent: meta.createdWithAgent } : {}),
-    ...(meta.automationProvenance !== undefined
-      ? { automationProvenance: meta.automationProvenance }
-      : {}),
-    ...(meta.cliProvenance !== undefined ? { cliProvenance: meta.cliProvenance } : {}),
-    ...(meta.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
-    workspaceStatus: meta.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
-    diffComments: meta.diffComments,
-    mobileDiffReview: meta.mobileDiffReview
-  }
-}
-
-function listRuntimeFolderWorkspaces(
-  store: Pick<RuntimeStore, 'getAllWorktreeMeta' | 'setWorktreeMeta'>,
-  repo: Repo
-): Worktree[] {
-  const rootId = getRuntimeFolderWorkspaceRootId(repo)
-  const allMeta = store.getAllWorktreeMeta()
-  const ids = Object.keys(allMeta).filter((worktreeId) =>
-    isRuntimeFolderWorkspaceIdForRepo(repo, worktreeId)
-  )
-  if (!ids.includes(rootId)) {
-    ids.unshift(rootId)
-  } else {
-    ids.sort((left, right) => {
-      if (left === rootId) {
-        return -1
-      }
-      if (right === rootId) {
-        return 1
-      }
-      return 0
-    })
-  }
-
-  return ids.map((worktreeId) => {
-    const existing = allMeta[worktreeId]
-    const meta = existing?.instanceId
-      ? existing
-      : store.setWorktreeMeta(worktreeId, {
-          instanceId: getRuntimeFolderWorkspaceInstanceIdentity(repo, worktreeId),
-          ...(existing ? {} : { displayName: repo.displayName, lastActivityAt: Date.now() })
-        })
-    return mergeRuntimeFolderWorkspace(repo, worktreeId, meta)
-  })
-}
-
-function parseExactWorktreeIdSelector(selector: string): RuntimeWorktreeRemovalTarget | null {
-  const worktreeId = selector.startsWith('id:') ? selector.slice(3) : selector
-  const parsed = splitWorktreeId(worktreeId)
-  if (!parsed || !parsed.repoId || !parsed.worktreePath) {
-    return null
-  }
-  return {
-    id: worktreeId,
-    repoId: parsed.repoId,
-    path: parsed.worktreePath
-  }
-}
-
-async function resolveCreateBranchName(
-  repoPath: string,
-  branchNameOverride: string | undefined,
-  sanitizedName: string,
-  settings: { branchPrefix: string; branchPrefixCustom?: string },
-  username: string | null,
-  gitOptions: { wslDistro?: string } = {}
-): Promise<string> {
-  if (!branchNameOverride) {
-    // The runtime store's getSettings() types branchPrefix loosely as string;
-    // it is always one of the BranchPrefixStrategy literals at runtime.
-    return computeValidatedBranchName(
-      sanitizedName,
-      { ...settings, branchPrefix: settings.branchPrefix as BranchPrefixStrategy },
-      username
-    )
-  }
-  if (branchNameOverride.startsWith('-')) {
-    throw new Error('Branch name must not start with "-"')
-  }
-  await gitExecFileAsync(['check-ref-format', '--branch', branchNameOverride], {
-    cwd: repoPath,
-    ...gitOptions
-  })
-  return branchNameOverride
-}
-
-function normalizeLocalBranchName(branchName: string | undefined): string {
-  return branchName?.replace(/^refs\/heads\//, '') ?? ''
-}
-
-// Clamp terminal dimensions to the PTY's supported range (cols 20–240, rows 8–120).
-function clampTerminalViewport(cols: number, rows: number): { cols: number; rows: number } {
-  return {
-    cols: Math.max(20, Math.min(240, Math.round(cols))),
-    rows: Math.max(8, Math.min(120, Math.round(rows)))
-  }
-}
-
-// Subscribe a listener to a per-key Set, pruning the key's entry once its last
-// listener unsubscribes. Returns the unsubscribe callback.
-function addListenerToMap<T>(map: Map<string, Set<T>>, key: string, listener: T): () => void {
-  let listeners = map.get(key)
-  if (!listeners) {
-    listeners = new Set<T>()
-    map.set(key, listeners)
-  }
-  const set = listeners
-  set.add(listener)
-  return () => {
-    set.delete(listener)
-    if (set.size === 0) {
-      map.delete(key)
-    }
-  }
-}
-
-async function canCheckoutExistingLocalBranch(
-  repoPath: string,
-  branchName: string,
-  baseBranch: string,
-  gitOptions: { wslDistro?: string } = {}
-): Promise<boolean> {
-  let localHead = ''
-  try {
-    const { stdout } = await gitExecFileAsync(
-      ['rev-parse', '--verify', '--quiet', `refs/heads/${branchName}^{commit}`],
-      {
-        cwd: repoPath,
-        ...gitOptions
-      }
-    )
-    localHead = stdout.trim()
-  } catch {
-    return false
-  }
-  if (normalizeLocalBranchName(baseBranch) !== branchName) {
-    if (!localHead) {
-      return false
-    }
-    try {
-      const { stdout } = await gitExecFileAsync(
-        ['rev-parse', '--verify', '--quiet', `${baseBranch}^{commit}`],
-        { cwd: repoPath, ...gitOptions }
-      )
-      if (stdout.trim() !== localHead) {
-        return false
-      }
-    } catch {
-      return false
-    }
-  }
-  const worktrees = await listWorktrees(repoPath, gitOptions)
-  return !worktrees.some((worktree) => normalizeLocalBranchName(worktree.branch) === branchName)
-}
-
-function hasLocalGitOptions(gitOptions: { wslDistro?: string }): boolean {
-  return Object.keys(gitOptions).length > 0
-}
-
-function getLocalGitHubPrForBranch(
-  repoPath: string,
-  branchName: string,
-  gitOptions: { wslDistro?: string }
-): ReturnType<typeof getPRForBranch> {
-  return hasLocalGitOptions(gitOptions)
-    ? getPRForBranch(repoPath, branchName, null, null, null, {
-        localGitExecOptions: gitOptions
-      })
-    : getPRForBranch(repoPath, branchName)
-}
-
-type SelectedReviewBranchInput = {
-  branchNameOverride?: string
-  linkedPR?: number | null
-  linkedGitLabMR?: number | null
-  linkedBitbucketPR?: number | null
-  linkedAzureDevOpsPR?: number | null
-  linkedGiteaPR?: number | null
-  pushTarget?: GitPushTarget
-}
-
-type SelectedReviewBranch = {
-  provider: ForgeProviderId
-  number: number
-}
-
-function getSelectedReviewBranch(args: SelectedReviewBranchInput): SelectedReviewBranch | null {
-  if (typeof args.linkedPR === 'number') {
-    return { provider: 'github', number: args.linkedPR }
-  }
-  if (typeof args.linkedGitLabMR === 'number') {
-    return { provider: 'gitlab', number: args.linkedGitLabMR }
-  }
-  if (typeof args.linkedBitbucketPR === 'number') {
-    return { provider: 'bitbucket', number: args.linkedBitbucketPR }
-  }
-  if (typeof args.linkedAzureDevOpsPR === 'number') {
-    return { provider: 'azure-devops', number: args.linkedAzureDevOpsPR }
-  }
-  if (typeof args.linkedGiteaPR === 'number') {
-    return { provider: 'gitea', number: args.linkedGiteaPR }
-  }
-  return null
-}
-
-function isSelectedGitHubPrBranchOverride(
-  args: SelectedReviewBranchInput,
-  branchName: string
-): boolean {
-  return typeof args.linkedPR === 'number' && args.branchNameOverride === branchName
-}
-
-function isSelectedReviewBranchOverride(
-  args: SelectedReviewBranchInput,
-  branchName: string
-): boolean {
-  return getSelectedReviewBranch(args) !== null && args.branchNameOverride === branchName
-}
-
-function isMatchingSelectedGitHubPr(
-  existingPR: Awaited<ReturnType<typeof getPRForBranch>>,
-  args: SelectedReviewBranchInput,
-  branchName: string
-): boolean {
-  return Boolean(
-    existingPR &&
-    isSelectedGitHubPrBranchOverride(args, branchName) &&
-    existingPR.number === args.linkedPR
-  )
-}
-
-function isAllowedPushTargetRemoteConflict(
-  conflictKind: 'local' | 'remote' | null,
-  branchName: string,
-  args: SelectedReviewBranchInput
-): boolean {
-  return (
-    conflictKind === 'remote' &&
-    isSelectedReviewBranchOverride(args, branchName) &&
-    args.pushTarget?.branchName === branchName
-  )
-}
-
-function getSelectedReviewLookupHints(args: SelectedReviewBranchInput): {
-  linkedGitHubPR?: number | null
-  linkedGitLabMR?: number | null
-  linkedBitbucketPR?: number | null
-  linkedAzureDevOpsPR?: number | null
-  linkedGiteaPR?: number | null
-} {
-  return {
-    linkedGitHubPR: args.linkedPR ?? null,
-    linkedGitLabMR: args.linkedGitLabMR ?? null,
-    linkedBitbucketPR: args.linkedBitbucketPR ?? null,
-    linkedAzureDevOpsPR: args.linkedAzureDevOpsPR ?? null,
-    linkedGiteaPR: args.linkedGiteaPR ?? null
-  }
-}
-
-async function getSelectedHostedReviewForBranch(
-  repo: Pick<Repo, 'path' | 'connectionId'>,
-  branchName: string,
-  args: SelectedReviewBranchInput,
-  executionOptions: { localGitExecOptions?: { wslDistro?: string } } = {}
-): Promise<{ matchesSelected: boolean; number: number } | null> {
-  const selectedReview = getSelectedReviewBranch(args)
-  if (!selectedReview) {
-    return null
-  }
-  const review = await getHostedReviewForBranchFromRepo({
-    repoPath: repo.path,
-    connectionId: repo.connectionId ?? null,
-    branch: branchName,
-    ...executionOptions,
-    ...getSelectedReviewLookupHints(args)
-  })
-  if (!review) {
-    return null
-  }
-  return {
-    matchesSelected:
-      review.provider === selectedReview.provider && review.number === selectedReview.number,
-    number: review.number
-  }
-}
-
-async function pathExists(pathValue: string): Promise<boolean> {
-  try {
-    await stat(pathValue)
-    return true
-  } catch (error) {
-    if (isENOENT(error)) {
-      return false
-    }
-    throw error
-  }
-}
-
-function resolveServerBrowsePath(pathValue: string): string {
-  const trimmed = pathValue.trim() || '~'
-  if (trimmed.includes('\0')) {
-    throw new Error('Path cannot contain null bytes')
-  }
-  if (trimmed === '~') {
-    return homedir()
-  }
-  if (/^~[\\/]/.test(trimmed)) {
-    return resolve(homedir(), trimmed.slice(2))
-  }
-  if (isAbsolute(trimmed)) {
-    return resolve(trimmed)
-  }
-  // Why: remote clients do not share the server process cwd; relative browse
-  // inputs are anchored to the server user's home to match the `~` picker root.
-  return resolve(homedir(), trimmed)
-}
-
 type ResolvedWorktree = Worktree & {
   parentWorktreeId: string | null
   childWorktreeIds: string[]
@@ -2548,19 +1877,6 @@ type RuntimeWorktreeScanResult =
   | { ok: true; worktrees: GitWorktreeInfo[] }
   | { ok: false; worktrees: GitWorktreeInfo[] }
 
-type RuntimeWorktreeScanCache = {
-  generation: number
-  runtimeKey: string
-  result: Extract<RuntimeWorktreeScanResult, { ok: true }>
-  expiresAt: number
-}
-
-type RuntimeWorktreeScanInFlight = {
-  generation: number
-  runtimeKey: string
-  promise: Promise<RuntimeWorktreeScanResult>
-}
-
 type WorktreeLineageCandidate = {
   source: 'env-workspace' | 'cwd-context' | 'terminal-context' | 'orchestration-context'
   parent: ResolvedWorkspaceParent
@@ -2597,15 +1913,6 @@ class WorktreeIdRequiresFullPathError extends Error {
 type ResolvedWorktreeSnapshot = {
   worktrees: ResolvedWorktree[]
   platformByRepoId: ReadonlyMap<string, NodeJS.Platform>
-}
-
-type ResolvedWorktreeCache = ResolvedWorktreeSnapshot & {
-  expiresAt: number
-}
-
-type ResolvedWorktreeInFlight = {
-  generation: number
-  promise: Promise<ResolvedWorktreeSnapshot>
 }
 
 // Why: notificationSeq is the desktop-assigned monotonic sequence used for
@@ -2649,93 +1956,6 @@ export type MobileNotificationEvent =
 //      `clientId` is the most recent mobile actor for this PTY.
 export type DriverState = RuntimeTerminalDriverState
 
-// Why: per-PTY layout target — what the PTY *should* be at right now.
-// `desktop` ⇒ runs at the desktop renderer's pane geometry; mobile passive
-// watchers (mode='desktop') still receive scrollback. `phone` ⇒ runs at
-// `ownerClientId`'s viewport; the desktop renderer's auto-fit is suppressed.
-// See docs/mobile-terminal-layout-state-machine.md.
-export type PtyLayoutTarget =
-  | { kind: 'desktop'; cols: number; rows: number }
-  | { kind: 'phone'; cols: number; rows: number; ownerClientId: string }
-  | { kind: 'remote-desktop'; cols: number; rows: number; ownerSubscriptionKey: string }
-
-// Why: authoritative layout state with monotonic seq. Bumped on every
-// applyLayout success; emitted on mobile subscribe-stream events so clients
-// drop stale events that arrive after a newer transition.
-export type PtyLayoutState = PtyLayoutTarget & {
-  seq: number
-  appliedAt: number
-}
-
-// Why: applyLayout result discriminator. Callers (especially RPC handlers)
-// need to distinguish "shipped a new state at seq N" from "no-op — caller
-// should not claim a seq it didn't produce." `pty-exited` is terminal;
-// `resize-failed` is transient and the caller may retry.
-export type ApplyLayoutResult =
-  | { ok: true; state: PtyLayoutState }
-  | { ok: false; reason: 'pty-exited' | 'resize-failed' }
-
-type LayoutQueueEntry = {
-  generation: number
-  running: Promise<ApplyLayoutResult> | null
-  runningSlot: LayoutQueueSlot | null
-  pending: LayoutQueueSlot[]
-  cancelled: boolean
-}
-
-type LayoutQueueWaiter = {
-  resolve: (result: ApplyLayoutResult) => void
-  reject: (error: unknown) => void
-}
-
-type LayoutQueueSlot = {
-  target: PtyLayoutTarget
-  coalescible: boolean
-  cancellationError?: string
-  beforeApply?: () => void | Promise<void>
-  resizeMutation?: (cols: number, rows: number) => boolean | Promise<boolean>
-  afterApply?: (result: ApplyLayoutResult) => void | Promise<void>
-  waiters: LayoutQueueWaiter[]
-}
-
-class ReferenceCountedPtyGuard {
-  private readonly counts = new Map<string, Map<number, number>>()
-
-  add(ptyId: string, generation: number): void {
-    let byGeneration = this.counts.get(ptyId)
-    if (!byGeneration) {
-      byGeneration = new Map()
-      this.counts.set(ptyId, byGeneration)
-    }
-    byGeneration.set(generation, (byGeneration.get(generation) ?? 0) + 1)
-  }
-
-  delete(ptyId: string, generation: number): void {
-    const byGeneration = this.counts.get(ptyId)
-    const count = byGeneration?.get(generation) ?? 0
-    if (count <= 1) {
-      byGeneration?.delete(generation)
-      if (byGeneration?.size === 0) {
-        this.counts.delete(ptyId)
-      }
-      return
-    }
-    byGeneration?.set(generation, count - 1)
-  }
-
-  clear(ptyId: string, generation: number): void {
-    const byGeneration = this.counts.get(ptyId)
-    byGeneration?.delete(generation)
-    if (byGeneration?.size === 0) {
-      this.counts.delete(ptyId)
-    }
-  }
-
-  has(ptyId: string, generation: number): boolean {
-    return (this.counts.get(ptyId)?.get(generation) ?? 0) > 0
-  }
-}
-
 type NativeChatLaunchDraftResolutionTombstone = RuntimeNativeChatLaunchDraftResolution & {
   worktreeId: string
 }
@@ -2772,6 +1992,7 @@ export class OrcaRuntimeService {
   private readonly runtimeId = randomUUID()
   private readonly startedAt = Date.now()
   private readonly store: RuntimeStore | null
+  private readonly clientSettingsCommands: RuntimeClientSettingsCommands
   private managedHookReconciliationGeneration = 0
   private managedHookReconciliationTail: Promise<void> = Promise.resolve()
   private readonly orchestrationEnvironmentTransport: OrchestrationEnvironmentTransport | null
@@ -2903,30 +2124,23 @@ export class OrcaRuntimeService {
   private agentBrowserBridge: AgentBrowserBridge | null = null
   private offscreenBrowserBackend: BrowserBackend | null = null
   private emulatorBridge: EmulatorBridge | null = null
-  private resolvedWorktreeCache: ResolvedWorktreeCache | null = null
-  private resolvedWorktreeInFlight: ResolvedWorktreeInFlight | null = null
-  private resolvedWorktreeGeneration = 0
-  private worktreeScanGenerations = new Map<string, number>()
-  private worktreeScanCache = new Map<string, RuntimeWorktreeScanCache>()
-  private worktreeScanInFlight = new Map<string, RuntimeWorktreeScanInFlight>()
+  private readonly worktreeResolutionState = new WorktreeResolutionState<
+    ResolvedWorktreeSnapshot,
+    RuntimeWorktreeScanResult
+  >()
   private cloneInFlightByPath = new Map<string, Promise<void>>()
   private agentDetector: AgentDetector | null = null
   private ptyForegroundAgentRefreshes = new Map<string, PtyForegroundAgentRefresh>()
   private ptyDelayedForegroundSnapshotTitleObservations = new Map<string, number>()
   private _orchestrationDb: OrchestrationDb | null = null
-  private messageWaitersByHandle = new Map<string, Set<MessageWaiter>>()
+  private readonly messageWaiters = new RuntimeMessageWaiters()
   // Why: mobile clients subscribe to terminal output via terminal.subscribe.
   // These listeners fire on every onPtyData call, enabling real-time streaming
   // without polling. Keyed by ptyId for O(1) lookup per data event.
-  private dataListeners = new Map<
-    string,
-    Set<(data: string, meta?: RuntimeTerminalDataMeta) => void>
-  >()
   private remoteTerminalSourceRangeConsumerHooks: RemoteTerminalSourceRangeConsumerHooks | null =
     null
   // Why: startup draft paste can subscribe after the agent already emitted its
   // ready marker. Keep a bounded raw buffer so fast startup output is replayed.
-  private recentPtyOutputById = new Map<string, RecentPtyOutputBuffer>()
   private setupCompletionTokenByPtyId = new Map<string, string>()
   // Why: mobile clients need to know when the desktop restores a terminal
   // from mobile-fit so they can update their UI. These listeners are
@@ -2965,12 +2179,24 @@ export class OrcaRuntimeService {
   // notifications.subscribe. This set enables fan-out — each connected
   // mobile client gets its own listener, and dispatchMobileNotification
   // iterates them all. Listeners are cleaned up via subscriptionCleanups.
-  private notificationListeners = new Set<(event: MobileNotificationEvent) => void>()
+  private readonly notificationRegistry = new RuntimeNotificationRegistry()
   private ptysById = new Map<string, RuntimePtyWorktreeRecord>()
   private wslDistroByPtyId = new Map<string, string>()
   private titleObservationSequence = 0
   private headlessTerminals = new Map<string, RuntimeHeadlessTerminal>()
-  private ptyOutputSequenceById = new Map<string, number>()
+  private readonly terminalOutputState = new TerminalOutputState()
+  // Compatibility view for IPC diagnostics that inspect the authoritative map.
+  readonly ptyOutputSequenceById = this.terminalOutputState.sequenceMap
+  private readonly terminalInputCommands = new RuntimeTerminalInputCommands(
+    () => this.ptyController
+  )
+  private readonly writeTerminalAction = this.terminalInputCommands.writeTerminalAction.bind(
+    this.terminalInputCommands
+  )
+  private readonly writeTerminalInputChunks =
+    this.terminalInputCommands.writeTerminalInputChunks.bind(this.terminalInputCommands)
+  private readonly writeTerminalAgentPrompt =
+    this.terminalInputCommands.writeTerminalAgentPrompt.bind(this.terminalInputCommands)
   private providerSequenceInitializedPtys = new Set<string>()
   private providerSequenceOffsetByPtyId = new Map<string, number>()
   private providerSnapshotPreferredPtys = new Set<string>()
@@ -3224,22 +2450,22 @@ export class OrcaRuntimeService {
   // See docs/mobile-terminal-layout-state-machine.md.
   private layouts = new Map<string, PtyLayoutState>()
 
-  // Why: per-PTY async serialization queue for applyLayout. Without
-  // serialization, two concurrent triggers can interleave around the
-  // ptyController.resize await and bump seq in the wrong order, defeating
-  // seq-as-truth. Coalesces same-kind same-owner viewport ticks so the
-  // keyboard-show/hide animation doesn't queue 10+ resizes; mode flips,
-  // take-floor, and different-owner targets always append (preserves
-  // multi-mobile fairness). See docs/mobile-terminal-layout-state-machine.md
-  // "enqueueLayout coalescing".
-  private layoutQueues = new Map<string, LayoutQueueEntry>()
+  // Why: queue ownership is separate from layout application so resize order
+  // and generation cancellation stay testable without a live PTY provider.
+  private readonly layoutQueue = new PtyLayoutQueue({
+    getGeneration: (ptyId) => this.getPtyLifecycleGeneration(ptyId),
+    hasLayout: (ptyId) => this.layouts.has(ptyId),
+    isFreshSubscribe: (ptyId, generation) => this.isFreshSubscribe(ptyId, generation),
+    apply: (ptyId, target, generation, resizeMutation) =>
+      this.applyLayout(ptyId, target, generation, resizeMutation)
+  })
 
   // Why: gate so enqueueLayout's "no layouts entry" short-circuit doesn't
   // fire on the very first transition for a PTY (where the entry doesn't
   // exist yet *because* we're about to create it). `handleMobileSubscribe`
   // adds the ptyId before calling enqueueLayout and removes it after the
   // call resolves.
-  private freshSubscribeGuard = new ReferenceCountedPtyGuard()
+  private freshSubscribeGuard = new PtyGenerationReferenceCount()
 
   private stats: StatsCollector | null = null
   // Why (§3.3 + §7.1): the renderer-create path and coordinator
@@ -3330,6 +2556,8 @@ export class OrcaRuntimeService {
   private accountServices: RuntimeAccountServices | null = null
   private commitMessageAgentEnv: CommitMessageAgentEnvironmentResolvers | null = null
   private automationService: AutomationService | null = null
+  private readonly automationCommands: RuntimeAutomationCommands
+  private readonly repoHookCommands: RuntimeRepoHookCommands
   private readonly claudeAgentTeams = new ClaudeAgentTeamsService()
   private mobileDictation: {
     id: string
@@ -3384,6 +2612,25 @@ export class OrcaRuntimeService {
     }
   ) {
     this.store = store
+    this.clientSettingsCommands = new RuntimeClientSettingsCommands(store, () =>
+      this.reconcileManagedAgentHooks()
+    )
+    this.automationCommands = new RuntimeAutomationCommands(
+      store,
+      {
+        showRepo: (selector) => this.showRepo(selector),
+        showManagedWorktree: (selector) => this.showManagedWorktree(selector)
+      },
+      (id) => {
+        if (!this.automationService) {
+          throw new Error('runtime_unavailable')
+        }
+        return this.automationService.runNow(id)
+      }
+    )
+    this.repoHookCommands = new RuntimeRepoHookCommands({
+      resolveRepoSelector: (selector) => this.resolveRepoSelector(selector)
+    })
     // Why: per-device tab selections must survive host restarts, or every phone snaps back to the first tab on return.
     const persistedClientTabSelections = store?.getMobileClientTabSelections?.()
     if (persistedClientTabSelections) {
@@ -3487,70 +2734,19 @@ export class OrcaRuntimeService {
   }
 
   getUIState(): PersistedUIState {
-    if (!this.store?.getUI) {
-      throw new Error('runtime_unavailable')
-    }
-    return this.store.getUI()
+    return this.clientSettingsCommands.getUIState()
   }
 
   updateUIState(updates: Partial<PersistedUIState>): PersistedUIState {
-    if (!this.store?.getUI || !this.store.updateUI) {
-      throw new Error('runtime_unavailable')
-    }
-    this.store.updateUI(updates)
-    return this.store.getUI()
+    return this.clientSettingsCommands.updateUIState(updates)
   }
 
   recordFeatureInteraction(id: FeatureInteractionId): PersistedUIState {
-    if (!this.store?.recordFeatureInteraction) {
-      throw new Error('runtime_unavailable')
-    }
-    return this.store.recordFeatureInteraction(id)
+    return this.clientSettingsCommands.recordFeatureInteraction(id)
   }
 
-  getClientSettings(): Pick<
-    GlobalSettings,
-    | 'defaultTuiAgent'
-    | 'disabledTuiAgents'
-    | 'agentCmdOverrides'
-    | 'agentDefaultArgs'
-    | 'agentDefaultEnv'
-    | 'agentStatusHooksEnabled'
-    | 'defaultTaskSource'
-    | 'defaultTaskViewPreset'
-    | 'visibleTaskProviders'
-    | 'defaultRepoSelection'
-    | 'defaultLinearTeamSelection'
-    | 'githubProjects'
-    | 'experimentalNewWorktreeCardStyle'
-    | 'compactWorktreeCards'
-    | 'minimaxGroupId'
-    | 'minimaxUsageModels'
-    | 'prBotAuthorOverrides'
-  > {
-    if (!this.store?.getSettings) {
-      throw new Error('runtime_unavailable')
-    }
-    const settings = this.store.getSettings()
-    return {
-      defaultTuiAgent: settings.defaultTuiAgent ?? null,
-      disabledTuiAgents: settings.disabledTuiAgents ?? [],
-      agentCmdOverrides: settings.agentCmdOverrides ?? {},
-      agentDefaultArgs: settings.agentDefaultArgs ?? {},
-      agentDefaultEnv: settings.agentDefaultEnv ?? {},
-      agentStatusHooksEnabled: settings.agentStatusHooksEnabled !== false,
-      defaultTaskSource: settings.defaultTaskSource ?? 'github',
-      defaultTaskViewPreset: settings.defaultTaskViewPreset ?? 'issues',
-      visibleTaskProviders: settings.visibleTaskProviders ?? [...TASK_PROVIDERS],
-      defaultRepoSelection: settings.defaultRepoSelection ?? null,
-      defaultLinearTeamSelection: settings.defaultLinearTeamSelection ?? null,
-      githubProjects: settings.githubProjects,
-      experimentalNewWorktreeCardStyle: settings.experimentalNewWorktreeCardStyle === true,
-      compactWorktreeCards: settings.compactWorktreeCards === true,
-      minimaxGroupId: settings.minimaxGroupId ?? '',
-      minimaxUsageModels: settings.minimaxUsageModels ?? 'general',
-      prBotAuthorOverrides: settings.prBotAuthorOverrides ?? []
-    }
+  getClientSettings(): RuntimeClientSettings {
+    return this.clientSettingsCommands.getClientSettings()
   }
 
   private reconcileManagedAgentHooks(): Promise<void> {
@@ -3622,249 +2818,49 @@ export class OrcaRuntimeService {
       | 'prBotAuthorOverrides'
     >
   > {
-    if (!this.store?.getSettings || !this.store.updateSettings) {
-      throw new Error('runtime_unavailable')
-    }
-    const beforeSettings = this.store.getSettings()
-    const before = beforeSettings.agentStatusHooksEnabled !== false
-    this.store.updateSettings(updates, { notifyListeners: true })
-    const settings = this.store.getSettings()
-    if (
-      (typeof updates.agentStatusHooksEnabled === 'boolean' &&
-        before !== updates.agentStatusHooksEnabled) ||
-      (updates.disabledTuiAgents !== undefined &&
-        !haveSameDisabledTuiAgents(beforeSettings.disabledTuiAgents, settings.disabledTuiAgents))
-    ) {
-      await this.reconcileManagedAgentHooks()
-    }
-    return this.getClientSettings()
+    return this.clientSettingsCommands.updateClientSettings(updates)
   }
 
   getClientTerminalQuickCommands(): TerminalQuickCommand[] {
-    if (!this.store?.getSettings) {
-      throw new Error('runtime_unavailable')
-    }
-    return this.store.getSettings().terminalQuickCommands ?? []
+    return this.clientSettingsCommands.getClientTerminalQuickCommands()
   }
 
   updateClientTerminalQuickCommands(
     mutation: TerminalQuickCommandMutation
   ): TerminalQuickCommand[] {
-    if (!this.store?.getSettings || !this.store.updateSettings) {
-      throw new Error('runtime_unavailable')
-    }
-    const current = this.getClientTerminalQuickCommands()
-    if (
-      mutation.type === 'upsert' &&
-      !current.some((command) => command.id === mutation.command.id) &&
-      current.length >= MAX_QUICK_COMMANDS
-    ) {
-      throw new Error('Quick command limit reached')
-    }
-    const next = applyTerminalQuickCommandMutation(current, mutation)
-    this.store.updateSettings({ terminalQuickCommands: next }, { notifyListeners: true })
-    return this.getClientTerminalQuickCommands()
+    return this.clientSettingsCommands.updateClientTerminalQuickCommands(mutation)
   }
 
   updateClientPRBotAuthorOverride(args: { author: string; isBot: boolean }) {
-    if (!this.store?.getSettings || !this.store.updateSettings) {
-      throw new Error('runtime_unavailable')
-    }
-    const current = this.store.getSettings().prBotAuthorOverrides
-    this.store.updateSettings(
-      { prBotAuthorOverrides: applyPRBotAuthorOverride(current, args.author, args.isBot) },
-      { notifyListeners: true }
-    )
-    return this.getClientSettings()
+    return this.clientSettingsCommands.updateClientPRBotAuthorOverride(args)
   }
 
   listAutomations(): Automation[] {
-    if (!this.store?.listAutomations) {
-      throw new Error('runtime_unavailable')
-    }
-    return this.store.listAutomations()
+    return this.automationCommands.listAutomations()
   }
 
   listAutomationRuns(automationId?: string): AutomationRun[] {
-    if (!this.store?.listAutomationRuns) {
-      throw new Error('runtime_unavailable')
-    }
-    return this.store.listAutomationRuns(automationId)
+    return this.automationCommands.listAutomationRuns(automationId)
   }
 
   showAutomation(id: string): Automation {
-    const automation = this.listAutomations().find((entry) => entry.id === id)
-    if (!automation) {
-      throw new Error('Automation not found.')
-    }
-    return automation
+    return this.automationCommands.showAutomation(id)
   }
 
   async createAutomation(input: RuntimeAutomationCreateInput): Promise<Automation> {
-    if (!this.store?.createAutomation) {
-      throw new Error('runtime_unavailable')
-    }
-    const target = await this.resolveAutomationTarget(input)
-    if (input.reuseSession && target.workspaceMode !== 'existing') {
-      throw new Error('Session reuse requires an existing workspace target.')
-    }
-    return this.store.createAutomation({
-      name: input.name,
-      prompt: input.prompt,
-      precheck: input.precheck,
-      agentId: input.agentId,
-      runContext: input.runContext,
-      sourceContext: input.sourceContext,
-      projectId: target.projectId,
-      workspaceMode: target.workspaceMode,
-      workspaceId: target.workspaceId,
-      baseBranch: input.baseBranch,
-      setupDecision: input.setupDecision,
-      reuseSession: input.reuseSession,
-      timezone: input.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-      rrule: input.rrule,
-      dtstart: input.dtstart,
-      enabled: input.enabled,
-      missedRunGraceMinutes: input.missedRunGraceMinutes
-    })
+    return this.automationCommands.createAutomation(input)
   }
 
   async updateAutomation(id: string, updates: RuntimeAutomationUpdateInput): Promise<Automation> {
-    if (!this.store?.updateAutomation) {
-      throw new Error('runtime_unavailable')
-    }
-    const current = this.showAutomation(id)
-    const patch: AutomationUpdateInput = {}
-    if (hasRuntimeAutomationUpdateValue(updates, 'name')) {
-      patch.name = updates.name
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'prompt')) {
-      patch.prompt = updates.prompt
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'precheck')) {
-      patch.precheck = updates.precheck
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'agentId')) {
-      patch.agentId = updates.agentId
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'runContext')) {
-      patch.runContext = updates.runContext
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'sourceContext')) {
-      patch.sourceContext = updates.sourceContext
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'baseBranch')) {
-      patch.baseBranch = updates.baseBranch
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'setupDecision')) {
-      patch.setupDecision = updates.setupDecision
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'reuseSession')) {
-      patch.reuseSession = updates.reuseSession
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'timezone')) {
-      patch.timezone = updates.timezone
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'rrule')) {
-      patch.rrule = updates.rrule
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'dtstart')) {
-      patch.dtstart = updates.dtstart
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'enabled')) {
-      patch.enabled = updates.enabled
-    }
-    if (hasRuntimeAutomationUpdateValue(updates, 'missedRunGraceMinutes')) {
-      patch.missedRunGraceMinutes = updates.missedRunGraceMinutes
-    }
-    const targetChanged =
-      hasRuntimeAutomationUpdateValue(updates, 'repo') ||
-      hasRuntimeAutomationUpdateValue(updates, 'workspace') ||
-      hasRuntimeAutomationUpdateValue(updates, 'workspaceMode')
-    if (targetChanged) {
-      const target = await this.resolveAutomationTarget(updates, current)
-      if (patch.reuseSession === true && target.workspaceMode !== 'existing') {
-        throw new Error('Session reuse requires an existing workspace target.')
-      }
-      patch.projectId = target.projectId
-      patch.workspaceMode = target.workspaceMode
-      patch.workspaceId = target.workspaceId
-      if (target.workspaceMode !== 'existing') {
-        patch.reuseSession = false
-      }
-    }
-    if (!targetChanged && patch.reuseSession && current.workspaceMode !== 'existing') {
-      throw new Error('Session reuse requires an existing workspace target.')
-    }
-    return this.store.updateAutomation(id, patch)
+    return this.automationCommands.updateAutomation(id, updates)
   }
 
   deleteAutomation(id: string): { removed: boolean; id: string } {
-    if (!this.store?.deleteAutomation) {
-      throw new Error('runtime_unavailable')
-    }
-    this.showAutomation(id)
-    this.store.deleteAutomation(id)
-    return { removed: true, id }
+    return this.automationCommands.deleteAutomation(id)
   }
 
   async runAutomationNow(id: string): Promise<AutomationRun> {
-    if (!this.automationService) {
-      throw new Error('runtime_unavailable')
-    }
-    return await this.automationService.runNow(id)
-  }
-
-  private async resolveAutomationTarget(
-    input: {
-      repo?: string
-      workspace?: string
-      workspaceMode?: AutomationWorkspaceMode
-      baseBranch?: string | null
-    },
-    current?: Automation
-  ): Promise<{
-    projectId: string
-    workspaceMode: AutomationWorkspaceMode
-    workspaceId?: string | null
-  }> {
-    const hasRepo = input.repo !== undefined
-    const hasWorkspace = input.workspace !== undefined
-    if (
-      current?.workspaceMode === 'existing' &&
-      hasRepo &&
-      !hasWorkspace &&
-      input.workspaceMode !== 'new_per_run'
-    ) {
-      throw new Error(
-        'Repo updates for existing-workspace automation require workspaceMode new_per_run.'
-      )
-    }
-    const workspace = input.workspace ? await this.showManagedWorktree(input.workspace) : null
-    const repo = input.repo ? await this.showRepo(input.repo) : null
-    const workspaceMode =
-      input.workspaceMode ??
-      (workspace
-        ? 'existing'
-        : input.repo && !current
-          ? 'new_per_run'
-          : (current?.workspaceMode ?? 'new_per_run'))
-    if (workspaceMode === 'existing') {
-      const workspaceId = workspace?.id ?? current?.workspaceId
-      const projectId = workspace?.repoId ?? current?.projectId
-      if (repo && repo.id !== projectId) {
-        throw new Error('Selected workspace belongs to a different repo.')
-      }
-      if (!workspaceId || !projectId) {
-        throw new Error('Existing-workspace automation requires --workspace.')
-      }
-      return { projectId, workspaceMode, workspaceId }
-    }
-    const projectId = repo?.id ?? workspace?.repoId ?? current?.projectId
-    if (!projectId) {
-      throw new Error('Automation requires --repo or --workspace.')
-    }
-    return { projectId, workspaceMode: 'new_per_run', workspaceId: null }
+    return this.automationCommands.runAutomationNow(id)
   }
 
   // Why: lazy initialization — the DB path depends on Electron's userData
@@ -9704,11 +8700,10 @@ export class OrcaRuntimeService {
     if (!accepted || (existingPty && !existingPty.connected && !incarnationId)) {
       captureAdmission?.(false)
       captureModelReceipt?.(Promise.resolve())
-      return this.ptyOutputSequenceById.get(ptyId) ?? 0
+      return this.terminalOutputState.getSequence(ptyId)
     }
     captureAdmission?.(true)
-    const outputSequence = (this.ptyOutputSequenceById.get(ptyId) ?? 0) + sequenceChars
-    this.ptyOutputSequenceById.set(ptyId, outputSequence)
+    const outputSequence = this.terminalOutputState.advanceSequence(ptyId, sequenceChars)
     this.providerModeTrackersByPtyId.get(ptyId)?.scan(data)
     for (const tracker of this.providerModeSnapshotScansByPtyId.get(ptyId) ?? []) {
       tracker.scan(data)
@@ -9926,25 +8921,13 @@ export class OrcaRuntimeService {
       this.touchMobileSessionSnapshotsForPty(ptyId)
     }
 
-    const listeners = this.dataListeners.get(ptyId)
-    if (listeners) {
-      const meta = {
-        seq: outputSequence,
-        rawLength: sequenceChars,
-        ...(transformed ? { transformed: true } : {}),
-        ...(cwdChanged && cwd !== null ? { cwd } : {}),
-        ...(sourceRanges && sourceRanges.length > 0 ? { sourceRanges } : {})
-      }
-      for (const listener of listeners) {
-        try {
-          listener(data, meta)
-        } catch (error) {
-          // Why: inlined rather than via notifyRuntimeListeners to avoid a per-chunk closure
-          // allocation on the terminal-output hot path; isolation semantics match the helper.
-          console.error('[runtime] pty-data listener threw', error)
-        }
-      }
-    }
+    this.terminalOutputState.publish(ptyId, data, {
+      seq: outputSequence,
+      rawLength: sequenceChars,
+      ...(transformed ? { transformed: true } : {}),
+      ...(cwdChanged && cwd !== null ? { cwd } : {}),
+      ...(sourceRanges && sourceRanges.length > 0 ? { sourceRanges } : {})
+    })
     return outputSequence
   }
 
@@ -10132,8 +9115,7 @@ export class OrcaRuntimeService {
       // Why: the daemon snapshot's seq counts bytes its monitoring stream
       // dropped. Advancing without parsing preserves that absolute domain so
       // post-snapshot live chunks can be reconciled instead of duplicated.
-      const outputSequence = (this.ptyOutputSequenceById.get(ptyId) ?? 0) + droppedChars
-      this.ptyOutputSequenceById.set(ptyId, outputSequence)
+      this.terminalOutputState.advanceSequence(ptyId, droppedChars)
     }
     const pty = this.getOrCreatePtyWorktreeRecord(ptyId)
     if (pty) {
@@ -10172,7 +9154,7 @@ export class OrcaRuntimeService {
     }
     const batch: TerminalSideEffectBatch = {
       ptyId,
-      seq: this.ptyOutputSequenceById.get(ptyId) ?? 0,
+      seq: this.terminalOutputState.getSequence(ptyId),
       facts,
       ...(options.replay ? { replay: true } : {}),
       ...this.resolveTerminalSideEffectAttribution(ptyId)
@@ -10233,7 +9215,7 @@ export class OrcaRuntimeService {
     }
     return {
       ptyId,
-      seq: this.ptyOutputSequenceById.get(ptyId) ?? 0,
+      seq: this.terminalOutputState.getSequence(ptyId),
       replay: true,
       facts: [
         {
@@ -10706,7 +9688,7 @@ export class OrcaRuntimeService {
   }
 
   getPtyOutputSequence(ptyId: string): number {
-    return this.ptyOutputSequenceById.get(ptyId) ?? 0
+    return this.terminalOutputState.getSequence(ptyId)
   }
 
   private getPtyLifecycleGeneration(ptyId: string): number {
@@ -10830,7 +9812,7 @@ export class OrcaRuntimeService {
         : wasInitialized
           ? currentSequence
           : providerBaseline + postSpawnSequence
-    this.ptyOutputSequenceById.set(ptyId, synchronizedSequence)
+    this.terminalOutputState.setSequence(ptyId, synchronizedSequence)
     this.providerSequenceInitializedPtys.add(ptyId)
     this.providerSequenceOffsetByPtyId.set(ptyId, providerOffset)
 
@@ -10865,7 +9847,7 @@ export class OrcaRuntimeService {
     ptyId: string,
     listener: (data: string, meta?: RuntimeTerminalDataMeta) => void
   ): () => void {
-    return addListenerToMap(this.dataListeners, ptyId, listener)
+    return this.terminalOutputState.subscribe(ptyId, listener)
   }
 
   setRemoteTerminalSourceRangeConsumerHooks(
@@ -12334,15 +11316,12 @@ export class OrcaRuntimeService {
   }
 
   private recordRecentPtyOutputForPathProvenance(ptyId: string, data: string): void {
-    let recentOutputBuffer = this.recentPtyOutputById.get(ptyId)
-    if (!recentOutputBuffer) {
-      // Boundaries are only owed to the one-time activation backfill; once
-      // tracking is live, new buffers keep the read-collapsing hot path.
-      recentOutputBuffer = new RecentPtyOutputBuffer({
-        preserveChunkBoundaries: !this.recentPtyPathCandidateTrackingActive
-      })
-      this.recentPtyOutputById.set(ptyId, recentOutputBuffer)
-    }
+    // Boundaries are only owed to the one-time activation backfill; once
+    // tracking is live, new buffers keep the read-collapsing hot path.
+    const recentOutputBuffer = this.terminalOutputState.getOrCreateRecent(
+      ptyId,
+      !this.recentPtyPathCandidateTrackingActive
+    )
     recentOutputBuffer.append(data)
     if (
       this.recentPtyPathCandidateTrackingActive ||
@@ -12371,7 +11350,7 @@ export class OrcaRuntimeService {
     // candidates the eager extractor rejected).
     // Accepted best-effort loss: output that scrolled past the raw window
     // before the first-ever connect no longer yields candidates.
-    for (const [ptyId, buffer] of this.recentPtyOutputById) {
+    for (const [ptyId, buffer] of this.terminalOutputState.entries()) {
       let candidates = this.recentPtyPathCandidatesById.get(ptyId)
       const { chunks, headChunkIsPartial } = buffer.retainedChunks()
       for (let index = 0; index < chunks.length; index += 1) {
@@ -12438,7 +11417,7 @@ export class OrcaRuntimeService {
       this.activateRecentPtyPathCandidateTracking()
     }
     const ptyId = this.resolveLeafForHandle(handle)?.ptyId
-    const recentOutput = ptyId ? this.recentPtyOutputById.get(ptyId)?.read() : null
+    const recentOutput = ptyId ? this.terminalOutputState.getRecent(ptyId)?.read() : null
     if (recentOutput && recentTerminalOutputIncludesPath(recentOutput, pathText, absolutePath)) {
       return true
     }
@@ -12592,14 +11571,11 @@ export class OrcaRuntimeService {
   // Each subscriber gets its own listener. Returns an unsubscribe function
   // that the subscription cleanup mechanism calls on disconnect.
   onNotificationDispatched(listener: (event: MobileNotificationEvent) => void): () => void {
-    this.notificationListeners.add(listener)
-    return () => {
-      this.notificationListeners.delete(listener)
-    }
+    return this.notificationRegistry.subscribe(listener)
   }
 
   getMobileNotificationListenerCount(): number {
-    return this.notificationListeners.size
+    return this.notificationRegistry.listenerCount
   }
 
   // Why: bounded replay buffer for the mobile reconnect catch-up (#8129).
@@ -12607,36 +11583,22 @@ export class OrcaRuntimeService {
   // reconnecting client can fetch exactly the events it missed. Kept on the
   // service instance (not per-client) because the buffer is a global,
   // idempotent-by-seq source of truth; clients watermark their own position.
-  private readonly mobileNotificationReplay = new MobileNotificationReplayBuffer()
-
   dispatchMobileNotification(event: MobileNotificationEvent): void {
-    const seq = this.mobileNotificationReplay.record(event)
-    // Why: surface the desktop-assigned seq to live listeners so they can watermark the last event
-    // delivered and feed it back to getMissedSince on reconnect (idempotent catch-up, no dupes).
-    notifyRuntimeListeners(
-      this.notificationListeners,
-      (listener) =>
-        listener({
-          ...event,
-          notificationSeq: seq,
-          notificationEpoch: this.mobileNotificationReplay.epoch
-        }),
-      'mobile-notification'
-    )
+    this.notificationRegistry.dispatch(event)
   }
 
   // Returns notifications dispatched after lastSeenSeq. Idempotent: the same
   // watermark always yields the same set, so a client cannot be re-pushed an
   // already-delivered event (the adversarial-review gate for #8129).
   getMissedNotificationsSince(lastSeenSeq: number, epoch?: string): ReplayableMobileNotification[] {
-    return this.mobileNotificationReplay.getMissedSince(lastSeenSeq, epoch)
+    return this.notificationRegistry.missedSince(lastSeenSeq, epoch)
   }
 
   // Why (#8591): the seq counter is per-process and restarts at 0 on every desktop
   // launch, but the client's watermark is persisted. Clients need the epoch to tell
   // a stale watermark from a valid one — see MobileNotificationReplayBuffer.
   getMobileNotificationEpoch(): string {
-    return this.mobileNotificationReplay.epoch
+    return this.notificationRegistry.epoch
   }
 
   dismissMobileNotification(notificationId: string): void {
@@ -13626,11 +12588,10 @@ export class OrcaRuntimeService {
     this.mobileDisplayModes.delete(ptyId)
     this.resizeListeners.delete(ptyId)
     this.lastRendererSizes.delete(ptyId)
-    this.recentPtyOutputById.delete(ptyId)
+    this.terminalOutputState.delete(ptyId)
     this.setupCompletionTokenByPtyId.delete(ptyId)
     this.clearWaitBlockedCheckState(ptyId)
     this.recentPtyPathCandidatesById.delete(ptyId)
-    this.ptyOutputSequenceById.delete(ptyId)
     this.providerSequenceInitializedPtys.delete(ptyId)
     this.providerSequenceOffsetByPtyId.delete(ptyId)
     this.providerSnapshotPreferredPtys.delete(ptyId)
@@ -13928,7 +12889,7 @@ export class OrcaRuntimeService {
     ) {
       if (claim && this.remoteDesktopOwners.get(ptyId) === subscriptionKey) {
         const size = this.getTerminalSize(ptyId)
-        if (size?.cols !== viewport.cols || size.rows !== viewport.rows) {
+        if (size === null || size.cols !== viewport.cols || size.rows !== viewport.rows) {
           return this.applyRemoteDesktopLayout(ptyId)
         }
       }
@@ -14564,31 +13525,8 @@ export class OrcaRuntimeService {
     return { cols: 80, rows: 24 }
   }
 
-  // Why: a new viewport-only update from the same owner supersedes a
-  // queued same-shape tail. Mode flips, owner changes, and take-back
-  // append (losing a take-floor to a viewport tick would be a fairness
-  // hole — see "enqueueLayout coalescing" in the design doc).
-  private coalescesWith(prev: PtyLayoutTarget, next: PtyLayoutTarget): boolean {
-    if (prev.kind !== next.kind) {
-      return false
-    }
-    if (prev.kind === 'phone' && next.kind === 'phone') {
-      return prev.ownerClientId === next.ownerClientId
-    }
-    if (prev.kind === 'remote-desktop' && next.kind === 'remote-desktop') {
-      // Why: each owner's claim promise gates its following input. Sharing a
-      // waiter across owners could release A's input only after B's grid lands.
-      return prev.ownerSubscriptionKey === next.ownerSubscriptionKey
-    }
-    return true
-  }
-
   private enqueueLayout(ptyId: string, target: PtyLayoutTarget): Promise<ApplyLayoutResult> {
-    return this.enqueueLayoutSlot(ptyId, {
-      target,
-      coalescible: true,
-      waiters: []
-    })
+    return this.layoutQueue.enqueue(ptyId, target)
   }
 
   private enqueueExactLayout(
@@ -14600,139 +13538,11 @@ export class OrcaRuntimeService {
       afterApply: (result: ApplyLayoutResult) => void | Promise<void>
     }
   ): Promise<ApplyLayoutResult> {
-    return this.enqueueLayoutSlot(ptyId, {
-      target,
-      coalescible: false,
-      cancellationError: 'terminal_incarnation_stale',
-      beforeApply: hooks.beforeApply,
-      resizeMutation: hooks.resizeMutation,
-      afterApply: hooks.afterApply,
-      waiters: []
-    })
-  }
-
-  private settleCancelledLayoutSlot(slot: LayoutQueueSlot): void {
-    const waiters = slot.waiters.splice(0)
-    for (const waiter of waiters) {
-      if (slot.cancellationError) {
-        waiter.reject(new Error(slot.cancellationError))
-      } else {
-        waiter.resolve({ ok: false, reason: 'pty-exited' })
-      }
-    }
+    return this.layoutQueue.enqueueExact(ptyId, target, hooks)
   }
 
   private cancelLayoutQueue(ptyId: string, generation: number): void {
-    const entry = this.layoutQueues.get(ptyId)
-    if (!entry || entry.generation !== generation) {
-      return
-    }
-    entry.cancelled = true
-    if (this.layoutQueues.get(ptyId) === entry) {
-      this.layoutQueues.delete(ptyId)
-    }
-    if (entry.runningSlot) {
-      this.settleCancelledLayoutSlot(entry.runningSlot)
-    }
-    for (const slot of entry.pending.splice(0)) {
-      this.settleCancelledLayoutSlot(slot)
-    }
-  }
-
-  private enqueueLayoutSlot(ptyId: string, slot: LayoutQueueSlot): Promise<ApplyLayoutResult> {
-    const generation = this.getPtyLifecycleGeneration(ptyId)
-    // Why: PTY-exit short-circuit. Fresh-subscribe gate lets the very first
-    // transition through even though `layouts` has no entry yet.
-    if (!this.layouts.has(ptyId) && !this.isFreshSubscribe(ptyId, generation)) {
-      return Promise.resolve({ ok: false, reason: 'pty-exited' })
-    }
-
-    let entry = this.layoutQueues.get(ptyId)
-    if (entry && entry.generation !== generation) {
-      this.cancelLayoutQueue(ptyId, entry.generation)
-      entry = undefined
-    }
-    if (!entry) {
-      entry = { generation, running: null, runningSlot: null, pending: [], cancelled: false }
-      this.layoutQueues.set(ptyId, entry)
-    }
-    const queue = entry
-
-    return new Promise<ApplyLayoutResult>((resolve, reject) => {
-      const waiter = { resolve, reject }
-      if (!queue.running) {
-        slot.waiters.push(waiter)
-        queue.runningSlot = slot
-        queue.running = this.runLayoutSlot(ptyId, queue, slot)
-        return
-      }
-      const tail = queue.pending.at(-1)
-      if (tail?.coalescible && slot.coalescible && this.coalescesWith(tail.target, slot.target)) {
-        tail.target = slot.target
-        tail.waiters.push(waiter)
-        return
-      }
-      slot.waiters.push(waiter)
-      queue.pending.push(slot)
-    })
-  }
-
-  private async runLayoutSlot(
-    ptyId: string,
-    entry: LayoutQueueEntry,
-    slot: LayoutQueueSlot
-  ): Promise<ApplyLayoutResult> {
-    let result: ApplyLayoutResult = { ok: false, reason: 'resize-failed' }
-    let slotError: unknown = null
-    try {
-      await slot.beforeApply?.()
-    } catch (err) {
-      slotError = err
-    }
-    if (
-      !slotError &&
-      !entry.cancelled &&
-      this.getPtyLifecycleGeneration(ptyId) === entry.generation
-    ) {
-      try {
-        result = await this.applyLayout(ptyId, slot.target, entry.generation, slot.resizeMutation)
-      } catch (err) {
-        // Why: ordinary layout callers use a result discriminator; unexpected
-        // apply failures must not jam the queue or widen that contract.
-        console.error('[layout] applyLayout threw', { ptyId, err })
-        result = { ok: false, reason: 'resize-failed' }
-      }
-      try {
-        await slot.afterApply?.(result)
-      } catch (err) {
-        slotError = err
-      }
-    }
-    for (const waiter of slot.waiters.splice(0)) {
-      if (slotError) {
-        waiter.reject(slotError)
-      } else {
-        waiter.resolve(result)
-      }
-    }
-
-    if (entry.cancelled || this.layoutQueues.get(ptyId) !== entry) {
-      return result
-    }
-    const next = entry.pending.shift()
-    if (next) {
-      entry.runningSlot = next
-      entry.running = this.runLayoutSlot(ptyId, entry, next)
-    } else {
-      entry.running = null
-      entry.runningSlot = null
-      // Why: drop the entry once empty so the map doesn't grow without bound
-      // across short-lived PTYs.
-      if (this.layoutQueues.get(ptyId) === entry) {
-        this.layoutQueues.delete(ptyId)
-      }
-    }
-    return result
+    this.layoutQueue.cancel(ptyId, generation)
   }
 
   private async applyLayout(
@@ -15521,7 +14331,7 @@ export class OrcaRuntimeService {
     const explicitTargetWorktreeId = worktreeSelector
       ? this.getValidatedExplicitWorktreeIdSelector(worktreeSelector)
       : null
-    const initialResolvedWorktreeCache = this.resolvedWorktreeCache
+    const initialResolvedWorktreeCache = this.worktreeResolutionState.resolvedCache
     const cachedResolvedWorktrees =
       initialResolvedWorktreeCache && initialResolvedWorktreeCache.expiresAt > Date.now()
         ? initialResolvedWorktreeCache.worktrees
@@ -15540,7 +14350,7 @@ export class OrcaRuntimeService {
         ? await this.resolveWorktreeSelector(worktreeSelector)
         : (cachedExplicitTargetWorktree ?? parsedExplicitTargetWorktree)
     const targetWorktreeId = explicitTargetWorktreeId ?? targetWorktree?.id ?? null
-    const classificationResolvedWorktreeCache = this.resolvedWorktreeCache
+    const classificationResolvedWorktreeCache = this.worktreeResolutionState.resolvedCache
     const classificationResolvedWorktrees =
       targetWorktreeId &&
       classificationResolvedWorktreeCache &&
@@ -17299,132 +16109,6 @@ export class OrcaRuntimeService {
     return bestStatus ? { status: bestStatus, updatedAt: bestUpdatedAt } : null
   }
 
-  private async writeTerminalAction(
-    ptyId: string,
-    action: { text?: string; enter?: boolean; interrupt?: boolean },
-    payload: string,
-    options: {
-      beforeWrite?: (ptyId: string) => void | Promise<void>
-      reserveWrite?: (ptyId: string) => void
-      afterWrite?: (ptyId: string) => void | Promise<void>
-      suffixFailureError?: string
-    } = {}
-  ): Promise<void> {
-    // Why: direct terminal.send can carry paste-sized text from RPC/mobile
-    // clients; chunk text before PTY/ConPTY while preserving suffix separation.
-    const hasText = typeof action.text === 'string' && action.text.length > 0
-    const hasSuffix = action.enter || action.interrupt
-    if (hasText) {
-      await this.writeTerminalInputChunks(ptyId, action.text!, options)
-    }
-    if (hasSuffix) {
-      const suffix = (action.enter ? '\r' : '') + (action.interrupt ? '\x03' : '')
-      if (hasText) {
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      }
-      try {
-        await options.beforeWrite?.(ptyId)
-        options.reserveWrite?.(ptyId)
-      } catch (error) {
-        if (options.suffixFailureError) {
-          throw new Error(options.suffixFailureError)
-        }
-        throw error
-      }
-      const suffixWrote = this.ptyController?.write(ptyId, suffix) ?? false
-      if (!suffixWrote) {
-        throw new Error(options.suffixFailureError ?? 'terminal_not_writable')
-      }
-      await options.afterWrite?.(ptyId)
-      return
-    }
-    if (hasText) {
-      return
-    }
-
-    await options.beforeWrite?.(ptyId)
-    options.reserveWrite?.(ptyId)
-    const wrote = this.ptyController?.write(ptyId, payload) ?? false
-    if (!wrote) {
-      throw new Error('terminal_not_writable')
-    }
-    await options.afterWrite?.(ptyId)
-  }
-
-  private async writeTerminalInputChunks(
-    ptyId: string,
-    text: string,
-    options: {
-      beforeWrite?: (ptyId: string) => void | Promise<void>
-      reserveWrite?: (ptyId: string) => void
-      afterWrite?: (ptyId: string) => void | Promise<void>
-    } = {}
-  ): Promise<void> {
-    const chunks = iterateTerminalInputChunks(text)
-    let chunk = chunks.next()
-    while (!chunk.done) {
-      await options.beforeWrite?.(ptyId)
-      options.reserveWrite?.(ptyId)
-      const wrote = this.ptyController?.write(ptyId, chunk.value) ?? false
-      if (!wrote) {
-        throw new Error('terminal_not_writable')
-      }
-      await options.afterWrite?.(ptyId)
-      chunk = chunks.next()
-      if (!chunk.done) {
-        await new Promise((resolve) => setTimeout(resolve, 0))
-      }
-    }
-  }
-
-  private async writeTerminalAgentPrompt(
-    ptyId: string,
-    pastePayload: string,
-    options: {
-      beforeWrite?: (ptyId: string) => void | Promise<void>
-      suffixFailureError?: string
-    } = {}
-  ): Promise<void> {
-    let wrotePasteBytes = false
-    let completedPaste = false
-    try {
-      const chunks = iterateTerminalInputChunks(pastePayload)
-      let chunk = chunks.next()
-      while (!chunk.done) {
-        await options.beforeWrite?.(ptyId)
-        const wrote = this.ptyController?.write(ptyId, chunk.value) ?? false
-        if (!wrote) {
-          throw new Error('terminal_not_writable')
-        }
-        wrotePasteBytes = true
-        chunk = chunks.next()
-        if (!chunk.done) {
-          await new Promise((resolve) => setTimeout(resolve, 0))
-        }
-      }
-      completedPaste = true
-    } catch (error) {
-      if (wrotePasteBytes && !completedPaste) {
-        this.ptyController?.write(ptyId, AGENT_PROMPT_BRACKETED_PASTE_END)
-      }
-      throw error
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, AGENT_PROMPT_SUBMIT_DELAY_MS))
-    try {
-      await options.beforeWrite?.(ptyId)
-    } catch (error) {
-      if (options.suffixFailureError) {
-        throw new Error(options.suffixFailureError)
-      }
-      throw error
-    }
-    const suffixWrote = this.ptyController?.write(ptyId, AGENT_PROMPT_SUBMIT) ?? false
-    if (!suffixWrote) {
-      throw new Error(options.suffixFailureError ?? 'terminal_not_writable')
-    }
-  }
-
   async waitForTerminal(
     handle: string,
     options?: {
@@ -17675,7 +16359,7 @@ export class OrcaRuntimeService {
         unsubscribe = this.subscribeToTerminalData(ptyId, scanner.scan)
       }
       // Why: setup can finish before the observer is registered on fast local worktrees.
-      const replay = this.recentPtyOutputById.get(ptyId)?.read()
+      const replay = this.terminalOutputState.getRecent(ptyId)?.read()
       if (scanner && replay) {
         scanner.scan(replay)
       }
@@ -19475,163 +18159,32 @@ export class OrcaRuntimeService {
     }
   }
 
-  async listRepoWorkItems(
-    repoSelector: string,
-    limit?: number,
-    query?: string,
-    page?: number,
-    noCache?: boolean
-  ): Promise<ListWorkItemsResult<MainWorkItem>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return listWorkItems(
-      repo.path,
-      limit,
-      query,
-      page,
-      repo.issueSourcePreference,
-      repo.connectionId ?? null,
-      noCache,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
+  private readonly repoWorkItemCommands = new RuntimeRepoWorkItemCommands({
+    resolveRepoSelector: (selector) => this.resolveRepoSelector(selector),
+    getLocalGitExecutionOptionArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo),
+    getHostedReviewExecutionOptions: (repo) => this.getHostedReviewExecutionOptions(repo)
+  })
 
-  async listRepoIssues(
-    repoSelector: string,
-    limit?: number
-  ): Promise<Awaited<ReturnType<typeof listGitHubIssues>>['items']> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    const result = await listGitHubIssues(
-      repo.path,
-      limit,
-      repo.issueSourcePreference,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-    return result.items
-  }
-
-  async getRepoWorkItem(
-    repoSelector: string,
-    number: number,
-    type?: 'issue' | 'pr'
-  ): Promise<Awaited<ReturnType<typeof getWorkItem>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    // Why: open-by-number must pin the same source the list and start-point use,
-    // else a fork and its upstream sharing a PR number resolve to different PRs.
-    return getWorkItem(
-      repo.path,
-      number,
-      type,
-      repo.connectionId ?? null,
-      this.getLocalGitExecutionOptionArgs(repo)[0] ?? {},
-      repo.issueSourcePreference
-    )
-  }
-
-  async getRepoWorkItemByOwnerRepo(
-    repoSelector: string,
-    ownerRepo: { owner: string; repo: string; host?: string },
-    number: number,
-    type: 'issue' | 'pr'
-  ): Promise<Awaited<ReturnType<typeof getWorkItemByOwnerRepo>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getWorkItemByOwnerRepo(
-      repo.path,
-      ownerRepo,
-      number,
-      type,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async getRepoWorkItemDetails(
-    repoSelector: string,
-    number: number,
-    type?: 'issue' | 'pr'
-  ): Promise<Awaited<ReturnType<typeof getWorkItemDetails>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getWorkItemDetails(
-      repo.path,
-      number,
-      type,
-      repo.connectionId ?? null,
-      this.getLocalGitExecutionOptionArgs(repo)[0] ?? {},
-      repo.issueSourcePreference
-    )
-  }
-
-  async countRepoWorkItems(repoSelector: string, query?: string): Promise<number> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return countWorkItems(
-      repo.path,
-      query,
-      repo.issueSourcePreference,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async listRepoLabels(repoSelector: string): Promise<Awaited<ReturnType<typeof listLabels>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return listLabels(
-      repo.path,
-      repo.issueSourcePreference,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async listRepoAssignableUsers(
-    repoSelector: string
-  ): Promise<Awaited<ReturnType<typeof listAssignableUsers>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return listAssignableUsers(
-      repo.path,
-      repo.issueSourcePreference,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  getGitHubRateLimit(options?: {
-    force?: boolean
-  }): Promise<Awaited<ReturnType<typeof getRateLimit>>> {
-    return getRateLimit(options)
-  }
-
-  async getRepoPRForBranch(
-    repoSelector: string,
-    branch: string,
-    linkedPRNumber?: number | null,
-    fallbackPRNumber?: number | null,
-    acceptMergedFallbackPR?: boolean,
-    currentHeadOid?: string | null
-  ): Promise<PRRefreshOutcome> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    const options: GitHubPRBranchLookupOptions = this.getHostedReviewExecutionOptions(repo) ?? {}
-    const lookupOptions = { ...options }
-    if (acceptMergedFallbackPR === true) {
-      lookupOptions.acceptMergedFallbackPR = true
-    }
-    if (typeof currentHeadOid === 'string' && currentHeadOid.trim().length > 0) {
-      lookupOptions.currentHeadOid = currentHeadOid.trim()
-    }
-    const lookupOptionArgs: [] | [GitHubPRBranchLookupOptions] =
-      Object.keys(lookupOptions).length > 0 ? [lookupOptions] : []
-    // Why: return the full classified outcome (not PRInfo|null) so a runtime gh
-    // auth/network failure crosses the RPC as `upstream-error` instead of
-    // collapsing to `null`, which the renderer would otherwise cache as a false
-    // accepted "no PR found" (design success criterion 1).
-    return getPRForBranchOutcome(
-      repo.path,
-      branch,
-      linkedPRNumber ?? null,
-      repo.connectionId ?? null,
-      linkedPRNumber == null ? (fallbackPRNumber ?? null) : null,
-      ...lookupOptionArgs
-    )
-  }
+  listRepoWorkItems: RuntimeRepoWorkItemCommands['listRepoWorkItems'] =
+    this.repoWorkItemCommands.listRepoWorkItems.bind(this.repoWorkItemCommands)
+  listRepoIssues: RuntimeRepoWorkItemCommands['listRepoIssues'] =
+    this.repoWorkItemCommands.listRepoIssues.bind(this.repoWorkItemCommands)
+  getRepoWorkItem: RuntimeRepoWorkItemCommands['getRepoWorkItem'] =
+    this.repoWorkItemCommands.getRepoWorkItem.bind(this.repoWorkItemCommands)
+  getRepoWorkItemByOwnerRepo: RuntimeRepoWorkItemCommands['getRepoWorkItemByOwnerRepo'] =
+    this.repoWorkItemCommands.getRepoWorkItemByOwnerRepo.bind(this.repoWorkItemCommands)
+  getRepoWorkItemDetails: RuntimeRepoWorkItemCommands['getRepoWorkItemDetails'] =
+    this.repoWorkItemCommands.getRepoWorkItemDetails.bind(this.repoWorkItemCommands)
+  countRepoWorkItems: RuntimeRepoWorkItemCommands['countRepoWorkItems'] =
+    this.repoWorkItemCommands.countRepoWorkItems.bind(this.repoWorkItemCommands)
+  listRepoLabels: RuntimeRepoWorkItemCommands['listRepoLabels'] =
+    this.repoWorkItemCommands.listRepoLabels.bind(this.repoWorkItemCommands)
+  listRepoAssignableUsers: RuntimeRepoWorkItemCommands['listRepoAssignableUsers'] =
+    this.repoWorkItemCommands.listRepoAssignableUsers.bind(this.repoWorkItemCommands)
+  getGitHubRateLimit: RuntimeRepoWorkItemCommands['getGitHubRateLimit'] =
+    this.repoWorkItemCommands.getGitHubRateLimit.bind(this.repoWorkItemCommands)
+  getRepoPRForBranch: RuntimeRepoWorkItemCommands['getRepoPRForBranch'] =
+    this.repoWorkItemCommands.getRepoPRForBranch.bind(this.repoWorkItemCommands)
 
   async getHostedReviewForBranch(args: {
     repoSelector: string
@@ -20110,741 +18663,76 @@ export class OrcaRuntimeService {
     return result
   }
 
-  async getRepoIssue(
-    repoSelector: string,
-    number: number
-  ): Promise<Awaited<ReturnType<typeof getIssue>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getIssue(
-      repo.path,
-      number,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
+  private readonly reviewQueryCommands = new RuntimeReviewQueryCommands({
+    resolveRepoSelector: (selector) => this.resolveRepoSelector(selector),
+    getLocalGitExecutionOptionArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo)
+  })
 
-  async getRepoPRChecks(
-    repoSelector: string,
-    prNumber: number,
-    headSha?: string,
-    prRepo?: GitHubOwnerRepo | null,
-    options?: { noCache?: boolean }
-  ): Promise<Awaited<ReturnType<typeof getPRChecks>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getPRChecks(
-      repo.path,
-      prNumber,
-      headSha,
-      prRepo ?? null,
-      options,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
+  getRepoIssue: RuntimeReviewQueryCommands['getRepoIssue'] =
+    this.reviewQueryCommands.getRepoIssue.bind(this.reviewQueryCommands)
+  getRepoPRChecks: RuntimeReviewQueryCommands['getRepoPRChecks'] =
+    this.reviewQueryCommands.getRepoPRChecks.bind(this.reviewQueryCommands)
+  rerunRepoPRChecks: RuntimeReviewQueryCommands['rerunRepoPRChecks'] =
+    this.reviewQueryCommands.rerunRepoPRChecks.bind(this.reviewQueryCommands)
+  getRepoPRCheckDetails: RuntimeReviewQueryCommands['getRepoPRCheckDetails'] =
+    this.reviewQueryCommands.getRepoPRCheckDetails.bind(this.reviewQueryCommands)
+  getRepoPRComments: RuntimeReviewQueryCommands['getRepoPRComments'] =
+    this.reviewQueryCommands.getRepoPRComments.bind(this.reviewQueryCommands)
+  getRepoPRFileContents: RuntimeReviewQueryCommands['getRepoPRFileContents'] =
+    this.reviewQueryCommands.getRepoPRFileContents.bind(this.reviewQueryCommands)
+  resolveRepoReviewThread: RuntimeReviewQueryCommands['resolveRepoReviewThread'] =
+    this.reviewQueryCommands.resolveRepoReviewThread.bind(this.reviewQueryCommands)
+  setRepoPRFileViewed: RuntimeReviewQueryCommands['setRepoPRFileViewed'] =
+    this.reviewQueryCommands.setRepoPRFileViewed.bind(this.reviewQueryCommands)
 
-  async rerunRepoPRChecks(
-    repoSelector: string,
-    prNumber: number,
-    options?: {
-      headSha?: string
-      failedOnly?: boolean
-      prRepo?: GitHubOwnerRepo | null
-    }
-  ): Promise<Awaited<ReturnType<typeof rerunPRChecks>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return rerunPRChecks(
-      repo.path,
-      prNumber,
-      options,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
+  private readonly reviewMutationCommands = new RuntimeReviewMutationCommands({
+    resolveRepoSelector: (selector) => this.resolveRepoSelector(selector),
+    getLocalGitExecutionOptionArgs: (repo) => this.getLocalGitExecutionOptionArgs(repo)
+  })
 
-  async getRepoPRCheckDetails(
-    repoSelector: string,
-    args: {
-      checkRunId?: number
-      workflowRunId?: number
-      checkName?: string
-      url?: string | null
-      prRepo?: GitHubOwnerRepo | null
-    }
-  ): Promise<Awaited<ReturnType<typeof getPRCheckDetails>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getPRCheckDetails(
-      repo.path,
-      { ...args, prRepo: args.prRepo ?? null },
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async getRepoPRComments(
-    repoSelector: string,
-    prNumber: number,
-    prRepo?: GitHubOwnerRepo | null,
-    options?: { noCache?: boolean }
-  ): Promise<Awaited<ReturnType<typeof getPRComments>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getPRComments(
-      repo.path,
-      prNumber,
-      { ...options, prRepo: prRepo ?? null },
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async getRepoPRFileContents(
-    repoSelector: string,
-    args: {
-      prNumber: number
-      prRepo?: GitHubOwnerRepo | null
-      path: string
-      oldPath?: string
-      status: GitHubPRFile['status']
-      headSha: string
-      baseSha: string
-    }
-  ): Promise<Awaited<ReturnType<typeof getPRFileContents>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return getPRFileContents({
-      repoPath: repo.path,
-      connectionId: repo.connectionId ?? null,
-      localGitOptions: this.getLocalGitExecutionOptionArgs(repo)[0],
-      ...args
-    })
-  }
-
-  async resolveRepoReviewThread(
-    repoSelector: string,
-    threadId: string,
-    resolve: boolean,
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof resolveReviewThread>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return resolveReviewThread(
-      repo.path,
-      threadId,
-      resolve,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async setRepoPRFileViewed(
-    repoSelector: string,
-    args: {
-      prRepo?: GitHubOwnerRepo | null
-      pullRequestId: string
-      path: string
-      viewed: boolean
-    }
-  ): Promise<Awaited<ReturnType<typeof setPRFileViewed>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return setPRFileViewed({
-      repoPath: repo.path,
-      connectionId: repo.connectionId ?? null,
-      localGitOptions: this.getLocalGitExecutionOptionArgs(repo)[0],
-      ...args
-    })
-  }
-
-  async updateRepoPRTitle(
-    repoSelector: string,
-    prNumber: number,
-    title: string,
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof updatePRTitle>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return updatePRTitle(
-      repo.path,
-      prNumber,
-      title,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async updateRepoPRDetails(
-    repoSelector: string,
-    prNumber: number,
-    updates: { title?: string; body?: string },
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof updatePRDetails>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return updatePRDetails(
-      repo.path,
-      prNumber,
-      updates,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async mergeRepoPR(
-    repoSelector: string,
-    prNumber: number,
-    method?: 'merge' | 'squash' | 'rebase',
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof mergePR>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return mergePR(
-      repo.path,
-      prNumber,
-      method,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async setRepoPRAutoMerge(
-    repoSelector: string,
-    prNumber: number,
-    enabled: boolean,
-    method?: 'merge' | 'squash' | 'rebase',
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof setPRAutoMerge>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return setPRAutoMerge(
-      repo.path,
-      prNumber,
-      enabled,
-      method,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async updateRepoPRState(
-    repoSelector: string,
-    prNumber: number,
-    updates: GitHubPullRequestStateUpdate,
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof updatePRState>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return updatePRState(
-      repo.path,
-      prNumber,
-      updates,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async requestRepoPRReviewers(
-    repoSelector: string,
-    prNumber: number,
-    reviewers: string[],
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof requestPRReviewers>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return requestPRReviewers(
-      repo.path,
-      prNumber,
-      reviewers,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async removeRepoPRReviewers(
-    repoSelector: string,
-    prNumber: number,
-    reviewers: string[],
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof removePRReviewers>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return removePRReviewers(
-      repo.path,
-      prNumber,
-      reviewers,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async createRepoIssue(
-    repoSelector: string,
-    title: string,
-    body: string,
-    fields?: GitHubCreateIssueFields
-  ): Promise<Awaited<ReturnType<typeof createIssue>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return createIssue(
-      repo.path,
-      title,
-      body,
-      repo.issueSourcePreference,
-      repo.connectionId ?? null,
-      fields,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async updateRepoIssue(
-    repoSelector: string,
-    number: number,
-    updates: GitHubIssueUpdate
-  ): Promise<Awaited<ReturnType<typeof updateIssue>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return updateIssue(
-      repo.path,
-      number,
-      updates,
-      repo.connectionId ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async addRepoIssueComment(
-    repoSelector: string,
-    number: number,
-    body: string,
-    prRepo?: GitHubOwnerRepo | null
-  ): Promise<Awaited<ReturnType<typeof addIssueComment>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return addIssueComment(
-      repo.path,
-      number,
-      body,
-      repo.connectionId ?? null,
-      prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async addRepoPRReviewComment(
-    repoSelector: string,
-    args: Omit<GitHubPRReviewCommentInput, 'repoPath'>
-  ): Promise<Awaited<ReturnType<typeof addPRReviewComment>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return addPRReviewComment({
-      repoPath: repo.path,
-      connectionId: repo.connectionId ?? null,
-      localGitOptions: this.getLocalGitExecutionOptionArgs(repo)[0],
-      ...args
-    })
-  }
-
-  async addRepoPRReviewCommentReply(
-    repoSelector: string,
-    args: {
-      prNumber: number
-      commentId: number
-      body: string
-      threadId?: string
-      path?: string
-      line?: number
-      prRepo?: GitHubOwnerRepo | null
-    }
-  ): Promise<Awaited<ReturnType<typeof addPRReviewCommentReply>>> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    return addPRReviewCommentReply(
-      repo.path,
-      args.prNumber,
-      args.commentId,
-      args.body,
-      args.threadId,
-      args.path,
-      args.line,
-      repo.connectionId ?? null,
-      args.prRepo ?? null,
-      ...this.getLocalGitExecutionOptionArgs(repo)
-    )
-  }
-
-  async listGitHubProjects(
-    args?: ListAccessibleProjectsArgs
-  ): Promise<Awaited<ReturnType<typeof listAccessibleProjects>>> {
-    return listAccessibleProjects(args)
-  }
-
-  async listGitHubLabelsBySlug(
-    args: ListLabelsBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof listLabelsBySlug>>> {
-    return listLabelsBySlug(args)
-  }
-
-  async listGitHubAssignableUsersBySlug(
-    args: ListAssignableUsersBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof listAssignableUsersBySlug>>> {
-    return listAssignableUsersBySlug(args)
-  }
-
-  async listGitHubIssueTypesBySlug(
-    args: ListIssueTypesBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof listIssueTypesBySlug>>> {
-    return listIssueTypesBySlug(args)
-  }
-
-  async resolveGitHubProjectRef(
-    args: ResolveProjectRefArgs
-  ): Promise<Awaited<ReturnType<typeof resolveProjectRef>>> {
-    return resolveProjectRef(args)
-  }
-
-  async listGitHubProjectViews(
-    args: ListProjectViewsArgs
-  ): Promise<Awaited<ReturnType<typeof listProjectViews>>> {
-    return listProjectViews(args)
-  }
-
-  async getGitHubProjectViewTable(
-    args: GetProjectViewTableArgs
-  ): Promise<Awaited<ReturnType<typeof getProjectViewTable>>> {
-    return getProjectViewTable(args)
-  }
-
-  async getGitHubProjectWorkItemDetailsBySlug(
-    args: ProjectWorkItemDetailsBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof getWorkItemDetailsBySlug>>> {
-    return getWorkItemDetailsBySlug(args)
-  }
-
-  async updateGitHubProjectItemField(
-    args: UpdateProjectItemFieldArgs
-  ): Promise<Awaited<ReturnType<typeof updateProjectItemFieldValue>>> {
-    return updateProjectItemFieldValue(args)
-  }
-
-  async clearGitHubProjectItemField(
-    args: ClearProjectItemFieldArgs
-  ): Promise<Awaited<ReturnType<typeof clearProjectItemFieldValue>>> {
-    return clearProjectItemFieldValue(args)
-  }
-
-  async updateGitHubIssueBySlug(
-    args: UpdateIssueBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof updateIssueBySlug>>> {
-    return updateIssueBySlug(args)
-  }
-
-  async updateGitHubPullRequestBySlug(
-    args: UpdatePullRequestBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof updatePullRequestBySlug>>> {
-    return updatePullRequestBySlug(args)
-  }
-
-  async updateGitHubIssueTypeBySlug(
-    args: UpdateIssueTypeBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof updateIssueTypeBySlug>>> {
-    return updateIssueTypeBySlug(args)
-  }
-
-  async addGitHubIssueCommentBySlug(
-    args: AddIssueCommentBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof addIssueCommentBySlug>>> {
-    return addIssueCommentBySlug(args)
-  }
-
-  async updateGitHubIssueCommentBySlug(
-    args: UpdateIssueCommentBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof updateIssueCommentBySlug>>> {
-    return updateIssueCommentBySlug(args)
-  }
-
-  async deleteGitHubIssueCommentBySlug(
-    args: DeleteIssueCommentBySlugArgs
-  ): Promise<Awaited<ReturnType<typeof deleteIssueCommentBySlug>>> {
-    return deleteIssueCommentBySlug(args)
-  }
-
-  private getSetupHookTrustPayload(
-    repo: Repo,
-    scriptContentValue: string | undefined
-  ): { contentHash: string; scriptContent: string } | undefined {
-    const scriptContent = scriptContentValue?.trim()
-    if (!scriptContent || repo.hookSettings?.commandSourcePolicy === 'local-only') {
-      return undefined
-    }
-    return {
-      contentHash: createHash('sha256').update(scriptContent).digest('hex'),
-      scriptContent
-    }
-  }
-
-  private getSharedSetupHookTrustPayload(
-    repo: Repo,
-    sharedSetupScript: string | undefined
-  ): { contentHash: string; scriptContent: string } | undefined {
-    if (repo.hookSettings?.commandSourcePolicy === 'local-only') {
-      return undefined
-    }
-    return this.getSetupHookTrustPayload(repo, sharedSetupScript)
-  }
+  updateRepoPRTitle: RuntimeReviewMutationCommands['updateRepoPRTitle'] =
+    this.reviewMutationCommands.updateRepoPRTitle.bind(this.reviewMutationCommands)
+  updateRepoPRDetails: RuntimeReviewMutationCommands['updateRepoPRDetails'] =
+    this.reviewMutationCommands.updateRepoPRDetails.bind(this.reviewMutationCommands)
+  mergeRepoPR: RuntimeReviewMutationCommands['mergeRepoPR'] =
+    this.reviewMutationCommands.mergeRepoPR.bind(this.reviewMutationCommands)
+  setRepoPRAutoMerge: RuntimeReviewMutationCommands['setRepoPRAutoMerge'] =
+    this.reviewMutationCommands.setRepoPRAutoMerge.bind(this.reviewMutationCommands)
+  updateRepoPRState: RuntimeReviewMutationCommands['updateRepoPRState'] =
+    this.reviewMutationCommands.updateRepoPRState.bind(this.reviewMutationCommands)
+  requestRepoPRReviewers: RuntimeReviewMutationCommands['requestRepoPRReviewers'] =
+    this.reviewMutationCommands.requestRepoPRReviewers.bind(this.reviewMutationCommands)
+  removeRepoPRReviewers: RuntimeReviewMutationCommands['removeRepoPRReviewers'] =
+    this.reviewMutationCommands.removeRepoPRReviewers.bind(this.reviewMutationCommands)
+  createRepoIssue: RuntimeReviewMutationCommands['createRepoIssue'] =
+    this.reviewMutationCommands.createRepoIssue.bind(this.reviewMutationCommands)
+  updateRepoIssue: RuntimeReviewMutationCommands['updateRepoIssue'] =
+    this.reviewMutationCommands.updateRepoIssue.bind(this.reviewMutationCommands)
+  addRepoIssueComment: RuntimeReviewMutationCommands['addRepoIssueComment'] =
+    this.reviewMutationCommands.addRepoIssueComment.bind(this.reviewMutationCommands)
+  addRepoPRReviewComment: RuntimeReviewMutationCommands['addRepoPRReviewComment'] =
+    this.reviewMutationCommands.addRepoPRReviewComment.bind(this.reviewMutationCommands)
+  addRepoPRReviewCommentReply: RuntimeReviewMutationCommands['addRepoPRReviewCommentReply'] =
+    this.reviewMutationCommands.addRepoPRReviewCommentReply.bind(this.reviewMutationCommands)
 
   async getRepoHooks(repoSelector: string) {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    if (repo.connectionId) {
-      const fsProvider = getSshFilesystemProvider(repo.connectionId)
-      if (!fsProvider) {
-        return {
-          hasHooksFile: false,
-          hooks: null,
-          setupRunPolicy: getEffectiveSetupRunPolicy(repo),
-          source: null
-        }
-      }
-      try {
-        const result = await fsProvider.readFile(joinWorktreeRelativePath(repo.path, 'orca.yaml'))
-        const hooks = result.isBinary ? null : parseOrcaYaml(result.content)
-        return {
-          hasHooksFile: Boolean(hooks),
-          hooks,
-          setupRunPolicy: getEffectiveSetupRunPolicy(repo),
-          source: hooks ? 'orca.yaml' : null,
-          setupTrust: this.getSharedSetupHookTrustPayload(
-            repo,
-            getDefaultTabCommandTrustContent(hooks)
-          )
-        }
-      } catch {
-        return {
-          hasHooksFile: false,
-          hooks: null,
-          setupRunPolicy: getEffectiveSetupRunPolicy(repo),
-          source: null
-        }
-      }
-    }
-    const hasFile = hasHooksFile(repo.path)
-    const hooks = getEffectiveHooks(repo)
-    const sharedHooks = hasFile ? loadHooks(repo.path) : null
-    const setupRunPolicy = getEffectiveSetupRunPolicy(repo)
-    return {
-      hasHooksFile: hasFile,
-      hooks,
-      setupRunPolicy,
-      source: hasFile ? 'orca.yaml' : hooks ? 'legacy' : null,
-      setupTrust: this.getSharedSetupHookTrustPayload(
-        repo,
-        getDefaultTabCommandTrustContent(sharedHooks)
-      )
-    }
+    return this.repoHookCommands.getRepoHooks(repoSelector)
   }
 
   async checkRepoHooks(repoSelector: string) {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    if (isFolderRepo(repo)) {
-      return { hasHooks: false, hooks: null, mayNeedUpdate: false }
-    }
-
-    if (repo.connectionId) {
-      const fsProvider = getSshFilesystemProvider(repo.connectionId)
-      if (!fsProvider) {
-        return { hasHooks: false, hooks: null, mayNeedUpdate: false }
-      }
-      try {
-        const result = await fsProvider.readFile(joinWorktreeRelativePath(repo.path, 'orca.yaml'))
-        if (result.isBinary) {
-          return { hasHooks: false, hooks: null, mayNeedUpdate: false }
-        }
-        return { hasHooks: true, hooks: parseOrcaYaml(result.content), mayNeedUpdate: false }
-      } catch {
-        return { hasHooks: false, hooks: null, mayNeedUpdate: false }
-      }
-    }
-
-    const has = hasHooksFile(repo.path)
-    const hooks = has ? loadHooks(repo.path) : null
-    return {
-      hasHooks: has,
-      hooks,
-      mayNeedUpdate: has && !hooks && hasUnrecognizedOrcaYamlKeys(repo.path)
-    }
+    return this.repoHookCommands.checkRepoHooks(repoSelector)
   }
 
   async inspectRepoSetupScriptImports(repoSelector: string) {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    if (isFolderRepo(repo)) {
-      return []
-    }
-
-    return inspectSetupScriptImportCandidates(async (relativePath) => {
-      const filePath = joinWorktreeRelativePath(repo.path, relativePath)
-      if (repo.connectionId) {
-        const fsProvider = getSshFilesystemProvider(repo.connectionId)
-        if (!fsProvider) {
-          return null
-        }
-        try {
-          const result = await fsProvider.readFile(filePath)
-          return result.isBinary ? null : result.content
-        } catch {
-          return null
-        }
-      }
-
-      try {
-        return await readFile(filePath, 'utf-8')
-      } catch (error) {
-        if (!isENOENT(error)) {
-          console.warn('[runtime] Failed to inspect setup script import candidate:', error)
-        }
-        return null
-      }
-    })
+    return this.repoHookCommands.inspectRepoSetupScriptImports(repoSelector)
   }
 
   async readRepoIssueCommand(repoSelector: string) {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    if (isFolderRepo(repo)) {
-      return {
-        localContent: null,
-        sharedContent: null,
-        effectiveContent: null,
-        localFilePath: '',
-        source: 'none' as const
-      }
-    }
-
-    if (repo.connectionId) {
-      const issueCommandPath = joinWorktreeRelativePath(repo.path, '.orca/issue-command')
-      const fsProvider = getSshFilesystemProvider(repo.connectionId)
-      if (!fsProvider) {
-        return {
-          localContent: null,
-          sharedContent: null,
-          effectiveContent: null,
-          localFilePath: issueCommandPath,
-          source: 'none' as const
-        }
-      }
-      const localContent = await this.readRemoteIssueCommandOverride(fsProvider, issueCommandPath)
-      const sharedContent = await this.readRemoteSharedIssueCommand(fsProvider, repo.path)
-      const effectiveContent = localContent ?? sharedContent
-      return {
-        localContent,
-        sharedContent,
-        effectiveContent,
-        localFilePath: issueCommandPath,
-        source: localContent
-          ? ('local' as const)
-          : sharedContent
-            ? ('shared' as const)
-            : ('none' as const)
-      }
-    }
-
-    return readIssueCommand(repo.path)
-  }
-
-  private async readRemoteIssueCommandOverride(
-    fsProvider: IFilesystemProvider,
-    issueCommandPath: string
-  ): Promise<string | null> {
-    try {
-      const result = await fsProvider.readFile(issueCommandPath)
-      if (result.isBinary) {
-        return null
-      }
-      return result.content.trim() || null
-    } catch {
-      return null
-    }
-  }
-
-  private async readRemoteSharedIssueCommand(
-    fsProvider: IFilesystemProvider,
-    repoPath: string
-  ): Promise<string | null> {
-    try {
-      const result = await fsProvider.readFile(joinWorktreeRelativePath(repoPath, 'orca.yaml'))
-      if (result.isBinary) {
-        return null
-      }
-      return parseOrcaYaml(result.content)?.issueCommand?.trim() || null
-    } catch {
-      return null
-    }
+    return this.repoHookCommands.readRepoIssueCommand(repoSelector)
   }
 
   async writeRepoIssueCommand(repoSelector: string, content: string): Promise<{ ok: true }> {
-    const repo = await this.resolveRepoSelector(repoSelector)
-    if (isFolderRepo(repo)) {
-      return { ok: true }
-    }
-
-    if (repo.connectionId) {
-      const issueCommandPath = joinWorktreeRelativePath(repo.path, '.orca/issue-command')
-      const fsProvider = getSshFilesystemProvider(repo.connectionId)
-      if (!fsProvider) {
-        return { ok: true }
-      }
-      const trimmed = content.trim()
-      if (!trimmed) {
-        await fsProvider.deletePath(issueCommandPath, false).catch((error: unknown) => {
-          if (!isENOENT(error)) {
-            throw error
-          }
-        })
-        return { ok: true }
-      }
-      await fsProvider.createDir(joinWorktreeRelativePath(repo.path, '.orca'))
-      await this.ensureRemoteOrcaDirIgnored(fsProvider, repo.path)
-      await fsProvider.writeFile(issueCommandPath, `${trimmed}\n`)
-      return { ok: true }
-    }
-
-    writeIssueCommand(repo.path, content)
-    return { ok: true }
-  }
-
-  private async ensureRemoteOrcaDirIgnored(
-    fsProvider: IFilesystemProvider,
-    repoPath: string,
-    options: { required?: boolean } = {}
-  ): Promise<void> {
-    const gitignorePath = joinWorktreeRelativePath(repoPath, '.gitignore')
-    let result: Awaited<ReturnType<IFilesystemProvider['readFile']>>
-    try {
-      result = await fsProvider.readFile(gitignorePath)
-    } catch (error) {
-      if (!isENOENT(error)) {
-        if (options.required) {
-          throw error
-        }
-        console.warn('[runtime] Could not inspect remote .gitignore for .orca', error)
-        return
-      }
-      try {
-        await fsProvider.writeFile(gitignorePath, '.orca\n')
-      } catch (writeError) {
-        if (options.required) {
-          throw writeError
-        }
-        console.warn('[runtime] Could not update remote .gitignore to exclude .orca', writeError)
-      }
-      return
-    }
-    if (result.isBinary) {
-      if (options.required) {
-        throw new Error('Remote .gitignore is binary; cannot verify .orca is ignored')
-      }
-      return
-    }
-    if (/^\.orca\/?$/m.test(result.content)) {
-      return
-    }
-    const separator = result.content.endsWith('\n') ? '' : '\n'
-    try {
-      await fsProvider.writeFile(gitignorePath, `${result.content}${separator}.orca\n`)
-    } catch (writeError) {
-      if (options.required) {
-        throw writeError
-      }
-      console.warn('[runtime] Could not update remote .gitignore to exclude .orca', writeError)
-    }
+    return this.repoHookCommands.writeRepoIssueCommand(repoSelector, content)
   }
 
   async listManagedWorktrees(
@@ -21665,7 +19553,7 @@ export class OrcaRuntimeService {
       }
 
       unsubscribe = this.subscribeToTerminalData(ptyId, observeData)
-      const replay = this.recentPtyOutputById.get(ptyId)?.read()
+      const replay = this.terminalOutputState.getRecent(ptyId)?.read()
       if (replay) {
         observeData(replay)
       }
@@ -27901,7 +25789,7 @@ export class OrcaRuntimeService {
       )
     }
     const instanceByWorktreeId = new Map(
-      this.resolvedWorktreeCache?.worktrees.map((worktree) => [
+      this.worktreeResolutionState.resolvedCache?.worktrees.map((worktree) => [
         worktree.id,
         worktree.instanceId
       ]) ?? [
@@ -28389,21 +26277,24 @@ export class OrcaRuntimeService {
       return { worktrees: [], platformByRepoId: new Map() }
     }
     const now = Date.now()
-    if (this.resolvedWorktreeCache && this.resolvedWorktreeCache.expiresAt > now) {
-      return this.resolvedWorktreeCache
+    if (
+      this.worktreeResolutionState.resolvedCache &&
+      this.worktreeResolutionState.resolvedCache.expiresAt > now
+    ) {
+      return this.worktreeResolutionState.resolvedCache
     }
-    const generation = this.resolvedWorktreeGeneration
-    if (this.resolvedWorktreeInFlight?.generation === generation) {
-      return this.resolvedWorktreeInFlight.promise
+    const generation = this.worktreeResolutionState.resolvedGeneration
+    if (this.worktreeResolutionState.resolvedInFlight?.generation === generation) {
+      return this.worktreeResolutionState.resolvedInFlight.promise
     }
 
     const promise = this.computeResolvedWorktrees(generation)
-    this.resolvedWorktreeInFlight = { generation, promise }
+    this.worktreeResolutionState.resolvedInFlight = { generation, promise }
     try {
       return await promise
     } finally {
-      if (this.resolvedWorktreeInFlight?.promise === promise) {
-        this.resolvedWorktreeInFlight = null
+      if (this.worktreeResolutionState.resolvedInFlight?.promise === promise) {
+        this.worktreeResolutionState.resolvedInFlight = null
       }
     }
   }
@@ -28487,8 +26378,8 @@ export class OrcaRuntimeService {
       this.store?.getAllWorktreeLineage?.() ?? {}
     )
     // Why: short TTL avoids shelling out on every frequent poll while still catching worktree changes made outside Orca.
-    if (generation === this.resolvedWorktreeGeneration) {
-      this.resolvedWorktreeCache = {
+    if (generation === this.worktreeResolutionState.resolvedGeneration) {
+      this.worktreeResolutionState.resolvedCache = {
         worktrees,
         platformByRepoId,
         expiresAt: now + RESOLVED_WORKTREE_CACHE_TTL_MS
@@ -28544,7 +26435,7 @@ export class OrcaRuntimeService {
     projectRuntimeByRepoId?: ReadonlyMap<string, ProjectExecutionRuntimeResolution>
   ): Promise<RuntimeWorktreeScanResult> {
     const now = Date.now()
-    const generation = this.worktreeScanGenerations.get(repo.id) ?? 0
+    const generation = this.worktreeResolutionState.scanGenerations.get(repo.id) ?? 0
     const projectRuntime = projectRuntimeByRepoId
       ? projectRuntimeByRepoId.get(repo.id)
       : !repo.connectionId
@@ -28557,7 +26448,7 @@ export class OrcaRuntimeService {
       : repo.connectionId
         ? `ssh:${repo.connectionId}:${getSshGitProviderGeneration(repo.connectionId)}`
         : 'local:default'
-    const cached = this.worktreeScanCache.get(repo.id)
+    const cached = this.worktreeResolutionState.scanCache.get(repo.id)
     if (
       cached?.generation === generation &&
       cached.runtimeKey === runtimeKey &&
@@ -28565,20 +26456,20 @@ export class OrcaRuntimeService {
     ) {
       return cached.result
     }
-    const inFlight = this.worktreeScanInFlight.get(repo.id)
+    const inFlight = this.worktreeResolutionState.scanInFlight.get(repo.id)
     if (inFlight?.generation === generation && inFlight.runtimeKey === runtimeKey) {
       return inFlight.promise
     }
     const promise = this.listRepoWorktreesForResolutionUncached(repo, projectRuntime)
-    this.worktreeScanInFlight.set(repo.id, { generation, runtimeKey, promise })
+    this.worktreeResolutionState.scanInFlight.set(repo.id, { generation, runtimeKey, promise })
     try {
       const result = await promise
       if (
         result.ok &&
-        generation === (this.worktreeScanGenerations.get(repo.id) ?? 0) &&
-        this.worktreeScanInFlight.get(repo.id)?.promise === promise
+        generation === (this.worktreeResolutionState.scanGenerations.get(repo.id) ?? 0) &&
+        this.worktreeResolutionState.scanInFlight.get(repo.id)?.promise === promise
       ) {
-        this.worktreeScanCache.set(repo.id, {
+        this.worktreeResolutionState.scanCache.set(repo.id, {
           generation,
           runtimeKey,
           result,
@@ -28587,8 +26478,8 @@ export class OrcaRuntimeService {
       }
       return result
     } finally {
-      if (this.worktreeScanInFlight.get(repo.id)?.promise === promise) {
-        this.worktreeScanInFlight.delete(repo.id)
+      if (this.worktreeResolutionState.scanInFlight.get(repo.id)?.promise === promise) {
+        this.worktreeResolutionState.scanInFlight.delete(repo.id)
       }
     }
   }
@@ -28654,14 +26545,11 @@ export class OrcaRuntimeService {
   }
 
   private invalidateResolvedWorktreeCache(): void {
-    this.resolvedWorktreeGeneration += 1
-    this.resolvedWorktreeCache = null
+    this.worktreeResolutionState.invalidateResolved()
   }
 
   private invalidateWorktreeScanCacheForRepo(repoId: string): void {
-    this.worktreeScanGenerations.set(repoId, (this.worktreeScanGenerations.get(repoId) ?? 0) + 1)
-    this.worktreeScanCache.delete(repoId)
-    this.worktreeScanInFlight.delete(repoId)
+    this.worktreeResolutionState.invalidateScan(repoId)
   }
 
   private invalidateSshWorktreeScanCacheInternal(targetId: string): void {
@@ -28670,13 +26558,10 @@ export class OrcaRuntimeService {
       repos.filter((repo) => repo.connectionId === targetId).map((repo) => repo.id)
     )
     for (const repoId of affectedRepoIds) {
-      this.worktreeScanGenerations.set(repoId, (this.worktreeScanGenerations.get(repoId) ?? 0) + 1)
-      this.worktreeScanCache.delete(repoId)
-      this.worktreeScanInFlight.delete(repoId)
+      this.worktreeResolutionState.invalidateScan(repoId)
     }
     if (affectedRepoIds.size > 0) {
-      this.resolvedWorktreeGeneration += 1
-      this.resolvedWorktreeCache = null
+      this.worktreeResolutionState.invalidateResolved()
     }
   }
 
@@ -29261,11 +27146,10 @@ export class OrcaRuntimeService {
     this.ptysById.delete(ptyId)
     this.observedPtyExitIncarnations.delete(ptyId)
     this.rendererGraphLivenessBlockedPtys.delete(ptyId)
-    this.recentPtyOutputById.delete(ptyId)
+    this.terminalOutputState.delete(ptyId)
     this.setupCompletionTokenByPtyId.delete(ptyId)
     this.clearWaitBlockedCheckState(ptyId)
     this.recentPtyPathCandidatesById.delete(ptyId)
-    this.ptyOutputSequenceById.delete(ptyId)
     this.providerSequenceInitializedPtys.delete(ptyId)
     this.providerSequenceOffsetByPtyId.delete(ptyId)
     this.providerSnapshotPreferredPtys.delete(ptyId)
@@ -30756,17 +28640,7 @@ export class OrcaRuntimeService {
 
   // Why: wake blocking orchestration.check --wait calls on this handle so they return the new message immediately instead of polling.
   notifyMessageArrived(handle: string, messageType?: string): void {
-    const waiters = this.messageWaitersByHandle.get(handle)
-    if (!waiters || waiters.size === 0) {
-      return
-    }
-    for (const waiter of [...waiters]) {
-      // Why: don't wake a coordinator waiting for worker_done/escalation on heartbeat noise it would misread as idleness.
-      if (messageType && waiter.typeFilter && !waiter.typeFilter.includes(messageType)) {
-        continue
-      }
-      this.resolveMessageWaiter(waiter, 'notified')
-    }
+    this.messageWaiters.notify(handle, messageType)
   }
 
   waitForMessage(
@@ -30778,82 +28652,11 @@ export class OrcaRuntimeService {
       exclusive?: boolean
     }
   ): Promise<MessageWaitResult> {
-    return new Promise((resolve) => {
-      const currentWaiters = this.messageWaitersByHandle.get(handle)
-      if (options?.exclusive && currentWaiters && currentWaiters.size > 0) {
-        resolve('waiter_exists')
-        return
-      }
-      const timeoutMs = options?.timeoutMs ?? ORCHESTRATION_MESSAGE_WAIT_DEFAULT_TIMEOUT_MS
-
-      const waiter: MessageWaiter = {
-        handle,
-        typeFilter: options?.typeFilter,
-        resolve,
-        timeout: null,
-        abortCleanup: null
-      }
-
-      // Why: on caller abort (RPC socket closed — design doc §3.1), resolve now to release the long-poll slot instead of waiting out timeoutMs.
-      const signal = options?.signal
-      const onAbort = (): void => {
-        this.removeMessageWaiter(waiter)
-        resolve('cancelled')
-      }
-      if (signal) {
-        if (signal.aborted) {
-          resolve('cancelled')
-          return
-        }
-        waiter.abortCleanup = () => signal.removeEventListener('abort', onAbort)
-        signal.addEventListener('abort', onAbort, { once: true })
-      }
-
-      waiter.timeout = setTimeout(() => {
-        this.removeMessageWaiter(waiter)
-        resolve('timed_out')
-      }, timeoutMs)
-
-      let waiters = this.messageWaitersByHandle.get(handle)
-      if (!waiters) {
-        waiters = new Set()
-        this.messageWaitersByHandle.set(handle, waiters)
-      }
-      waiters.add(waiter)
-    })
+    return this.messageWaiters.wait(handle, options)
   }
 
   cancelMessageWaiters(handle: string): void {
-    const waiters = this.messageWaitersByHandle.get(handle)
-    if (!waiters) {
-      return
-    }
-    for (const waiter of [...waiters]) {
-      this.resolveMessageWaiter(waiter, 'cancelled')
-    }
-  }
-
-  private resolveMessageWaiter(waiter: MessageWaiter, result: MessageWaitResult): void {
-    this.removeMessageWaiter(waiter)
-    waiter.resolve(result)
-  }
-
-  private removeMessageWaiter(waiter: MessageWaiter): void {
-    if (waiter.timeout) {
-      clearTimeout(waiter.timeout)
-      waiter.timeout = null
-    }
-    if (waiter.abortCleanup) {
-      waiter.abortCleanup()
-      waiter.abortCleanup = null
-    }
-    const waiters = this.messageWaitersByHandle.get(waiter.handle)
-    if (waiters) {
-      waiters.delete(waiter)
-      if (waiters.size === 0) {
-        this.messageWaitersByHandle.delete(waiter.handle)
-      }
-    }
+    this.messageWaiters.cancel(handle)
   }
 
   private buildPtyTerminalSummary(
@@ -31477,42 +29280,22 @@ export class OrcaRuntimeService {
 
   // ── Linear integration ──
 
-  linearConnect(apiKey: string): ReturnType<typeof connectLinear> {
-    return connectLinear(apiKey)
-  }
+  private readonly linearConnectionCommands = new RuntimeLinearConnectionCommands()
 
-  linearDisconnect(workspaceId?: string): { ok: true } {
-    disconnectLinear(workspaceId)
-    return { ok: true }
-  }
-
-  linearSelectWorkspace(workspaceId: LinearWorkspaceSelection): ReturnType<typeof getLinearStatus> {
-    return selectLinearWorkspace(workspaceId)
-  }
-
-  linearStatus(): ReturnType<typeof getLinearStatus> {
-    return getLinearStatus()
-  }
-
-  linearTestConnection(workspaceId?: string): ReturnType<typeof testLinearConnection> {
-    return testLinearConnection(workspaceId)
-  }
-
-  linearSearchIssues(
-    query: string,
-    limit = 20,
-    workspaceId?: LinearWorkspaceSelection
-  ): ReturnType<typeof searchLinearIssues> {
-    return searchLinearIssues(query, Math.min(Math.max(1, limit), 50), workspaceId)
-  }
-
-  linearSearchForAgents(args: {
-    query: string
-    limit?: number
-    workspaceId?: string | 'all'
-  }): ReturnType<typeof searchLinearIssuesForAgents> {
-    return searchLinearIssuesForAgents(args)
-  }
+  linearConnect: RuntimeLinearConnectionCommands['linearConnect'] =
+    this.linearConnectionCommands.linearConnect.bind(this.linearConnectionCommands)
+  linearDisconnect: RuntimeLinearConnectionCommands['linearDisconnect'] =
+    this.linearConnectionCommands.linearDisconnect.bind(this.linearConnectionCommands)
+  linearSelectWorkspace: RuntimeLinearConnectionCommands['linearSelectWorkspace'] =
+    this.linearConnectionCommands.linearSelectWorkspace.bind(this.linearConnectionCommands)
+  linearStatus: RuntimeLinearConnectionCommands['linearStatus'] =
+    this.linearConnectionCommands.linearStatus.bind(this.linearConnectionCommands)
+  linearTestConnection: RuntimeLinearConnectionCommands['linearTestConnection'] =
+    this.linearConnectionCommands.linearTestConnection.bind(this.linearConnectionCommands)
+  linearSearchIssues: RuntimeLinearConnectionCommands['linearSearchIssues'] =
+    this.linearConnectionCommands.linearSearchIssues.bind(this.linearConnectionCommands)
+  linearSearchForAgents: RuntimeLinearConnectionCommands['linearSearchForAgents'] =
+    this.linearConnectionCommands.linearSearchForAgents.bind(this.linearConnectionCommands)
 
   linearIssueContext(request: LinearIssueRequest): ReturnType<typeof readLinearIssueContext> {
     return readLinearIssueContext(request, (context) => this.linearResolveCurrentIssue(context))
@@ -31778,58 +29561,6 @@ export class OrcaRuntimeService {
       }
     }
     return best
-  }
-
-  linearListIssues(
-    filter?: LinearListFilter,
-    limit = 20,
-    workspaceId?: LinearWorkspaceSelection,
-    options?: LinearIssueListOptions
-  ): ReturnType<typeof listLinearIssues> {
-    return listLinearIssues(filter, clampLinearIssueListLimit(limit), workspaceId, options)
-  }
-
-  linearCreateIssue(
-    teamId: string,
-    title: string,
-    description?: string,
-    workspaceId?: string,
-    parentIssueId?: string,
-    projectId?: string | null,
-    options?: {
-      stateId?: string
-      priority?: number
-      estimate?: number | null
-      dueDate?: string | null
-      assigneeId?: string | null
-      labelIds?: string[]
-    }
-  ): ReturnType<typeof createLinearIssue> {
-    return createLinearIssue(teamId, title, description, workspaceId, {
-      parentId: parentIssueId,
-      projectId,
-      ...options
-    })
-  }
-
-  linearGetIssue(id: string, workspaceId?: string): ReturnType<typeof getLinearIssue> {
-    return getLinearIssue(id, workspaceId)
-  }
-
-  linearUpdateIssue(
-    id: string,
-    updates: LinearIssueUpdate,
-    workspaceId?: string
-  ): ReturnType<typeof updateLinearIssue> {
-    return updateLinearIssue(id, updates, workspaceId)
-  }
-
-  linearAddIssueComment(
-    issueId: string,
-    body: string,
-    workspaceId?: string
-  ): ReturnType<typeof addLinearIssueComment> {
-    return addLinearIssueComment(issueId, body, workspaceId)
   }
 
   async linearIssueSetState(params: {
@@ -33650,224 +31381,135 @@ export class OrcaRuntimeService {
     }
   }
 
-  linearIssueComments(
-    issueId: string,
-    workspaceId?: string
-  ): ReturnType<typeof getLinearIssueComments> {
-    return getLinearIssueComments(issueId, workspaceId)
-  }
+  private readonly linearQueryCommands = new RuntimeLinearQueryCommands()
 
-  linearListTeams(workspaceId?: LinearWorkspaceSelection): ReturnType<typeof listLinearTeams> {
-    return listLinearTeams(workspaceId)
-  }
+  linearIssueComments: RuntimeLinearQueryCommands['linearIssueComments'] =
+    this.linearQueryCommands.linearIssueComments.bind(this.linearQueryCommands)
+  linearListTeams: RuntimeLinearQueryCommands['linearListTeams'] =
+    this.linearQueryCommands.linearListTeams.bind(this.linearQueryCommands)
+  linearListProjects: RuntimeLinearQueryCommands['linearListProjects'] =
+    this.linearQueryCommands.linearListProjects.bind(this.linearQueryCommands)
+  linearCreateProject: RuntimeLinearQueryCommands['linearCreateProject'] =
+    this.linearQueryCommands.linearCreateProject.bind(this.linearQueryCommands)
+  linearGetProject: RuntimeLinearQueryCommands['linearGetProject'] =
+    this.linearQueryCommands.linearGetProject.bind(this.linearQueryCommands)
+  linearListProjectIssues: RuntimeLinearQueryCommands['linearListProjectIssues'] =
+    this.linearQueryCommands.linearListProjectIssues.bind(this.linearQueryCommands)
+  linearListCustomViews: RuntimeLinearQueryCommands['linearListCustomViews'] =
+    this.linearQueryCommands.linearListCustomViews.bind(this.linearQueryCommands)
+  linearGetCustomView: RuntimeLinearQueryCommands['linearGetCustomView'] =
+    this.linearQueryCommands.linearGetCustomView.bind(this.linearQueryCommands)
+  linearListCustomViewIssues: RuntimeLinearQueryCommands['linearListCustomViewIssues'] =
+    this.linearQueryCommands.linearListCustomViewIssues.bind(this.linearQueryCommands)
+  linearListCustomViewProjects: RuntimeLinearQueryCommands['linearListCustomViewProjects'] =
+    this.linearQueryCommands.linearListCustomViewProjects.bind(this.linearQueryCommands)
+  linearTeamStates: RuntimeLinearQueryCommands['linearTeamStates'] =
+    this.linearQueryCommands.linearTeamStates.bind(this.linearQueryCommands)
+  linearTeamLabels: RuntimeLinearQueryCommands['linearTeamLabels'] =
+    this.linearQueryCommands.linearTeamLabels.bind(this.linearQueryCommands)
+  linearTeamMembers: RuntimeLinearQueryCommands['linearTeamMembers'] =
+    this.linearQueryCommands.linearTeamMembers.bind(this.linearQueryCommands)
+  linearListIssues: RuntimeLinearQueryCommands['linearListIssues'] =
+    this.linearQueryCommands.linearListIssues.bind(this.linearQueryCommands)
+  linearCreateIssue: RuntimeLinearQueryCommands['linearCreateIssue'] =
+    this.linearQueryCommands.linearCreateIssue.bind(this.linearQueryCommands)
+  linearGetIssue: RuntimeLinearQueryCommands['linearGetIssue'] =
+    this.linearQueryCommands.linearGetIssue.bind(this.linearQueryCommands)
+  linearUpdateIssue: RuntimeLinearQueryCommands['linearUpdateIssue'] =
+    this.linearQueryCommands.linearUpdateIssue.bind(this.linearQueryCommands)
+  linearAddIssueComment: RuntimeLinearQueryCommands['linearAddIssueComment'] =
+    this.linearQueryCommands.linearAddIssueComment.bind(this.linearQueryCommands)
 
-  linearListProjects(
-    query?: string,
-    limit = 20,
-    workspaceId?: LinearWorkspaceSelection,
-    force?: boolean
-  ): ReturnType<typeof listLinearProjects> {
-    return listLinearProjects(query, Math.min(Math.max(1, limit), 50), workspaceId, force)
-  }
+  private readonly githubProjectCommands = new RuntimeGithubProjectCommands()
 
-  linearCreateProject(
-    input: LinearProjectCreateInput,
-    workspaceId?: string
-  ): ReturnType<typeof createLinearProject> {
-    return createLinearProject(input, workspaceId)
-  }
-
-  linearGetProject(
-    id: string,
-    workspaceId: string,
-    force?: boolean
-  ): ReturnType<typeof getLinearProject> {
-    return getLinearProject(id, workspaceId, force)
-  }
-
-  linearListProjectIssues(
-    projectId: string,
-    limit = 20,
-    workspaceId: string,
-    force?: boolean
-  ): ReturnType<typeof listLinearProjectIssues> {
-    return listLinearProjectIssues(projectId, clampLinearIssueListLimit(limit), workspaceId, force)
-  }
-
-  linearListCustomViews(
-    model: LinearCustomViewModel,
-    limit = 20,
-    workspaceId?: LinearWorkspaceSelection,
-    force?: boolean
-  ): ReturnType<typeof listLinearCustomViews> {
-    return listLinearCustomViews(model, Math.min(Math.max(1, limit), 50), workspaceId, force)
-  }
-
-  linearGetCustomView(
-    viewId: string,
-    model: LinearCustomViewModel,
-    workspaceId: string,
-    force?: boolean
-  ): ReturnType<typeof getLinearCustomView> {
-    return getLinearCustomView(viewId, model, workspaceId, force)
-  }
-
-  linearListCustomViewIssues(
-    viewId: string,
-    limit = 20,
-    workspaceId: string,
-    force?: boolean
-  ): ReturnType<typeof listLinearCustomViewIssues> {
-    return listLinearCustomViewIssues(viewId, clampLinearIssueListLimit(limit), workspaceId, force)
-  }
-
-  linearListCustomViewProjects(
-    viewId: string,
-    limit = 20,
-    workspaceId: string,
-    force?: boolean
-  ): ReturnType<typeof listLinearCustomViewProjects> {
-    return listLinearCustomViewProjects(
-      viewId,
-      Math.min(Math.max(1, limit), 50),
-      workspaceId,
-      force
+  listGitHubProjects: RuntimeGithubProjectCommands['listGitHubProjects'] =
+    this.githubProjectCommands.listGitHubProjects.bind(this.githubProjectCommands)
+  listGitHubLabelsBySlug: RuntimeGithubProjectCommands['listGitHubLabelsBySlug'] =
+    this.githubProjectCommands.listGitHubLabelsBySlug.bind(this.githubProjectCommands)
+  listGitHubAssignableUsersBySlug: RuntimeGithubProjectCommands['listGitHubAssignableUsersBySlug'] =
+    this.githubProjectCommands.listGitHubAssignableUsersBySlug.bind(this.githubProjectCommands)
+  listGitHubIssueTypesBySlug: RuntimeGithubProjectCommands['listGitHubIssueTypesBySlug'] =
+    this.githubProjectCommands.listGitHubIssueTypesBySlug.bind(this.githubProjectCommands)
+  resolveGitHubProjectRef: RuntimeGithubProjectCommands['resolveGitHubProjectRef'] =
+    this.githubProjectCommands.resolveGitHubProjectRef.bind(this.githubProjectCommands)
+  listGitHubProjectViews: RuntimeGithubProjectCommands['listGitHubProjectViews'] =
+    this.githubProjectCommands.listGitHubProjectViews.bind(this.githubProjectCommands)
+  getGitHubProjectViewTable: RuntimeGithubProjectCommands['getGitHubProjectViewTable'] =
+    this.githubProjectCommands.getGitHubProjectViewTable.bind(this.githubProjectCommands)
+  getGitHubProjectWorkItemDetailsBySlug: RuntimeGithubProjectCommands['getGitHubProjectWorkItemDetailsBySlug'] =
+    this.githubProjectCommands.getGitHubProjectWorkItemDetailsBySlug.bind(
+      this.githubProjectCommands
     )
-  }
+  updateGitHubProjectItemField: RuntimeGithubProjectCommands['updateGitHubProjectItemField'] =
+    this.githubProjectCommands.updateGitHubProjectItemField.bind(this.githubProjectCommands)
+  clearGitHubProjectItemField: RuntimeGithubProjectCommands['clearGitHubProjectItemField'] =
+    this.githubProjectCommands.clearGitHubProjectItemField.bind(this.githubProjectCommands)
+  updateGitHubIssueBySlug: RuntimeGithubProjectCommands['updateGitHubIssueBySlug'] =
+    this.githubProjectCommands.updateGitHubIssueBySlug.bind(this.githubProjectCommands)
+  updateGitHubPullRequestBySlug: RuntimeGithubProjectCommands['updateGitHubPullRequestBySlug'] =
+    this.githubProjectCommands.updateGitHubPullRequestBySlug.bind(this.githubProjectCommands)
+  updateGitHubIssueTypeBySlug: RuntimeGithubProjectCommands['updateGitHubIssueTypeBySlug'] =
+    this.githubProjectCommands.updateGitHubIssueTypeBySlug.bind(this.githubProjectCommands)
+  addGitHubIssueCommentBySlug: RuntimeGithubProjectCommands['addGitHubIssueCommentBySlug'] =
+    this.githubProjectCommands.addGitHubIssueCommentBySlug.bind(this.githubProjectCommands)
+  updateGitHubIssueCommentBySlug: RuntimeGithubProjectCommands['updateGitHubIssueCommentBySlug'] =
+    this.githubProjectCommands.updateGitHubIssueCommentBySlug.bind(this.githubProjectCommands)
+  deleteGitHubIssueCommentBySlug: RuntimeGithubProjectCommands['deleteGitHubIssueCommentBySlug'] =
+    this.githubProjectCommands.deleteGitHubIssueCommentBySlug.bind(this.githubProjectCommands)
 
-  linearTeamStates(teamId: string, workspaceId?: string): ReturnType<typeof getLinearTeamStates> {
-    return getLinearTeamStates(teamId, workspaceId)
-  }
+  private readonly jiraCommands = new RuntimeJiraCommands()
 
-  linearTeamLabels(teamId: string, workspaceId?: string): ReturnType<typeof getLinearTeamLabels> {
-    return getLinearTeamLabels(teamId, workspaceId)
-  }
-
-  linearTeamMembers(teamId: string, workspaceId?: string): ReturnType<typeof getLinearTeamMembers> {
-    return getLinearTeamMembers(teamId, workspaceId)
-  }
-
-  // ── Jira integration ──
-
-  jiraConnect(args: JiraConnectArgs): ReturnType<typeof connectJira> {
-    return connectJira(args)
-  }
-
-  jiraDisconnect(siteId?: string): { ok: true } {
-    disconnectJira(siteId)
-    return { ok: true }
-  }
-
-  jiraSelectSite(siteId: JiraSiteSelection): ReturnType<typeof getJiraStatus> {
-    return selectJiraSite(siteId)
-  }
-
-  jiraStatus(): ReturnType<typeof getJiraStatus> {
-    return getJiraStatus()
-  }
-
-  jiraReadStatus(): ReturnType<typeof getJiraStatus> {
-    return getJiraStatus()
-  }
-
-  jiraTestConnection(siteId?: string): ReturnType<typeof testJiraConnection> {
-    return testJiraConnection(siteId)
-  }
-
-  jiraSearchIssues(
-    jql: string,
-    limit = 30,
-    siteId?: JiraSiteSelection,
-    signal?: AbortSignal
-  ): ReturnType<typeof searchJiraIssues> {
-    return searchJiraIssues(jql, Math.min(Math.max(1, limit), 100), siteId, signal)
-  }
-
-  jiraListIssues(
-    filter?: JiraIssueFilter,
-    limit = 30,
-    siteId?: JiraSiteSelection
-  ): ReturnType<typeof listJiraIssues> {
-    return listJiraIssues(filter, Math.min(Math.max(1, limit), 100), siteId)
-  }
-
-  jiraCreateIssue(args: JiraCreateIssueArgs): ReturnType<typeof createJiraIssue> {
-    return createJiraIssue(args)
-  }
-
-  jiraGetIssue(key: string, siteId?: string): ReturnType<typeof getJiraIssue> {
-    return getJiraIssue(key, siteId)
-  }
-
-  jiraLookupIssueSummary(
-    key: string,
-    siteId: string,
-    signal?: AbortSignal
-  ): ReturnType<typeof getJiraIssueSummary> {
-    return getJiraIssueSummary(key, siteId, signal)
-  }
-
-  jiraUpdateIssue(
-    key: string,
-    updates: JiraIssueUpdate,
-    siteId?: string
-  ): ReturnType<typeof updateJiraIssue> {
-    return updateJiraIssue(key, updates, siteId)
-  }
-
-  jiraAddIssueComment(
-    key: string,
-    body: string,
-    siteId?: string
-  ): ReturnType<typeof addJiraIssueComment> {
-    return addJiraIssueComment(key, body, siteId)
-  }
-
-  jiraIssueComments(key: string, siteId?: string): ReturnType<typeof getJiraIssueComments> {
-    return getJiraIssueComments(key, siteId)
-  }
-
-  jiraListProjects(siteId?: JiraSiteSelection): ReturnType<typeof listJiraProjects> {
-    return listJiraProjects(siteId)
-  }
-
-  jiraListIssueTypes(
-    projectIdOrKey: string,
-    siteId?: string
-  ): ReturnType<typeof listJiraIssueTypes> {
-    return listJiraIssueTypes(projectIdOrKey, siteId)
-  }
-
-  jiraListCreateFields(
-    projectIdOrKey: string,
-    issueTypeId: string,
-    siteId?: string
-  ): ReturnType<typeof listJiraCreateFields> {
-    return listJiraCreateFields(projectIdOrKey, issueTypeId, siteId)
-  }
-
-  jiraListPriorities(siteId?: string): ReturnType<typeof listJiraPriorities> {
-    return listJiraPriorities(siteId)
-  }
-
-  jiraListAssignableUsers(
-    key: string,
-    query?: string,
-    siteId?: string
-  ): ReturnType<typeof listJiraAssignableUsers> {
-    return listJiraAssignableUsers(key, query, siteId)
-  }
-
-  jiraListTransitions(key: string, siteId?: string): ReturnType<typeof listJiraTransitions> {
-    return listJiraTransitions(key, siteId)
-  }
-
-  jiraGetProjectStatusOrder(
-    projectKey: string,
-    siteId?: string
-  ): ReturnType<typeof getJiraProjectStatusOrder> {
-    return getJiraProjectStatusOrder(projectKey, siteId)
-  }
+  jiraConnect: RuntimeJiraCommands['jiraConnect'] = this.jiraCommands.jiraConnect.bind(
+    this.jiraCommands
+  )
+  jiraDisconnect: RuntimeJiraCommands['jiraDisconnect'] = this.jiraCommands.jiraDisconnect.bind(
+    this.jiraCommands
+  )
+  jiraSelectSite: RuntimeJiraCommands['jiraSelectSite'] = this.jiraCommands.jiraSelectSite.bind(
+    this.jiraCommands
+  )
+  jiraStatus: RuntimeJiraCommands['jiraStatus'] = this.jiraCommands.jiraStatus.bind(
+    this.jiraCommands
+  )
+  jiraReadStatus: RuntimeJiraCommands['jiraReadStatus'] = this.jiraCommands.jiraReadStatus.bind(
+    this.jiraCommands
+  )
+  jiraTestConnection: RuntimeJiraCommands['jiraTestConnection'] =
+    this.jiraCommands.jiraTestConnection.bind(this.jiraCommands)
+  jiraSearchIssues: RuntimeJiraCommands['jiraSearchIssues'] =
+    this.jiraCommands.jiraSearchIssues.bind(this.jiraCommands)
+  jiraListIssues: RuntimeJiraCommands['jiraListIssues'] = this.jiraCommands.jiraListIssues.bind(
+    this.jiraCommands
+  )
+  jiraCreateIssue: RuntimeJiraCommands['jiraCreateIssue'] = this.jiraCommands.jiraCreateIssue.bind(
+    this.jiraCommands
+  )
+  jiraGetIssue: RuntimeJiraCommands['jiraGetIssue'] = this.jiraCommands.jiraGetIssue.bind(
+    this.jiraCommands
+  )
+  jiraLookupIssueSummary: RuntimeJiraCommands['jiraLookupIssueSummary'] =
+    this.jiraCommands.jiraLookupIssueSummary.bind(this.jiraCommands)
+  jiraUpdateIssue: RuntimeJiraCommands['jiraUpdateIssue'] = this.jiraCommands.jiraUpdateIssue.bind(
+    this.jiraCommands
+  )
+  jiraAddIssueComment: RuntimeJiraCommands['jiraAddIssueComment'] =
+    this.jiraCommands.jiraAddIssueComment.bind(this.jiraCommands)
+  jiraIssueComments: RuntimeJiraCommands['jiraIssueComments'] =
+    this.jiraCommands.jiraIssueComments.bind(this.jiraCommands)
+  jiraListProjects: RuntimeJiraCommands['jiraListProjects'] =
+    this.jiraCommands.jiraListProjects.bind(this.jiraCommands)
+  jiraListIssueTypes: RuntimeJiraCommands['jiraListIssueTypes'] =
+    this.jiraCommands.jiraListIssueTypes.bind(this.jiraCommands)
+  jiraListCreateFields: RuntimeJiraCommands['jiraListCreateFields'] =
+    this.jiraCommands.jiraListCreateFields.bind(this.jiraCommands)
+  jiraListPriorities: RuntimeJiraCommands['jiraListPriorities'] =
+    this.jiraCommands.jiraListPriorities.bind(this.jiraCommands)
+  jiraListAssignableUsers: RuntimeJiraCommands['jiraListAssignableUsers'] =
+    this.jiraCommands.jiraListAssignableUsers.bind(this.jiraCommands)
+  jiraListTransitions: RuntimeJiraCommands['jiraListTransitions'] =
+    this.jiraCommands.jiraListTransitions.bind(this.jiraCommands)
+  jiraGetProjectStatusOrder: RuntimeJiraCommands['jiraGetProjectStatusOrder'] =
+    this.jiraCommands.jiraGetProjectStatusOrder.bind(this.jiraCommands)
 
   // ── Browser automation ──
 
@@ -34360,599 +32002,10 @@ const WAIT_BLOCKED_KEYWORD_CARRY_CHARS = 31
 export const AUTHORITATIVE_TERMINAL_SNAPSHOT_TIMEOUT_MS = 8_000
 const VISIBLE_TERMINAL_SNAPSHOT_TIMEOUT_MS = 750
 const VISIBLE_TERMINAL_SNAPSHOT_RETRY_MS = 1_000
-const WORKTREE_STATUS_PRIORITY: Record<RuntimeWorktreeStatus, number> = {
-  inactive: 0,
-  active: 1,
-  done: 2,
-  working: 3,
-  permission: 4
-}
 const DEFAULT_REPO_SEARCH_REFS_LIMIT = 25
 const DEFAULT_TERMINAL_LIST_LIMIT = 200
 const DEFAULT_WORKTREE_LIST_LIMIT = 200
 const DEFAULT_WORKTREE_PS_LIMIT = 200
 const DISCONNECTED_PTY_RECORD_MAX = 128
 const RESOLVED_WORKTREE_CACHE_TTL_MS = 1000
-const WORKTREE_SCAN_CACHE_TTL_MS = 30_000
-// Why: agent-scratch repos don't need 30s freshness — the steady-state scan
-// fan-out was measured at ~128 git execs/min on real installs, mostly against
-// these (crash-cluster diagnostics, 2026-07).
-const WORKTREE_SCAN_AGENT_SCRATCH_TTL_MS = 5 * 60_000
 const RESOLVED_WORKTREE_REPO_TIMEOUT_MS = 5000
-
-export function resolveWorktreeScanCacheTtlMs(repo: Pick<Repo, 'path' | 'connectionId'>): number {
-  return !repo.connectionId && isAgentScratchRepoRootPath(repo.path)
-    ? WORKTREE_SCAN_AGENT_SCRATCH_TTL_MS
-    : WORKTREE_SCAN_CACHE_TTL_MS
-}
-const PTY_CONTROLLER_LIST_TIMEOUT_MS = 3000
-// Why: the renderer waits 15s; leave room for the verified failure response and release the spawn fence before its caller times out.
-const WORKTREE_TERMINAL_SLEEP_TIMEOUT_MS = 12_000
-
-async function waitForWorktreeTerminalMutation(
-  previous: Promise<void>,
-  deadline?: number
-): Promise<void> {
-  if (deadline === undefined) {
-    await previous
-    return
-  }
-  const remainingMs = deadline - Date.now()
-  if (remainingMs <= 0) {
-    throw new Error('terminal_worktree_sleep_timeout')
-  }
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  try {
-    await Promise.race([
-      previous,
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new Error('terminal_worktree_sleep_timeout')),
-          remainingMs
-        )
-      })
-    ])
-  } finally {
-    if (timeout !== undefined) {
-      clearTimeout(timeout)
-    }
-  }
-}
-
-// Why: listener fan-out is best-effort delivery. One subscriber throwing synchronously — e.g. a
-// paired-client relay whose stream is closed — must never abort the emitting operation or leak
-// state (a lock/mutation) the caller holds across the emit. Isolate every listener and log.
-function notifyRuntimeListeners<L>(
-  listeners: Iterable<L>,
-  deliver: (listener: L) => void,
-  context: string
-): void {
-  for (const listener of listeners) {
-    try {
-      deliver(listener)
-    } catch (error) {
-      console.error(`[runtime] ${context} listener threw`, error)
-    }
-  }
-}
-// Why (§3.3): 30s freshness window reuses a recent fetch for repeat create/dispatch on the same repo+remote; short enough a changed remote is seen next action.
-const FETCH_FRESHNESS_MS = 30_000
-// Why: bound fetches so a Windows credential-manager GUI hang (STA-1292) can't wedge worktree creation; parity with the exact-base refresh sibling.
-const REMOTE_FETCH_TIMEOUT_MS = 60_000
-const REMOTE_FETCH_CACHE_MAX = 512
-const DRIFT_PROBE_SUBJECT_LIMIT = 5
-
-function setBoundedMapEntry<K, V>(map: Map<K, V>, key: K, value: V, maxEntries: number): void {
-  if (map.has(key)) {
-    map.delete(key)
-  }
-  map.set(key, value)
-  while (map.size > maxEntries) {
-    const oldest = map.keys().next()
-    if (oldest.done) {
-      return
-    }
-    map.delete(oldest.value)
-  }
-}
-
-function getExplicitWorktreeIdSelector(selector: string | undefined): string | null {
-  if (!selector?.startsWith('id:')) {
-    return null
-  }
-  const id = selector.slice(3)
-  return id.length > 0 ? id : null
-}
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | null = null
-  return new Promise<T>((resolve) => {
-    timeout = setTimeout(() => resolve(fallback), timeoutMs)
-    promise.then(
-      (value) => resolve(value),
-      () => resolve(fallback)
-    )
-  }).finally(() => {
-    if (timeout) {
-      clearTimeout(timeout)
-    }
-  })
-}
-
-function withTimeoutResult<T>(
-  promise: Promise<T>,
-  timeoutMs: number
-): Promise<{ ok: true; value: T } | { ok: false }> {
-  return withTimeout(
-    promise.then((value) => ({ ok: true, value }) as const),
-    timeoutMs,
-    {
-      ok: false
-    }
-  )
-}
-
-function branchSelectorMatches(branch: string, selector: string): boolean {
-  // Why: Git can report a local branch as `refs/heads/foo` or `foo` depending on the plumbing path; accept either.
-  return normalizeLocalBranchName(branch) === normalizeLocalBranchName(selector)
-}
-
-function runtimePathsEqual(left: string, right: string): boolean {
-  return normalizeRuntimePathForComparison(left) === normalizeRuntimePathForComparison(right)
-}
-
-function runtimeWorktreeIdsEqual(left: string, right: string): boolean {
-  const parsedLeft = splitWorktreeIdForFilesystem(left)
-  const parsedRight = splitWorktreeIdForFilesystem(right)
-  return parsedLeft && parsedRight
-    ? parsedLeft.repoId === parsedRight.repoId &&
-        runtimePathsEqual(parsedLeft.worktreePath, parsedRight.worktreePath)
-    : left === right
-}
-
-function runtimeWorktreeIdentityKey(worktreeId: string): string {
-  const parsed = splitWorktreeIdForFilesystem(worktreeId)
-  return parsed
-    ? `${parsed.repoId}\0${normalizeRuntimePathForComparison(parsed.worktreePath)}`
-    : worktreeId
-}
-
-function resolveTerminalSessionWorktreeId(
-  session: WorkspaceSessionState,
-  targetWorktreeId: string
-): string | null {
-  const keyedWorktreeIds = new Set([
-    ...Object.keys(session.tabsByWorktree),
-    ...Object.keys(session.tabGroups ?? {}),
-    ...Object.keys(session.tabGroupLayouts ?? {}),
-    ...Object.keys(session.activeTabIdByWorktree ?? {}),
-    ...Object.keys(session.activeGroupIdByWorktree ?? {})
-  ])
-  const matches = [...keyedWorktreeIds].filter((worktreeId) =>
-    runtimeWorktreeIdsEqual(worktreeId, targetWorktreeId)
-  )
-  return matches.length > 1 ? null : (matches[0] ?? targetWorktreeId)
-}
-
-function canonicalizeTerminalSessionWorktreeId(
-  session: WorkspaceSessionState,
-  sourceWorktreeId: string,
-  targetWorktreeId: string
-): void {
-  if (sourceWorktreeId === targetWorktreeId) {
-    return
-  }
-  const tabs = session.tabsByWorktree[sourceWorktreeId] ?? []
-  delete session.tabsByWorktree[sourceWorktreeId]
-  session.tabsByWorktree[targetWorktreeId] = tabs.map((tab) => ({
-    ...tab,
-    worktreeId: targetWorktreeId
-  }))
-
-  const groups = session.tabGroups?.[sourceWorktreeId]
-  if (groups) {
-    delete session.tabGroups![sourceWorktreeId]
-    session.tabGroups![targetWorktreeId] = groups.map((group) => ({
-      ...group,
-      worktreeId: targetWorktreeId
-    }))
-  }
-  for (const keyedState of [
-    session.tabGroupLayouts,
-    session.activeTabIdByWorktree,
-    session.activeGroupIdByWorktree
-  ]) {
-    if (!keyedState || !Object.hasOwn(keyedState, sourceWorktreeId)) {
-      continue
-    }
-    keyedState[targetWorktreeId] = keyedState[sourceWorktreeId] as never
-    delete keyedState[sourceWorktreeId]
-  }
-}
-
-function inferWorktreeIdFromPtyId(ptyId: string): string | null {
-  return parsePtySessionId(ptyId).worktreeId
-}
-
-function indexPersistedPtyWorktreeBindings(
-  session: WorkspaceSessionState | null | undefined
-): ReadonlyMap<string, string> {
-  const worktreeIdByPtyId = new Map<string, string>()
-  const ambiguousPtyIds = new Set<string>()
-  const bind = (ptyId: string | null | undefined, worktreeId: string): void => {
-    if (!ptyId || ambiguousPtyIds.has(ptyId)) {
-      return
-    }
-    const existingWorktreeId = worktreeIdByPtyId.get(ptyId)
-    if (existingWorktreeId && existingWorktreeId !== worktreeId) {
-      // Why: a corrupt/stale duplicate binding must not attribute a live PTY to whichever workspace was visited first.
-      worktreeIdByPtyId.delete(ptyId)
-      ambiguousPtyIds.add(ptyId)
-      return
-    }
-    worktreeIdByPtyId.set(ptyId, worktreeId)
-  }
-
-  for (const [worktreeId, tabs] of Object.entries(session?.tabsByWorktree ?? {})) {
-    for (const tab of tabs) {
-      bind(tab.ptyId, worktreeId)
-      bind(session?.remoteSessionIdsByTabId?.[tab.id], worktreeId)
-      const layout = session?.terminalLayoutsByTabId[tab.id]
-      for (const ptyId of Object.values(layout?.ptyIdsByLeafId ?? {})) {
-        bind(ptyId, worktreeId)
-      }
-    }
-  }
-  return worktreeIdByPtyId
-}
-
-function indexPersistedPtySurfaceBindings(
-  session: WorkspaceSessionState | null | undefined
-): ReadonlyMap<
-  string,
-  { worktreeId: string; tabId: string; paneKey: string; incarnationId: string }
-> {
-  const bindingByPtyId = new Map<
-    string,
-    { worktreeId: string; tabId: string; paneKey: string; incarnationId: string }
-  >()
-  const ambiguousPtyIds = new Set<string>()
-  for (const [worktreeId, tabs] of Object.entries(session?.tabsByWorktree ?? {})) {
-    for (const tab of tabs) {
-      for (const [leafId, ptyId] of Object.entries(
-        session?.terminalLayoutsByTabId[tab.id]?.ptyIdsByLeafId ?? {}
-      )) {
-        if (!ptyId || ambiguousPtyIds.has(ptyId)) {
-          continue
-        }
-        const paneKey = makePaneKey(tab.id, leafId)
-        const incarnationId = session?.terminalPtyIncarnationsByPaneKey?.[paneKey]
-        if (!incarnationId) {
-          continue
-        }
-        const binding = { worktreeId, tabId: tab.id, paneKey, incarnationId }
-        const existing = bindingByPtyId.get(ptyId)
-        if (
-          existing &&
-          (existing.worktreeId !== worktreeId ||
-            existing.paneKey !== paneKey ||
-            existing.incarnationId !== incarnationId)
-        ) {
-          bindingByPtyId.delete(ptyId)
-          ambiguousPtyIds.add(ptyId)
-          continue
-        }
-        bindingByPtyId.set(ptyId, binding)
-      }
-    }
-  }
-  return bindingByPtyId
-}
-
-function setsEqual<T>(a: ReadonlySet<T>, b: ReadonlySet<T>): boolean {
-  if (a.size !== b.size) {
-    return false
-  }
-  for (const value of a) {
-    if (!b.has(value)) {
-      return false
-    }
-  }
-  return true
-}
-
-function parseRuntimeWorktreeId(
-  worktreeId: string
-): { repoId: string; worktreePath: string } | null {
-  const parsed = splitWorktreeId(worktreeId)
-  if (!parsed?.repoId) {
-    return null
-  }
-  if (!parsed.worktreePath) {
-    return null
-  }
-  return parsed
-}
-
-type RuntimeWorktreeSummaryPathCandidate = {
-  summary: RuntimeWorktreePsSummary
-  order: number
-}
-
-type RuntimeWorktreeSummaryPathIndex = {
-  platformByRepoId: ReadonlyMap<string, NodeJS.Platform>
-  posixAbsolute: Map<string, RuntimeWorktreeSummaryPathCandidate>
-  posixRelative: Map<string, RuntimeWorktreeSummaryPathCandidate>
-  windows: Map<string, RuntimeWorktreeSummaryPathCandidate>
-  windowsAbsolute: Map<string, RuntimeWorktreeSummaryPathCandidate>
-}
-
-function buildRuntimeWorktreeSummaryPathIndex(
-  summaries: ReadonlyMap<string, RuntimeWorktreePsSummary>,
-  resolvedWorktrees: readonly ResolvedWorktree[],
-  platformByRepoId: ReadonlyMap<string, NodeJS.Platform>
-): RuntimeWorktreeSummaryPathIndex {
-  const index: RuntimeWorktreeSummaryPathIndex = {
-    platformByRepoId,
-    posixAbsolute: new Map(),
-    posixRelative: new Map(),
-    windows: new Map(),
-    windowsAbsolute: new Map()
-  }
-  for (const [order, worktree] of resolvedWorktrees.entries()) {
-    const summary = summaries.get(worktree.id)
-    if (!summary) {
-      continue
-    }
-    const platform = platformByRepoId.get(worktree.repoId) ?? process.platform
-    const candidate = { summary, order }
-    if (isPosixAbsoluteRuntimeWorktreePath(worktree.path)) {
-      setFirstRuntimeWorktreePathCandidate(
-        index.posixAbsolute,
-        runtimeWorktreeSummaryPathKey(worktree.repoId, worktree.path, platform),
-        candidate
-      )
-      continue
-    }
-
-    const windowsKey = runtimeWorktreeSummaryPathKey(worktree.repoId, worktree.path, 'win32')
-    setFirstRuntimeWorktreePathCandidate(index.windows, windowsKey, candidate)
-    if (isWindowsAbsolutePathLike(worktree.path)) {
-      setFirstRuntimeWorktreePathCandidate(index.windowsAbsolute, windowsKey, candidate)
-    } else if (platform !== 'win32') {
-      setFirstRuntimeWorktreePathCandidate(
-        index.posixRelative,
-        runtimeWorktreeSummaryPathKey(worktree.repoId, worktree.path, platform),
-        candidate
-      )
-    }
-  }
-  return index
-}
-
-function findRuntimeWorktreeSummaryByPath(
-  index: RuntimeWorktreeSummaryPathIndex,
-  repoId: string,
-  worktreePath: string,
-  platform: NodeJS.Platform
-): RuntimeWorktreePsSummary | null {
-  if (isPosixAbsoluteRuntimeWorktreePath(worktreePath)) {
-    return (
-      index.posixAbsolute.get(runtimeWorktreeSummaryPathKey(repoId, worktreePath, platform))
-        ?.summary ?? null
-    )
-  }
-
-  const windowsKey = runtimeWorktreeSummaryPathKey(repoId, worktreePath, 'win32')
-  if (platform === 'win32' || isWindowsAbsolutePathLike(worktreePath)) {
-    return index.windows.get(windowsKey)?.summary ?? null
-  }
-
-  const posixCandidate = index.posixRelative.get(
-    runtimeWorktreeSummaryPathKey(repoId, worktreePath, platform)
-  )
-  const windowsCandidate = index.windowsAbsolute.get(windowsKey)
-  // Why: a malformed path can match both the POSIX and Windows indexes; keep the old pairwise scan's first-match order.
-  if (!posixCandidate) {
-    return windowsCandidate?.summary ?? null
-  }
-  if (!windowsCandidate || posixCandidate.order < windowsCandidate.order) {
-    return posixCandidate.summary
-  }
-  return windowsCandidate.summary
-}
-
-function setFirstRuntimeWorktreePathCandidate(
-  candidates: Map<string, RuntimeWorktreeSummaryPathCandidate>,
-  key: string,
-  candidate: RuntimeWorktreeSummaryPathCandidate
-): void {
-  if (!candidates.has(key)) {
-    candidates.set(key, candidate)
-  }
-}
-
-function isPosixAbsoluteRuntimeWorktreePath(worktreePath: string): boolean {
-  return worktreePath.startsWith('/') && !worktreePath.startsWith('//')
-}
-
-function runtimeWorktreeSummaryPathKey(
-  repoId: string,
-  worktreePath: string,
-  platform: NodeJS.Platform
-): string {
-  return `${repoId}\0${worktreePathComparisonKey(worktreePath, platform)}`
-}
-
-function includeTargetResolvedWorktree(
-  resolvedWorktrees: ResolvedWorktree[],
-  targetWorktree: ResolvedWorktree | null
-): ResolvedWorktree[] {
-  if (!targetWorktree || resolvedWorktrees.some((worktree) => worktree.id === targetWorktree.id)) {
-    return resolvedWorktrees
-  }
-  return [...resolvedWorktrees, targetWorktree]
-}
-
-function findResolvedWorktreeIdForPath(
-  resolvedWorktrees: ResolvedWorktree[],
-  cwd: string
-): string | null {
-  if (!cwd) {
-    return null
-  }
-  const matches = resolvedWorktrees
-    .filter((worktree) => isPathInsideOrEqual(worktree.path, cwd))
-    .sort((left, right) => right.path.length - left.path.length)
-  return matches[0]?.id ?? null
-}
-
-function getLeafWorktreeStatus(
-  leaf: RuntimeLeafRecord,
-  tabTitle: string | null
-): RuntimeWorktreeStatus {
-  // Why: recompute from the live title each call (no sticky state) so worktree.ps mirrors the desktop sidebar's getWorktreeStatus.
-  const titleCandidates = [
-    { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
-    { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt },
-    { title: tabTitle, updatedAt: 0 }
-  ]
-  const latestTitle = getLatestAgentCandidateTitle(...titleCandidates)
-  const detected = latestTitle ? detectAgentStatusFromTitle(latestTitle) : leaf.lastAgentStatus
-  return getDetectedWorktreeStatus(detected, leaf.ptyId !== null)
-}
-
-function classifyLatestAgentTitle(
-  ...titles: { title: string | null | undefined; updatedAt: number | null | undefined }[]
-): 'agent' | 'management' | 'neutral' {
-  return classifyAgentTitle(getLatestAgentCandidateTitle(...titles))
-}
-
-function getLatestPtyTitle(pty: RuntimePtyWorktreeRecord): string | null {
-  return getLatestAgentCandidateTitle(
-    { title: pty.title, updatedAt: pty.titleUpdatedAt },
-    { title: pty.lastOscTitle, updatedAt: pty.lastOscTitleAt }
-  )
-}
-
-function getLatestLeafTitle(leaf: RuntimeLeafRecord, tabTitle: string | null): string | null {
-  return getLatestAgentCandidateTitle(
-    { title: leaf.paneTitle, updatedAt: leaf.paneTitleUpdatedAt },
-    { title: leaf.lastOscTitle, updatedAt: leaf.lastOscTitleAt },
-    { title: tabTitle, updatedAt: 0 }
-  )
-}
-
-function classifyAgentTitle(title: string | null): 'agent' | 'management' | 'neutral' {
-  if (!title) {
-    return 'neutral'
-  }
-  if (isClaudeManagementTitle(title)) {
-    return 'management'
-  }
-  return detectAgentStatusFromTitle(title) !== null ? 'agent' : 'neutral'
-}
-
-function terminalTitleBlocksExplicitAgentStatus(title: string | null): boolean {
-  if (!title) {
-    return false
-  }
-  return isClaudeManagementTitle(title) || isShellProcess(title)
-}
-
-function getLatestAgentCandidateTitle(
-  ...titles: { title: string | null | undefined; updatedAt: number | null | undefined }[]
-): string | null {
-  return getLatestAgentCandidateTitleInfo(...titles)?.title ?? null
-}
-
-function getLatestAgentCandidateTitleInfo(
-  ...titles: { title: string | null | undefined; updatedAt: number | null | undefined }[]
-): { title: string; updatedAt: number } | null {
-  let latest: { title: string; updatedAt: number } | null = null
-  for (const candidate of titles) {
-    const title = candidate.title?.trim()
-    if (!title) {
-      continue
-    }
-    const updatedAt = candidate.updatedAt ?? 0
-    if (!latest || updatedAt > latest.updatedAt) {
-      latest = { title, updatedAt }
-    }
-  }
-  return latest
-}
-
-function getSavedTabWorktreeStatus(title: string, hasPty: boolean): RuntimeWorktreeStatus {
-  return getDetectedWorktreeStatus(detectAgentStatusFromTitle(title), hasPty)
-}
-
-function getDetectedWorktreeStatus(
-  detected: AgentStatus | null,
-  hasPty: boolean
-): RuntimeWorktreeStatus {
-  if (detected === 'permission') {
-    return 'permission'
-  }
-  if (detected === 'working') {
-    return 'working'
-  }
-  return hasPty ? 'active' : 'inactive'
-}
-
-function mapExplicitAgentStateToRuntimeTerminalStatus(
-  state: AgentStatusEntry['state']
-): NonNullable<RuntimeTerminalAgentStatus['status']> {
-  switch (state) {
-    case 'blocked':
-    case 'waiting':
-      return 'permission'
-    case 'working':
-      return 'working'
-    case 'done':
-      return 'idle'
-  }
-}
-
-function mergeWorktreeStatus(
-  current: RuntimeWorktreeStatus,
-  next: RuntimeWorktreeStatus
-): RuntimeWorktreeStatus {
-  return WORKTREE_STATUS_PRIORITY[next] > WORKTREE_STATUS_PRIORITY[current] ? next : current
-}
-
-function maxTimestamp(left: number | null, right: number | null): number | null {
-  if (left === null) {
-    return right
-  }
-  if (right === null) {
-    return left
-  }
-  return Math.max(left, right)
-}
-
-function compareWorktreePs(
-  left: RuntimeWorktreePsSummary,
-  right: RuntimeWorktreePsSummary
-): number {
-  // Pinned and unread worktrees sort above others so they survive truncation.
-  if (left.isPinned !== right.isPinned) {
-    return left.isPinned ? -1 : 1
-  }
-  if (left.unread !== right.unread) {
-    return left.unread ? -1 : 1
-  }
-  // Why: worktree.ps is truncated for mobile, so host-visible activity must sort above inactive rows.
-  if (left.hasHostSidebarActivity !== right.hasHostSidebarActivity) {
-    return left.hasHostSidebarActivity ? -1 : 1
-  }
-  const leftLast = left.lastOutputAt ?? -1
-  const rightLast = right.lastOutputAt ?? -1
-  if (leftLast !== rightLast) {
-    return rightLast - leftLast
-  }
-  if (left.liveTerminalCount !== right.liveTerminalCount) {
-    return right.liveTerminalCount - left.liveTerminalCount
-  }
-  return left.path.localeCompare(right.path)
-}
