@@ -19,11 +19,10 @@
 //   warm  — tab revealed before the park delay elapses (hot-retain hit)
 //   off   — parking disabled entirely (kill switch), reveal after the same idle
 
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
   collectRendererDiagnostics,
@@ -34,14 +33,17 @@ import {
   stopDevApp,
   waitForStoreReady
 } from '../../config/scripts/windows-apphang-repro/electron-dev-session.mjs'
-import { createCompletedOnboardingProfile } from '../../config/scripts/windows-apphang-repro/wsl-workspace-fixture.mjs'
 import {
   pollUntil,
   rendererActionTimeoutMs,
-  runWithTimeout,
-  setupTimeoutMs
+  runWithTimeout
 } from '../../config/scripts/windows-apphang-repro/repro-timing.mjs'
 import { safeRemoveLocalDirectory } from '../../config/scripts/windows-apphang-repro/wsl-workspace-fixture.mjs'
+import {
+  createLocalRepoFixture,
+  createShortUserDataDirectory,
+  setupWorkspaces
+} from './terminal-cold-park-fixture.mjs'
 
 const rootDir = path.resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const scenarioTimeoutMs = 300_000
@@ -77,92 +79,6 @@ function parseArgs() {
     }
   }
   return args
-}
-
-// Why: the daemon binds a Unix socket at <userData>/daemon/daemon-v20.sock.
-// macOS sun_path caps at ~104 chars; the default os.tmpdir() (/var/folders/…)
-// blows past it, the daemon fails EINVAL, terminals fall back to non-snapshot
-// PTYs, and cold parking (snapshot-backed only) can never engage. Root the
-// userData + fixture under a short ~/.ocpb path so the socket fits.
-const shortRoot = path.join(os.homedir(), '.ocpb')
-
-function createShortUserDataDirectory() {
-  mkdirSync(shortRoot, { recursive: true })
-  const userDataDir = mkdtempSync(path.join(shortRoot, 'ud-'))
-  createCompletedOnboardingProfile(userDataDir)
-  return userDataDir
-}
-
-function git(cwd, ...cmd) {
-  execFileSync('git', cmd, { cwd, stdio: 'pipe' })
-}
-
-function createLocalRepoFixture() {
-  mkdirSync(shortRoot, { recursive: true })
-  const baseDir = mkdtempSync(path.join(shortRoot, 'fx-'))
-  const repoPath = path.join(baseDir, 'repo')
-  mkdirSync(repoPath, { recursive: true })
-  git(repoPath, 'init', '--initial-branch=main')
-  git(repoPath, 'config', 'user.email', 'bench@orca.local')
-  git(repoPath, 'config', 'user.name', 'Orca Bench')
-  writeFileSync(path.join(repoPath, 'README.md'), '# cold-park fixture\n')
-  git(repoPath, 'add', '.')
-  git(repoPath, 'commit', '-m', 'init', '--no-gpg-sign')
-  const worktreePaths = []
-  for (const name of ['wt-one', 'wt-two']) {
-    const worktreePath = path.join(baseDir, name)
-    git(repoPath, 'worktree', 'add', worktreePath, '-b', name)
-    worktreePaths.push(worktreePath)
-  }
-  return { baseDir, repoPath, worktreePaths }
-}
-
-async function setupWorkspaces(page, fixture) {
-  return await runWithTimeout(
-    'fixture registration in Orca',
-    () =>
-      page.evaluate(
-        async ({ repoPath, importedWorktreePaths }) => {
-          const store = window.__store
-          if (!store) {
-            throw new Error('window.__store is unavailable.')
-          }
-          await store.getState().fetchSettings?.()
-          const addResult = await window.api.repos.add({ path: repoPath, kind: 'git' })
-          if ('error' in addResult) {
-            throw new Error(addResult.error)
-          }
-          await store.getState().fetchRepos()
-          const state = store.getState()
-          const repo = state.repos.find((c) => c.path === repoPath) ?? addResult.repo
-          await state.updateRepo(repo.id, {
-            externalWorktreeVisibility: 'show',
-            externalWorktreeVisibilityPromptDismissedAt: Date.now(),
-            importedExternalWorktreePaths: importedWorktreePaths,
-            externalWorktreeInboxBaselinePaths: importedWorktreePaths
-          })
-          await store.getState().fetchWorktrees(repo.id, { requireAuthoritative: true })
-          const nextState = store.getState()
-          nextState.setSidebarOpen(true)
-          nextState.setGroupBy('none')
-          nextState.setSortBy('recent')
-          nextState.setShowActiveOnly(false)
-          nextState.setActiveView('terminal')
-          const worktrees = nextState.worktreesByRepo[repo.id] ?? []
-          return {
-            repoId: repo.id,
-            worktrees: worktrees.map((w) => ({
-              id: w.id,
-              path: w.path,
-              displayName: w.displayName,
-              isMainWorktree: w.isMainWorktree
-            }))
-          }
-        },
-        { repoPath: fixture.repoPath, importedWorktreePaths: fixture.worktreePaths }
-      ),
-    setupTimeoutMs
-  )
 }
 
 async function clickWorktreeCard(page, worktreeId) {
