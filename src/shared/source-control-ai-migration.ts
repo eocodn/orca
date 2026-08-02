@@ -2,6 +2,7 @@ import type { CommitMessageAiSettings, TuiAgent } from './types'
 import type { SourceControlAiSettings, SourceControlActionRecipe } from './source-control-ai-types'
 import {
   DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
+  SOURCE_CONTROL_ACTION_IDS,
   readSourceControlActionDefault,
   type SourceControlActionId
 } from './source-control-ai-actions'

@@ -10,7 +10,7 @@ export function agentTabActionId(agent: TuiAgent): AgentTabActionId {
 }
 
 // Why: one bindable action per agent; all ship unassigned since tab.newAgent covers the default, and Settings hides disabled agents.
-function buildAgentTabKeybindingDefinitions(): KeybindingDefinition[] {
+export function buildAgentTabKeybindingDefinitions(): KeybindingDefinition[] {
   return ALL_TUI_AGENTS.map((agent) => ({
     id: agentTabActionId(agent),
     title: `New ${TUI_AGENT_DISPLAY_NAMES[agent]} tab`,

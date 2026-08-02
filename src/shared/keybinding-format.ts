@@ -1,11 +1,9 @@
-import type { KeybindingActionId, KeybindingDefinition, KeybindingPlatform, ModifierToken, ParsedKeybinding } from "./keybinding-contract"
-import { DEFINITIONS_BY_ID, DIGIT_INDEX_ACTION_IDS, getKeybindingPlatform } from "./keybinding-registry"
-import { parseKeybinding } from "./keybinding-parser"
-import { keybindingMatchesInput, keybindingConflictIdentityForParsed } from "./keybinding-matching"
-
-  }
-  return null
-}
+import type { FindKeybindingConflictOptions, KeybindingActionId, KeybindingConflict, KeybindingDefinition, KeybindingOverrides, KeybindingScope, ModifierToken } from "./keybinding-contract"
+import { KEYBINDING_DEFINITIONS } from "./keybinding-definitions"
+import { isDigitIndexActionId, isKeybindingActionId } from "./keybinding-registry"
+import { isDoubleTapBinding, parseKeybinding } from "./keybinding-parser"
+import { getEffectiveKeybindingsForAction, getEffectiveKeybindingsForDefinition } from "./keybinding-input"
+import { getKeybindingConflictIdentity, keybindingConflictIdentities } from "./keybinding-matching"
 
 function formatModifierGlyph(modifier: ModifierToken, isMac: boolean): string {
   switch (modifier) {
@@ -190,3 +188,10 @@ export function findKeybindingConflictsForDefinitions(
 }
 
 function setIntersects<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): boolean {
+  for (const value of left) {
+    if (right.has(value)) {
+      return true
+    }
+  }
+  return false
+}

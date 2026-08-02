@@ -1,3 +1,5 @@
+import { iterateNulDelimitedFields } from './nul-delimited-fields'
+
 export const GIT_CHECK_IGNORE_TIMEOUT_MS = 15_000
 export const GIT_CHECK_IGNORE_STDIN_CHUNK_BYTES = 1024 * 1024
 
@@ -46,4 +48,3 @@ export function parseGitCheckIgnorePaths(stdout: string): string[] {
   }
   return paths
 }
-import { iterateNulDelimitedFields } from './nul-delimited-fields'

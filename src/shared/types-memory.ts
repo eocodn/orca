@@ -103,3 +103,14 @@ export type HostMemory = {
 }
 
 export type MemorySnapshot = {
+  app: AppMemory
+  worktrees: WorktreeMemory[]
+  host: HostMemory
+  /** Per-process byte metric used by app, session, worktree, history, and totalMemory values. */
+  processMemoryMetric: ProcessMemoryMetric
+  /** Sum of app + all tracked worktree sessions. Percent of a single core, so may exceed 100 on multi-core machines. */
+  totalCpu: number
+  /** Sum of per-process samples. Shared pages may repeat, so this can exceed host.totalMemory. */
+  totalMemory: number
+  collectedAt: number
+}

@@ -1,7 +1,7 @@
-import type { KeybindingActionId, KeybindingValidationResult, NormalizeKeybindingOptions, ParsedKeybinding } from "./keybinding-contract"
+import type { KeybindingActionId, KeybindingInput, KeybindingValidationResult, ModifierToken, NormalizeKeybindingOptions, ParsedKeybinding } from "./keybinding-contract"
 import { DEFINITIONS_BY_ID, DIGIT_INDEX_KEY_PATTERN, isDigitIndexActionId } from "./keybinding-registry"
 
-function hasModifier(
+export function hasModifier(
   input: KeybindingInput,
   modifier: 'alt' | 'meta' | 'control' | 'shift'
 ): boolean {
@@ -21,7 +21,7 @@ function isFunctionKeyToken(key: string): boolean {
   return /^F([1-9]|1[0-9]|2[0-4])$/.test(key)
 }
 
-function normalizeKeyToken(token: string): string | null {
+export function normalizeKeyToken(token: string): string | null {
   if (token === ' ') {
     return 'Space'
   }
@@ -350,7 +350,7 @@ function normalizeKeybindingArrayWithOptions(
   return normalized
 }
 
-function normalizeOptionsForAction(actionId: KeybindingActionId): NormalizeKeybindingOptions {
+export function normalizeOptionsForAction(actionId: KeybindingActionId): NormalizeKeybindingOptions {
   const definition = DEFINITIONS_BY_ID.get(actionId)
   return {
     allowBareKeybindings: definition?.allowBareKeybindings === true,
@@ -359,7 +359,7 @@ function normalizeOptionsForAction(actionId: KeybindingActionId): NormalizeKeybi
 }
 
 // Why: rewrite a digit-index chord's key to 1 so display and conflict detection stay stable across the 1-9 range; reject any non 1-9 key.
-function canonicalizeDigitIndexBinding(binding: string): KeybindingValidationResult {
+export function canonicalizeDigitIndexBinding(binding: string): KeybindingValidationResult {
   const parsed = parseKeybinding(binding)
   if (!parsed || parsed.doubleTapModifier || !DIGIT_INDEX_KEY_PATTERN.test(parsed.key)) {
     return {
@@ -409,5 +409,3 @@ export function normalizeKeybindingArrayForAction(
     normalizeKeybindingArrayWithOptions(input, normalizeOptionsForAction(actionId))
   )
 }
-
-const MODIFIER_KEYS = new Set([

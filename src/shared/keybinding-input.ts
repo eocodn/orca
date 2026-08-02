@@ -1,6 +1,6 @@
-import type { KeybindingActionId, KeybindingInput, KeybindingPlatform, ModifierToken, ParsedKeybinding } from "./keybinding-contract"
-import { DEFINITIONS_BY_ID, DIGIT_INDEX_ACTION_IDS, DIGIT_INDEX_KEY_PATTERN, isDigitIndexActionId } from "./keybinding-registry"
-import { canonicalizeParsedKeybinding, parseKeybinding, normalizeKeybindingWithOptions } from "./keybinding-parser"
+import type { KeybindingActionId, KeybindingDefinition, KeybindingInput, KeybindingMatchOptions, KeybindingOverrides, KeybindingValidationResult, ModifierToken, NormalizeKeybindingOptions, PhysicalModifierToken, TerminalShortcutPolicy } from "./keybinding-contract"
+import { DEFINITIONS_BY_ID, DIGIT_INDEX_KEY_PATTERN, getKeybindingPlatform, isDigitIndexActionId } from "./keybinding-registry"
+import { canonicalizeDigitIndexBinding, canonicalizeParsedKeybinding, hasModifier, normalizeKeyToken, normalizeKeybindingWithOptions, normalizeOptionsForAction, parseKeybinding } from "./keybinding-parser"
 
 const MODIFIER_KEYS = new Set([
   'Alt',
@@ -17,7 +17,7 @@ const MODIFIER_KEYS = new Set([
   'SymbolLock'
 ])
 
-const PUNCTUATION_KEY_TOKENS = new Set([
+export const PUNCTUATION_KEY_TOKENS = new Set([
   'BracketLeft',
   'BracketRight',
   'Minus',
@@ -45,7 +45,7 @@ const SHIFTED_PUNCTUATION_KEY_TOKENS: Record<string, string> = {
   '~': 'Backquote'
 }
 
-function logicalKeyTokenFromInput(input: KeybindingInput): string | null {
+export function logicalKeyTokenFromInput(input: KeybindingInput): string | null {
   const key = input.key ?? ''
   if (MODIFIER_KEYS.has(key)) {
     return null
@@ -97,13 +97,13 @@ function shouldUseNonLatinShortcutPhysicalFallback(
   return key !== '' && !MODIFIER_KEYS.has(key) && !isLatinShortcutKey(key)
 }
 
-function canFallBackToPhysicalCode(input: KeybindingInput, platform: NodeJS.Platform): boolean {
+export function canFallBackToPhysicalCode(input: KeybindingInput, platform: NodeJS.Platform): boolean {
   return (
     canUsePhysicalCodeFallback(input) || shouldUseNonLatinShortcutPhysicalFallback(input, platform)
   )
 }
 
-function physicalCodeKeyTokenFromInput(input: KeybindingInput): string | null {
+export function physicalCodeKeyTokenFromInput(input: KeybindingInput): string | null {
   const code = input.code ?? ''
   if (code.startsWith('Key') && code.length === 4) {
     return code.slice(3).toUpperCase()
@@ -115,7 +115,7 @@ function physicalCodeKeyTokenFromInput(input: KeybindingInput): string | null {
   return normalizeKeyToken(code)
 }
 
-function numpadCodeKeyTokenFromInput(input: KeybindingInput): string | null {
+export function numpadCodeKeyTokenFromInput(input: KeybindingInput): string | null {
   const code = input.code ?? ''
   return code === 'NumpadAdd' || code === 'NumpadSubtract' ? normalizeKeyToken(code) : null
 }
@@ -321,4 +321,3 @@ export function keybindingIsActiveInContext(
   }
   return isKeybindingAllowedInTerminal(definition)
 }
-

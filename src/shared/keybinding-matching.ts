@@ -1,6 +1,16 @@
-import type { KeybindingInput, KeybindingPlatform, ModifierToken, ParsedKeybinding, KeybindingActionId } from "./keybinding-contract"
-import { getKeybindingPlatform } from "./keybinding-registry"
+import type { KeybindingActionId, KeybindingInput, KeybindingMatchOptions, KeybindingOverrides, ModifierToken, ParsedKeybinding } from "./keybinding-contract"
+import { DEFINITIONS_BY_ID, DIGIT_INDEX_KEY_PATTERN, getKeybindingPlatform, isDigitIndexActionId } from "./keybinding-registry"
 import { canonicalizeParsedKeybinding, parseKeybinding } from "./keybinding-parser"
+import {
+  PUNCTUATION_KEY_TOKENS,
+  canFallBackToPhysicalCode,
+  getEffectiveKeybindingsForAction,
+  hasModifier,
+  keybindingIsActiveInContext,
+  logicalKeyTokenFromInput,
+  numpadCodeKeyTokenFromInput,
+  physicalCodeKeyTokenFromInput
+} from "./keybinding-input"
 
 export function platformModifiers(
   parsed: ParsedKeybinding,
@@ -230,7 +240,7 @@ export function getKeybindingConflictIdentity(binding: string, platform: NodeJS.
   return parsed ? keybindingConflictIdentityForParsed(parsed, platform) : binding
 }
 
-function keybindingConflictIdentities(
+export function keybindingConflictIdentities(
   actionId: KeybindingActionId,
   binding: string,
   platform: NodeJS.Platform
@@ -302,3 +312,6 @@ export function matchKeybindingDigitIndex(
     if (keybindingMatchesInput(candidate, input, platform)) {
       return Number(digit) - 1
     }
+  }
+  return null
+}

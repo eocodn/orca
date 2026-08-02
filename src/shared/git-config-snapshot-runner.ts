@@ -1,3 +1,5 @@
+import { iterateNulDelimitedFields } from './nul-delimited-fields'
+
 type GitCommandRunner = (args: string[]) => Promise<{ stdout: string }>
 
 type GitConfigSnapshot = Map<string, string[]>
@@ -101,4 +103,3 @@ export function createGitConfigSnapshotRunner(runGit: GitCommandRunner): GitComm
     return { stdout: values.at(-1) ?? '' }
   }
 }
-import { iterateNulDelimitedFields } from './nul-delimited-fields'
