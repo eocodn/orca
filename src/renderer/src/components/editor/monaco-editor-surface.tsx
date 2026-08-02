@@ -4,7 +4,7 @@ import React, { useRef, useCallback, useEffect, useLayoutEffect, useMemo, useSta
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { toast } from 'sonner'
-import type { MarkdownDocument, DiffComment } from '../../../../shared/types'
+import type { DiffComment } from '../../../../shared/types'
 import { useAppStore } from '@/store'
 import { scrollTopCache, cursorPositionCache, setWithLRU } from '@/lib/scroll-cache'
 import '@/lib/monaco-setup'
@@ -66,33 +66,10 @@ import {
 import { installMonacoE2EProbe } from './monaco-e2e-probe'
 import { monacoFindOptions } from './monaco-find-options'
 import { matchesPendingEditorFocusRequest } from './pending-editor-focus-request'
-
-type MonacoEditorProps = {
-  fileId: string
-  filePath: string
-  viewStateKey: string
-  // Why: identifies the pane for explicit open focus handoffs; omit on surfaces that never receive one.
-  viewStateId?: string
-  relativePath: string
-  content: string
-  language: string
-  onContentChange: (content: string) => void
-  onSave: (content: string) => void
-  revealLine?: number
-  revealColumn?: number
-  revealMatchLength?: number
-  markdownDocuments?: MarkdownDocument[]
-  worktreeId?: string
-  markdownAnnotationsEnabled?: boolean
-  conflictDecorationsEnabled?: boolean
-  readOnly?: boolean
-  liveTail?: boolean
-  autoHeight?: boolean
-}
-
-type MarkdownCommentPopoverState = Omit<MonacoMarkdownSelectionAnnotationTarget, 'selectedText'> & {
-  selectedText?: string
-}
+import type {
+  MarkdownCommentPopoverState,
+  MonacoEditorProps
+} from './monaco-editor-contracts'
 
 export default function MonacoEditor({
   fileId,

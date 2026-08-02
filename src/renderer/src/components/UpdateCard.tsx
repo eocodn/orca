@@ -4,23 +4,13 @@ import { useAppStore } from '../store'
 import { Card } from './ui/card'
 import { Button } from './ui/button'
 import { Progress } from './ui/progress'
-import {
-  AlertCircle,
-  Check,
-  ChevronRight,
-  Loader2,
-  Minus,
-  Network,
-  RotateCw,
-  ShieldAlert,
-  X
-} from 'lucide-react'
+import { ChevronRight, Minus, Network, RotateCw, ShieldAlert, X } from 'lucide-react'
 import type { ChangelogData } from '../../../shared/types'
 import {
   isWindowsSignatureCheckUnavailableFailure,
   isWindowsSignatureMismatchFailure
 } from '../../../shared/updater-windows-signature-check'
-+import { translate } from '@/i18n/i18n'
+import { translate } from '@/i18n/i18n'
 import {
   DownloadingContent,
   ErrorCardContent,
@@ -28,6 +18,7 @@ import {
   RichCardContent,
   SimpleCardContent
 } from './update-card-content'
+import { UpdateCardCompactContent } from './update-card-compact-content'
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -68,52 +59,6 @@ type ErrorCardModel = {
     isPending?: boolean
     onClick: () => void
   }
-}
-
-// ── Compact card (transient check feedback) ─────────────────────────
-
-function CompactCardContent({
-  icon,
-  text,
-  onClose,
-  action
-}: {
-  icon: 'spinner' | 'check' | 'error'
-  text: string
-  onClose?: () => void
-  action?: { label: string; url: string }
-}) {
-  return (
-    <div className="flex items-center gap-3 p-3">
-      <div className="shrink-0 text-muted-foreground">
-        {icon === 'spinner' && <Loader2 className="size-4 animate-spin" />}
-        {icon === 'check' && <Check className="size-4" />}
-        {icon === 'error' && <AlertCircle className="size-4" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm truncate">{text}</p>
-        {action && (
-          <button
-            className="text-xs text-muted-foreground underline hover:text-foreground mt-0.5"
-            onClick={() => void window.api.shell.openUrl(action.url)}
-          >
-            {action.label}
-          </button>
-        )}
-      </div>
-      {onClose && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7 shrink-0"
-          onClick={onClose}
-          aria-label={translate('auto.components.UpdateCard.a726967bd3', 'Dismiss')}
-        >
-          <X className="size-3.5" />
-        </Button>
-      )}
-    </div>
-  )
 }
 
 // ── Main component ──────────────────────────────────────────────────
@@ -520,7 +465,7 @@ export function UpdateCard() {
 
     if (status.state === 'checking') {
       return (
-        <CompactCardContent
+          <UpdateCardCompactContent
           icon="spinner"
           text={translate('auto.components.UpdateCard.ba5ffc949c', 'Checking for updates...')}
         />
@@ -529,7 +474,7 @@ export function UpdateCard() {
 
     if (status.state === 'not-available') {
       return (
-        <CompactCardContent
+        <UpdateCardCompactContent
           icon="check"
           text={translate('auto.components.UpdateCard.ea2a41adbe', "You're on the latest version.")}
         />

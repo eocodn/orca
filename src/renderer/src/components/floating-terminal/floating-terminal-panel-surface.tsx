@@ -1,13 +1,9 @@
-// Concrete surface implementation for FloatingTerminalPanel.tsx
- * resizing, orchestration setup, and mixed terminal/browser/editor tab
- * handling in one surface so the floating worktree does not drift from the
- * main tab model while still keeping the DOM-mounted panes local. */
+// Concrete surface implementation for FloatingTerminalPanel.tsx.
+// Keeps mixed tab orchestration local to the floating worktree.
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { lazyWithRetry as lazy } from '@/lib/lazy-with-retry'
-import { FileText, Globe, Minus, TerminalSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import EmulatorPane from '@/components/emulator-pane/EmulatorPane'
-import { ShortcutKeyCombo } from '@/components/ShortcutKeyCombo'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import TabBar from '@/components/tab-bar/TabBar'
 import { resolveGroupTabFromVisibleId } from '@/components/tab-group/tab-group-visible-id'
@@ -18,7 +14,7 @@ import { isTerminalPaneCloseChord } from '@/components/terminal-pane/terminal-sh
 import { isTerminalImeInputContextRefreshing } from '@/components/terminal-pane/terminal-ime-input-context-refresh'
 import { Button } from '@/components/ui/button'
 import { useMountedRef } from '@/hooks/useMountedRef'
-import { useShortcutKeyDetails, type ShortcutKeyComboDetails } from '@/hooks/useShortcutLabel'
+import { useShortcutKeyDetails } from '@/hooks/useShortcutLabel'
 import {
   Dialog,
   DialogContent,
@@ -108,6 +104,7 @@ import {
   type FloatingTerminalPanelBoundsSource
 } from './floating-terminal-panel-bounds'
 import { translate } from '@/i18n/i18n'
+import { FloatingTerminalEmptyState } from './floating-terminal-empty-state'
 import { consumeFloatingTerminalOpenMaximizedIntent } from '@/lib/floating-terminal'
 import { selectFloatingTerminalPanelInputs } from './floating-terminal-panel-inputs'
 const LOCAL_RUNTIME_SETTINGS = { activeRuntimeEnvironmentId: null } as const
@@ -2065,138 +2062,5 @@ export function FloatingTerminalPanel({
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function FloatingTerminalEmptyState({
-  onNewTerminal,
-  onNewMarkdown,
-  onOpenMarkdown,
-  onNewBrowser,
-  onClose,
-  onFocusPanel,
-  newTerminalShortcut,
-  newBrowserShortcut,
-  newMarkdownShortcut,
-  openMarkdownShortcut,
-  closeShortcut
-}: {
-  onNewTerminal: () => void
-  onNewMarkdown: () => void
-  onOpenMarkdown: () => void
-  onNewBrowser: () => void
-  onClose: () => void
-  onFocusPanel: () => void
-  newTerminalShortcut: ShortcutKeyComboDetails
-  newBrowserShortcut: ShortcutKeyComboDetails
-  newMarkdownShortcut: ShortcutKeyComboDetails
-  openMarkdownShortcut: ShortcutKeyComboDetails
-  closeShortcut: ShortcutKeyComboDetails
-}): React.JSX.Element {
-  return (
-    <div
-      className="absolute inset-0 flex items-center justify-center"
-      data-floating-terminal-empty-state
-      data-floating-terminal-shortcut-surface
-      onPointerDown={onFocusPanel}
-    >
-      <div className="flex w-[360px] flex-col items-center gap-1.5" data-floating-terminal-no-drag>
-        <Button
-          type="button"
-          variant="ghost"
-          className="grid h-8 w-full grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md px-3 py-0 text-sm font-normal text-foreground hover:bg-muted/40 hover:text-foreground"
-          data-contextual-tour-target="floating-workspace-new-terminal"
-          onClick={onNewTerminal}
-        >
-          <TerminalSquare className="size-3.5 opacity-90" />
-          <span className="truncate text-left leading-none">
-            {translate(
-              'auto.components.floating.terminal.FloatingTerminalPanel.3215fc73e9',
-              'New Terminal'
-            )}
-          </span>
-          <FloatingEmptyStateShortcut shortcut={newTerminalShortcut} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="grid h-8 w-full grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md px-3 py-0 text-sm font-normal text-foreground hover:bg-muted/40 hover:text-foreground"
-          data-contextual-tour-target="floating-workspace-new-markdown"
-          onClick={onNewMarkdown}
-        >
-          <FileText className="size-3.5 opacity-90" />
-          <span className="truncate text-left leading-none">
-            {translate(
-              'auto.components.floating.terminal.FloatingTerminalPanel.629528690b',
-              'New Markdown Note'
-            )}
-          </span>
-          <FloatingEmptyStateShortcut shortcut={newMarkdownShortcut} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="grid h-8 w-full grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md px-3 py-0 text-sm font-normal text-foreground hover:bg-muted/40 hover:text-foreground"
-          onClick={onOpenMarkdown}
-        >
-          <FileText className="size-3.5 opacity-90" />
-          <span className="truncate text-left leading-none">
-            {translate(
-              'auto.components.floating.terminal.FloatingTerminalPanel.88ffb502e5',
-              'Open Markdown Note'
-            )}
-          </span>
-          <FloatingEmptyStateShortcut shortcut={openMarkdownShortcut} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="grid h-8 w-full grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md px-3 py-0 text-sm font-normal text-foreground hover:bg-muted/40 hover:text-foreground"
-          onClick={onNewBrowser}
-        >
-          <Globe className="size-3.5 opacity-90" />
-          <span className="truncate text-left leading-none">
-            {translate(
-              'auto.components.floating.terminal.FloatingTerminalPanel.8b07759314',
-              'New Browser'
-            )}
-          </span>
-          <FloatingEmptyStateShortcut shortcut={newBrowserShortcut} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="grid h-8 w-full grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md px-3 py-0 text-sm font-normal text-foreground hover:bg-muted/40 hover:text-foreground"
-          onClick={onClose}
-        >
-          <Minus className="size-3.5 opacity-90" />
-          <span className="truncate text-left leading-none">
-            {translate(
-              'auto.components.floating.terminal.FloatingTerminalPanel.fc1042e92b',
-              'Minimize'
-            )}
-          </span>
-          <FloatingEmptyStateShortcut shortcut={closeShortcut} />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function FloatingEmptyStateShortcut({
-  shortcut
-}: {
-  shortcut: ShortcutKeyComboDetails
-}): React.JSX.Element {
-  if (shortcut.keys.length === 0) {
-    return <span aria-hidden />
-  }
-  return (
-    <ShortcutKeyCombo
-      keys={shortcut.keys}
-      doubleTap={shortcut.doubleTap}
-      className="self-center justify-self-end opacity-90 [&>span]:text-foreground"
-      separatorClassName="mx-0 text-[9px] text-foreground"
-    />
   )
 }

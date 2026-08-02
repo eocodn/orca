@@ -40,13 +40,11 @@ import type {
   GitLabAssignableUser,
   GitLabPipelineJob,
   GitLabMRUpdate,
-  GitLabWorkItem,
   GitLabWorkItemDetails,
   MRComment
 } from '../../../shared/types'
-import type { TaskSourceContext } from '../../../shared/task-source-context'
 import { translate } from '@/i18n/i18n'
-+import {
+import {
   CommentCard,
   PipelineJobRow,
   StateBadge,
@@ -56,27 +54,11 @@ import { translate } from '@/i18n/i18n'
   parseGitLabLabelDraft,
   toggleGitLabLabelDraft
 } from './gitlab-item-dialog-content'
-
-type Props = {
-  item: GitLabWorkItem | null
-  repoPath: string | null
-  repoId?: string | null
-  sourceContext?: TaskSourceContext | null
-  onClose: () => void
-  onCreateWorkspace?: (item: GitLabWorkItem) => void
-}
-
-type GitLabDialogRepoSelector = {
-  repoPath: string
-  repoId?: string | null
-  sourceContext?: TaskSourceContext | null
-}
-
-type JobTraceState = {
-  loading: boolean
-  trace?: string
-  error?: string
-}
+import type {
+  GitLabDialogRepoSelector,
+  GitLabItemDialogProps,
+  GitLabJobTraceState
+} from './gitlab-item-dialog-contracts'
 
 
 export default function GitLabItemDialog({
@@ -86,7 +68,7 @@ export default function GitLabItemDialog({
   sourceContext,
   onClose,
   onCreateWorkspace
-}: Props): React.JSX.Element {
+}: GitLabItemDialogProps): React.JSX.Element {
   const [details, setDetails] = useState<GitLabWorkItemDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -120,7 +102,7 @@ export default function GitLabItemDialog({
   const [inlineCommentBody, setInlineCommentBody] = useState('')
   const [inlineCommentSubmitting, setInlineCommentSubmitting] = useState(false)
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null)
-  const [jobTraceById, setJobTraceById] = useState<Record<number, JobTraceState>>({})
+  const [jobTraceById, setJobTraceById] = useState<Record<number, GitLabJobTraceState>>({})
   const [retryingJobId, setRetryingJobId] = useState<number | null>(null)
   const [actionInFlight, setActionInFlight] = useState<'close' | 'reopen' | 'merge' | null>(null)
   const mountedRef = useMountedRef()
