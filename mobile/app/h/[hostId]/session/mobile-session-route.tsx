@@ -258,6 +258,8 @@ import {
 } from '../../../../src/session/mobile-session-create-warning-state'
 import { colors, spacing } from '../../../../src/theme/mobile-theme'
 import { styles } from './mobile-session-styles'
+import { useMobileSessionDocumentActions } from './use-mobile-session-document-actions'
+import { useMobileSessionRecovery } from './use-mobile-session-recovery'
 import { FileReader, MarkdownReader } from './mobile-session-file-readers'
 import { QuickCommandsTabButton } from './QuickCommandsTabButton'
 import type { DiffComment, TerminalQuickCommand } from '../../../../../src/shared/types'
@@ -1360,909 +1362,153 @@ export default function SessionScreen() {
     [defaultTerminalHandlesToLiveInput, subscribeToTerminal, unsubscribeTerminal]
   )
 
-  const readMarkdownTab = useCallback(
-    async (tab: Extract<MobileSessionTab, { type: 'markdown' }>) => {
-      if (!client) {
-        return
-      }
-      setMarkdownDocs((prev) => new Map(prev).set(tab.id, { status: 'loading' }))
-      try {
-        const response = await client.sendRequest('markdown.readTab', {
-          worktree: `id:${worktreeId}`,
-          tabId: tab.id
-        })
-        if (response.ok) {
-          const result = (response as RpcSuccess).result as {
-            content: string
-            version: string
-            isDirty: boolean
-            editable?: boolean
-            readOnlyReason?: string
-          }
-          setMarkdownDocs((prev) =>
-            new Map(prev).set(tab.id, {
-              status: 'ready',
-              content: result.content,
-              localContent: result.content,
-              baseVersion: result.version,
-              isDirty: false,
-              editable: result.editable === true,
-              stale: result.isDirty,
-              readOnlyReason: result.readOnlyReason
-            })
-          )
-          return
-        }
-        if (!shouldReadMarkdownFromDiskAfterReadTabFailure(response as RpcFailure)) {
-          throw new Error((response as RpcFailure).error.message)
-        }
-        // Why: a headless host fails markdown.readTab (renderer_unavailable); fall back to the on-disk file for read-only render.
-        const fallback = await client.sendRequest('files.read', {
-          worktree: `id:${worktreeId}`,
-          relativePath: tab.relativePath
-        })
-        if (!fallback.ok) {
-          throw new Error('Unable to read markdown')
-        }
-        const fileResult = (fallback as RpcSuccess).result as {
-          content: string
-          truncated: boolean
-          byteLength: number
-        }
-        setMarkdownDocs((prev) =>
-          new Map(prev).set(
-            tab.id,
-            buildMarkdownDiskFallbackDoc({
-              content: fileResult.content,
-              truncated: fileResult.truncated,
-              tabIsDirty: tab.isDirty
-            })
-          )
-        )
-      } catch {
-        setMarkdownDocs((prev) =>
-          new Map(prev).set(tab.id, {
-            status: 'error',
-            message: "Couldn't load markdown"
-          })
-        )
-      }
-    },
-    [client, worktreeId]
-  )
-
-  const readFileTab = useCallback(
-    async (tab: Extract<MobileSessionTab, { type: 'file' }>) => {
-      if (!client) {
-        return
-      }
-      setFileDocs((prev) => new Map(prev).set(tab.id, { status: 'loading' }))
-      try {
-        const doc = await resolveMobileFileTabDoc(client, {
-          worktreeId,
-          relativePath: tab.relativePath,
-          diffSource: tab.diffSource
-        })
-        setFileDocs((prev) => new Map(prev).set(tab.id, doc))
-      } catch (err) {
-        const message = err instanceof Error ? err.message : ''
-        const previewMessage =
-          message === 'binary_file'
-            ? 'Binary preview unavailable'
-            : message === 'file_too_large'
-              ? 'File too large for mobile preview'
-              : tab.diffSource === 'staged' || tab.diffSource === 'unstaged'
-                ? "Couldn't load diff preview"
-                : "Couldn't load file preview"
-        setFileDocs((prev) =>
-          new Map(prev).set(tab.id, {
-            status: 'error',
-            message: previewMessage
-          })
-        )
-      }
-    },
-    [client, worktreeId]
-  )
-
-  const loadDiffComments = useCallback(async (): Promise<void> => {
-    if (!client || connState !== 'connected' || !worktreeId || isFloatingWorkspaceRoute) {
-      setDiffComments([])
-      return
-    }
-    const response = await client.sendRequest('worktree.show', {
-      worktree: `id:${worktreeId}`
-    })
-    if (!response.ok) {
-      return
-    }
-    const result = (response as RpcSuccess).result as {
-      worktree?: { diffComments?: unknown }
-    }
-    setDiffComments(normalizeMobileDiffComments(result.worktree?.diffComments, worktreeId))
-  }, [client, connState, worktreeId, isFloatingWorkspaceRoute])
-
-  const persistDiffComments = useCallback(
-    async (comments: readonly DiffComment[]): Promise<void> => {
-      if (!client || connState !== 'connected') {
-        throw new Error('Waiting for desktop...')
-      }
-      const response = await client.sendRequest('worktree.set', {
-        worktree: `id:${worktreeId}`,
-        diffComments: comments
-      })
-      if (!response.ok) {
-        throw new Error((response as RpcFailure).error.message || 'Failed to save review notes')
-      }
-    },
-    [client, connState, worktreeId]
-  )
-
-  useEffect(() => {
-    void loadDiffComments()
-  }, [loadDiffComments])
-
-  const addDiffCommentForFile = useCallback(
-    async (filePath: string, lineNumber: number, body: string): Promise<boolean> => {
-      if (diffCommentBusy) {
-        return false
-      }
-      const nextId = `mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-      const result = addMobileDiffComment(diffCommentsRef.current, {
-        id: nextId,
-        worktreeId,
-        filePath,
-        lineNumber,
-        body,
-        createdAt: Date.now()
-      })
-      if (!result.comment) {
-        return false
-      }
-      const previous = diffCommentsRef.current
-      setDiffCommentBusy(true)
-      setDiffComments(result.comments)
-      try {
-        await persistDiffComments(result.comments)
-        triggerSuccess()
-        showToast('Note added')
-        return true
-      } catch (err) {
-        setDiffComments(previous)
-        triggerError()
-        showToast(err instanceof Error ? err.message : 'Failed to save note', 1600)
-        return false
-      } finally {
-        setDiffCommentBusy(false)
-      }
-    },
-    [diffCommentBusy, persistDiffComments, showToast, worktreeId]
-  )
-
-  const deleteDiffCommentForFile = useCallback(
-    async (commentId: string): Promise<void> => {
-      if (diffCommentBusy) {
-        return
-      }
-      const previous = diffCommentsRef.current
-      const next = removeMobileDiffComments(previous, new Set([commentId]))
-      if (next.length === previous.length) {
-        return
-      }
-      setDiffCommentBusy(true)
-      setDiffComments(next)
-      try {
-        await persistDiffComments(next)
-        triggerSelection()
-      } catch (err) {
-        setDiffComments(previous)
-        triggerError()
-        showToast(err instanceof Error ? err.message : 'Failed to delete note', 1600)
-      } finally {
-        setDiffCommentBusy(false)
-      }
-    },
-    [diffCommentBusy, persistDiffComments, showToast]
-  )
-
-  const copyDiffCommentsToClipboard = useCallback(async (): Promise<void> => {
-    const comments = diffCommentsRef.current
-    if (comments.length === 0) {
-      return
-    }
-    try {
-      await Clipboard.setStringAsync(formatDiffComments(comments))
-      triggerSuccess()
-      showToast('Notes copied')
-    } catch {
-      triggerError()
-      showToast("Couldn't copy notes", 1600)
-    }
-  }, [showToast])
-
-  const sendDiffCommentsToAgent = useCallback((): void => {
-    const comments = diffCommentsRef.current.filter((comment) => !comment.sentAt)
-    if (comments.length === 0) {
-      return
-    }
-    setPendingDiffNotesDelivery({
-      comments: [...comments],
-      prompt: formatDiffComments(comments)
-    })
-  }, [])
-
-  const clearDeliveredDiffComments = useCallback(
-    async (delivered: readonly DiffComment[]): Promise<void> => {
-      const previous = diffCommentsRef.current
-      const next = removeDeliveredMobileDiffComments(previous, delivered)
-      if (next.length === previous.length) {
-        return
-      }
-      setDiffCommentBusy(true)
-      setDiffComments(next)
-      try {
-        await persistDiffComments(next)
-      } catch {
-        setDiffComments(previous)
-      } finally {
-        setDiffCommentBusy(false)
-      }
-    },
-    [persistDiffComments]
-  )
-
-  const updateMarkdownLocalContent = useCallback((tabId: string, content: string) => {
-    setMarkdownDocs((prev) => {
-      const current = prev.get(tabId)
-      if (current?.status !== 'ready') {
-        return prev
-      }
-      const next = new Map(prev)
-      next.set(tabId, {
-        ...current,
-        localContent: content,
-        isDirty: content !== current.content,
-        saveError: undefined
-      })
-      return next
-    })
-  }, [])
-
-  const copyMarkdownLocalContent = useCallback(
-    async (tabId: string) => {
-      const current = markdownDocs.get(tabId)
-      if (current?.status !== 'ready') {
-        return
-      }
-      await Clipboard.setStringAsync(current.localContent)
-      triggerSuccess()
-      showToast('Copied')
-    },
-    [markdownDocs, showToast]
-  )
-
-  const getDirtyMarkdownDrafts = useCallback(() => {
-    const drafts: DirtyMarkdownDraft[] = []
-    for (const [tabId, doc] of markdownDocs) {
-      if (doc.status === 'ready' && doc.isDirty) {
-        const tab = sessionTabs.find((candidate) => candidate.id === tabId)
-        drafts.push({ tabId, title: tab?.title || 'Markdown', content: doc.localContent })
-      }
-    }
-    return drafts
-  }, [markdownDocs, sessionTabs])
-
-  const leaveSession = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back()
-      return
-    }
-    // Why: Android back can fire at the root route; replace avoids React Navigation's dev-only GO_BACK warning.
-    router.replace(`/h/${hostId}`)
-  }, [hostId, router])
-
-  const requestLeaveSession = useCallback(() => {
-    const dirtyDrafts = getDirtyMarkdownDrafts()
-    if (dirtyDrafts.length === 0) {
-      leaveSession()
-      return
-    }
-    Keyboard.dismiss()
-    setLeaveDrafts(dirtyDrafts)
-  }, [getDirtyMarkdownDrafts, leaveSession])
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      requestLeaveSession()
-      return true
-    })
-    return () => subscription.remove()
-  }, [requestLeaveSession])
-
-  const discardMarkdownLocalContent = useCallback(
-    (tab: Extract<MobileSessionTab, { type: 'markdown' }>) => {
-      const current = markdownDocs.get(tab.id)
-      if (current?.status !== 'ready') {
-        return
-      }
-      if (!current.isDirty) {
-        void readMarkdownTab(tab)
-        return
-      }
-      Keyboard.dismiss()
-      setDiscardMarkdownTarget(tab)
-    },
-    [markdownDocs, readMarkdownTab]
-  )
-
-  const confirmDiscardMarkdown = useCallback(() => {
-    const target = discardMarkdownTarget
-    setDiscardMarkdownTarget(null)
-    if (target) {
-      void readMarkdownTab(target)
-    }
-  }, [discardMarkdownTarget, readMarkdownTab])
-
-  const saveMarkdownTab = useCallback(
-    async (tab: Extract<MobileSessionTab, { type: 'markdown' }>) => {
-      if (!client) {
-        return
-      }
-      const current = markdownDocs.get(tab.id)
-      if (current?.status !== 'ready' || current.saving || !current.editable) {
-        return
-      }
-      if (markdownSaveInFlightRef.current.has(tab.id)) {
-        return
-      }
-      markdownSaveInFlightRef.current.add(tab.id)
-      const saveSeq = (markdownSaveSeqRef.current.get(tab.id) ?? 0) + 1
-      markdownSaveSeqRef.current.set(tab.id, saveSeq)
-      setMarkdownDocs((prev) => {
-        const existing = prev.get(tab.id)
-        if (existing?.status !== 'ready') {
-          return prev
-        }
-        return new Map(prev).set(tab.id, { ...existing, saving: true, saveError: undefined })
-      })
-      try {
-        const response = await client.sendRequest('markdown.saveTab', {
-          worktree: `id:${worktreeId}`,
-          tabId: tab.id,
-          baseVersion: current.baseVersion,
-          content: current.localContent
-        })
-        if (!response.ok) {
-          throw new Error((response as RpcFailure).error.message)
-        }
-        const result = (response as RpcSuccess).result as {
-          content: string
-          version: string
-          isDirty: false
-        }
-        if (markdownSaveSeqRef.current.get(tab.id) !== saveSeq) {
-          return
-        }
-        setMarkdownDocs((prev) =>
-          new Map(prev).set(tab.id, {
-            status: 'ready',
-            content: result.content,
-            localContent: result.content,
-            baseVersion: result.version,
-            isDirty: false,
-            editable: true
-          })
-        )
-        markdownSaveSeqRef.current.delete(tab.id)
-        triggerSuccess()
-        showToast('Saved')
-      } catch (error) {
-        triggerError()
-        const message = error instanceof Error ? error.message : 'Save failed'
-        if (markdownSaveSeqRef.current.get(tab.id) !== saveSeq) {
-          return
-        }
-        setMarkdownDocs((prev) => {
-          const existing = prev.get(tab.id)
-          if (existing?.status !== 'ready') {
-            return prev
-          }
-          return new Map(prev).set(tab.id, {
-            ...existing,
-            saving: false,
-            saveError: message || 'Save failed'
-          })
-        })
-      } finally {
-        markdownSaveInFlightRef.current.delete(tab.id)
-      }
-    },
-    [client, markdownDocs, showToast, worktreeId]
-  )
-
-  const consumeAcceptedSessionTabs = useCallback(
-    (
-      _result: SessionTabsResult,
-      effectiveTabs: readonly MobileSessionTab[],
-      source: SessionTabsStreamSource
-    ): void => {
-      runAcceptedMobileSessionTabsEffects<MobileSessionTab>({
-        effectiveTabs,
-        source,
-        getPendingBrowserPageId: () => pendingBrowserFocusPageIdRef.current,
-        clearPendingBrowserPageId: (pageId) => {
-          if (pendingBrowserFocusPageIdRef.current === pageId) {
-            pendingBrowserFocusPageIdRef.current = null
-          }
-        },
-        activateBrowserTab: (tab) => switchSessionTabRef.current?.(tab),
-        markActiveMarkdownStale: (tabId) => {
-          setMarkdownDocs((prev) => {
-            const current = prev.get(tabId)
-            if (current?.status !== 'ready' || current.isDirty) {
-              return prev
-            }
-            return new Map(prev).set(tabId, { ...current, stale: true })
-          })
-        }
-      })
-    },
-    []
-  )
-  const hasSessionTabsRecoveryNeed = useCallback(
-    () =>
-      closedTabTombstonesRef.current.size > 0 ||
-      pendingBrowserFocusPageIdRef.current !== null ||
-      // Why: a chat-covered handle that ran out of rearms and left `terminal.list`
-      // was reminted by a desktop graph reload. Only a fresh tab snapshot carries
-      // the replacement handle, so force one instead of holding the composer locked.
-      nativeChatStream.hasTabsRecoveryNeed(),
-    [nativeChatStream]
-  )
-  const getSessionTabsApplicationRevision = useCallback(
-    () => appliedSessionTabsRevisionRef.current,
-    []
-  )
-  const sessionTabsFetchReporting = useMobileSessionTabsFetchReporting<SessionTabsResult>({
+  const {
+    readMarkdownTab,
+    readFileTab,
+    loadDiffComments,
+    persistDiffComments,
+    addDiffCommentForFile,
+    deleteDiffCommentForFile,
+    copyDiffCommentsToClipboard,
+    sendDiffCommentsToAgent,
+    clearDeliveredDiffComments,
+    updateMarkdownLocalContent,
+    copyMarkdownLocalContent,
+    getDirtyMarkdownDrafts,
+    leaveSession,
+    requestLeaveSession,
+    discardMarkdownLocalContent,
+    confirmDiscardMarkdown,
+    saveMarkdownTab
+  } = useMobileSessionDocumentActions({
+    client,
+    setMarkdownDocs,
     worktreeId,
-    diagnosticsRef: terminalDiagnosticsRef
+    setFileDocs,
+    connState,
+    isFloatingWorkspaceRoute,
+    setDiffComments,
+    diffCommentsRef,
+    diffCommentBusy,
+    setDiffCommentBusy,
+    persistDiffComments,
+    showToast,
+    setPendingDiffNotesDelivery,
+    markdownDocs,
+    setLeaveDrafts,
+    setDiscardMarkdownTarget,
+    discardMarkdownTarget,
+    markdownSaveInFlightRef,
+    markdownSaveSeqRef,
+    sessionTabs,
+    router,
+    hostId
   })
-  const { fetchSessionTabs, ensureSessionTabs, fetchPendingBrowserSessionTabs } =
-    useMobileSessionTabsReconciliation<SessionTabsResult, MobileSessionTab>({
-      client,
-      connState,
-      worktreeId,
-      applySessionTabs,
-      consumeAcceptedSessionTabs,
-      fetchTerminals,
-      hasRecoveryNeed: hasSessionTabsRecoveryNeed,
-      getApplicationRevision: getSessionTabsApplicationRevision,
-      ...sessionTabsFetchReporting
-    })
 
-  useEffect(() => {
-    if (connState === 'connected') {
-      return
-    }
-    for (const queued of terminalGestureInputQueuesRef.current.values()) {
-      if (queued.timer) {
-        clearTimeout(queued.timer)
-      }
-    }
-    terminalGestureInputQueuesRef.current.clear()
-    terminalGestureInputInFlightRef.current.clear()
-  }, [connState])
-
-  const hostQueryReplyInputSupportedRef = useRef(false)
-
-  useEffect(() => {
-    if (!client || connState !== 'connected') {
-      setBrowserScreencastSupported(null)
-      setAgentSessionHistorySupported(null)
-      setQuickCommandsSupported(null)
-      setShowQuickCommands(false)
-      hostQueryReplyInputSupportedRef.current = false
-      return
-    }
-    // Why: a client swap can keep the route connected while moving to an older
-    // host; clear the prior capability before exposing host-specific actions.
-    setBrowserScreencastSupported(null)
-    setAgentSessionHistorySupported(null)
-    setQuickCommandsSupported(null)
-    setShowQuickCommands(false)
-    hostQueryReplyInputSupportedRef.current = false
-    // Why: the probe retries — a relay→direct cutover or request timeout rejects
-    // status.get without changing connState, which used to latch these hidden.
-    return startRuntimeCapabilityProbe(client, (capabilities) => {
-      setBrowserScreencastSupported(capabilities.includes('browser.screencast.v1'))
-      setAgentSessionHistorySupported(capabilities.includes(MOBILE_AI_VAULT_CAPABILITY))
-      setQuickCommandsSupported(supportsMobileQuickCommands(capabilities))
-      // Why: hosts without this capability strip inputKind from terminal.send,
-      // so a forwarded xterm reply would become floor-stealing shell input.
-      hostQueryReplyInputSupportedRef.current = capabilities.includes(
-        TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY
-      )
-    })
-  }, [client, connState])
-
-  // Why: read deviceToken from host record so code can pass client.id on subscribe/send for driver-state-machine identity.
-  useEffect(() => {
-    if (!hostId) {
-      return
-    }
-    let stale = false
-    void loadHosts().then((hosts) => {
-      if (stale) {
-        return
-      }
-      const host = hosts.find((h) => h.id === hostId)
-      if (host) {
-        deviceTokenRef.current = host.deviceToken
-        setHostEndpoint(host.endpoint)
-      }
-    })
-    return () => {
-      stale = true
-    }
-  }, [hostId])
-
-  useEffect(() => {
-    void loadCustomKeys().then(setCustomKeys)
-  }, [])
-
-  useFocusEffect(
-    useCallback(() => {
-      let stale = false
-      void loadTerminalAccessoryLayout().then((layout) => {
-        if (!stale) {
-          setVisibleBuiltInIds(layout.visibleBuiltInIds)
-        }
-      })
-      return () => {
-        stale = true
-      }
-    }, [])
-  )
-
-  useEffect(() => {
-    let mounted = true
-    const refresh = () => {
-      void loadTerminalAccessoryLayout().then((layout) => {
-        if (mounted) {
-          setVisibleBuiltInIds(layout.visibleBuiltInIds)
-        }
-      })
-    }
-    const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') {
-        refresh()
-      }
-    })
-    return () => {
-      mounted = false
-      sub.remove()
-    }
-  }, [])
-
-  const pendingForegroundRecoveryRef = useRef(false)
-  useEffect(() => {
-    let previousAppState: AppStateStatus | null = AppState.currentState
-    const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      const shouldRecover = shouldRecoverTerminalOnAppStateChange(
-        previousAppState,
-        nextAppState,
-        Platform.OS
-      )
-      previousAppState = nextAppState
-      if (!shouldRecover) {
-        return
-      }
-      for (const terminalRef of terminalRefs.current.values()) {
-        terminalRef.prepareForForegroundRecovery()
-      }
-      // Why: iOS can resume a WKWebView with a blank xterm store and no web-ready; invalidate the latch so init waits for the pong.
-      const outcome = recoverActiveTerminalAfterForeground({
-        activeHandleRef,
-        terminalRefs,
-        initializedHandlesRef,
-        connStateRef,
-        unsubscribeTerminal,
-        subscribeToTerminal,
-        schedule: scheduleDelayedAction
-      })
-      pendingForegroundRecoveryRef.current = outcome === 'deferred'
-    })
-    return () => {
-      sub.remove()
-    }
-  }, [scheduleDelayedAction, subscribeToTerminal, unsubscribeTerminal])
-
-  // Why: resume lands mid-reconnect (socket dies in bg); re-run recovery once connected or a blanked WKWebView stays stale.
-  useEffect(() => {
-    if (connState !== 'connected' || !pendingForegroundRecoveryRef.current) {
-      return
-    }
-    pendingForegroundRecoveryRef.current = false
-    if (AppState.currentState !== 'active') {
-      return
-    }
-    recoverActiveTerminalAfterForeground({
-      activeHandleRef,
-      terminalRefs,
-      initializedHandlesRef,
-      connStateRef,
-      unsubscribeTerminal,
-      subscribeToTerminal,
-      schedule: scheduleDelayedAction
-    })
-  }, [connState, scheduleDelayedAction, subscribeToTerminal, unsubscribeTerminal])
-
-  // Why: non-subscribe layout refits (tab strip, fold, rotation) live in a dedicated hook — see terminal-viewport-refit.ts.
-  const { notifyTerminalFrameHeight, notifyKeyboardVisibility } = useTerminalViewportRefit({
-    activeHandleRef,
+  const {
+    consumeAcceptedSessionTabs,
+    hasSessionTabsRecoveryNeed,
+    getSessionTabsApplicationRevision,
+    fetchSessionTabs,
+    ensureSessionTabs,
+    fetchPendingBrowserSessionTabs,
+    hostQueryReplyInputSupportedRef,
+    pendingForegroundRecoveryRef,
+    notifyTerminalFrameHeight,
+    notifyKeyboardVisibility,
+    scrollActiveTabIntoView,
+    handleDeleteCustomKey,
+    handleManageShortcuts
+  } = useMobileSessionRecovery({
+    runAcceptedMobileSessionTabsEffects,
+    pendingBrowserFocusPageIdRef,
+    switchSessionTabRef,
+    setMarkdownDocs,
+    closedTabTombstonesRef,
+    nativeChatStream,
+    appliedSessionTabsRevisionRef,
+    worktreeId,
+    terminalDiagnosticsRef,
+    client,
+    connState,
+    applySessionTabs,
+    fetchTerminals,
+    terminalGestureInputQueuesRef,
+    terminalGestureInputInFlightRef,
+    setBrowserScreencastSupported,
+    setAgentSessionHistorySupported,
+    setQuickCommandsSupported,
+    setShowQuickCommands,
+    startRuntimeCapabilityProbe,
+    MOBILE_AI_VAULT_CAPABILITY,
+    supportsMobileQuickCommands,
+    TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY,
+    hostId,
+    deviceTokenRef,
+    setHostEndpoint,
+    loadHosts,
+    loadCustomKeys,
+    setCustomKeys,
+    loadTerminalAccessoryLayout,
+    setVisibleBuiltInIds,
     terminalRefs,
+    shouldRecoverTerminalOnAppStateChange,
+    Platform,
+    recoverActiveTerminalAfterForeground,
+    activeHandleRef,
+    initializedHandlesRef,
+    connStateRef,
+    unsubscribeTerminal,
+    subscribeToTerminal,
+    scheduleDelayedAction,
     terminalFrameHeightRef,
     viewportRef,
     viewportMeasuredRef,
-    nativeChatCoveredRef: showNativeChatRef,
+    showNativeChatRef,
     clientRef,
-    deviceTokenRef,
-    initializedHandlesRef,
-    connState,
-    tabStripVisible: terminals.length > 1,
-    textScale: terminalTextScale,
+    terminals,
+    terminalTextScale,
     terminalFrameWidth,
-    unsubscribeTerminal,
-    subscribeToTerminal
-  })
-
-  useEffect(() => {
-    const onShow = (e: KeyboardEvent) => {
-      notifyKeyboardVisibility(true)
-      setKeyboardHeight(e.endCoordinates?.height ?? 0)
-    }
-    const onHide = () => {
-      notifyKeyboardVisibility(false)
-      setKeyboardHeight(0)
-    }
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    const showSub = Keyboard.addListener(showEvent, onShow)
-    const hideSub = Keyboard.addListener(hideEvent, onHide)
-    return () => {
-      showSub.remove()
-      hideSub.remove()
-    }
-  }, [notifyKeyboardVisibility])
-
-  const scrollActiveTabIntoView = useCallback((tabId: string | null, animated: boolean) => {
-    if (!tabId) {
-      return
-    }
-    const layout = tabLayoutsRef.current.get(tabId)
-    if (!layout) {
-      return
-    }
-    const nextOffset = resolveTabStripScrollOffset({
-      tabX: layout.x,
-      tabWidth: layout.width,
-      viewportWidth: tabStripViewportWidthRef.current,
-      contentWidth: tabStripContentWidthRef.current,
-      currentOffset: tabStripOffsetRef.current
-    })
-    if (nextOffset !== tabStripOffsetRef.current) {
-      tabStripOffsetRef.current = nextOffset
-      tabStripRef.current?.scrollTo({ x: nextOffset, animated })
-    }
-  }, [])
-
-  // Reveal the active tab on change; defer one frame so freshly mounted tab layouts are recorded.
-  useEffect(() => {
-    const id = requestAnimationFrame(() => scrollActiveTabIntoView(activeSessionTabId, true))
-    return () => cancelAnimationFrame(id)
-  }, [activeSessionTabId, scrollActiveTabIntoView])
-
-  useEffect(() => {
-    if (hostId && worktreeId) {
-      void AsyncStorage.setItem(
-        'orca:last-visited-worktree',
-        JSON.stringify({ hostId, worktreeId })
-      )
-    }
-  }, [hostId, worktreeId])
-
-  const handleDeleteCustomKey = useCallback(
-    async (key: CustomKey) => {
-      const updated = customKeys.filter((k) => k.id !== key.id)
-      setCustomKeys(updated)
-      await saveCustomKeys(updated)
-    },
-    [customKeys]
-  )
-
-  const handleManageShortcuts = useCallback(() => {
-    setShowCustomKeyModal(false)
-    router.push('/terminal-settings')
-  }, [router])
-
-  useEffect(() => {
-    // Why: Expo reuses this screen across worktrees; reset route state so it can't open stale UI or reject the next snapshot.
-    sessionTabActionSheetRequestSeqRef.current += 1
-    sessionTabActionSheetKeyboardHideSubRef.current?.remove()
-    sessionTabActionSheetKeyboardHideSubRef.current = null
-    clearTerminalCache()
-    activeHandleRef.current = null
-    activeSessionTabTypeRef.current = null
-    pendingActiveSessionTabIdRef.current = null
-    pendingActiveTerminalHandleRef.current = null
-    pendingBrowserFocusPageIdRef.current = null
-    pendingTerminalActivationAttemptRef.current = null
-    initialSessionAutoCreateRef.current = createInitialSessionAutoCreateState()
-    terminalDiagnosticsRef.current.resetRoute()
-    appliedSnapshotMarkerRef.current = { epoch: null, version: -1 }
-    closedTabTombstonesRef.current.clear()
-    for (const queued of terminalGestureInputQueuesRef.current.values()) {
-      if (queued.timer) {
-        clearTimeout(queued.timer)
-      }
-    }
-    terminalGestureInputQueuesRef.current.clear()
-    terminalGestureInputInFlightRef.current.clear()
-    setActiveHandle(null)
-    setTerminals([])
-    terminalsRef.current = []
-    setSessionTabs([])
-    setActiveSessionTabId(null)
-    clearPendingLiveInputCommit()
-    setMarkdownDocs(new Map())
-    setFileDocs(new Map())
-    clearDelayedActionTimers()
-    return () => {
-      sessionTabActionSheetRequestSeqRef.current += 1
-      sessionTabActionSheetKeyboardHideSubRef.current?.remove()
-      clearPendingLiveInputCommit()
-      clearDelayedActionTimers()
-    }
-  }, [
-    clearDelayedActionTimers,
-    clearPendingLiveInputCommit,
+    setKeyboardHeight,
+    Keyboard,
+    tabLayoutsRef,
+    tabStripViewportWidthRef,
+    tabStripContentWidthRef,
+    tabStripOffsetRef,
+    tabStripRef,
+    resolveTabStripScrollOffset,
+    activeSessionTabId,
+    AsyncStorage,
+    customKeys,
+    saveCustomKeys,
+    router,
+    sessionTabActionSheetRequestSeqRef,
+    sessionTabActionSheetKeyboardHideSubRef,
     clearTerminalCache,
-    hostId,
-    worktreeId
-  ])
-
-  useEffect(() => {
-    if (connState !== 'connected') {
-      return
-    }
-    // Why: keep the current xterm visible while the reconnect snapshot hydrates, not a blank "Loading terminals" surface.
-    if (initializedHandlesRef.current.size === 0) {
-      setTerminalsLoaded(false)
-    }
-    // Why: clear the initialized flag so the reconnect scrollback replaces stale content instead of being dropped.
-    initializedHandlesRef.current.clear()
-    let disposed = false
-    const timers: ReturnType<typeof setTimeout>[] = []
-    function addTimer(fn: () => void, ms: number) {
-      if (disposed) {
-        return
-      }
-      timers.push(setTimeout(fn, ms))
-    }
-    void (async () => {
-      const reportActivationOutcome = (response: RpcSuccess | null): void => {
-        if (!disposed && response && headlessActivationNeedsHostRenderer(response.result)) {
-          showToast('Open Orca on the host to wake sleeping agents.', 3000)
-        }
-      }
-      if (client && created !== '1' && !isFloatingWorkspaceRoute) {
-        // Why: hydrate host-owned tabs without pulling other paired clients (esp. desktop) into this worktree.
-        void client
-          .sendRequest('worktree.activate', {
-            worktree: `id:${worktreeId}`,
-            notifyClients: false,
-            navigation: 'caller'
-          })
-          .then((response) => reportActivationOutcome(response.ok ? response : null))
-          .catch(() => null)
-      }
-      if (disposed) {
-        return
-      }
-      await ensureSessionTabs().catch(() => null)
-      if (disposed) {
-        return
-      }
-      await fetchTerminals({ allowEmptyLoaded: false })
-      if (disposed) {
-        return
-      }
-      addTimer(() => void fetchTerminals({ allowEmptyLoaded: false }), 750)
-      addTimer(() => void fetchTerminals({ allowEmptyLoaded: true }), 1500)
-      if (client && created === '1' && !isFloatingWorkspaceRoute) {
-        addTimer(() => {
-          if (activeHandleRef.current) {
-            return
-          }
-          void (async () => {
-            const activationResponse = await client
-              .sendRequest('worktree.activate', {
-                worktree: `id:${worktreeId}`,
-                notifyClients: false,
-                navigation: 'caller'
-              })
-              .catch(() => null)
-            reportActivationOutcome(activationResponse?.ok ? activationResponse : null)
-            if (disposed) {
-              return
-            }
-            await fetchTerminals({ allowEmptyLoaded: true })
-            addTimer(() => void fetchTerminals({ allowEmptyLoaded: true }), 750)
-          })()
-        }, 1800)
-      }
-    })()
-    return () => {
-      disposed = true
-      for (const t of timers) {
-        clearTimeout(t)
-      }
-    }
-  }, [
-    client,
-    connState,
+    pendingActiveSessionTabIdRef,
+    pendingActiveTerminalHandleRef,
+    pendingTerminalActivationAttemptRef,
+    initialSessionAutoCreateRef,
+    createInitialSessionAutoCreateState,
+    setActiveHandle,
+    setTerminals,
+    terminalsRef,
+    setSessionTabs,
+    setActiveSessionTabId,
+    clearPendingLiveInputCommit,
+    clearDelayedActionTimers,
+    setTerminalsLoaded,
     created,
-    fetchTerminals,
-    ensureSessionTabs,
     isFloatingWorkspaceRoute,
+    headlessActivationNeedsHostRenderer,
     showToast,
-    worktreeId
-  ])
-
-  // Why: pick up Settings → Terminal text size on return; panes stay mounted and update in place.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      void loadTerminalTextScale().then((scale) => {
-        if (active) {
-          setTerminalTextScale(scale)
-        }
-      })
-      return () => {
-        active = false
-      }
-    }, [])
-  )
-
-  // Why: pick up the Settings → Terminal autocomplete toggle when returning here.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      void loadTerminalAutocompleteEnabled().then((enabled) => {
-        if (active) {
-          setAutocompleteEnabled(enabled)
-        }
-      })
-      return () => {
-        active = false
-      }
-    }, [])
-  )
-
-  // Why: link routing is a phone-local choice; reload after Settings → Browser.
-  useFocusEffect(
-    useCallback(() => {
-      let active = true
-      void loadTerminalLinkOpenMode().then((mode) => {
-        if (active) {
-          setTerminalLinkOpenMode(mode)
-        }
-      })
-      return () => {
-        active = false
-      }
-    }, [])
-  )
+    loadTerminalTextScale,
+    setTerminalTextScale,
+    loadTerminalAutocompleteEnabled,
+    setAutocompleteEnabled,
+    loadTerminalLinkOpenMode,
+    setTerminalLinkOpenMode
+  })
 
   // Why: unsubscribe restores old dims (clears phone-fit banner); resubscribe phone-fits the new one.
   const switchTab = useCallback(
