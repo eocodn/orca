@@ -94,7 +94,8 @@ import { type PendingDaemonSpawnOperation,
   remainingRequestTimeoutMs,
   TerminalKilledError,
   exactDaemonIncarnationForPidRecord,
-  notifyAuditListeners
+  notifyAuditListeners,
+  sameEndpointIdentity
 } from './daemon-pty-adapter-foundation'
 import { DaemonPtyAdapterPhase3 } from './daemon-pty-adapter-checkpoint'
 

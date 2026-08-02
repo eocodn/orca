@@ -36,6 +36,7 @@ import {
   isAgentSessionSurfaceBinding
 } from '../../shared/agent-session-host-authority'
 import { TerminalHistorySeedTransferRegistry } from './terminal-history-seed-transfer-registry'
+import { DaemonServerFoundation } from './daemon-server-foundation'
 
 
 import { type DaemonServerOptions,

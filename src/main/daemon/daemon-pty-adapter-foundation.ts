@@ -381,7 +381,7 @@ export class DaemonPtyAdapterFoundation implements IPtyProvider {
 
 }
 
-function sameEndpointIdentity(
+export function sameEndpointIdentity(
   left: DaemonEndpointIdentity,
   right: DaemonEndpointIdentity
 ): boolean {
