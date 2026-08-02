@@ -504,4 +504,3 @@ getSnapshot(
     return getWorktreeFingerprint(worktreesByRepo)
   }
 }
-}

@@ -1,6 +1,6 @@
 import type { ClaudeUsageAttributedTurn, ClaudeUsageDailyAggregate, ClaudeUsageSession } from "./types"
 
-function mergeClaudeSessions(
+export function mergeClaudeSessions(
   target: Map<string, ClaudeUsageSession>,
   sessions: ClaudeUsageSession[]
 ): void {
@@ -43,7 +43,7 @@ function mergeClaudeSessions(
   }
 }
 
-function mergeClaudeDailyAggregates(
+export function mergeClaudeDailyAggregates(
   target: Map<string, ClaudeUsageDailyAggregate>,
   dailyAggregates: ClaudeUsageDailyAggregate[]
 ): void {
@@ -63,7 +63,7 @@ function mergeClaudeDailyAggregates(
   }
 }
 
-function finalizeClaudeSessions(
+export function finalizeClaudeSessions(
   sessionsById: Map<string, ClaudeUsageSession>
 ): ClaudeUsageSession[] {
   for (const session of sessionsById.values()) {
@@ -188,6 +188,3 @@ export function aggregateClaudeUsage(turns: ClaudeUsageAttributedTurn[]): {
     )
   }
 }
-
-export async function scanClaudeUsageFiles(
-export { mergeClaudeSessions, mergeClaudeDailyAggregates }

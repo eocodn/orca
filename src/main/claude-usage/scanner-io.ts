@@ -5,6 +5,7 @@ import { createReadStream } from "node:fs"
 import { createInterface } from "node:readline"
 import type { ClaudeUsageParsedTurn, ClaudeUsagePersistedFile, ClaudeUsageProcessedFile } from "./types"
 
+type ClaudeUsageSourceRecord = {
   type?: string
   sessionId?: string
   timestamp?: string
@@ -269,5 +270,4 @@ export async function readClaudeUsageScanFile(filePath: string): Promise<{
   }
 }
 
-function localDayFromTimestamp(timestamp: string): string | null {
 export { FILE_SCAN_BATCH_SIZE }

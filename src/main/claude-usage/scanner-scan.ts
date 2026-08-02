@@ -141,5 +141,4 @@ export async function scanClaudeUsageFiles(
   }
 }
 
-export function createWorktreeRefs(
 export { createWorktreeRefs }

@@ -1,4 +1,4 @@
-import { ClaudeRuntimeAuthServiceFoundation, execFileSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { app } from 'electron'
@@ -45,6 +45,7 @@ import { type ClaudeRuntimeAuthPreparation,
   type ClaudeKeychainSnapshotValue,
   type ClaudeRefreshTokenComparison,
   type ClaudeRuntimeCredentialCandidate,
+  ClaudeRuntimeAuthServiceFoundation,
   RUNTIME_OAUTH_ACCOUNT_PARSE_ERROR,
   shellQuote  } from './claude-runtime-auth-foundation'
 

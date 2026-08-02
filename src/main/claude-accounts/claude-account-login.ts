@@ -1,4 +1,4 @@
-import { ClaudeAccountServiceFoundation, createHash, randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -56,6 +56,7 @@ import { LOGIN_TIMEOUT_MS,
   type ClaudeAccountAddTarget,
   type ClaudeAccountImportOptions,
   type ManagedClaudeAuthLocation,
+  ClaudeAccountServiceFoundation,
   DuplicateClaudeAccountError,
   shellQuote  } from './claude-account-foundation'
 

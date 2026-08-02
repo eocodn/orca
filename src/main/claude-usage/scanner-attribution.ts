@@ -10,6 +10,12 @@ export type ClaudeUsageWorktreeRef = {
   displayName: string
 }
 
+type ClaudeUsageWorktreeEntry = [string, ClaudeUsageWorktreeRef]
+
+const sortedWorktreeEntriesByLookup = new WeakMap<
+  Map<string, ClaudeUsageWorktreeRef>,
+  ClaudeUsageWorktreeEntry[]
+>()
 
 function getDefaultProjectLabel(cwd: string | null): string {
   if (!cwd) {
@@ -75,9 +81,6 @@ function getSortedWorktreeEntries(
   return sorted
 }
 
-// Why setImmediate: setTimeout(0) is clamped to ~1ms, and this yields once per
-// 4-file batch, so a 7.5k-transcript scan spent ~2s parked on timers.
-async function yieldToEventLoop(): Promise<void> {
 function localDayFromTimestamp(timestamp: string): string | null {
   const parsed = new Date(timestamp)
   if (Number.isNaN(parsed.getTime())) {
@@ -149,7 +152,6 @@ export async function attributeClaudeUsageTurns(
   return attributed
 }
 
-function mergeClaudeSessions(
 export function createWorktreeRefs(
   repos: Repo[],
   worktreesByRepo: Map<string, { path: string; worktreeId: string; displayName: string }[]>
@@ -181,4 +183,3 @@ export function getSessionProjectLabel(locationBreakdown: ClaudeUsageLocationBre
 export function getDefaultWorktreeLabel(pathValue: string): string {
   return basename(pathValue)
 }
-

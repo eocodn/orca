@@ -91,6 +91,7 @@ export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`
 }
 
+export class ClaudeAccountServiceFoundation {
 
   [key: string]: any
 
@@ -509,4 +510,3 @@ export function shellQuote(value: string): string {
 
 
 }
-

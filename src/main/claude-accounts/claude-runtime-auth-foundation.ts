@@ -92,6 +92,7 @@ export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`
 }
 
+export class ClaudeRuntimeAuthServiceFoundation {
 
   [key: string]: any
 
@@ -457,4 +458,3 @@ export function shellQuote(value: string): string {
 
 
 }
-
