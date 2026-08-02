@@ -1,80 +1,34 @@
 import { useCallback, useMemo, useState } from 'react'
-import { View, Text, Pressable, TextInput, StyleSheet, Switch } from 'react-native'
+import { View, Text, Pressable, TextInput, Switch } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { colors, spacing, radii, typography } from '../theme/mobile-theme'
+import { colors } from '../theme/mobile-theme'
 import { BottomDrawer } from './BottomDrawer'
 import {
   buildTerminalShortcutKey,
   normalizeShortcutKeyInput,
-  TERMINAL_SHORTCUT_SPECIAL_KEYS,
   type TerminalShortcutModifier,
-  type TerminalShortcutSpecialKey
 } from '../terminal/terminal-accessory-keys'
+import {
+  loadCustomKeys,
+  saveCustomKeys,
+  SHORTCUT_MODIFIERS,
+  SPECIAL_KEY_BY_ID,
+  SPECIAL_KEY_GROUPS,
+  type CustomKey,
+  type CustomKeyModalStep
+} from './custom-key-modal-data'
+import { styles } from './custom-key-modal-styles'
 
-const CUSTOM_ACCESSORY_KEYS_STORAGE_KEY = 'orca:custom-accessory-keys'
+export type { CustomKey } from './custom-key-modal-data'
+export { loadCustomKeys, saveCustomKeys } from './custom-key-modal-data'
 
-export type CustomKey = {
-  id: string
-  label: string
-  bytes: string
-  enter: boolean
-}
-
-type Step = 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro'
-
-// Why: Alt is rendered with the ⌥ glyph because on macOS hosts the Option key
-// is the only modifier that produces an ESC-prefixed byte sequence terminals
-// can read. Cmd is intentionally absent — macOS swallows it before keystrokes
-// reach the shell, so there's nothing to encode.
-const SHORTCUT_MODIFIERS: { id: TerminalShortcutModifier; label: string; glyph?: string }[] = [
-  { id: 'ctrl', label: 'Ctrl' },
-  { id: 'alt', label: 'Alt', glyph: '⌥' },
-  { id: 'shift', label: 'Shift' }
-]
-
-// Why: special keys are grouped by purpose so the picker reads as three small
-// fixed grids rather than one ragged wrap row that clipped F7-F12.
-const SPECIAL_KEY_GROUPS: { title: string; ids: string[]; columns: number }[] = [
-  {
-    title: 'Editing',
-    ids: ['escape', 'tab', 'enter', 'backspace', 'delete', 'insert', 'space'],
-    columns: 4
-  },
-  {
-    title: 'Navigation',
-    ids: ['arrowUp', 'arrowDown', 'arrowLeft', 'arrowRight', 'home', 'end', 'pageUp', 'pageDown'],
-    columns: 4
-  },
-  {
-    title: 'Function',
-    ids: ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12'],
-    columns: 6
-  }
-]
-
-const SPECIAL_KEY_BY_ID: Record<string, TerminalShortcutSpecialKey> = Object.fromEntries(
-  TERMINAL_SHORTCUT_SPECIAL_KEYS.map((key) => [key.id, key])
-)
+type Step = CustomKeyModalStep
 
 type Props = {
   visible: boolean
   onClose: () => void
   onKeysChanged: (keys: CustomKey[]) => void
   onManageShortcuts?: () => void
-}
-
-export async function loadCustomKeys(): Promise<CustomKey[]> {
-  try {
-    const raw = await AsyncStorage.getItem(CUSTOM_ACCESSORY_KEYS_STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as CustomKey[]) : []
-  } catch {
-    return []
-  }
-}
-
-export async function saveCustomKeys(keys: CustomKey[]): Promise<void> {
-  await AsyncStorage.setItem(CUSTOM_ACCESSORY_KEYS_STORAGE_KEY, JSON.stringify(keys))
 }
 
 export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortcuts }: Props) {
