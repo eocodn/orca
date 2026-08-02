@@ -1,6 +1,3 @@
-/* eslint-disable max-lines -- Why: automation dispatch is a single renderer lifecycle
- * coordinator spanning workspace creation, SSH readiness, terminal launch/reuse,
- * completion bookkeeping, and focus restoration. */
 import { useEffect } from 'react'
 import { launchAgentBackgroundSession } from '@/lib/launch-agent-background-session'
 import { submitPromptToAgentPty } from '@/lib/agent-paste-draft'
@@ -32,27 +29,11 @@ import {
 } from '../../../shared/execution-host'
 import { parseWorkspaceKey } from '../../../shared/workspace-scope'
 import { getFolderWorkspaceConnectionId } from '@/lib/folder-workspace-connection'
-
-const AUTOMATIONS_CHANGED_EVENT = 'orca:automations-changed'
-const activeReuseDispatchTabIds = new Set<string>()
-
-function acquireReuseDispatchTab(tabId: string): (() => void) | null {
-  if (activeReuseDispatchTabIds.has(tabId)) {
-    return null
-  }
-  activeReuseDispatchTabIds.add(tabId)
-  return () => activeReuseDispatchTabIds.delete(tabId)
-}
-
-function buildAutomationWorkspaceName(runTitle: string, scheduledFor: number): string {
-  const slug = runTitle
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40)
-  const stamp = new Date(scheduledFor).toISOString().replace(/[-:]/g, '').slice(0, 13)
-  return `auto-${slug || 'run'}-${stamp}`
-}
+import {
+  acquireReuseDispatchTab,
+  AUTOMATIONS_CHANGED_EVENT,
+  buildAutomationWorkspaceName
+} from './automation-dispatch-policy'
 
 export function useAutomationDispatchEvents(): void {
   useEffect(() => {
