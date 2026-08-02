@@ -21,6 +21,9 @@ afterEach(() => {
 describe('source line count gate', () => {
   it('recognizes production source and excludes tests/declarations', () => {
     expect(isSourcePath('src/main/service.ts')).toBe(true)
+    expect(isSourcePath('src/main/component.jsx')).toBe(true)
+    expect(isSourcePath('src/main/module.mts')).toBe(true)
+    expect(isSourcePath('src/main/module.cts')).toBe(true)
     expect(isSourcePath('config/build.cjs')).toBe(true)
     expect(isSourcePath('config/build.js')).toBe(true)
     expect(isSourcePath('config/build.test.cjs')).toBe(false)
@@ -45,6 +48,19 @@ describe('source line count gate', () => {
     expect(collectOversizedSources(root, { limit: 3 })).toEqual([
       { lines: 4, path: 'large.cjs' },
       { lines: 4, path: 'large.ts' }
+    ])
+  })
+
+  it('scans runtime files and enforces a strict greater-than limit', () => {
+    const root = mkdtempSync(join(tmpdir(), 'orca-source-lines-'))
+    temporaryRoots.push(root)
+    writeFileSync(join(root, 'exact.jsx'), `${'line\n'.repeat(600)}`)
+    writeFileSync(join(root, 'oversized.mts'), `${'line\n'.repeat(601)}`)
+    writeFileSync(join(root, 'oversized.cts'), `${'line\n'.repeat(601)}`)
+
+    expect(collectOversizedSources(root)).toEqual([
+      { lines: 601, path: 'oversized.cts' },
+      { lines: 601, path: 'oversized.mts' }
     ])
   })
 
