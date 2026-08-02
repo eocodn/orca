@@ -33,6 +33,7 @@ export const {
   decrypt,
   decryptOptionalSecret,
   logPersistenceStartupMilestone,
+  BACKUP_COUNT,
   migrateTerminalScrollbackRows,
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,

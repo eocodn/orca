@@ -287,7 +287,8 @@ import { removeWorkspaceSessionOwner,
 import {
   decrypt,
   decryptOptionalSecret,
-  logPersistenceStartupMilestone
+  logPersistenceStartupMilestone,
+  BACKUP_COUNT
 } from './persistence-state-foundation'
 import {
   migrateTerminalScrollbackRows,
@@ -338,6 +339,7 @@ export const persistenceLoadDependencies = {
   decrypt,
   decryptOptionalSecret,
   logPersistenceStartupMilestone,
+  BACKUP_COUNT,
   migrateTerminalScrollbackRows,
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,
