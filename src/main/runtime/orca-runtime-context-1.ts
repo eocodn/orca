@@ -362,3 +362,6 @@ export type RuntimeTerminalAgentStatusEvent = {
   paneKey: string
   tabId?: string
   worktreeId?: string
+  connectionId?: string | null
+  payload: ParsedAgentStatusPayload
+}

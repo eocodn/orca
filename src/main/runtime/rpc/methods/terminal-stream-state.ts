@@ -556,7 +556,7 @@ export function trimPendingOutputCoveredBySnapshot(
   return { chunks, bytes }
 }
 
-function* iterateTerminalStreamTextPayloads(data: string): Generator<Uint8Array<ArrayBufferLike>> {
+export function* iterateTerminalStreamTextPayloads(data: string): Generator<Uint8Array<ArrayBufferLike>> {
   if (!data) {
     return
   }
@@ -569,4 +569,3 @@ export function isTerminalReadPayloadIncomplete(read: { truncated: boolean; limi
   // Why: a limited preview is an incomplete payload even when the retained buffer wasn't truncated.
   return read.truncated || read.limited === true
 }
-

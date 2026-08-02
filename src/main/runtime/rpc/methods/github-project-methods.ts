@@ -8,6 +8,7 @@ import {
 } from "./github-schemas"
 
 export const GITHUB_PROJECT_METHODS: RpcMethod[] = [
+  defineMethod({
     name: 'github.project.listAccessible',
     params: z.object({ host: OptionalString }),
     handler: async (params, { runtime }) => runtime.listGitHubProjects(params)

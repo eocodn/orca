@@ -405,3 +405,7 @@ export function truncateMobileFilePreview(content: string): {
   }
   return {
     content: buffer.subarray(0, MOBILE_FILE_READ_MAX_BYTES).toString('utf8'),
+    truncated: true,
+    byteLength: buffer.byteLength
+  }
+}
