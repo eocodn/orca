@@ -27,6 +27,8 @@ import {
 } from './ConflictReviewEditorContent'
 import { MarkdownEditorContent } from './MarkdownEditorContent'
 import { EditorDiffContent } from './EditorDiffContent'
+import { matchesPendingEditorReveal } from './editor-content-source-offset'
+export { getMarkdownSourceLineOffset } from './editor-content-source-offset'
 
 const MonacoEditor = lazy(() => import('./MonacoEditor'))
 const CombinedDiffViewer = lazy(() => import('./CombinedDiffViewer'))
@@ -40,41 +42,9 @@ const IpynbViewer = lazy(() => import('./IpynbViewer'))
 const noopEditorContentChange = (_content: string): void => {}
 const noopEditorSave = async (_content: string): Promise<boolean> => false
 
-export function getMarkdownSourceLineOffset(frontMatterRaw: string): number {
-  let offset = 0
-
-  for (let index = 0; index < frontMatterRaw.length; index++) {
-    const code = frontMatterRaw.charCodeAt(index)
-
-    if (code === 13) {
-      offset++
-      if (frontMatterRaw.charCodeAt(index + 1) === 10) {
-        index++
-      }
-      continue
-    }
-
-    if (code === 10) {
-      offset++
-    }
-  }
-
-  return offset
-}
-
 type FileContent = ConflictReviewFileContent
 
 const noopCloseMarkdownTableOfContents = (): void => {}
-
-function matchesPendingEditorReveal(
-  reveal: PendingEditorReveal | null,
-  file: Pick<OpenFile, 'id' | 'filePath'>
-): reveal is PendingEditorReveal {
-  if (!reveal) {
-    return false
-  }
-  return reveal.fileId ? reveal.fileId === file.id : reveal.filePath === file.filePath
-}
 
 export function EditorContent({
   activeFile,
