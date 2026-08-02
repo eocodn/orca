@@ -4,7 +4,6 @@ import {
   ipcMain,
   Menu,
   nativeTheme,
-  Notification,
   powerMonitor,
   screen
 } from 'electron'
@@ -14,7 +13,6 @@ import type { Store } from '../persistence'
 import { getAppIconPath } from '../app-icon'
 import { browserManager } from '../browser/browser-manager'
 import { browserSessionRegistry } from '../browser/browser-session-registry'
-import { translateMain } from '../i18n/main-i18n'
 import { normalizeBrowserNavigationUrl } from '../../shared/browser-url'
 import { ORCA_BROWSER_GUEST_WEB_PREFERENCES } from '../../shared/browser-guest-web-preferences'
 import { isCrashReportReason } from '../../shared/crash-reporting'
@@ -23,29 +21,11 @@ import {
   DEFAULT_RENDERER_RECOVERY_WINDOW_MS,
   RendererRecoveryCircuitBreaker
 } from '../crash-reporting/renderer-recovery-circuit-breaker'
-import {
-  getWindowShortcutActionId,
-  matchesRecentTabSwitcherChord,
-  nativeZoomCommandMatchesKeybindings,
-  resolveWindowShortcutAction,
-  windowShortcutActionCapturesTerminal,
-  type WindowShortcutAction
-} from '../../shared/window-shortcut-policy'
-import {
-  ModifierDoubleTapDetector,
-  toModifierDoubleTapEvent
-} from '../../shared/modifier-double-tap-detector'
-import {
-  normalizeTerminalShortcutPolicy,
-  type KeybindingMatchOptions,
-  type KeybindingOverrides
-} from '../../shared/keybindings'
+import type { KeybindingOverrides } from '../../shared/keybindings'
 import { getMainE2EConfig } from '../e2e-config'
 import { buildEditableContextMenuTemplate } from './editable-context-menu'
-import { clearTrustedUIRendererWebContentsId, setTrustedUIRendererWebContentsId } from '../ipc/ui'
-import { resolveWindowCloseAction } from './window-close-decision'
+import { setTrustedUIRendererWebContentsId } from '../ipc/ui'
 import { rectHasVisibleAreaOnAnyDisplay } from './window-bounds-validation'
-import { closeDashboardPopout } from './dashboard-popout-window'
 import { installPrivilegedWindowNavigationPolicy } from './privileged-window-navigation'
 import { isMacosTahoeOrNewer } from './macos-tahoe-release'
 import { registerPluginPanelNavigationGuard } from '../plugins/plugin-panel-navigation-guard'
@@ -55,12 +35,12 @@ import {
   TITLEBAR_CSS_CENTER,
   TRAFFIC_LIGHT_RADIUS,
   TRAFFIC_LIGHT_X,
-  WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS,
   forceRepaint,
   installMacosVisibilityRepaint,
-  isMacAppPasteInput,
   syncTrafficLightPosition
 } from './main-window-creation'
+import { registerMainWindowShortcutLifecycle } from './main-window-creation-shortcuts'
+import { registerMainWindowCloseLifecycle } from './main-window-creation-close-lifecycle'
 
 export type CreateMainWindowOptions = {
   /** Returns true when a manual app.quit() (Cmd+Q) is in progress, so the renderer skips the running-process confirm dialog. */
@@ -521,495 +501,56 @@ export function createMainWindow(
     clearRendererRecoveryTimer()
   })
 
-  const doubleTapDetector = new ModifierDoubleTapDetector()
-
-  // Why: one mapping of action → IPC/side effect, shared by the keydown and double-tap paths so they can't drift.
-  const sendResolvedWindowShortcutAction = (action: WindowShortcutAction): void => {
-    switch (action.type) {
-      // The renderer's DictationController re-checks enabled/sttModel and ignores hold mode, so this path needs no voice guards.
-      case 'dictationKeyDown':
-        mainWindow.webContents.send('ui:dictationKeyDown')
-        return
-      case 'zoom':
-        mainWindow.webContents.send('terminal:zoom', action.direction)
-        return
-      case 'openSettings':
-        mainWindow.webContents.send('ui:openSettings')
-        return
-      case 'forceReload':
-        opts?.onBeforeReload?.({ ignoreCache: true, webContentsId: mainWindow.webContents.id })
-        mainWindow.webContents.reloadIgnoringCache()
-        return
-      case 'toggleLeftSidebar':
-        mainWindow.webContents.send('ui:toggleLeftSidebar')
-        return
-      case 'toggleRightSidebar':
-        mainWindow.webContents.send('ui:toggleRightSidebar')
-        return
-      case 'toggleWorktreePalette':
-        mainWindow.webContents.send('ui:toggleWorktreePalette')
-        return
-      case 'toggleFloatingTerminal':
-        mainWindow.webContents.send('ui:toggleFloatingTerminal')
-        return
-      case 'openQuickOpen':
-        mainWindow.webContents.send('ui:openQuickOpen')
-        return
-      case 'toggleQuickCommandsMenu':
-        mainWindow.webContents.send('ui:toggleQuickCommandsMenu')
-        return
-      case 'openNewWorkspace':
-        mainWindow.webContents.send('ui:openNewWorkspace')
-        return
-      case 'deleteCurrentWorkspace':
-        mainWindow.webContents.send('ui:deleteCurrentWorkspace')
-        return
-      case 'openWorkspaceBoard':
-        mainWindow.webContents.send('ui:openWorkspaceBoard')
-        return
-      case 'openTasks':
-        mainWindow.webContents.send('ui:openTasks')
-        return
-      case 'switchRecentTab':
-        mainWindow.webContents.send('ui:switchRecentTab')
-        return
-      case 'jumpToWorktreeIndex':
-        mainWindow.webContents.send('ui:jumpToWorktreeIndex', action.index)
-        return
-      case 'jumpToTabIndex':
-        mainWindow.webContents.send('ui:jumpToTabIndex', action.index)
-        return
-      case 'worktreeHistoryNavigate':
-        mainWindow.webContents.send('ui:worktreeHistoryNavigate', action.direction)
-    }
-  }
-
-  const dispatchResolvedWindowShortcutAction = (
-    event: Electron.Event,
-    action: WindowShortcutAction,
-    options: {
-      isAutoRepeat: boolean
-      focusedShortcutContext: KeybindingMatchOptions
-    }
-  ): boolean => {
-    const { focusedShortcutContext, isAutoRepeat } = options
-    if (
-      floatingTerminalInputFocused &&
-      (action.type === 'toggleLeftSidebar' || action.type === 'toggleRightSidebar')
-    ) {
-      return false
-    }
-
-    // While the floating panel owns the keyboard, yield indexed switch chords to the renderer
-    // so L2 selects a floating tab instead of switching the main workspace behind the panel.
-    if (
-      floatingPanelFocused &&
-      (action.type === 'jumpToWorktreeIndex' || action.type === 'jumpToTabIndex')
-    ) {
-      if (isAutoRepeat) {
-        // Contain held-key repeats in main — both renderer index paths skip e.repeat, so yielding a repeat would leak a raw key to xterm/DOM.
-        event.preventDefault()
-        return true
-      }
-      return false
-    }
-
-    const capturedTerminalActionId =
-      focusedShortcutContext.context === 'terminal' &&
-      focusedShortcutContext.terminalShortcutPolicy === 'orca-first' &&
-      windowShortcutActionCapturesTerminal(action)
-        ? getWindowShortcutActionId(action)
-        : null
-
-    // Why: hold-mode dictation needs renderer keyup events, so main only consumes single-keydown dictation toggles.
-    if (action.type === 'dictationKeyDown') {
-      const voiceSettings = store?.getSettings().voice
-      if (!voiceSettings?.enabled || !voiceSettings.sttModel) {
-        return false
-      }
-      const dictationMode = voiceSettings.dictationMode ?? 'toggle'
-      if (dictationMode === 'hold') {
-        return false
-      }
-      if (isAutoRepeat) {
-        event.preventDefault()
-        return true
-      }
-      event.preventDefault()
-      if (capturedTerminalActionId) {
-        mainWindow.webContents.send('ui:terminalShortcutCaptured', {
-          actionId: capturedTerminalActionId
-        })
-      }
-      mainWindow.webContents.send('ui:dictationKeyDown')
-      return true
-    }
-
-    if (action.type === 'toggleQuickCommandsMenu' && isAutoRepeat) {
-      event.preventDefault()
-      return true
-    }
-
-    event.preventDefault()
-    if (capturedTerminalActionId) {
-      mainWindow.webContents.send('ui:terminalShortcutCaptured', {
-        actionId: capturedTerminalActionId
-      })
-    }
-
-    sendResolvedWindowShortcutAction(action)
-    return true
-  }
-
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (shortcutRecorderFocused) {
-      return
-    }
-
-    if (input.type === 'keyDown' && is.dev && input.code === 'F12') {
-      event.preventDefault()
-      if (mainWindow.webContents.isDevToolsOpened()) {
-        mainWindow.webContents.closeDevTools()
-      } else {
-        mainWindow.webContents.openDevTools({ mode: 'undocked' })
-      }
-      return
-    }
-
-    if (isMacAppPasteInput(input)) {
-      // Why: chat/terminal panes hold focus without native editable controls, so route Cmd+V through Orca's paste ownership.
-      event.preventDefault()
-      mainWindow.webContents.send('ui:appMenuPaste')
-      return
-    }
-
-    const keybindings = opts?.getKeybindings?.()
-    const terminalShortcutContext: KeybindingMatchOptions = {
-      context: terminalInputFocused || floatingTerminalInputFocused ? 'terminal' : 'app',
-      terminalShortcutPolicy: normalizeTerminalShortcutPolicy(
-        store?.getSettings().terminalShortcutPolicy
-      )
-    }
-    const appShortcutContext: KeybindingMatchOptions = {
-      context: 'app',
-      terminalShortcutPolicy: terminalShortcutContext.terminalShortcutPolicy
-    }
-
-    // Why: bare modifiers emit no terminal bytes, so double-tap detection on the raw key stream never steals readline input.
-    if (input.type === 'keyDown' || input.type === 'keyUp') {
-      const detected = doubleTapDetector.process(
-        toModifierDoubleTapEvent({
-          type: input.type,
-          code: input.code,
-          key: input.key,
-          shift: input.shift,
-          control: input.control,
-          alt: input.alt,
-          meta: input.meta,
-          isAutoRepeat: input.isAutoRepeat
-        }),
-        Date.now()
-      )
-      if (detected) {
-        const doubleTapAction = resolveWindowShortcutAction(
-          { type: 'keyDown', doubleTapModifier: detected.modifier },
-          process.platform,
-          keybindings,
-          appShortcutContext
-        )
-        if (
-          doubleTapAction &&
-          dispatchResolvedWindowShortcutAction(event, doubleTapAction, {
-            isAutoRepeat: false,
-            focusedShortcutContext: terminalShortcutContext
-          })
-        ) {
-          // preventDefault only the emitting keydown so the renderer detector can't also fire for the same gesture.
-          return
-        }
-        // No allowlisted action: let the keydown reach the renderer, whose detector completes and dispatches inline.
-      }
-    }
-
-    if (
-      input.type === 'keyDown' &&
-      matchesRecentTabSwitcherChord(input, process.platform, keybindings, terminalShortcutContext)
-    ) {
-      // Why: the held switcher commits on modifier keyup; preventing the keydown here can suppress the keyup and strand the overlay.
-      return
-    }
-
-    // Why: TipTap owns bare Cmd/Ctrl+B for bold in the markdown editor; skip interception for the bare chord only.
-    // See docs/markdown-cmd-b-bold-design.md.
-    const modForBold = process.platform === 'darwin' ? input.meta : input.control
-    if (
-      markdownEditorFocused &&
-      input.code === 'KeyB' &&
-      !input.alt &&
-      !input.shift &&
-      modForBold
-    ) {
-      return
-    }
-
-    // Why: keep interception an explicit allowlist so readline control chords reach the PTY instead of being silently stolen.
-    const action = resolveWindowShortcutAction(
-      input,
-      process.platform,
-      keybindings,
-      terminalShortcutContext
-    )
-    if (!action) {
-      return
-    }
-
-    if (input.type !== 'keyDown') {
-      return
-    }
-
-    dispatchResolvedWindowShortcutAction(event, action, {
-      isAutoRepeat: Boolean(input.isAutoRepeat),
-      focusedShortcutContext: terminalShortcutContext
+  const removeMainWindowShortcutListeners = registerMainWindowShortcutLifecycle({
+    mainWindow,
+    store,
+    getKeybindings: opts?.getKeybindings,
+    getIsQuitting: opts?.getIsQuitting,
+    onBeforeReload: opts?.onBeforeReload,
+    getFocusState: () => ({
+      markdownEditorFocused,
+      terminalInputFocused,
+      floatingTerminalInputFocused,
+      floatingPanelFocused,
+      shortcutRecorderFocused
     })
   })
 
-  // Why: mid-gesture focus loss must not leave the detector armed, or the next modifier press completes a phantom double-tap.
-  mainWindow.on('blur', () => doubleTapDetector.reset())
-
-  mainWindow.webContents.on('zoom-changed', (event, zoomDirection) => {
-    // Why: some layouts fire Electron's zoom command without before-input-event; honor it only while the zoom action is still bound.
-    if (zoomDirection !== 'in' && zoomDirection !== 'out') {
-      return
-    }
-    if (
-      !nativeZoomCommandMatchesKeybindings(
-        zoomDirection,
-        process.platform,
-        opts?.getKeybindings?.(),
-        {
-          context: terminalInputFocused || floatingTerminalInputFocused ? 'terminal' : 'app',
-          terminalShortcutPolicy: normalizeTerminalShortcutPolicy(
-            store?.getSettings().terminalShortcutPolicy
-          )
-        }
-      )
-    ) {
-      return
-    }
-    event.preventDefault()
-    mainWindow.webContents.send('terminal:zoom', zoomDirection)
-  })
-
-  // Intercept close so the renderer can confirm killing running-process terminals (replies window:confirm-close to proceed).
-  let windowCloseConfirmed = false
-  const confirmCloseChannel = 'window:confirm-close'
-  const closeRequestReceivedChannel = 'window:close-request-received'
-  let closeRequestSequence = 0
-  let quitRendererAckRequestId: number | null = null
-  let quitRendererAckTimer: ReturnType<typeof setTimeout> | null = null
-  const clearQuitRendererAckTimer = (): void => {
-    quitRendererAckRequestId = null
-    if (quitRendererAckTimer) {
-      clearTimeout(quitRendererAckTimer)
-      quitRendererAckTimer = null
-    }
-  }
-  const armQuitRendererAckTimer = (requestId: number): void => {
-    quitRendererAckRequestId = requestId
-    if (quitRendererAckTimer) {
-      return
-    }
-    // Why: will-quit cannot run until the renderer-backed window closes; an
-    // already-frozen renderer otherwise makes Force Quit the only escape.
-    quitRendererAckTimer = setTimeout(() => {
-      quitRendererAckTimer = null
-      quitRendererAckRequestId = null
-      if (mainWindow.isDestroyed()) {
-        return
-      }
-      console.warn('[window] Renderer did not acknowledge quit; destroying unresponsive window')
-      freezeBoundsOnQuit()
-      mainWindow.destroy()
-    }, WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS)
-    quitRendererAckTimer.unref?.()
-  }
-  const onCloseRequestReceived = (event: Electron.IpcMainEvent, requestId: number): void => {
-    if (event.sender.id === rendererWebContentsId && requestId === quitRendererAckRequestId) {
-      clearQuitRendererAckTimer()
-    }
-  }
-
-  // Windows minimize-to-tray: hide instead of close when enabled; returns true when it hid so callers skip their close path.
-  const hideToTrayIfEnabled = (): boolean => {
-    const isRendererCrashed = mainWindow.webContents.isCrashed?.() ?? false
-    if (
-      process.platform !== 'win32' ||
-      rendererProcessGone ||
-      isRendererCrashed ||
-      opts?.getIsQuitting?.() === true ||
-      store?.getSettings().minimizeToTrayOnClose !== true
-    ) {
-      return false
-    }
-    mainWindow.hide()
-    // Why: notify once that closing only hid the window; the persisted flag stops it repeating on every later minimize.
-    if (store.getUI().trayMinimizeNoticeShown !== true) {
-      try {
-        new Notification({
-          title: 'Orca',
-          body: translateMain(
-            'tray.minimizeNotice.body',
-            'Orca is still running in the system tray'
-          )
-        }).show()
-      } catch {
-        // Notification is best-effort — never block hiding the window.
-      }
-      store.updateUI({ trayMinimizeNoticeShown: true })
-    }
-    return true
-  }
-
-  mainWindow.on('close', (e) => {
-    // Why: Alt+F4/programmatic closes hit the native event; apply the same minimize-to-tray guard the renderer-drawn X uses.
-    if (!windowCloseConfirmed && hideToTrayIfEnabled()) {
-      e.preventDefault()
-      return
-    }
-    const isRendererCrashed = mainWindow.webContents.isCrashed?.() ?? false
-    // Why: only a gone/crashed renderer (can't answer) may bypass close confirmation; a hung-but-alive one still must (#5787).
-    const closeAction = resolveWindowCloseAction({
-      windowCloseConfirmed,
-      rendererProcessGone,
-      isRendererCrashed
-    })
-    if (closeAction !== 'request-confirmation') {
-      // allow-confirmed: renderer already replied and re-entered close().
-      // bypass-gone: a gone renderer can't answer window:close-requested, so let OS close complete rather than trap a blank window.
-      if (closeAction === 'allow-confirmed') {
-        windowCloseConfirmed = false
-      }
-      // Why: window teardown emits resize/move/unmaximize; freeze bounds persistence so they can't clobber saved size (v1.3.26-rc2).
-      windowClosing = true
-      if (boundsTimer) {
-        clearTimeout(boundsTimer)
-        boundsTimer = null
-      }
-      return
-    }
-    e.preventDefault()
-    const isQuitting = opts?.getIsQuitting?.() ?? false
-    const requestId = ++closeRequestSequence
-    if (isQuitting) {
-      armQuitRendererAckTimer(requestId)
-    }
-    // Why: renderer owns the close decision; the always-mounted App root subscription lets even pre-workspace states reply (#5144).
-    mainWindow.webContents.send('window:close-requested', {
-      isQuitting,
-      requestId
-    })
-  })
-  mainWindow.webContents.on('will-prevent-unload', () => {
-    // Why: a prevented beforeunload cancels the quit; release the bounds-persistence freeze so later resizing still saves.
-    windowClosing = false
-    clearQuitRendererAckTimer()
-    opts?.onQuitAborted?.()
-    mainWindow.webContents.send('window:unload-prevented')
-  })
-
-  const onConfirmClose = (): void => {
-    clearQuitRendererAckTimer()
-    windowCloseConfirmed = true
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.close()
-    }
-  }
-  const trafficLightChannel = 'ui:sync-traffic-lights'
-  const onSyncTrafficLights = (_event: Electron.IpcMainEvent, zoomFactor: number): void => {
-    syncTrafficLightPosition(mainWindow, zoomFactor)
-  }
-  ipcMain.on(trafficLightChannel, onSyncTrafficLights)
-
-  // Why: renderer-drawn window controls on Windows/Linux replicate the native title-bar buttons hidden by custom chrome.
-  const minimizeChannel = 'window:minimize'
-  const onMinimize = (): void => {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.minimize()
-    }
-  }
-  const maximizeChannel = 'window:maximize'
-  const onMaximize = (): void => {
-    if (mainWindow.isDestroyed()) {
-      return
-    }
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
-    } else {
-      mainWindow.maximize()
-    }
-  }
-  // Why: mainWindow.close() from an IPC handler on Windows can make 'close' misfire, so send window:close-requested directly.
-  const requestCloseChannel = 'window:request-close'
-  const onRequestClose = (): void => {
-    if (mainWindow.isDestroyed()) {
-      return
-    }
-    // Why: renderer-drawn X routes here (not the native close event), so the minimize-to-tray guard must also run here.
-    if (hideToTrayIfEnabled()) {
-      return
-    }
-    mainWindow.webContents.send('window:close-requested', { isQuitting: false })
-  }
-  // Why: renderer-drawn title-bar ··· menu button replicates the Alt-key reveal autoHideMenuBar provides (Windows/Linux).
-  const popupMenuChannel = 'menu:popup'
-  const onPopupMenu = (): void => {
-    Menu.getApplicationMenu()?.popup({ window: mainWindow })
-  }
-  // Why: WindowControls mounts after window:maximize-changed already fired, so expose a synchronous getter to init its icon.
-  const isMaximizedChannel = 'window:isMaximized'
-  const onIsMaximized = (): boolean => {
-    return !mainWindow.isDestroyed() && mainWindow.isMaximized()
-  }
-  ipcMain.on(minimizeChannel, onMinimize)
-  ipcMain.on(maximizeChannel, onMaximize)
-  ipcMain.on(requestCloseChannel, onRequestClose)
-  ipcMain.on(popupMenuChannel, onPopupMenu)
-  ipcMain.handle(isMaximizedChannel, onIsMaximized)
-
-  ipcMain.on(confirmCloseChannel, onConfirmClose)
-  ipcMain.on(closeRequestReceivedChannel, onCloseRequestReceived)
-  mainWindow.on('closed', () => {
-    // Why: the dashboard pop-out is a companion of the main window — close it
-    // alongside so it never orphans as a lone window after the app window is
-    // gone (e.g. on macOS where the app stays alive after the window closes).
-    closeDashboardPopout()
-    clearInitialRevealFallbackTimer()
-    clearQuitRendererAckTimer()
-    // Why: default-deny the Cmd+B carve-out after the window is gone so a stale-true flag can't leak into later state.
-    markdownEditorFocused = false
-    terminalInputFocused = false
-    floatingTerminalInputFocused = false
-    floatingPanelFocused = false
-    shortcutRecorderFocused = false
-    clearRendererRecoveryTimer()
-    ipcMain.removeListener(trafficLightChannel, onSyncTrafficLights)
-    ipcMain.removeListener(minimizeChannel, onMinimize)
-    ipcMain.removeListener(maximizeChannel, onMaximize)
-    browserManager.setDictationShortcutForwardingPredicate(null)
-    ipcMain.removeListener(requestCloseChannel, onRequestClose)
-    ipcMain.removeListener(popupMenuChannel, onPopupMenu)
-    ipcMain.removeHandler(isMaximizedChannel)
-    ipcMain.removeListener(confirmCloseChannel, onConfirmClose)
-    ipcMain.removeListener(closeRequestReceivedChannel, onCloseRequestReceived)
+  const removeShortcutListeners = (): void => {
+    removeMainWindowShortcutListeners()
     ipcMain.removeListener(markdownFocusChannel, onMarkdownEditorFocused)
     ipcMain.removeListener(terminalInputFocusChannel, onTerminalInputFocused)
     ipcMain.removeListener(floatingFocusChannel, onFloatingFocus)
     ipcMain.removeListener(shortcutRecorderFocusChannel, onShortcutRecorderFocused)
-    // Why: powerMonitor is app-global; without this the resume relay leaks and fires against a destroyed webContents.
-    powerMonitor.removeListener('resume', onSystemResume)
-    clearTrustedUIRendererWebContentsId(rendererWebContentsId)
-    // Why: on updater shutdown 'closed' can fire after webContents is destroyed, so don't touch mainWindow.webContents here.
-    app.removeListener('before-quit', freezeBoundsOnQuit)
+  }
+
+  registerMainWindowCloseLifecycle({
+    mainWindow,
+    store,
+    opts,
+    rendererWebContentsId,
+    getRendererProcessGone: () => rendererProcessGone,
+    setWindowClosing: (value) => {
+      windowClosing = value
+    },
+    clearBoundsTimer: () => {
+      if (boundsTimer) {
+        clearTimeout(boundsTimer)
+        boundsTimer = null
+      }
+    },
+    freezeBoundsOnQuit,
+    resetFocusState: () => {
+      markdownEditorFocused = false
+      terminalInputFocused = false
+      floatingTerminalInputFocused = false
+      floatingPanelFocused = false
+      shortcutRecorderFocused = false
+    },
+    clearInitialRevealFallbackTimer,
+    clearRendererRecoveryTimer,
+    onSystemResume,
+    removeShortcutListeners
   })
 
   if (!opts?.deferLoad) {
