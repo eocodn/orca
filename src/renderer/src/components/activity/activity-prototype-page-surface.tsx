@@ -129,6 +129,19 @@ import {
   isActivitySearchQueryTooLarge,
   shouldIgnoreActivityFilterFocusShortcutTarget
 } from './activity-thread-list-surface'
+
+export {
+  ACTIVITY_SEARCH_QUERY_MAX_BYTES,
+  activityThreadMatchesSearchQuery,
+  buildActivityThreadGroups,
+  getActivityThreadGroup,
+  groupActivityThreadsByStatus,
+  handleActivityFilterFocusShortcut,
+  isActivityFilterFocusShortcut,
+  isActivitySearchQueryTooLarge,
+  shouldIgnoreActivityFilterFocusShortcutTarget
+} from './activity-thread-list-surface'
+
 export default function ActivityPrototypePage(): React.JSX.Element {
   const [readFilter, setReadFilter] = useState<ThreadReadFilter>('all')
   const [groupBy, setGroupBy] = useState<ActivityGroupBy>('status')
