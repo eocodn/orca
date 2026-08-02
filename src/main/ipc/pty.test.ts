@@ -1072,11 +1072,9 @@ describe('registerPtyHandlers', () => {
       listProcesses: vi.fn(async () => [])
     })
     setLocalPtyProvider(provider as never)
-    const persistPtyBinding = vi
-      .fn()
-      .mockImplementationOnce(() => {
-        throw new Error('disk full')
-      })
+    const persistPtyBinding = vi.fn().mockImplementationOnce(() => {
+      throw new Error('disk full')
+    })
     let controller: { spawn(args: Record<string, unknown>): Promise<unknown> } | undefined
     const runtime = {
       setPtyController: vi.fn((value) => {
@@ -1090,14 +1088,9 @@ describe('registerPtyHandlers', () => {
       onPtyExit: vi.fn(),
       onPtyData: vi.fn()
     }
-    registerPtyHandlers(
-      mainWindow as never,
-      runtime as never,
-      undefined,
-      undefined,
-      undefined,
-      { persistPtyBinding } as never
-    )
+    registerPtyHandlers(mainWindow as never, runtime as never, undefined, undefined, undefined, {
+      persistPtyBinding
+    } as never)
     const spawnArgs = {
       cols: 80,
       rows: 24,
@@ -1119,7 +1112,9 @@ describe('registerPtyHandlers', () => {
 
     await vi.waitFor(() => expect(provider.spawn).toHaveBeenCalledTimes(2))
     firstSpawn.resolve({ id: ptyId, incarnationId: 'failed-incarnation' })
-    await vi.waitFor(() => expect(provider.shutdown).toHaveBeenCalledWith(ptyId, { immediate: true }))
+    await vi.waitFor(() =>
+      expect(provider.shutdown).toHaveBeenCalledWith(ptyId, { immediate: true })
+    )
 
     replacementSpawn.resolve({ id: ptyId, incarnationId: 'replacement-incarnation' })
     shutdown.resolve()
@@ -6930,7 +6925,6 @@ describe('registerPtyHandlers', () => {
     const barrier = makeDeferred()
     const runtime = {
       setPtyController: vi.fn(),
-      createPreAllocatedTerminalHandle: vi.fn(() => null),
       registerPty: vi.fn(),
       noteTerminalSpawnCommand: vi.fn(),
       onPtySpawned: vi.fn(),
@@ -7029,7 +7023,6 @@ describe('registerPtyHandlers', () => {
     vi.useFakeTimers()
     const runtime = {
       setPtyController: vi.fn(),
-      createPreAllocatedTerminalHandle: vi.fn(() => null),
       registerPty: vi.fn(),
       onPtySpawned: vi.fn(),
       onPtyExit: vi.fn(),

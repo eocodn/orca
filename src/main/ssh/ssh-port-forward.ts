@@ -1,10 +1,17 @@
 import type { SshConnection } from './ssh-connection'
-import { Ssh2PortForwardProvider } from './ssh2-port-forward-provider'
-import { SystemSshPortForwardProvider } from './system-ssh-port-forward-provider'
 import {
+  assertForwardMutationActive,
+  isForwardMutationActive,
   SshPortForwardMutationCoordinator,
   type ForwardMutation
 } from './ssh-port-forward-mutation-coordinator'
+import type {
+  PendingPortForwardStart,
+  SshPortForwardManagerCallbacks
+} from './ssh-port-forward-lifecycle-types'
+import { listStartedPortForwardEntries } from './ssh-port-forward-listing'
+import { disposePortForwardResources } from './ssh-port-forward-disposal'
+import { createDefaultSshPortForwardProviders } from './ssh-port-forward-provider-selection'
 import type { PortForwardEntry } from '../../shared/ssh-types'
 import type {
   PortForwardCloseReason,
@@ -15,20 +22,10 @@ import type {
 export type { PortForwardEntry }
 export type { PortForwardCloseReason }
 
-type SshPortForwardManagerCallbacks = {
-  onForwardClosed?: (entry: PortForwardEntry, reason: PortForwardCloseReason) => void
-}
-
-type PendingForwardStart = {
-  connectionId: string
-  cancelled: boolean
-  settled: Promise<void>
-}
-
 export class SshPortForwardManager {
   private forwards = new Map<string, StartedPortForward>()
   private closingForwards = new Map<string, Promise<PortForwardEntry | null>>()
-  private pendingForwardStarts = new Map<string, PendingForwardStart>()
+  private pendingForwardStarts = new Map<string, PendingPortForwardStart>()
   private forwardMutationCoordinator = new SshPortForwardMutationCoordinator()
   private connectionCleanupFences = new Map<string, Promise<void>>()
   private nextId = 1
@@ -38,19 +35,14 @@ export class SshPortForwardManager {
 
   constructor(
     callbacks: SshPortForwardManagerCallbacks = {},
-    providers: SshPortForwardProvider[] = [
-      new Ssh2PortForwardProvider(),
-      new SystemSshPortForwardProvider()
-    ]
+    providers: SshPortForwardProvider[] = createDefaultSshPortForwardProviders()
   ) {
     this.callbacks = callbacks
     this.providers = providers
   }
-
   setCallbacks(callbacks: SshPortForwardManagerCallbacks): void {
     this.callbacks = callbacks
   }
-
   async addForward(
     connectionId: string,
     conn: SshConnection,
@@ -83,14 +75,14 @@ export class SshPortForwardManager {
     label?: string,
     mutation?: ForwardMutation
   ): Promise<PortForwardEntry> {
-    this.assertForwardMutationActive(mutation)
+    assertForwardMutationActive(this.disposed, mutation)
     const provider = this.providers.find((candidate) => candidate.canHandle(conn))
     if (!provider) {
       throw new Error('SSH connection is not established')
     }
 
     let resolveSettled!: () => void
-    const pending: PendingForwardStart = {
+    const pending: PendingPortForwardStart = {
       connectionId,
       cancelled: false,
       settled: new Promise<void>((resolve) => {
@@ -117,7 +109,7 @@ export class SshPortForwardManager {
           this.callbacks.onForwardClosed?.(entry, reason)
         }
       })
-      if (pending.cancelled || !this.isForwardMutationActive(mutation)) {
+      if (pending.cancelled || !isForwardMutationActive(this.disposed, mutation)) {
         await forward.close().catch((error) => {
           console.warn('[ssh] failed to close a cancelled port forward:', error)
         })
@@ -148,7 +140,9 @@ export class SshPortForwardManager {
     ) {
       throw new Error('port_forward_cancelled')
     }
-    return this.forwardMutationCoordinator.run(id, this.forwards.get(id)?.entry.connectionId ?? '',
+    return this.forwardMutationCoordinator.run(
+      id,
+      this.forwards.get(id)?.entry.connectionId ?? '',
       (mutation) =>
         this.updateForwardNow(id, conn, localPort, remoteHost, remotePort, label, mutation)
     )
@@ -163,7 +157,7 @@ export class SshPortForwardManager {
     label: string | undefined,
     mutation: ForwardMutation
   ): Promise<PortForwardEntry> {
-    this.assertForwardMutationActive(mutation)
+    assertForwardMutationActive(this.disposed, mutation)
     const existing = this.forwards.get(id)
     if (!existing) {
       throw new Error(`Port forward "${id}" not found`)
@@ -174,7 +168,7 @@ export class SshPortForwardManager {
     // we try to rebind. Without this, same-port edits (e.g. label change)
     // fail with EADDRINUSE because server.close() is async.
     await this.removeForwardAsync(id)
-    this.assertForwardMutationActive(mutation)
+    assertForwardMutationActive(this.disposed, mutation)
 
     try {
       return await this.addForwardWithId(
@@ -188,7 +182,7 @@ export class SshPortForwardManager {
         mutation
       )
     } catch (err) {
-      if (!this.isForwardMutationActive(mutation)) {
+      if (!isForwardMutationActive(this.disposed, mutation)) {
         throw err
       }
       // Why: use addForwardWithId to preserve the original ID so the
@@ -233,7 +227,6 @@ export class SshPortForwardManager {
     this.forwardMutationCoordinator.cancel(id)
     return this.removeForwardAsync(id)
   }
-
   // Why: server.close()/process exit are async — callers that need to rebind
   // the same port (update/reconnect) must wait until the owner fully releases it.
   private removeForwardAsync(id: string): Promise<PortForwardEntry | null> {
@@ -265,13 +258,7 @@ export class SshPortForwardManager {
   }
 
   listForwards(connectionId?: string): PortForwardEntry[] {
-    const entries: PortForwardEntry[] = []
-    for (const { entry } of this.forwards.values()) {
-      if (!connectionId || entry.connectionId === connectionId) {
-        entries.push(entry)
-      }
-    }
-    return entries
+    return listStartedPortForwardEntries(this.forwards.values(), connectionId)
   }
 
   async removeAllForwards(connectionId: string): Promise<void> {
@@ -324,24 +311,11 @@ export class SshPortForwardManager {
 
   dispose(): void {
     this.disposed = true
-    this.forwardMutationCoordinator.cancelAll()
-    for (const pending of this.pendingForwardStarts.values()) {
-      pending.cancelled = true
-    }
-    const ids = [...this.forwards.keys()]
-    for (const id of ids) {
-      this.removeForward(id)
-    }
+    disposePortForwardResources(
+      this.forwardMutationCoordinator,
+      this.pendingForwardStarts.values(),
+      this.forwards.keys(),
+      (id) => this.removeForward(id)
+    )
   }
-
-  private isForwardMutationActive(mutation: ForwardMutation | undefined): boolean {
-    return !this.disposed && mutation?.cancelled !== true
-  }
-
-  private assertForwardMutationActive(mutation: ForwardMutation | undefined): void {
-    if (!this.isForwardMutationActive(mutation)) {
-      throw new Error('port_forward_cancelled')
-    }
-  }
-
 }

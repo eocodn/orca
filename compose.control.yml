@@ -1,6 +1,77 @@
 name: ade-control-${ADE_CONTROL_RUN_ID:?set a unique run id for concurrency-safe execution}
 
 services:
+  runtime-model-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - pnpm
+      - exec
+      - vitest
+      - run
+      - --maxWorkers=1
+      - --config
+      - config/vitest.config.ts
+      - src/main/runtime/terminal-output-path-candidates.test.ts
+      - src/main/runtime/terminal-wait-detection.test.ts
+      - src/main/runtime/terminal-tail-wait-state.test.ts
+      - src/main/runtime/terminal-formatting-modules.test.ts
+      - src/main/runtime/orca-runtime-tail-wait-memo.test.ts
+      - src/main/runtime/retained-tail-redraw-window.equivalence.test.ts
+      - src/main/runtime/orca-runtime-path-candidate-history.test.ts
+    init: true
+    network_mode: host
+
+  runtime-quality:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        pnpm exec oxfmt --check
+        src/main/runtime/terminal-output-path-candidates.ts
+        src/main/runtime/terminal-output-path-candidates.test.ts
+        src/main/runtime/terminal-wait-detection.ts
+        src/main/runtime/terminal-wait-detection.test.ts
+        src/main/runtime/terminal-tail-wait-state.ts
+        src/main/runtime/terminal-tail-wait-state.test.ts
+        src/main/runtime/terminal-formatting-modules.test.ts
+        src/main/runtime/terminal-output-normalization.ts
+        src/main/runtime/terminal-read-pagination.ts
+        src/main/runtime/terminal-tail-ansi.ts
+        src/main/runtime/terminal-tail-buffer.ts
+        src/main/runtime/terminal-tail-line-operations.ts
+        src/main/runtime/terminal-tail-redraw-engine.ts
+        src/main/runtime/terminal-tail-state-comparison.ts
+        src/main/runtime/terminal-tail-types.ts
+        src/main/runtime/terminal-wait-results.ts &&
+        pnpm exec oxlint
+        src/main/runtime/terminal-output-path-candidates.ts
+        src/main/runtime/terminal-output-path-candidates.test.ts
+        src/main/runtime/terminal-wait-detection.ts
+        src/main/runtime/terminal-wait-detection.test.ts
+        src/main/runtime/terminal-tail-wait-state.ts
+        src/main/runtime/terminal-tail-wait-state.test.ts
+        src/main/runtime/terminal-formatting-modules.test.ts
+        src/main/runtime/terminal-output-normalization.ts
+        src/main/runtime/terminal-read-pagination.ts
+        src/main/runtime/terminal-tail-ansi.ts
+        src/main/runtime/terminal-tail-buffer.ts
+        src/main/runtime/terminal-tail-line-operations.ts
+        src/main/runtime/terminal-tail-redraw-engine.ts
+        src/main/runtime/terminal-tail-state-comparison.ts
+        src/main/runtime/terminal-tail-types.ts
+        src/main/runtime/terminal-wait-results.ts
+    init: true
+    network_mode: host
+
   control-tests:
     build:
       context: .
@@ -46,6 +117,10 @@ services:
           src/main/daemon/terminal-host.test.ts \
           src/main/ipc/pty.test.ts \
           src/main/ipc/superseded-pty-exit-evidence.test.ts \
+          src/main/runtime/terminal-output-path-candidates.test.ts \
+          src/main/runtime/terminal-wait-detection.test.ts \
+          src/main/runtime/terminal-tail-wait-state.test.ts \
+          src/main/runtime/terminal-formatting-modules.test.ts \
           src/main/ipc/ssh-pty-output-intake.test.ts \
           src/main/ssh/ssh-port-forward.test.ts \
           src/relay/pty-handler.test.ts \
@@ -112,6 +187,22 @@ services:
       - src/main/runtime/orca-runtime.test.ts
       - src/main/runtime/orca-runtime-terminal-retirement.test.ts
       - src/main/runtime/orca-runtime.ts
+      - src/main/runtime/terminal-output-path-candidates.ts
+      - src/main/runtime/terminal-output-path-candidates.test.ts
+      - src/main/runtime/terminal-wait-detection.ts
+      - src/main/runtime/terminal-wait-detection.test.ts
+      - src/main/runtime/terminal-tail-wait-state.ts
+      - src/main/runtime/terminal-tail-wait-state.test.ts
+      - src/main/runtime/terminal-formatting-modules.test.ts
+      - src/main/runtime/terminal-output-normalization.ts
+      - src/main/runtime/terminal-read-pagination.ts
+      - src/main/runtime/terminal-tail-ansi.ts
+      - src/main/runtime/terminal-tail-buffer.ts
+      - src/main/runtime/terminal-tail-line-operations.ts
+      - src/main/runtime/terminal-tail-redraw-engine.ts
+      - src/main/runtime/terminal-tail-state-comparison.ts
+      - src/main/runtime/terminal-tail-types.ts
+      - src/main/runtime/terminal-wait-results.ts
       - src/main/runtime/session-control.test.ts
       - src/main/runtime/runtime-rpc.test.ts
       - src/main/providers/ssh-pty-applied-size.ts
@@ -120,6 +211,11 @@ services:
       - src/main/ssh/ssh-relay-session.ts
       - src/main/ssh/ssh-port-forward.ts
       - src/main/ssh/ssh-port-forward.test.ts
+      - src/main/ssh/ssh-port-forward-mutation-coordinator.ts
+      - src/main/ssh/ssh-port-forward-lifecycle-types.ts
+      - src/main/ssh/ssh-port-forward-listing.ts
+      - src/main/ssh/ssh-port-forward-disposal.ts
+      - src/main/ssh/ssh-port-forward-provider-selection.ts
       - src/main/ssh/ssh-relay-session-incarnation.test.ts
       - src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts
       - src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
@@ -257,12 +353,20 @@ services:
         src/main/ipc/pty.test.ts src/main/ipc/superseded-pty-exit-evidence.ts
         src/main/ipc/superseded-pty-exit-evidence.test.ts
         src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts
-        src/main/ssh/ssh-port-forward-mutation-coordinator.ts &&
+        src/main/ssh/ssh-port-forward-mutation-coordinator.ts
+        src/main/ssh/ssh-port-forward-lifecycle-types.ts
+        src/main/ssh/ssh-port-forward-listing.ts
+        src/main/ssh/ssh-port-forward-disposal.ts
+        src/main/ssh/ssh-port-forward-provider-selection.ts &&
         pnpm exec oxlint src/main/index.ts src/main/ipc/pty.ts
         src/main/ipc/pty.test.ts src/main/ipc/superseded-pty-exit-evidence.ts
         src/main/ipc/superseded-pty-exit-evidence.test.ts
         src/main/ssh/ssh-port-forward.ts src/main/ssh/ssh-port-forward.test.ts
         src/main/ssh/ssh-port-forward-mutation-coordinator.ts
+        src/main/ssh/ssh-port-forward-lifecycle-types.ts
+        src/main/ssh/ssh-port-forward-listing.ts
+        src/main/ssh/ssh-port-forward-disposal.ts
+        src/main/ssh/ssh-port-forward-provider-selection.ts
     init: true
     network_mode: host
 

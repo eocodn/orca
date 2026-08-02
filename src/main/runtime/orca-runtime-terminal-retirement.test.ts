@@ -881,8 +881,9 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
       await vi.advanceTimersByTimeAsync(0)
 
       const pendingKeys = [
-        ...(runtime as unknown as { pendingPtyDurableRetirements: Map<string, unknown> })
-          .pendingPtyDurableRetirements.keys()
+        ...(
+          runtime as unknown as { pendingPtyDurableRetirements: Map<string, unknown> }
+        ).pendingPtyDurableRetirements.keys()
       ]
       expect(pendingKeys.some((key) => key.includes('durable-old'))).toBe(true)
       expect(session.terminalPtyIncarnationsByPaneKey?.['tab:left']).toBe('durable-old')

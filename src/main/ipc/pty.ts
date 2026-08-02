@@ -400,10 +400,7 @@ function snapshotPtyCleanupAuthority(id: string | undefined): PtyCleanupAuthorit
   return new Map(cleanupPendingPtyById.get(id))
 }
 
-function ptyCleanupAuthorityChanged(
-  id: string,
-  snapshot: PtyCleanupAuthoritySnapshot
-): boolean {
+function ptyCleanupAuthorityChanged(id: string, snapshot: PtyCleanupAuthoritySnapshot): boolean {
   const current = cleanupPendingPtyById.get(id)
   if (!current || current.size === 0 || current.size !== snapshot.size) {
     return current !== undefined && current.size > 0
@@ -5191,17 +5188,13 @@ export function registerPtyHandlers(
               spawn: async () => {
                 assertClientStillConnected()
                 const providerSpawnPtyId = pendingRegistrationPtyId ?? expectedPtyId
-                const cleanupAuthorityBeforeProviderSpawn = snapshotPtyCleanupAuthority(
-                  providerSpawnPtyId
-                )
+                const cleanupAuthorityBeforeProviderSpawn =
+                  snapshotPtyCleanupAuthority(providerSpawnPtyId)
                 assertPtyCleanupComplete(providerSpawnPtyId)
                 providerResult = await provider.spawn(spawnOptions)
                 rejectedRegistrationCandidate = providerResult
                 if (providerResult.id === providerSpawnPtyId) {
-                  assertPtyCleanupComplete(
-                    providerResult.id,
-                    cleanupAuthorityBeforeProviderSpawn
-                  )
+                  assertPtyCleanupComplete(providerResult.id, cleanupAuthorityBeforeProviderSpawn)
                 }
                 // Why: a successful lower-owner return proves physical work committed even if admission sees an early exit.
                 reportPtySpawnCommitted()
@@ -5246,8 +5239,7 @@ export function registerPtyHandlers(
             result.agentSessionEnsure = ensured
           } else {
             assertClientStillConnected()
-            const cleanupAuthorityBeforeProviderSpawn =
-              snapshotPtyCleanupAuthority(expectedPtyId)
+            const cleanupAuthorityBeforeProviderSpawn = snapshotPtyCleanupAuthority(expectedPtyId)
             result = await provider.spawn(spawnOptions)
             rejectedRegistrationCandidate = result
             if (expectedPtyId === result.id) {
@@ -6451,8 +6443,7 @@ export function registerPtyHandlers(
           const sequenceBeforeProviderSpawn = expectedPtyId
             ? (runtime?.getPtyOutputSequence?.(expectedPtyId) ?? 0)
             : 0
-          const cleanupAuthorityBeforeProviderSpawn =
-            snapshotPtyCleanupAuthority(expectedPtyId)
+          const cleanupAuthorityBeforeProviderSpawn = snapshotPtyCleanupAuthority(expectedPtyId)
           result = await provider.spawn(spawnOptions)
           rejectedRegistrationCandidate = result
           if (expectedPtyId === result.id) {

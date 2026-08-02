@@ -3,6 +3,22 @@ export type ForwardMutation = {
   cancelled: boolean
 }
 
+export function isForwardMutationActive(
+  disposed: boolean,
+  mutation: ForwardMutation | undefined
+): boolean {
+  return !disposed && mutation?.cancelled !== true
+}
+
+export function assertForwardMutationActive(
+  disposed: boolean,
+  mutation: ForwardMutation | undefined
+): void {
+  if (!isForwardMutationActive(disposed, mutation)) {
+    throw new Error('port_forward_cancelled')
+  }
+}
+
 export class SshPortForwardMutationCoordinator {
   private queues = new Map<string, Promise<unknown>>()
   private active = new Map<string, Set<ForwardMutation>>()
