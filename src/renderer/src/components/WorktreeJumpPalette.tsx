@@ -1,4 +1,3 @@
-/* oxlint-disable max-lines */
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from 'react-i18next'
@@ -128,207 +127,19 @@ import type { BrowserPage, BrowserWorkspace, Worktree } from '../../../shared/ty
 import { isGitRepoKind } from '../../../shared/repo-kind'
 import { buildTaskSourceContextFromRepo } from '../../../shared/task-source-context'
 import { translate } from '@/i18n/i18n'
+import {
+  CREATE_WORKSPACE_QUICK_ACTION_ITEM_ID,
+  PALETTE_STATUS_INPUTS_LINGER_MS,
+  appendPaletteListEntries,
+  findBrowserSelection,
+  getComposerPrefetchRepoId,
+  getSettingsTargetFromSectionId,
+  HighlightedText,
+  PaletteHostBadgeChip,
+  PaletteState,
+  FooterKey
+} from './worktree-jump-palette-model'
 
-type WorktreePaletteItem = {
-  id: string
-  type: 'worktree'
-  match: PaletteSearchResult
-  worktree: Worktree
-}
-
-type BrowserPaletteItem = {
-  id: string
-  type: 'browser-page'
-  result: BrowserPaletteSearchResult
-}
-
-type SimulatorPaletteItem = {
-  id: string
-  type: 'simulator-tab'
-  result: SimulatorPaletteSearchResult
-}
-
-type WorkspaceTabPaletteItem = {
-  id: string
-  type: 'workspace-tab'
-  result: WorkspaceTabPaletteSearchResult
-}
-
-type SettingsPaletteItem = {
-  id: string
-  type: 'settings'
-  result: CmdJSettingsResult
-}
-
-type QuickActionPaletteItem = {
-  id: string
-  type: 'quick-action'
-  result: CmdJActionResult
-}
-
-type ProjectTargetPaletteItem = {
-  id: string
-  type: 'project-target'
-  result: CmdJProjectSearchResult
-}
-
-type SectionHeader = {
-  id: string
-  type: 'section-header'
-  label: string
-}
-
-type HintRow = {
-  id: string
-  type: 'hint'
-  label: string
-}
-
-type CreateWorktreePaletteItem = {
-  id: typeof CREATE_WORKTREE_ITEM_ID
-  type: 'create-worktree'
-}
-
-// Why: keep quick actions curated — Cmd+J is a fast intent surface, not a dump of every setup button.
-type PaletteItem =
-  | WorktreePaletteItem
-  | ProjectTargetPaletteItem
-  | SettingsPaletteItem
-  | QuickActionPaletteItem
-  | BrowserPaletteItem
-  | SimulatorPaletteItem
-  | WorkspaceTabPaletteItem
-
-type PaletteListEntry = PaletteItem | CreateWorktreePaletteItem | SectionHeader | HintRow
-
-const CREATE_WORKSPACE_QUICK_ACTION_ITEM_ID = `quick-action:${CREATE_WORKSPACE_QUICK_ACTION_ID}`
-
-// Why: outlast the CommandDialog close animation (~150–200ms) so gated status maps stay live until fading rows are gone.
-const PALETTE_STATUS_INPUTS_LINGER_MS = 300
-
-function getComposerPrefetchRepoId(
-  state: ReturnType<typeof useAppStore.getState>,
-  initialRepoId?: string
-): string | null {
-  return resolveComposerGitRepoId({
-    eligibleRepos: getComposerEligibleRepos(state.repos),
-    initialRepoId,
-    activeRepoId: state.activeRepoId,
-    focusedHostScope: state.workspaceHostScope
-  })
-}
-
-function appendPaletteListEntries(
-  target: PaletteListEntry[],
-  source: readonly PaletteItem[]
-): void {
-  // Why: source can be large enough to hit the argument limit of push(...source).
-  for (const entry of source) {
-    target.push(entry)
-  }
-}
-
-type BrowserSelection = {
-  worktree: Worktree
-  workspace: BrowserWorkspace
-  page: BrowserPage
-}
-
-function HighlightedText({
-  text,
-  matchRange
-}: {
-  text: string
-  matchRange: MatchRange | null
-}): React.JSX.Element {
-  if (!matchRange) {
-    return <>{text}</>
-  }
-  const before = text.slice(0, matchRange.start)
-  const match = text.slice(matchRange.start, matchRange.end)
-  const after = text.slice(matchRange.end)
-  return (
-    <>
-      {before}
-      <span className="font-semibold text-foreground">{match}</span>
-      {after}
-    </>
-  )
-}
-
-function PaletteState({ title, subtitle }: { title: string; subtitle: string }): React.JSX.Element {
-  return (
-    <div className="px-5 py-8 text-center">
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-    </div>
-  )
-}
-
-function FooterKey({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return (
-    <span className="rounded-full border border-border/60 bg-muted/35 px-2 py-0.5 text-[10px] font-medium text-foreground/85">
-      {children}
-    </span>
-  )
-}
-
-function PaletteHostBadgeChip({
-  badge
-}: {
-  badge: PaletteHostBadge | null
-}): React.JSX.Element | null {
-  if (!badge) {
-    return null
-  }
-  // Host labels come from the registry and are intentionally not translated.
-  return (
-    <span
-      aria-label={translate(
-        'auto.components.WorktreeJumpPalette.paletteHostBadge',
-        'Host: {{value0}}',
-        { value0: badge.label }
-      )}
-      className="max-w-[140px] truncate rounded-[6px] border border-border/60 bg-background/45 px-1.5 py-px text-[9px] font-medium leading-normal text-muted-foreground/88"
-    >
-      {badge.label}
-    </span>
-  )
-}
-
-function findBrowserSelection(
-  pageId: string,
-  workspaceId: string,
-  worktreeId: string
-): BrowserSelection | null {
-  const state = useAppStore.getState()
-  const page = (state.browserPagesByWorkspace[workspaceId] ?? []).find((p) => p.id === pageId)
-  if (!page) {
-    return null
-  }
-  const workspace = (state.browserTabsByWorktree[worktreeId] ?? []).find(
-    (w) => w.id === workspaceId
-  )
-  if (!workspace) {
-    return null
-  }
-  const worktree = findWorktreeById(state.worktreesByRepo, worktreeId)
-  if (!worktree) {
-    return null
-  }
-  return { page, workspace, worktree }
-}
-
-function getSettingsTargetFromSectionId(sectionId: string): {
-  pane: SettingsNavTarget
-  repoId: string | null
-  sectionId?: string
-} {
-  if (sectionId.startsWith('repo-')) {
-    return { pane: 'repo', repoId: sectionId.slice('repo-'.length) }
-  }
-  return { pane: sectionId as SettingsNavTarget, repoId: null }
-}
 
 export default function WorktreeJumpPalette(): React.JSX.Element | null {
   // Why: subscribe to language changes so translated memos recompute without a fake i18n.language dependency.
