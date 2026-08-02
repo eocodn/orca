@@ -1,5 +1,3 @@
-/* eslint-disable max-lines -- Why: field state, base search, AI generation,
-   and cancellation share request guards that need to stay in one hook. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getConnectionId } from '@/lib/connection-context'
 import { useAppStore, type AppState } from '@/store'
@@ -13,9 +11,8 @@ import {
   getRuntimeRepoBaseRefDefault,
   searchRuntimeRepoBaseRefDetails
 } from '@/runtime/runtime-repo-client'
-import type { Repo, BaseRefSearchResult } from '../../../../shared/types'
+import type { Repo } from '../../../../shared/types'
 import type { HostedReviewCreationEligibility } from '../../../../shared/hosted-review'
-import { normalizeHostedReviewBaseRef } from '../../../../shared/hosted-review-refs'
 import {
   DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS,
   resolveSourceControlAiForOperation
@@ -26,6 +23,17 @@ import type {
   PullRequestFieldRevisions
 } from '@/store/slices/pull-request-generation'
 import { resolveCreateReviewDraftTitle } from './create-review-draft-title'
+import {
+  normalizeCreateReviewBaseSearchResults,
+  resolveCreateReviewDefaultBaseRef,
+  stripBaseRef
+} from './create-pull-request-base-ref'
+
+export {
+  normalizeCreateReviewBaseSearchResults,
+  resolveCreateReviewDefaultBaseRef,
+  stripBaseRef
+} from './create-pull-request-base-ref'
 
 type PullRequestDraftFields = {
   base: string
@@ -82,44 +90,6 @@ function createInitialPullRequestFieldRevisions(): PullRequestFieldRevisions {
     body: 0,
     draft: 0
   }
-}
-
-export function stripBaseRef(ref: string): string {
-  return normalizeHostedReviewBaseRef(ref)
-}
-
-function resolveCreateReviewDefaultBaseRef({
-  currentBaseRef,
-  eligibilityDefaultBaseRef
-}: {
-  currentBaseRef?: string | null
-  eligibilityDefaultBaseRef?: string | null
-}): string {
-  // Why: prefer the remote-validated main-process default over the worktree's
-  // local parent base. For a stacked worktree whose parent is local-only,
-  // `currentBaseRef` is that unpushable parent; the eligibility default has
-  // already fallen back to a ref the remote can resolve. Fall back to
-  // `currentBaseRef` only when eligibility supplied no default. Manual
-  // `setUserBase` still wins via the base-resync suppression.
-  return stripBaseRef(eligibilityDefaultBaseRef?.trim() || currentBaseRef?.trim() || '')
-}
-
-export function normalizeCreateReviewBaseSearchResults(
-  results: readonly BaseRefSearchResult[]
-): string[] {
-  const seen = new Set<string>()
-  const branches: string[] = []
-  for (const result of results) {
-    // Why: hosted review APIs take branch names, while base search displays
-    // remote-qualified refs. Detailed search already resolves slashy remotes.
-    const branch = stripBaseRef((result.localBranchName || result.refName).trim())
-    if (!branch || seen.has(branch)) {
-      continue
-    }
-    seen.add(branch)
-    branches.push(branch)
-  }
-  return branches
 }
 
 export function useCreatePullRequestDialogFields({

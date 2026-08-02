@@ -1,5 +1,5 @@
 // Concrete surface implementation for FileExplorerRow.tsx
-import React, { useCallback, useRef } from 'react'
+import React, { useCallback } from 'react'
 import { basename } from '@/lib/path'
 import {
   ChevronRight,
@@ -11,9 +11,9 @@ import {
   File,
   FilePlus,
   Files,
-  Folder,
   FolderOpen,
   FolderPlus,
+  Folder,
   Globe,
   ListCollapse,
   Link,
@@ -23,7 +23,6 @@ import {
   SquareTerminal,
   Trash2
 } from 'lucide-react'
-import { toast } from 'sonner'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -47,12 +46,32 @@ import type { GitFileStatus } from '../../../../shared/types'
 import { STATUS_LABELS } from './status-display'
 import { RENAME_HOTSPOT_ATTR } from './file-explorer-dir-toggle-timing'
 import type { TreeNode } from './file-explorer-types'
+import { InlineInputRow, type InlineInput } from './file-explorer-inline-input-row'
+export { InlineInputRow, type InlineInput } from './file-explorer-inline-input-row'
 import { useFileExplorerRowDrag } from './useFileExplorerRowDrag'
 import { isLocalPathOpenBlocked, showLocalPathOpenBlockedToast } from '@/lib/local-path-open-guard'
-import { translate } from '@/i18n/i18n'
-import { extractIpcErrorMessage } from '@/lib/ipc-error'
 import { CLOSE_ALL_CONTEXT_MENUS_EVENT } from '@/components/tab-bar/SortableTab'
-import { downloadRuntimeFile, type RuntimeFileOperationArgs } from '@/runtime/runtime-file-client'
+import { type RuntimeFileOperationArgs } from '@/runtime/runtime-file-client'
+import {
+  copyFileToOsClipboard,
+  downloadRemoteFile,
+  shouldShowCollapseFolderAction,
+  shouldShowCopyFileAction,
+  shouldShowFindInFolderAction,
+  shouldShowOpenInTerminalAction,
+  shouldShowRemoteDownloadAction,
+  shouldShowViewFileAction
+} from './file-explorer-row-actions'
+export {
+  copyFileToOsClipboard,
+  downloadRemoteFile,
+  shouldShowCollapseFolderAction,
+  shouldShowCopyFileAction,
+  shouldShowFindInFolderAction,
+  shouldShowOpenInTerminalAction,
+  shouldShowRemoteDownloadAction,
+  shouldShowViewFileAction
+} from './file-explorer-row-actions'
 
 const isMac = navigator.userAgent.includes('Mac')
 const isLinux = navigator.userAgent.includes('Linux')
@@ -72,183 +91,6 @@ function stopRightButtonMenuSelection(event: React.PointerEvent): void {
   // paths the right-button release lands on the first item and selects it.
   event.preventDefault()
   event.stopPropagation()
-}
-
-export type InlineInput = {
-  parentPath: string
-  type: 'file' | 'folder' | 'rename'
-  depth: number
-  existingName?: string
-  existingPath?: string
-  operationOwner?: TreeNode['operationOwner']
-}
-
-// ─── Inline Input Row ────────────────────────────────────────────
-
-export function InlineInputRow({
-  depth,
-  inlineInput,
-  onSubmit,
-  onCancel
-}: {
-  depth: number
-  inlineInput: InlineInput
-  onSubmit: (value: string) => void
-  onCancel: () => void
-}): React.JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const submitted = useRef(false)
-  // Grace period flag: when a menu (context or dropdown) closes, its focus
-  // management can momentarily steal focus from this input before the user
-  // has a chance to type. During the grace window we re-focus on blur instead
-  // of auto-submitting, which would dismiss the empty input.
-  const focusSettled = useRef(false)
-  const focusFrame = useRef<number | null>(null)
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const refocusFrame = useRef<number | null>(null)
-  const inlineInputKey = [
-    inlineInput.type,
-    inlineInput.parentPath,
-    inlineInput.depth,
-    inlineInput.existingPath ?? '',
-    inlineInput.existingName ?? ''
-  ].join('\0')
-
-  const cancelRefocusFrame = useCallback((): void => {
-    if (refocusFrame.current !== null) {
-      cancelAnimationFrame(refocusFrame.current)
-      refocusFrame.current = null
-    }
-  }, [])
-
-  const scheduleInputRefocus = useCallback((): void => {
-    cancelRefocusFrame()
-    refocusFrame.current = requestAnimationFrame(() => {
-      refocusFrame.current = null
-      inputRef.current?.focus()
-    })
-  }, [cancelRefocusFrame])
-
-  const clearInlineInputTimers = useCallback(() => {
-    if (focusFrame.current !== null) {
-      cancelAnimationFrame(focusFrame.current)
-      focusFrame.current = null
-    }
-    cancelRefocusFrame()
-    if (blurTimeout.current) {
-      clearTimeout(blurTimeout.current)
-      blurTimeout.current = null
-    }
-    if (settleTimer.current) {
-      clearTimeout(settleTimer.current)
-      settleTimer.current = null
-    }
-  }, [cancelRefocusFrame])
-
-  const setInputRef = useCallback(
-    (el: HTMLInputElement | null): void => {
-      inputRef.current = el
-      clearInlineInputTimers()
-      if (!el) {
-        return
-      }
-
-      submitted.current = false
-      focusSettled.current = false
-
-      // Schedule focus after any pending focus-restore from menu close
-      focusFrame.current = requestAnimationFrame(() => {
-        focusFrame.current = null
-        if (inputRef.current !== el) {
-          return
-        }
-        el.focus()
-        if (inlineInput.type === 'rename' && inlineInput.existingName) {
-          const dotIndex = inlineInput.existingName.lastIndexOf('.')
-          if (dotIndex > 0) {
-            el.setSelectionRange(0, dotIndex)
-          } else {
-            el.select()
-          }
-        }
-        // Allow enough time for the menu close focus management to finish
-        // before treating blur events as intentional user actions.
-        settleTimer.current = setTimeout(() => {
-          settleTimer.current = null
-          focusSettled.current = true
-        }, 200)
-      })
-    },
-    [clearInlineInputTimers, inlineInput.existingName, inlineInput.type]
-  )
-
-  const clearBlurTimeout = useCallback(() => {
-    if (blurTimeout.current) {
-      clearTimeout(blurTimeout.current)
-      blurTimeout.current = null
-    }
-  }, [])
-
-  const submit = useCallback(
-    (value: string) => {
-      if (submitted.current) {
-        return
-      }
-      submitted.current = true
-      clearBlurTimeout()
-      onSubmit(value)
-    },
-    [onSubmit, clearBlurTimeout]
-  )
-
-  return (
-    <div
-      className="flex items-center w-full h-[26px] px-2 gap-1"
-      style={{ paddingLeft: `${depth * 16 + 8}px` }}
-    >
-      <span className="size-3 shrink-0" />
-      {inlineInput.type === 'folder' ? (
-        <Folder className="size-3 shrink-0 text-muted-foreground" />
-      ) : (
-        <File className="size-3 shrink-0 text-muted-foreground" />
-      )}
-      <input
-        key={inlineInputKey}
-        ref={setInputRef}
-        className="flex-1 min-w-0 bg-transparent text-xs text-foreground outline-none border border-ring rounded-sm px-1"
-        defaultValue={inlineInput.type === 'rename' ? inlineInput.existingName : ''}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            submit(e.currentTarget.value)
-          } else if (e.key === 'Escape') {
-            clearBlurTimeout()
-            submitted.current = true
-            onCancel()
-          }
-        }}
-        onFocus={clearBlurTimeout}
-        onBlur={(e) => {
-          // During the grace period after mount, menu close focus management
-          // may shift focus away before the user can type. Re-focus instead of
-          // dismissing the still-empty input. Past that window a blur is the
-          // user leaving, so commit like Finder does rather than clinging to
-          // the edit state — every row is itself a context-menu trigger, so
-          // relatedTarget can't tell an ordinary row click from Radix cleanup.
-          if (!focusSettled.current) {
-            scheduleInputRefocus()
-            return
-          }
-          const value = e.currentTarget.value
-          blurTimeout.current = setTimeout(() => {
-            blurTimeout.current = null
-            submit(value)
-          }, 150)
-        }}
-      />
-    </div>
-  )
 }
 
 // ─── File / Folder Row with Context Menu ─────────────────────────
@@ -291,137 +133,6 @@ type FileExplorerRowProps = {
   onDragExpandDir: (dirPath: string) => void
   onNativeDragTargetChange: (dir: string | null) => void
   onNativeDragExpandDir: (dirPath: string) => void
-}
-
-export function shouldShowCollapseFolderAction(node: TreeNode, isExpanded: boolean): boolean {
-  return node.isDirectory && isExpanded
-}
-
-export function shouldShowFindInFolderAction(node: TreeNode): boolean {
-  return node.isDirectory
-}
-
-export function shouldShowOpenInTerminalAction(node: TreeNode): boolean {
-  return node.isDirectory
-}
-
-export function shouldShowViewFileAction(node: TreeNode): boolean {
-  return !node.isDirectory
-}
-
-export function shouldShowRemoteDownloadAction(
-  node: TreeNode,
-  connectionId?: string | null,
-  runtimeDownloadContext?: RuntimeFileOperationArgs | null,
-  // Why: fail closed — only show folder download when the connection explicitly
-  // advertises SFTP recursive transfer (system-SSH and unknown states stay off).
-  supportsFolderDownload = false
-): boolean {
-  // Why: Desktop-only because download depends on Electron's native save/folder dialogs;
-  // runtime and system-SSH folders have no recursive transfer contract.
-  const hasDownloadCapability = node.isDirectory
-    ? Boolean(connectionId && supportsFolderDownload)
-    : Boolean(connectionId || runtimeDownloadContext)
-  return (
-    hasDownloadCapability &&
-    (globalThis as { __ORCA_WEB_CLIENT__?: boolean }).__ORCA_WEB_CLIENT__ !== true
-  )
-}
-
-export function shouldShowCopyFileAction(
-  node: TreeNode,
-  connectionId?: string | null,
-  selectionSize = 1
-): boolean {
-  // Why: remote directories would require recursive materialization semantics;
-  // keep this to a single concrete file reference until multi-file copy exists.
-  return (
-    (!connectionId || !node.isDirectory) &&
-    selectionSize === 1 &&
-    (globalThis as { __ORCA_WEB_CLIENT__?: boolean }).__ORCA_WEB_CLIENT__ !== true
-  )
-}
-
-export async function downloadRemoteFile(
-  node: TreeNode,
-  connectionIdOrRuntimeContext: string | RuntimeFileOperationArgs
-): Promise<void> {
-  try {
-    const result =
-      typeof connectionIdOrRuntimeContext === 'string'
-        ? node.isDirectory
-          ? await window.api.fs.downloadFolder({
-              dirPath: node.path,
-              connectionId: connectionIdOrRuntimeContext
-            })
-          : await window.api.fs.downloadFile({
-              filePath: node.path,
-              connectionId: connectionIdOrRuntimeContext
-            })
-        : await downloadRuntimeFile(connectionIdOrRuntimeContext, node.path, node.name)
-    // Why: Suppress toasts when the user cancels the native save dialog per design.
-    if (result.canceled) {
-      return
-    }
-    toast.success(
-      node.isDirectory
-        ? translate(
-            'auto.components.right.sidebar.FileExplorerRow.a4029c996b',
-            "Downloaded folder '{{value0}}'",
-            { value0: node.name }
-          )
-        : translate(
-            'auto.components.right.sidebar.FileExplorerRow.bce4d4e44f',
-            "Downloaded '{{value0}}'",
-            { value0: node.name }
-          ),
-      {
-        action: {
-          label: translate('auto.components.right.sidebar.FileExplorerRow.1a3df04ae1', 'Open'),
-          onClick: () => {
-            void window.api.shell.openPath(result.destinationPath)
-          }
-        }
-      }
-    )
-  } catch (error) {
-    toast.error(
-      extractIpcErrorMessage(
-        error,
-        node.isDirectory
-          ? translate(
-              'auto.components.right.sidebar.FileExplorerRow.f729bcd97d',
-              "Failed to download folder '{{value0}}'.",
-              { value0: node.name }
-            )
-          : translate(
-              'auto.components.right.sidebar.FileExplorerRow.b3e288bf41',
-              "Failed to download '{{value0}}'.",
-              { value0: node.name }
-            )
-      )
-    )
-  }
-}
-
-export async function copyFileToOsClipboard(
-  node: TreeNode,
-  connectionId?: string | null
-): Promise<void> {
-  const failureMessage = translate(
-    'auto.components.right.sidebar.FileExplorerRow.b234ab25b4',
-    'Could not copy the file to the clipboard'
-  )
-  try {
-    const result = await window.api.ui.writeClipboardFile(
-      connectionId ? { filePath: node.path, connectionId } : node.path
-    )
-    if (!result.ok) {
-      toast.error(failureMessage)
-    }
-  } catch (error) {
-    toast.error(extractIpcErrorMessage(error, failureMessage))
-  }
 }
 
 export function FileExplorerRow({
