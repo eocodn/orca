@@ -244,4 +244,3 @@ export async function linearTeamMembers(
       )
     : window.api.linear.teamMembers({ teamId, workspaceId: workspaceId ?? undefined })
 }
-
