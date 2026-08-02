@@ -27,10 +27,19 @@ const LIVE_REPO = {
   addedAt: 1
 } as const
 
+type RuntimeTestRepo = {
+  id: string
+  path: string
+  displayName: string
+  badgeColor: string
+  addedAt: number
+  connectionId?: string
+}
+
 function runtimeStore(
   overrides: {
-    getRepos?: () => readonly (typeof LIVE_REPO & { connectionId?: string })[]
-    getRepo?: (id: string) => (typeof LIVE_REPO & { connectionId?: string }) | undefined
+    getRepos?: () => readonly RuntimeTestRepo[]
+    getRepo?: (id: string) => RuntimeTestRepo | undefined
     getFolderWorkspaces?: () => readonly {
       id: string
       folderPath: string
@@ -681,6 +690,42 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     expect(flushOrThrow).toHaveBeenCalledTimes(2)
   })
 
+  it('drains pending durable retirements during shutdown', () => {
+    vi.useFakeTimers()
+    try {
+      const session = makePersistedSplitSession()
+      const flushOrThrow = vi
+        .fn()
+        .mockImplementationOnce(() => {
+          throw new Error('disk unavailable')
+        })
+        .mockImplementation(() => undefined)
+      const runtime = new OrcaRuntimeService(
+        runtimeStore({
+          getWorkspaceSession: () => session,
+          setWorkspaceSession: vi.fn(),
+          flushOrThrow
+        })
+      )
+      runtime.attachWindow(1)
+      syncSplit(runtime)
+      runtime.registerPty('pty-left', WORKTREE_ID, null, {
+        tabId: 'tab',
+        leafId: 'left',
+        incarnationId: 'shutdown-drain-incarnation'
+      })
+
+      runtime.onPtyExit('pty-left', 0, 'shutdown-drain-incarnation')
+
+      expect(flushOrThrow).toHaveBeenCalledOnce()
+      expect(runtime.flushPendingPtyDurableRetirements()).toBe(true)
+      expect(flushOrThrow).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.clearAllTimers()
+      vi.useRealTimers()
+    }
+  })
+
   it('does not let an old pending durable retirement remove a current replacement', async () => {
     vi.useFakeTimers()
     try {
@@ -881,6 +926,29 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     ).not.toThrow()
   })
 
+  it('does not fence a pending replacement when the disconnected record proves the old exit', () => {
+    const runtime = new OrcaRuntimeService()
+    runtime.registerPty('pty-identityless-disconnected-old-proof', WORKTREE_ID, null, {
+      tabId: 'tab',
+      leafId: 'left',
+      incarnationId: 'old-incarnation'
+    })
+    runtime.onPtyExit('pty-identityless-disconnected-old-proof', 0, 'old-incarnation')
+    runtime.beginPtyRegistration('pty-identityless-disconnected-old-proof', 'new-incarnation')
+
+    runtime.onPtyExit('pty-identityless-disconnected-old-proof', 0, undefined, {
+      authoritativeIdentityLess: true,
+      expectedIncarnationId: 'old-incarnation'
+    })
+
+    expect(() =>
+      runtime.assertPtyRegistrationAllowed(
+        'pty-identityless-disconnected-old-proof',
+        'new-incarnation'
+      )
+    ).not.toThrow()
+  })
+
   it('retires an admitted headless replacement instead of rejecting it against the old PTY record', async () => {
     vi.useFakeTimers()
     try {
@@ -917,7 +985,7 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
     }
   })
 
-  it('persists terminal retirement in the execution host partition of a remote worktree', async () => {
+  it('persists terminal retirement in the authoritative current worktree host partition', async () => {
     const remoteRepo = { ...LIVE_REPO, connectionId: 'ssh-target-1' }
     const replacementRepo = { ...LIVE_REPO, connectionId: 'ssh-target-2' }
     const remoteHostId = getRepoExecutionHostId(remoteRepo)
@@ -953,12 +1021,12 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
 
     runtime.onPtyExit('pty-left', 0, 'remote-incarnation')
 
-    expect(setWorkspaceSession).toHaveBeenCalledWith(expect.anything(), remoteHostId)
-    expect(setWorkspaceSession).not.toHaveBeenCalledWith(expect.anything(), replacementHostId)
-    expect(sessions.get(remoteHostId)?.tabsByWorktree[WORKTREE_ID]?.[0]?.ptyId).toBe('pty-right')
+    expect(setWorkspaceSession).toHaveBeenCalledWith(expect.anything(), replacementHostId)
+    expect(setWorkspaceSession).not.toHaveBeenCalledWith(expect.anything(), remoteHostId)
+    expect(sessions.get(remoteHostId)?.tabsByWorktree[WORKTREE_ID]?.[0]?.ptyId).toBe('pty-left')
     expect(sessions.get(localHostId)?.tabsByWorktree[WORKTREE_ID]?.[0]?.ptyId).toBe('pty-left')
     expect(sessions.get(replacementHostId)?.tabsByWorktree[WORKTREE_ID]?.[0]?.ptyId).toBe(
-      'pty-left'
+      'pty-right'
     )
   })
 
@@ -992,6 +1060,105 @@ describe('OrcaRuntimeService terminal surface retirement', () => {
         'pty-left'
       )?.connected
     ).toBe(false)
+  })
+
+  it('retires surfaces in each worktree execution host partition', () => {
+    const repoA = { ...LIVE_REPO, id: 'repo-a', path: '/worktree-a', connectionId: 'ssh-target-a' }
+    const repoB = { ...LIVE_REPO, id: 'repo-b', path: '/worktree-b', connectionId: 'ssh-target-b' }
+    const worktreeA = 'repo-a::/worktree-a'
+    const worktreeB = 'repo-b::/worktree-b'
+    const hostA = getRepoExecutionHostId(repoA)
+    const hostB = getRepoExecutionHostId(repoB)
+    const sessionA = makePersistedSplitSession(worktreeA)
+    const sessionB = makePersistedSplitSession(worktreeB)
+    sessionA.tabsByWorktree[worktreeA]![0]!.ptyId = 'pty-shared'
+    sessionA.terminalLayoutsByTabId.tab!.ptyIdsByLeafId = {
+      left: 'pty-shared',
+      right: 'pty-right-a'
+    }
+    sessionB.tabsByWorktree[worktreeB]![0]!.ptyId = 'pty-shared'
+    sessionB.terminalLayoutsByTabId.tab!.ptyIdsByLeafId = {
+      left: 'pty-shared',
+      right: 'pty-right-b'
+    }
+    const sessions = new Map<ExecutionHostId, WorkspaceSessionState>([
+      [hostA, sessionA],
+      [hostB, sessionB]
+    ])
+    const setWorkspaceSession = vi.fn(
+      (nextSession: WorkspaceSessionState, hostId?: ExecutionHostId) => {
+        sessions.set(hostId ?? LOCAL_EXECUTION_HOST_ID, nextSession)
+      }
+    )
+    const runtime = new OrcaRuntimeService(
+      runtimeStore({
+        getRepos: () => [repoA, repoB],
+        getRepo: (id) => [repoA, repoB].find((repo) => repo.id === id),
+        getWorkspaceSession: (hostId) => sessions.get(hostId ?? LOCAL_EXECUTION_HOST_ID)!,
+        setWorkspaceSession,
+        flushOrThrow: vi.fn()
+      })
+    )
+    runtime.attachWindow(1)
+    const snapshotA = makeSplitSnapshot('pty-shared', 'pty-right-a', worktreeA)
+    const snapshotB = makeSplitSnapshot('pty-shared', 'pty-right-b', worktreeB)
+    runtime.syncWindowGraph(1, {
+      tabs: [
+        {
+          tabId: 'tab-a',
+          worktreeId: worktreeA,
+          title: 'A',
+          activeLeafId: 'left',
+          layout:
+            snapshotA.tabs[0]?.type === 'terminal'
+              ? (snapshotA.tabs[0].parentLayout?.root ?? null)
+              : null
+        },
+        {
+          tabId: 'tab-b',
+          worktreeId: worktreeB,
+          title: 'B',
+          activeLeafId: 'left',
+          layout:
+            snapshotB.tabs[0]?.type === 'terminal'
+              ? (snapshotB.tabs[0].parentLayout?.root ?? null)
+              : null
+        }
+      ],
+      leaves: [
+        {
+          tabId: 'tab-a',
+          worktreeId: worktreeA,
+          leafId: 'left',
+          paneRuntimeId: 1,
+          ptyId: 'pty-shared'
+        },
+        {
+          tabId: 'tab-b',
+          worktreeId: worktreeB,
+          leafId: 'left',
+          paneRuntimeId: 2,
+          ptyId: 'pty-shared'
+        }
+      ],
+      mobileSessionTabs: [snapshotA, snapshotB]
+    })
+    runtime.registerPty('pty-shared', worktreeA, 'ssh-target-a', {
+      tabId: 'tab-a',
+      leafId: 'left',
+      incarnationId: 'shared-host-incarnation'
+    })
+
+    runtime.onPtyExit('pty-shared', 0, 'shared-host-incarnation')
+
+    expect(setWorkspaceSession).toHaveBeenCalledWith(expect.anything(), hostA)
+    expect(setWorkspaceSession).toHaveBeenCalledWith(expect.anything(), hostB)
+    expect(sessions.get(hostA)?.terminalLayoutsByTabId.tab).toMatchObject({
+      root: { type: 'leaf', leafId: 'right' }
+    })
+    expect(sessions.get(hostB)?.terminalLayoutsByTabId.tab).toMatchObject({
+      root: { type: 'leaf', leafId: 'right' }
+    })
   })
 
   it('uses the worktree execution host when the PTY record has already disappeared', async () => {

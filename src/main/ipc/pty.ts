@@ -509,11 +509,11 @@ function providerCanReconcileCleanup(pending: CleanupPendingPty, provider: IPtyP
       return true
     }
     const currentGeneration = providerGeneration(provider)
-    return (
-      pending.providerGeneration !== undefined &&
-      currentGeneration !== undefined &&
-      currentGeneration > pending.providerGeneration
-    )
+    if (pending.providerGeneration === undefined || currentGeneration === undefined) {
+      // Why: the current connection binding is authoritative when a legacy relay cannot expose generations.
+      return true
+    }
+    return currentGeneration > pending.providerGeneration
   }
   return pending.provider === provider
 }
@@ -4143,10 +4143,18 @@ export function registerPtyHandlers(
         }
         const currentBeforeCleanup = ptyIncarnationById.get(payload.id)
         const pendingBeforeCleanup = pendingPtyIncarnationById.get(payload.id)
-        const restored = restorePublicationAfterExactCleanup(
-          { id: payload.id, incarnationId: payload.incarnationId },
-          cleanupPending?.publicationSnapshot ?? null
-        )
+        let restored = false
+        try {
+          restored = restorePublicationAfterExactCleanup(
+            { id: payload.id, incarnationId: payload.incarnationId },
+            cleanupPending?.publicationSnapshot ?? null
+          )
+        } catch (error) {
+          // Why: the provider exit is authoritative, but a projection failure must leave the exact tombstone retryable.
+          console.warn('[pty] exact cleanup finalizer failed after provider exit:', error)
+          schedulePendingPtyCleanupReconciliation(localProvider)
+          return
+        }
         if (!restored) {
           if (
             pendingBeforeCleanup !== undefined &&
@@ -4194,6 +4202,9 @@ export function registerPtyHandlers(
         clearProviderPtyState(payload.id)
         ptyOwnership.delete(payload.id)
         markClaudePtyExited(payload.id)
+        if (hasPendingPtyCleanupWithoutIncarnation(payload.id)) {
+          schedulePendingPtyCleanupReconciliation(localProvider)
+        }
         if (
           payload.incarnationId === undefined &&
           verification?.identityLessAbsenceProven === true

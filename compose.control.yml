@@ -37,7 +37,11 @@ services:
           src/main/ssh/ssh-relay-session-incarnation.test.ts \
           src/main/ssh/ssh-relay-session-cleanup-incarnation.test.ts \
           src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts \
+          src/main/ssh/ssh-relay-session-reconnect-queued-exits.test.ts \
           src/main/ssh/ssh-relay-session-recovery-races.test.ts \
+          src/main/ssh/ssh-relay-session-recovery-overlap.test.ts \
+          src/main/ssh/ssh-relay-session-host-binding.test.ts \
+          src/main/ssh/ssh-relay-session-incarnation-retirement.test.ts \
           src/main/daemon/daemon-pty-adapter.test.ts \
           src/main/daemon/terminal-host.test.ts \
           src/main/ipc/pty.test.ts \
@@ -203,7 +207,11 @@ services:
         src/main/ssh/ssh-relay-session-managed-hooks.test.ts
         src/main/ssh/ssh-relay-session-model-migration.test.ts
         src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-reconnect-queued-exits.test.ts
         src/main/ssh/ssh-relay-session-recovery-races.test.ts
+        src/main/ssh/ssh-relay-session-recovery-overlap.test.ts
+        src/main/ssh/ssh-relay-session-host-binding.test.ts
+        src/main/ssh/ssh-relay-session-incarnation-retirement.test.ts
         src/main/ssh/ssh-relay-session-terminal-error.test.ts
         src/main/ssh/ssh-relay-session.test.ts
         src/preload/index.ts
@@ -215,7 +223,11 @@ services:
         src/main/ssh/ssh-relay-session-managed-hooks.test.ts
         src/main/ssh/ssh-relay-session-model-migration.test.ts
         src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-reconnect-queued-exits.test.ts
         src/main/ssh/ssh-relay-session-recovery-races.test.ts
+        src/main/ssh/ssh-relay-session-recovery-overlap.test.ts
+        src/main/ssh/ssh-relay-session-host-binding.test.ts
+        src/main/ssh/ssh-relay-session-incarnation-retirement.test.ts
         src/main/ssh/ssh-relay-session-terminal-error.test.ts
         src/main/ssh/ssh-relay-session.test.ts
         src/preload/index.ts

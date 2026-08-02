@@ -103,7 +103,9 @@ vi.mock('../ipc/pty', () => ({
   getPtyStateToken: vi.fn((id: string) => ptyStateTokens.get(id)),
   getOrCreatePtyStateToken: vi.fn((id: string) => {
     const current = ptyStateTokens.get(id)
-    if (current) return current
+    if (current) {
+      return current
+    }
     const created = Symbol(id)
     ptyStateTokens.set(id, created)
     return created
@@ -746,87 +748,5 @@ describe('SshRelaySession recovery race fencing', () => {
       deliveryToken: 'new-token',
       acceptedSourceEndSu: 8
     })
-  })
-
-  it('keeps a stale overlapping recovery from canceling or mutating its replacement', async () => {
-    const targetId = 'overlapping-recovery'
-    const { session, deps } = await prepareRecovery(targetId)
-    const staleRecoveryLease = { commit: vi.fn(), retire: vi.fn() }
-    const replacementRecoveryLease = { commit: vi.fn(), retire: vi.fn() }
-    const staleLease = {
-      commit: vi.fn(),
-      rollback: vi.fn(),
-      transferToRecovery: vi.fn(() => staleRecoveryLease)
-    }
-    const replacementLease = {
-      commit: vi.fn(),
-      rollback: vi.fn(),
-      transferToRecovery: vi.fn(() => replacementRecoveryLease)
-    }
-    attachForReconnectMock.mockImplementation(async () => {
-      const ownerGeneration = openConsumerSessionMock.mock.calls.length
-      if (ownerGeneration === 3) {
-        queueMicrotask(() => {
-          completeRecovery({
-            id: 'pty-1',
-            clientGeneration: 3,
-            ownerGeneration: 3,
-            ptyIncarnation: 'incarnation-1',
-            deliveryToken: 'replacement-token',
-            checkpointSourceEndSu: 4,
-            recoveryEndSu: 4
-          })
-        })
-      }
-      return {
-        incarnationId: 'incarnation-1',
-        sourceRecovery: {
-          status: 'pending',
-          clientGeneration: ownerGeneration,
-          ownerGeneration,
-          ptyIncarnation: 'incarnation-1',
-          deliveryToken: ownerGeneration === 2 ? 'stale-token' : 'replacement-token',
-          checkpointSourceEndSu: 4,
-          recoveryEndSu: 4
-        },
-        sourceActivationLease: ownerGeneration === 2 ? staleLease : replacementLease
-      }
-    })
-
-    const staleReconnect = session.reconnect(deps.mockConn)
-    await vi.waitFor(() => expect(attachForReconnectMock).toHaveBeenCalledTimes(1))
-    await Promise.resolve()
-    const replacementReconnect = session.reconnect(deps.mockConn)
-    await Promise.all([staleReconnect, replacementReconnect])
-
-    const recoveryRequests = attachForReconnectMock.mock.calls.map((call) => call[2])
-    expect(recoveryRequests).toHaveLength(2)
-    expect(recoveryRequests[1]).toMatchObject({
-      status: 'checkpoint',
-      deliveryToken: 'old-token',
-      acceptedSourceEndSu: 4
-    })
-    expect(muxRequestMock.mock.calls.filter(([method]) => method === 'pty.cancelDelivery')).toEqual(
-      []
-    )
-    expect(deps.mockStore.markSshRemotePtyLease).toHaveBeenCalledTimes(1)
-    expect(deps.mockStore.markSshRemotePtyLease).toHaveBeenCalledWith(targetId, 'pty-1', 'attached')
-    expect(setPtyOwnership).toHaveBeenCalledTimes(1)
-    expect(staleLease.transferToRecovery).toHaveBeenCalledOnce()
-    expect(staleLease.commit).not.toHaveBeenCalled()
-    expect(staleLease.rollback).not.toHaveBeenCalled()
-    expect(staleRecoveryLease.commit).not.toHaveBeenCalled()
-    expect(staleRecoveryLease.retire).toHaveBeenCalledOnce()
-    expect(replacementLease.transferToRecovery).toHaveBeenCalledOnce()
-    expect(replacementLease.commit).not.toHaveBeenCalled()
-    expect(replacementLease.rollback).not.toHaveBeenCalled()
-    expect(replacementRecoveryLease.commit).toHaveBeenCalledOnce()
-    expect(replacementRecoveryLease.retire).not.toHaveBeenCalled()
-    expect(clearProviderPtyState).not.toHaveBeenCalled()
-    expect(clearPtyOwnershipForConnection).not.toHaveBeenCalled()
-    expect(deletePtyOwnership).not.toHaveBeenCalled()
-    expect(deps.mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
-    expect(muxDisposeMock).not.toHaveBeenCalledWith('shutdown')
-    expect(session.getState()).toBe('ready')
   })
 })

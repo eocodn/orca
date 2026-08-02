@@ -419,6 +419,13 @@ export class SshRelaySession {
         credentialFile,
         hostPlatform
       } = await deployAndLaunchRelay(conn, undefined, graceTimeSeconds, this.targetId)
+
+      // Why: dispose() can fire during deployment; do not publish metadata from an orphaned relay.
+      if (this.isDisposed()) {
+        const orphanMux = new SshChannelMultiplexer(transport)
+        orphanMux.dispose()
+        throw new Error('Session disposed during establish')
+      }
       this.hostPlatform = hostPlatform ?? null
       this.remoteCliBridgeEnv =
         remoteHome && remoteRelayDir && nodePath && sockPath && hostPlatform
@@ -434,18 +441,22 @@ export class SshRelaySession {
             }
           : null
 
-      // Why: dispose() can fire during the await above; if it did, creating a mux/providers now would leak with no owner to dispose them.
-      if (this.isDisposed()) {
-        const orphanMux = new SshChannelMultiplexer(transport)
-        orphanMux.dispose()
-        throw new Error('Session disposed during establish')
-      }
-
       const mux = new SshChannelMultiplexer(transport)
       this.mux = mux
       const ownsAttempt = (): boolean => this.mux === mux && !this.isDisposed()
 
-      this.ptyConsumerSessionState = await this.openPtyConsumerSession(mux, serverBuildId)
+      const consumerSessionState = await this.openPtyConsumerSession(
+        mux,
+        serverBuildId,
+        ownsAttempt
+      )
+      if (!ownsAttempt()) {
+        if (!mux.isDisposed()) {
+          mux.dispose()
+        }
+        throw new Error('Session disposed during establish')
+      }
+      this.ptyConsumerSessionState = consumerSessionState
       this.rememberPtyConsumerRecovery(serverBuildId)
 
       await mux.request('session.resolveHome', { path: '~' })
@@ -541,6 +552,13 @@ export class SshRelaySession {
         credentialFile,
         hostPlatform
       } = await deployAndLaunchRelay(conn, undefined, graceTimeSeconds, this.targetId)
+      if (abortController.signal.aborted || this.isDisposed()) {
+        // Why: relay is already running remotely — a throwaway mux we immediately dispose sends a clean shutdown so it doesn't linger until grace expires.
+        const orphanMux = new SshChannelMultiplexer(transport)
+        orphanMux.dispose()
+        return
+      }
+
       this.hostPlatform = hostPlatform ?? null
       this.remoteCliBridgeEnv =
         remoteHome && remoteRelayDir && nodePath && sockPath && hostPlatform
@@ -556,13 +574,6 @@ export class SshRelaySession {
             }
           : null
 
-      if (abortController.signal.aborted || this.isDisposed()) {
-        // Why: relay is already running remotely — a throwaway mux we immediately dispose sends a clean shutdown so it doesn't linger until grace expires.
-        const orphanMux = new SshChannelMultiplexer(transport)
-        orphanMux.dispose()
-        return
-      }
-
       const mux = new SshChannelMultiplexer(transport)
       this.mux = mux
 
@@ -571,14 +582,19 @@ export class SshRelaySession {
         !abortController.signal.aborted &&
         !this.isDisposed()
 
-      this.ptyConsumerSessionState = await this.openPtyConsumerSession(mux, serverBuildId)
-      this.rememberPtyConsumerRecovery(serverBuildId)
+      const consumerSessionState = await this.openPtyConsumerSession(
+        mux,
+        serverBuildId,
+        ownsAttempt
+      )
       if (!ownsAttempt()) {
         if (!mux.isDisposed()) {
           mux.dispose()
         }
         return
       }
+      this.ptyConsumerSessionState = consumerSessionState
+      this.rememberPtyConsumerRecovery(serverBuildId)
 
       await mux.request('session.resolveHome', { path: '~' })
       if (!ownsAttempt()) {
@@ -866,7 +882,8 @@ export class SshRelaySession {
 
   private async openPtyConsumerSession(
     mux: SshChannelMultiplexer,
-    serverBuildId: string | undefined
+    serverBuildId: string | undefined,
+    shouldContinue?: () => boolean
   ): Promise<SshPtyConsumerSessionState> {
     const previousOwner = this.negotiatedPtyConsumerOwner(serverBuildId)
     const options = {
@@ -894,6 +911,13 @@ export class SshRelaySession {
       ) {
         throw error
       }
+      if (shouldContinue && !shouldContinue()) {
+        return {
+          mode: 'legacy-fallback',
+          clientInstanceId: options.clientInstanceId,
+          serverBuildId: serverBuildId ?? ''
+        }
+      }
       const recovery = ptyConsumerRecoveryByTarget.get(this.targetId)
       if (recovery) {
         delete recovery.owner
@@ -911,7 +935,15 @@ export class SshRelaySession {
         }
       }
       this.ptyConsumerSessionState = null
-      return openSshPtyConsumerSession(mux, options)
+      const retried = await openSshPtyConsumerSession(mux, options)
+      if (shouldContinue && !shouldContinue()) {
+        return {
+          mode: 'legacy-fallback',
+          clientInstanceId: options.clientInstanceId,
+          serverBuildId: serverBuildId ?? ''
+        }
+      }
+      return retried
     }
   }
 
@@ -2154,12 +2186,14 @@ export class SshRelaySession {
     if (!ptyIncarnation) {
       return undefined
     }
-    return pending.exits.find(
-      (exit) =>
-        exit.providerGeneration === pending.providerGeneration &&
-        exit.ptyIncarnation === ptyIncarnation &&
-        (exit.incarnationId === undefined || exit.incarnationId === ptyIncarnation)
-    )
+    return pending.exits.find((exit) => {
+      if (exit.providerGeneration !== pending.providerGeneration) {
+        return false
+      }
+      return exit.incarnationId !== undefined
+        ? exit.incarnationId === ptyIncarnation
+        : exit.ptyIncarnation === ptyIncarnation
+    })
   }
 
   private preparePtyIncarnationForExit(appPtyId: string, ptyIncarnation: string | undefined): void {

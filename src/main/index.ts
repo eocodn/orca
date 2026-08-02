@@ -2956,6 +2956,10 @@ app.on('will-quit', (e) => {
   browserManager.setBrowserGuestStateChangedListener(null)
   const emulatorShutdown = runtime?.getEmulatorBridge()?.destroyAllSessions() ?? Promise.resolve()
   killAllPty()
+  const durableRetirementsFlushed = runtime?.flushPendingPtyDurableRetirements() ?? true
+  if (!durableRetirementsFlushed) {
+    console.warn('[shutdown] Pending PTY durable retirements remain after synchronous drain')
+  }
   const watcherShutdown = shutdownWatchersOnce()
   store?.flush()
   // Why: usage-cache writes are queued off the main thread, so a quit right after setEnabled or a

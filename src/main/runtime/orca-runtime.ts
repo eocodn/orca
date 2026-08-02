@@ -2784,7 +2784,6 @@ export class OrcaRuntimeService {
     {
       ptyId: string
       incarnationId: PtyIncarnationId
-      executionHostId?: ExecutionHostId
       exactSurfaces: readonly Pick<
         RetiredTerminalSurface,
         'worktreeId' | 'parentTabId' | 'leafId'
@@ -6561,6 +6560,13 @@ export class OrcaRuntimeService {
     retryTimer.unref?.()
   }
 
+  flushPendingPtyDurableRetirements(): boolean {
+    for (const retirementKey of [...this.pendingPtyDurableRetirements.keys()]) {
+      this.retryPendingPtyDurableRetirement(retirementKey)
+    }
+    return this.pendingPtyDurableRetirements.size === 0
+  }
+
   private retryPendingPtyDurableRetirement(retirementKey: string): void {
     const pending = this.pendingPtyDurableRetirements.get(retirementKey)
     if (!pending) {
@@ -6588,7 +6594,6 @@ export class OrcaRuntimeService {
         pending.ptyId,
         pending.incarnationId,
         pending.exactSurfaces,
-        pending.executionHostId,
         { ensureDurableFlush: true }
       )
     ) {
@@ -6603,7 +6608,6 @@ export class OrcaRuntimeService {
     ptyId: string,
     incarnationId: string,
     exactSurfaces: readonly Pick<RetiredTerminalSurface, 'worktreeId' | 'parentTabId' | 'leafId'>[],
-    executionHostId?: ExecutionHostId,
     options: { ensureDurableFlush?: boolean } = {}
   ): boolean {
     const retiredSurfaceByKey = new Map<string, RetiredTerminalSurface>()
@@ -6641,7 +6645,8 @@ export class OrcaRuntimeService {
     for (const surface of retiredSurfaces) {
       let hostId: ExecutionHostId
       try {
-        hostId = executionHostId ?? this.getWorkspaceSessionHostIdForWorktree(surface.worktreeId)
+        // Why: one PTY can retain surfaces from worktrees backed by different execution hosts.
+        hostId = this.getWorkspaceSessionHostIdForWorktree(surface.worktreeId)
       } catch (error) {
         if (error instanceof Error && error.message === 'folder_workspace_not_found') {
           // Why: deleting the folder workspace removes its durable session authority; only the in-memory PTY surface remains to retire.
@@ -13176,7 +13181,10 @@ export class OrcaRuntimeService {
       pendingIncarnation !== null &&
       pendingIncarnation !== pty?.incarnationId &&
       (exitIncarnationId === pendingIncarnation ||
-        (exitIncarnationId === undefined && pty?.connected === false))
+        (exitIncarnationId === undefined &&
+          pty?.connected === false &&
+          (options.expectedIncarnationId === undefined ||
+            options.expectedIncarnationId === pendingIncarnation)))
     if (exitMatchesUnadmittedReplacement) {
       this.earlyExitedPtyIncarnations.set(ptyId, pendingIncarnation)
       if (exitIncarnationId) {
@@ -13393,26 +13401,10 @@ export class OrcaRuntimeService {
     } else {
       // Why: permanent process exit is absence, not a starting/sleeping tab.
       // Retire before publishing so paired clients never persist a ghost.
-      let executionHostId: ExecutionHostId | undefined
-      if (pty?.connectionId) {
-        executionHostId = this.getPtyExecutionHostId(pty)
-      } else if (exactSurfaces[0]) {
-        try {
-          executionHostId = this.getWorkspaceSessionHostIdForWorktree(exactSurfaces[0].worktreeId)
-        } catch (error) {
-          // Why: folder deletion can race PTY exit; retirement re-resolves each surface and owns the missing-folder policy.
-          if (!(error instanceof Error && error.message === 'folder_workspace_not_found')) {
-            console.error('[runtime] failed to resolve terminal retirement host:', error)
-          }
-        }
-      } else if (pty) {
-        executionHostId = this.getPtyExecutionHostId(pty)
-      }
       const durableRetirementComplete = this.retireMobileSessionSurfacesForPty(
         ptyId,
         incarnationId,
-        exactSurfaces,
-        executionHostId
+        exactSurfaces
       )
       const retirementKey = makePtyDurableRetirementKey(ptyId, incarnationId)
       if (durableRetirementComplete) {
@@ -13422,7 +13414,6 @@ export class OrcaRuntimeService {
         this.pendingPtyDurableRetirements.set(retirementKey, {
           ptyId,
           incarnationId,
-          executionHostId,
           exactSurfaces
         })
         this.schedulePendingPtyDurableRetirementRetry(retirementKey)
