@@ -284,6 +284,13 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import {
+  normalizeAutomationPrecheckResult,
+  normalizeAutomationRunOutputSnapshot,
+  normalizeAutomationRunTerminalPaneKey,
+  normalizeAutomationRunTerminalPtyId,
+  normalizeAutomationRunWorkspaceDisplayName
+} from './persistence-state-migrations'
 import { StorePhase6 } from './persistence-store-pty-state'
 
 export class StorePhase7 extends StorePhase6 {

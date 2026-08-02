@@ -284,6 +284,7 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import { makeProjectHostSetupId } from './persistence-state-ssh'
 import { StorePhase2 } from './persistence-store-project-state'
 
 export class StorePhase3 extends StorePhase2 {

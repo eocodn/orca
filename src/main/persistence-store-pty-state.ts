@@ -284,6 +284,23 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import {
+  mergeProjectHostSetupCompatibilityState
+} from './persistence-state-ssh'
+import {
+  getAutomationContextsForRepo,
+  getAutomationSchedulerOwner,
+  normalizeAutomationPrecheckResult,
+  normalizeAutomationSessionReuse,
+  normalizeAutomationSetupDecisionForWorkspaceMode
+} from './persistence-state-migrations'
+import {
+  sanitizeGitRemoteIdentity,
+  sanitizeForkSyncMode,
+  sanitizeRepoProjectHostSetupMethod,
+  sanitizeRepoUpstream
+} from './persistence-state-automation'
+import type { Store } from './persistence'
 import { StorePhase5 } from './persistence-store-session-state'
 
 export class StorePhase6 extends StorePhase5 {

@@ -284,6 +284,7 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import { sanitizeRepoUpdatesForPersistence } from './persistence-state-automation'
 import { StorePhase4 } from './persistence-store-settings-state'
 
 export class StorePhase5 extends StorePhase4 {

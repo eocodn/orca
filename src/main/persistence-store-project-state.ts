@@ -12,6 +12,7 @@ import {
 } from 'node:fs'
 import { rename, mkdir, rm, copyFile, open } from 'node:fs/promises'
 import { renameDurableSync, writeFileDurableSync } from './durable-file-write'
+import { encrypt } from './persistence-state-foundation'
 import { join, dirname, isAbsolute, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
@@ -284,6 +285,7 @@ import { removeWorkspaceSessionOwner,
   deleteRemovedTerminalScrollbackSnapshots,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
+import { Store } from './persistence'
 import { StorePhase1 } from './persistence-store-repository-state'
 
 export class StorePhase2 extends StorePhase1 {
