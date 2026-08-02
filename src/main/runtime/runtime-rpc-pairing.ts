@@ -1,0 +1,502 @@
+import { randomBytes } from 'node:crypto'
+import { readdirSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import type { RuntimeMetadata, RuntimeTransportMetadata } from '../../shared/runtime-bootstrap'
+import type { OrcaRuntimeService } from './orca-runtime'
+import { writeRuntimeMetadata } from './runtime-metadata'
+import {
+  RUNTIME_METADATA_OWNERSHIP_POLL_MS,
+  watchRuntimeMetadataOwnership,
+  type RuntimeMetadataOwnershipWatch
+} from './runtime-metadata-ownership-watch'
+import { RpcDispatcher } from './rpc/dispatcher'
+import type { RpcRequest, RpcResponse } from './rpc/core'
+import { errorResponse } from './rpc/errors'
+import type { RpcMessageContext, RpcTransport } from './rpc/transport'
+import { UnixSocketTransport } from './rpc/unix-socket-transport'
+import { WebSocketTransport } from './rpc/ws-transport'
+import { readWsFallbackPort, writeWsFallbackPort } from './rpc/ws-fallback-port-store'
+import type { WebSocket } from 'ws'
+import { DeviceRegistry, type DeviceEntry, type DeviceScope } from './device-registry'
+import { loadOrCreateE2EEKeypair, type E2EEKeypair } from './e2ee-keypair'
+import { UnpairedDeviceAuthThrottle } from './rpc/unpaired-device-auth-throttle'
+import {
+  MobileSocketWiring,
+  type AuthenticatedMobileSocket,
+  type MobileSocketTransportMetadata
+} from './rpc/mobile-socket-wiring'
+import type { PairingRelay } from '../../shared/mobile-relay-pairing-offer'
+import type { MobilePairingConnectionMode } from '../../shared/mobile-pairing-connection-mode'
+import {
+  mobileRelayMintFailureFromUnknown,
+  type MobileRelayMintFailure
+} from '../../shared/mobile-relay-mint-failure'
+import {
+  RelayRevokeOutbox,
+  type RelayDeviceBinding,
+  type RelayRevokeOutboxItem
+} from './relay/relay-revoke-outbox'
+import type {
+  DeviceCredentialInstalled,
+  PairingGetEndpointsParams,
+  PairingGetEndpointsResult,
+  PairingProvisionRelayParams
+} from '../../shared/mobile-relay-credential-contract'
+import { encodePairingOffer, PAIRING_OFFER_VERSION } from '../../shared/pairing'
+import { resolveAdvertisedPairingEndpoint } from './pairing-endpoint'
+import {
+  decodeTerminalStreamFrame,
+  type TerminalStreamFrame
+} from '../../shared/terminal-stream-protocol'
+
+import { RuntimeRpcBaseServer } from "./runtime-rpc-base"
+import {
+  type PairingIdentityInitialization, type PairingOfferUnavailable, pairingUnavailable,
+  type MobilePairingOffer, type MobileRelayPairingProvider, type OrcaRuntimeRpcServerOptions,
+  DEVICE_REGISTRY_UNAVAILABLE_GUIDANCE, E2EE_KEY_UNAVAILABLE_GUIDANCE, createWebClientUrl
+} from "./runtime-rpc-support"
+
+export class RuntimeRpcPairingServer extends RuntimeRpcBaseServer {
+  createPairingOffer(args: {
+    address?: string | null
+    name?: string
+    rotate?: boolean
+    scope?: DeviceScope
+  }):
+    | PairingOfferUnavailable
+    | {
+        available: true
+        pairingUrl: string
+        endpoint: string
+        deviceId: string
+        webClientUrl: string | null
+      } {
+    if (this.pairingInitializationFailure) {
+      return this.pairingInitializationFailure
+    }
+    const rawEndpoint = this.getWebSocketEndpoint()
+    if (!rawEndpoint) {
+      return pairingUnavailable(
+        'websocket_unavailable',
+        'WebSocket pairing is unavailable. Inspect preceding runtime errors and choose an unused --port if the listener failed.'
+      )
+    }
+    if (!this.deviceRegistry) {
+      return pairingUnavailable('device_registry_unavailable', DEVICE_REGISTRY_UNAVAILABLE_GUIDANCE)
+    }
+    const publicKeyB64 = this.getE2EEPublicKey()
+    if (!publicKeyB64) {
+      return pairingUnavailable('e2ee_key_unavailable', E2EE_KEY_UNAVAILABLE_GUIDANCE)
+    }
+
+    const advertised = resolveAdvertisedPairingEndpoint(rawEndpoint, args.address)
+    if (!advertised.ok) {
+      return pairingUnavailable(advertised.reason, advertised.guidance)
+    }
+    const endpoint = advertised.endpoint
+    const deviceName = args.name ?? `CLI ${new Date().toLocaleDateString()}`
+    const scope = args.scope ?? 'runtime'
+    let device: DeviceEntry
+    try {
+      device = args.rotate
+        ? this.deviceRegistry.rotatePendingDevice(deviceName, scope)
+        : this.deviceRegistry.getOrCreatePendingDevice(deviceName, scope)
+    } catch (error) {
+      console.error('[runtime] Failed to persist pairing credential:', error)
+      return pairingUnavailable('device_registry_unavailable', DEVICE_REGISTRY_UNAVAILABLE_GUIDANCE)
+    }
+    const pairingUrl = encodePairingOffer({
+      v: PAIRING_OFFER_VERSION,
+      endpoint,
+      deviceToken: device.token,
+      publicKeyB64,
+      scope
+    })
+    return {
+      available: true,
+      pairingUrl,
+      endpoint,
+      deviceId: device.deviceId,
+      webClientUrl:
+        this.webClientRoot && scope === 'runtime' ? createWebClientUrl(endpoint, pairingUrl) : null
+    }
+  }
+
+  async createMobilePairingOffer(args: {
+    address?: string | null
+    connectionMode?: MobilePairingConnectionMode
+    name?: string
+    rotate?: boolean
+  }): Promise<MobilePairingOffer> {
+    if (args.connectionMode === 'local-only') {
+      this.mobilePairingOfferGeneration += 1
+      return this.createMobilePairingOfferSerial(args, this.mobilePairingOfferGeneration)
+    }
+    const address = args.address ?? null
+    const rotate = args.rotate === true
+    const inFlight = this.mobileRelayPairingOfferInFlight
+    if (
+      inFlight?.generation === this.mobilePairingOfferGeneration &&
+      inFlight.address === address &&
+      (inFlight.rotate || !rotate)
+    ) {
+      return inFlight.request
+    }
+    // Why: every request that is not coalesced above supersedes the older one, rotating or not.
+    const generation = ++this.mobilePairingOfferGeneration
+    const request = this.mobileRelayPairingOfferQueue.then(() =>
+      generation === this.mobilePairingOfferGeneration
+        ? this.createMobilePairingOfferSerial(args, generation)
+        : this.relayPairingRequestSuperseded()
+    )
+    this.mobileRelayPairingOfferQueue = request.then(
+      () => undefined,
+      () => undefined
+    )
+    this.mobileRelayPairingOfferInFlight = { generation, address, rotate, request }
+    void request.then(
+      () => {
+        if (this.mobileRelayPairingOfferInFlight?.request === request) {
+          this.mobileRelayPairingOfferInFlight = null
+        }
+      },
+      () => {
+        if (this.mobileRelayPairingOfferInFlight?.request === request) {
+          this.mobileRelayPairingOfferInFlight = null
+        }
+      }
+    )
+    return request
+  }
+
+  protected async createMobilePairingOfferSerial(
+    args: {
+      address?: string | null
+      connectionMode?: MobilePairingConnectionMode
+      name?: string
+      rotate?: boolean
+    },
+    generation: number
+  ): Promise<MobilePairingOffer> {
+    // Why: the renderer is outside the trust boundary, so only an explicit local-only value may suppress Relay provisioning.
+    const connectionMode = args.connectionMode === 'local-only' ? 'local-only' : 'automatic'
+    const pending = this.deviceRegistry?.getPendingDevice('mobile')
+    // Why: connection policy is part of the credential, so rotate on any policy switch — an old-policy QR must not pair under the new one.
+    const switchingPendingMode =
+      pending != null &&
+      this.deviceRegistry?.getMobilePairingConnectionMode(pending.deviceId) !== connectionMode
+    if (args.rotate || switchingPendingMode) {
+      if (pending?.relayBinding) {
+        // Why: record the durable cloud revoke before rotating the local token so an old relay invite can't outlive the QR.
+        if (!this.queueRelayDeviceRevoke(pending.relayBinding)) {
+          return pairingUnavailable(
+            'device_registry_unavailable',
+            'Could not persist Relay cleanup before rotating the pairing code.'
+          )
+        }
+      }
+    }
+    const direct = this.createPairingOffer({
+      ...args,
+      rotate: args.rotate || switchingPendingMode,
+      scope: 'mobile'
+    })
+    if (!direct.available) {
+      return direct
+    }
+    const createdNewPendingDevice = pending?.deviceId !== direct.deviceId
+    let connectionModeStored = false
+    try {
+      connectionModeStored =
+        this.deviceRegistry?.setMobilePairingConnectionMode(direct.deviceId, connectionMode) ??
+        false
+    } catch (error) {
+      console.error('[runtime] Failed to persist the pairing connection mode:', error)
+    }
+    // Why: the mode is part of the credential — a QR whose policy was never stored must not pair under the default one.
+    if (!connectionModeStored) {
+      if (createdNewPendingDevice) {
+        this.discardPendingMobilePairingDevice(direct.deviceId)
+      }
+      return pairingUnavailable('device_registry_unavailable', DEVICE_REGISTRY_UNAVAILABLE_GUIDANCE)
+    }
+    // Why: explicit LAN path never needs Relay; mint the direct-only offer as selected.
+    if (connectionMode === 'local-only') {
+      return { ...direct, connectionMode: 'local-only' }
+    }
+    // Why: Anywhere must not silently ship a LAN-only QR under the Relay label.
+    // Fail closed, drop the unused pending credential, and let the UI offer Use LAN.
+    const refuseAutomaticWithoutRelay = (
+      relayFailure: MobileRelayMintFailure
+    ): PairingOfferUnavailable => {
+      if (createdNewPendingDevice) {
+        this.discardPendingMobilePairingDevice(direct.deviceId)
+      }
+      return {
+        available: false,
+        reason: 'relay_mint_failed',
+        guidance:
+          'Orca Relay could not create a pairing invite. Use LAN (Tailscale or same Wi‑Fi) or retry Relay.',
+        relayFailure
+      }
+    }
+    const relayProvider = this.mobileRelayPairingProvider
+    if (!relayProvider) {
+      return refuseAutomaticWithoutRelay({
+        code: 'relay_provider_unavailable',
+        stage: 'provider_missing',
+        message: 'Orca Relay is not available on this desktop'
+      })
+    }
+    const device = this.deviceRegistry?.getDevice(direct.deviceId)
+    const publicKeyB64 = this.getE2EEPublicKey()
+    if (!device || !publicKeyB64) {
+      return refuseAutomaticWithoutRelay({
+        code: 'e2ee_key_unavailable',
+        stage: 'e2ee_missing',
+        message: 'E2EE public key unavailable for Relay pairing'
+      })
+    }
+    let relayPairing: Awaited<ReturnType<MobileRelayPairingProvider['createPairingRelay']>>
+    try {
+      relayPairing = await relayProvider.createPairingRelay(device.deviceId)
+    } catch (error) {
+      // Why: the raw provider error can carry request metadata or credentials — log only the validated code.
+      const relayFailure = mobileRelayMintFailureFromUnknown({
+        stage: 'create_pairing_relay',
+        error,
+        fallbackCode: 'relay_mint_failed',
+        fallbackMessage: 'Relay pairing invite request failed'
+      })
+      console.warn(`[runtime] Failed to create Relay pairing invite: ${relayFailure.code}`)
+      return refuseAutomaticWithoutRelay(relayFailure)
+    }
+    const currentDevice = this.deviceRegistry?.getDevice(device.deviceId)
+    if (
+      generation !== this.mobilePairingOfferGeneration ||
+      relayProvider !== this.mobileRelayPairingProvider ||
+      currentDevice?.token !== device.token ||
+      this.deviceRegistry?.getMobilePairingConnectionMode(device.deviceId) !== 'automatic'
+    ) {
+      this.queueOrRetainRelayDeviceRevoke(device.deviceId, relayPairing.binding)
+      if (createdNewPendingDevice) {
+        this.discardPendingMobilePairingDevice(direct.deviceId)
+      }
+      return this.relayPairingRequestSuperseded()
+    }
+    try {
+      if (!this.setMobileRelayBinding(device.deviceId, relayPairing.binding)) {
+        this.queueOrRetainRelayDeviceRevoke(device.deviceId, relayPairing.binding)
+        return refuseAutomaticWithoutRelay({
+          code: 'relay_binding_failed',
+          stage: 'binding_failed',
+          message: 'Could not store Relay binding for the pairing device'
+        })
+      }
+    } catch (error) {
+      console.warn('[runtime] Failed to persist Relay pairing binding:', error)
+      this.queueOrRetainRelayDeviceRevoke(device.deviceId, relayPairing.binding)
+      return refuseAutomaticWithoutRelay({
+        code: 'relay_binding_failed',
+        stage: 'binding_failed',
+        message: 'Could not store Relay binding for the pairing device'
+      })
+    }
+    return {
+      ...direct,
+      connectionMode: 'automatic',
+      pairingUrl: encodePairingOffer({
+        v: PAIRING_OFFER_VERSION,
+        endpoint: direct.endpoint,
+        deviceToken: device.token,
+        publicKeyB64,
+        scope: 'mobile',
+        relay: relayPairing.relay
+      })
+    }
+  }
+
+  protected relayPairingRequestSuperseded(): PairingOfferUnavailable {
+    return {
+      available: false,
+      reason: 'relay_mint_failed',
+      guidance: 'The Relay pairing request was replaced by a newer connection choice.',
+      relayFailure: {
+        code: 'relay_request_superseded',
+        stage: 'binding_failed',
+        message: 'Relay pairing request superseded'
+      }
+    }
+  }
+
+  /** Drop a never-scanned mobile pending credential after a failed Anywhere mint. */
+  protected discardPendingMobilePairingDevice(deviceId: string): void {
+    const device = this.deviceRegistry?.getDevice(deviceId)
+    if (!device || device.scope !== 'mobile' || device.lastSeenAt !== 0) {
+      return
+    }
+    if (device.relayBinding) {
+      if (!this.queueRelayDeviceRevoke(device.relayBinding)) {
+        return
+      }
+    }
+    try {
+      this.deviceRegistry?.removeDevice(deviceId)
+    } catch (error) {
+      console.error('[runtime] Failed to drop an unused mobile pairing credential:', error)
+    }
+  }
+
+  /**
+   * Why: the outbox is the only durable cleanup record for a minted invite. When it can't be
+   * written, keep the binding on the device so cleanup keeps a reference instead of orphaning it.
+   */
+  protected queueOrRetainRelayDeviceRevoke(deviceId: string, binding: RelayDeviceBinding): void {
+    if (this.queueRelayDeviceRevoke(binding)) {
+      return
+    }
+    try {
+      this.deviceRegistry?.setRelayBinding(deviceId, binding)
+    } catch (error) {
+      console.error('[runtime] Failed to retain an unrevoked Relay binding:', error)
+    }
+  }
+
+  protected queueRelayDeviceRevoke(binding: RelayDeviceBinding): boolean {
+    let item: RelayRevokeOutboxItem
+    try {
+      item = this.relayRevokeOutbox.enqueue(binding)
+    } catch (error) {
+      console.error('[runtime] Failed to persist Relay device cleanup:', error)
+      return false
+    }
+    try {
+      this.mobileRelayPairingProvider?.onDeviceRevokeQueued(item)
+    } catch (error) {
+      console.warn('[runtime] Failed to notify Relay cleanup worker:', error)
+    }
+    return true
+  }
+
+  protected registerBinaryStreamHandler(
+    connectionId: string | undefined,
+    streamId: number,
+    handler: (frame: TerminalStreamFrame) => void
+  ): () => void {
+    if (!connectionId || !Number.isInteger(streamId) || streamId < 0) {
+      return () => {}
+    }
+    let handlers = this.binaryStreamHandlers.get(connectionId)
+    if (!handlers) {
+      handlers = new Map()
+      this.binaryStreamHandlers.set(connectionId, handlers)
+    }
+    handlers.set(streamId, handler)
+    return () => {
+      const current = this.binaryStreamHandlers.get(connectionId)
+      if (!current || current.get(streamId) !== handler) {
+        return
+      }
+      current.delete(streamId)
+      if (current.size === 0) {
+        this.binaryStreamHandlers.delete(connectionId)
+      }
+    }
+  }
+
+  protected handleWebSocketBinaryMessage(bytes: Uint8Array<ArrayBufferLike>, ws: WebSocket): void {
+    const connectionId = this.mobileSocketWiring?.getConnectionId(ws)
+    if (!connectionId) {
+      return
+    }
+    const frame = decodeTerminalStreamFrame(bytes)
+    if (!frame) {
+      return
+    }
+    this.binaryStreamHandlers.get(connectionId)?.get(frame.streamId)?.(frame)
+  }
+
+  protected registerWebSocketDispatchAbort(ws: WebSocket): {
+    signal: AbortSignal
+    dispose: () => void
+  } {
+    const abortController = new AbortController()
+    if (ws.readyState !== ws.OPEN) {
+      abortController.abort()
+      return { signal: abortController.signal, dispose: () => {} }
+    }
+
+    let state = this.wsDispatchAbortStates.get(ws)
+    if (!state) {
+      state = {
+        controllers: new Set(),
+        abortOnClose: () => this.abortWebSocketDispatches(ws)
+      }
+      this.wsDispatchAbortStates.set(ws, state)
+      // Why: many streaming RPCs share one WebSocket; one socket-level abort fan-out avoids MaxListenersExceededWarning.
+      ws.on('close', state.abortOnClose)
+      ws.on('error', state.abortOnClose)
+    }
+    state.controllers.add(abortController)
+
+    return {
+      signal: abortController.signal,
+      dispose: () => {
+        const current = this.wsDispatchAbortStates.get(ws)
+        if (!current) {
+          return
+        }
+        current.controllers.delete(abortController)
+        if (current.controllers.size > 0) {
+          return
+        }
+        this.wsDispatchAbortStates.delete(ws)
+        ws.off('close', current.abortOnClose)
+        ws.off('error', current.abortOnClose)
+      }
+    }
+  }
+
+  protected abortWebSocketDispatches(ws: WebSocket): void {
+    const state = this.wsDispatchAbortStates.get(ws)
+    if (!state) {
+      return
+    }
+    this.wsDispatchAbortStates.delete(ws)
+    ws.off('close', state.abortOnClose)
+    ws.off('error', state.abortOnClose)
+    for (const controller of state.controllers) {
+      controller.abort()
+    }
+    state.controllers.clear()
+  }
+
+  protected initializePairingIdentity(): PairingIdentityInitialization {
+    let deviceRegistry: DeviceRegistry
+    try {
+      deviceRegistry = new DeviceRegistry(this.userDataPath)
+    } catch (error) {
+      console.error('[runtime] Failed to initialize pairing registry:', error)
+      return {
+        ok: false,
+        failure: pairingUnavailable(
+          'device_registry_unavailable',
+          DEVICE_REGISTRY_UNAVAILABLE_GUIDANCE
+        )
+      }
+    }
+    let e2eeKeypair: E2EEKeypair
+    try {
+      e2eeKeypair = loadOrCreateE2EEKeypair(this.userDataPath)
+    } catch (error) {
+      console.error('[runtime] Failed to initialize E2EE identity:', error)
+      return {
+        ok: false,
+        failure: pairingUnavailable('e2ee_key_unavailable', E2EE_KEY_UNAVAILABLE_GUIDANCE)
+      }
+    }
+    return { ok: true, deviceRegistry, e2eeKeypair }
+  }
+
+
+}
