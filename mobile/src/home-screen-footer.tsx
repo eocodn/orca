@@ -6,7 +6,7 @@ import { getActiveProviderRateLimits, getUsageBarState, hasActiveProviderUsage, 
 import { TaskProviderLogo } from './components/TaskProviderLogo'
 import type { HostProfile } from './transport/types'
 import type { TaskProvider } from './tasks/mobile-task-providers'
-import { repoColor, type WorktreeSummary } from './home-screen-data'
+import { repoColor, TASK_PROVIDER_LABELS, type WorktreeSummary } from './home-screen-data'
 import { colors, spacing } from './theme/mobile-theme'
 import { styles } from './home-screen-styles'
 
@@ -231,9 +231,6 @@ const renderTaskHomeCard = () => (
         </>
       ) : null}
     </View>
-    }
-        />
-      )}
 
   )
 }

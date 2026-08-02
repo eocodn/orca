@@ -498,5 +498,3 @@ export type WorkspaceCreateDraft = {
   item: ActionableTaskItem
   repoIdOverride?: string
 }
-
-export type WorkspaceSparseDraft = {

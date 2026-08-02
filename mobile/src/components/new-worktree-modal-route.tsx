@@ -593,3 +593,4 @@ export function NewWorktreeModalContent({
 
   return <NewWorktreeModalView {...{visible, drawerView, onClose, closeSetupTrust, transitionDrawer, formSheetVisible, formSheetInteractive, loading, repos, selectedRepo, repoBadgeColor, prepareSelectionPickerOpen, composer, selectedRepoIsGit, sshGate, setError, openSourceDrawer, selectedRepoConnectionId, workspaceSshStatusLabel, connectSelectedSshRepo, selectedAgent, setShowAdvanced, showAdvanced, note, setNote, setupCommand, setupSource, setupRunPolicy, setupDecisionChoice, setSetupDecisionChoice, runSetup, setRunSetup, canCreate, handleCreate, creating, sourceAvailability, client, pasteRepos, repoPickerItems, handleRepoSelected, pickerAgentOptions, setAgentOverridden, setSelectedAgent, setupTrustPrompt, approveSetupTrust, skipSetupTrust}} />
 
+}

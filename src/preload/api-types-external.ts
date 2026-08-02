@@ -176,7 +176,6 @@ export type {
   ListMergeRequestsResult,
   MRInfo,
   MRListState,
-  ListWorkItemsResult,
   IssueInfo,
   JiraComment,
   JiraConnectionStatus,
@@ -194,7 +193,6 @@ export type {
   JiraUser,
   JiraViewer,
   LinearViewer,
-  LinearCollectionResult,
   LinearConnectionStatus,
   LinearCustomViewModel,
   LinearCustomViewSummary,
@@ -272,6 +270,7 @@ export type {
   WorkspaceSessionPatch,
   WorkspaceSessionState
 } from '../shared/types'
+export type { ListWorkItemsResult, LinearCollectionResult } from '../shared/types-linear-mutations'
 export type { PtyModelRestoreNeededEvent } from '../shared/pty-model-restore-marker'
 export type { PtyListedSession } from '../shared/pty-listed-session'
 export type {
