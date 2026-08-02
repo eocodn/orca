@@ -292,7 +292,7 @@ export function execFileCapture(
   })
 }
 
-asyncexport function spawnCommandCapture(
+export async function spawnCommandCapture(
   command: string,
   args: string[],
   options: CommandExecOptions
@@ -385,4 +385,3 @@ asyncexport function spawnCommandCapture(
     child.on('close', onClose)
   })
 }
-

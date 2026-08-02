@@ -250,7 +250,10 @@ private buildStatus(args: {
 
 private async probePathConfiguration(
     pathDirectory: string
-  ): Promise< {
+  ): Promise<{
+    configured: boolean | null
+    detail: string | null
+  }> {
     return cliInstallerStatus.probePathConfiguration(this, pathDirectory)
   }
 
@@ -270,7 +273,10 @@ private async removeWindowsPathEntry(pathDirectory: string): Promise<void> {
     return cliInstallerRegistration.removeWindowsPathEntry(this, pathDirectory)
   }
 
-private async readWindowsUserPathForMutation(): Promise< {
+private async readWindowsUserPathForMutation(): Promise<{
+    value: string | null
+    expandable: boolean
+  }> {
     return cliInstallerRegistration.readWindowsUserPathForMutation(this)
   }
 

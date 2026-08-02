@@ -26,27 +26,6 @@ import {
   notifyGhPrimaryRateLimit,
   type GhRateLimitBucket
 } from './gh-rate-limit-breaker'
-export import {
-  execFile,
-  execFileSync,
-  spawn,
-  type ChildProcess,
-  type ExecFileOptions,
-  type SpawnOptions
-} from 'node:child_process'
-import { StringDecoder } from 'node:string_decoder'
-import { withGitSpan } from '../observability/instrumentation'
-import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
-import {
-  classifyGhRateLimitBucket,
-  createGhRateLimitBlockedError,
-  getGhRateLimitBlockedUntilMs,
-  ghRateLimitScopeKey,
-  isGhPrimaryRateLimitStderr,
-  isGhRateLimitProbe,
-  notifyGhPrimaryRateLimit,
-  type GhRateLimitBucket
-} from './gh-rate-limit-breaker'
 import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
 import { addWslEnvKeys } from '../wsl-env'
 import {
@@ -81,6 +60,7 @@ import { GIT_OUTPUT_LOCALE_SHELL_PREFIX,
   isExecFileResultObject,
   execFileCapture,
   spawnCommandCapture } from './runner-execution-foundation'
+import { resolveCommand } from './runner-command-resolution'
 
 export function gitOptionalLocksDisabledEnv(
   env: NodeJS.ProcessEnv = process.env
@@ -264,7 +244,7 @@ export function buildOpenSshBatchModeCommand(configuredCommand: string): string 
   return [...withoutBatchModeOptions(tokens), '-o', 'BatchMode=yes'].map(shellQuoteToken).join(' ')
 }
 
-asyncexport function buildNetworkSshPolicyEnv(options: GitExecOptions): Promise<{
+export async function buildNetworkSshPolicyEnv(options: GitExecOptions): Promise<{
   env: NodeJS.ProcessEnv
   mode: GitSshPolicyMode
 }> {
@@ -321,7 +301,7 @@ asyncexport function buildNetworkSshPolicyEnv(options: GitExecOptions): Promise<
  * Async git command execution. Drop-in replacement for
  * `execFileAsync('git', args, { cwd, encoding, ... })`.
  */
-asyncexport function gitExecFileAsync(
+export async function gitExecFileAsync(
   args: string[],
   options: GitExecOptions
 ): Promise<{ stdout: string; stderr: string }> {
@@ -363,7 +343,7 @@ asyncexport function gitExecFileAsync(
  * Async command execution with the same WSL cwd translation as repo-scoped git.
  * Keep this for fixed binary+argv call sites; never pass shell fragments.
  */
-asyncexport function commandExecFileAsync(
+export async function commandExecFileAsync(
   command: string,
   args: string[],
   options: CommandExecOptions = {}
@@ -407,7 +387,7 @@ asyncexport function commandExecFileAsync(
  * Async git command execution that returns a Buffer.
  * Used for reading binary blobs (git show).
  */
-asyncexport function gitExecFileAsyncBuffer(
+export async function gitExecFileAsyncBuffer(
   args: string[],
   options: { cwd: string; maxBuffer?: number; wslDistro?: string }
 ): Promise<{ stdout: Buffer }> {
@@ -425,4 +405,3 @@ asyncexport function gitExecFileAsyncBuffer(
 
 /** Result of a streamed git command; `stoppedEarly` is true when onStdout asked to stop before the child exited. */
 export type GitStreamResult = { stoppedEarly: boolean }
-

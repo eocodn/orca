@@ -26,27 +26,6 @@ import {
   notifyGhPrimaryRateLimit,
   type GhRateLimitBucket
 } from './gh-rate-limit-breaker'
-export import {
-  execFile,
-  execFileSync,
-  spawn,
-  type ChildProcess,
-  type ExecFileOptions,
-  type SpawnOptions
-} from 'node:child_process'
-import { StringDecoder } from 'node:string_decoder'
-import { withGitSpan } from '../observability/instrumentation'
-import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
-import {
-  classifyGhRateLimitBucket,
-  createGhRateLimitBlockedError,
-  getGhRateLimitBlockedUntilMs,
-  ghRateLimitScopeKey,
-  isGhPrimaryRateLimitStderr,
-  isGhRateLimitProbe,
-  notifyGhPrimaryRateLimit,
-  type GhRateLimitBucket
-} from './gh-rate-limit-breaker'
 import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
 import { addWslEnvKeys } from '../wsl-env'
 import {
@@ -85,6 +64,12 @@ import { gitOptionalLocksDisabledEnv,
   commandExecFileAsync,
   gitExecFileAsyncBuffer,
   type GitStreamResult } from './runner-execution-capture'
+import {
+  DEFAULT_GIT_MAX_BUFFER,
+  createAbortError,
+  killSpawnedCommandTree
+} from './runner-execution-foundation'
+import { resolveCommand } from './runner-command-resolution'
 
 export type GitStreamOptions = {
   cwd: string
@@ -107,7 +92,7 @@ export type GitStreamOptions = {
  * un-ignored folder) crashes the process when buffered; streaming keeps memory
  * bounded and lets the parser stop git early. Built on gitSpawn for WSL routing.
  */
-asyncexport function gitStreamStdout(
+export async function gitStreamStdout(
   args: string[],
   options: GitStreamOptions
 ): Promise<GitStreamResult> {
@@ -286,7 +271,3 @@ export function gitSpawn(
 // `cwd?` omitted for non-repo-scoped gh calls (rate_limit, listAccessibleProjects) so one WSL-aware wrapper serves both.
 // `wslDistro?` routes global cwd-less gh through `wsl.exe -d <distro>` on WSL-only Windows where gh.exe isn't on host PATH.
 // `idempotent?` gates transient-error retry (auto-detected from argv); retrying a write that already reached GitHub would duplicate it.
-
-export { DEFAULT_GIT_MAX_BUFFER, isMissingCommandError, hasPathSeparator, shouldRetryWindowsCommandShim, createAbortError, WINDOWS_TREE_KILL_WAIT_MS, killSpawnedCommandTree, emptyExecFileOutput, isExecFileResultObject, execFileCapture, spawnCommandCapture, gitOptionalLocksDisabledEnv, untranslatedGitOutputEnv, promptGuardGitEnv, promptGuardShellEnv, nonInteractiveGitEnv, CORE_SSH_COMMAND_PROBE_TIMEOUT_MS, commandBasename, isMergeableOpenSshCommand, shellTokenize, shellQuoteToken, containsShellExpansionSyntax, withoutBatchModeOptions, buildOpenSshBatchModeCommand, buildNetworkSshPolicyEnv, gitExecFileAsync, commandExecFileAsync, gitExecFileAsyncBuffer, gitStreamStdout, GIT_EXEC_SYNC_TIMEOUT_MS, gitExecFileSync, gitSpawn }
-export { type GitExecOptions, type CommandExecOptions, type ExecFileCaptureOptions, type GitSshPolicyMode, type GitStreamResult, type GitStreamOptions }
-
