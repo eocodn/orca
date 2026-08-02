@@ -96,6 +96,7 @@ import {
   selectRuntimeAwareSshTargetLabel
 } from '@/store/slices/runtime-environment-ssh'
 import { hydrateRuntimeEnvironmentSshState } from '@/runtime/runtime-environment-ssh-state'
+import { RepoIdentityChip } from './worktree-card-repo-identity'
 import {
   EMPTY_WORKSPACE_PORTS,
   HOSTED_REVIEW_CARD_REFRESH_INTERVAL_MS,
@@ -108,34 +109,6 @@ import type { ActiveSurfaceVariant, WorktreeCardProps } from './worktree-card-mo
 export { shouldBeginWorktreeRename } from './worktree-card-model'
 export type { ActiveSurfaceVariant } from './worktree-card-model'
 
-// Why: pinned repo icon and compact inline badge share this chip shell so both repo cues read as the same affordance.
-function RepoIdentityChip({
-  repo,
-  children
-}: {
-  repo: Repo
-  children: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className="inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-worktree-sidebar-border bg-worktree-sidebar-accent/55"
-          aria-label={translate(
-            'auto.components.sidebar.WorktreeCard.35ccfe2475',
-            'Project {{value0}}',
-            { value0: repo.displayName }
-          )}
-        >
-          {children}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8}>
-        {repo.displayName}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
 
 const WorktreeCard = React.memo(function WorktreeCard({
   worktree,
