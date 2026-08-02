@@ -352,5 +352,6 @@ export function registerWorktreeMetadataHandlers({
       }
       writeIssueCommand(repo.path, args.content)
     }
+  )
 
 }
