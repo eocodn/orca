@@ -48,7 +48,6 @@ export function ensureNumber(value: unknown): number {
 }
 
 export function normalizeComparablePath(pathValue: string, platform = process.platform): string {
-export function normalizeComparablePath(pathValue: string, platform = process.platform): string {
   const normalized = pathValue.replace(/\\/g, '/')
   return platform === 'win32' || looksLikeWindowsPath(pathValue)
     ? normalized.toLowerCase()
@@ -66,7 +65,7 @@ export function looksLikeWindowsPath(pathValue: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(pathValue) || pathValue.startsWith('\\\\')
 }
 
-async function canonicalizePath(pathValue: string): Promise<string> {
+export async function canonicalizePath(pathValue: string): Promise<string> {
   try {
     const resolved = await realpath(pathValue)
     return normalizeFsPath(resolved)
@@ -75,7 +74,7 @@ async function canonicalizePath(pathValue: string): Promise<string> {
   }
 }
 
-async function yieldToEventLoop(): Promise<void> {
+export async function yieldToEventLoop(): Promise<void> {
   await new Promise((resolve) => setImmediate(resolve))
 }
 
@@ -204,7 +203,7 @@ async function getPhysicalFileAliasKey(filePath: string): Promise<string> {
   return `path:${await canonicalizePath(filePath)}`
 }
 
-function getLegacySourceSkipBytesByPath(
+export function getLegacySourceSkipBytesByPath(
   files: string[],
   hasLegacyBridgeMarkers = hasLegacyCopiedSessionBridgeMarkers()
 ): Map<string, number> {
@@ -235,5 +234,4 @@ export async function getProcessedFileInfo(filePath: string): Promise<CodexUsage
   }
 }
 
-function normalizeRawUsage(value: unknown): CodexUsageRawUsage | null {
 export { basename }

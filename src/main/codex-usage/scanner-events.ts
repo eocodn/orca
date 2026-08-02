@@ -217,7 +217,6 @@ export function extractModel(value: unknown): string | null {
   return null
 }
 
-function getDefaultProjectLabel(cwd: string | null): string {
 export function parseCodexUsageRecord(
   line: string,
   context: CodexUsageParseContext
@@ -371,5 +370,3 @@ export async function parseCodexUsageFile(
     hasDeferredClaims
   }
 }
-
-export async function scanCodexUsageFiles(

@@ -1,6 +1,6 @@
 import { basename, win32, posix } from "node:path"
 import type { Repo } from "../../shared/types"
-import type { CodexUsageAttributedEvent, CodexUsageLocationBreakdown } from "./types"
+import type { CodexUsageAttributedEvent, CodexUsageLocationBreakdown, CodexUsageParsedEvent } from "./types"
 import { areWorktreePathsEqual } from "../ipc/worktree-logic"
 import { canonicalizeUsageWorktreePaths } from "../usage-worktree-canonicalizer"
 import { canonicalizePath, looksLikeWindowsPath, normalizeComparablePath, normalizeFsPath, type CodexUsageWorktreeRef } from "./scanner-io"
@@ -75,6 +75,43 @@ function findContainingWorktree(
 }
 
 export async function attributeCodexUsageEvent(
+  event: CodexUsageParsedEvent,
+  worktrees: (CodexUsageWorktreeRef & { canonicalPath: string })[]
+): Promise<CodexUsageAttributedEvent | null> {
+  const day = localDayFromTimestamp(event.timestamp)
+  if (!day) {
+    return null
+  }
+
+  let repoId: string | null = null
+  let worktreeId: string | null = null
+  let projectKey = 'unscoped'
+  let projectLabel = getDefaultProjectLabel(event.cwd)
+
+  if (event.cwd) {
+    const worktree = findContainingWorktree(event.cwd, worktrees)
+    if (worktree) {
+      repoId = worktree.repoId
+      worktreeId = worktree.worktreeId
+      projectKey = `worktree:${worktree.worktreeId}`
+      projectLabel = worktree.displayName
+    } else {
+      // Why: all-local mode still needs stable project grouping for sessions
+      // outside an Orca worktree.
+      projectKey = `cwd:${normalizeComparablePath(event.cwd)}`
+    }
+  }
+
+  return {
+    ...event,
+    day,
+    projectKey,
+    projectLabel,
+    repoId,
+    worktreeId
+  }
+}
+
 export function createWorktreeRefs(
   repos: Repo[],
   worktreesByRepo: Map<string, { path: string; worktreeId: string; displayName: string }[]>
@@ -102,3 +139,7 @@ export function getSessionProjectLabel(locationBreakdown: CodexUsageLocationBrea
     return 'Unknown location'
   }
   if (locationBreakdown.length === 1) {
+    return locationBreakdown[0].projectLabel
+  }
+  return 'Multiple locations'
+}

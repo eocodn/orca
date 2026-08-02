@@ -1,44 +1,5 @@
 import type { CodexUsageAttributedEvent, CodexUsageDailyAggregate, CodexUsageLocationBreakdown, CodexUsageLocationModelBreakdown, CodexUsageModelBreakdown, CodexUsageSession } from "./types"
 
-export async function attributeCodexUsageEvent(
-  event: CodexUsageParsedEvent,
-  worktrees: (CodexUsageWorktreeRef & { canonicalPath: string })[]
-): Promise<CodexUsageAttributedEvent | null> {
-  const day = localDayFromTimestamp(event.timestamp)
-  if (!day) {
-    return null
-  }
-
-  let repoId: string | null = null
-  let worktreeId: string | null = null
-  let projectKey = 'unscoped'
-  let projectLabel = getDefaultProjectLabel(event.cwd)
-
-  if (event.cwd) {
-    const worktree = findContainingWorktree(event.cwd, worktrees)
-    if (worktree) {
-      repoId = worktree.repoId
-      worktreeId = worktree.worktreeId
-      projectKey = `worktree:${worktree.worktreeId}`
-      projectLabel = worktree.displayName
-    } else {
-      // Why: all-local mode should still collapse repeated off-Orca sessions by
-      // location, but those keys must normalize slash/case differences so the
-      // same folder does not fragment into multiple "projects" across platforms.
-      projectKey = `cwd:${normalizeComparablePath(event.cwd)}`
-    }
-  }
-
-  return {
-    ...event,
-    day,
-    projectKey,
-    projectLabel,
-    repoId,
-    worktreeId
-  }
-}
-
 function createEmptySession(event: CodexUsageAttributedEvent): CodexUsageSession {
   return {
     sessionId: event.sessionId,
@@ -177,7 +138,7 @@ function mergeLocationModelBreakdown(
   })
 }
 
-function aggregateCodexUsage(events: CodexUsageAttributedEvent[]): {
+export function aggregateCodexUsage(events: CodexUsageAttributedEvent[]): {
   sessions: CodexUsageSession[]
   dailyAggregates: CodexUsageDailyAggregate[]
 } {
@@ -365,5 +326,4 @@ function mergeDailyAggregates(
   }
 }
 
-export function parseCodexUsageRecord(
 export { mergeSessions, mergeDailyAggregates, finalizeSessions }

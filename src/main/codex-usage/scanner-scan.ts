@@ -1,6 +1,6 @@
 import type { CodexUsageDailyAggregate, CodexUsagePersistedFile, CodexUsageSession } from "./types"
 import { getProcessedFileInfo, getLegacySourceSkipBytesByPath, listCodexSessionFiles, YIELD_EVERY_FILES, yieldToEventLoop, type CodexUsageWorktreeRef } from "./scanner-io"
-import { attributeCodexUsageEvent, buildWorktreesWithCanonicalPaths, createWorktreeRefs } from "./scanner-attribution"
+import { buildWorktreesWithCanonicalPaths, createWorktreeRefs } from "./scanner-attribution"
 import { mergeDailyAggregates, mergeSessions, finalizeSessions } from "./scanner-aggregation"
 import { parseCodexUsageFile } from "./scanner-events"
 
@@ -117,5 +117,3 @@ export async function scanCodexUsageFiles(
     )
   }
 }
-
-export function createWorktreeRefs(
