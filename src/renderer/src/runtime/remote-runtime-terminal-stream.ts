@@ -1,3 +1,9 @@
+import { exposeE2eRemoteTerminalMultiplexAckGate, resetE2eRemoteTerminalMultiplexersState } from './remote-runtime-terminal-e2e-gate'
+import { handleRemoteTerminalResponse, handleRemoteTerminalBinary, detectRemoteTerminalOutputGap } from './remote-runtime-terminal-frame-handlers'
+import { requestRemoteTerminalResyncSnapshot, sendDeferredRemoteTerminalResyncSnapshot, sendRemoteTerminalResyncSnapshot, scheduleRemoteTerminalResyncRetry, startRemoteTerminalResyncTimer, requestRemoteTerminalSnapshot, allocateRemoteTerminalSnapshotRequestId } from './remote-runtime-terminal-snapshot'
+import { acknowledgeRemoteTerminalOutput, sendRemoteTerminalInput, setRemoteTerminalOutputPaused, probeRemoteTerminalCommandResponse, recoverRemoteTerminalStalledStream, queueRemoteTerminalOutputAcknowledgement, flushRemoteTerminalOutputAcknowledgement, getRemoteTerminalStreamsForE2e, releaseRemoteTerminalHeldAcksForE2e, sendRemoteTerminalInputForE2e } from './remote-runtime-terminal-flow-control'
+import { sendRemoteTerminalFrame, resolveRemoteTerminalReadyIfConnected, failRemoteTerminalConnection, handleRemoteTerminalClose, closeRemoteTerminalIfIdle } from './remote-runtime-terminal-lifecycle'
+
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../shared/remote-runtime-client-error-classification'
 import {
@@ -24,12 +30,12 @@ import {
   type RemoteTerminalStreamWatchdog
 } from './remote-terminal-stream-watchdog'
 
-type RuntimeEnvironmentSubscriptionHandle = {
+export type RuntimeEnvironmentSubscriptionHandle = {
   unsubscribe: () => void
   sendBinary: (bytes: Uint8Array<ArrayBufferLike>) => void
 }
 
-type TerminalMultiplexEvent =
+export type TerminalMultiplexEvent =
   | { type: 'ready' }
   | {
       type: 'subscribed'
@@ -137,7 +143,7 @@ export type RemoteRuntimeSnapshotInfo = {
   pendingEscapeTailAnsi?: string
 }
 
-type RemoteRuntimeSnapshotRequest = {
+export type RemoteRuntimeSnapshotRequest = {
   requestId: number
   resolve: (
     snapshot: {
@@ -153,149 +159,34 @@ type RemoteRuntimeSnapshotRequest = {
   timer: ReturnType<typeof setTimeout>
 }
 
-const CONTROL_STREAM_ID = 0
-const MAX_REMOTE_TERMINAL_SNAPSHOT_BYTES = 2 * 1024 * 1024
+export const CONTROL_STREAM_ID = 0
+export const MAX_REMOTE_TERMINAL_SNAPSHOT_BYTES = 2 * 1024 * 1024
 export const REMOTE_TERMINAL_SNAPSHOT_REQUEST_TIMEOUT_MS = 10_000
-const REMOTE_TERMINAL_RESYNC_TIMEOUT_MS = 10_000
+export const REMOTE_TERMINAL_RESYNC_TIMEOUT_MS = 10_000
 // Why: a truncated recovery means the server is too flooded to serialize;
 // retrying once per incoming chunk would stampede it, so back off instead.
-const REMOTE_TERMINAL_RESYNC_RETRY_BASE_MS = 500
-const REMOTE_TERMINAL_RESYNC_RETRY_MAX_MS = 5_000
+export const REMOTE_TERMINAL_RESYNC_RETRY_BASE_MS = 500
+export const REMOTE_TERMINAL_RESYNC_RETRY_MAX_MS = 5_000
 // Why: exported so the transport can classify it as benign — the snapshot was
 // skipped but live output continues, so it must not surface a fatal red banner.
 export const REMOTE_TERMINAL_SNAPSHOT_TOO_LARGE =
   'Remote terminal snapshot exceeded the 2 MiB replay limit; live output will continue.'
 
-type E2eRemoteTerminalMultiplexAckGateSnapshot = {
-  droppedOutputBytes: number
-  droppedOutputFrames: number
-  heldTerminalCount: number
-  heldStreamCount: number
-  heldAckChars: number
-  releasedAckChars: number
-}
 
-type E2eRemoteTerminalMultiplexAckGateApi = {
-  dropOutputUntilResubscribe: (terminals: string[]) => number
-  hold: (terminals: string[]) => void
-  release: () => void
-  sendInput: (terminal: string, text: string) => number
-  snapshot: () => E2eRemoteTerminalMultiplexAckGateSnapshot
-}
-
-type E2eRemoteTerminalMultiplexAckGateWindow = Window & {
-  __remoteTerminalMultiplexAckGate?: E2eRemoteTerminalMultiplexAckGateApi
-}
-
-const e2eHeldRemoteAckTerminals = new Set<string>()
-const e2eDroppedOutputStreams = new Set<RemoteRuntimeMultiplexedTerminalState>()
-let e2eDroppedOutputBytes = 0
-let e2eDroppedOutputFrames = 0
-let e2eReleasedRemoteAckChars = 0
-
-function shouldHoldE2eRemoteTerminalAck(terminal: string): boolean {
-  return e2eConfig.exposeStore && e2eHeldRemoteAckTerminals.has(terminal)
-}
-
-function getE2eRemoteAckSnapshot(): E2eRemoteTerminalMultiplexAckGateSnapshot {
-  let heldStreamCount = 0
-  let heldAckChars = 0
-  for (const multiplexer of multiplexers.values()) {
-    for (const stream of multiplexer.getStreamsForE2e()) {
-      if (stream.heldAckBytes > 0) {
-        heldStreamCount += 1
-        heldAckChars += stream.heldAckBytes
-      }
-    }
-  }
-  return {
-    droppedOutputBytes: e2eDroppedOutputBytes,
-    droppedOutputFrames: e2eDroppedOutputFrames,
-    heldTerminalCount: e2eHeldRemoteAckTerminals.size,
-    heldStreamCount,
-    heldAckChars,
-    releasedAckChars: e2eReleasedRemoteAckChars
-  }
-}
-
-function releaseE2eRemoteTerminalAcks(): void {
-  for (const multiplexer of multiplexers.values()) {
-    e2eReleasedRemoteAckChars += multiplexer.releaseHeldAcksForE2e()
-  }
-  e2eHeldRemoteAckTerminals.clear()
-}
-
-function resetE2eDroppedRemoteOutput(): void {
-  e2eDroppedOutputStreams.clear()
-  e2eDroppedOutputBytes = 0
-  e2eDroppedOutputFrames = 0
-}
-
-function shouldDropE2eRemoteTerminalOutput(
-  stream: RemoteRuntimeMultiplexedTerminalState,
-  bytes: number
-): boolean {
-  if (!e2eConfig.exposeStore || !e2eDroppedOutputStreams.has(stream)) {
-    return false
-  }
-  e2eDroppedOutputBytes += bytes
-  e2eDroppedOutputFrames += 1
-  return true
-}
-
-function exposeE2eRemoteTerminalMultiplexAckGate(): void {
-  if (!e2eConfig.exposeStore || typeof window === 'undefined') {
-    return
-  }
-  const target = window as E2eRemoteTerminalMultiplexAckGateWindow
-  target.__remoteTerminalMultiplexAckGate ??= {
-    dropOutputUntilResubscribe: (terminals) => {
-      resetE2eDroppedRemoteOutput()
-      const targets = new Set(terminals)
-      for (const multiplexer of multiplexers.values()) {
-        for (const stream of multiplexer.getStreamsForE2e()) {
-          if (targets.has(stream.terminal)) {
-            e2eDroppedOutputStreams.add(stream)
-          }
-        }
-      }
-      return e2eDroppedOutputStreams.size
-    },
-    hold: (terminals) => {
-      releaseE2eRemoteTerminalAcks()
-      for (const terminal of terminals) {
-        e2eHeldRemoteAckTerminals.add(terminal)
-      }
-    },
-    release: () => {
-      releaseE2eRemoteTerminalAcks()
-      resetE2eDroppedRemoteOutput()
-    },
-    sendInput: (terminal, value) => {
-      let sent = 0
-      for (const multiplexer of multiplexers.values()) {
-        sent += multiplexer.sendInputForE2e(terminal, value)
-      }
-      return sent
-    },
-    snapshot: getE2eRemoteAckSnapshot
-  }
-}
-
-class RemoteRuntimeTerminalMultiplexer {
-  private readonly streams = new Map<number, RemoteRuntimeMultiplexedTerminalState>()
-  private subscription: RuntimeEnvironmentSubscriptionHandle | null = null
-  private connectPromise: Promise<void> | null = null
-  private readyResolver: (() => void) | null = null
-  private readyRejecter: ((error: Error) => void) | null = null
-  private ready = false
-  private nextStreamId = 1
-  private nextSnapshotRequestId = 1
+export class RemoteRuntimeTerminalMultiplexer {
+  readonly streams = new Map<number, RemoteRuntimeMultiplexedTerminalState>()
+  subscription: RuntimeEnvironmentSubscriptionHandle | null = null
+  connectPromise: Promise<void> | null = null
+  readyResolver: (() => void) | null = null
+  readyRejecter: ((error: Error) => void) | null = null
+  ready = false
+  nextStreamId = 1
+  nextSnapshotRequestId = 1
 
   constructor(
-    private readonly environmentId: string,
-    private readonly environmentRevision: number | undefined,
-    private readonly releaseIfCurrent: (
+    readonly environmentId: string,
+    readonly environmentRevision: number | undefined,
+    readonly releaseIfCurrent: (
       environmentId: string,
       multiplexer: RemoteRuntimeTerminalMultiplexer
     ) => void
@@ -448,7 +339,7 @@ class RemoteRuntimeTerminalMultiplexer {
     return stream
   }
 
-  private allocateStreamId(): number {
+  allocateStreamId(): number {
     const start = this.nextStreamId
     do {
       const candidate = this.nextStreamId
@@ -460,7 +351,7 @@ class RemoteRuntimeTerminalMultiplexer {
     throw new Error('No remote terminal stream ids available.')
   }
 
-  private ensureConnected(): Promise<void> {
+  ensureConnected(): Promise<void> {
     if (this.ready && this.subscription) {
       return Promise.resolve()
     }
@@ -516,782 +407,86 @@ class RemoteRuntimeTerminalMultiplexer {
     return this.connectPromise
   }
 
-  private handleResponse(response: RuntimeRpcResponse<unknown>): void {
-    if (!this.matchesCurrentEnvironmentRevision()) {
-      this.closeForEnvironmentReplacement()
-      return
-    }
-    let event: TerminalMultiplexEvent
-    try {
-      event = unwrapRuntimeRpcResult(response) as TerminalMultiplexEvent
-    } catch (error) {
-      this.failConnection(error instanceof Error ? error : new Error(String(error)))
-      return
-    }
-
-    if (event.type === 'ready') {
-      this.ready = true
-      this.resolveReadyIfConnected()
-      return
-    }
-
-    if (!('streamId' in event) || typeof event.streamId !== 'number') {
-      return
-    }
-    const stream = this.streams.get(event.streamId)
-    if (!stream) {
-      return
-    }
-    stream.watchdog.recordInbound()
-    if (event.type === 'subscribed') {
-      const capabilities =
-        typeof event.capabilities === 'object' && event.capabilities !== null
-          ? (event.capabilities as { ackOutputSourceRanges?: unknown; outputPause?: unknown })
-          : null
-      if (
-        capabilities?.ackOutputSourceRanges === 1 &&
-        typeof event.streamGeneration === 'string' &&
-        event.streamGeneration.length > 0
-      ) {
-        stream.acknowledgeOutputSourceRanges = true
-        stream.streamGeneration = event.streamGeneration
-      }
-      stream.supportsOutputPause = capabilities?.outputPause === 1
-      if (stream.supportsOutputPause) {
-        stream.callbacks.onOutputPauseCapability?.()
-      }
-    } else if (event.type === 'end') {
-      discardOutputAcknowledgements(stream)
-      stream.watchdog.dispose()
-      clearSnapshot(stream)
-      clearResyncTimer(stream)
-      rejectPendingSnapshotRequest(stream, 'Remote terminal stream ended.')
-      this.streams.delete(event.streamId)
-      if (stream.capacityRejected) {
-        if (stream.callbacks.onTransportClose) {
-          stream.callbacks.onTransportClose({ recoverable: true, retryWithBackoff: true })
-        } else {
-          stream.callbacks.onError?.(TERMINAL_MULTIPLEX_STREAM_LIMIT_ERROR)
-        }
-      } else {
-        stream.callbacks.onEnd?.()
-      }
-      this.closeIfIdle()
-    } else if (event.type === 'error') {
-      const message =
-        typeof event.message === 'string' ? event.message : 'Remote terminal stream failed.'
-      if (message === TERMINAL_MULTIPLEX_STREAM_LIMIT_ERROR) {
-        stream.capacityRejected = true
-        return
-      }
-      clearSnapshot(stream)
-      rejectPendingSnapshotRequest(stream, message)
-      // Why: the paired binary Error frame can be dropped under backpressure;
-      // this reliable event must also dispatch or release the resync gate, and
-      // must never disarm the watchdog while leaving the gate shut.
-      if (stream.resyncPendingSend) {
-        this.sendDeferredResyncSnapshot(stream)
-      } else {
-        clearResyncTimer(stream)
-        stream.resyncInFlight = false
-      }
-      stream.callbacks.onError?.(message)
-    } else if (event.type === 'fit-override-changed') {
-      if (
-        (event.mode !== 'mobile-fit' &&
-          event.mode !== 'remote-desktop-fit' &&
-          event.mode !== 'desktop-fit') ||
-        typeof event.cols !== 'number' ||
-        typeof event.rows !== 'number'
-      ) {
-        return
-      }
-      stream.callbacks.onFitOverrideChanged?.({
-        mode: event.mode,
-        cols: event.cols,
-        rows: event.rows
-      })
-    } else if (event.type === 'driver-changed') {
-      if (!isTerminalDriverState(event.driver)) {
-        return
-      }
-      stream.callbacks.onDriverChanged?.(event.driver)
-    }
+  handleResponse(response: RuntimeRpcResponse<unknown>) {
+    handleRemoteTerminalResponse(this, response)
   }
-
-  private handleBinary(bytes: Uint8Array<ArrayBufferLike>): void {
-    if (!this.matchesCurrentEnvironmentRevision()) {
-      this.closeForEnvironmentReplacement()
-      return
-    }
-    const frame = decodeTerminalStreamFrame(bytes)
-    if (!frame) {
-      // Why: malformed framing cannot be credited safely; closing makes the server release every stream window.
-      this.failConnection(new Error('Remote terminal stream received a malformed frame.'))
-      return
-    }
-    const stream = this.streams.get(frame.streamId)
-    if (!stream) {
-      if (
-        frame.opcode === TerminalStreamOpcode.Output ||
-        frame.opcode === TerminalStreamOpcode.OutputSpan
-      ) {
-        // Why: the renderer already disposed this stream; unsubscribe releases server credit that cannot reach a parser.
-        this.sendFrame(frame.streamId, TerminalStreamOpcode.Unsubscribe)
-      }
-      return
-    }
-    if (
-      (frame.opcode === TerminalStreamOpcode.Output ||
-        frame.opcode === TerminalStreamOpcode.OutputSpan) &&
-      shouldDropE2eRemoteTerminalOutput(stream, frame.payload.byteLength)
-    ) {
-      this.queueOutputAcknowledgement(stream, frame.payload.byteLength)
-      return
-    }
-    stream.watchdog.recordInbound()
-    if (
-      frame.opcode === TerminalStreamOpcode.Output ||
-      frame.opcode === TerminalStreamOpcode.OutputSpan
-    ) {
-      const span =
-        frame.opcode === TerminalStreamOpcode.OutputSpan
-          ? decodeTerminalStreamJson<{
-              data?: unknown
-              rawLength?: unknown
-              transformed?: unknown
-            }>(frame.payload)
-          : null
-      const validSpan =
-        frame.opcode !== TerminalStreamOpcode.OutputSpan ||
-        (typeof span?.data === 'string' &&
-          typeof span.rawLength === 'number' &&
-          Number.isSafeInteger(span.rawLength) &&
-          span.rawLength >= 0 &&
-          span.transformed === true)
-      const data =
-        frame.opcode === TerminalStreamOpcode.OutputSpan
-          ? validSpan
-            ? (span!.data as string)
-            : ''
-          : decodeTerminalStreamText(frame.payload)
-      const deliverOutput = (): void => {
-        if (!validSpan) {
-          // Why: rendering malformed span JSON would expose protocol framing
-          // as terminal text and lose its raw sequence accounting.
-          this.requestResyncSnapshot(stream)
-          return
-        }
-        const rawLength =
-          frame.opcode === TerminalStreamOpcode.OutputSpan && typeof span?.rawLength === 'number'
-            ? span.rawLength
-            : data.length
-        // Why: a resync snapshot is authoritative; discard live output while
-        // it is in flight, but still return transport credit in finally.
-        if (stream.resyncInFlight) {
-          return
-        }
-        const seq = typeof frame.seq === 'number' && frame.seq > 0 ? frame.seq : undefined
-        // Why: older servers replay snapshot-covered buffered chunks after a
-        // requested recovery; rendering them would duplicate the recovered tail.
-        if (
-          typeof seq === 'number' &&
-          typeof stream.recoverySnapshotSeq === 'number' &&
-          seq <= stream.recoverySnapshotSeq
-        ) {
-          return
-        }
-        if (this.detectOutputGap(stream, seq, rawLength)) {
-          this.requestResyncSnapshot(stream)
-          return
-        }
-        if (typeof seq === 'number') {
-          stream.expectedSeq = seq
-          stream.commandProbeBaselineSeq = undefined
-        }
-        stream.callbacks.onData(data, {
-          seq,
-          rawLength,
-          ...(frame.opcode === TerminalStreamOpcode.OutputSpan ? { transformed: true } : {})
-        })
-      }
-      if (!stream.acknowledgeOutput) {
-        deliverOutput()
-        return
-      }
-      try {
-        const settleWatchdog = stream.watchdog.beginOutputDelivery(frame.payload.byteLength)
-        deliverTerminalDataWithDeferredCredit(() => {
-          settleWatchdog()
-          if (shouldHoldE2eRemoteTerminalAck(stream.terminal)) {
-            stream.heldAckBytes += frame.payload.byteLength
-          } else {
-            this.queueOutputAcknowledgement(stream, frame.payload.byteLength)
-          }
-        }, deliverOutput)
-      } catch (error) {
-        this.failConnection(
-          error instanceof Error ? error : new Error('Remote terminal output delivery failed.')
-        )
-      }
-      return
-    }
-    if (frame.opcode === TerminalStreamOpcode.SnapshotStart) {
-      clearSnapshot(stream)
-      stream.snapshotInfo = decodeSnapshotInfo(frame.payload)
-      const requestId = stream.snapshotInfo?.requestId
-      stream.snapshotTarget =
-        typeof requestId === 'number' ||
-        (stream.initialSnapshotReceived && stream.pendingSnapshotRequest)
-          ? 'request'
-          : stream.initialSnapshotReceived
-            ? 'recovery'
-            : 'initial'
-      return
-    }
-    if (frame.opcode === TerminalStreamOpcode.SnapshotChunk) {
-      if (stream.snapshotOverflowed) {
-        return
-      }
-      stream.snapshotBytes += frame.payload.byteLength
-      if (stream.snapshotBytes > MAX_REMOTE_TERMINAL_SNAPSHOT_BYTES) {
-        stream.snapshotOverflowed = true
-        if (stream.snapshotTarget === 'initial') {
-          stream.callbacks.onError?.(REMOTE_TERMINAL_SNAPSHOT_TOO_LARGE)
-        }
-        return
-      }
-      stream.snapshotChunks.push(frame.payload)
-      return
-    }
-    if (frame.opcode === TerminalStreamOpcode.SnapshotEnd) {
-      const data = stream.snapshotOverflowed
-        ? null
-        : decodeTerminalStreamText(concatBytes(stream.snapshotChunks))
-      const target = stream.snapshotTarget
-      const info = stream.snapshotInfo
-      const pendingRequest = stream.pendingSnapshotRequest
-      const snapshotApplied = !stream.snapshotOverflowed && info?.truncated !== true
-      const matchesPendingRequest =
-        target === 'request' &&
-        pendingRequest &&
-        (typeof info?.requestId === 'number'
-          ? info.requestId === pendingRequest.requestId
-          : stream.initialSnapshotReceived)
-      if (snapshotApplied) {
-        if (matchesPendingRequest) {
-          pendingRequest.resolve({
-            data: data ?? '',
-            cols: info?.cols ?? 80,
-            rows: info?.rows ?? 24,
-            seq: info?.seq,
-            source: info?.source,
-            pendingEscapeTailAnsi: info?.pendingEscapeTailAnsi
-          })
-          clearPendingSnapshotRequest(stream)
-        } else if (target === 'initial') {
-          stream.callbacks.onSnapshot(data ?? '', {
-            pendingEscapeTailAnsi: info?.pendingEscapeTailAnsi
-          })
-        } else if (target === 'recovery') {
-          // Why: a server-pushed recovery snapshot replaces terminal state
-          // mid-session; clear the screen and scrollback before applying it.
-          // An empty snapshot is still applied so stale dropped output does
-          // not linger on a terminal the model says is blank.
-          stream.callbacks.onSnapshot(`\x1b[2J\x1b[3J\x1b[H${data ?? ''}`, {
-            pendingEscapeTailAnsi: info?.pendingEscapeTailAnsi
-          })
-        }
-      } else if (matchesPendingRequest) {
-        pendingRequest.resolve(null)
-        clearPendingSnapshotRequest(stream)
-      }
-      clearSnapshot(stream)
-      if (target === 'initial') {
-        clearResyncTimer(stream)
-        stream.expectedSeq = typeof info?.seq === 'number' ? info.seq : undefined
-        stream.commandProbeBaselineSeq = undefined
-        stream.resyncInFlight = false
-        stream.resyncPendingSend = false
-        stream.initialSnapshotReceived = true
-        stream.callbacks.onSubscribed?.()
-      } else if (target === 'recovery') {
-        // Why: only an applied recovery is authoritative; retaining the prior
-        // high-water after a discarded snapshot keeps the gap detectable.
-        if (snapshotApplied) {
-          clearResyncTimer(stream)
-          stream.expectedSeq = typeof info?.seq === 'number' ? info.seq : undefined
-          stream.commandProbeBaselineSeq = undefined
-          stream.recoverySnapshotSeq = typeof info?.seq === 'number' ? info.seq : undefined
-          stream.resyncAttempts = 0
-          stream.resyncInFlight = false
-          stream.resyncPendingSend = false
-        } else if (stream.resyncInFlight) {
-          this.scheduleResyncRetry(stream)
-        } else {
-          // Why: a discarded server-pushed recovery leaves dropped output
-          // unrepresented; pull a fresh snapshot now instead of waiting for
-          // the next chunk to expose the gap.
-          this.requestResyncSnapshot(stream)
-        }
-      } else {
-        this.sendDeferredResyncSnapshot(stream)
-      }
-      return
-    }
-    if (frame.opcode === TerminalStreamOpcode.Error) {
-      const message = decodeTerminalStreamText(frame.payload)
-      if (message === TERMINAL_MULTIPLEX_STREAM_LIMIT_ERROR) {
-        stream.capacityRejected = true
-        return
-      }
-      clearSnapshot(stream)
-      const pendingSnapshotRequest = stream.pendingSnapshotRequest
-      if (pendingSnapshotRequest) {
-        clearPendingSnapshotRequest(stream)
-        pendingSnapshotRequest.reject(new Error(message))
-        this.sendDeferredResyncSnapshot(stream)
-        return
-      }
-      // Why: a failed resync must re-open the live path or output stalls forever.
-      clearResyncTimer(stream)
-      stream.resyncInFlight = false
-      stream.resyncPendingSend = false
-      stream.callbacks.onError?.(message)
-    }
+  handleBinary(bytes: Uint8Array<ArrayBufferLike>) {
+    handleRemoteTerminalBinary(this, bytes)
   }
-
-  // Why: Output `seq` is the UTF-16 high-water at the end of a chunk, so a chunk
-  // that begins after the last high-water (startSeq > expectedSeq) means the
-  // server dropped intervening frames under backpressure. Only flag a gap when
-  // both offsets are known, and never on the first seq (nothing to compare to).
-  private detectOutputGap(
-    stream: RemoteRuntimeMultiplexedTerminalState,
-    seq: number | undefined,
-    rawLength: number
-  ): boolean {
-    if (typeof seq !== 'number' || typeof stream.expectedSeq !== 'number') {
-      return false
-    }
-    const startSeq = seq - rawLength
-    return startSeq > stream.expectedSeq
+  detectOutputGap(stream: RemoteRuntimeMultiplexedTerminalState, seq: number | undefined, rawLength: number) {
+    detectRemoteTerminalOutputGap(this, stream, seq, rawLength)
   }
-
-  // Why: on a detected gap, discard the corrupt tail and pull a fresh
-  // authoritative snapshot. The request carries no requestId so the server
-  // reply renders through the initial-snapshot path (full reset), self-healing
-  // without surfacing an error to the user.
-  private requestResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    if (stream.resyncInFlight) {
-      return
-    }
-    stream.resyncInFlight = true
-    if (stream.pendingSnapshotRequest) {
-      // Why: snapshot frame groups are not multiplexed; wait for the manual
-      // snapshot to finish so its response cannot be mistaken for recovery.
-      // Arm the watchdog now so a dispatch path that consumes the pending
-      // request without re-dispatching cannot hold the gate shut forever.
-      stream.resyncPendingSend = true
-      this.startResyncTimer(stream)
-      return
-    }
-    this.sendResyncSnapshot(stream)
+  requestResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState) {
+    requestRemoteTerminalResyncSnapshot(this, stream)
   }
-
-  private sendDeferredResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    if (!stream.resyncInFlight || !stream.resyncPendingSend || stream.pendingSnapshotRequest) {
-      return
-    }
-    this.sendResyncSnapshot(stream)
+  sendDeferredResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState) {
+    sendDeferredRemoteTerminalResyncSnapshot(this, stream)
   }
-
-  private sendResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    stream.resyncPendingSend = false
-    this.startResyncTimer(stream)
-    const sent = this.sendFrame(
-      stream.streamId,
-      TerminalStreamOpcode.SnapshotRequest,
-      encodeTerminalStreamJson({ scrollbackRows: undefined })
-    )
-    if (!sent) {
-      // Transport is down; the reconnect path re-subscribes from scratch.
-      clearResyncTimer(stream)
-      stream.resyncInFlight = false
-    }
+  sendResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState) {
+    sendRemoteTerminalResyncSnapshot(this, stream)
   }
-
-  // Why: keep the gate shut across the backoff — the post-gap tail is corrupt
-  // either way — and heal even if the flood ends with no further output.
-  private scheduleResyncRetry(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    stream.resyncAttempts += 1
-    const delay = Math.min(
-      REMOTE_TERMINAL_RESYNC_RETRY_MAX_MS,
-      REMOTE_TERMINAL_RESYNC_RETRY_BASE_MS * 2 ** Math.min(stream.resyncAttempts - 1, 4)
-    )
-    clearResyncTimer(stream)
-    const timer = setTimeout(() => {
-      if (
-        stream.resyncTimer !== timer ||
-        this.streams.get(stream.streamId) !== stream ||
-        !stream.resyncInFlight
-      ) {
-        return
-      }
-      stream.resyncTimer = null
-      if (stream.pendingSnapshotRequest) {
-        stream.resyncPendingSend = true
-        this.startResyncTimer(stream)
-        return
-      }
-      this.sendResyncSnapshot(stream)
-    }, delay)
-    if (typeof timer.unref === 'function') {
-      timer.unref()
-    }
-    stream.resyncTimer = timer
+  scheduleResyncRetry(stream: RemoteRuntimeMultiplexedTerminalState) {
+    scheduleRemoteTerminalResyncRetry(this, stream)
   }
-
-  private startResyncTimer(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    clearResyncTimer(stream)
-    const timer = setTimeout(() => {
-      if (
-        stream.resyncTimer !== timer ||
-        this.streams.get(stream.streamId) !== stream ||
-        !stream.resyncInFlight
-      ) {
-        return
-      }
-      stream.resyncTimer = null
-      stream.resyncInFlight = false
-      stream.resyncPendingSend = false
-    }, REMOTE_TERMINAL_RESYNC_TIMEOUT_MS)
-    if (typeof timer.unref === 'function') {
-      timer.unref()
-    }
-    stream.resyncTimer = timer
+  startResyncTimer(stream: RemoteRuntimeMultiplexedTerminalState) {
+    startRemoteTerminalResyncTimer(this, stream)
   }
-
-  private requestSnapshot(
-    stream: RemoteRuntimeMultiplexedTerminalState,
-    opts?: { scrollbackRows?: number }
-  ): Promise<{
-    data: string
-    cols: number
-    rows: number
-    seq?: number
-    source?: 'headless' | 'renderer'
-  } | null> {
-    if (this.streams.get(stream.streamId) !== stream || !this.ready || !this.subscription) {
-      return Promise.resolve(null)
-    }
-    // Recovery uses an untagged snapshot frame group; callers can retry after
-    // it completes instead of racing another request onto the same frame lane.
-    if (stream.resyncInFlight) {
-      return Promise.resolve(null)
-    }
-    if (stream.pendingSnapshotRequest) {
-      return Promise.reject(new Error('Remote terminal snapshot already in flight.'))
-    }
-    const requestId = this.allocateSnapshotRequestId()
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        if (stream.pendingSnapshotRequest?.timer === timer) {
-          clearPendingSnapshotRequest(stream)
-          reject(new Error('Remote terminal snapshot timed out.'))
-          this.recoverStalledStream(stream)
-        }
-      }, REMOTE_TERMINAL_SNAPSHOT_REQUEST_TIMEOUT_MS)
-      if (typeof timer.unref === 'function') {
-        timer.unref()
-      }
-      stream.pendingSnapshotRequest = { requestId, resolve, reject, timer }
-      if (
-        !this.sendFrame(
-          stream.streamId,
-          TerminalStreamOpcode.SnapshotRequest,
-          encodeTerminalStreamJson({ requestId, scrollbackRows: opts?.scrollbackRows })
-        )
-      ) {
-        clearPendingSnapshotRequest(stream)
-        resolve(null)
-      }
-    })
+  requestSnapshot(stream: RemoteRuntimeMultiplexedTerminalState, opts?: { scrollbackRows?: number }) {
+    return requestRemoteTerminalSnapshot(this, stream, opts)
   }
-
-  private allocateSnapshotRequestId(): number {
-    const id = this.nextSnapshotRequestId
-    this.nextSnapshotRequestId =
-      this.nextSnapshotRequestId >= 0x7fffffff ? 1 : this.nextSnapshotRequestId + 1
-    return id
+  allocateSnapshotRequestId() {
+    return allocateRemoteTerminalSnapshotRequestId(this)
   }
-
-  private acknowledgeOutput(stream: RemoteRuntimeMultiplexedTerminalState, bytes: number): boolean {
-    if (stream.acknowledgeOutputSourceRanges && stream.streamGeneration) {
-      const ackedEndByte = stream.sourceAckedEndByte + bytes
-      const sent = this.sendFrame(
-        stream.streamId,
-        TerminalStreamOpcode.Ack,
-        encodeTerminalStreamJson({
-          streamGeneration: stream.streamGeneration,
-          ackedEndByte
-        })
-      )
-      if (sent) {
-        stream.sourceAckedEndByte = ackedEndByte
-      }
-      return sent
-    }
-    return this.sendFrame(
-      stream.streamId,
-      TerminalStreamOpcode.Ack,
-      encodeTerminalStreamJson({ bytes })
-    )
+  acknowledgeOutput(stream: RemoteRuntimeMultiplexedTerminalState, bytes: number) {
+    return acknowledgeRemoteTerminalOutput(this, stream, bytes)
   }
-
-  private sendInput(stream: RemoteRuntimeMultiplexedTerminalState, text: string): boolean {
-    const sent = this.sendFrame(
-      stream.streamId,
-      TerminalStreamOpcode.Input,
-      encodeTerminalStreamText(text)
-    )
-    if (sent && !stream.outputPaused) {
-      stream.watchdog.recordCommandInput(text)
-    }
-    return sent
+  sendInput(stream: RemoteRuntimeMultiplexedTerminalState, text: string) {
+    return sendRemoteTerminalInput(this, stream, text)
   }
-
-  private setOutputPaused(stream: RemoteRuntimeMultiplexedTerminalState, paused: boolean): boolean {
-    if (!stream.supportsOutputPause || this.streams.get(stream.streamId) !== stream) {
-      return false
-    }
-    if (stream.outputPaused === paused) {
-      return true
-    }
-    const sent = this.sendFrame(
-      stream.streamId,
-      TerminalStreamOpcode.SetOutputPaused,
-      encodeTerminalStreamJson({ paused })
-    )
-    if (sent) {
-      stream.outputPaused = paused
-    }
-    return sent
+  setOutputPaused(stream: RemoteRuntimeMultiplexedTerminalState, paused: boolean) {
+    return setRemoteTerminalOutputPaused(this, stream, paused)
   }
-
-  private probeCommandResponse(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    void this.requestSnapshot(stream).then(
-      (snapshot) => {
-        if (this.streams.get(stream.streamId) !== stream) {
-          return
-        }
-        if (typeof snapshot?.seq === 'number' && typeof stream.expectedSeq !== 'number') {
-          if (
-            typeof stream.commandProbeBaselineSeq === 'number' &&
-            snapshot.seq > stream.commandProbeBaselineSeq
-          ) {
-            recordRendererCrashBreadcrumb('remote_terminal_stream_stall_probe_baseline_advanced', {
-              baselineSeq: stream.commandProbeBaselineSeq,
-              environmentId: this.environmentId,
-              snapshotSeq: snapshot.seq,
-              streamId: stream.streamId,
-              terminal: stream.terminal
-            })
-            this.recoverStalledStream(stream)
-            return
-          }
-          stream.commandProbeBaselineSeq ??= snapshot.seq
-        } else if (
-          typeof snapshot?.seq === 'number' &&
-          typeof stream.expectedSeq === 'number' &&
-          snapshot.seq > stream.expectedSeq
-        ) {
-          recordRendererCrashBreadcrumb('remote_terminal_stream_stall_probe_detected_gap', {
-            deliveredSeq: stream.expectedSeq,
-            environmentId: this.environmentId,
-            snapshotSeq: snapshot.seq,
-            streamId: stream.streamId,
-            terminal: stream.terminal
-          })
-          this.recoverStalledStream(stream)
-          return
-        }
-        stream.watchdog.completeCommandResponseProbe()
-        recordRendererCrashBreadcrumb('remote_terminal_stream_stall_probe_succeeded', {
-          deliveredSeq: stream.expectedSeq ?? null,
-          environmentId: this.environmentId,
-          probeBaselineSeq: stream.commandProbeBaselineSeq ?? null,
-          snapshotSeq: snapshot?.seq ?? null,
-          streamId: stream.streamId,
-          terminal: stream.terminal
-        })
-      },
-      () => {
-        // Snapshot timeout owns recovery; an explicit host error already proves liveness.
-        if (this.streams.get(stream.streamId) === stream) {
-          stream.watchdog.completeCommandResponseProbe()
-        }
-      }
-    )
+  probeCommandResponse(stream: RemoteRuntimeMultiplexedTerminalState) {
+    return probeRemoteTerminalCommandResponse(this, stream)
   }
-
-  private recoverStalledStream(stream: RemoteRuntimeMultiplexedTerminalState): void {
-    if (this.streams.get(stream.streamId) !== stream) {
-      return
-    }
-    stream.watchdog.dispose()
-    discardOutputAcknowledgements(stream)
-    clearSnapshot(stream)
-    clearResyncTimer(stream)
-    rejectPendingSnapshotRequest(stream, 'Remote terminal stream stopped responding.')
-    this.streams.delete(stream.streamId)
-    this.sendFrame(stream.streamId, TerminalStreamOpcode.Unsubscribe)
-    if (stream.callbacks.onTransportClose) {
-      stream.callbacks.onTransportClose({ recoverable: true })
-    } else {
-      stream.callbacks.onError?.('Remote terminal stream stopped responding.')
-    }
-    this.closeIfIdle()
+  recoverStalledStream(stream: RemoteRuntimeMultiplexedTerminalState) {
+    return recoverRemoteTerminalStalledStream(this, stream)
   }
-
-  private queueOutputAcknowledgement(
-    stream: RemoteRuntimeMultiplexedTerminalState,
-    bytes: number
-  ): boolean {
-    if (this.streams.get(stream.streamId) !== stream) {
-      return true
-    }
-    stream.pendingAckBytes += bytes
-    if (stream.pendingAckBytes >= TERMINAL_MULTIPLEX_ACK_BATCH_BYTES) {
-      return this.flushOutputAcknowledgement(stream)
-    }
-    if (stream.ackFlushTimer === null) {
-      stream.ackFlushTimer = setTimeout(() => {
-        stream.ackFlushTimer = null
-        this.flushOutputAcknowledgement(stream)
-      }, TERMINAL_MULTIPLEX_ACK_FLUSH_MS)
-    }
-    return true
+  queueOutputAcknowledgement(stream: RemoteRuntimeMultiplexedTerminalState, bytes: number) {
+    return queueRemoteTerminalOutputAcknowledgement(this, stream, bytes)
   }
-
-  private flushOutputAcknowledgement(stream: RemoteRuntimeMultiplexedTerminalState): boolean {
-    clearAckFlushTimer(stream)
-    const bytes = stream.pendingAckBytes
-    stream.pendingAckBytes = 0
-    return bytes <= 0 || this.acknowledgeOutput(stream, bytes)
+  flushOutputAcknowledgement(stream: RemoteRuntimeMultiplexedTerminalState) {
+    return flushRemoteTerminalOutputAcknowledgement(this, stream)
   }
-
-  getStreamsForE2e(): Iterable<RemoteRuntimeMultiplexedTerminalState> {
-    return this.streams.values()
+  getStreamsForE2e() {
+    return getRemoteTerminalStreamsForE2e(this)
   }
-
-  releaseHeldAcksForE2e(): number {
-    let released = 0
-    for (const stream of this.streams.values()) {
-      if (stream.heldAckBytes <= 0) {
-        continue
-      }
-      const bytes = stream.heldAckBytes
-      stream.heldAckBytes = 0
-      if (this.queueOutputAcknowledgement(stream, bytes)) {
-        released += bytes
-      }
-    }
-    return released
+  releaseHeldAcksForE2e() {
+    return releaseRemoteTerminalHeldAcksForE2e(this)
   }
-
-  sendInputForE2e(terminal: string, text: string): number {
-    let sent = 0
-    for (const stream of this.streams.values()) {
-      if (stream.terminal === terminal && this.sendInput(stream, text)) {
-        sent += 1
-      }
-    }
-    return sent
+  sendInputForE2e(terminal: string, text: string) {
+    return sendRemoteTerminalInputForE2e(this, terminal, text)
   }
-
-  private sendFrame(
-    streamId: number,
-    opcode: TerminalStreamOpcode,
-    payload: Uint8Array<ArrayBufferLike> = new Uint8Array()
-  ): boolean {
-    if (!this.matchesCurrentEnvironmentRevision() || !this.ready || !this.subscription) {
-      return false
-    }
-    try {
-      this.subscription.sendBinary(encodeTerminalStreamFrame({ opcode, streamId, seq: 0, payload }))
-      return true
-    } catch (error) {
-      this.handleClose(
-        error instanceof Error ? error.message : 'Remote terminal transport write failed.'
-      )
-      return false
-    }
+  sendFrame(streamId: number, opcode: TerminalStreamOpcode, payload: Uint8Array<ArrayBufferLike> = new Uint8Array()) {
+    return sendRemoteTerminalFrame(this, streamId, opcode, payload)
   }
-
-  private resolveReadyIfConnected(): void {
-    if (!this.ready || !this.subscription) {
-      return
-    }
-    this.readyResolver?.()
-    this.readyResolver = null
-    this.readyRejecter = null
+  resolveReadyIfConnected() {
+    resolveRemoteTerminalReadyIfConnected(this)
   }
-
-  private failConnection(error: Error): void {
-    this.readyRejecter?.(error)
-    this.readyResolver = null
-    this.readyRejecter = null
-    for (const stream of this.streams.values()) {
-      // Why: a stream still awaiting ensureConnected receives this failure through its rejected promise.
-      if (stream.subscriptionRequested) {
-        stream.callbacks.onError?.(error.message)
-      }
-    }
-    this.handleClose(undefined, false)
+  failConnection(error: Error) {
+    failRemoteTerminalConnection(this, error)
   }
-
-  private handleClose(message?: string, recoverable = true): void {
-    const streams = Array.from(this.streams.values())
-    const closingSubscription = this.subscription
-    this.ready = false
-    this.connectPromise = null
-    this.readyRejecter?.(new Error(message ?? 'Remote runtime connection closed.'))
-    this.readyResolver = null
-    this.readyRejecter = null
-    this.subscription = null
-    closingSubscription?.unsubscribe()
-    this.streams.clear()
-    // Why: close callbacks may resubscribe synchronously; release first so every replacement shares the new environment multiplexer.
-    this.releaseIfCurrent(this.environmentId, this)
-    for (const stream of streams) {
-      discardOutputAcknowledgements(stream)
-      stream.watchdog.dispose()
-      clearSnapshot(stream)
-      clearResyncTimer(stream)
-      rejectPendingSnapshotRequest(stream, message ?? 'Remote runtime connection closed.')
-      const canHandleClose = Boolean(stream.callbacks.onTransportClose)
-      stream.callbacks.onTransportClose?.({ recoverable })
-      if (message && !canHandleClose) {
-        stream.callbacks.onError?.(message)
-      }
-    }
+  handleClose(message?: string, recoverable = true) {
+    handleRemoteTerminalClose(this, message, recoverable)
   }
-
-  private closeIfIdle(): void {
-    if (this.streams.size > 0) {
-      return
-    }
-    this.subscription?.unsubscribe()
-    this.subscription = null
-    this.connectPromise = null
-    this.ready = false
-    this.releaseIfCurrent(this.environmentId, this)
+  closeIfIdle() {
+    closeRemoteTerminalIfIdle(this)
   }
 }
 
-const multiplexers = new Map<string, RemoteRuntimeTerminalMultiplexer>()
+export const multiplexers = new Map<string, RemoteRuntimeTerminalMultiplexer>()
 
-function releaseRemoteRuntimeTerminalMultiplexer(
+export function releaseRemoteRuntimeTerminalMultiplexer(
   environmentId: string,
   multiplexer: RemoteRuntimeTerminalMultiplexer
 ): void {
@@ -1326,9 +521,7 @@ export function _getRemoteRuntimeTerminalMultiplexerCountForTest(): number {
 
 export function resetRemoteRuntimeTerminalMultiplexersForTests(): void {
   multiplexers.clear()
-  e2eHeldRemoteAckTerminals.clear()
-  resetE2eDroppedRemoteOutput()
-  e2eReleasedRemoteAckChars = 0
+  resetE2eRemoteTerminalMultiplexersState()
 }
 
 import {
@@ -1342,3 +535,19 @@ import {
   isTerminalDriverState,
   rejectPendingSnapshotRequest
 } from './remote-runtime-terminal-stream-state'
+export {
+  e2eHeldRemoteAckTerminals,
+  e2eDroppedOutputStreams,
+  e2eDroppedOutputBytes,
+  e2eDroppedOutputFrames,
+  e2eReleasedRemoteAckChars,
+  shouldHoldE2eRemoteTerminalAck,
+  getE2eRemoteAckSnapshot,
+  releaseE2eRemoteTerminalAcks,
+  resetE2eDroppedRemoteOutput,
+  shouldDropE2eRemoteTerminalOutput,
+  exposeE2eRemoteTerminalMultiplexAckGate,
+  type E2eRemoteTerminalMultiplexAckGateSnapshot,
+  type E2eRemoteTerminalMultiplexAckGateApi,
+  type E2eRemoteTerminalMultiplexAckGateWindow
+} from './remote-runtime-terminal-e2e-gate'

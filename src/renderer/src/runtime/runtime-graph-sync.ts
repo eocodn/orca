@@ -20,7 +20,7 @@ import type { Tab } from '../../../shared/types'
 import { resolveTerminalLayoutRoot } from './remote-terminal-layout-resolution'
 import { applyNativeChatLaunchDraftResolved } from './native-chat-launch-draft-runtime-resolution'
 
-type RegisteredTerminalTab = {
+export type RegisteredTerminalTab = {
   tabId: string
   worktreeId: string
   getManager: () => PaneManager | null
@@ -39,22 +39,22 @@ export type FallbackEditorTabTarget = {
 }
 export const registeredTabs = new Map<string, RegisteredTerminalTab>()
 // Why: registration time suppresses the "no live transport" warning during the async PTY-connect window; after the grace period it's a real stuck state.
-const tabRegisteredAt = new Map<string, number>()
-const NO_TRANSPORT_GRACE_MS = 10_000
-const EMPTY_LAYOUT_BY_WORKTREE: AppState['layoutByWorktree'] = {}
-const RUNTIME_GRAPH_SYNC_COALESCE_MS = 16
-let syncScheduled = false
-let syncInFlight = false
-let syncPendingAfterFlight = false
-let syncEnabled = false
-let syncTimer: ReturnType<typeof setTimeout> | null = null
-let getStoreState: (() => AppState) | null = null
-let mobileSessionSnapshotVersion = 0
+export const tabRegisteredAt = new Map<string, number>()
+export const NO_TRANSPORT_GRACE_MS = 10_000
+export const EMPTY_LAYOUT_BY_WORKTREE: AppState['layoutByWorktree'] = {}
+export const RUNTIME_GRAPH_SYNC_COALESCE_MS = 16
+export let syncScheduled = false
+export let syncInFlight = false
+export let syncPendingAfterFlight = false
+export let syncEnabled = false
+export let syncTimer: ReturnType<typeof setTimeout> | null = null
+export let getStoreState: (() => AppState) | null = null
+export let mobileSessionSnapshotVersion = 0
 // Why: main gates per-worktree mobile fanout on (publicationEpoch,
 // snapshotVersion), so that pair must be a semantic revision: reuse the cached
 // snapshot (same version) whenever a worktree's mobile-visible content is
 // unchanged, and bump the version only for worktrees that actually changed.
-const mobileSessionSnapshotCacheByWorktree = new Map<
+export const mobileSessionSnapshotCacheByWorktree = new Map<
   string,
   { content: unknown; snapshot: RuntimeMobileSessionTabsSnapshot }
 >()
@@ -64,7 +64,7 @@ const mobileSessionSnapshotCacheByWorktree = new Map<
 // without allocating a serialized copy of the payload on every graph sync.
 // Any value strict-equality can't prove equal (e.g. NaN) reads as changed,
 // which only costs a redundant fanout — never a suppressed one.
-function jsonContentEquals(a: unknown, b: unknown): boolean {
+export function jsonContentEquals(a: unknown, b: unknown): boolean {
   if (a === b) {
     return true
   }
@@ -91,9 +91,9 @@ function jsonContentEquals(a: unknown, b: unknown): boolean {
   }
   return true
 }
-let cachedEditorDraftsSource: AppState['editorDrafts'] | null = null
-let cachedEditorDraftVersionByFileId: Map<string, string> | null = null
-const mobileSessionPublicationEpoch = `renderer:${createBrowserUuid()}`
+export let cachedEditorDraftsSource: AppState['editorDrafts'] | null = null
+export let cachedEditorDraftVersionByFileId: Map<string, string> | null = null
+export const mobileSessionPublicationEpoch = `renderer:${createBrowserUuid()}`
 
 export function setRuntimeGraphStoreStateGetter(getter: (() => AppState) | null): void {
   getStoreState = getter
@@ -148,7 +148,7 @@ export function setRuntimeGraphSyncEnabled(enabled: boolean): void {
   scheduleRuntimeGraphSync()
 }
 
-function clearScheduledRuntimeGraphSync(): void {
+export function clearScheduledRuntimeGraphSync(): void {
   if (syncTimer !== null) {
     clearTimeout(syncTimer)
     syncTimer = null
@@ -173,6 +173,17 @@ export function scheduleRuntimeGraphSync(): void {
   }, RUNTIME_GRAPH_SYNC_COALESCE_MS)
 }
 
+import { syncRuntimeGraph } from './runtime-graph-window-publisher'
+export { resolveRuntimeTerminalTitle } from './runtime-graph-mobile-projections'
+export type { RuntimeMobileSessionSyncKey } from './runtime-graph-mobile-projections'
+export {
+  buildRuntimeMobileAgentStatusProjectionForTests,
+  canSkipRuntimeMobileSessionSyncKeyBuild,
+  getRuntimeMobileSessionSyncKey,
+  resetRuntimeMobileAgentStatusProjectionCacheForTests,
+  runtimeMobileSessionSyncKeysEqual
+} from './runtime-graph-mobile-projections'
+
 async function runRuntimeGraphSync(): Promise<void> {
   if (syncInFlight) {
     syncPendingAfterFlight = true
@@ -191,419 +202,10 @@ async function runRuntimeGraphSync(): Promise<void> {
   }
 }
 
-import {
-  type RuntimeMobileSessionSyncKey,
-  buildRuntimeMobileAgentStatusProjectionForTests,
-  canSkipRuntimeMobileSessionSyncKeyBuild,
-  getRuntimeMobileSessionSyncKey,
-  getBrowserTabsByWorktree,
-  resetRuntimeMobileAgentStatusProjectionCacheForTests,
-  runtimeMobileSessionSyncKeysEqual,
-  resolveRuntimeTerminalTitle
-} from './runtime-graph-mobile-projections'
-export { resolveRuntimeTerminalTitle } from './runtime-graph-mobile-projections'
-export type { RuntimeMobileSessionSyncKey } from './runtime-graph-mobile-projections'
-export {
-  buildRuntimeMobileAgentStatusProjectionForTests,
-  canSkipRuntimeMobileSessionSyncKeyBuild,
-  getRuntimeMobileSessionSyncKey,
-  resetRuntimeMobileAgentStatusProjectionCacheForTests,
-  runtimeMobileSessionSyncKeysEqual
-} from './runtime-graph-mobile-projections'
 
 
 
-async function syncRuntimeGraph(): Promise<void> {
-  if (!syncEnabled || !getStoreState) {
-    return
-  }
-  // Why: can't import the store directly (terminal slice imports this module); inject the getter to break the construction cycle.
-  const state = getStoreState()
-  const systemPrefersDark = getSystemPrefersDark()
-  // Why: build lookup maps once per sync instead of re-flattening every worktree's tabs for each registered terminal.
-  const terminalTabById = new Map(
-    Object.values(state.tabsByWorktree)
-      .flat()
-      .map((tab) => [tab.id, tab])
-  )
-  const generatedTitlesEnabled = state.settings?.tabAutoGenerateTitle === true
-  const graph: RuntimeSyncWindowGraph = {
-    tabs: [],
-    leaves: [],
-    mobileSessionTabs: buildMobileSessionTabSnapshots(state, systemPrefersDark)
-  }
-
-  for (const [tabId, registeredTab] of registeredTabs) {
-    const tab = terminalTabById.get(tabId)
-    if (!tab) {
-      continue
-    }
-    if (isWebOnlyMirroredTerminalTab(state, tab)) {
-      continue
-    }
-
-    const manager = registeredTab.getManager()
-    const container = registeredTab.getContainer()
-    const activePaneId = manager?.getActivePane()?.id ?? null
-    const root =
-      container?.firstElementChild instanceof HTMLElement ? container.firstElementChild : null
-
-    graph.tabs.push({
-      tabId,
-      worktreeId: registeredTab.worktreeId,
-      title: resolveRuntimeTerminalTitle(tab, generatedTitlesEnabled),
-      activeLeafId: activePaneId === null ? null : (manager?.getLeafId(activePaneId) ?? null),
-      layout: serializePaneTree(root)
-    })
-
-    const savedPtyIdsByLeafId = state.terminalLayoutsByTabId[tabId]?.ptyIdsByLeafId ?? {}
-    for (const pane of manager?.getPanes() ?? []) {
-      const leafId = pane.leafId
-      const ptyId = registeredTab.getPtyIdForPane(pane.id)
-      const savedPtyId = savedPtyIdsByLeafId[leafId] ?? null
-      const registeredTime = tabRegisteredAt.get(tabId) ?? 0
-      if (!ptyId && savedPtyId && Date.now() - registeredTime > NO_TRANSPORT_GRACE_MS) {
-        warnTerminalLifecycleAnomaly('mounted terminal leaf has saved PTY but no live transport', {
-          tabId,
-          worktreeId: registeredTab.worktreeId,
-          leafId,
-          paneId: pane.id,
-          ptyId: savedPtyId
-        })
-      }
-      const paneTitles = state.runtimePaneTitlesByTabId[tabId] ?? {}
-      graph.leaves.push({
-        tabId,
-        worktreeId: registeredTab.worktreeId,
-        leafId,
-        paneRuntimeId: pane.id,
-        ptyId,
-        paneTitle: paneTitles[pane.id] ?? null,
-        title: resolveRuntimeTerminalTitle(
-          tab,
-          generatedTitlesEnabled,
-          state.runtimePaneTitlesByTabId[tabId]?.[pane.id] ?? tab.title
-        )
-      })
-    }
-  }
-
-  // Why: inactive automation tabs never mount a TerminalPane; publish their leaf+ptyId from persisted layout (gated on a live buffer) or the live PTY looks orphaned.
-  for (const [worktreeId, tabs] of Object.entries(state.tabsByWorktree)) {
-    for (const tab of tabs) {
-      if (registeredTabs.has(tab.id) || isWebOnlyMirroredTerminalTab(state, tab)) {
-        continue
-      }
-      const layout = state.terminalLayoutsByTabId[tab.id]
-      const savedPtyIdsByLeafId = layout?.ptyIdsByLeafId
-      if (!savedPtyIdsByLeafId) {
-        continue
-      }
-      const liveLeaves = Object.entries(savedPtyIdsByLeafId).filter(
-        ([leafId, ptyId]) =>
-          typeof ptyId === 'string' &&
-          ptyId.length > 0 &&
-          isTerminalLeafId(leafId) &&
-          Boolean(getEagerPtyBufferHandle(ptyId))
-      )
-      if (liveLeaves.length === 0) {
-        continue
-      }
-      const title = resolveRuntimeTerminalTitle(tab, generatedTitlesEnabled)
-      graph.tabs.push({
-        tabId: tab.id,
-        worktreeId,
-        title,
-        activeLeafId: layout?.activeLeafId ?? liveLeaves[0][0],
-        layout: resolveTerminalLayoutRoot({
-          authoritativeRoot: layout?.root,
-          leafIds: liveLeaves.map(([leafId]) => leafId),
-          onSynthesize: (leafCount) =>
-            console.warn(
-              `[sync-runtime-graph] synthesized layout for ${leafCount} unmounted leaves with no saved tree`
-            )
-        })
-      })
-      liveLeaves.forEach(([leafId, ptyId], index) => {
-        graph.leaves.push({
-          tabId: tab.id,
-          worktreeId,
-          leafId,
-          paneRuntimeId: index + 1,
-          ptyId,
-          paneTitle: null,
-          title
-        })
-      })
-    }
-  }
-
-  try {
-    const result = await window.api.runtime.syncWindowGraph(graph)
-    const currentState = getStoreState()
-    currentState?.setRuntimeAgentOrchestrationByPaneKey?.(result?.agentOrchestrationByPaneKey ?? {})
-    for (const resolution of result?.nativeChatLaunchDraftResolutions ?? []) {
-      if (currentState) {
-        applyNativeChatLaunchDraftResolved(currentState, {
-          type: 'nativeChatLaunchDraftResolved',
-          ...resolution
-        })
-      }
-    }
-  } catch (error) {
-    console.error('[runtime] Failed to sync renderer graph:', error)
-  }
-}
-
-export function buildMobileSessionTabSnapshots(
-  state: AppState,
-  systemPrefersDark = getSystemPrefersDark()
-): RuntimeMobileSessionTabsSnapshot[] {
-  // Why: high-frequency title ticks fire mobile sync; cache indexes/hashes by store-slice ref to skip rescanning editor state.
-  const openFileIndexes = getOpenFileIndexes(state.openFiles)
-  const editorDraftVersionByFileId = getEditorDraftVersionByFileId(state.editorDrafts)
-  const worktreeIds = new Set<string>([
-    ...Object.keys(state.tabsByWorktree),
-    ...Object.keys(state.groupsByWorktree),
-    ...Object.keys(state.unifiedTabsByWorktree),
-    ...Object.keys(getBrowserTabsByWorktree(state)),
-    ...state.openFiles.map((file) => file.worktreeId)
-  ])
-
-  const snapshots: RuntimeMobileSessionTabsSnapshot[] = []
-  for (const worktreeId of worktreeIds) {
-    const activeGroupId = state.activeGroupIdByWorktree[worktreeId] ?? null
-    const terminalTabByIdForWorktree = new Map(
-      (state.tabsByWorktree[worktreeId] ?? []).map((tab) => [tab.id, tab])
-    )
-    const browserWorkspaceByIdForWorktree = new Map(
-      (getBrowserTabsByWorktree(state)[worktreeId] ?? []).map((workspace) => [
-        workspace.id,
-        workspace
-      ])
-    )
-    const unifiedTabByIdForWorktree = new Map(
-      (state.unifiedTabsByWorktree[worktreeId] ?? []).map((tab) => [tab.id, tab])
-    )
-    const openFilesForWorktree = openFileIndexes.byWorktreeAndId.get(worktreeId)
-    const editorIds = (openFileIndexes.idsByWorktree.get(worktreeId) ?? []).filter((fileId) => {
-      const file = openFilesForWorktree?.get(fileId)
-      return file ? isMobilePublishableOpenFile(file) : false
-    })
-    const publishableTerminalIds = [...terminalTabByIdForWorktree.values()]
-      .filter((terminal) => !isWebOnlyMirroredTerminalTab(state, terminal))
-      .map((terminal) => terminal.id)
-    const groupProjection = buildMobileSessionGroupProjection(state, worktreeId, {
-      terminalIds: publishableTerminalIds,
-      editorIds,
-      browserIds: [...browserWorkspaceByIdForWorktree.keys()]
-    })
-    const tabs: RuntimeMobileSessionSnapshotTab[] = []
-    const emittedEditorFileIds = new Set<string>()
-    const emittedEditorTabIds = new Set<string>()
-
-    for (const item of groupProjection.order) {
-      if (item.type === 'terminal') {
-        const terminal = terminalTabByIdForWorktree.get(item.id)
-        if (!terminal) {
-          continue
-        }
-        if (isWebOnlyMirroredTerminalTab(state, terminal)) {
-          continue
-        }
-        tabs.push(
-          ...buildMobileTerminalSurfaceTabs(
-            state,
-            terminal,
-            worktreeId,
-            systemPrefersDark,
-            item.tabId
-          )
-        )
-      } else if (item.type === 'editor') {
-        const file = openFilesForWorktree?.get(item.id)
-        if (!file || !isMobilePublishableOpenFile(file)) {
-          continue
-        }
-        const markdown = buildMobileMarkdownTab(
-          state,
-          openFileIndexes.byWorktreeAndId,
-          editorDraftVersionByFileId,
-          file,
-          item.tabId ? unifiedTabByIdForWorktree.get(item.tabId) : undefined
-        )
-        if (markdown) {
-          tabs.push(markdown)
-        } else {
-          tabs.push(
-            buildMobileFileTab(
-              state,
-              file,
-              item.tabId ? unifiedTabByIdForWorktree.get(item.tabId) : undefined
-            )
-          )
-        }
-        emittedEditorFileIds.add(file.id)
-        emittedEditorTabIds.add(item.tabId ?? item.id)
-      } else if (item.type === 'browser') {
-        const workspace = browserWorkspaceByIdForWorktree.get(item.id)
-        if (!workspace) {
-          continue
-        }
-        tabs.push(
-          buildMobileBrowserTab(
-            state,
-            workspace,
-            item.tabId ? unifiedTabByIdForWorktree.get(item.tabId) : undefined
-          )
-        )
-      }
-    }
-
-    // Why: split-group projection can miss plain editor files during hydration; publish them so mobile/web still mirror.
-    const fallbackEditorTabs: FallbackEditorTabTarget[] = []
-    if (openFilesForWorktree) {
-      const unifiedEditorTabs = getEditorUnifiedTabsForWorktree(state, worktreeId)
-      const unifiedEditorFileIds = new Set(unifiedEditorTabs.map((tab) => tab.entityId))
-      for (const unifiedTab of unifiedEditorTabs) {
-        if (emittedEditorTabIds.has(unifiedTab.id)) {
-          continue
-        }
-        const file = openFilesForWorktree.get(unifiedTab.entityId)
-        if (!file || !isMobilePublishableOpenFile(file)) {
-          continue
-        }
-        const markdown = buildMobileMarkdownTab(
-          state,
-          openFileIndexes.byWorktreeAndId,
-          editorDraftVersionByFileId,
-          file,
-          unifiedTab
-        )
-        const fallbackTab = markdown ?? buildMobileFileTab(state, file, unifiedTab)
-        tabs.push(fallbackTab)
-        fallbackEditorTabs.push({
-          tabId: fallbackTab.id,
-          groupId: unifiedTab.groupId
-        })
-        emittedEditorTabIds.add(unifiedTab.id)
-      }
-      for (const file of openFilesForWorktree.values()) {
-        if (!isMobilePublishableOpenFile(file)) {
-          continue
-        }
-        if (emittedEditorFileIds.has(file.id)) {
-          continue
-        }
-        if (unifiedEditorFileIds.has(file.id)) {
-          emittedEditorFileIds.add(file.id)
-          continue
-        }
-        const markdown = buildMobileMarkdownTab(
-          state,
-          openFileIndexes.byWorktreeAndId,
-          editorDraftVersionByFileId,
-          file
-        )
-        const fallbackTab = markdown ?? buildMobileFileTab(state, file)
-        tabs.push(fallbackTab)
-        fallbackEditorTabs.push({
-          tabId: fallbackTab.id,
-          groupId: null
-        })
-        emittedEditorFileIds.add(file.id)
-      }
-    }
-
-    const active = tabs.find((tab) => tab.isActive) ?? null
-    const tabGroups = appendFallbackEditorTabsToGroups(
-      groupProjection.tabGroups,
-      state.groupsByWorktree[worktreeId] ?? [],
-      activeGroupId,
-      fallbackEditorTabs,
-      active?.id ?? null
-    )
-    const tabGroupLayout =
-      tabGroups && tabGroups.length > 0
-        ? pruneTabGroupLayout(
-            (state.layoutByWorktree ?? EMPTY_LAYOUT_BY_WORKTREE)[worktreeId],
-            new Set(tabGroups.map((group) => group.id))
-          )
-        : groupProjection.tabGroupLayout
-    const content = {
-      activeGroupId,
-      activeTabId: active?.id ?? null,
-      activeTabType: active?.type ?? null,
-      ...(tabGroups && tabGroups.length > 0 ? { tabGroups } : {}),
-      ...(tabGroupLayout ? { tabGroupLayout } : {}),
-      tabs
-    }
-    // Why: main suppresses per-worktree fanout on an unchanged (epoch, version)
-    // pair, so reuse the cached version for structurally-identical content. The
-    // global counter still advances per worktree per build (as before caching)
-    // so a changed worktree's fresh version stays ahead of main's +1 bumps.
-    const candidateVersion = ++mobileSessionSnapshotVersion
-    const cached = mobileSessionSnapshotCacheByWorktree.get(worktreeId)
-    if (cached && jsonContentEquals(cached.content, content)) {
-      snapshots.push(cached.snapshot)
-      continue
-    }
-    const snapshot: RuntimeMobileSessionTabsSnapshot = {
-      worktree: worktreeId,
-      publicationEpoch: mobileSessionPublicationEpoch,
-      snapshotVersion: candidateVersion,
-      ...content
-    }
-    mobileSessionSnapshotCacheByWorktree.set(worktreeId, { content, snapshot })
-    snapshots.push(snapshot)
-  }
-
-  for (const worktreeId of mobileSessionSnapshotCacheByWorktree.keys()) {
-    if (!worktreeIds.has(worktreeId)) {
-      mobileSessionSnapshotCacheByWorktree.delete(worktreeId)
-    }
-  }
-
-  return snapshots
-}
-
-function isEditorSurfaceTab(tab: Pick<Tab, 'contentType'>): boolean {
-  // Why: mobile can mirror ordinary edit/diff files; conflict-review and check-details tabs need metadata this contract lacks.
-  return tab.contentType === 'editor' || tab.contentType === 'diff'
-}
-
-import {
-  appendFallbackEditorTabsToGroups,
-  buildMobileSessionGroupProjection,
-  getEditorUnifiedTabsForWorktree,
-  getOpenFileIndexes,
-  isWebOnlyMirroredTerminalTab,
-  pruneTabGroupLayout
-} from './runtime-graph-mobile-tab-projection'
-import { isMobilePublishableOpenFile } from './runtime-graph-mobile-surface-builders'
 
 
-
-function getEditorDraftVersionByFileId(
-  editorDrafts: AppState['editorDrafts']
-): Map<string, string> {
-  if (cachedEditorDraftsSource === editorDrafts && cachedEditorDraftVersionByFileId) {
-    return cachedEditorDraftVersionByFileId
-  }
-
-  const versions = new Map<string, string>()
-  for (const [fileId, content] of Object.entries(editorDrafts)) {
-    versions.set(fileId, stableHashString(content))
-  }
-  cachedEditorDraftsSource = editorDrafts
-  cachedEditorDraftVersionByFileId = versions
-  return versions
-}
-
-import {
-  buildMobileBrowserTab,
-  buildMobileFileTab,
-  buildMobileMarkdownTab,
-  buildMobileTerminalSurfaceTabs,
-  stableHashString
-} from './runtime-graph-mobile-surface-builders'
+export { syncRuntimeGraph } from './runtime-graph-window-publisher'
+export { buildMobileSessionTabSnapshots } from './runtime-graph-mobile-snapshot-builder'
