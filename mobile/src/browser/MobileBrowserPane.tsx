@@ -1,41 +1,26 @@
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: mobile browser state mirrors a remote desktop screencast session and CDP dialogs, which are external systems that cannot be derived during render. */
-// Why: import from 'buffer' (the npm polyfill), not 'node:buffer' — Metro
-// can't resolve Node's builtin in a React Native bundle.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActivityIndicator,
   AppState,
   Image,
   PanResponder,
   PixelRatio,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
   View,
   type GestureResponderEvent,
   type PanResponderGestureState
 } from 'react-native'
-import { ArrowUp, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react-native'
 import type { RpcClient } from '../transport/rpc-client'
 import type { RpcFailure, RpcSuccess } from '../transport/types'
 import type {
   BrowserScreencastFrame,
   BrowserScreencastFrameMetadata
 } from '../transport/browser-screencast-protocol'
-import { colors } from '../theme/mobile-theme'
 import {
   MOBILE_BROWSER_FRAME_MIN_INTERVAL_MS,
   buildMobileBrowserScreencastRequest,
   type MobileBrowserViewMode
 } from './browser-screencast-request'
-import {
-  MobileBrowserPointerModifiers,
-  type BrowserPointerModifier
-} from './MobileBrowserPointerModifiers'
-import { MobileBrowserKeyRow } from './MobileBrowserKeyRow'
-import { MobileBrowserToolbarIconButton } from './MobileBrowserToolbarIconButton'
-import { MobileBrowserViewModeSwitch } from './MobileBrowserViewModeSwitch'
+import type { BrowserPointerModifier } from './MobileBrowserPointerModifiers'
 import {
   getInitialMobileBrowserViewMode,
   saveMobileBrowserViewMode
@@ -57,7 +42,6 @@ import {
   assertRpcOk,
   browserErrorMessage,
   browserFrameMetadataEqual,
-  buttonColor,
   cacheBrowserFrame,
   clearCachedBrowserFramesForWorktree,
   createBrowserFrameDataUri,
@@ -72,10 +56,10 @@ import {
   updateBrowserImageSource,
   updateBrowserLayerVisibility,
   updatePinchZoom,
-  type BrowserFrameCacheEntry,
   type FrameLayer,
   type PinchGesture
 } from './mobile-browser-pane-support'
+import { MobileBrowserPaneView } from './MobileBrowserPaneView'
 
 export type MobileBrowserTab = {
   type: 'browser'
@@ -1083,220 +1067,49 @@ export function MobileBrowserPane({
   )
 
   return (
-    <View ref={setRootViewRef} style={styles.root}>
-      <View style={styles.toolbar}>
-        <MobileBrowserToolbarIconButton
-          disabled={controlsDisabled || !tab.canGoBack}
-          label="Back"
-          onPress={goBack}
-        >
-          <ChevronLeft size={15} color={buttonColor(!controlsDisabled && tab.canGoBack)} />
-        </MobileBrowserToolbarIconButton>
-        <MobileBrowserToolbarIconButton
-          disabled={controlsDisabled || !tab.canGoForward}
-          label="Forward"
-          onPress={goForward}
-        >
-          <ChevronRight size={15} color={buttonColor(!controlsDisabled && tab.canGoForward)} />
-        </MobileBrowserToolbarIconButton>
-        <MobileBrowserToolbarIconButton
-          disabled={controlsDisabled}
-          label="Reload"
-          onPress={reloadPage}
-        >
-          <RefreshCw size={15} color={buttonColor(!controlsDisabled)} />
-        </MobileBrowserToolbarIconButton>
-        <TextInput
-          style={styles.addressInput}
-          value={addressValue}
-          onChangeText={setAddressValue}
-          onFocus={() => setAddressFocused(true)}
-          onBlur={() => setAddressFocused(false)}
-          onSubmitEditing={() => void navigateToAddress()}
-          selectTextOnFocus
-          selection={addressSelection}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType={Platform.OS === 'ios' ? 'url' : 'default'}
-          numberOfLines={1}
-          returnKeyType="go"
-          placeholder="URL"
-          placeholderTextColor={colors.textMuted}
-          editable={!controlsDisabled}
-        />
-        <MobileBrowserViewModeSwitch
-          disabled={controlsDisabled}
-          value={browserViewMode}
-          onChange={selectBrowserViewMode}
-        />
-      </View>
-
-      <View
-        style={styles.viewport}
-        onLayout={(event) => {
-          const next = {
-            width: event.nativeEvent.layout.width,
-            height: event.nativeEvent.layout.height
-          }
-          const current = layoutRef.current
-          if (current && current.width === next.width && current.height === next.height) {
-            return
-          }
-          layoutRef.current = next
-          setLayout(next)
-        }}
-        {...panResponder.panHandlers}
-      >
-        {renderedFrameSource ? (
-          <View style={styles.browserImageHost}>
-            {frameGeometry ? (
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.browserZoomOffset,
-                  {
-                    width: frameGeometry.renderedWidth,
-                    height: frameGeometry.renderedHeight,
-                    transform: [{ translateX: zoom.offsetX }, { translateY: zoom.offsetY }]
-                  }
-                ]}
-              >
-                <View
-                  style={[
-                    styles.browserFrameBox,
-                    {
-                      width: frameGeometry.renderedWidth,
-                      height: frameGeometry.renderedHeight,
-                      transform: [{ scale: zoom.scale }]
-                    }
-                  ]}
-                >
-                  {([0, 1] as const).map((layer) => (
-                    <View
-                      key={layer}
-                      ref={browserLayerRef(layer)}
-                      pointerEvents="none"
-                      style={frameLayerStyle(layer)}
-                    >
-                      <Image
-                        ref={frameLayerRef(layer)}
-                        source={renderedFrameSource}
-                        resizeMode="stretch"
-                        fadeDuration={0}
-                        onLoad={frameLayerLoadHandler(layer)}
-                        onError={frameLayerErrorHandler(layer)}
-                        style={[
-                          styles.browserImage,
-                          {
-                            width: frameGeometry.renderedWidth,
-                            height: frameGeometry.renderedHeight
-                          }
-                        ]}
-                      />
-                    </View>
-                  ))}
-                </View>
-              </View>
-            ) : (
-              ([0, 1] as const).map((layer) => (
-                <View
-                  key={layer}
-                  ref={browserLayerRef(layer)}
-                  pointerEvents="none"
-                  style={frameLayerStyle(layer)}
-                >
-                  <Image
-                    ref={frameLayerRef(layer)}
-                    source={renderedFrameSource}
-                    resizeMode="contain"
-                    fadeDuration={0}
-                    onLoad={frameLayerLoadHandler(layer)}
-                    onError={frameLayerErrorHandler(layer)}
-                    style={styles.browserImageFill}
-                  />
-                </View>
-              ))
-            )}
-          </View>
-        ) : null}
-        {!renderedFrameSource || busy || error ? (
-          <View pointerEvents="none" style={styles.overlay}>
-            {busy || (!ready && !error) ? (
-              <ActivityIndicator size="small" color={colors.textSecondary} />
-            ) : null}
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          </View>
-        ) : null}
-        {dialog ? (
-          <View style={styles.dialogOverlay}>
-            <View style={styles.dialogCard}>
-              <Text style={styles.dialogTitle}>Browser Dialog</Text>
-              <Text style={styles.dialogMessage}>{dialog.message}</Text>
-              <View style={styles.dialogActions}>
-                {dialog.dialogType !== 'alert' ? (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.dialogButton,
-                      pressed && styles.dialogButtonPressed
-                    ]}
-                    onPress={() => void sendDialogCommand('browser.dialogDismiss')}
-                  >
-                    <Text style={styles.dialogButtonText}>Cancel</Text>
-                  </Pressable>
-                ) : null}
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.dialogButton,
-                    styles.dialogButtonPrimary,
-                    pressed && styles.dialogButtonPressed
-                  ]}
-                  onPress={() => void sendDialogCommand('browser.dialogAccept')}
-                >
-                  <Text style={[styles.dialogButtonText, styles.dialogButtonPrimaryText]}>OK</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
-      </View>
-
-      <View
-        style={[
-          styles.keyboardDock,
-          { paddingBottom: bottomInset, transform: [{ translateY: -keyboardLift }] }
-        ]}
-      >
-        <MobileBrowserPointerModifiers
-          disabled={controlsDisabled}
-          selectedModifiers={pointerModifiers}
-          onToggle={togglePointerModifier}
-        />
-        <MobileBrowserKeyRow
-          disabled={controlsDisabled}
-          onKeypress={(key) => void sendKeypress(key)}
-        />
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.keyboardInput}
-            value={keyboardValue}
-            onChangeText={setKeyboardValue}
-            placeholder="Type on page…"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!controlsDisabled}
-            onSubmitEditing={() => void sendKeyboardText()}
-          />
-          <Pressable
-            style={[styles.sendButton, (controlsDisabled || !keyboardValue) && styles.disabled]}
-            disabled={controlsDisabled || !keyboardValue}
-            onPress={() => void sendKeyboardText()}
-            accessibilityLabel="Send text to browser"
-          >
-            <ArrowUp size={18} color={buttonColor(!controlsDisabled && !!keyboardValue)} />
-          </Pressable>
-        </View>
-      </View>
-    </View>
+    <MobileBrowserPaneView
+      tab={tab}
+      controlsDisabled={controlsDisabled}
+      browserViewMode={browserViewMode}
+      addressValue={addressValue}
+      addressSelection={addressSelection}
+      keyboardValue={keyboardValue}
+      pointerModifiers={pointerModifiers}
+      keyboardLift={keyboardLift}
+      bottomInset={bottomInset}
+      busy={busy}
+      ready={ready}
+      error={error}
+      dialog={dialog}
+      zoom={zoom}
+      layoutRef={layoutRef}
+      frameGeometry={frameGeometry}
+      renderedFrameSource={renderedFrameSource}
+      panResponder={panResponder}
+      setRootViewRef={setRootViewRef}
+      onAddressChange={setAddressValue}
+      onAddressFocus={() => setAddressFocused(true)}
+      onAddressBlur={() => setAddressFocused(false)}
+      onAddressSubmit={() => void navigateToAddress()}
+      onKeyboardChange={setKeyboardValue}
+      onKeyboardSubmit={() => void sendKeyboardText()}
+      onGoBack={goBack}
+      onGoForward={goForward}
+      onReload={reloadPage}
+      onViewModeChange={selectBrowserViewMode}
+      onViewportLayout={(next) => {
+        layoutRef.current = next
+        setLayout(next)
+      }}
+      onTogglePointerModifier={togglePointerModifier}
+      onKeypress={(key) => void sendKeypress(key)}
+      onSendKeyboardText={() => void sendKeyboardText()}
+      onDialogCommand={(method) => void sendDialogCommand(method)}
+      frameLayerStyle={frameLayerStyle}
+      browserLayerRef={browserLayerRef}
+      frameLayerRef={frameLayerRef}
+      frameLayerLoadHandler={frameLayerLoadHandler}
+      frameLayerErrorHandler={frameLayerErrorHandler}
+    />
   )
 }
