@@ -316,4 +316,8 @@ export class AgentHookServer extends AgentHookServerRuntime {
     this.promptSentDedupeByPaneKey.clear()
   }
 
+  _resetConnectionTimestampWatermarksForTests(): void {
+    this.connectionTimestampWatermarkById.clear()
+  }
+
 }

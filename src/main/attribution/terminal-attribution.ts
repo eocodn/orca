@@ -8,8 +8,6 @@ const ATTRIBUTION_ROOT_DIR = 'orca-terminal-attribution'
 const ATTRIBUTION_SHIM_VERSION = '6'
 const ORCA_PRODUCT_URL = 'https://github.com/stablyai/orca'
 const ORCA_GH_FOOTER = `Made with [Orca](${ORCA_PRODUCT_URL}) 🐋`
-const SHELL_DOLLAR = '$'
-const POWERSHELL_TICK = '`'
 const ATTRIBUTION_ENV_KEYS = [
   'ORCA_ENABLE_GIT_ATTRIBUTION',
   'ORCA_GIT_COMMIT_TRAILER',

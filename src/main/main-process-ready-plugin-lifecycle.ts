@@ -1,6 +1,5 @@
 import * as startupDeps from './main-process-startup-dependencies'
 import { startupState } from './main-process-startup-state'
-import { recordProcessGoneCrash, handleGpuChildCrash } from './main-process-crash-lifecycle'
 
 function emitPluginWorktreeLifecycle(
   event: startupDeps.RuntimeWorktreeLifecycleEvent

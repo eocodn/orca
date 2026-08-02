@@ -2,7 +2,7 @@ import * as startupDeps from './main-process-startup-dependencies'
 import { startupState, clearExpectedRendererReload, isRecoveryReloadInFlight, markExpectedRendererReload, markRecoveryReloadInFlight, getExpectedTeardownScope, recordAgentStateCrashBreadcrumb } from './main-process-startup-state'
 import { maybeAutoRenameBranchOnFirstWorkFromHook } from './main-process-first-work-rename-startup'
 import { prepareCodexRuntimeHomeForLaunch, prepareCodexSessionResumeForLaunch } from './main-process-runtime-startup-preparation'
-import { recordProcessGoneCrash } from './main-process-crash-lifecycle'
+import { presentRendererRecoveryPrompt, recordProcessGoneCrash } from './main-process-crash-lifecycle'
 import { driveSyntheticTitleFromHook, shouldSuppressCodexAutoApprovalSyntheticTitleFromHook, stopAllSyntheticTitleSpinners, resumeSyntheticTitleSpinnerTimer, stopSyntheticTitleSpinnerTimer } from './main-process-synthetic-title-lifecycle'
 
 function emitPluginWorktreeLifecycle(event: startupDeps.RuntimeWorktreeLifecycleEvent): void {

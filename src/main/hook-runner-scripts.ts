@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 import { mkdirSync, writeFileSync, chmodSync } from 'node:fs'
 import { getRuntimePathBasename } from '../shared/cross-platform-path'
 import { shouldWaitForSetupBeforeAgentStartup } from '../shared/setup-agent-startup-policy'
@@ -89,7 +89,7 @@ export function buildWindowsRunnerScript(script: string): string {
   return runnerScript
 }
 
-function* iterateLfScriptLines(script: string): Generator<string> {
+export function* iterateLfScriptLines(script: string): Generator<string> {
   let lineStart = 0
 
   for (let index = 0; index < script.length; index++) {

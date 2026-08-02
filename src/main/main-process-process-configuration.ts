@@ -2,7 +2,6 @@ import * as startupDeps from './main-process-startup-dependencies'
 import { startupState } from './main-process-startup-state'
 import { openMainWindow } from './main-process-window-startup-lifecycle'
 import { maybeApplyGpuFallbackForThisLaunch } from './main-process-crash-lifecycle'
-import { reapRestoredSubagentsWithoutLiveAgent } from './main-process-runtime-startup-preparation'
 
 let handleMacAppActivation: ReturnType<typeof startupDeps.createMacAppActivationHandler> | null = null
 

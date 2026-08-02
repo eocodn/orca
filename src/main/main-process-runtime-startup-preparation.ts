@@ -191,7 +191,7 @@ export async function prepareCodexSessionResumeForLaunch(args: {
   // Why: codexSessionSourceHome is import-only; treating it as CODEX_HOME would mutate history sources and bypass account auth.
   const trustedHomes = [
     systemHomePath,
-    ...codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery()
+    ...startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery()
   ]
   const settingsStore = startupState.store
   // Why: a `fresh` outcome must skip migration, trust and hook repair entirely — there is

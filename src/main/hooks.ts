@@ -1,15 +1,13 @@
-import { readFileSync, existsSync, mkdirSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { exec, execFile } from 'node:child_process'
 import { getDefaultRepoHookSettings } from '../shared/constants'
-import { getRuntimePathBasename } from '../shared/cross-platform-path'
 import { resolveHookCommandSourcePolicy } from '../shared/hook-command-source-policy'
-import { shouldWaitForSetupBeforeAgentStartup } from '../shared/setup-agent-startup-policy'
-import { TERMINAL_GIT_CREDENTIAL_GUARD_POLICY_ENV } from '../shared/terminal-git-credential-guard'
 import { parseOrcaYaml } from '../shared/orca-yaml'
-import { gitExecFileSync, promptGuardShellEnv } from './git/runner'
-import { isWslPath, parseWslPath, toWindowsWslPath, toLinuxPath } from './wsl'
+import { promptGuardShellEnv } from './git/runner'
+import { toLinuxPath } from './wsl'
 import { addWorktreeSetupWslInteropEnv } from './pty/wsl-orca-env'
+import { iterateLfScriptLines } from './hook-runner-scripts'
 import type {
   HookCommandSourcePolicy,
   OrcaHooks,
@@ -17,7 +15,6 @@ import type {
   SetupDecision,
   SetupRunPolicy,
   WorktreeDefaultTabsLaunch,
-  WorktreeSetupLaunch
 } from '../shared/types'
 import type { ProjectExecutionRuntimeResolution } from '../shared/project-execution-runtime'
 import {
