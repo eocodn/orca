@@ -41,6 +41,14 @@ import {
   normalizeWorkspaceLinkedItem,
   isWorkspaceLinkedItemSourceContextMatch,
   MOBILE_PAIRING_USERDATA_FILES,
+  BACKUP_COUNT,
+  backupPath,
+  projectHostSetupCompatibilityStateEqual,
+  mergeProjectHostSetupCompatibilityState,
+  backfillLegacyAutomationContexts,
+  normalizeWorktreeLinkedItemMetadata,
+  gcStaleWorktreeMeta,
+  readGithubCacheSnapshot,
   normalizePersistedMobileClientTabSelections,
   sanitizeWorkspaceSessionTerminalRetirements,
   removeRepoFromHostWorkspaceSessions,
@@ -194,6 +202,7 @@ export function finalizeLoadedRepositoryState(
   fileExistedOnLoad: boolean,
   allowBackupRecovery: boolean
 ): any {
+    const dataFile = context.dataFile
     if (result === null && allowBackupRecovery) {
       let hasBackup = false
       for (let i = 0; i < BACKUP_COUNT; i++) {

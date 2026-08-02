@@ -282,25 +282,32 @@ import { removeWorkspaceSessionOwner,
   inferFolderScopeConnectionIdForMigration,
   backfillFolderScopeConnectionIds,
   deleteRemovedTerminalScrollbackSnapshots,
+  projectHostSetupCompatibilityStateEqual,
+  mergeProjectHostSetupCompatibilityState,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
 import {
   decrypt,
   decryptOptionalSecret,
   logPersistenceStartupMilestone,
-  BACKUP_COUNT
+  BACKUP_COUNT,
+  gcStaleWorktreeMeta,
+  normalizeWorktreeLinkedItemMetadata,
+  readGithubCacheSnapshot
 } from './persistence-state-foundation'
 import {
   migrateTerminalScrollbackRows,
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,
-  stripLegacyTerminalScrollbackBytes
+  stripLegacyTerminalScrollbackBytes,
+  backupPath
 } from './persistence-state-paths-foundation'
 import {
   normalizeRightSidebarTab,
   normalizeWorkspaceLineageByChildKey
 } from './persistence-state-migrations'
 import {
+  backfillLegacyAutomationContexts,
   normalizeLoadedOnboardingState,
   readDeprecatedExperimentFlag,
   readLegacySidekickFlag,
@@ -340,10 +347,15 @@ export const persistenceLoadDependencies = {
   decryptOptionalSecret,
   logPersistenceStartupMilestone,
   BACKUP_COUNT,
+  gcStaleWorktreeMeta,
+  normalizeWorktreeLinkedItemMetadata,
+  readGithubCacheSnapshot,
   migrateTerminalScrollbackRows,
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,
   stripLegacyTerminalScrollbackBytes,
+  backupPath,
+  backfillLegacyAutomationContexts,
   normalizeRightSidebarTab,
   normalizeWorkspaceLineageByChildKey,
   normalizeLoadedOnboardingState,
@@ -509,6 +521,8 @@ export const persistenceLoadDependencies = {
   inferFolderScopeConnectionIdForMigration,
   backfillFolderScopeConnectionIds,
   deleteRemovedTerminalScrollbackSnapshots,
+  projectHostSetupCompatibilityStateEqual,
+  mergeProjectHostSetupCompatibilityState,
   getDefaultWorktreeMeta,
   StoreFoundation
 }

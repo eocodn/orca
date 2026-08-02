@@ -282,9 +282,16 @@ import { removeWorkspaceSessionOwner,
   inferFolderScopeConnectionIdForMigration,
   backfillFolderScopeConnectionIds,
   deleteRemovedTerminalScrollbackSnapshots,
+  registerPersistedPaneKeyAlias,
   type StoreOptions,
   getDefaultWorktreeMeta } from './persistence-state-phase-8'
-import { getDataFile } from './persistence-state-foundation'
+import {
+  BACKUP_COUNT,
+  BACKUP_MIN_INTERVAL_MS,
+  getDataFile
+} from './persistence-state-foundation'
+import { backupPath } from './persistence-state-paths-foundation'
+import { normalizePersistedPaneIdentityState } from './persistence-state-session-migration'
 
 export class StoreFoundation {
   [key: string]: any
