@@ -276,6 +276,15 @@ import {
   preserveMissingLeafRecordEntries,
   remapLeafRecordForPersistence
 } from './persistence-layout-records'
+import {
+  cloneWorkspaceSessionState,
+  createMinimalPersistedTerminalTab
+} from './persistence-state-ssh'
+import { normalizeSshTarget } from './persistence-state-ui-normalization'
+import {
+  MAX_CLAUDE_LIVE_PTY_SESSION_IDS,
+  MAX_REMOVED_SSH_TARGET_TOMBSTONES
+} from './persistence-state-session-migration'
 
 import { removeWorkspaceSessionOwner,
   removeWorkspaceSessionOwners,

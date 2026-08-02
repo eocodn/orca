@@ -276,6 +276,15 @@ import {
   preserveMissingLeafRecordEntries,
   remapLeafRecordForPersistence
 } from './persistence-layout-records'
+import {
+  normalizeWorkspaceSessionPaneIdentities,
+  remapAcknowledgedAgentPaneKeys,
+  remapSshRemotePtyLeaseLeafIds,
+  MAX_CLAUDE_LIVE_PTY_SESSION_IDS,
+  MAX_REMOVED_SSH_TARGET_TOMBSTONES
+} from './persistence-state-session-migration'
+import { registerPersistedPaneKeyAlias } from './persistence-state-ssh'
+import { workspaceSessionPatchNeedsFullNormalization } from './persistence-state-foundation'
 
 import { removeWorkspaceSessionOwner,
   removeWorkspaceSessionOwners,
