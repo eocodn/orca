@@ -157,6 +157,7 @@ export function installRemoteRuntimePtyHostSessionPane(
     if (!expiredHandle || !tabId || !leafId || !worktreeId || context.recoveringPaneHandle) return
     context.recoveringPaneHandle = expiredHandle
     context.connected = false
+    context.inputBatcher.clear()
     context.clearPendingViewportClaim()
     context.closeMultiplexedStream()
     const hostTabId = isWebTerminalSurfaceTabId(tabId) ? toHostSessionTabId(tabId) : tabId
@@ -175,6 +176,9 @@ export function installRemoteRuntimePtyHostSessionPane(
           context.currentRuntimeEnvironmentId
         )
         const endpointReplaced = replacedPtyId !== null && replacedPtyId !== nextPtyId
+        if (endpointReplaced && context.opts.tabId) {
+          armTerminalInputQuarantine(context.opts.tabId)
+        }
         context.handle = terminal.handle
         context.remotePtyId = nextPtyId
         context.unregisterShutdownHandlers(replacedPtyId)
@@ -186,9 +190,6 @@ export function installRemoteRuntimePtyHostSessionPane(
           context.opts.onPtyRebind?.(context.remotePtyId, replacedPtyId)
         }
         await context.subscribeToHandle()
-        if (endpointReplaced && context.opts.tabId) {
-          armTerminalInputQuarantine(context.opts.tabId)
-        }
       })
       .catch((error) => {
         if (!context.destroyed && context.handle === expiredHandle) {
