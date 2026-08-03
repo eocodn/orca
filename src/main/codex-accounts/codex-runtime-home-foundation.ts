@@ -15,7 +15,6 @@ import {
   symlinkSync,
   unlinkSync
 } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import {
   dirname,
   extname,
@@ -26,11 +25,8 @@ import {
   resolve,
   win32 as pathWin32
 } from 'node:path'
-import { app } from 'electron'
 import type { CodexManagedAccount } from '../../shared/types'
 import type { Store } from '../persistence'
-import { WSL_CODEX_RUNTIME_HOME_SEGMENTS } from '../pty/codex-home-wsl-env'
-import { writeFileAtomically } from './fs-utils'
 import {
   getOrcaManagedCodexHomePath,
   getOrcaUserDataPath,
@@ -70,7 +66,6 @@ import {
   codexAuthMatchesManagedAccount,
   codexAuthMatchesSystemDefaultIdentity
 } from './codex-auth-identity'
-import { migrateLegacySharedAuthToPerAccountHome } from './legacy-shared-auth-migration'
 
 export type CodexSystemDefaultSnapshot = {
   authJson: string | null

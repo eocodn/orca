@@ -11,7 +11,7 @@ import type {
 } from '../../shared/codex-usage-types'
 import type { AutomationRunUsage } from '../../shared/automations-types'
 import type { CodexUsagePersistedState } from './types'
-import { createWorktreeRefs, getSessionProjectLabel, scanCodexUsageFiles } from './scanner'
+import { createWorktreeRefs, scanCodexUsageFiles } from './scanner'
 import { estimateCostUsd } from './model-pricing'
 import {
   AUTOMATION_ATTRIBUTION_WINDOW_MS,
