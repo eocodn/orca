@@ -20,6 +20,26 @@ export type ManagedHookInstallSummary = {
   errors: number
 }
 
+export type ManagedHookInstallFenceOptions = {
+  signal?: AbortSignal
+  hostKeyFingerprint?: string
+  /** Test seam; production callers use the current user's shared lock home. */
+  home?: string
+}
+
+/** Coordinate remote installers launched by separate relay processes. */
+export async function withManagedHookInstallFence<T>(
+  run: () => Promise<T>,
+  options: ManagedHookInstallFenceOptions = {}
+): Promise<T> {
+  const home = options.home ?? homedir()
+  const hostIdentity = scopeManagedHookHostIdentity(
+    await readManagedHookHostIdentity(),
+    options.hostKeyFingerprint
+  )
+  return await withManagedHookInstallLock(home, options.signal, run, hostIdentity)
+}
+
 function defaultGrokHome(home: string): string {
   return `${home.replace(/\/+$/, '') || home}/.grok`
 }
@@ -82,13 +102,7 @@ export async function installManagedHooks(options?: {
   const home = homedir()
   const grokHomeDir = await resolveRelayGrokHome(home, options?.signal)
   options?.signal?.throwIfAborted()
-  const hostIdentity = scopeManagedHookHostIdentity(
-    await readManagedHookHostIdentity(),
-    options?.hostKeyFingerprint
-  )
-  return await withManagedHookInstallLock(
-    home,
-    options?.signal,
+  return await withManagedHookInstallFence(
     async () => {
       const results = await installRemoteManagedAgentHooks(
         createManagedHookLocalFilesystem(),
@@ -104,6 +118,10 @@ export async function installManagedHooks(options?: {
         errors: results.filter((result) => result.state === 'error').length
       }
     },
-    hostIdentity
+    {
+      signal: options?.signal,
+      hostKeyFingerprint: options?.hostKeyFingerprint,
+      home
+    }
   )
 }

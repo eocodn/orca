@@ -6,6 +6,7 @@
 import type { SFTPWrapper } from 'ssh2'
 
 import type { installRemoteManagedAgentHooks } from './remote-managed-hook-installers'
+import { withManagedHookInstallFence } from './managed-hook-runtime'
 import {
   buildManagedHookDetectionCommands,
   detectedManagedHookAgents,
@@ -44,10 +45,12 @@ export async function installWslGuestHooks(options: {
   if (agents.length === 0) {
     return
   }
-  const results = await installHooks(createWslHookSftpAdapter(mux), guestHome, {
-    codexHomeDir: wslCodexRuntimeHomeForGuestHome(guestHome),
-    agents
-  })
+  const results = await withManagedHookInstallFence(() =>
+    installHooks(createWslHookSftpAdapter(mux), guestHome, {
+      codexHomeDir: wslCodexRuntimeHomeForGuestHome(guestHome),
+      agents
+    })
+  )
   const failed = results.filter((r) => r.state === 'error').length
   if (failed > 0) {
     warn(
