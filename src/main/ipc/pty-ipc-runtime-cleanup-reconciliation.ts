@@ -3,7 +3,7 @@ import type { IPtyProvider, PtySpawnResult } from '../providers/types'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'
 import { ptyRuntimeState, type CleanupPendingPty, type PtyPublicationSnapshot } from './pty-ipc-runtime-state'
 
-type PtyCleanupAuthoritySnapshot = ReadonlyMap<string | undefined, CleanupPendingPty>
+export type PtyCleanupAuthoritySnapshot = ReadonlyMap<string | undefined, CleanupPendingPty>
 
 export function snapshotPtyCleanupAuthority(id: string | undefined): PtyCleanupAuthoritySnapshot | null {
   if (!id) {
