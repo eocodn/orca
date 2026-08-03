@@ -1,7 +1,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { basename, isAbsolute, join } from 'node:path'
 import { resolveOpenCodeDataDirectory } from '../opencode/opencode-data-directory'
-import Database from '../sqlite/sync-database'
+import type Database from '../sqlite/sync-database'
 import { columnExists, tableExists } from './schema-helpers'
 import type { OpenCodeUsageProcessedDatabase } from './types'
 
@@ -31,6 +31,25 @@ type OpenCodeSessionUsageRow = {
   tokens_output: number
   tokens_reasoning: number
   tokens_cache_read: number
+}
+
+type OpenCodeDatabaseOverride = {
+  isConfigured: boolean
+  path: string | null
+}
+
+function getOpenCodeDatabaseOverride(dataDirectory: string): OpenCodeDatabaseOverride {
+  const raw = process.env.OPENCODE_DB?.trim()
+  if (!raw) {
+    return { isConfigured: false, path: null }
+  }
+  if (raw === ':memory:') {
+    return { isConfigured: true, path: null }
+  }
+  return {
+    isConfigured: true,
+    path: isAbsolute(raw) ? raw : join(dataDirectory, raw)
+  }
 }
 
 export async function listOpenCodeDatabases(): Promise<string[]> {
@@ -167,7 +186,7 @@ function selectSessionUsageRows(db: Database.Database): OpenCodeUsageRow[] {
   }))
 }
 
-function selectUsageRows(db: Database.Database): OpenCodeUsageRow[] {
+export function selectUsageRows(db: Database.Database): OpenCodeUsageRow[] {
   if (!tableExists(db, 'session')) {
     return []
   }
@@ -214,6 +233,5 @@ function selectUsageRows(db: Database.Database): OpenCodeUsageRow[] {
     )
     .all() as OpenCodeUsageRow[]
 }
-
 
 export { compareOpenCodeClaimPriority }

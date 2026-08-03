@@ -1,19 +1,21 @@
 import { yieldToEventLoop } from '../../shared/event-loop-yield'
 import Database from '../sqlite/sync-database'
-import { compareOpenCodeClaimPriority, getProcessedDatabaseInfo, listOpenCodeDatabases } from './scanner-io'
+import {
+  compareOpenCodeClaimPriority,
+  getProcessedDatabaseInfo,
+  listOpenCodeDatabases,
+  selectUsageRows
+} from './scanner-io'
 import { parseOpenCodeUsageRow } from './scanner-events'
 import {
   attributeOpenCodeUsageEvent,
   buildWorktreesWithCanonicalPaths,
   type OpenCodeUsageWorktreeRef
 } from './scanner-attribution'
-import {
-  aggregateOpenCodeUsage,
-  finalizeSessions,
-  mergeDailyAggregates,
-  mergeSessions
-} from './scanner-aggregation'
+import { aggregateOpenCodeUsage, finalizeSessions } from './scanner-aggregation'
+import { mergeDailyAggregates, mergeSessions } from './scanner-aggregation-merges'
 import type {
+  OpenCodeUsageAttributedEvent,
   OpenCodeUsageDailyAggregate,
   OpenCodeUsagePersistedDatabase,
   OpenCodeUsageSession
@@ -195,6 +197,3 @@ export async function scanOpenCodeUsageDatabases(
     )
   }
 }
-
-
-
