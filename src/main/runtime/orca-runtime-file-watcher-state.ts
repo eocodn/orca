@@ -1,93 +1,40 @@
-import type { ChildProcess } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { watch as watchFs } from 'node:fs'
-import type { FileHandle } from 'node:fs/promises'
+
+
+
+
 import {
-  chmod,
-  constants,
-  copyFile,
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  rename,
-  realpath,
-  rm,
-  stat,
-  writeFile
-} from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
-import { basename, dirname, extname, join } from 'node:path'
+  constants} from 'node:fs/promises'
+
+
 import type {
-  DirEntry,
-  FsChangeEvent,
-  GitWorktreeInfo,
-  MarkdownDocument,
-  SearchOptions,
-  SearchResult,
-  Worktree
-} from '../../shared/types'
+  FsChangeEvent} from '../../shared/types'
 import {
-  isPathInsideOrEqual,
-  isRuntimePathAbsolute,
-  isWindowsAbsolutePathLike,
-  normalizeRuntimePathForComparison,
-  relativePathInsideRoot,
-  resolveRuntimePath
-} from '../../shared/cross-platform-path'
-import { PhysicalExitTracker } from '../../shared/physical-exit-tracker'
-import type {
-  RuntimeFileListResult,
-  RuntimeFileOpenResult,
-  RuntimeFileReadChunkResult,
-  RuntimeFilePreviewResult,
-  RuntimeFileReadResult,
-  RuntimeTerminalPathResolution
-} from '../../shared/runtime-types'
-import {
-  closeFileExplorerWatcherInWatcherProcess,
-  watchFileExplorerInWatcherProcess
-} from './file-watcher-host'
-import { wslAwareSpawn } from '../git/runner'
-import { parseWslPath, toWindowsWslPath } from '../wsl'
-import { isENOENT, resolveAuthorizedPath } from '../ipc/filesystem-auth'
-import { listQuickOpenFiles } from '../ipc/filesystem-list-files'
-import { searchWithGitGrep } from '../ipc/filesystem-search-git'
-import { getLocalGitOptionsForRegisteredWorktree } from '../ipc/local-worktree-runtime-options'
-import { checkRgAvailable } from '../ipc/rg-availability'
-import {
-  listMarkdownDocuments,
-  markdownDocumentsFromRelativePaths
-} from '../ipc/markdown-documents'
-import {
-  buildRgArgs,
-  createAccumulator,
-  DEFAULT_SEARCH_MAX_RESULTS,
-  finalize,
-  ingestRgJsonLine,
-  SEARCH_TIMEOUT_MS
-} from '../../shared/text-search'
-import type { Store } from '../persistence'
+  normalizeRuntimePathForComparison} from '../../shared/cross-platform-path'
+
+
+
+
+
+
+
+
+
+
+
+
+
 import {
   getSshFilesystemProvider,
-  onSshFilesystemProviderRegistered,
-  SSH_FILESYSTEM_PROVIDER_UNAVAILABLE_MESSAGE
-} from '../providers/ssh-filesystem-dispatch'
-import type { FileStat, IFilesystemProvider } from '../providers/types'
+  onSshFilesystemProviderRegistered} from '../providers/ssh-filesystem-dispatch'
+
 import {
-  isWatcherProcessFailure,
-  WatcherProcessFailure
-} from '../ipc/parcel-watcher-process-failure'
-import { joinWorktreeRelativePath, normalizeRuntimeRelativePath } from './runtime-relative-paths'
-import {
-  rankRuntimeMobileFilePaths,
-  RuntimeMobileFilePathSearchCache
-} from './runtime-mobile-file-path-search'
-import { beginWatcherInstall } from '../ipc/watcher-removal-gate'
+  isWatcherProcessFailure} from '../ipc/parcel-watcher-process-failure'
+
+
+
 import { assertSshMutationExpectation } from '../ssh/ssh-connection-generation'
 import { toSshExecutionHostId } from '../../shared/execution-host'
-import { renameLocalPathSerializedByDestination } from '../destination-serialized-local-rename'
+
 
 import { basenameFromRelativePath } from './orca-runtime-files-support'
 

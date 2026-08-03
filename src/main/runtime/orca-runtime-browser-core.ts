@@ -1,15 +1,20 @@
+import { randomUUID } from 'node:crypto'
 import { BrowserError } from "../browser/cdp-bridge"
+import { browserManager } from '../browser/browser-manager'
+import { browserCertificateTrustController } from '../browser/browser-manager-lifecycle'
 import { startBrowserScreencast, type BrowserScreencastSession } from "../browser/browser-screencast-stream"
 import type {
   BrowserBackResult, BrowserClickResult, BrowserEvalResult, BrowserFillResult, BrowserGotoResult,
   BrowserReloadResult, BrowserScreenshotResult, BrowserScrollResult, BrowserSelectResult,
   BrowserScreencastResult, BrowserSnapshotResult, BrowserTabCurrentResult, BrowserTabListResult,
-  BrowserTabShowResult, BrowserTabSwitchResult, BrowserTypeResult, BrowserUploadResult, BrowserWaitResult
+  BrowserTabShowResult, BrowserTabSwitchResult, BrowserTypeResult, BrowserUploadResult, BrowserWaitResult,
+  BrowserHoverResult, BrowserDragResult
 } from "../../shared/runtime-types"
 import type { BrowserCertificateProceedResult } from "../../shared/types"
 import {
   RuntimeBrowserBaseCommands, clampInteger, clampOptionalInteger, clampOptionalNumber,
   type BrowserCommandTargetParams, type BrowserScreencastParams, type BrowserScreencastStartResult
+  , type ActiveBrowserScreencastPage
 } from "./orca-runtime-browser-base"
 
 export class RuntimeBrowserCoreCommands extends RuntimeBrowserBaseCommands {

@@ -12,7 +12,6 @@ import {
   isTerminalReadPayloadIncomplete,
   stripSnapshotBoundaryQuerySuffixes,
   trimPendingOutputCoveredBySnapshot,
-  updateViewportForClient,
   MOBILE_RENDERER_MOUNT_READY_TIMEOUT_MS,
   type TerminalOutputChunk
 } from './terminal-stream-state'
@@ -22,6 +21,7 @@ import {
   sendMobileResizeRestream,
   sendSnapshotFrames
 } from './terminal-snapshot-support'
+import { updateViewportForClient } from './terminal-snapshot-support'
 
 export type TerminalSubscribeBinaryState = {
   closed: boolean
@@ -261,8 +261,8 @@ export async function continueTerminalSubscribeBinaryStream({
         reason: 'pending-output-overflow',
         bytes: recoveryStats.bytes,
         chunks: recoveryStats.chunks,
-        scrollbackRows: recoveryStats.scrollbackRows,
-        truncatedByByteBudget: recoveryStats.truncatedByByteBudget === true
+        scrollbackRows: recovery.scrollbackRows,
+        truncatedByByteBudget: recovery.truncatedByByteBudget === true
       })
       const trimmed = trimPendingOutputCoveredBySnapshot(state.pendingOutput, recovery.seq)
       state.pendingOutput = trimmed.chunks
@@ -350,8 +350,8 @@ export async function continueTerminalSubscribeBinaryStream({
             reason: 'renderer-mount-ready',
             bytes: recoveryStats.bytes,
             chunks: recoveryStats.chunks,
-            scrollbackRows: recoveryStats.scrollbackRows,
-            truncatedByByteBudget: recoveryStats.truncatedByByteBudget === true
+            scrollbackRows: recovery.scrollbackRows,
+            truncatedByByteBudget: recovery.truncatedByByteBudget === true
           })
         })
         .catch(() => {})

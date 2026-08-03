@@ -4,7 +4,7 @@ import {
   TerminalSetDisplayMode,
   TerminalUpdateViewport
 } from './terminal-schemas'
-import { updateViewportForClient } from './terminal-stream-state'
+import { updateViewportForClient } from './terminal-snapshot-support'
 
 export const TERMINAL_DISPLAY_MODE_METHODS: RpcAnyMethod[] = [
   defineMethod({

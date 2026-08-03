@@ -131,7 +131,7 @@ export {
 } from '../../shared/claude-agent-teams-tmux-compat'
 export { collectMemorySnapshot } from '../memory/collector'
 export { app, BrowserWindow, ipcMain, Notification } from 'electron'
-export type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
+export type { AgentBrowserBridge } from '../browser/agent-browser-command-bridge'
 export type { BrowserBackend } from '../browser/browser-backend'
 export { BrowserError } from '../browser/cdp-bridge'
 export { getRepoSlug, getRepoUpstream } from '../github/client'

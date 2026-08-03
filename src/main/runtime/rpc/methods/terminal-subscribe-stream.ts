@@ -22,12 +22,11 @@ import {
   sendTerminalStreamInput,
   trimPendingOutputToBudget,
   isTerminalReadPayloadIncomplete,
-  updateViewportForClient,
-  nextTerminalStreamId,
+  allocateTerminalStreamId,
   TERMINAL_QUERY_REPLAY_MAX_CHARS,
   type TerminalOutputChunk
 } from './terminal-stream-state'
-import { serializeBudgetedMobileSnapshot } from './terminal-snapshot-support'
+import { serializeBudgetedMobileSnapshot, updateViewportForClient } from './terminal-snapshot-support'
 import { TerminalSubscribe } from './terminal-schemas'
 import {
   continueTerminalSubscribeBinaryStream,
@@ -142,7 +141,7 @@ export async function handleTerminalSubscribe(
       if (!useBinaryStream) {
         // Why: a hidden watcher and a visible pane can subscribe to one terminal, so key by client so neither stream evicts the other.
         const subscriptionId = clientId ? `${params.terminal}:${clientId}` : params.terminal
-        const remoteDesktopSubscriptionKey = `json:${nextTerminalStreamId++}`
+        const remoteDesktopSubscriptionKey = `json:${allocateTerminalStreamId()}`
         let closed = false
         let outputBatcher: ReturnType<typeof createTerminalOutputBatcher> | null = null
         let unsubscribeData = (): void => {}
@@ -246,7 +245,7 @@ export async function handleTerminalSubscribe(
         return
       }
 
-      const streamId = nextTerminalStreamId++
+      const streamId = allocateTerminalStreamId()
       const remoteDesktopSubscriptionKey = `stream:${streamId}`
       let cursor = 0
       let closed = false

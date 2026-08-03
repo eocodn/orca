@@ -1,4 +1,5 @@
-import { clampOptionalNumber, RuntimeBrowserCoreCommands } from "./orca-runtime-browser-core"
+import { RuntimeBrowserCoreCommands } from "./orca-runtime-browser-core"
+import { clampOptionalNumber } from "./orca-runtime-browser-base"
 import type { BrowserCommandTargetParams } from "./orca-runtime-browser-base"
 
 export class RuntimeBrowserInteractionExtras extends RuntimeBrowserCoreCommands {

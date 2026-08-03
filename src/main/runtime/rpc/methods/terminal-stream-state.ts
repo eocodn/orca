@@ -15,6 +15,8 @@ import {
 import { measureTerminalStreamByteLength, terminalStreamByteLength } from '../terminal-stream-byte-length'
 import type { TerminalReplyQuerySequence } from '../../../../shared/terminal-reply-query-scan'
 import { TERMINAL_MULTIPLEX_PENDING_MAX_BYTES } from '../../../../shared/terminal-multiplex-flow-control'
+import { TERMINAL_OUTPUT_BATCH_MAX_BYTES } from '../../../../shared/terminal-multiplex-flow-control'
+import type { RemoteTerminalSourceRangeReplacementReservation } from '../../remote-terminal-source-range-consumer'
 import type { TerminalSourceRangeLedger } from '../terminal-source-range-ledger'
 import {
   sameTerminalOutputSourceIdentity,
@@ -27,6 +29,10 @@ export const TERMINAL_QUERY_REPLAY_MAX_CHARS = 16 * 1024
 // Why: bound initial subscribe latency; readiness after this deadline triggers an in-stream recovery snapshot.
 export const MOBILE_RENDERER_MOUNT_READY_TIMEOUT_MS = 3_000
 export let nextTerminalStreamId = 1
+
+export function allocateTerminalStreamId(): number {
+  return nextTerminalStreamId++
+}
 
 export type SnapshotFrameOptions = {
   kind: 'scrollback' | 'resized'

@@ -5,6 +5,7 @@ import { orchestrationSkillRecoveryData } from '../../../../shared/orchestration
 import { OrchestrationError } from '../../orchestration/orchestration-error'
 import { encodeFederatedControlMessage } from '../../orchestration/federation-control-message'
 import { ORCHESTRATION_FEDERATION_CONTROL_MAIL_PROTOCOL_VERSION } from '../../../../shared/protocol-version'
+import { reconcileLifecycleMessage } from '../../orchestration/lifecycle-reconciliation'
 
 import {
   SendParams,

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { defineMethod, type RpcMethod } from '../core'
+
 import { OptionalFiniteNumber, OptionalString, requiredString } from '../schemas'
 
 export const RepoSelector = z.object({

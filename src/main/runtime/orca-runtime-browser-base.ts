@@ -1,6 +1,7 @@
-import { webContents, type BrowserWindow } from 'electron'
+import { randomUUID } from 'node:crypto'
+import { ipcMain, webContents, type BrowserWindow } from 'electron'
 import type { BrowserScreencastResult, BrowserTabListResult } from '../../shared/runtime-types'
-import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
+import type { AgentBrowserBridge } from '../browser/agent-browser-command-bridge'
 import type { BrowserBackend } from '../browser/browser-backend'
 import { browserManager } from '../browser/browser-manager'
 import { BrowserError } from '../browser/cdp-bridge'
@@ -42,7 +43,7 @@ export type BrowserScreencastStartResult = {
   session: BrowserScreencastSession
 }
 
-type ActiveBrowserScreencastPage = {
+export type ActiveBrowserScreencastPage = {
   stop: () => void
   done: Promise<void>
 }
@@ -101,7 +102,7 @@ export class RuntimeBrowserBaseCommands {
   protected readonly activeScreencastsByPageId = new Map<string, ActiveBrowserScreencastPage>()
   protected readonly stoppingScreencastPageIds = new Map<string, Promise<void>>()
 
-  constructor(private readonly host: RuntimeBrowserCommandHost) {}
+  constructor(protected readonly host: RuntimeBrowserCommandHost) {}
 
   protected requireAgentBrowserBridge(): AgentBrowserBridge {
     const bridge = this.host.getAgentBrowserBridge()
@@ -298,6 +299,74 @@ export class RuntimeBrowserBaseCommands {
       )
     }
     return this.enrichBrowserTabInfo(tab)
+  }
+
+  // Why: renderer-backed tabs must be created by the renderer store before their webview can register with the main process.
+  protected async createBrowserTabInRenderer(
+    url: string,
+    worktreeId: string | undefined,
+    profileId: string | undefined,
+    sessionPartition: string | undefined,
+    activate?: boolean
+  ): Promise<{ browserPageId: string }> {
+    const win = this.host.getAuthoritativeWindow()
+    const requestId = randomUUID()
+
+    const browserPageId = await new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        ipcMain.removeListener('browser:tabCreateReply', handler)
+        reject(new Error('Tab creation timed out'))
+      }, 10_000)
+
+      const handler = (
+        event: Electron.IpcMainEvent,
+        reply: { requestId: string; browserPageId?: string; error?: string }
+      ): void => {
+        if (event.sender !== win.webContents || reply.requestId !== requestId) {
+          return
+        }
+        clearTimeout(timer)
+        ipcMain.removeListener('browser:tabCreateReply', handler)
+        if (reply.error) {
+          reject(new Error(reply.error))
+        } else if (reply.browserPageId) {
+          resolve(reply.browserPageId)
+        } else {
+          reject(new Error('Browser tab creation returned no page ID'))
+        }
+      }
+      ipcMain.on('browser:tabCreateReply', handler)
+      win.webContents.send('browser:requestTabCreate', {
+        requestId,
+        url,
+        worktreeId,
+        sessionProfileId: profileId,
+        sessionPartition,
+        activate
+      })
+    })
+
+    return { browserPageId }
+  }
+
+  protected async createBrowserTabOffscreen(
+    offscreen: BrowserBackend,
+    url: string,
+    worktreeId?: string,
+    profileId?: string,
+    activate?: boolean,
+    targetGroupId?: string
+  ): Promise<{ browserPageId: string }> {
+    const { browserPageId } = await offscreen.createTab({ url, worktreeId, profileId })
+    const bridge = this.host.getAgentBrowserBridge()
+    const wcId = bridge?.getRegisteredTabs(worktreeId).get(browserPageId)
+    if (bridge && wcId != null) {
+      bridge.setActiveTab(wcId, worktreeId)
+    }
+    if (activate === true) {
+      this.host.markHeadlessBrowserSessionTabActive?.(worktreeId, browserPageId, targetGroupId)
+    }
+    return { browserPageId }
   }
 
 }

@@ -3,7 +3,7 @@ import {
   TerminalStreamOpcode,
   encodeTerminalStreamJson
 } from '../../../../shared/terminal-stream-protocol'
-import type { TerminalOscLinkRange } from '../../../../shared/terminal-osc-link-ranges'
+
 import { terminalStreamByteLengthExceeds } from '../terminal-stream-byte-length'
 import {
   MOBILE_SNAPSHOT_BYTE_BUDGET,
@@ -13,7 +13,8 @@ import {
   type SnapshotFrameOptions,
   type SerializedSnapshot,
   type TerminalViewportClient,
-  REQUESTED_SNAPSHOT_BYTE_BUDGET
+  REQUESTED_SNAPSHOT_BYTE_BUDGET,
+  iterateTerminalStreamTextPayloads
 } from './terminal-stream-state'
 
 export function normalizeMultiplexSnapshotScrollbackRows(value: number | undefined): number | undefined {

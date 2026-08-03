@@ -2,15 +2,14 @@ import { randomUUID } from "node:crypto"
 import { ipcMain } from "electron"
 import type {
   BrowserDetectProfilesResult, BrowserProfileClearDefaultCookiesResult, BrowserProfileCreateResult,
-  BrowserProfileDeleteResult, BrowserProfileImportFromBrowserResult, BrowserProfileListResult,
-  BrowserTabListResult, BrowserTabProfileCloneResult, BrowserTabProfileShowResult, BrowserTabSetProfileResult
+  BrowserProfileDeleteResult, BrowserProfileImportFromBrowserResult, BrowserProfileListResult, BrowserTabProfileCloneResult, BrowserTabProfileShowResult, BrowserTabSetProfileResult
 } from "../../shared/runtime-types"
 import { browserManager } from "../browser/browser-manager"
 import { browserSessionRegistry } from "../browser/browser-session-registry"
 import { detectInstalledBrowsers, importCookiesFromBrowser, selectBrowserProfile } from "../browser/browser-cookie-import"
 import { waitForTabRegistration } from "../ipc/browser"
 import { BrowserError } from "../browser/cdp-bridge"
-import type { BrowserBackend } from "../browser/browser-backend"
+
 import { RuntimeBrowserExtraCommands } from "./orca-runtime-browser-extras"
 import type { BrowserCommandTargetParams } from "./orca-runtime-browser-base"
 

@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+
 import { chmodSync, existsSync } from 'node:fs'
 import Database from '../../sqlite/sync-database'
 import type {
@@ -29,33 +29,13 @@ import type {
   MutationReceiptRow,
   MutationState,
   WorkerDispatchRow,
-  WorkerDispatchState,
-  LegacyWorkerTerminalRecoveryRow,
-  FederatedDispatchRow,
-  RemoteDispatchAttachmentRow,
-  FederationRelayDirection,
-  FederationRelayItemRow
-} from './types'
-import { buildOrchestrationTaskDisplayMetadata } from '../../../shared/orchestration-task-display'
+  WorkerDispatchState} from './types'
+
 import { ORCHESTRATION_LEGACY_RUN_ID } from '../../../shared/orchestration-rpc-contract'
-import { OrchestrationError } from './orchestration-error'
-import {
-  addLifecycleRejectionMarker,
-  decodeRunListCursor,
-  encodeRunListCursor,
-  exposeDeliveryTimestamps,
-  exposeMessageListTimestamps,
-  exposeMessageTimestamps,
-  exposeQuestionTimestamps,
-  exposeRunTimestamps,
-  generateId,
-  hashDispatchCapability,
-  hasLifecycleRejectionMarker,
-  isEquivalentPaneKey,
-  legacyMessageMatchesQuestion
-} from './db-contract-helpers'
-import { resolveOrchestrationMigrationStartVersion } from './orchestration-schema-version-skew'
-import { ORCHESTRATION_RUN_PAGE_LIMIT } from '../../../shared/orchestration-run-pagination'
+
+
+
+
 import { ORCHESTRATION_CONTRACT_VERSION } from '../../../shared/protocol-version'
 
 export type {
@@ -119,6 +99,8 @@ function hardenOrchestrationDatabaseFiles(dbPath: string | ':memory:'): void {
 }
 
 export class OrchestrationDatabaseFoundation {
+  // Split database parts form one runtime object; earlier parts legitimately call methods installed by later parts.
+  [methodName: string]: any
   protected db: Database.Database
 
   // Why: the orchestration DB is created lazily for ALL users, but only the

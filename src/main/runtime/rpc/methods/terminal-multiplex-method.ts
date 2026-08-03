@@ -28,35 +28,20 @@ import { TerminalSourceRangeRegistry } from '../terminal-source-range-registry'
 import type { RemoteTerminalSourceRangeReplacementReservation } from '../../remote-terminal-source-range-consumer'
 import {
   TerminalMultiplexStream,
-  MobileInputFloorClaimHolder,
   createTerminalOutputBatcher,
   isTerminalInputLockedForClient,
-  assertTerminalSendTextWithinLimit,
-  resolveMobileFloorClientId,
   sendTerminalStreamInput,
-  commitMobileInputFloorClaim,
-  getTerminalSendGuardRefusedReason,
-  isTerminalSendGuardNotWritable,
-  assertTerminalSendExactPtyBinding,
   appendPendingMultiplexOutput,
   getOutputAfterSnapshotSeq,
-  stripSnapshotBoundaryQuerySuffixes,
-  appendAckPendingOutput,
-  trimPendingOutputToBudget,
-  trimPendingOutputCoveredBySnapshot,
-  iterateTerminalStreamTextPayloads,
-  isTerminalReadPayloadIncomplete,
-  updateViewportForClient
-} from './terminal-stream-state'
+  appendAckPendingOutput} from './terminal-stream-state'
 import {
   normalizeMultiplexSnapshotScrollbackRows,
-  requestedSnapshotScrollbackCandidates,
   serializeBudgetedRequestedSnapshot,
   sendSnapshotFrames,
   serializeBudgetedMobileSnapshot,
-  serializeStableMobileRendererSnapshot,
   sendMobileResizeRestream
 } from './terminal-snapshot-support'
+import { updateViewportForClient } from './terminal-snapshot-support'
 import {
   TerminalMultiplex,
   TerminalMultiplexLegacyAckFrame,

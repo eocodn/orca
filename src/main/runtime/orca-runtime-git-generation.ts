@@ -1,75 +1,44 @@
 import { RuntimeGitRemoteCommands } from './orca-runtime-git-remote'
 import type {
-  GitBranchCompareResult,
-  GitCommitCompareResult,
-  GitConflictOperation,
-  GitDiffResult,
-  GitForkSyncExpectedUpstream,
-  GitForkSyncResult,
-  GitPushTarget,
-  GitStagingArea,
-  GitStatusResult,
-  GitUpstreamStatus,
   GitWorktreeInfo,
   GlobalSettings,
   Repo,
   TuiAgent,
   Worktree
 } from '../../shared/types'
-import type { CommitMessageDraftContext } from '../../shared/commit-message-generation'
+
 import { getCommitMessageModelDiscoveryHostKey } from '../../shared/commit-message-host-key'
-import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
+
 import {
   mergeLegacyCommitMessageAiIntoSourceControlAi,
   type ResolvedSourceControlAiGenerationParams
 } from '../../shared/source-control-ai'
 import { withLinkedIssueDraftContext } from '../../shared/source-control-ai-action-variables'
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
-import type { GitProviderStatusOptions } from '../providers/types'
-import { getRemoteCommitUrl, getRemoteFileUrl } from '../git/repo'
-import {
-  abortMerge,
-  abortRebase,
-  bulkDiscardChanges,
-  bulkStageFiles,
-  bulkUnstageFiles,
-  commitChanges,
-  detectConflictOperation,
-  discardChanges,
-  getBranchCompare,
-  getBranchDiff,
-  getCommitCompare,
-  getCommitDiff,
-  getDiff,
-  getStagedCommitContext,
-  getStatus as getGitStatus,
-  getSubmoduleStatus as getGitSubmoduleStatus,
-  stageFile,
-  unstageFile
-} from '../git/status'
-import { checkoutBranch, listLocalBranches } from '../git/checkout'
-import type { RuntimeGitCheckoutResult, RuntimeGitLocalBranches } from '../../shared/runtime-types'
-import { getHistory as getGitHistory } from '../git/history'
-import { getUpstreamStatus } from '../git/upstream'
-import { gitFastForward, gitFetch, gitPull, gitPullRebaseFromBase, gitPush } from '../git/remote'
-import { gitSyncForkDefaultBranch } from '../git/fork-sync'
+
+
+
+
+
+
+
+
+
 import {
   getSshGitProvider,
   SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
 } from '../providers/ssh-git-dispatch'
-import { checkIgnoredPaths } from '../git/check-ignored-paths'
-import { getWorktreeSharedLinkPaths } from '../git/worktree-shared-directories'
+
+
 import {
   cancelGenerateCommitMessageLocal,
   cancelGeneratePullRequestFieldsLocal,
   discoverCommitMessageModelsLocal,
   discoverCommitMessageModelsRemote,
-  generateCommitMessageFromContext,
   generatePullRequestFieldsFromContext,
   resolveCommitMessageSettings,
   type CommitMessageGenerationTarget,
   type DiscoverCommitMessageModelsResult,
-  type GenerateCommitMessageResult,
   type GeneratePullRequestFieldsResult
 } from '../text-generation/commit-message-text-generation'
 import type {

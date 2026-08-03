@@ -1,58 +1,45 @@
 import { randomBytes } from 'node:crypto'
-import { readdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
-import type { RuntimeMetadata, RuntimeTransportMetadata } from '../../shared/runtime-bootstrap'
+
+
+import type { RuntimeTransportMetadata } from '../../shared/runtime-bootstrap'
 import type { OrcaRuntimeService } from './orca-runtime'
 import { writeRuntimeMetadata } from './runtime-metadata'
 import {
   RUNTIME_METADATA_OWNERSHIP_POLL_MS,
-  watchRuntimeMetadataOwnership,
   type RuntimeMetadataOwnershipWatch
 } from './runtime-metadata-ownership-watch'
 import { RpcDispatcher } from './rpc/dispatcher'
-import type { RpcRequest, RpcResponse } from './rpc/core'
+import type { RpcResponse } from './rpc/core'
 import { errorResponse } from './rpc/errors'
-import type { RpcMessageContext, RpcTransport } from './rpc/transport'
-import { UnixSocketTransport } from './rpc/unix-socket-transport'
-import { WebSocketTransport } from './rpc/ws-transport'
-import { readWsFallbackPort, writeWsFallbackPort } from './rpc/ws-fallback-port-store'
+import type { RpcTransport } from './rpc/transport'
+
+
+
 import type { WebSocket } from 'ws'
-import { DeviceRegistry, type DeviceEntry, type DeviceScope } from './device-registry'
-import { loadOrCreateE2EEKeypair, type E2EEKeypair } from './e2ee-keypair'
+import { DeviceRegistry} from './device-registry'
+import { type E2EEKeypair } from './e2ee-keypair'
 import { UnpairedDeviceAuthThrottle } from './rpc/unpaired-device-auth-throttle'
 import {
-  MobileSocketWiring,
-  type AuthenticatedMobileSocket,
-  type MobileSocketTransportMetadata
-} from './rpc/mobile-socket-wiring'
-import type { PairingRelay } from '../../shared/mobile-relay-pairing-offer'
-import type { MobilePairingConnectionMode } from '../../shared/mobile-pairing-connection-mode'
-import {
-  mobileRelayMintFailureFromUnknown,
-  type MobileRelayMintFailure
-} from '../../shared/mobile-relay-mint-failure'
+  MobileSocketWiring} from './rpc/mobile-socket-wiring'
+
+
+
 import {
   RelayRevokeOutbox,
   type RelayDeviceBinding,
   type RelayRevokeOutboxItem
 } from './relay/relay-revoke-outbox'
-import type {
-  DeviceCredentialInstalled,
-  PairingGetEndpointsParams,
-  PairingGetEndpointsResult,
-  PairingProvisionRelayParams
-} from '../../shared/mobile-relay-credential-contract'
-import { encodePairingOffer, PAIRING_OFFER_VERSION } from '../../shared/pairing'
-import { resolveAdvertisedPairingEndpoint } from './pairing-endpoint'
+
+
+
 import {
-  decodeTerminalStreamFrame,
   type TerminalStreamFrame
 } from '../../shared/terminal-stream-protocol'
 
 import {
   DEFAULT_WS_PORT, LONG_POLL_CAP, type OrcaRuntimeRpcServerOptions, ASK_LONG_POLL_SHARE,
-  type MobileRelayPairingProvider, type PairingOfferUnavailable, type PairingIdentityInitialization
-} from "./runtime-rpc-support"
+  KEEPALIVE_INTERVAL_MS, type MobilePairingOffer, type MobileRelayPairingProvider,
+  type PairingOfferUnavailable} from "./runtime-rpc-support"
 
 export class RuntimeRpcBaseServer {
   protected readonly runtime: OrcaRuntimeService
@@ -222,6 +209,36 @@ export class RuntimeRpcBaseServer {
   getWebSocketEndpoint(): string | null {
     const ws = this.transports.find((t) => t.kind === 'websocket')
     return ws?.endpoint ?? null
+  }
+
+  protected queueRelayDeviceRevoke(binding: RelayDeviceBinding): boolean {
+    let item: RelayRevokeOutboxItem
+    try {
+      item = this.relayRevokeOutbox.enqueue(binding)
+    } catch (error) {
+      console.error('[runtime] Failed to persist Relay device cleanup:', error)
+      return false
+    }
+    try {
+      this.mobileRelayPairingProvider?.onDeviceRevokeQueued(item)
+    } catch (error) {
+      console.warn('[runtime] Failed to notify Relay cleanup worker:', error)
+    }
+    return true
+  }
+
+  protected buildError(id: string, code: string, message: string): RpcResponse {
+    return errorResponse(id, { runtimeId: this.runtime.getRuntimeId() }, code, message)
+  }
+
+  protected writeMetadata(): void {
+    writeRuntimeMetadata(this.userDataPath, {
+      runtimeId: this.runtime.getRuntimeId(),
+      pid: this.pid,
+      transports: this.transports,
+      authToken: this.authToken,
+      startedAt: this.runtime.getStartedAt()
+    })
   }
 
 
