@@ -144,6 +144,7 @@ export type PreloadApiPty = {
       lastLifecycleResetClearedChars: number
       rendererPtyDispatcherReady: boolean
       rendererDispatcherReadyForcedCount: number
+      rendererDispatcherReadyTimeoutCount: number
     }>
     resetRendererDeliveryDebug: () => Promise<void>
     onData: (

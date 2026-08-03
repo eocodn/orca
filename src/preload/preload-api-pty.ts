@@ -184,6 +184,7 @@ export function createPreloadApiPty(): Record<string, unknown> {
       lastLifecycleResetClearedChars: number
       rendererPtyDispatcherReady: boolean
       rendererDispatcherReadyForcedCount: number
+      rendererDispatcherReadyTimeoutCount: number
     }> => ipcRenderer.invoke('pty:getRendererDeliveryDebugSnapshot'),
 
     resetRendererDeliveryDebug: (): Promise<void> =>

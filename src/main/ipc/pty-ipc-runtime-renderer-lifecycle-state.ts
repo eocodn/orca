@@ -30,7 +30,8 @@ const EMPTY_PTY_RENDERER_DELIVERY_DEBUG_SNAPSHOT: PtyRendererDeliveryDebugSnapsh
   rendererLifecycleResetCount: 0,
   lastLifecycleResetClearedChars: 0,
   rendererPtyDispatcherReady: false,
-  rendererDispatcherReadyForcedCount: 0
+  rendererDispatcherReadyForcedCount: 0,
+  rendererDispatcherReadyTimeoutCount: 0
 }
 
 export type PtyRendererDeliveryDebugSnapshot = {
@@ -60,9 +61,10 @@ export type PtyRendererDeliveryDebugSnapshot = {
   // Why: a nonzero lastLifecycleResetClearedChars is the exact signature of the leaked-accounting freeze this reset fixes.
   rendererLifecycleResetCount: number
   lastLifecycleResetClearedChars: number
-  // Why: the boot-window hold early-returns before ackGatedFlushSkipCount++, so these expose an otherwise-invisible held gate; forcedCount > 0 flags a watchdog self-heal.
+  // Why: the boot-window hold early-returns before ackGatedFlushSkipCount++, so these expose an otherwise-invisible held gate; timeoutCount records a missing proof without opening it.
   rendererPtyDispatcherReady: boolean
   rendererDispatcherReadyForcedCount: number
+  rendererDispatcherReadyTimeoutCount: number
 }
 
 // Why module scope: breadcrumb writers live both inside registerPtyHandlers and outside it (renderer lifecycle resets).

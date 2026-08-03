@@ -428,7 +428,7 @@ export function installPtyInputDeliveryHandlers(state: PtyRendererDeliveryContex
     if (state.rendererPtyDispatcherReady) {
       resetRendererDeliveryAccountingForLifecycleReset()
     }
-    // Why: real handshake landed — cancel the self-heal watchdog so it can't later force-open the gate.
+    // Why: real handshake landed — cancel the diagnostic watchdog before opening the gate.
     clearDispatcherReadyWatchdog()
     state.rendererPtyDispatcherReady = true
     pendingData.reactivateBlocked()

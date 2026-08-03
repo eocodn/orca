@@ -357,16 +357,17 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     if (mainWindow.isDestroyed()) {
       return
     }
-    // Why: one-shot self-heal — force the gate open if the reloaded page never signals ready, so a dropped handshake can't hold it forever. Unref'd so it can't keep the process alive.
+    // Why: timeout is diagnostic only; without renderer proof, opening the gate would drop pending bytes into a listener-less page. Unref'd so it can't keep the process alive.
     state.dispatcherReadyWatchdogTimer = setTimeout(() => {
       state.dispatcherReadyWatchdogTimer = null
       if (state.rendererPtyDispatcherReady || mainWindow.isDestroyed()) {
         return
       }
-      state.rendererPtyDispatcherReady = true
-      state.rendererDispatcherReadyForcedCount += 1
-      state.pendingData.reactivateBlocked()
-      schedulePendingDataFlush(0)
+      state.rendererDispatcherReadyTimeoutCount += 1
+      mainDeliveryBreadcrumbs.record('renderer-dispatcher-ready-timeout', {
+        pendingPtyCount: state.pendingData.size,
+        pendingChars: state.pendingData.totalPendingChars
+      })
     }, PTY_DISPATCHER_READY_WATCHDOG_MS)
     state.dispatcherReadyWatchdogTimer.unref?.()
   }

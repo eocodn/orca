@@ -280,7 +280,8 @@ export function createPtyApi(): NonNullable<Partial<PreloadApi>['pty']> {
         rendererLifecycleResetCount: 0,
         lastLifecycleResetClearedChars: 0,
         rendererPtyDispatcherReady: false,
-        rendererDispatcherReadyForcedCount: 0
+        rendererDispatcherReadyForcedCount: 0,
+        rendererDispatcherReadyTimeoutCount: 0
       }),
     resetRendererDeliveryDebug: () => Promise.resolve(),
     onData: () => noopUnsubscribe,

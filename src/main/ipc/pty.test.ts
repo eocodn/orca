@@ -14197,7 +14197,7 @@ describe('registerPtyHandlers', () => {
     }
   })
 
-  it('force-opens the delivery gate if no dispatcher-ready handshake arrives after a reload', async () => {
+  it('keeps the delivery gate closed after watchdog timeout until dispatcher-ready handshake', async () => {
     vi.useFakeTimers()
     const mockProc = createMockProc()
     spawnMock.mockReturnValue(mockProc.proc)
@@ -14223,8 +14223,20 @@ describe('registerPtyHandlers', () => {
         rendererDispatcherReadyForcedCount: 0
       })
 
-      // Past the 10s watchdog window the gate self-heals (ready forced, backlog drains) instead of freezing permanently.
+      // A timeout is diagnostic only: without dispatcher proof the gate stays closed and the backlog remains lossless.
       vi.advanceTimersByTime(10_000)
+      vi.advanceTimersByTime(8)
+      expect(mainWindow.webContents.send).not.toHaveBeenCalled()
+      expect(getPtyRendererDeliveryDebugSnapshot()).toMatchObject({
+        rendererPtyDispatcherReady: false,
+        rendererDispatcherReadyForcedCount: 0,
+        rendererDispatcherReadyTimeoutCount: 1,
+        pendingChars: 'post-reload output'.length,
+        pendingPtyCount: 1
+      })
+
+      // Only the authoritative renderer handshake can reopen delivery and drain the retained output.
+      getPtyRendererDispatcherReadyListener()()
       vi.advanceTimersByTime(8)
       expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:data', {
         id: spawnResult.id,
@@ -14232,7 +14244,10 @@ describe('registerPtyHandlers', () => {
       })
       expect(getPtyRendererDeliveryDebugSnapshot()).toMatchObject({
         rendererPtyDispatcherReady: true,
-        rendererDispatcherReadyForcedCount: 1
+        rendererDispatcherReadyForcedCount: 0,
+        rendererDispatcherReadyTimeoutCount: 1,
+        pendingChars: 0,
+        pendingPtyCount: 0
       })
     } finally {
       vi.useRealTimers()

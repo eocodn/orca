@@ -80,6 +80,7 @@ export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   rendererLifecycleResetCount: number
   lastLifecycleResetClearedChars: number
   rendererDispatcherReadyForcedCount: number
+  rendererDispatcherReadyTimeoutCount: number
   rendererPtyDispatcherReady: boolean
   dispatcherReadyWatchdogTimer: ReturnType<typeof setTimeout> | null
   producerFlowControl: PtyProducerFlowController

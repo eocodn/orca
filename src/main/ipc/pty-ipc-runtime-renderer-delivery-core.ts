@@ -75,6 +75,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
   state.rendererLifecycleResetCount = 0
   state.lastLifecycleResetClearedChars = 0
   state.rendererDispatcherReadyForcedCount = 0
+  state.rendererDispatcherReadyTimeoutCount = 0
   state.rendererPtyDispatcherReady = false
   state.dispatcherReadyWatchdogTimer = null
   state.sourceCreditPendingPtys = new Set()
@@ -249,7 +250,8 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       rendererLifecycleResetCount: state.rendererLifecycleResetCount,
       lastLifecycleResetClearedChars: state.lastLifecycleResetClearedChars,
       rendererPtyDispatcherReady: state.rendererPtyDispatcherReady,
-      rendererDispatcherReadyForcedCount: state.rendererDispatcherReadyForcedCount
+      rendererDispatcherReadyForcedCount: state.rendererDispatcherReadyForcedCount,
+      rendererDispatcherReadyTimeoutCount: state.rendererDispatcherReadyTimeoutCount
     }
   }
   // Built only when the debug snapshot is read (never on the data path): the per-pty table + breadcrumb history says WHICH pty is wedged and WHEN, unlike aggregate counters.
@@ -374,7 +376,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     state.rendererDeliveryRestoreNeededPtys.clear()
     // Why hold sends: the reloading page's pty:data listener is gone until it re-registers/handshakes, so bytes would drop into a listener-less page and re-pin the gate.
     state.rendererPtyDispatcherReady = false
-    // Why: arm the self-heal watchdog so a never-arriving handshake can't hold the gate forever; the real handshake cancels it.
+    // Why: arm the diagnostic watchdog so a never-arriving handshake is observable; only the real handshake cancels it and opens the gate.
     state.armDispatcherReadyWatchdog()
   }
   state.readPtyRendererDeliveryDebugSnapshot = readCurrentPtyRendererDeliveryDebugSnapshot
