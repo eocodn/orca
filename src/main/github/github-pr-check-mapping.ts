@@ -1,113 +1,24 @@
 import { assertRateLimitBudget } from './github-client-foundation'
 import type { GhExecOptions } from './github-client-foundation'
 import type { GraphQLPRChecksResponse, GraphQLCheckRunContext, GraphQLStatusContext, GraphQLStatusCheckContext, GraphQLCheckSuite, RestCheckRun, RestCommitStatus, RestCheckSuite } from './github-pr-lookup-outcome'
-import { getPRChecks, getPendingApprovalCheckSuiteName, getPendingApprovalCheckSuiteUrl, nullableString, nullableNumber, parseActionsRunId } from './github-pr-checks'
+import { getPendingApprovalCheckSuiteName, getPendingApprovalCheckSuiteUrl, nullableString, nullableNumber, parseActionsRunId } from './github-pr-checks'
 import type {
-  ClassifiedError,
-  GitPushTarget,
-  IssueSourcePreference,
-  ListWorkItemsResult,
-  PRInfo,
-  PRConflictSummary,
-  PRRefreshOutcome,
-  PRMergeableState,
-  PRReviewDecision,
   PRCheckDetail,
-  PRCheckRunDetails,
-  GitHubCommentResult,
-  GitHubPRReviewCommentInput,
-  PRComment,
-  GitHubViewer,
-  GitHubWorkItem,
-  GitHubPullRequestStateUpdate,
-  GitHubRerunPRChecksResult,
-  GitHubPRMergeMethod,
-  GitHubPRMergeMethodSettings
 } from '../../shared/types'
-import type { CreateHostedReviewInput, CreateHostedReviewResult } from '../../shared/hosted-review'
 import {
-  normalizeHostedReviewBaseRef,
-  normalizeHostedReviewHeadRef
-} from '../../shared/hosted-review-refs'
-import { normalizeGitHubPRMergeMethodSettings } from '../../shared/github-pr-merge-methods'
-import { summarizeProviderChecks } from '../../shared/provider-check-summary'
-import { isGitHubWorkItemsQueryTooLarge } from '../../shared/github-work-items-query-bounds'
-import { classifyGitHubUnavailable } from '../../shared/github-api-availability'
-import { parseTaskQuery, type ParsedTaskQuery } from '../../shared/task-query'
-import {
-  GITHUB_WORK_ITEMS_SSH_REMOTE_REQUIRED_MESSAGE,
-  sortWorkItemsByNumber
-} from '../../shared/work-items'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { tmpdir } from 'node:os'
-import { sliceCheckLogTail } from './check-job-log-tail-slice'
-import {
-  classifyPRRefreshError,
-  safePRRefreshErrorMessage
-} from './pr-refresh-error-classification'
-import { getPRConflictSummary } from './conflict-summary'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import { joinWorktreeRelativePath } from '../runtime/runtime-relative-paths'
-import { splitRemoteBranchName } from '../../shared/git-effective-upstream'
-import {
-  execFileAsync,
   ghExecFileAsync,
-  gitExecFileAsync,
   acquire,
-  release,
-  classifyGhError,
-  classifyListIssuesError,
-  ghRepoExecOptions,
-  githubRepoContext,
-  getRemoteUrlForRepo,
-  type LocalGitExecOptions,
-  type OwnerRepo
+  release
 } from './gh-utils'
-// Why: import from the lightweight module (not ./gh-utils) so tests mocking gh-utils still get the real functions.
-import { extractExecError, parseRetryAfterMs } from '../git/exec-error'
-import {
-  isCommitPartOfMergedPR,
-  type MergedPRCommitMembership
-} from './merged-pr-commit-membership'
-import { getSshGitProvider } from '../providers/ssh-git-dispatch'
-import {
-  hasHostedReviewLocalGitOptions,
-  getHostedReviewLocalGitOptions,
-  type HostedReviewExecutionOptions
-} from '../source-control/hosted-review-git-options'
-import { shouldHideNonOpenReviewOnDefaultBranch } from '../source-control/repo-default-branch'
-import { readLocalGitConfigSignature } from './local-git-config-signature'
-import {
-  getGitHubApiRepositoryForRemote,
-  getOriginGitHubApiRepository,
-  githubHostExecOptions,
-  githubRepositorySlugArg,
-  githubRepositoryWebHost,
-  resolveGitHubApiRepository,
-  resolveGitHubApiRepositoryCandidates,
-  resolveGitHubRepoExecution,
-  resolveIssueGitHubApiRepositorySource,
-  type GitHubRepoExecOptions,
-  type GitHubApiRepository
-} from './github-api-repository'
+import type { GitHubApiRepository } from './github-api-repository'
 import {
   mapCheckRunRESTStatus,
   mapCheckRunRESTConclusion,
   mapCommitStatusRESTStatus,
-  mapCommitStatusRESTConclusion,
-  mapCheckStatus,
-  mapCheckConclusion,
-  mapPRState,
-  deriveCheckStatus
+  mapCommitStatusRESTConclusion
 } from './mappers'
-import { mapGraphQLReactionGroups, type GitHubGraphQLReactionGroup } from './comment-reactions'
 import {
-  getRateLimit,
-  noteRepositoryRateLimitSpend,
-  repositoryRateLimitGuard,
-  spendsSharedGitHubComQuota,
-  type RateLimitBucketKind
+  noteRepositoryRateLimitSpend
 } from './rate-limit'
 
 export function isGraphQLCheckRunContext(

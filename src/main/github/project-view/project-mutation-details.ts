@@ -1,41 +1,12 @@
 import {
-  acquire,
-  release,
-  extractExecError,
-  ghExecFileAsync,
-  repositoryRateLimitGuard,
-  noteRepositoryRateLimitSpend,
   runGraphql,
-  runRest,
   validateSlugArgs,
-  assertPositiveInt,
-  projectHostAuthenticationError,
-  projectGhExecOptions,
-  type GraphqlVars
+  assertPositiveInt
 } from './internals'
-import { classifyProjectError, rateLimitedError } from './project-error-classification'
-import { githubProjectHost } from '../../../shared/github-project-identity'
 import type { GitHubAssignableUser, GitHubWorkItemDetails, PRComment } from '../../../shared/types'
 import type {
-  AddIssueCommentBySlugArgs,
-  ClearProjectItemFieldArgs,
-  DeleteIssueCommentBySlugArgs,
-  GitHubProjectCommentMutationResult,
-  GitHubProjectFieldMutationValue,
-  GitHubProjectMutationResult,
-  ListAssignableUsersBySlugArgs,
-  ListAssignableUsersBySlugResult,
-  ListIssueTypesBySlugArgs,
-  ListIssueTypesBySlugResult,
-  ListLabelsBySlugArgs,
-  ListLabelsBySlugResult,
   ProjectWorkItemDetailsBySlugArgs,
-  ProjectWorkItemDetailsBySlugResult,
-  UpdateIssueBySlugArgs,
-  UpdateIssueCommentBySlugArgs,
-  UpdateIssueTypeBySlugArgs,
-  UpdatePullRequestBySlugArgs,
-  UpdateProjectItemFieldArgs
+  ProjectWorkItemDetailsBySlugResult
 } from '../../../shared/github-project-types'
 import { githubHostExecOptions } from './project-mutation-fields'
 type RawUser = { login?: string; name?: string | null; avatarUrl?: string | null }
@@ -239,4 +210,3 @@ async function getWorkItemDetailsBySlug(
 
 export { getWorkItemDetailsBySlug }
 export { type RawUser, type RawLabel, type RawWorkItemContent }
-

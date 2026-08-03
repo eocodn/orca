@@ -1,13 +1,4 @@
-import { webContents } from 'electron'
-import type {
-  GitHubPRRefreshAlias,
-  GitHubPRRefreshCandidate,
-  GitHubPRRefreshEvent,
-  GitHubPRRefreshReason,
-  GitHubPRRefreshSkippedReason,
-  PRRefreshOutcome
-} from '../../shared/types'
-import { getPRForBranchOutcome, type GitHubPRBranchLookupOptions } from './client'
+import { getPRForBranchOutcome } from './client'
 import { getOriginGitHubApiRepository } from './github-api-repository'
 import { ghRepoExecOptions, githubRepoContext } from './gh-utils'
 import {
@@ -16,14 +7,41 @@ import {
   repositoryRateLimitGuard,
   spendsSharedGitHubComQuota
 } from './rate-limit'
-import { recordCoalescedCrashBreadcrumb } from '../crash-reporting/crash-breadcrumb-store'
-import { sendToTrustedUIRenderer } from '../ipc/ui'
-import { hostedReviewOptionArgs, draining, queue, noteManualRetryGate, resetKeyRetryState, outcomeObserver, diagnosticsCounters, recordPRRefreshQueueDiagnostic, nextSequence, broadcast, isVisibleKey, isBackground, isBudgetedQueueEntry, validateCandidate, nextVisibleErrorRetryAt, withErrorSchedule, scheduleVisibleFollowUp, backgroundRefreshBuckets, noteBackgroundStart, nextBudgetDelay, noteActiveStart, entryDelay, isActiveBurstDelayed, nextQueuedWakeDelay, scheduleDrain, queuedEntriesByPriority } from './pr-refresh-queue-state'
+import {
+  beginDrain,
+  endDrain,
+  hostedReviewOptionArgs,
+  queue,
+  noteManualRetryGate,
+  resetKeyRetryState,
+  outcomeObserver,
+  diagnosticsCounters,
+  recordPRRefreshQueueDiagnostic,
+  nextSequence,
+  broadcast,
+  isVisibleKey,
+  isBackground,
+  isBudgetedQueueEntry,
+  validateCandidate
+} from './pr-refresh-queue-foundation'
+import {
+  nextVisibleErrorRetryAt,
+  withErrorSchedule,
+  scheduleVisibleFollowUp,
+  backgroundRefreshBuckets,
+  noteBackgroundStart,
+  nextBudgetDelay,
+  noteActiveStart,
+  entryDelay,
+  isActiveBurstDelayed,
+  nextQueuedWakeDelay,
+  scheduleDrain,
+  queuedEntriesByPriority
+} from './pr-refresh-queue-scheduling'
 async function drainQueue(): Promise<void> {
-  if (draining) {
+  if (!beginDrain()) {
     return
   }
-  draining = true
   try {
     while (queue.size > 0) {
       let next = queuedEntriesByPriority()[0]
@@ -161,9 +179,8 @@ async function drainQueue(): Promise<void> {
       )
     }
   } finally {
-    draining = false
+    endDrain()
   }
 }
 
 export { drainQueue }
-

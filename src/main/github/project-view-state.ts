@@ -1,50 +1,5 @@
-import {
-  acquire,
-  release,
-  extractExecError,
-  ghExecFileAsync,
-  repositoryRateLimitGuard,
-  noteRepositoryRateLimitSpend,
-  runGraphql,
-  isValidOwnerSlug,
-  assertSlug,
-  assertPositiveInt,
-  projectHostAuthenticationError,
-  projectGhExecOptions,
-  type GraphqlVars
-} from './project-view/internals'
-import {
-  classifyProjectError,
-  driftError,
-  errorsIndicateParentField,
-  rateLimitedError,
-  type GhGraphqlErrorShape
-} from './project-view/project-error-classification'
 import type {
-  GetProjectViewTableArgs,
-  GetProjectViewTableResult,
-  GitHubProjectField,
-  GitHubProjectFieldValue,
-  GitHubProjectIteration,
-  GitHubProjectLabel,
   GitHubProjectOwnerType,
-  GitHubProjectRow,
-  GitHubProjectRowItemType,
-  GitHubProjectSingleSelectOption,
-  GitHubProjectSort,
-  GitHubProjectSummary,
-  GitHubProjectTable,
-  GitHubProjectUser,
-  GitHubProjectView,
-  GitHubProjectViewError,
-  GitHubProjectViewLayout,
-  GitHubProjectViewSummary,
-  ListAccessibleProjectsArgs,
-  ListAccessibleProjectsResult,
-  ListProjectViewsArgs,
-  ListProjectViewsResult,
-  ResolveProjectRefArgs,
-  ResolveProjectRefResult
 } from '../../shared/github-project-types'
 import { githubProjectHost } from '../../shared/github-project-identity'
 // ─── Constants ─────────────────────────────────────────────────────────

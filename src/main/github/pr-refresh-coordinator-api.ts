@@ -1,23 +1,14 @@
-import { webContents } from 'electron'
 import type {
-  GitHubPRRefreshAlias,
   GitHubPRRefreshCandidate,
-  GitHubPRRefreshEvent,
   GitHubPRRefreshReason,
-  GitHubPRRefreshSkippedReason,
   PRRefreshOutcome
 } from '../../shared/types'
-import { getPRForBranchOutcome, type GitHubPRBranchLookupOptions } from './client'
+import { getPRForBranchOutcome } from './client'
 import { getOriginGitHubApiRepository } from './github-api-repository'
 import { ghRepoExecOptions, githubRepoContext } from './gh-utils'
 import {
-  getRateLimit,
-  noteRepositoryRateLimitSpend,
-  repositoryRateLimitGuard,
-  spendsSharedGitHubComQuota
+  repositoryRateLimitGuard
 } from './rate-limit'
-import { recordCoalescedCrashBreadcrumb } from '../crash-reporting/crash-breadcrumb-store'
-import { sendToTrustedUIRenderer } from '../ipc/ui'
 import { hostedReviewOptionArgs, MANUAL_MERGEABILITY_PENDING_REFRESH_MS, POST_PUSH_DELAY_MS, queue, errorBackoff, manualRetryGates, noteManualRetryGate, visibleByWindow, outcomeObserver, diagnosticsCounters, removeInvisibleVisibleRefreshes, recordPRRefreshQueueDiagnostic, nextSequence, nextQueueOrder, broadcast, refreshKey, isVisibleKey, isManual, bypassesFreshnessDelay, validateCandidate, shouldSkipFresh, shouldBroadcastQueued, freshRetryAt, aliasFromCandidate, removeQueuedAliasForInvalidCandidate, nextVisibleErrorRetryAt, withErrorSchedule, scheduleVisibleFollowUp, backgroundRefreshBuckets, scheduleDrain } from './pr-refresh-queue-state'
 function enqueuePRRefresh(
   candidate: GitHubPRRefreshCandidate,

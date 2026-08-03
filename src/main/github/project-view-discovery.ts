@@ -1,50 +1,16 @@
 import {
-  acquire,
-  release,
-  extractExecError,
-  ghExecFileAsync,
-  repositoryRateLimitGuard,
-  noteRepositoryRateLimitSpend,
   runGraphql,
-  isValidOwnerSlug,
-  assertSlug,
-  assertPositiveInt,
-  projectHostAuthenticationError,
   projectGhExecOptions,
   type GraphqlVars
 } from './project-view/internals'
 import {
-  classifyProjectError,
-  driftError,
-  errorsIndicateParentField,
-  rateLimitedError,
-  type GhGraphqlErrorShape
+  driftError
 } from './project-view/project-error-classification'
 import type {
-  GetProjectViewTableArgs,
-  GetProjectViewTableResult,
-  GitHubProjectField,
-  GitHubProjectFieldValue,
-  GitHubProjectIteration,
-  GitHubProjectLabel,
   GitHubProjectOwnerType,
-  GitHubProjectRow,
-  GitHubProjectRowItemType,
-  GitHubProjectSingleSelectOption,
-  GitHubProjectSort,
   GitHubProjectSummary,
-  GitHubProjectTable,
-  GitHubProjectUser,
-  GitHubProjectView,
-  GitHubProjectViewError,
-  GitHubProjectViewLayout,
-  GitHubProjectViewSummary,
   ListAccessibleProjectsArgs,
-  ListAccessibleProjectsResult,
-  ListProjectViewsArgs,
-  ListProjectViewsResult,
-  ResolveProjectRefArgs,
-  ResolveProjectRefResult
+  ListAccessibleProjectsResult
 } from '../../shared/github-project-types'
 import { githubProjectHost } from '../../shared/github-project-identity'
 import {
@@ -54,7 +20,6 @@ import {
   DISCOVERY_PROJECTS_PER_OWNER,
   rememberOwnerType
 } from './project-view-state'
-import { ownerQueryRoot } from "./project-view-config"
 
 export type RawViewerDiscovery = {
   viewer?: {

@@ -1,79 +1,33 @@
-import { webContents } from 'electron'
 import type {
   GitHubPRRefreshAlias,
   GitHubPRRefreshCandidate,
-  GitHubPRRefreshEvent,
-  GitHubPRRefreshReason,
-  GitHubPRRefreshSkippedReason,
   PRRefreshOutcome
 } from '../../shared/types'
-import { getPRForBranchOutcome, type GitHubPRBranchLookupOptions } from './client'
-import { getOriginGitHubApiRepository } from './github-api-repository'
-import { ghRepoExecOptions, githubRepoContext } from './gh-utils'
-import {
-  getRateLimit,
-  noteRepositoryRateLimitSpend,
-  repositoryRateLimitGuard,
-  spendsSharedGitHubComQuota
-} from './rate-limit'
-import { recordCoalescedCrashBreadcrumb } from '../crash-reporting/crash-breadcrumb-store'
-import { sendToTrustedUIRenderer } from '../ipc/ui'
 import { drainQueue } from './pr-refresh-queue-drain'
-import { refreshPRNow } from './pr-refresh-coordinator-api'
 import { type QueueEntry,
-  type PRRefreshOutcomeObserver,
-  type PRBranchLookupCandidate,
-  shouldAcceptMergedFallbackPR,
-  hostedReviewOptionArgs,
-  MIN_BACKGROUND_REFRESH_AGE_MS,
-  MERGEABILITY_PENDING_REFRESH_MS,
-  MANUAL_MERGEABILITY_PENDING_REFRESH_MS,
   BACKGROUND_BUDGET_WINDOW_MS,
   MIN_BACKGROUND_SPACING_MS,
   BACKGROUND_BUDGET_MAX,
-  POST_PUSH_DELAY_MS,
   BACKOFF_BASE_MS,
   BACKOFF_MAX_MS,
-  DIAGNOSTIC_BREADCRUMB_MIN_INTERVAL_MS,
   ACTIVE_BURST_WINDOW_MS,
   ACTIVE_BURST_MAX,
-  sequence,
-  queueOrder,
-  draining,
   drainTimer,
   queue,
   backgroundStarts,
   activeStartsByScope,
   errorBackoff,
-  manualRetryGates,
   lastBackgroundStartAt,
-  noteManualRetryGate,
   resetKeyRetryState,
-  visibleByWindow,
-  outcomeObserver,
-  diagnosticsCounters,
-  setPRRefreshOutcomeObserver,
-  removeInvisibleVisibleRefreshes,
-  recordPRRefreshQueueDiagnostic,
-  clearActiveBurstWindow,
-  clearVisiblePRRefreshWindow,
-  pruneWorktreePRRefreshAliases,
-  nextSequence,
   nextQueueOrder,
-  broadcast,
-  refreshKey,
   isVisibleKey,
-  isManual,
   bypassesFreshnessDelay,
-  isBackground,
-  isBudgetedBackground,
   isBudgetedQueueEntry,
-  validateCandidate,
-  shouldSkipFresh,
-  shouldBroadcastQueued,
   freshRetryAt,
-  aliasFromCandidate,
-  visibleCandidateAfterOutcome } from './pr-refresh-queue-foundation'
+  visibleCandidateAfterOutcome,
+  hasResolvedMergeStateStatus,
+  setDrainTimer,
+  setLastBackgroundStartAt } from './pr-refresh-queue-foundation'
 
 export function setVisibleFollowUp(entry: QueueEntry): void {
   const existing = queue.get(entry.key)
@@ -215,38 +169,6 @@ export function scheduleVisibleFollowUp(
   scheduleDrain(Math.max(0, dueAt - Date.now()))
 }
 
-export function refreshIntervalForCandidate(candidate: GitHubPRRefreshCandidate): number {
-  if (candidate.cachedPRState === 'closed' || candidate.cachedPRState === 'merged') {
-    return 30 * 60_000
-  }
-  if (candidate.cachedHasPR === false) {
-    return 15 * 60_000
-  }
-  if (
-    candidate.cachedHasPR === true &&
-    candidate.cachedPRState === 'open' &&
-    candidate.cachedMergeable === 'UNKNOWN' &&
-    !hasResolvedMergeStateStatus(candidate.cachedMergeStateStatus)
-  ) {
-    // Why: GitHub returns transient UNKNOWN mergeability while computing the test merge; visible merge buttons need a prompt follow-up.
-    return MERGEABILITY_PENDING_REFRESH_MS
-  }
-  if (candidate.cachedChecksStatus === 'success') {
-    return 10 * 60_000
-  }
-  if (candidate.cachedChecksStatus === 'failure') {
-    return 3 * 60_000
-  }
-  if (candidate.cachedChecksStatus === 'pending') {
-    return 90_000
-  }
-  return MIN_BACKGROUND_REFRESH_AGE_MS
-}
-
-export function hasResolvedMergeStateStatus(status: string | null | undefined): boolean {
-  return status === 'CLEAN' || status === 'BEHIND' || status === 'BLOCKED'
-}
-
 export function isMergeabilityPendingOutcome(outcome: PRRefreshOutcome): boolean {
   return (
     outcome.kind === 'found' &&
@@ -263,7 +185,7 @@ export function backgroundRefreshBuckets(): ('core' | 'graphql')[] {
 
 export function noteBackgroundStart(): void {
   const now = Date.now()
-  lastBackgroundStartAt = now
+  setLastBackgroundStartAt(now)
   backgroundStarts.push(now)
   while (backgroundStarts.length > 0 && now - backgroundStarts[0] > BACKGROUND_BUDGET_WINDOW_MS) {
     backgroundStarts.shift()
@@ -363,10 +285,10 @@ export function scheduleDrain(delay = 0): void {
   if (drainTimer) {
     clearTimeout(drainTimer)
   }
-  drainTimer = setTimeout(() => {
-    drainTimer = null
+  setDrainTimer(setTimeout(() => {
+    setDrainTimer(null)
     void drainQueue()
-  }, delay)
+  }, delay))
 }
 
 export function queuedEntriesByPriority(): QueueEntry[] {
@@ -383,6 +305,3 @@ export function queuedEntriesByPriority(): QueueEntry[] {
     return a.dueAt - b.dueAt || b.priority - a.priority
   })
 }
-
-export { shouldAcceptMergedFallbackPR, hostedReviewOptionArgs, MIN_BACKGROUND_REFRESH_AGE_MS, MERGEABILITY_PENDING_REFRESH_MS, MANUAL_MERGEABILITY_PENDING_REFRESH_MS, BACKGROUND_BUDGET_WINDOW_MS, MIN_BACKGROUND_SPACING_MS, BACKGROUND_BUDGET_MAX, POST_PUSH_DELAY_MS, BACKOFF_BASE_MS, BACKOFF_MAX_MS, DIAGNOSTIC_BREADCRUMB_MIN_INTERVAL_MS, ACTIVE_BURST_WINDOW_MS, ACTIVE_BURST_MAX, sequence, queueOrder, draining, queue, backgroundStarts, activeStartsByScope, errorBackoff, manualRetryGates, lastBackgroundStartAt, noteManualRetryGate, resetKeyRetryState, visibleByWindow, outcomeObserver, diagnosticsCounters, setPRRefreshOutcomeObserver, removeInvisibleVisibleRefreshes, recordPRRefreshQueueDiagnostic, clearActiveBurstWindow, clearVisiblePRRefreshWindow, pruneWorktreePRRefreshAliases, nextSequence, nextQueueOrder, broadcast, refreshKey, isVisibleKey, isManual, bypassesFreshnessDelay, isBackground, isBudgetedBackground, isBudgetedQueueEntry, validateCandidate, shouldSkipFresh, shouldBroadcastQueued, freshRetryAt, aliasFromCandidate, visibleCandidateAfterOutcome, setVisibleFollowUp, removeQueuedAliasForInvalidCandidate, nextVisibleErrorRetryAt, withErrorSchedule, scheduleVisibleFollowUp, refreshIntervalForCandidate, hasResolvedMergeStateStatus, isMergeabilityPendingOutcome, backgroundRefreshBuckets, noteBackgroundStart, nextBudgetDelay, activeBurstScope, pruneActiveStarts, nextActiveBurstDelay, noteActiveStart, activeOrder, entryDelay, isActiveBurstDelayed, nextQueuedWakeDelay, scheduleDrain, queuedEntriesByPriority }
-export { type QueueEntry, type PRRefreshOutcomeObserver, type PRBranchLookupCandidate, type drainTimer }

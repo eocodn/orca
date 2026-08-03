@@ -6,12 +6,8 @@ import {
   repositoryRateLimitGuard,
   noteRepositoryRateLimitSpend,
   runGraphql,
-  isValidOwnerSlug,
-  assertSlug,
-  assertPositiveInt,
   projectHostAuthenticationError,
-  projectGhExecOptions,
-  type GraphqlVars
+  projectGhExecOptions
 } from './project-view/internals'
 import {
   classifyProjectError,
@@ -21,32 +17,11 @@ import {
   type GhGraphqlErrorShape
 } from './project-view/project-error-classification'
 import type {
-  GetProjectViewTableArgs,
-  GetProjectViewTableResult,
-  GitHubProjectField,
-  GitHubProjectFieldValue,
-  GitHubProjectIteration,
-  GitHubProjectLabel,
   GitHubProjectOwnerType,
   GitHubProjectRow,
-  GitHubProjectRowItemType,
-  GitHubProjectSingleSelectOption,
-  GitHubProjectSort,
-  GitHubProjectSummary,
-  GitHubProjectTable,
-  GitHubProjectUser,
-  GitHubProjectView,
-  GitHubProjectViewError,
-  GitHubProjectViewLayout,
-  GitHubProjectViewSummary,
-  ListAccessibleProjectsArgs,
-  ListAccessibleProjectsResult,
-  ListProjectViewsArgs,
-  ListProjectViewsResult,
-  ResolveProjectRefArgs,
-  ResolveProjectRefResult
+  GitHubProjectViewError
 } from '../../shared/github-project-types'
-import { normalizeItem, type RawProjectV2Field, type RawItem } from "./project-view-normalizers"
+import { normalizeItem, type RawItem } from "./project-view-normalizers"
 import {
   FIELD_CONFIG_FRAGMENT,
   FIELD_VALUES_SELECTION,

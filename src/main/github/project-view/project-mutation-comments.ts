@@ -10,18 +10,14 @@ import {
   validateSlugArgs,
   assertPositiveInt,
   projectHostAuthenticationError,
-  projectGhExecOptions,
   type GraphqlVars
 } from './internals'
 import { classifyProjectError, rateLimitedError } from './project-error-classification'
-import { githubProjectHost } from '../../../shared/github-project-identity'
-import type { GitHubAssignableUser, GitHubWorkItemDetails, PRComment } from '../../../shared/types'
+import type { GitHubAssignableUser, PRComment } from '../../../shared/types'
 import type {
   AddIssueCommentBySlugArgs,
-  ClearProjectItemFieldArgs,
   DeleteIssueCommentBySlugArgs,
   GitHubProjectCommentMutationResult,
-  GitHubProjectFieldMutationValue,
   GitHubProjectMutationResult,
   ListAssignableUsersBySlugArgs,
   ListAssignableUsersBySlugResult,
@@ -29,13 +25,8 @@ import type {
   ListIssueTypesBySlugResult,
   ListLabelsBySlugArgs,
   ListLabelsBySlugResult,
-  ProjectWorkItemDetailsBySlugArgs,
-  ProjectWorkItemDetailsBySlugResult,
-  UpdateIssueBySlugArgs,
   UpdateIssueCommentBySlugArgs,
-  UpdateIssueTypeBySlugArgs,
-  UpdatePullRequestBySlugArgs,
-  UpdateProjectItemFieldArgs
+  UpdateIssueTypeBySlugArgs
 } from '../../../shared/github-project-types'
 import { githubHostExecOptions } from './project-mutation-fields'
 type RawIssueCommentResponse = {

@@ -2,6 +2,7 @@ export { isValidOwnerSlug, isValidRepoSlug, isValidSlug } from "./project-view/i
 export { classifyProjectError } from "./project-view/project-error-classification"
 export { updateProjectItemFieldValue, clearProjectItemFieldValue, updateIssueBySlug, updatePullRequestBySlug, addIssueCommentBySlug, updateIssueCommentBySlug, deleteIssueCommentBySlug, listLabelsBySlug, listAssignableUsersBySlug, listIssueTypesBySlug, updateIssueTypeBySlug, getWorkItemDetailsBySlug } from "./project-view/mutations"
 export { _resetProjectViewCachesForTests, _getProjectViewCacheSizesForTests, _rememberProjectViewOwnerTypeForTests, _getProjectViewOwnerTypeForTests, _markProjectViewParentFieldRetriedForTests, _hasProjectViewParentFieldRetriedForTests, _markProjectViewParentFieldWarningLoggedForTests, _hasProjectViewParentFieldWarningLoggedForTests } from "./project-view-state"
+export { PROJECT_VIEW_OWNER_CACHE_MAX_ENTRIES } from "./project-view-state"
 export { normalizeField, normalizeFieldValue, normalizeItem } from "./project-view-normalizers"
 export { getProjectViewTable } from "./project-view-table"
 export { listAccessibleProjects } from "./project-view-discovery"

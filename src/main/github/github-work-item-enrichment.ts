@@ -1,45 +1,32 @@
 import type {
   GitHubAssignableUser,
-  GitHubPRFile,
-  GitHubPRFileContents,
-  GitHubPRFileViewedState,
   GitHubIssueTimelineItem,
-  GitHubIssueTimelineTarget,
   GitHubWorkItem,
-  GitHubWorkItemDetails,
-  IssueSourcePreference,
   PRCheckDetail,
   PRComment
 } from '../../shared/types'
 import {
   ghExecFileAsync,
-  acquire,
-  release,
   ghRepoExecOptions,
   githubRepoContext,
   type LocalGitExecOptions
 } from './gh-utils'
-import { getWorkItem, getPRChecks, getPRComments } from './client'
+import { getPRChecks } from './client'
 import {
-  getIssueGitHubApiRepository,
   githubHostExecOptions,
-  resolveGitHubRepoExecution,
   type GitHubApiRepository
 } from './github-api-repository'
 import { noteRepositoryRateLimitSpend, repositoryRateLimitGuard } from './rate-limit'
-import { getPRReviewCommentLineNumbersFromPatch } from './pr-review-comment-lines'
-import { isMaxBufferOverflowError } from '../git/max-buffer-overflow'
 
 // Why: cap total PR files so a massive PR can't starve the gh semaphore while paging (100/page).
-const MAX_PR_FILES = 300
+
 // Why: bound noisy issue timelines so one huge issue can't monopolize gh/API time.
-const MAX_ISSUE_TIMELINE_ITEMS = 300
-const GITHUB_REST_PAGE_SIZE = 100
+
+
 // Why: raw-fetch buffer must exceed the renderer's large-diff threshold, else the UI shows an empty diff instead of the fallback.
-const GITHUB_RAW_CONTENT_MAX_BUFFER_BYTES = 8 * 1024 * 1024
+
 import { localGitOptionArgs, WORK_ITEM_PARTICIPANTS_QUERY } from './github-work-item-timeline'
 import { getIssueTimelineItems, mergeGitHubUsers } from './github-work-item-graphql'
-import { getWorkItemDetails } from './github-work-item-loader'
 async function getIssueBodyAndComments(
   repoPath: string,
   issueNumber: number,

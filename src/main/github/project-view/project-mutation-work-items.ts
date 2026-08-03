@@ -14,26 +14,10 @@ import {
   type GraphqlVars
 } from './internals'
 import { classifyProjectError, rateLimitedError } from './project-error-classification'
-import { githubProjectHost } from '../../../shared/github-project-identity'
-import type { GitHubAssignableUser, GitHubWorkItemDetails, PRComment } from '../../../shared/types'
 import type {
-  AddIssueCommentBySlugArgs,
   ClearProjectItemFieldArgs,
-  DeleteIssueCommentBySlugArgs,
-  GitHubProjectCommentMutationResult,
-  GitHubProjectFieldMutationValue,
   GitHubProjectMutationResult,
-  ListAssignableUsersBySlugArgs,
-  ListAssignableUsersBySlugResult,
-  ListIssueTypesBySlugArgs,
-  ListIssueTypesBySlugResult,
-  ListLabelsBySlugArgs,
-  ListLabelsBySlugResult,
-  ProjectWorkItemDetailsBySlugArgs,
-  ProjectWorkItemDetailsBySlugResult,
   UpdateIssueBySlugArgs,
-  UpdateIssueCommentBySlugArgs,
-  UpdateIssueTypeBySlugArgs,
   UpdatePullRequestBySlugArgs,
   UpdateProjectItemFieldArgs
 } from '../../../shared/github-project-types'
@@ -360,4 +344,3 @@ async function updatePullRequestBySlug(
 }
 
 export { updateProjectItemFieldValue, clearProjectItemFieldValue, updateIssueBySlug, updatePullRequestBySlug }
-

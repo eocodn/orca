@@ -7,19 +7,9 @@ import type {
   GitHubPRRefreshSkippedReason,
   PRRefreshOutcome
 } from '../../shared/types'
-import { getPRForBranchOutcome, type GitHubPRBranchLookupOptions } from './client'
-import { getOriginGitHubApiRepository } from './github-api-repository'
-import { ghRepoExecOptions, githubRepoContext } from './gh-utils'
-import {
-  getRateLimit,
-  noteRepositoryRateLimitSpend,
-  repositoryRateLimitGuard,
-  spendsSharedGitHubComQuota
-} from './rate-limit'
+import type { GitHubPRBranchLookupOptions } from './client'
 import { recordCoalescedCrashBreadcrumb } from '../crash-reporting/crash-breadcrumb-store'
 import { sendToTrustedUIRenderer } from '../ipc/ui'
-import { drainQueue } from './pr-refresh-queue-drain'
-import { refreshPRNow } from './pr-refresh-coordinator-api'
 export type QueueEntry = {
   key: string
   candidate: GitHubPRRefreshCandidate
@@ -120,6 +110,26 @@ export const diagnosticsCounters = {
 
 export function setPRRefreshOutcomeObserver(observer: PRRefreshOutcomeObserver | null): void {
   outcomeObserver = observer
+}
+
+export function beginDrain(): boolean {
+  if (draining) {
+    return false
+  }
+  draining = true
+  return true
+}
+
+export function endDrain(): void {
+  draining = false
+}
+
+export function setDrainTimer(timer: ReturnType<typeof setTimeout> | null): void {
+  drainTimer = timer
+}
+
+export function setLastBackgroundStartAt(timestamp: number): void {
+  lastBackgroundStartAt = timestamp
 }
 
 export function removeInvisibleVisibleRefreshes(): void {
@@ -324,6 +334,37 @@ export function shouldBroadcastQueued(reason: GitHubPRRefreshReason, dueAt: numb
   return delay <= 5_000
 }
 
+export function hasResolvedMergeStateStatus(status: string | null | undefined): boolean {
+  return status === 'CLEAN' || status === 'BEHIND' || status === 'BLOCKED'
+}
+
+export function refreshIntervalForCandidate(candidate: GitHubPRRefreshCandidate): number {
+  if (candidate.cachedPRState === 'closed' || candidate.cachedPRState === 'merged') {
+    return 30 * 60_000
+  }
+  if (candidate.cachedHasPR === false) {
+    return 15 * 60_000
+  }
+  if (
+    candidate.cachedHasPR === true &&
+    candidate.cachedPRState === 'open' &&
+    candidate.cachedMergeable === 'UNKNOWN' &&
+    !hasResolvedMergeStateStatus(candidate.cachedMergeStateStatus)
+  ) {
+    return MERGEABILITY_PENDING_REFRESH_MS
+  }
+  if (candidate.cachedChecksStatus === 'success') {
+    return 10 * 60_000
+  }
+  if (candidate.cachedChecksStatus === 'failure') {
+    return 3 * 60_000
+  }
+  if (candidate.cachedChecksStatus === 'pending') {
+    return 90_000
+  }
+  return MIN_BACKGROUND_REFRESH_AGE_MS
+}
+
 export function freshRetryAt(candidate: GitHubPRRefreshCandidate): number | null {
   return candidate.cachedFetchedAt == null
     ? null
@@ -363,4 +404,3 @@ export function visibleCandidateAfterOutcome(
     cachedMergeStateStatus: outcome.kind === 'found' ? (outcome.pr.mergeStateStatus ?? null) : null
   }
 }
-

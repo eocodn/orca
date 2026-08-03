@@ -1,52 +1,19 @@
 import {
-  acquire,
-  release,
-  extractExecError,
-  ghExecFileAsync,
-  repositoryRateLimitGuard,
-  noteRepositoryRateLimitSpend,
   runGraphql,
-  isValidOwnerSlug,
-  assertSlug,
-  assertPositiveInt,
-  projectHostAuthenticationError,
   projectGhExecOptions,
   type GraphqlVars
 } from './project-view/internals'
 import {
-  classifyProjectError,
-  driftError,
-  errorsIndicateParentField,
-  rateLimitedError,
-  type GhGraphqlErrorShape
+  driftError
 } from './project-view/project-error-classification'
 import type {
-  GetProjectViewTableArgs,
-  GetProjectViewTableResult,
   GitHubProjectField,
-  GitHubProjectFieldValue,
-  GitHubProjectIteration,
-  GitHubProjectLabel,
   GitHubProjectOwnerType,
-  GitHubProjectRow,
-  GitHubProjectRowItemType,
-  GitHubProjectSingleSelectOption,
   GitHubProjectSort,
-  GitHubProjectSummary,
-  GitHubProjectTable,
-  GitHubProjectUser,
   GitHubProjectView,
   GitHubProjectViewError,
-  GitHubProjectViewLayout,
-  GitHubProjectViewSummary,
-  ListAccessibleProjectsArgs,
-  ListAccessibleProjectsResult,
-  ListProjectViewsArgs,
-  ListProjectViewsResult,
-  ResolveProjectRefArgs,
-  ResolveProjectRefResult
+  GitHubProjectViewLayout
 } from '../../shared/github-project-types'
-import { githubProjectHost } from '../../shared/github-project-identity'
 import { FIELDS_PAGE_SIZE, FIELD_VALUES_PAGE_SIZE, VIEWS_PAGE_SIZE } from './project-view-state'
 import { normalizeField, type RawProjectV2Field } from "./project-view-normalizers"
 

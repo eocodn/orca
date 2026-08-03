@@ -1,50 +1,16 @@
 import {
-  acquire,
-  release,
-  extractExecError,
-  ghExecFileAsync,
-  repositoryRateLimitGuard,
-  noteRepositoryRateLimitSpend,
-  runGraphql,
-  isValidOwnerSlug,
-  assertSlug,
-  assertPositiveInt,
-  projectHostAuthenticationError,
-  projectGhExecOptions,
-  type GraphqlVars
-} from './project-view/internals'
-import {
-  classifyProjectError,
-  driftError,
-  errorsIndicateParentField,
-  rateLimitedError,
-  type GhGraphqlErrorShape
+  driftError
 } from './project-view/project-error-classification'
 import type {
-  GetProjectViewTableArgs,
-  GetProjectViewTableResult,
   GitHubProjectField,
   GitHubProjectFieldValue,
   GitHubProjectIteration,
   GitHubProjectLabel,
-  GitHubProjectOwnerType,
   GitHubProjectRow,
   GitHubProjectRowItemType,
   GitHubProjectSingleSelectOption,
-  GitHubProjectSort,
-  GitHubProjectSummary,
-  GitHubProjectTable,
   GitHubProjectUser,
-  GitHubProjectView,
-  GitHubProjectViewError,
-  GitHubProjectViewLayout,
-  GitHubProjectViewSummary,
-  ListAccessibleProjectsArgs,
-  ListAccessibleProjectsResult,
-  ListProjectViewsArgs,
-  ListProjectViewsResult,
-  ResolveProjectRefArgs,
-  ResolveProjectRefResult
+  GitHubProjectViewError
 } from '../../shared/github-project-types'
 export type RawProjectV2Field = {
   __typename?: string
