@@ -190,6 +190,11 @@ export function clearProviderPtyState(
       }
     }
   }
+  for (const [mappedPaneKey, mappedPtyId] of ptyRuntimeState.paneKeyPtyId) {
+    if (mappedPtyId === id) {
+      ptyRuntimeState.paneKeyPtyId.delete(mappedPaneKey)
+    }
+  }
   if (hadPtyLifecycleState) {
     if (ptyRuntimeState.clearedPtyLifecycleIds.size >= MAX_CLEARED_PTY_LIFECYCLE_IDS) {
       const oldestId = ptyRuntimeState.clearedPtyLifecycleIds.values().next().value

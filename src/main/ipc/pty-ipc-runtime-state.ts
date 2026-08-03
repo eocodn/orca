@@ -16,6 +16,8 @@ export type PtyPublicationSnapshot = Readonly<{
   incarnation: string | undefined
   stateToken: symbol | undefined
   size: { cols: number; rows: number } | undefined
+  paneKey: string | undefined
+  paneKeyReverseOwner: string | undefined
 }>
 
 export type CleanupPendingPty = Readonly<{

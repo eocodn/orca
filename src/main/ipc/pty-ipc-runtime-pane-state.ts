@@ -129,6 +129,13 @@ export function rememberPaneKeyForPty(ptyId: string, paneKey: unknown): string |
   if (!isValidPaneKey(normalizedPaneKey)) {
     return null
   }
+  // Why: retire only this PTY's old edge; another PTY's reverse edge is the pane authority.
+  const previousPaneKey = ptyRuntimeState.ptyPaneKey.get(ptyId)
+  if (previousPaneKey && previousPaneKey !== normalizedPaneKey) {
+    if (ptyRuntimeState.paneKeyPtyId.get(previousPaneKey) === ptyId) {
+      ptyRuntimeState.paneKeyPtyId.delete(previousPaneKey)
+    }
+  }
   ptyRuntimeState.ptyPaneKey.set(ptyId, normalizedPaneKey)
   ptyRuntimeState.paneKeyPtyId.set(normalizedPaneKey, ptyId)
   return normalizedPaneKey

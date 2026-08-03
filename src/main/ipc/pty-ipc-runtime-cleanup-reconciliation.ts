@@ -450,6 +450,7 @@ export function scheduleOriginalPtyCleanupAuthorities(): void {
 
 export function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
   const size = ptyRuntimeState.ptySizes.get(id)
+  const paneKey = ptyRuntimeState.ptyPaneKey.get(id)
   let stateToken = ptyRuntimeState.ptyStateTokenById.get(id)
   if (!stateToken) {
     stateToken = Symbol(id)
@@ -461,12 +462,28 @@ export function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
     ownership: ptyRuntimeState.ptyOwnership.get(id),
     incarnation: ptyRuntimeState.ptyIncarnationById.get(id),
     stateToken,
-    size: size ? { ...size } : undefined
+    size: size ? { ...size } : undefined,
+    paneKey,
+    paneKeyReverseOwner: paneKey ? ptyRuntimeState.paneKeyPtyId.get(paneKey) : undefined
   })
 }
 
 export function restorePtyPublication(snapshot: PtyPublicationSnapshot): void {
   ptyRuntimeState.pendingPtyIncarnationById.delete(snapshot.id)
+  // Why: failed publication cleanup can leave reverse edges from the transient pane binding.
+  for (const [paneKey, ptyId] of ptyRuntimeState.paneKeyPtyId) {
+    if (ptyId === snapshot.id) {
+      ptyRuntimeState.paneKeyPtyId.delete(paneKey)
+    }
+  }
+  if (snapshot.paneKey) {
+    ptyRuntimeState.ptyPaneKey.set(snapshot.id, snapshot.paneKey)
+    if (snapshot.paneKeyReverseOwner) {
+      ptyRuntimeState.paneKeyPtyId.set(snapshot.paneKey, snapshot.paneKeyReverseOwner)
+    }
+  } else {
+    ptyRuntimeState.ptyPaneKey.delete(snapshot.id)
+  }
   if (snapshot.ownershipPresent) {
     ptyRuntimeState.ptyOwnership.set(snapshot.id, snapshot.ownership ?? null)
   } else {
