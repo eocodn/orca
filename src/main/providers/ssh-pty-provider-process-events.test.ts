@@ -172,20 +172,43 @@ describe('SshPtyProvider process listings and events', () => {
     })
   })
 
-  it('keeps fallback admission identity stable when spawn metadata arrives later', async () => {
+  it('replaces a provisional fallback identity when spawn metadata arrives later', async () => {
     const dataHandler = vi.fn()
+    const exitHandler = vi.fn()
     provider.onData(dataHandler)
+    provider.onExit(exitHandler)
     const notify = mux.onNotification.mock.calls[0][0]
 
     notify('pty.data', { id: 'pty-1', data: 'before-response' })
     mux.request.mockResolvedValue({ id: 'pty-1', incarnationId: 'incarnation-1' })
     await provider.spawn({ cols: 80, rows: 24 })
     notify('pty.data', { id: 'pty-1', data: 'after-response' })
+    notify('pty.exit', { id: 'pty-1', code: 0 })
 
     expect(dataHandler.mock.calls.map(([payload]) => payload.ptyIncarnation)).toEqual([
       'legacy:1:1:pty-1',
-      'legacy:1:1:pty-1'
+      'incarnation-1'
     ])
+    expect(exitHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ptyIncarnation: 'legacy:1:1:pty-1'
+      })
+    )
+  })
+
+  it('retires a legacy PTY when its exit arrives without an incarnation', () => {
+    const exitHandler = vi.fn()
+    provider.onExit(exitHandler)
+    const notify = mux.onNotification.mock.calls[0][0]
+
+    notify('pty.data', { id: 'pty-1', data: 'legacy-output' })
+    notify('pty.exit', { id: 'pty-1', code: 0 })
+
+    expect(exitHandler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ptyIncarnation: 'legacy:1:1:pty-1'
+      })
+    )
   })
 
   it('supports listener removal, fanout, and connection namespaces', () => {

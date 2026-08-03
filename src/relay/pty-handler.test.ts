@@ -1729,6 +1729,28 @@ describe('PtyHandler', () => {
     expect(dispatcher.notify).not.toHaveBeenCalledWith('pty.data', expect.anything())
   })
 
+  it('includes the authoritative incarnation on an unsuppressed attach replay', async () => {
+    let dataCallback: ((data: string) => void) | undefined
+    mockPtySpawn.mockReturnValue({
+      ...mockPtyInstance,
+      onData: vi.fn((cb: (data: string) => void) => {
+        dataCallback = cb
+      }),
+      onExit: vi.fn()
+    })
+
+    const spawn = await spawnPty()
+    dataCallback!('buffered output')
+
+    await attachPty({ id: 'pty-1' })
+
+    expect(dispatcher.notify).toHaveBeenCalledWith('pty.replay', {
+      id: 'pty-1',
+      data: 'buffered output',
+      incarnationId: spawn.incarnationId
+    })
+  })
+
   it('suppresses legacy replay after the V1 owner is already active', async () => {
     let dataCallback: ((data: string) => void) | undefined
     mockPtySpawn.mockReturnValue({

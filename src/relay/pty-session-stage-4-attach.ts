@@ -97,7 +97,11 @@ export abstract class PtyHandlerStage4Attach extends PtyHandlerStage3 {
           ...(sourceActivation ? { sourceActivation } : {})
         }
       }
-      this.dispatcher.notify('pty.replay', { id, data: replay })
+      this.dispatcher.notify('pty.replay', {
+        id,
+        data: replay,
+        incarnationId: managed.incarnationId
+      })
     }
     return {
       incarnationId: managed.incarnationId,

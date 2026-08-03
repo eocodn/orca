@@ -1,4 +1,5 @@
 import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
+import { isPtyIncarnationId } from '../../shared/pty-incarnation'
 import type {
   SshPtyDataCallback,
   SshPtyDeliveryPauseAdapter,
@@ -17,6 +18,7 @@ export class SshPtyProviderOutputState {
   private readonly replayListeners = new Set<SshPtyReplayCallback>()
   private readonly exitListeners = new Set<SshPtyExitCallback>()
   private readonly incarnationByRelayPtyId = new Map<string, string>()
+  private readonly legacyIncarnationByRelayPtyId = new Map<string, string>()
   private readonly pausedRelayPtyIds = new Set<string>()
   private deliveryPauseAdapter: SshPtyDeliveryPauseAdapter | null = null
   private legacyIncarnationSerial = 1
@@ -39,17 +41,26 @@ export class SshPtyProviderOutputState {
       providerGeneration,
       resolvePtyIncarnation: (relayPtyId, incarnationId) =>
         this.resolvePtyIncarnation(relayPtyId, incarnationId),
+      resolvePtyExitIncarnation: (relayPtyId, incarnationId) =>
+        this.resolvePtyExitIncarnation(relayPtyId, incarnationId),
       recordExit: (relayPtyId, incarnationId) => {
         const currentIncarnation = this.incarnationByRelayPtyId.get(relayPtyId)
-        if (
-          currentIncarnation !== undefined &&
-          (typeof incarnationId !== 'string' || incarnationId !== currentIncarnation)
-        ) {
-          return false
+        if (isPtyIncarnationId(incarnationId)) {
+          if (currentIncarnation !== undefined && incarnationId !== currentIncarnation) {
+            return false
+          }
+          args.recordExit(relayPtyId, incarnationId)
+          this.incarnationByRelayPtyId.delete(relayPtyId)
+          this.legacyIncarnationByRelayPtyId.delete(relayPtyId)
+          this.pausedRelayPtyIds.delete(relayPtyId)
+          return true
         }
         args.recordExit(relayPtyId, incarnationId)
-        this.incarnationByRelayPtyId.delete(relayPtyId)
-        this.pausedRelayPtyIds.delete(relayPtyId)
+        if (currentIncarnation?.startsWith('legacy:') || currentIncarnation === undefined) {
+          this.incarnationByRelayPtyId.delete(relayPtyId)
+          this.legacyIncarnationByRelayPtyId.delete(relayPtyId)
+          this.pausedRelayPtyIds.delete(relayPtyId)
+        }
         return true
       }
     })
@@ -63,6 +74,7 @@ export class SshPtyProviderOutputState {
     this.replayListeners.clear()
     this.exitListeners.clear()
     this.incarnationByRelayPtyId.clear()
+    this.legacyIncarnationByRelayPtyId.clear()
     this.deliveryPauseAdapter = null
   }
 
@@ -118,11 +130,11 @@ export class SshPtyProviderOutputState {
   }
 
   rememberPtyIncarnation(relayPtyId: string, incarnationId: unknown): void {
-    if (
-      !this.incarnationByRelayPtyId.has(relayPtyId) &&
-      typeof incarnationId === 'string' &&
-      incarnationId.length > 0
-    ) {
+    if (!isPtyIncarnationId(incarnationId)) {
+      return
+    }
+    const currentIncarnation = this.incarnationByRelayPtyId.get(relayPtyId)
+    if (currentIncarnation === undefined || currentIncarnation.startsWith('legacy:')) {
       this.incarnationByRelayPtyId.set(relayPtyId, incarnationId)
     }
   }
@@ -133,8 +145,28 @@ export class SshPtyProviderOutputState {
     if (!resolved) {
       resolved = `legacy:${this.providerGeneration}:${this.legacyIncarnationSerial++}:${relayPtyId}`
       this.incarnationByRelayPtyId.set(relayPtyId, resolved)
+      this.legacyIncarnationByRelayPtyId.set(relayPtyId, resolved)
     }
     return resolved
+  }
+
+  private resolvePtyExitIncarnation(relayPtyId: string, incarnationId: unknown): string {
+    if (isPtyIncarnationId(incarnationId)) {
+      this.rememberPtyIncarnation(relayPtyId, incarnationId)
+      return incarnationId
+    }
+    const currentIncarnation = this.incarnationByRelayPtyId.get(relayPtyId)
+    if (currentIncarnation?.startsWith('legacy:')) {
+      return currentIncarnation
+    }
+    const previousLegacyIncarnation = this.legacyIncarnationByRelayPtyId.get(relayPtyId)
+    if (previousLegacyIncarnation) {
+      return previousLegacyIncarnation
+    }
+    // Why: an unversioned exit must carry synthetic evidence downstream so SSH can prove that a same-id replacement is live.
+    const generated = `legacy:${this.providerGeneration}:${this.legacyIncarnationSerial++}:${relayPtyId}`
+    this.legacyIncarnationByRelayPtyId.set(relayPtyId, generated)
+    return generated
   }
 
   private resumePausedDeliveries(): void {
