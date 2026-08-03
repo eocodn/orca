@@ -114,6 +114,22 @@ describe('MobileRelayRpcStreams failure parity', () => {
     expect(sendFrame).not.toHaveBeenCalled()
   })
 
+  it('can dispose an old terminal registration without sending its unsubscribe', async () => {
+    const sendFrame = vi.fn(() => true)
+    const streams = new MobileRelayRpcStreams({
+      nextId: () => 'stream-1',
+      sendFrame,
+      waitForConnected: async () => {}
+    })
+    const cancel = streams.subscribe('terminal.subscribe', { terminal: 'term-1' }, vi.fn())
+    await Promise.resolve()
+    sendFrame.mockClear()
+
+    cancel({ suppressServerUnsubscribe: true })
+
+    expect(sendFrame).not.toHaveBeenCalled()
+  })
+
   it('does not send or emit after session clear settles a connection wait', async () => {
     const listener = vi.fn()
     const sendFrame = vi.fn(() => true)

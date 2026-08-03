@@ -119,7 +119,7 @@ export function createRpcConnectionLifecycle(deps: Dependencies) {
       session.sharedKey = null
       // Why: close cleanup stale-bails here, so mark active streams for replay.
       markStreamsForReplay()
-      rejectAllPending(reason)
+      rejectAllPending(reason, { deliveryUnknown: true })
       if (closing) {
         closing.close()
       }
@@ -137,7 +137,7 @@ export function createRpcConnectionLifecycle(deps: Dependencies) {
     session.ws?.close()
     session.ws = null
     setState('auth-failed')
-    rejectAllPending(reason)
+    rejectAllPending(reason, { deliveryUnknown: true })
   }
 
   function scheduleReconnect() {

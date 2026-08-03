@@ -1,5 +1,6 @@
 import type { ConnectionState, RpcResponse } from './types'
 import type { RpcClient } from './rpc-client'
+import type { SubscriptionDisposeOptions } from './rpc-client-connection-contracts'
 
 export type MobileConnectionPath = 'lan' | 'tailscale' | 'relay'
 
@@ -22,7 +23,7 @@ type SubscriptionRecord = {
   params: unknown
   listener: (result: unknown) => void
   options?: Parameters<RpcClient['subscribe']>[3]
-  disposePhysical: (() => void) | null
+  disposePhysical: ((options?: SubscriptionDisposeOptions) => void) | null
   cancelled: boolean
 }
 
@@ -203,7 +204,8 @@ export function createStableLogicalRpcClient(
       for (const record of subscriptions.values()) {
         const disposePrevious = record.disposePhysical
         attachSubscription(record, nextSession, nextGeneration)
-        disposePrevious?.()
+        // Why: the old registration is cleaned by closing its physical connection.
+        disposePrevious?.({ suppressServerUnsubscribe: true })
       }
       generation = nextGeneration
       activeSession = nextSession

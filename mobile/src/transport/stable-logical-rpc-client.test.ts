@@ -13,6 +13,7 @@ class FakeSession implements RpcClient {
       (method: string, params?: unknown, options?: { timeoutMs?: number }) => Promise<RpcResponse>
     >()
   readonly subscribe = vi.fn<RpcClient['subscribe']>()
+  readonly disposeOptions: unknown[] = []
   readonly updateTerminalSubscriptionViewport =
     vi.fn<RpcClient['updateTerminalSubscriptionViewport']>()
   readonly notifyForeground = vi.fn()
@@ -25,7 +26,10 @@ class FakeSession implements RpcClient {
     this.state = state
     this.subscribe.mockImplementation((_method, _params, listener) => {
       this.streamListeners.add(listener)
-      return () => this.streamListeners.delete(listener)
+      return (options?: unknown) => {
+        this.disposeOptions.push(options)
+        this.streamListeners.delete(listener)
+      }
     })
   }
 
@@ -90,6 +94,7 @@ describe('stable logical RPC client', () => {
       expect.any(Function),
       undefined
     )
+    expect(oldSession.disposeOptions).toEqual([{ suppressServerUnsubscribe: true }])
     expect(oldSession.close).toHaveBeenCalledOnce()
     expect(client.getActivePath()).toBe('relay')
     expect(client.getGeneration()).toBe(2)

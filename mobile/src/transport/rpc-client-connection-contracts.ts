@@ -22,6 +22,10 @@ export type SubscribeOptions = {
   onBinaryFrame?: (frame: BrowserScreencastFrame) => void
 }
 
+export type SubscriptionDisposeOptions = {
+  suppressServerUnsubscribe?: boolean
+}
+
 export type StreamingListener = (result: unknown) => void
 
 export type StreamRequest = {
@@ -45,7 +49,7 @@ export type RpcClient = {
     params: unknown,
     onData: StreamingListener,
     options?: SubscribeOptions
-  ) => () => void
+  ) => (options?: SubscriptionDisposeOptions) => void
   updateTerminalSubscriptionViewport: (
     terminal: string,
     viewport: { cols: number; rows: number }

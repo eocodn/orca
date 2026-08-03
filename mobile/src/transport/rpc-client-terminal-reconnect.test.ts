@@ -160,4 +160,20 @@ describe('rpc-client terminal reconnect streams', () => {
     })
     client.close()
   })
+
+  it('disposes an old terminal registration without unsubscribing the replacement', () => {
+    const client = connect('ws://desktop.invalid', 'token', 'server-key')
+    const socket = mockSockets[0]!
+    authenticate(socket)
+
+    const unsubscribe = client.subscribe(
+      'terminal.subscribe',
+      { terminal: 'term-1', client: { id: 'phone-1', type: 'mobile' } },
+      () => {}
+    )
+    unsubscribe({ suppressServerUnsubscribe: true })
+
+    expect(sentRequests(socket, 'terminal.unsubscribe')).toHaveLength(0)
+    client.close()
+  })
 })

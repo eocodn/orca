@@ -7,7 +7,8 @@ import type {
   SendRequestOptions,
   StreamRequest,
   StreamingListener,
-  SubscribeOptions
+  SubscribeOptions,
+  SubscriptionDisposeOptions
 } from './rpc-client-connection-contracts'
 
 const REQUEST_TIMEOUT_MS = 30_000
@@ -175,7 +176,7 @@ export function createRpcClientApi(deps: ApiDependencies): RpcClient {
         })
       }
 
-      return () => {
+      return (disposeOptions?: SubscriptionDisposeOptions) => {
         const stream = streamListeners.get(id)
         if (stream?.method === 'browser.screencast') {
           disposeBrowserScreencastStream(id)
@@ -188,7 +189,7 @@ export function createRpcClientApi(deps: ApiDependencies): RpcClient {
         if (stream?.method === 'terminal.subscribe') {
           // Why: server keys cleanup by composite `${terminal}:${clientId}` so two phones don't evict each other. See docs/mobile-presence-lock.md.
           const unsubscribeParams = buildTerminalUnsubscribeParams(stream.params)
-          if (unsubscribeParams) {
+          if (unsubscribeParams && !disposeOptions?.suppressServerUnsubscribe) {
             sendEncrypted({
               id: nextId(),
               deviceToken,

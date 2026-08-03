@@ -8,6 +8,7 @@ import {
   updateTerminalSubscriptionViewport
 } from './rpc-client-terminal-subscription'
 import type { RpcClient } from './rpc-client'
+import type { SubscriptionDisposeOptions } from './rpc-client-connection-contracts'
 import type { RpcResponse, RpcSuccess } from './types'
 
 type StreamRecord = {
@@ -65,7 +66,7 @@ export class MobileRelayRpcStreams {
         const message = error instanceof Error ? error.message : 'Connection interrupted'
         this.fail(id, stream, message, error)
       })
-    return () => this.cancel(id)
+    return (options?: SubscriptionDisposeOptions) => this.cancel(id, options)
   }
 
   updateTerminalViewport(terminal: string, viewport: { cols: number; rows: number }): void {
@@ -129,7 +130,7 @@ export class MobileRelayRpcStreams {
     this.activeBrowserStream = null
   }
 
-  private cancel(id: string): void {
+  private cancel(id: string, options?: SubscriptionDisposeOptions): void {
     const stream = this.streams.get(id)
     if (!stream || stream.cancelled) {
       return
@@ -137,7 +138,7 @@ export class MobileRelayRpcStreams {
     stream.cancelled = true
     if (stream.method === 'terminal.subscribe') {
       const params = buildTerminalUnsubscribeParams(stream.params)
-      if (params) {
+      if (params && !options?.suppressServerUnsubscribe) {
         this.options.sendFrame({
           id: this.options.nextId(),
           method: 'terminal.unsubscribe',

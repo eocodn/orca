@@ -66,6 +66,18 @@ function hasSentRequest(socket: MockWebSocket, method: string): boolean {
   )
 }
 
+function sentRequestId(socket: MockWebSocket, method: string): string {
+  const request = socket.sent
+    .map(
+      (payload) => JSON.parse(payload.replace(/^encrypted:/, '')) as { id: string; method: string }
+    )
+    .find((candidate) => candidate.method === method)
+  if (!request) {
+    throw new Error(`Request not sent: ${method}`)
+  }
+  return request.id
+}
+
 function connectAuthenticated(): { client: ReturnType<typeof connect>; socket: MockWebSocket } {
   const client = connect('ws://desktop.invalid', 'token', 'server-key')
   const socket = mockSockets[0]!
@@ -141,6 +153,31 @@ describe('mobile rpc-client delivery ambiguity marking', () => {
     const error = await requestError
     expect(error).toMatchObject({ message: 'Request timed out: terminal.send' })
     expect(isRpcDeliveryUnknown(error)).toBe(true)
+    client.close()
+  })
+
+  it('marks already-written requests as delivery-unknown when auth recovery invalidates them', async () => {
+    const { client, socket } = connectAuthenticated()
+    const mutationError = client
+      .sendRequest('terminal.send', { terminal: 't' })
+      .catch((error: Error) => error)
+    const authError = client.sendRequest('status.get').catch((error: Error) => error)
+    await Promise.resolve()
+    expect(hasSentRequest(socket, 'terminal.send')).toBe(true)
+    expect(hasSentRequest(socket, 'status.get')).toBe(true)
+
+    socket.receive(
+      `encrypted:${JSON.stringify({
+        id: sentRequestId(socket, 'status.get'),
+        ok: false,
+        error: { code: 'unauthorized', message: 'Unauthorized' }
+      })}`
+    )
+
+    const mutation = await mutationError
+    const auth = await authError
+    expect(isRpcDeliveryUnknown(mutation)).toBe(true)
+    expect(isRpcDeliveryUnknown(auth)).toBe(true)
     client.close()
   })
 
