@@ -197,12 +197,16 @@ export function flushRemoteTerminalOutputAcknowledgement(multiplexer: RemoteRunt
   }
 
 
-  getStreamsForE2e(): Iterable<RemoteRuntimeMultiplexedTerminalState> {
+export function getRemoteTerminalStreamsForE2e(
+  multiplexer: RemoteRuntimeTerminalMultiplexer
+): Iterable<RemoteRuntimeMultiplexedTerminalState> {
     return multiplexer.streams.values()
   }
 
 
-  releaseHeldAcksForE2e(): number {
+export function releaseRemoteTerminalHeldAcksForE2e(
+  multiplexer: RemoteRuntimeTerminalMultiplexer
+): number {
     let released = 0
     for (const stream of multiplexer.streams.values()) {
       if (stream.heldAckBytes <= 0) {
@@ -218,7 +222,11 @@ export function flushRemoteTerminalOutputAcknowledgement(multiplexer: RemoteRunt
   }
 
 
-  sendInputForE2e(terminal: string, text: string): number {
+export function sendRemoteTerminalInputForE2e(
+  multiplexer: RemoteRuntimeTerminalMultiplexer,
+  terminal: string,
+  text: string
+): number {
     let sent = 0
     for (const stream of multiplexer.streams.values()) {
       if (stream.terminal === terminal && multiplexer.sendInput(stream, text)) {
