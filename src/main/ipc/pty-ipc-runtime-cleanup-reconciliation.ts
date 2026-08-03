@@ -139,10 +139,10 @@ export function clearSupersededPtyLifecycle(id: string, pending: CleanupPendingP
     pending.incarnationId !== undefined &&
     (ptyRuntimeState.ptyIncarnationById.get(id) === pending.incarnationId ||
       ptyRuntimeState.pendingPtyIncarnationById.get(id) === pending.incarnationId)
-  if (
-    (stateToken !== undefined && ptyRuntimeState.ptyStateTokenById.get(id) === stateToken) ||
-    failedIncarnationStillOwnsState
-  ) {
+  if (stateToken !== undefined && ptyRuntimeState.ptyStateTokenById.get(id) !== stateToken) {
+    return
+  }
+  if (stateToken !== undefined || failedIncarnationStillOwnsState) {
     // Why: inventory proved a replacement owns the id; remove only the failed staged lifecycle before its exit can fence the replacement.
     clearProviderPtyState(id)
     return
@@ -472,6 +472,8 @@ export function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
 
 export function restorePtyPublication(snapshot: PtyPublicationSnapshot): void {
   ptyRuntimeState.pendingPtyIncarnationById.delete(snapshot.id)
+  // Why: the restored publication is authoritative again, including for providers that omit incarnation ids.
+  ptyRuntimeState.clearedPtyLifecycleIds.delete(snapshot.id)
   const currentSnapshotPaneOwner = snapshot.paneKey
     ? ptyRuntimeState.paneKeyPtyId.get(snapshot.paneKey)
     : undefined

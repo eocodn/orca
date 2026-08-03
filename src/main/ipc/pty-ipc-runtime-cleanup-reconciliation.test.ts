@@ -2,9 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makePaneKey } from '../../shared/stable-pane-id'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import { rememberPaneKeyForPty } from './pty-ipc-runtime-pane-state'
+import { isCurrentPtyExit } from './pty-ipc-runtime-provider-routing'
 
+const { clearProviderPtyStateMock } = vi.hoisted(() => ({
+  clearProviderPtyStateMock: vi.fn()
+}))
 vi.mock('./pty-ipc-runtime-provider-lifecycle-state', () => ({
-  clearProviderPtyState: vi.fn()
+  clearProviderPtyState: clearProviderPtyStateMock
 }))
 
 const PTY_ID = 'pty-publication-restore'
@@ -21,6 +25,7 @@ describe('pty publication cleanup reconciliation', () => {
     ptyRuntimeState.ptySizes.clear()
     ptyRuntimeState.ptyPaneKey.clear()
     ptyRuntimeState.paneKeyPtyId.clear()
+    ptyRuntimeState.clearedPtyLifecycleIds.clear()
   })
 
   afterEach(() => {
@@ -31,6 +36,8 @@ describe('pty publication cleanup reconciliation', () => {
     ptyRuntimeState.ptySizes.clear()
     ptyRuntimeState.ptyPaneKey.clear()
     ptyRuntimeState.paneKeyPtyId.clear()
+    ptyRuntimeState.clearedPtyLifecycleIds.clear()
+    clearProviderPtyStateMock.mockClear()
   })
 
   it('restores the prior PTY pane publication and removes the failed reverse mapping', async () => {
@@ -63,5 +70,51 @@ describe('pty publication cleanup reconciliation', () => {
     expect(ptyRuntimeState.ptyPaneKey.get(PTY_ID)).toBeUndefined()
     expect(ptyRuntimeState.ptyPaneKey.get(NEWER_PTY_ID)).toBe(OLD_PANE_KEY)
     expect(ptyRuntimeState.paneKeyPtyId.get(OLD_PANE_KEY)).toBe(NEWER_PTY_ID)
+  })
+
+  it('preserves a newer state token when a failed snapshot shares the replacement incarnation', async () => {
+    const { clearSupersededPtyLifecycle } = await import(
+      './pty-ipc-runtime-cleanup-reconciliation'
+    )
+    const failedStateToken = Symbol('failed-state')
+    const newerStateToken = Symbol('replacement-state')
+    const incarnationId = 'same-id-replacement-incarnation'
+    ptyRuntimeState.ptyIncarnationById.set(PTY_ID, incarnationId)
+    ptyRuntimeState.ptyStateTokenById.set(PTY_ID, newerStateToken)
+
+    clearSupersededPtyLifecycle(PTY_ID, {
+      provider: {} as never,
+      providerConnectionId: null,
+      providerGeneration: undefined,
+      incarnationId,
+      failedStateToken,
+      publicationSnapshot: {
+        id: PTY_ID,
+        ownershipPresent: false,
+        ownership: undefined,
+        incarnation: incarnationId,
+        stateToken: failedStateToken,
+        size: undefined,
+        paneKey: undefined,
+        paneKeyReverseOwner: undefined
+      }
+    })
+
+    expect(clearProviderPtyStateMock).not.toHaveBeenCalled()
+    expect(ptyRuntimeState.ptyStateTokenById.get(PTY_ID)).toBe(newerStateToken)
+    expect(ptyRuntimeState.ptyIncarnationById.get(PTY_ID)).toBe(incarnationId)
+  })
+
+  it('allows a legitimate identity-less exit after restoring a lifecycle fence', async () => {
+    const { restorePtyPublication, snapshotPtyPublication } = await import(
+      './pty-ipc-runtime-cleanup-reconciliation'
+    )
+    const snapshot = snapshotPtyPublication(PTY_ID)
+    ptyRuntimeState.clearedPtyLifecycleIds.add(PTY_ID)
+
+    restorePtyPublication(snapshot)
+
+    expect(ptyRuntimeState.clearedPtyLifecycleIds.has(PTY_ID)).toBe(false)
+    expect(isCurrentPtyExit({ id: PTY_ID })).toBe(true)
   })
 })
