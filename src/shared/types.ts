@@ -16,7 +16,36 @@ export type {
 } from './git-status-types'
 
 export * from './types-repository'
-export * from './types-worktree'
+export type {
+  GitWorktreeInfo,
+  WorktreeHeadIdentity,
+  WorkspaceStatus,
+  WorkspaceStatusDefinition,
+  Worktree,
+  CliWorkspaceProvenance,
+  AutomationWorkspaceProvenance,
+  AutomationWorkspaceProvenanceRequest,
+  GitPushTarget,
+  GitHubPrStartPoint,
+  WorktreeMeta,
+  WorktreeOwnership,
+  DetectedWorktreeListSource,
+  DetectedWorktree,
+  DetectedWorktreeListResult,
+  WorktreeLineageOrigin,
+  WorktreeLineageCaptureConfidence,
+  WorktreeLineageCaptureSource,
+  WorktreeLineageCapture,
+  WorktreeLineage,
+  WorkspaceLineage,
+  WorktreeLineageWarningCode,
+  WorktreeLineageWarning,
+  DiffCommentSource,
+  DiffReviewScope,
+  MobileDiffReviewFileState,
+  MobileDiffReviewState,
+  DiffComment
+} from './types-worktree'
 export * from './types-tabs'
 export * from './types-github-review'
 export * from './types-linear-mutations'
