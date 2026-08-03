@@ -110,6 +110,27 @@ describe('pty provider lifecycle state', () => {
     )
   })
 
+  it('rejects a provider whose generation changes while spawn is awaited', async () => {
+    const {
+      capturePtyProviderIdentity,
+      assertPtyProviderIdentityCurrent
+    } = await import('./pty-ipc-runtime-provider-lifecycle-state')
+    const preparedProvider = { providerGeneration: 12 } as never
+    ptyRuntimeState.localProvider = preparedProvider
+
+    const identity = capturePtyProviderIdentity(null)
+    const spawn = async (): Promise<void> => {
+      ;(preparedProvider as { providerGeneration: number }).providerGeneration = 13
+      await Promise.resolve()
+    }
+
+    await spawn()
+
+    expect(() => assertPtyProviderIdentityCurrent(identity)).toThrow(
+      'pty_provider_changed_during_spawn_preparation'
+    )
+  })
+
   it('returns the token created at the commit publication boundary', async () => {
     const { commitPtyIncarnation, stagePtyIncarnation } = await import(
       './pty-ipc-runtime-provider-lifecycle-state'

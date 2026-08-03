@@ -105,6 +105,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
               const spawnedProviderResult = await provider.spawn(spawnOptions)
               providerResult = spawnedProviderResult
               rejectedRegistrationCandidate = spawnedProviderResult
+              assertPtyProviderIdentityCurrent(providerIdentity)
               if (spawnedProviderResult.id === providerSpawnPtyId) {
                 assertPtyCleanupComplete(spawnedProviderResult.id, cleanupAuthorityBeforeProviderSpawn)
               }
@@ -141,6 +142,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
               return await isProviderAgentSessionOwnerLive(ownerProvider, owner)
             }
           })
+          assertPtyProviderIdentityCurrent(providerIdentity)
           result = providerResult ?? {
             id: ensured.owner.ptyId,
             isReattach: true,
@@ -155,6 +157,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
           assertPtyProviderIdentityCurrent(providerIdentity)
           result = await provider.spawn(spawnOptions)
           rejectedRegistrationCandidate = result
+          assertPtyProviderIdentityCurrent(providerIdentity)
           if (expectedPtyId === result.id) {
             assertPtyCleanupComplete(result.id, cleanupAuthorityBeforeProviderSpawn)
           }

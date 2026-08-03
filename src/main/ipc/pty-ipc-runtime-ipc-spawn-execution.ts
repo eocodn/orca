@@ -83,6 +83,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
         assertPtyProviderIdentityCurrent(providerIdentity)
         result = await provider.spawn(spawnOptions)
         rejectedRegistrationCandidate = result
+        assertPtyProviderIdentityCurrent(providerIdentity)
         if (expectedPtyId === result.id) {
           assertPtyCleanupComplete(result.id, cleanupAuthorityBeforeProviderSpawn)
         }
