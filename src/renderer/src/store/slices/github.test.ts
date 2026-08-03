@@ -5599,6 +5599,36 @@ describe('createGitHubSlice.fetchWorkItems source/error envelope', () => {
     })
   })
 
+  it('fetches GitHub work items on a cache miss', async () => {
+    const store = createTestStore()
+    const item = {
+      type: 'issue',
+      number: 27,
+      title: 'Cache miss issue',
+      url: 'https://example.test/27',
+      updatedAt: '2026-05-22T00:00:00Z'
+    } as GitHubWorkItem
+    mockApi.gh.listWorkItems.mockResolvedValueOnce({
+      items: [item],
+      sources: {
+        issues: { owner: 'up', repo: 'r' },
+        prs: null,
+        originCandidate: null,
+        upstreamCandidate: null
+      }
+    })
+
+    await expect(
+      store.getState().fetchWorkItems('repo-id', '/local/repo', 24, '')
+    ).resolves.toEqual([{ ...item, repoId: 'repo-id' }])
+    expect(mockApi.gh.listWorkItems).toHaveBeenCalledWith({
+      repoPath: '/local/repo',
+      repoId: 'repo-id',
+      limit: 24,
+      query: undefined
+    })
+  })
+
   it('stores resolved sources on the cache entry for the indicator to read', async () => {
     // Why: parent design doc §1 suppression rule — the Tasks header indicator
     // consults `sources.issues` vs `sources.prs` on the cache entry. This is

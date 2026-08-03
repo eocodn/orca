@@ -69,6 +69,7 @@ import {
   getTaskSourceRuntimeSettings,
   type TaskSourceContext
 } from '../../../../shared/task-source-context'
+import { acquireWorkItemSlot } from './github-state'
 
 // ─── ProjectV2 cache types ────────────────────────────────────────────
 // Why: separate from CacheEntry<T> — project-view has a single GraphQL source (no issue/PR fallback) and a distinct error union.
