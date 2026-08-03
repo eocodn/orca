@@ -96,7 +96,7 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
       : 0
   const currentDaemonSessionIds =
     currentAdapter instanceof DegradedDaemonPtyProvider
-      ? currentAdapter.getCurrentDaemonSessionIds()
+      ? await currentAdapter.collectCurrentDaemonSessionIds()
       : []
   const killedCount =
     new Set([...currentOnly.getActiveSessionIds(), ...currentDaemonSessionIds]).size +

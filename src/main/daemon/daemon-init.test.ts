@@ -775,6 +775,38 @@ describe('daemon-init: runRestartDaemon (7-step sequence)', () => {
     expect(order).toEqual(['adapter-fanout', 'degraded-fanout', 'unbind'])
   })
 
+  it('includes authoritative current-daemon sessions absent from the degraded route map', async () => {
+    const mod = await importFresh()
+    ensureRunningOverrides.push(async () => ({
+      socketPath: '/fake/degraded-socket',
+      tokenPath: '/fake/degraded-token',
+      mode: 'degraded-new-pty-fallback'
+    }))
+    await mod.initDaemonPtyProvider()
+
+    const { DegradedDaemonPtyProvider } = await import('./degraded-daemon-pty-provider')
+    const provider = mod.getDaemonProvider()
+    expect(provider).toBeInstanceOf(DegradedDaemonPtyProvider)
+    const degradedProvider = provider as InstanceType<typeof DegradedDaemonPtyProvider>
+    const originalAdapter = adapterInstances[0]
+    originalAdapter.listProcesses.mockResolvedValueOnce([
+      {
+        id: 'authoritative-replacement',
+        incarnationId: 'replacement-incarnation',
+        cwd: '',
+        title: 'shell'
+      }
+    ])
+
+    const exits: string[] = []
+    degradedProvider.onExit(({ id }) => exits.push(id))
+
+    const result = await mod.restartDaemon()
+
+    expect(result.killedCount).toBe(1)
+    expect(exits).toEqual(['authoritative-replacement'])
+  })
+
   it('reuses the existing DaemonSpawner across restart (resetHandle + ensureRunning on same instance)', async () => {
     const mod = await importFresh()
     await mod.initDaemonPtyProvider()

@@ -7,9 +7,9 @@ import type { PtyProcessInspection } from '../providers/pty-process-inspection'
 type ProviderMock = IPtyProvider & {
   probePtyLiveness: (id: string) => Promise<boolean | null>
   inspectProcess: (id: string) => Promise<PtyProcessInspection>
-  emitData: (id: string, data: string, sequenceChars?: number) => void
+  emitData: (id: string, data: string, sequenceChars?: number, incarnationId?: string) => void
   emitReplay: (id: string, data: string) => void
-  emitExit: (id: string, code: number) => void
+  emitExit: (id: string, code: number, incarnationId?: string) => void
   triggerWriteUnavailable: (id: string) => void
   onWriteUnavailable: (callback: (payload: { id: string }) => void) => () => void
 }
@@ -19,10 +19,15 @@ function createProvider(
   sessions: string[] = [],
   authoritativeOwnerListings = false
 ): ProviderMock {
-  const dataListeners: ((payload: { id: string; data: string; sequenceChars?: number }) => void)[] =
-    []
+  const dataListeners: ((payload: {
+    id: string
+    data: string
+    sequenceChars?: number
+    incarnationId?: string
+  }) => void)[] = []
   const replayListeners: ((payload: { id: string; data: string }) => void)[] = []
-  const exitListeners: ((payload: { id: string; code: number }) => void)[] = []
+  const exitListeners: ((payload: { id: string; code: number; incarnationId?: string }) => void)[] =
+    []
   const writeUnavailableListeners: ((payload: { id: string }) => void)[] = []
   return {
     spawn: vi.fn(async (opts: PtySpawnOptions): Promise<PtySpawnResult> => {
@@ -57,7 +62,14 @@ function createProvider(
     getDefaultShell: vi.fn(async () => '/bin/zsh'),
     getProfiles: vi.fn(async () => []),
     onData: vi.fn(
-      (callback: (payload: { id: string; data: string; sequenceChars?: number }) => void) => {
+      (
+        callback: (payload: {
+          id: string
+          data: string
+          sequenceChars?: number
+          incarnationId?: string
+        }) => void
+      ) => {
         dataListeners.push(callback)
         return () => {
           const idx = dataListeners.indexOf(callback)
@@ -76,18 +88,25 @@ function createProvider(
         }
       }
     }),
-    onExit: vi.fn((callback: (payload: { id: string; code: number }) => void) => {
-      exitListeners.push(callback)
-      return () => {
-        const idx = exitListeners.indexOf(callback)
-        if (idx !== -1) {
-          exitListeners.splice(idx, 1)
+    onExit: vi.fn(
+      (callback: (payload: { id: string; code: number; incarnationId?: string }) => void) => {
+        exitListeners.push(callback)
+        return () => {
+          const idx = exitListeners.indexOf(callback)
+          if (idx !== -1) {
+            exitListeners.splice(idx, 1)
+          }
         }
       }
-    }),
-    emitData: (id: string, data: string, sequenceChars?: number) => {
+    ),
+    emitData: (id: string, data: string, sequenceChars?: number, incarnationId?: string) => {
       for (const listener of dataListeners) {
-        listener({ id, data, ...(sequenceChars === undefined ? {} : { sequenceChars }) })
+        listener({
+          id,
+          data,
+          ...(sequenceChars === undefined ? {} : { sequenceChars }),
+          ...(incarnationId === undefined ? {} : { incarnationId })
+        })
       }
     },
     emitReplay: (id: string, data: string) => {
@@ -95,9 +114,9 @@ function createProvider(
         listener({ id, data })
       }
     },
-    emitExit: (id: string, code: number) => {
+    emitExit: (id: string, code: number, incarnationId?: string) => {
       for (const listener of exitListeners) {
-        listener({ id, code })
+        listener({ id, code, ...(incarnationId === undefined ? {} : { incarnationId }) })
       }
     },
     onWriteUnavailable: vi.fn((callback: (payload: { id: string }) => void) => {
@@ -242,6 +261,34 @@ describe('DegradedDaemonPtyProvider', () => {
       cols: 80,
       rows: 24
     })
+  })
+
+  it('does not let a stale provider exit delete a replacement route or incarnation', async () => {
+    const current = createDaemonAdapter('daemon', ['same-id'])
+    const fallback = createProvider('fallback')
+    const provider = new DegradedDaemonPtyProvider({ current, legacy: [], fallback })
+
+    await provider.discoverDaemonSessions()
+    current.emitData('same-id', 'original', undefined, 'current-incarnation')
+    current.emitExit('same-id', 0, 'stale-daemon-incarnation')
+    expect(
+      (provider as unknown as { sessionProviders: Map<string, IPtyProvider> }).sessionProviders.get(
+        'same-id'
+      )
+    ).toBe(current)
+    current.emitExit('same-id', 0, 'current-incarnation')
+    await provider.spawn({ sessionId: 'same-id', cols: 80, rows: 24 })
+    fallback.emitData('same-id', 'replacement', undefined, 'fallback-incarnation')
+    current.emitExit('same-id', 0)
+    expect(
+      (provider as unknown as { sessionProviders: Map<string, IPtyProvider> }).sessionProviders.get(
+        'same-id'
+      )
+    ).toBe(fallback)
+    provider.write('same-id', 'must-stay-on-fallback\n')
+
+    expect(fallback.write).toHaveBeenCalledWith('same-id', 'must-stay-on-fallback\n')
+    expect(current.write).not.toHaveBeenCalled()
   })
 
   it('caches a provider discovered by hasPty before routing later operations', () => {
@@ -416,6 +463,33 @@ describe('DegradedDaemonPtyProvider', () => {
     })
     expect(provider.getCurrentDaemonSessionIds()).toEqual([])
     expect(provider.hasPty('legacy-session')).toBe(true)
+  })
+
+  it('collects current-daemon synthetic-exit targets from authoritative inventory', async () => {
+    const current = createDaemonAdapter('daemon')
+    const fallback = createProvider('fallback')
+    const provider = new DegradedDaemonPtyProvider({ current, legacy: [], fallback })
+    const exitSpy = vi.fn()
+    provider.onExit(exitSpy)
+    vi.mocked(current.listProcesses).mockResolvedValue([
+      {
+        id: 'authoritative-live-session',
+        incarnationId: 'current-incarnation',
+        cwd: '',
+        title: 'daemon'
+      }
+    ])
+
+    await expect(provider.collectCurrentDaemonSessionIds()).resolves.toEqual([
+      'authoritative-live-session'
+    ])
+    provider.fanoutCurrentDaemonSyntheticExits(-1)
+
+    expect(exitSpy).toHaveBeenCalledWith({
+      id: 'authoritative-live-session',
+      code: -1,
+      incarnationId: 'current-incarnation'
+    })
   })
 
   it('keeps an exited legacy daemon poisoning listProcesses after construction', async () => {

@@ -31,6 +31,7 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     incarnationId?: string
   }) => void)[] = []
   private sessionIncarnations = new Map<string, string>()
+  private currentDaemonInventory = new Map<string, string | undefined>()
 
   constructor(opts: {
     current: DaemonPtyAdapter
@@ -44,14 +45,49 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     for (const provider of this.allProviders()) {
       this.unsubscribers.push(
         provider.onData((payload) => {
+          const mappedProvider = this.sessionProviders.get(payload.id)
+          const trackedIncarnation = this.sessionIncarnations.get(payload.id)
+          if (
+            (mappedProvider !== undefined && mappedProvider !== provider) ||
+            (mappedProvider === provider &&
+              payload.incarnationId !== undefined &&
+              trackedIncarnation !== undefined &&
+              trackedIncarnation !== payload.incarnationId)
+          ) {
+            return
+          }
           this.sessionIncarnations.set(payload.id, payload.incarnationId)
           for (const listener of this.dataListeners) {
             listener(payload)
           }
         }),
         provider.onExit((payload) => {
-          this.sessionProviders.delete(payload.id)
-          const incarnationId = payload.incarnationId ?? this.sessionIncarnations.get(payload.id)
+          const mappedProvider = this.sessionProviders.get(payload.id)
+          const trackedIncarnation = this.sessionIncarnations.get(payload.id)
+          if (mappedProvider !== undefined && mappedProvider !== provider) {
+            return
+          }
+          const incarnationMatches =
+            payload.incarnationId === undefined ||
+            trackedIncarnation === undefined ||
+            trackedIncarnation === payload.incarnationId
+          if (mappedProvider === provider && !incarnationMatches) {
+            // A stale exit may still reach the wrapper, but cannot retire the newer route.
+            const staleIncarnationId = payload.incarnationId
+            for (const listener of this.exitListeners) {
+              listener({
+                ...payload,
+                ...(staleIncarnationId ? { incarnationId: staleIncarnationId } : {})
+              })
+            }
+            return
+          }
+          if (mappedProvider === provider) {
+            this.sessionProviders.delete(payload.id)
+            this.currentDaemonInventory.delete(payload.id)
+            this.sessionIncarnations.delete(payload.id)
+          }
+          const incarnationId = payload.incarnationId ?? trackedIncarnation
           const exitPayload = {
             ...payload,
             ...(incarnationId ? { incarnationId } : {})
@@ -59,7 +95,6 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
           for (const listener of this.exitListeners) {
             listener(exitPayload)
           }
-          this.sessionIncarnations.delete(payload.id)
         })
       )
     }
@@ -71,6 +106,9 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
         const sessions = await adapter.listProcesses()
         for (const session of sessions) {
           this.sessionProviders.set(session.id, adapter)
+          if (adapter === this.current) {
+            this.currentDaemonInventory.set(session.id, session.incarnationId)
+          }
           if (session.incarnationId) {
             this.sessionIncarnations.set(session.id, session.incarnationId)
           } else {
@@ -329,6 +367,7 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   disposeProviderOnly(): void {
     combineUnsubscribes(this.unsubscribers.splice(0))()
     this.sessionIncarnations.clear()
+    this.currentDaemonInventory.clear()
   }
 
   async shutdownFallbackSessions(): Promise<number> {
@@ -336,19 +375,45 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   }
 
   getCurrentDaemonSessionIds(): string[] {
-    return listProviderSessionIds(this.sessionProviders, this.current)
+    return [
+      ...new Set([
+        ...listProviderSessionIds(this.sessionProviders, this.current),
+        ...this.currentDaemonInventory.keys()
+      ])
+    ]
+  }
+
+  async collectCurrentDaemonSessionIds(): Promise<string[]> {
+    const sessions = await this.current.listProcesses()
+    for (const session of sessions) {
+      this.currentDaemonInventory.set(session.id, session.incarnationId)
+      const mappedProvider = this.sessionProviders.get(session.id)
+      if (mappedProvider === undefined || mappedProvider === this.current) {
+        this.sessionProviders.set(session.id, this.current)
+        if (session.incarnationId) {
+          this.sessionIncarnations.set(session.id, session.incarnationId)
+        } else {
+          this.sessionIncarnations.delete(session.id)
+        }
+      }
+    }
+    return this.getCurrentDaemonSessionIds()
   }
 
   fanoutCurrentDaemonSyntheticExits(code: number): void {
     for (const id of this.getCurrentDaemonSessionIds()) {
-      this.sessionProviders.delete(id)
-      const incarnationId = this.sessionIncarnations.get(id)
+      const mappedProvider = this.sessionProviders.get(id)
+      const incarnationId = this.currentDaemonInventory.get(id) ?? this.sessionIncarnations.get(id)
       // Why: restart kills listed sessions even when the adapter did not track them active.
       // oxlint-disable-next-line unicorn/no-useless-spread -- copy-safe: listeners may unsubscribe during iteration
       for (const listener of [...this.exitListeners]) {
         listener({ id, code, ...(incarnationId ? { incarnationId } : {}) })
       }
-      this.sessionIncarnations.delete(id)
+      if (mappedProvider === this.current) {
+        this.sessionProviders.delete(id)
+        this.sessionIncarnations.delete(id)
+      }
+      this.currentDaemonInventory.delete(id)
     }
   }
 

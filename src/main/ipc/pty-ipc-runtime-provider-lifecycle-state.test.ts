@@ -176,4 +176,17 @@ describe('pty provider lifecycle state', () => {
     expect(clearProviderPtyStateIfCurrent(PTY_ID, currentToken)).toBe(false)
     expect(ptyRuntimeState.ptyIncarnationById.get(PTY_ID)).toBe('current-incarnation')
   })
+
+  it('keeps the current route state when a stale incarnation attempts cleanup', async () => {
+    const { clearProviderPtyStateIfCurrent } =
+      await import('./pty-ipc-runtime-provider-lifecycle-state')
+    const currentToken = Symbol('current')
+    ptyRuntimeState.ptyStateTokenById.set(PTY_ID, currentToken)
+    ptyRuntimeState.ptyIncarnationById.set(PTY_ID, 'current-incarnation')
+    ptyRuntimeState.ptyOwnership.set(PTY_ID, null)
+
+    expect(clearProviderPtyStateIfCurrent(PTY_ID, currentToken, 'stale-incarnation')).toBe(false)
+    expect(ptyRuntimeState.ptyOwnership.get(PTY_ID)).toBeNull()
+    expect(ptyRuntimeState.ptyIncarnationById.get(PTY_ID)).toBe('current-incarnation')
+  })
 })
