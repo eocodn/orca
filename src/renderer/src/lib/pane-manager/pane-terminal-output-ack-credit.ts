@@ -1,6 +1,12 @@
+import { runGuardedWriteCompletionStep } from './xterm-write-callback-guard'
+
 type TerminalOutputAckTarget = object
 
 const inFlightAckCompletions = new WeakMap<TerminalOutputAckTarget, Set<() => void>>()
+
+export function attemptTerminalOutputAckCredit(credit: () => void): void {
+  runGuardedWriteCompletionStep('terminal-output-ack-credit', credit)
+}
 
 /** Tracks credits after submission to xterm so pane disposal can treat its
  * unparsed write buffer as discarded instead of leaking main's ACK window. */
@@ -27,7 +33,7 @@ export function registerTerminalOutputAckCredits(
       inFlightAckCompletions.delete(terminal)
     }
     for (const credit of credits) {
-      credit()
+      attemptTerminalOutputAckCredit(credit)
     }
   }
   completions.add(complete)

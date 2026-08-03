@@ -8,6 +8,7 @@ import {
   recordQueueDebugPressure,
   scheduleDrain
 } from './pane-terminal-output-scheduler'
+import { attemptTerminalOutputAckCredit } from './pane-terminal-output-ack-credit'
 import {
   containsCursorRestore,
   containsDrainableCursorRestore,
@@ -287,7 +288,10 @@ export function enqueueChunk(
 // Why: every discard path MUST fire these before clearing/replacing the queue — a dropped chunk still counts as consumed, or main's in-flight window shrinks permanently and the PTY wedges.
 export function fireQueuedAckCredits(entry: QueueEntry): void {
   for (let index = entry.chunkIndex; index < entry.chunks.length; index += 1) {
-    entry.chunks[index].ackCredit?.()
+    const ackCredit = entry.chunks[index].ackCredit
+    if (ackCredit) {
+      attemptTerminalOutputAckCredit(ackCredit)
+    }
   }
 }
 
