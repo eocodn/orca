@@ -20,7 +20,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
     toSshExecutionHostId, isValidTerminalTabId, isTerminalLeafId, recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty, pendingByPaneKey, rendererSerializerReadiness, pendingPtyIdBySerializerGeneration,
     resolvePaneSpawnReservation, cleanUpFailedFreshSpawn, rejectPaneSpawnReservation, rollbackPtyIncarnation,
-    clearProviderPtyState, deletePtyOwnership, normalizeNodePtySpawnError,
+    clearProviderPtyStateIfCurrent, deletePtyOwnership, normalizeNodePtySpawnError,
     isSshPtyIdentityMismatchError, store, markClaudePtySpawned,
     getCohortAtEmit, agentKindSchema, launchSourceSchema, requestKindSchema, createTerminalSessionStateSaveFailureMessage,
     sendPtySpawnedToRenderer,
@@ -237,15 +237,32 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
             rawMessage.includes(SSH_SESSION_EXPIRED_ERROR))
         ) {
           if (effectiveSessionAppId !== undefined && !isIdentityMismatch) {
-            clearProviderPtyState(effectiveSessionAppId)
-            deletePtyOwnership(effectiveSessionAppId)
+            const cleared =
+              failedPublicationStateToken !== undefined
+                ? clearProviderPtyStateIfCurrent(
+                    effectiveSessionAppId,
+                    failedPublicationStateToken,
+                    rejectedRegistrationCandidate?.incarnationId
+                  )
+                : false
+            if (cleared) {
+              deletePtyOwnership(effectiveSessionAppId)
+            }
           }
           if (!isIdentityMismatch) {
             store?.markSshRemotePtyLease(args.connectionId, effectiveSessionRelayId, 'expired')
           }
         }
         if (isMintedSessionId && sessionId !== undefined) {
-          clearProviderPtyState(sessionId)
+          const expectedStateToken =
+            failedPublicationStateToken ?? publicationSnapshot?.stateToken
+          if (expectedStateToken !== undefined) {
+            clearProviderPtyStateIfCurrent(
+              sessionId,
+              expectedStateToken,
+              rejectedRegistrationCandidate?.incarnationId
+            )
+          }
         }
         if (!rawMessage.includes(SSH_SESSION_EXPIRED_ERROR) && publicationSnapshot) {
           restorePtyPublicationIfCurrent(publicationSnapshot, failedPublicationStateToken)
@@ -258,7 +275,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
       }
       if (result.agentSessionEnsure?.disposition === 'adopted') {
         const owner = result.agentSessionEnsure.owner
-        commitPtyIncarnation(result.id, result.incarnationId)
+        failedPublicationStateToken = commitPtyIncarnation(result.id, result.incarnationId)
         ptyOwnership.set(result.id, args.connectionId ?? ptyOwnership.get(result.id) ?? null)
         runtime?.registerPreAllocatedHandleForPty(result.id, owner.surface.terminalHandle)
         const registeredIncarnation = runtime?.registerPty(
@@ -411,7 +428,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
               : null
         })
       }
-      commitPtyIncarnation(result.id, result.incarnationId)
+      failedPublicationStateToken = commitPtyIncarnation(result.id, result.incarnationId)
       ptyOwnership.set(result.id, args.connectionId ?? null)
       ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
       pendingPtySizes.delete(result.id)

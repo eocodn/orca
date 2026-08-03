@@ -526,7 +526,7 @@ export function restorePtyPublicationIfCurrent(
 ): boolean {
   // Why: provider.spawn is awaited, so the lifecycle token fences stale restoration from same-id replacements.
   if (
-    expectedStateToken !== undefined &&
+    expectedStateToken === undefined ||
     ptyRuntimeState.ptyStateTokenById.get(snapshot.id) !== expectedStateToken
   ) {
     return false

@@ -37,6 +37,7 @@ import {
   stagePtyIncarnation,
   clearPtyOwnershipForConnection,
   clearProviderPtyState,
+  clearProviderPtyStateIfCurrent,
   unregisterSshPtyProvider
 } from './pty-ipc-runtime-provider-lifecycle-state'
 import {
@@ -161,6 +162,7 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     getPtyIdsForConnection,
     clearPtyOwnershipForConnection,
     clearProviderPtyState,
+    clearProviderPtyStateIfCurrent,
     deletePtyOwnership,
     setPtyOwnership,
     stagePtyIncarnation,

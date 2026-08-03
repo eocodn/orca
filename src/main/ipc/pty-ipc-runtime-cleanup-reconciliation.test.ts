@@ -91,6 +91,25 @@ describe('pty publication cleanup reconciliation', () => {
     expect(ptyRuntimeState.ptyOwnership.get(PTY_ID)).toBe('replacement-connection')
   })
 
+  it('does not restore an un-tokened snapshot', async () => {
+    const { restorePtyPublicationIfCurrent } = await import(
+      './pty-ipc-runtime-cleanup-reconciliation'
+    )
+
+    expect(
+      restorePtyPublicationIfCurrent({
+        id: PTY_ID,
+        ownershipPresent: false,
+        ownership: undefined,
+        incarnation: undefined,
+        stateToken: undefined,
+        size: undefined,
+        paneKey: undefined,
+        paneKeyReverseOwner: undefined
+      })
+    ).toBe(false)
+  })
+
   it('preserves a newer state token when a failed snapshot shares the replacement incarnation', async () => {
     const { clearSupersededPtyLifecycle } = await import(
       './pty-ipc-runtime-cleanup-reconciliation'

@@ -25,16 +25,17 @@ export function stagePtyIncarnation(id: string, incarnationId: string | undefine
   }
 }
 
-export function commitPtyIncarnation(id: string, incarnationId: string | undefined): void {
+export function commitPtyIncarnation(id: string, incarnationId: string | undefined): symbol {
   if (!incarnationId) {
     ptyRuntimeState.pendingPtyIncarnationById.delete(id)
     ptyRuntimeState.ptyIncarnationById.delete(id)
-    ptyRuntimeState.ptyStateTokenById.set(id, Symbol(id))
-    return
+    const stateToken = Symbol(id)
+    ptyRuntimeState.ptyStateTokenById.set(id, stateToken)
+    return stateToken
   }
   if (ptyRuntimeState.pendingPtyIncarnationById.get(id) !== incarnationId) {
     if (ptyRuntimeState.ptyIncarnationById.get(id) === incarnationId) {
-      return
+      return getOrCreatePtyStateToken(id)
     }
     throw new Error('pty_incarnation_commit_mismatch')
   }
@@ -44,6 +45,7 @@ export function commitPtyIncarnation(id: string, incarnationId: string | undefin
   if (!sameLifecycle || !ptyRuntimeState.ptyStateTokenById.has(id)) {
     ptyRuntimeState.ptyStateTokenById.set(id, Symbol(id))
   }
+  return getOrCreatePtyStateToken(id)
 }
 
 export function rollbackPtyIncarnation(id: string, incarnationId: string | undefined): void {
@@ -204,6 +206,35 @@ export function clearProviderPtyState(
     }
     ptyRuntimeState.clearedPtyLifecycleIds.add(id)
   }
+}
+
+export function clearProviderPtyStateIfCurrent(
+  id: string,
+  expectedStateToken: symbol,
+  expectedIncarnationId?: string,
+  opts: { preserveAgentSessionOwners?: boolean } = {}
+): boolean {
+  if (ptyRuntimeState.ptyStateTokenById.get(id) !== expectedStateToken) {
+    return false
+  }
+  if (expectedIncarnationId !== undefined) {
+    const currentIncarnation = ptyRuntimeState.ptyIncarnationById.get(id)
+    const pendingIncarnation = ptyRuntimeState.pendingPtyIncarnationById.get(id)
+    if (
+      currentIncarnation !== expectedIncarnationId &&
+      pendingIncarnation !== expectedIncarnationId
+    ) {
+      return false
+    }
+  } else if (
+    ptyRuntimeState.ptyIncarnationById.has(id) ||
+    ptyRuntimeState.pendingPtyIncarnationById.has(id)
+  ) {
+    // Identity-less failures cannot prove ownership of an identity-bearing lifecycle.
+    return false
+  }
+  clearProviderPtyState(id, opts)
+  return true
 }
 
 export function deletePtyOwnership(id: string): void {

@@ -18,7 +18,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
     runtime, store, trustedTerminalHandleEnv, ptySizes, pendingPtySizes, ptyOwnership,
     getRelayPtyId,
     assertPtyCleanupComplete, assertSpawnReplyWasLive, stagePtyIncarnation,
-    rollbackPtyIncarnation, commitPtyIncarnation, clearProviderPtyState, deletePtyOwnership,
+    rollbackPtyIncarnation, commitPtyIncarnation, clearProviderPtyStateIfCurrent, deletePtyOwnership,
     snapshotPtyCleanupAuthority, snapshotPtyPublication, restorePtyPublicationIfCurrent,
     registerPty, recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty, pendingByPaneKey, pendingPtyIdBySerializerGeneration,
@@ -167,8 +167,17 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
         ) {
           // Why: expired remote reattach = relay already dropped the PTY; clear the lease so writes can't restore the stale binding.
           if (effectiveSessionAppId !== undefined && !isIdentityMismatch) {
-            clearProviderPtyState(effectiveSessionAppId)
-            deletePtyOwnership(effectiveSessionAppId)
+            const cleared =
+              failedPublicationStateToken !== undefined
+                ? clearProviderPtyStateIfCurrent(
+                    effectiveSessionAppId,
+                    failedPublicationStateToken,
+                    rejectedRegistrationCandidate?.incarnationId
+                  )
+                : false
+            if (cleared) {
+              deletePtyOwnership(effectiveSessionAppId)
+            }
           }
           if (!isIdentityMismatch) {
             store?.markSshRemotePtyLease(args.connectionId, effectiveSessionRelayId, 'expired')
@@ -176,7 +185,15 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
         }
         // Why: provider state buildPtyHostEnv materialized for this minted id leaks if spawn failed.
         if (isMintedSessionId && effectiveSessionId !== undefined) {
-          clearProviderPtyState(effectiveSessionId)
+          const expectedStateToken =
+            failedPublicationStateToken ?? publicationSnapshot?.stateToken
+          if (expectedStateToken !== undefined) {
+            clearProviderPtyStateIfCurrent(
+              effectiveSessionId,
+              expectedStateToken,
+              rejectedRegistrationCandidate?.incarnationId
+            )
+          }
         }
         // Why: telemetry-plan.md§agent_error — attribute the error to the renderer-threaded agent_kind, else sniff the command for `claude`; raw messages are dropped at the validator boundary.
         const rendererAgentKindParse =
@@ -407,7 +424,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
               : null
         })
       }
-      commitPtyIncarnation(result.id, result.incarnationId)
+      failedPublicationStateToken = commitPtyIncarnation(result.id, result.incarnationId)
       ptyOwnership.set(result.id, args.connectionId ?? null)
       ptySizes.set(result.id, { cols: args.cols, rows: args.rows })
       pendingPtySizes.delete(result.id)
