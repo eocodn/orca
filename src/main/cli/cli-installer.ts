@@ -47,26 +47,26 @@ import * as cliInstallerRegistration from './cli-installer-registration'
 import { runMacPrivilegedCommand, writeWindowsUserPath } from './cli-installer-platform'
 
 export class CliInstaller {
-  private readonly platform: NodeJS.Platform
-  private readonly isPackaged: boolean
-  private readonly userDataPath: string
-  private readonly resourcesPath: string
-  private readonly execPathValue: string
-  private readonly appPathValue: string
-  private readonly homePath: string
-  private readonly localAppDataPath: string
-  private readonly processPathEnv: string | null
-  private readonly commandPathOverride: string | null
-  private readonly macCommandPath: string
-  private readonly privilegedRunner: (command: string) => Promise<void>
-  private readonly userPathReader: () => Promise<WindowsUserPathReadResult>
-  private readonly userPathMutationReader: () => Promise<WindowsUserPathReadResult>
-  private readonly userPathWriter: (value: string) => Promise<void>
-  private readonly userPathCacheInvalidator: () => void
-  private readonly windowsEnvironment: NodeJS.ProcessEnv
-  private readonly appImagePath: string | null
+  readonly platform: NodeJS.Platform
+  readonly isPackaged: boolean
+  readonly userDataPath: string
+  readonly resourcesPath: string
+  readonly execPathValue: string
+  readonly appPathValue: string
+  readonly homePath: string
+  readonly localAppDataPath: string
+  readonly processPathEnv: string | null
+  readonly commandPathOverride: string | null
+  readonly macCommandPath: string
+  readonly privilegedRunner: (command: string) => Promise<void>
+  readonly userPathReader: () => Promise<WindowsUserPathReadResult>
+  readonly userPathMutationReader: () => Promise<WindowsUserPathReadResult>
+  readonly userPathWriter: (value: string) => Promise<void>
+  readonly userPathCacheInvalidator: () => void
+  readonly windowsEnvironment: NodeJS.ProcessEnv
+  readonly appImagePath: string | null
 
-  private get commandName(): string {
+  get commandName(): string {
     if (!this.isPackaged && !this.commandPathOverride) {
       // Why: development builds must not claim the production shell command.
       return DEV_COMMAND_NAME
@@ -121,104 +121,104 @@ async remove(): Promise<CliInstallStatus> {
     return cliInstallerRegistration.remove(this)
   }
 
-private resolveInstallSpec(): InstallSpec | null {
+resolveInstallSpec(): InstallSpec | null {
     return cliInstallerStatus.resolveInstallSpec(this)
   }
 
-private async resolveActiveInstallSpec(
+async resolveActiveInstallSpec(
     defaultSpec: InstallSpec,
     launcherPath: string
   ): Promise<InstallSpec> {
     return cliInstallerStatus.resolveActiveInstallSpec(this, defaultSpec, launcherPath)
   }
 
-private async findActivePathCommand(
+async findActivePathCommand(
     launcherPath: string,
     defaultCommandPath: string
   ): Promise<string | null> {
     return cliInstallerStatus.findActivePathCommand(this, launcherPath, defaultCommandPath)
   }
 
-private getPathCommandCandidates(defaultCommandPath: string): string[] {
+getPathCommandCandidates(defaultCommandPath: string): string[] {
     return cliInstallerStatus.getPathCommandCandidates(this, defaultCommandPath)
   }
 
-private resolveCommandPath(): string | null {
+resolveCommandPath(): string | null {
     return cliInstallerStatus.resolveCommandPath(this)
   }
 
-private async resolveLauncherPath(): Promise<string | null> {
+async resolveLauncherPath(): Promise<string | null> {
     return cliInstallerStatus.resolveLauncherPath(this)
   }
 
-private async installSymlink(status: CliInstallStatus): Promise<void> {
+async installSymlink(status: CliInstallStatus): Promise<void> {
     return cliInstallerStatus.installSymlink(this, status)
   }
 
-private async removeSymlink(commandPath: string): Promise<void> {
+async removeSymlink(commandPath: string): Promise<void> {
     return cliInstallerStatus.removeSymlink(this, commandPath)
   }
 
-private async removeLegacyLinuxCommandIfManaged(launcherPath: string | null): Promise<void> {
+async removeLegacyLinuxCommandIfManaged(launcherPath: string | null): Promise<void> {
     return cliInstallerStatus.removeLegacyLinuxCommandIfManaged(this, launcherPath)
   }
 
-private isManagedLegacyLinuxTarget(resolvedTarget: string, launcherPath: string): boolean {
+isManagedLegacyLinuxTarget(resolvedTarget: string, launcherPath: string): boolean {
     return cliInstallerStatus.isManagedLegacyLinuxTarget(this, resolvedTarget, launcherPath)
   }
 
-private async installWindowsWrapper(commandPath: string, launcherPath: string): Promise<void> {
+async installWindowsWrapper(commandPath: string, launcherPath: string): Promise<void> {
     return cliInstallerStatus.installWindowsWrapper(this, commandPath, launcherPath)
   }
 
-private async installAppImageWrapper(commandPath: string, appImagePath: string): Promise<void> {
+async installAppImageWrapper(commandPath: string, appImagePath: string): Promise<void> {
     return cliInstallerStatus.installAppImageWrapper(this, commandPath, appImagePath)
   }
 
-private async inspectAppImageWrapper(
+async inspectAppImageWrapper(
     commandPath: string,
     appImagePath: string
   ): Promise<CliInstallStatus> {
     return cliInstallerStatus.inspectAppImageWrapper(this, commandPath, appImagePath)
   }
 
-private async inspectSymlink(
+async inspectSymlink(
     commandPath: string,
     launcherPath: string
   ): Promise<CliInstallStatus> {
     return cliInstallerStatus.inspectSymlink(this, commandPath, launcherPath)
   }
 
-private isManagedSymlinkTarget(resolvedTarget: string, launcherPath: string): boolean {
+isManagedSymlinkTarget(resolvedTarget: string, launcherPath: string): boolean {
     return cliInstallerStatus.isManagedSymlinkTarget(this, resolvedTarget, launcherPath)
   }
 
-private isSiblingDevLauncherTarget(
+isSiblingDevLauncherTarget(
     resolvedTarget: string,
     packagedLauncherName: string
   ): boolean {
     return cliInstallerStatus.isSiblingDevLauncherTarget(this, resolvedTarget, packagedLauncherName)
   }
 
-private isLinuxAppImage(): boolean {
+isLinuxAppImage(): boolean {
     return cliInstallerStatus.isLinuxAppImage(this)
   }
 
-private isWindowsPackagedBundledCommand(
+isWindowsPackagedBundledCommand(
     commandPath: string | null,
     launcherPath: string | null
   ): boolean {
     return cliInstallerStatus.isWindowsPackagedBundledCommand(this, commandPath, launcherPath)
   }
 
-private async inspectWindowsWrapper(
+async inspectWindowsWrapper(
     commandPath: string,
     launcherPath: string
   ): Promise<CliInstallStatus> {
     return cliInstallerStatus.inspectWindowsWrapper(this, commandPath, launcherPath)
   }
 
-private buildStatus(args: {
+buildStatus(args: {
     commandPath: string
     launcherPath: string
     installMethod: CliInstallMethod
@@ -230,7 +230,7 @@ private buildStatus(args: {
     return cliInstallerStatus.buildStatus(this, args)
   }
 
-private async probePathConfiguration(
+async probePathConfiguration(
     pathDirectory: string
   ): Promise<{
     configured: boolean | null
@@ -239,7 +239,7 @@ private async probePathConfiguration(
     return cliInstallerStatus.probePathConfiguration(this, pathDirectory)
   }
 
-private withPathInfo(
+withPathInfo(
     status: CliInstallStatus,
     pathDirectory: string,
     pathProbe: { configured: boolean | null; detail: string | null }
@@ -247,22 +247,22 @@ private withPathInfo(
     return cliInstallerStatus.withPathInfo(this, status, pathDirectory, pathProbe)
   }
 
-private async ensureWindowsPathEntry(pathDirectory: string): Promise<void> {
+async ensureWindowsPathEntry(pathDirectory: string): Promise<void> {
     return cliInstallerRegistration.ensureWindowsPathEntry(this, pathDirectory)
   }
 
-private async removeWindowsPathEntry(pathDirectory: string): Promise<void> {
+async removeWindowsPathEntry(pathDirectory: string): Promise<void> {
     return cliInstallerRegistration.removeWindowsPathEntry(this, pathDirectory)
   }
 
-private async readWindowsUserPathForMutation(): Promise<{
+async readWindowsUserPathForMutation(): Promise<{
     value: string | null
     expandable: boolean
   }> {
     return cliInstallerRegistration.readWindowsUserPathForMutation(this)
   }
 
-private async writeWindowsUserPathEntry(
+async writeWindowsUserPathEntry(
     value: string,
     pathDirectory: string,
     action: 'add' | 'remove'
