@@ -29,6 +29,13 @@ export function rememberSupersededPtyExit(id: string, incarnationId: string): vo
   ptyRuntimeState.supersededPtyExitEvidence.remember(id, incarnationId)
 }
 
+export function consumeSupersededPtyExit(payload: { id: string; incarnationId?: string }): boolean {
+  if (payload.incarnationId === undefined) {
+    return false
+  }
+  return ptyRuntimeState.supersededPtyExitEvidence.consume(payload.id, payload.incarnationId)
+}
+
 export function rememberProviderClearedPtyExit(id: string, incarnationId: string): void {
   ptyRuntimeState.providerClearedPtyExitEvidence.remember(id, incarnationId)
 }
