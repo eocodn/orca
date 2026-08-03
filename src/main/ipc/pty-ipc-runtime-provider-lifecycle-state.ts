@@ -1,4 +1,4 @@
-import type { IPtyProvider } from '../providers/types'
+import type { IPtyProvider, PtyProviderGeneration } from '../providers/types'
 import { scheduleOriginalPtyCleanupAuthorities, schedulePendingPtyCleanupReconciliation } from './pty-ipc-runtime-cleanup-reconciliation'
 import { clearHiddenRendererPtyDeliveryState, isHiddenRendererPty } from './pty-hidden-delivery-gate'
 import { clearNativeWindowsConptyPty } from '../runtime/terminal-model-query-authority'
@@ -14,6 +14,48 @@ import { isPtyIncarnationId } from '../../shared/pty-incarnation'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
 const MAX_CLEARED_PTY_LIFECYCLE_IDS = 4096
+
+export type PtyProviderIdentity = Readonly<{
+  provider: IPtyProvider
+  connectionId: string | null
+  providerGeneration: PtyProviderGeneration | undefined
+}>
+
+function getProviderGeneration(provider: IPtyProvider | undefined): PtyProviderGeneration | undefined {
+  const generation = provider?.providerGeneration
+  return Number.isSafeInteger(generation) && generation! > 0 ? generation : undefined
+}
+
+export function capturePtyProviderIdentity(
+  connectionId: string | null | undefined
+): PtyProviderIdentity {
+  const normalizedConnectionId = connectionId || null
+  const provider =
+    normalizedConnectionId === null
+      ? ptyRuntimeState.localProvider
+      : ptyRuntimeState.sshProviders.get(normalizedConnectionId)
+  if (!provider) {
+    throw new Error(`No PTY provider for connection "${normalizedConnectionId}"`)
+  }
+  return Object.freeze({
+    provider,
+    connectionId: normalizedConnectionId,
+    providerGeneration: getProviderGeneration(provider)
+  })
+}
+
+export function assertPtyProviderIdentityCurrent(identity: PtyProviderIdentity): void {
+  const currentProvider =
+    identity.connectionId === null
+      ? ptyRuntimeState.localProvider
+      : ptyRuntimeState.sshProviders.get(identity.connectionId)
+  if (
+    currentProvider !== identity.provider ||
+    getProviderGeneration(currentProvider) !== identity.providerGeneration
+  ) {
+    throw new Error('pty_provider_changed_during_spawn_preparation')
+  }
+}
 
 export function stagePtyIncarnation(id: string, incarnationId: string | undefined): void {
   ptyRuntimeState.clearedPtyLifecycleIds.delete(id)

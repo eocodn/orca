@@ -21,6 +21,8 @@ import {
   tryGetProviderForPty
 } from './pty-ipc-runtime-provider-routing'
 import {
+  assertPtyProviderIdentityCurrent,
+  capturePtyProviderIdentity,
   commitPtyIncarnation,
   deletePtyOwnership,
   getLocalPtyProvider,
@@ -144,6 +146,8 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     deliveredHiddenRendererResizeOutputPtys: ptyRuntimeState.deliveredHiddenRendererResizeOutputPtys,
     providerSnapshotRequiredPtys: ptyRuntimeState.providerSnapshotRequiredPtys,
     getProvider,
+    capturePtyProviderIdentity,
+    assertPtyProviderIdentityCurrent,
     getProviderForPty,
     tryGetProviderForPty,
     tryGetProviderForAgentSessionOwner,

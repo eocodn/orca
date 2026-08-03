@@ -4,6 +4,7 @@ import {
   resolvePtySpawnPreparation,
   type PtySpawnPreparationOutcome
 } from './pty-ipc-runtime-spawn-preparation-types'
+import type { PtyProviderIdentity } from './pty-ipc-runtime-provider-lifecycle-state'
 
 describe('PTY spawn preparation deduplication', () => {
   it('returns an existing pane reservation as a duplicate outcome', () => {
@@ -52,5 +53,24 @@ describe('PTY spawn preparation deduplication', () => {
       resolvePtySpawnPreparation(outcome, executeFreshPreparation)
     ).resolves.toEqual({ id: 'new-spawn' })
     expect(executeFreshPreparation).toHaveBeenCalledWith({ provider: 'new-spawn' })
+  })
+
+  it('keeps provider identity in the prepared context until execution validates it', async () => {
+    const preparedProvider = { providerGeneration: 3 } as never
+    const prepared: { provider: string; providerIdentity: PtyProviderIdentity } = {
+      provider: 'new-spawn',
+      providerIdentity: {
+        provider: preparedProvider,
+        connectionId: 'ssh-preparation-fence',
+        providerGeneration: 3
+      }
+    }
+
+    const outcome = makePtySpawnPreparationOutcome(prepared)
+
+    expect(outcome).toEqual({ kind: 'fresh', prepared })
+    expect(outcome.kind === 'fresh' ? outcome.prepared.providerIdentity : undefined).toBe(
+      prepared.providerIdentity
+    )
   })
 })

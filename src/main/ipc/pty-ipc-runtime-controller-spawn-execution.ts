@@ -12,6 +12,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
   const prepare = createPtySpawnPreparation(state)
   const {
     runtime, trustedTerminalHandleEnv, reconcileAgentSessionOwnerListings, agentSessionOwners,
+    assertPtyProviderIdentityCurrent,
     ptyIncarnationById, snapshotPtyCleanupAuthority, assertPtyCleanupComplete, assertSpawnReplyWasLive,
     stagePtyIncarnation, tryGetProviderForAgentSessionOwner, isProviderAgentSessionOwnerLive,
     commitPtyIncarnation, ptyOwnership, registerPty,
@@ -33,7 +34,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
     }
     const prepared = preparation.prepared
     const {
-      cwd, provider, isClaudeLaunch, daemonShellOverride, isDaemonHostSpawn,
+      cwd, provider, providerIdentity, isClaudeLaunch, daemonShellOverride, isDaemonHostSpawn,
       sessionId, effectiveSessionRelayId, effectiveSessionAppId, isMintedSessionId, expectedWslDistro,
       codexSelectionTarget, codexResumeHome, launchCommand, hostSessionBinding, env,
       selectedCodexHomePath, spawnOptions, reportPtySpawnCommitted,
@@ -100,6 +101,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
               const cleanupAuthorityBeforeProviderSpawn =
                 snapshotPtyCleanupAuthority(providerSpawnPtyId)
               assertPtyCleanupComplete(providerSpawnPtyId)
+              assertPtyProviderIdentityCurrent(providerIdentity)
               const spawnedProviderResult = await provider.spawn(spawnOptions)
               providerResult = spawnedProviderResult
               rejectedRegistrationCandidate = spawnedProviderResult
@@ -150,6 +152,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
         } else {
           assertClientStillConnected()
           const cleanupAuthorityBeforeProviderSpawn = snapshotPtyCleanupAuthority(expectedPtyId)
+          assertPtyProviderIdentityCurrent(providerIdentity)
           result = await provider.spawn(spawnOptions)
           rejectedRegistrationCandidate = result
           if (expectedPtyId === result.id) {

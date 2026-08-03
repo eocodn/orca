@@ -21,7 +21,7 @@ type PtySpawnArgs = Parameters<NonNullable<RuntimePtyController['spawn']>>[0]
 export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Record<string, any>): (args: PtySpawnArgs) => Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> {
   const {
     getLocalPtyStartupPromise, assertFolderWorkspacePtyPathUsable, resolvePtySpawnStartupCwd,
-    getProvider, getSettings, store, runtime, resolveLocalProjectRuntimeForWorktreeId,
+    capturePtyProviderIdentity, getSettings, store, runtime, resolveLocalProjectRuntimeForWorktreeId,
     getRelayPtyId, getAppPtyId, resolveWslSessionContext,
     prepareCodexResumeHome, resolveCodexResumeLaunch, noCodexResumeLaunch, prepareClaudeAuth,
     stripRemotePaneEnvWhenHooksDisabled, stripSequencedStartupResumeArgv, getSelectedCodexHomePath,
@@ -37,7 +37,8 @@ export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Re
     }
     await assertFolderWorkspacePtyPathUsable(args.worktreeId)
     const cwd = resolvePtySpawnStartupCwd(args.worktreeId, args.cwd)
-    const provider = getProvider(args.connectionId)
+    const providerIdentity = capturePtyProviderIdentity(args.connectionId)
+    const provider = providerIdentity.provider
     const isClaudeLaunch = !args.connectionId && isClaudeLaunchCommand(args.command)
     if (isClaudeLaunch && isClaudeAuthSwitchInProgress()) {
       throw new Error('A Claude account switch is in progress. Try again after it finishes.')
@@ -349,7 +350,7 @@ export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Re
       : null
     return {
       kind: 'fresh',
-      prepared: { args, startupPromise, cwd, provider, isClaudeLaunch, terminalRuntimeOptions, daemonShellOverride, isDaemonHostSpawn, callerRequestedSessionId, requestedSessionId, sessionId, effectiveSessionRelayId, effectiveSessionAppId, isMintedSessionId, expectedWslDistro, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, claudeAuth, shouldPersistHostSessionBinding, hostSessionBinding, sshScopedEnv, env, requestedAgentTeamsPath, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, authEnvToDelete, spawnOptions, startupTerminalColorQueryReplyColors, reportPtySpawnCommitted, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, materializedPaneKey, metadataLeafId, metadataPaneKey, spawnIdentityPaneKey, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation }
+      prepared: { args, startupPromise, cwd, provider, providerIdentity, isClaudeLaunch, terminalRuntimeOptions, daemonShellOverride, isDaemonHostSpawn, callerRequestedSessionId, requestedSessionId, sessionId, effectiveSessionRelayId, effectiveSessionAppId, isMintedSessionId, expectedWslDistro, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, claudeAuth, shouldPersistHostSessionBinding, hostSessionBinding, sshScopedEnv, env, requestedAgentTeamsPath, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, authEnvToDelete, spawnOptions, startupTerminalColorQueryReplyColors, reportPtySpawnCommitted, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, materializedPaneKey, metadataLeafId, metadataPaneKey, spawnIdentityPaneKey, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation }
     }
   }
 }

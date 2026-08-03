@@ -16,6 +16,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
   const prepare = createPtyIpcSpawnPreparation(state)
   const {
     runtime, store, trustedTerminalHandleEnv, ptySizes, pendingPtySizes, ptyOwnership,
+    assertPtyProviderIdentityCurrent,
     getRelayPtyId,
     assertPtyCleanupComplete, assertSpawnReplyWasLive, stagePtyIncarnation,
     rollbackPtyIncarnation, commitPtyIncarnation, clearProviderPtyStateIfCurrent, deletePtyOwnership,
@@ -38,7 +39,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
     }
     const prepared = preparation.prepared
     let {
-      spawnTiming, startupCwdFallback, cwd, provider, isClaudeLaunch, isDaemonHostSpawn, isMintedSessionId,
+      spawnTiming, startupCwdFallback, cwd, provider, providerIdentity, isClaudeLaunch, isDaemonHostSpawn, isMintedSessionId,
       effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro,
       metadataLeafId, legacySpawnPaneKey, migrationUnsupportedPaneKey,
       effectiveLaunchConfig, preAllocatedHandle,
@@ -79,6 +80,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
           ? (runtime?.getPtyOutputSequence?.(expectedPtyId) ?? 0)
           : 0
         const cleanupAuthorityBeforeProviderSpawn = snapshotPtyCleanupAuthority(expectedPtyId)
+        assertPtyProviderIdentityCurrent(providerIdentity)
         result = await provider.spawn(spawnOptions)
         rejectedRegistrationCandidate = result
         if (expectedPtyId === result.id) {

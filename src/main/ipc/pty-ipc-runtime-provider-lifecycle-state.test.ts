@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
 vi.mock('./pty-ipc-runtime-cleanup-reconciliation', () => ({
@@ -41,14 +41,73 @@ vi.mock('../codex/codex-pane-account-registry', () => ({
 }))
 
 const PTY_ID = 'pty-lifecycle-authority'
+const originalLocalProvider = ptyRuntimeState.localProvider
 
 describe('pty provider lifecycle state', () => {
   beforeEach(() => {
+    ptyRuntimeState.localProvider = originalLocalProvider
+    ptyRuntimeState.sshProviders.clear()
+    ptyRuntimeState.sshProvidersByGeneration.clear()
     ptyRuntimeState.ptyOwnership.clear()
     ptyRuntimeState.ptyIncarnationById.clear()
     ptyRuntimeState.ptyStateTokenById.clear()
     ptyRuntimeState.pendingPtyIncarnationById.clear()
     ptyRuntimeState.clearedPtyLifecycleIds.clear()
+  })
+
+  afterEach(() => {
+    ptyRuntimeState.localProvider = originalLocalProvider
+    ptyRuntimeState.sshProviders.clear()
+    ptyRuntimeState.sshProvidersByGeneration.clear()
+  })
+
+  it('rejects a prepared local provider after replacement or generation change', async () => {
+    const {
+      capturePtyProviderIdentity,
+      assertPtyProviderIdentityCurrent
+    } = await import('./pty-ipc-runtime-provider-lifecycle-state')
+    const preparedProvider = { providerGeneration: 7 } as never
+    const replacementProvider = { providerGeneration: 7 } as never
+    const spawn = vi.fn()
+    ptyRuntimeState.localProvider = preparedProvider
+
+    const identity = capturePtyProviderIdentity(null)
+    expect(() => assertPtyProviderIdentityCurrent(identity)).not.toThrow()
+
+    ptyRuntimeState.localProvider = replacementProvider
+    expect(() => {
+      assertPtyProviderIdentityCurrent(identity)
+      spawn()
+    }).toThrow(
+      'pty_provider_changed_during_spawn_preparation'
+    )
+    expect(spawn).not.toHaveBeenCalled()
+
+    ptyRuntimeState.localProvider = preparedProvider
+    ;(preparedProvider as { providerGeneration: number }).providerGeneration = 8
+    expect(() => assertPtyProviderIdentityCurrent(identity)).toThrow(
+      'pty_provider_changed_during_spawn_preparation'
+    )
+  })
+
+  it('rejects a prepared SSH provider after reconnecting the same connection', async () => {
+    const {
+      capturePtyProviderIdentity,
+      assertPtyProviderIdentityCurrent,
+      registerSshPtyProvider
+    } = await import('./pty-ipc-runtime-provider-lifecycle-state')
+    const connectionId = 'ssh-provider-fence'
+    const preparedProvider = { providerGeneration: 11 } as never
+    const replacementProvider = { providerGeneration: 11 } as never
+    registerSshPtyProvider(connectionId, preparedProvider)
+
+    const identity = capturePtyProviderIdentity(connectionId)
+    expect(() => assertPtyProviderIdentityCurrent(identity)).not.toThrow()
+
+    registerSshPtyProvider(connectionId, replacementProvider)
+    expect(() => assertPtyProviderIdentityCurrent(identity)).toThrow(
+      'pty_provider_changed_during_spawn_preparation'
+    )
   })
 
   it('returns the token created at the commit publication boundary', async () => {

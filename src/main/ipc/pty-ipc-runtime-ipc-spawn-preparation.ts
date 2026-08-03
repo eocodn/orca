@@ -20,7 +20,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
   const {
     runtime, getSettings, ptySizes, pendingPtySizes,
     getLocalPtyStartupPromise, assertFolderWorkspacePtyPathUsable, resolvePtySpawnStartupCwd, localStartupCwdDirectoryExists,
-    getProvider, getAppPtyId, getRelayPtyId, resolveWslSessionContext, getCodexSelectionTargetForPty,
+    capturePtyProviderIdentity, getAppPtyId, getRelayPtyId, resolveWslSessionContext, getCodexSelectionTargetForPty,
     prepareClaudeAuth, getStartupTerminalColorQueryReplyColors, stripRemotePaneEnvWhenHooksDisabled,
     parseValidPaneKey, makePaneKey, parseLegacyNumericPaneKey, isValidTerminalTabId, isTerminalLeafId,
     shouldRefreshNativeClaudeAgentTeamsEnv, getSelectedCodexHomePath, prepareCodexResumeHome,
@@ -58,7 +58,8 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     const startupCwdFallback =
       didFallbackToWorkspaceRootCwd && cwd ? ({ kind: 'worktree', cwd } as const) : undefined
     spawnTiming.mark('preflight')
-    const provider = getProvider(args.connectionId)
+    const providerIdentity = capturePtyProviderIdentity(args.connectionId)
+    const provider = providerIdentity.provider
     const isClaudeLaunch = !args.connectionId && isClaudeLaunchCommand(args.command)
     if (isClaudeLaunch && isClaudeAuthSwitchInProgress()) {
       throw new Error('A Claude account switch is in progress. Try again after it finishes.')
@@ -426,7 +427,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     }
     return {
       kind: 'fresh',
-      prepared: { args, spawnTiming, startupPromise, allowMissingCwdFallback, didFallbackToWorkspaceRootCwd, cwd, startupCwdFallback, provider, isClaudeLaunch, terminalRuntimeOptions, initialShellOverride, isDaemonHostSpawn, isMintedSessionId, effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro, initialSelectionTarget, claudeAuth, startupTerminalColorQueryReplyColors, sshSourceEnv, baseEnvWithAuth, spawnPaneKey, parsedSpawnPaneKey, verifiedPaneKey, verifiedLeafId, metadataLeafId, metadataPaneKey, legacySpawnPaneKey, migrationUnsupportedPaneKey, stablePaneKey, baseEnv, shouldRefreshAgentTeamsEnv, effectiveLaunchConfig, shouldPreAllocateTerminalHandle, preAllocatedHandle, requestedAgentTeamsPath, agentTeamsEnvToDelete, validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride, nativeWindowsConptySpawn, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, env, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, spawnEnv, envToDelete, combinedEnvToDelete, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation, initiallyHidden, preSpawnHiddenMarkId }
+      prepared: { args, spawnTiming, startupPromise, allowMissingCwdFallback, didFallbackToWorkspaceRootCwd, cwd, startupCwdFallback, provider, providerIdentity, isClaudeLaunch, terminalRuntimeOptions, initialShellOverride, isDaemonHostSpawn, isMintedSessionId, effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro, initialSelectionTarget, claudeAuth, startupTerminalColorQueryReplyColors, sshSourceEnv, baseEnvWithAuth, spawnPaneKey, parsedSpawnPaneKey, verifiedPaneKey, verifiedLeafId, metadataLeafId, metadataPaneKey, legacySpawnPaneKey, migrationUnsupportedPaneKey, stablePaneKey, baseEnv, shouldRefreshAgentTeamsEnv, effectiveLaunchConfig, shouldPreAllocateTerminalHandle, preAllocatedHandle, requestedAgentTeamsPath, agentTeamsEnvToDelete, validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride, nativeWindowsConptySpawn, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, env, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, spawnEnv, envToDelete, combinedEnvToDelete, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation, initiallyHidden, preSpawnHiddenMarkId }
     }
   }
 }
