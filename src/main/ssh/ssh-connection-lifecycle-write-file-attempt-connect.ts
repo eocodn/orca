@@ -1,29 +1,9 @@
-import * as net from 'node:net'
-import { createHash } from 'node:crypto'
-import { Client as SshClient } from 'ssh2'
-import type { ChildProcess } from 'node:child_process'
-import type { ClientChannel, ConnectConfig, SFTPWrapper } from 'ssh2'
-import type { SshTarget, SshConnectionState, SshConnectionStatus } from '../../shared/ssh-types'
-import {
-  getOrcaControlSocketPath,
-  spawnSystemSsh,
-  spawnSystemSshCommand,
-  downloadFileViaSystemSsh,
-  uploadDirectoryViaSystemSsh,
-  uploadFileViaSystemSsh,
-  writeBufferViaSystemSsh,
-  writeFileViaSystemSsh,
-  type SystemSshBuildArgsOptions,
-  type SystemSshProcess
-} from './ssh-system-fallback'
-import { resolveWithSshG, type SshResolvedConfig } from './ssh-config-parser'
-import { removeControlSocketPath } from './ssh-control-socket'
+import { writeBufferViaSystemSsh, writeFileViaSystemSsh } from './ssh-system-fallback'
+import { resolveWithSshG } from './ssh-config-parser'
 import { isOpenSshConfigBackedTarget } from './system-ssh-args'
 import {
   INITIAL_RETRY_ATTEMPTS,
   INITIAL_RETRY_DELAY_MS,
-  RECONNECT_BACKOFF_MS,
-  CONNECT_TIMEOUT_MS,
   isTransientError,
   isAuthError,
   isAgentFallbackError,
@@ -33,27 +13,12 @@ import {
   sleep,
   buildConnectConfig,
   resolveEffectiveProxy,
-  spawnProxyCommand,
-  wrapRemoteCommandForPosixShell,
-  createSshOperationAbortError,
-  type SshExecOptions,
-  type SshConnectionCallbacks
+  spawnProxyCommand
 } from './ssh-connection-utils'
 import { getPassphrasePrivateKeyPath } from './ssh-private-key-authentication'
-import type { RemoteHostPlatform } from './ssh-remote-platform'
-import {
-  resolveSftpTransferPathIfMapped,
-  type SftpNamespacePathMapping
-} from './sftp-namespace-resolution'
-import type { FileUploadSession } from '../providers/types'
-import { isSshSessionLimitError } from './ssh-session-limit-error'
-import {
-  createLinkedSshFileTransferSignal,
-  raceSftpFileTransferWithAbort
-} from './ssh-file-transfer-abort'
-import * as foundation from './ssh-connection-lifecycle-foundation'
-const { ABORTED_CHANNEL_CLOSE_GRACE_MS, SESSION_LIMIT_OPEN_RETRIES, SESSION_LIMIT_OPEN_RETRY_DELAY_MS, cloneResolvedConfig, isGitHubRestrictedShellProbeSuccess } = foundation
-type SshRemoteFileOptions = foundation.SshRemoteFileOptions
+import { resolveSftpTransferPathIfMapped } from './sftp-namespace-resolution'
+import { createLinkedSshFileTransferSignal, raceSftpFileTransferWithAbort } from './ssh-file-transfer-abort'
+import type { SshRemoteFileOptions } from './ssh-connection-lifecycle-foundation'
 
 export const SshConnectionMethods5 = {
   async writeFile(this: any,
