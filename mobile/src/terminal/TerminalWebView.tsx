@@ -43,6 +43,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   ref
 ) {
   const webViewRef = useRef<WebView>(null)
+  const webBridgeAvailableRef = useRef(false)
   const isWebReadyRef = useRef(false)
   const pendingMessages = useMemo(() => createTerminalWebViewPendingMessages(), [])
   const messageIdRef = useRef(0)
@@ -77,7 +78,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
 
   const postMessage = useCallback(
     (msg: TerminalWebViewCommand) => {
-      if (!isWebReadyRef.current) {
+      if (!webBridgeAvailableRef.current) {
         pendingMessages.queue(msg)
         return
       }
@@ -123,6 +124,15 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     ]
   )
 
+  const handleWebBridgeAvailable = useCallback(() => {
+    // `window.Terminal` proves the bundle loaded, not that xterm has painted.
+    webBridgeAvailableRef.current = true
+    clearEngineError()
+    onWebReady?.()
+    sendToWebView({ type: 'set-theme', terminalTheme })
+    flushPendingMessages()
+  }, [clearEngineError, flushPendingMessages, onWebReady, sendToWebView, terminalTheme])
+
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
       let msg: Record<string, unknown>
@@ -134,7 +144,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       routeTerminalQueryReply(msg, onTerminalQueryReply)
 
       if (msg.type === 'web-ready') {
-        confirmWebReady(true)
+        handleWebBridgeAvailable()
       } else if (
         msg.type === 'pong' &&
         typeof msg.pingId === 'number' &&
@@ -142,6 +152,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       ) {
         confirmWebReady(false)
       } else if (msg.type === 'ready') {
+        confirmWebReady(false)
         // Why: the WebView's init() rAF chain has run — term is open,
         // renderService is populated, first paint has happened. Resolve
         // any pending awaitReady() so a queued measure can now safely
@@ -177,6 +188,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     },
     [
       confirmWebReady,
+      handleWebBridgeAvailable,
       reportEngineError,
       onSelectionMode,
       onSelectionCopy,
@@ -194,6 +206,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   )
 
   const handleLoadStart = useCallback(() => {
+    webBridgeAvailableRef.current = false
     isWebReadyRef.current = false
     pendingPingIdRef.current = null
     armWebReadyWatchdog()
@@ -211,6 +224,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   const handleContentProcessDidTerminate = useCallback(() => {
     // Why: WKWebView content-process loss is recoverable; stale commands belong
     // to the dead document and the replacement must prove readiness before replay.
+    webBridgeAvailableRef.current = false
     isWebReadyRef.current = false
     pendingPingIdRef.current = null
     pendingMessages.clear()
@@ -239,6 +253,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         }
         // Why: direct ping is the only command allowed through while readiness is
         // invalid; init/write commands queue until this exact document answers.
+        webBridgeAvailableRef.current = false
         isWebReadyRef.current = false
         armWebReadyWatchdog()
         pendingPingIdRef.current = sendToWebView({ type: 'ping' })

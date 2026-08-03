@@ -178,7 +178,25 @@ describe('TerminalWebView engine errors', () => {
     }
   })
 
-  it('does not fire the watchdog once web-ready has arrived', () => {
+  it('does not fire the watchdog once first-paint ready has arrived', () => {
+    vi.useFakeTimers()
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const { onEngineError, renderer } = createTerminalWebViewRenderer()
+
+      postWebViewMessage(renderer, { type: 'ready' })
+      act(() => {
+        vi.advanceTimersByTime(60000)
+      })
+
+      expect(onEngineError).not.toHaveBeenCalled()
+      expect(renderedText(renderer)).not.toContain('Terminal failed to load')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the watchdog armed when only the Terminal global is available', () => {
     vi.useFakeTimers()
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
@@ -186,11 +204,12 @@ describe('TerminalWebView engine errors', () => {
 
       postWebViewMessage(renderer, { type: 'web-ready' })
       act(() => {
-        vi.advanceTimersByTime(60000)
+        vi.advanceTimersByTime(15000)
       })
 
-      expect(onEngineError).not.toHaveBeenCalled()
-      expect(renderedText(renderer)).not.toContain('Terminal failed to load')
+      expect(onEngineError).toHaveBeenCalledWith(
+        'Terminal did not initialize - no ready signal from the terminal view'
+      )
     } finally {
       vi.useRealTimers()
     }
