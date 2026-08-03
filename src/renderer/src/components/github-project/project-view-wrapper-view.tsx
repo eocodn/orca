@@ -314,6 +314,3 @@ export function ProjectViewWrapperView(controller: ProjectViewController): React
     </div>
   )
 }
-
-// Why: keeps the input string local so typing doesn't re-render the parent/table; the parent only learns it on apply (Enter/blur/clear).
-function ProjectSearchInput({

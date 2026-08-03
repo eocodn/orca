@@ -8,7 +8,12 @@ const repositoryRoot = resolve(import.meta.dirname, '../../..')
 describe('renderer module syntax boundaries', () => {
   it.each([
     'src/renderer/src/app-shell-page-orchestration.tsx',
-    'src/renderer/src/components/browser-pane/browser-pane-remote-model-values.tsx'
+    'src/renderer/src/components/browser-pane/browser-pane-remote-model-values.tsx',
+    'src/renderer/src/components/github-item-dialog-surface.tsx',
+    'src/renderer/src/components/github-project/project-view-wrapper-view.tsx',
+    'src/renderer/src/components/status-bar/workspace-space-manager-decision-model.ts',
+    'src/renderer/src/hooks/use-composer-state-surface.ts',
+    'src/renderer/src/hooks/use-ipc-events-surface.ts'
   ])('parses %s with its JSX-aware module extension', (relativePath) => {
     const filePath = resolve(repositoryRoot, relativePath)
     const source = ts.createSourceFile(

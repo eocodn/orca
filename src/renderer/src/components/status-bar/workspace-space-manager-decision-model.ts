@@ -30,9 +30,9 @@ import type { WorktreeForceDeleteReason } from '../../../../shared/worktree-remo
 const TREEMAP_FILLS = [   'color-mix(in srgb, var(--chart-2) 34%, var(--card))',   'color-mix(in srgb, var(--foreground) 20%, var(--card))',   'color-mix(in srgb, var(--chart-4) 28%, var(--card))',   'color-mix(in srgb, var(--primary) 24%, var(--card))',   'color-mix(in srgb, var(--chart-1) 38%, var(--card))' ]
 const GIT_STATUS_REFRESH_CONCURRENCY = 6
 
-type WorkspaceSpaceDeleteState = {   isDeleting: boolean   error: string | null   canForceDelete: boolean   forceDeleteReason: WorktreeForceDeleteReason | null }
+type WorkspaceSpaceDeleteState = {   isDeleting: boolean;   error: string | null;   canForceDelete: boolean;   forceDeleteReason: WorktreeForceDeleteReason | null }
 
-type WorkspaceGitRefreshState = {   isRefreshing: boolean   error: string | null }
+type WorkspaceGitRefreshState = {   isRefreshing: boolean;   error: string | null }
 
 export type WorkspaceDecisionDetails = {
   isActive: boolean
@@ -207,5 +207,4 @@ export function getWorkspaceDecisionDetails(
     linearIssueLabel
   }
 }
-
 
