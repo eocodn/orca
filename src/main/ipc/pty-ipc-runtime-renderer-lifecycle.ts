@@ -1,5 +1,5 @@
 export {
   getPtyRendererDeliveryDebugSnapshot,
   resetPtyRendererDeliveryDebug
-} from './pty-ipc-runtime-registration-implementation'
-export type { PtyRendererDeliveryDebugSnapshot } from './pty-ipc-runtime-registration-implementation'
+} from './pty-ipc-runtime-registration-facade'
+export type { PtyRendererDeliveryDebugSnapshot } from './pty-ipc-runtime-registration-facade'

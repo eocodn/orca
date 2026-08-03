@@ -14,12 +14,10 @@ const SYNTHETIC_KILL_EXIT_DUPLICATE_WINDOW_MS = 30_000
 
 export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
   const state = getPtyRegistrationSharedState() as PtyRendererDeliveryContext
-  const { mainWindow, runtime, getSettings } = state
-  const mainDeliveryBreadcrumbs = ptyRuntimeState.mainDeliveryBreadcrumbs
+  const { mainWindow, getSettings } = state
   state.syntheticKillExitPtyIds = new Map()
   state.finalizedCleanupExitPtyIds = new Map()
   state.reversibleStopOwnersByPtyId = new Map()
-
 
   function rememberSyntheticKillExit(id: string, target: PtyShutdownTarget): void {
     const existing = state.syntheticKillExitPtyIds.get(id)

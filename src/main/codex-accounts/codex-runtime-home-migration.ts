@@ -73,7 +73,9 @@ import {
 import { migrateLegacySharedAuthToPerAccountHome } from './legacy-shared-auth-migration'
 
 
-import { type CodexSystemDefaultSnapshot,
+import {
+  prepareWslRuntimeSeedConfig,
+  type CodexSystemDefaultSnapshot,
   type CodexRuntimeLogoutMarker,
   type CodexRuntimeLogoutMarkerStatus,
   type CodexReadBackResult,
