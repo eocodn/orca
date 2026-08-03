@@ -6130,6 +6130,49 @@ describe('registerPtyHandlers', () => {
         expect(runtime.onPtyExit).not.toHaveBeenCalled()
       })
 
+      it('runtime controller stopAndWait does not finish after its provider is replaced', async () => {
+        const shutdownDeferred = makeDeferred()
+        const oldProvider = {
+          spawn: vi.fn(),
+          write: vi.fn(),
+          resize: vi.fn(),
+          shutdown: vi.fn(() => shutdownDeferred.promise),
+          sendSignal: vi.fn(),
+          getCwd: vi.fn(),
+          getInitialCwd: vi.fn(),
+          clearBuffer: vi.fn(),
+          acknowledgeDataEvent: vi.fn(),
+          hasChildProcesses: vi.fn(),
+          getForegroundProcess: vi.fn(),
+          serialize: vi.fn(),
+          revive: vi.fn(),
+          onData: vi.fn(() => () => {}),
+          onReplay: vi.fn(() => () => {}),
+          onExit: vi.fn(() => () => {}),
+          listProcesses: vi.fn(async () => []),
+          attach: vi.fn(),
+          getDefaultShell: vi.fn(),
+          getProfiles: vi.fn()
+        }
+        const replacementProvider = { ...oldProvider, shutdown: vi.fn() }
+        const runtime = { setPtyController: vi.fn(), onPtyExit: vi.fn() }
+        setLocalPtyProvider(oldProvider as never)
+        restorePtyIncarnation('local-pty', 'same-incarnation')
+        handlers.clear()
+        registerPtyHandlers(mainWindow as never, runtime as never)
+        const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+          stopAndWait: (ptyId: string) => Promise<boolean>
+        }
+
+        const stopPromise = controller.stopAndWait('local-pty')
+        await Promise.resolve()
+        setLocalPtyProvider(replacementProvider as never)
+        shutdownDeferred.resolve()
+
+        await expect(stopPromise).resolves.toBe(false)
+        expect(runtime.onPtyExit).not.toHaveBeenCalled()
+      })
+
       it('does not accept an incarnation-less exit as proof that the current PTY stopped', async () => {
         const exitListeners = new Set<
           (payload: { id: string; code: number; incarnationId?: string }) => void
@@ -6744,6 +6787,90 @@ describe('registerPtyHandlers', () => {
     expect(runtime.onPtyExit).not.toHaveBeenCalled()
     expect(isCurrentPtyExit({ id: 'local-pty', incarnationId: 'incarnation-b' })).toBe(true)
     clearProviderPtyState('local-pty')
+  })
+
+  it('does not let an IPC kill completion finish after its provider is replaced', async () => {
+    const shutdownDeferred = makeDeferred()
+    const oldProvider = {
+      spawn: vi.fn(),
+      write: vi.fn(),
+      resize: vi.fn(),
+      shutdown: vi.fn(() => shutdownDeferred.promise),
+      sendSignal: vi.fn(),
+      getCwd: vi.fn(),
+      getInitialCwd: vi.fn(),
+      clearBuffer: vi.fn(),
+      acknowledgeDataEvent: vi.fn(),
+      hasChildProcesses: vi.fn(),
+      getForegroundProcess: vi.fn(),
+      serialize: vi.fn(),
+      revive: vi.fn(),
+      onData: vi.fn(() => () => {}),
+      onReplay: vi.fn(() => () => {}),
+      onExit: vi.fn(() => () => {}),
+      listProcesses: vi.fn(async () => []),
+      attach: vi.fn(),
+      getDefaultShell: vi.fn(),
+      getProfiles: vi.fn()
+    }
+    const replacementProvider = { ...oldProvider, shutdown: vi.fn() }
+    const runtime = { onPtyExit: vi.fn() }
+    setLocalPtyProvider(oldProvider as never)
+    restorePtyIncarnation('local-pty', 'same-incarnation')
+    handlers.clear()
+    registerPtyHandlers(mainWindow as never, runtime as never)
+
+    const pendingKill = handlers.get('pty:kill')!(null, { id: 'local-pty' }) as Promise<void>
+    await Promise.resolve()
+    setLocalPtyProvider(replacementProvider as never)
+    shutdownDeferred.resolve()
+
+    await pendingKill
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
+  })
+
+  it('does not let a controller kill completion finish after its provider is replaced', async () => {
+    const shutdownDeferred = makeDeferred()
+    const oldProvider = {
+      spawn: vi.fn(),
+      write: vi.fn(),
+      resize: vi.fn(),
+      shutdown: vi.fn(() => shutdownDeferred.promise),
+      sendSignal: vi.fn(),
+      getCwd: vi.fn(),
+      getInitialCwd: vi.fn(),
+      clearBuffer: vi.fn(),
+      acknowledgeDataEvent: vi.fn(),
+      hasChildProcesses: vi.fn(),
+      getForegroundProcess: vi.fn(),
+      serialize: vi.fn(),
+      revive: vi.fn(),
+      onData: vi.fn(() => () => {}),
+      onReplay: vi.fn(() => () => {}),
+      onExit: vi.fn(() => () => {}),
+      listProcesses: vi.fn(async () => []),
+      attach: vi.fn(),
+      getDefaultShell: vi.fn(),
+      getProfiles: vi.fn()
+    }
+    const replacementProvider = { ...oldProvider, shutdown: vi.fn() }
+    const runtime = { setPtyController: vi.fn(), onPtyExit: vi.fn() }
+    setLocalPtyProvider(oldProvider as never)
+    restorePtyIncarnation('local-pty', 'same-incarnation')
+    handlers.clear()
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      kill: (ptyId: string) => boolean
+    }
+
+    expect(controller.kill('local-pty')).toBe(true)
+    await Promise.resolve()
+    setLocalPtyProvider(replacementProvider as never)
+    shutdownDeferred.resolve()
+
+    await vi.waitFor(() => expect(oldProvider.shutdown).toHaveBeenCalledOnce())
+    await Promise.resolve()
+    expect(runtime.onPtyExit).not.toHaveBeenCalled()
   })
 
   it('does not synthesize a duplicate renderer exit when kill emits provider exit', async () => {

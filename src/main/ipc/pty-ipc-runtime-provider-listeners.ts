@@ -129,7 +129,7 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
   ): Promise<PtyShutdownObservation> {
     let providerExitObserved = false
     let identityLessExitPayload: PtyShutdownObservation['identityLessExitPayload']
-    const expectedTarget = capturePtyShutdownTarget(id)
+    const expectedTarget = capturePtyShutdownTarget(id, provider)
     const expectedIncarnationId = expectedTarget.incarnationId
     const unsubscribe = provider.onExit((payload) => {
       if (payload.id !== id) {

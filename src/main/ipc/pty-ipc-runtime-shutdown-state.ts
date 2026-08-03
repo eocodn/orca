@@ -6,6 +6,7 @@ import { addNodePtyRecoveryHint } from '../daemon/node-pty-error-hints'
 import { isSshPtyNotFoundError } from '../providers/ssh-pty-errors'
 import { markClaudePtyExited } from '../claude-accounts/live-pty-gate'
 import { getRelayPtyId } from './pty-ipc-runtime-provider-routing'
+import { parseAppSshPtyId } from '../providers/ssh-pty-id'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
@@ -98,6 +99,8 @@ export async function verifyPtyStopped(
 export type PtyShutdownTarget = Readonly<{
   stateToken: symbol
   incarnationId: string | undefined
+  /** Omitted only while a startup barrier has not selected its provider yet. */
+  provider?: IPtyProvider
 }>
 
 export type PtyShutdownObservation = Readonly<{
@@ -105,10 +108,28 @@ export type PtyShutdownObservation = Readonly<{
   identityLessExitPayload?: { id: string; code: number; incarnationId?: string }
 }>
 
-export function capturePtyShutdownTarget(id: string): PtyShutdownTarget {
+export function capturePtyShutdownTarget(id: string, provider?: IPtyProvider): PtyShutdownTarget {
   const stateToken = ptyRuntimeState.ptyStateTokenById.get(id) ?? Symbol(id)
   ptyRuntimeState.ptyStateTokenById.set(id, stateToken)
-  return Object.freeze({ stateToken, incarnationId: ptyRuntimeState.ptyIncarnationById.get(id) })
+  return Object.freeze({
+    stateToken,
+    incarnationId: ptyRuntimeState.ptyIncarnationById.get(id),
+    ...(provider !== undefined ? { provider } : {})
+  })
+}
+
+function getCurrentPtyProvider(id: string): IPtyProvider | undefined {
+  const connectionId = ptyRuntimeState.ptyOwnership.get(id)
+  if (connectionId === null) {
+    return ptyRuntimeState.localProvider
+  }
+  if (connectionId !== undefined) {
+    return ptyRuntimeState.sshProviders.get(connectionId)
+  }
+  const parsedSshId = parseAppSshPtyId(id)
+  return parsedSshId
+    ? ptyRuntimeState.sshProviders.get(parsedSshId.connectionId)
+    : ptyRuntimeState.localProvider
 }
 
 export function finishPtyShutdown(
@@ -118,10 +139,7 @@ export function finishPtyShutdown(
   expectedTarget: PtyShutdownTarget
 ): { incarnationId: string | undefined } | undefined {
   const incarnationId = ptyRuntimeState.ptyIncarnationById.get(id)
-  if (
-    ptyRuntimeState.ptyStateTokenById.get(id) !== expectedTarget.stateToken ||
-    (expectedTarget.incarnationId !== undefined && incarnationId !== expectedTarget.incarnationId)
-  ) {
+  if (!isPtyShutdownTargetCurrent(id, expectedTarget)) {
     return undefined
   }
   if (connectionId) {
@@ -137,6 +155,7 @@ export function isPtyShutdownTargetCurrent(id: string, expectedTarget: PtyShutdo
   return (
     ptyRuntimeState.ptyStateTokenById.get(id) === expectedTarget.stateToken &&
     (expectedTarget.incarnationId === undefined ||
-      ptyRuntimeState.ptyIncarnationById.get(id) === expectedTarget.incarnationId)
+      ptyRuntimeState.ptyIncarnationById.get(id) === expectedTarget.incarnationId) &&
+    (expectedTarget.provider === undefined || getCurrentPtyProvider(id) === expectedTarget.provider)
   )
 }

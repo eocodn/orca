@@ -65,11 +65,11 @@ export function installPtyIpcControlHandlers(): void {
     const ownedConnectionId = state.ptyOwnership.get(args.id)
     const parsedSshId = ownedConnectionId === undefined ? parseAppSshPtyId(args.id) : null
     const connectionId = ownedConnectionId ?? parsedSshId?.connectionId
-    const expectedTarget = state.capturePtyShutdownTarget(args.id)
+    const initialTarget = state.capturePtyShutdownTarget(args.id)
     const startupPromise = state.getLocalPtyProviderStartupPromise(connectionId)
     if (startupPromise) {
       await startupPromise
-      if (!state.isPtyShutdownTargetCurrent(args.id, expectedTarget)) {
+      if (!state.isPtyShutdownTargetCurrent(args.id, initialTarget)) {
         return
       }
     }
@@ -77,16 +77,23 @@ export function installPtyIpcControlHandlers(): void {
       ? state.sshProviders.get(connectionId)
       : tryGetProviderForPty(args.id)
     if (!provider && connectionId) {
-      const finished = state.finishPtyShutdown(args.id, connectionId, state.store, expectedTarget)
+      const target = state.capturePtyShutdownTarget(args.id)
+      const finished = state.finishPtyShutdown(
+        args.id,
+        connectionId,
+        state.store,
+        target
+      )
       if (!finished) {
         return
       }
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)
-      state.rememberSyntheticKillExit(args.id, expectedTarget)
+      state.rememberSyntheticKillExit(args.id, target)
       state.sendPtyExitToRenderer({ id: args.id, code: -1 })
       return
     }
     const shutdownProvider = provider ?? state.getProviderForPty(args.id)
+    const expectedTarget = state.capturePtyShutdownTarget(args.id, shutdownProvider)
     let observation = { providerExitObserved: false as boolean, identityLessExitPayload: undefined as { id: string; code: number; incarnationId?: string } | undefined }
     try {
       observation = await state.shutdownProviderAndDetectExit(shutdownProvider, args.id, {

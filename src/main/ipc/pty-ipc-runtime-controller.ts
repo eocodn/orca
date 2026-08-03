@@ -30,9 +30,9 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
     let connectionId: string | null | undefined = ptyOwnership.get(ptyId)
     const parsedSshId = connectionId === undefined ? parseAppSshPtyId(ptyId) : null
     connectionId ??= parsedSshId?.connectionId
-    const expectedTarget = capturePtyShutdownTarget(ptyId)
+    const initialTarget = capturePtyShutdownTarget(ptyId)
     const killWithCurrentProvider = (): boolean => {
-      if (!isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
+      if (!isPtyShutdownTargetCurrent(ptyId, initialTarget)) {
         return false
       }
       let provider: IPtyProvider
@@ -43,17 +43,19 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
           // Why: runtime/CLI close can target a detached SSH PTY after its
           // provider was unregistered. Tombstone the lease so reconnect does
           // not revive a terminal the user explicitly closed.
-          const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+          const target = capturePtyShutdownTarget(ptyId)
+          const finished = finishPtyShutdown(ptyId, connectionId, store, target)
           if (!finished) {
             return false
           }
           runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-          rememberSyntheticKillExit(ptyId, expectedTarget)
+          rememberSyntheticKillExit(ptyId, target)
           sendPtyExitToRenderer({ id: ptyId, code: -1 })
           return true
         }
         return false
       }
+      const expectedTarget = capturePtyShutdownTarget(ptyId, provider)
       // Why: controller is synchronous, but keep ownership until async shutdown proves whether the provider emitted an exit.
       void shutdownProviderAndDetectExit(provider, ptyId, { immediate: false })
         .then((observation) => {
@@ -132,7 +134,7 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
     let connectionId: string | null | undefined = ptyOwnership.get(ptyId)
     const parsedSshId = connectionId === undefined ? parseAppSshPtyId(ptyId) : null
     connectionId ??= parsedSshId?.connectionId
-    const expectedTarget = capturePtyShutdownTarget(ptyId)
+    const initialTarget = capturePtyShutdownTarget(ptyId)
     // Why: destructive teardown threads one absolute deadline through every await
     // below; each RPC leaf converts it to the remaining time when it issues, so
     // sequential RPCs share the budget and cannot overrun the sweep deadline.
@@ -159,7 +161,7 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
       } else {
         await startupPromise
       }
-      if (!isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
+      if (!isPtyShutdownTargetCurrent(ptyId, initialTarget)) {
         return false
       }
     }
@@ -170,17 +172,19 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
       if (connectionId) {
         // Why: an absent SSH provider means there is no live target left to
         // await, but the relay lease must still be tombstoned.
-        const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
+        const target = capturePtyShutdownTarget(ptyId)
+        const finished = finishPtyShutdown(ptyId, connectionId, store, target)
         if (!finished) {
           return false
         }
         runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
-        rememberSyntheticKillExit(ptyId, expectedTarget)
+        rememberSyntheticKillExit(ptyId, target)
         sendPtyExitToRenderer({ id: ptyId, code: -1 })
         return true
       }
       return false
     }
+    const expectedTarget = capturePtyShutdownTarget(ptyId, provider)
     let observation: PtyShutdownObservation = { providerExitObserved: false }
     try {
       observation = await shutdownProviderAndDetectExit(provider, ptyId, {
