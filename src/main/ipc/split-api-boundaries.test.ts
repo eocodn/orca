@@ -32,4 +32,10 @@ describe('IPC split API boundaries', () => {
       expect(readIpcSource(fileName)).not.toMatch(corruptionPattern)
     }
   })
+
+  it('routes renderer exit restore markers through the delivery state', () => {
+    const source = readIpcSource('pty-ipc-runtime-renderer-exit-handling.ts')
+    expect(source).not.toMatch(/\n\s+sendModelRestoreNeededMarker\(/)
+    expect(source.match(/state\.sendModelRestoreNeededMarker\(/g)).toHaveLength(4)
+  })
 })

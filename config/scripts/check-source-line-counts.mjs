@@ -19,13 +19,13 @@ export function isSourcePath(relativePath) {
   const normalized = relativePath.split(path.sep).join('/')
   const basename = path.posix.basename(normalized)
   const extension = path.posix.extname(normalized)
-  if (!SOURCE_EXTENSIONS.has(extension) || basename.endsWith('.d.ts')) {
+  if (
+    !SOURCE_EXTENSIONS.has(extension) ||
+    /\.d\.(?:cts|mts|ts)$/.test(basename)
+  ) {
     return false
   }
-  if (/(?:^|\.)test\.(?:cjs|js|mjs|ts|tsx)$/.test(basename)) {
-    return false
-  }
-  if (/(?:^|\.)spec\.(?:cjs|js|mjs|ts|tsx)$/.test(basename)) {
+  if (/(?:\.test|\.spec)\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(basename)) {
     return false
   }
   return !normalized.split('/').some((part) => EXCLUDED_DIRECTORY_NAMES.has(part))
