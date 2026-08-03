@@ -9,9 +9,6 @@ import { advertisedUrlWatcher, type AdvertisedUrlWatcher } from './advertised-ur
 import { WorkspacePortScanTimeoutBackoff } from './workspace-port-scan-timeout-backoff'
 import {
   isCommandTimeoutError,
-  parseLsofListeningOutput,
-  parseNetstatListeningOutput,
-  parseProcNetTcp,
   scanPlatformListeningPorts,
   connectHostForBindHost,
   type RawListeningPort

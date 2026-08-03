@@ -6,20 +6,13 @@ import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter
 import { DaemonPtyRouter } from './daemon-pty-router'
 import { PROTOCOL_VERSION } from './types'
 import {
-  collectPinnedDaemonVersions,
-  materializeRelocatedDaemonHost,
-  pruneOldDaemonHosts
-} from './daemon-host-relocation'
-import {
   DegradedDaemonPtyProvider,
   type CurrentDaemonInventoryState
 } from './degraded-daemon-pty-provider'
-import { trackDaemonReplaced } from './daemon-lifecycle-event'
 import {
   unbindLocalProviderListeners,
   rebindLocalProviderListeners
 } from '../ipc/pty'
-import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
 
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'
