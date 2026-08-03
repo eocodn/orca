@@ -1,7 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   collectOversizedSources,
@@ -10,7 +9,7 @@ import {
 } from './check-source-line-counts.mjs'
 
 const temporaryRoots = []
-const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '../..')
+const repositoryRoot = join(import.meta.dirname, '../..')
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) {
@@ -82,6 +81,14 @@ describe('source line count gate', () => {
       { lines: 601, path: 'oversized.cts' },
       { lines: 601, path: 'oversized.mts' }
     ])
+  })
+
+  it('keeps the renderer delivery initializer within the production budget', () => {
+    expect(collectOversizedSources(repositoryRoot)).not.toContainEqual(
+      expect.objectContaining({
+        path: 'src/main/ipc/pty-ipc-runtime-renderer-delivery-core.ts'
+      })
+    )
   })
 
   it('is part of both local lint and PR static analysis', () => {
