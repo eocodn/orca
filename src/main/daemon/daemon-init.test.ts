@@ -838,6 +838,35 @@ describe('daemon-init: runRestartDaemon (7-step sequence)', () => {
     })
   })
 
+  it('preserves a live failed fallback PTY under the replacement provider before swapping', async () => {
+    const mod = await importFresh()
+    ensureRunningOverrides.push(async () => ({
+      socketPath: '/fake/degraded-socket',
+      tokenPath: '/fake/degraded-token',
+      mode: 'degraded-new-pty-fallback'
+    }))
+    await mod.initDaemonPtyProvider()
+
+    const { DegradedDaemonPtyProvider } = await import('./degraded-daemon-pty-provider')
+    const original = mod.getDaemonProvider()
+    expect(original).toBeInstanceOf(DegradedDaemonPtyProvider)
+    const fallbackSession = await original!.spawn({ cols: 80, rows: 24 })
+    localFallbackProvider.shutdown.mockRejectedValueOnce(new Error('still alive'))
+
+    const result = await mod.restartDaemon()
+
+    const replacement = setLocalPtyProviderMock.mock.calls.at(-1)?.[0]
+    expect(replacement).toBeInstanceOf(DegradedDaemonPtyProvider)
+    expect(result.killedCount).toBe(0)
+    await (replacement as InstanceType<typeof DegradedDaemonPtyProvider>).shutdown(
+      fallbackSession.id,
+      { immediate: true }
+    )
+    expect(localFallbackProvider.shutdown).toHaveBeenLastCalledWith(fallbackSession.id, {
+      immediate: true
+    })
+  })
+
   it('reuses the existing DaemonSpawner across restart (resetHandle + ensureRunning on same instance)', async () => {
     const mod = await importFresh()
     await mod.initDaemonPtyProvider()

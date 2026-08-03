@@ -436,6 +436,58 @@ describe('DegradedDaemonPtyProvider', () => {
     warn.mockRestore()
   })
 
+  it('emits one incarnation-correct synthetic exit when a failed fallback shutdown is authoritatively gone', async () => {
+    const current = createDaemonAdapter('daemon')
+    const fallback = createProvider('fallback')
+    const provider = new DegradedDaemonPtyProvider({ current, legacy: [], fallback })
+    const exitSpy = vi.fn()
+    provider.onExit(exitSpy)
+    const session = await provider.spawn({ cols: 80, rows: 24 })
+    fallback.emitData(session.id, 'owned', undefined, 'fallback-incarnation')
+    vi.mocked(fallback.shutdown).mockRejectedValueOnce(new Error('kill rejected'))
+    vi.mocked(fallback.probePtyLiveness).mockResolvedValueOnce(false)
+
+    await expect(provider.shutdownFallbackSessions()).resolves.toBe(1)
+
+    expect(exitSpy).toHaveBeenCalledWith({
+      id: session.id,
+      code: -1,
+      incarnationId: 'fallback-incarnation'
+    })
+    expect(provider.hasPty(session.id)).toBe(false)
+    fallback.emitExit(session.id, -1, 'fallback-incarnation')
+    expect(exitSpy).toHaveBeenCalledOnce()
+  })
+
+  it('transfers a still-live failed fallback session to a retryable provider route', async () => {
+    const current = createDaemonAdapter('daemon')
+    const fallback = createProvider('fallback')
+    const original = new DegradedDaemonPtyProvider({ current, legacy: [], fallback })
+    const session = await original.spawn({ cols: 80, rows: 24 })
+    fallback.emitData(session.id, 'owned', undefined, 'fallback-incarnation')
+    vi.mocked(fallback.shutdown).mockRejectedValueOnce(new Error('still alive'))
+    vi.mocked(fallback.probePtyLiveness).mockResolvedValueOnce(true)
+
+    await expect(original.shutdownFallbackSessions()).resolves.toBe(0)
+    const retryable = original.getRetryableFallbackSessions()
+    expect(retryable).toEqual([{ id: session.id, incarnationId: 'fallback-incarnation' }])
+
+    const replacement = new DegradedDaemonPtyProvider({
+      current,
+      legacy: [],
+      fallback,
+      preservedFallbackSessions: retryable,
+      routesFreshSpawnsToLocalProvider: false
+    })
+    replacement.write(session.id, 'retry\n')
+    await replacement.spawn({ cols: 80, rows: 24 })
+    await replacement.shutdown(session.id, { immediate: true })
+
+    expect(fallback.write).toHaveBeenCalledWith(session.id, 'retry\n')
+    expect(fallback.shutdown).toHaveBeenCalledWith(session.id, { immediate: true })
+    expect(current.spawn).toHaveBeenCalledWith({ cols: 80, rows: 24 })
+  })
+
   it('fans synthetic exits for discovered current-daemon sessions only', async () => {
     const current = createDaemonAdapter('daemon', ['current-session'])
     const legacy = createDaemonAdapter('legacy', ['legacy-session'])

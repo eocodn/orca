@@ -65,6 +65,7 @@ import {
   replaceDaemonProvider
 } from './daemon-lifecycle-init'
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
+import type { IPtyProvider } from '../providers/types'
 
 export type RestartDaemonResult = {
   killedCount: number
@@ -92,12 +93,20 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
   const runtimeDir = daemonLifecycleSupport.getRuntimeDir()
   const currentOnly = getCurrentDaemonAdapter(currentAdapter)
   const legacyAdapters = getLegacyDaemonAdapters(currentAdapter)
+  let retryableFallbackSessions: ReturnType<
+    DegradedDaemonPtyProvider['getRetryableFallbackSessions']
+  > = []
+  let retryableFallbackProvider: IPtyProvider | null = null
 
   // Step 1: synthesize pty:exit for every active session BEFORE teardown — the daemon's shutdown path never fans onExit to clients (session.ts:246-252), so the renderer would otherwise never see exits.
   const fallbackKilledCount =
     currentAdapter instanceof DegradedDaemonPtyProvider
       ? await currentAdapter.shutdownFallbackSessions()
       : 0
+  if (currentAdapter instanceof DegradedDaemonPtyProvider) {
+    retryableFallbackSessions = currentAdapter.getRetryableFallbackSessions()
+    retryableFallbackProvider = currentAdapter.getFallbackProvider()
+  }
   let inventory: CurrentDaemonInventoryState = { status: 'complete' }
   let currentDaemonSessionIds: string[] = []
   if (currentAdapter instanceof DegradedDaemonPtyProvider) {
@@ -172,13 +181,23 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
     await newCurrent.establishLifecycleLease()
     daemonLifecycleSupport.releaseDaemonAdoptionLease(currentSpawner.getHandle())
 
-    // Re-wrap in a router only if legacy adapters exist; they're preserved by reference and still route to their pre-upgrade daemons.
+    // Keep failed local PTYs in a retryable owner while fresh sessions use the healthy daemon.
     newProvider =
-      legacyAdapters.length > 0
-        ? new DaemonPtyRouter({ current: newCurrent, legacy: legacyAdapters })
-        : newCurrent
+      retryableFallbackSessions.length > 0 && retryableFallbackProvider
+        ? new DegradedDaemonPtyProvider({
+            current: newCurrent,
+            legacy: legacyAdapters,
+            fallback: retryableFallbackProvider,
+            preservedFallbackSessions: retryableFallbackSessions,
+            routesFreshSpawnsToLocalProvider: false
+          })
+        : legacyAdapters.length > 0
+          ? new DaemonPtyRouter({ current: newCurrent, legacy: legacyAdapters })
+          : newCurrent
     if (newProvider instanceof DaemonPtyRouter) {
       await newProvider.discoverLegacySessions()
+    } else if (newProvider instanceof DegradedDaemonPtyProvider) {
+      await newProvider.discoverDaemonSessions()
     }
   } catch (error) {
     let cleanupError: unknown

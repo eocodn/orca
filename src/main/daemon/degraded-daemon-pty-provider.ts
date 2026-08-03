@@ -1,6 +1,9 @@
 import type { DaemonPtyAdapter } from './daemon-pty-adapter'
 import { combineUnsubscribes } from './combine-unsubscribes'
-import { shutdownDegradedFallbackSessions } from './degraded-daemon-fallback-shutdown'
+import {
+  shutdownDegradedFallbackSessions,
+  type FallbackSessionIdentity
+} from './degraded-daemon-fallback-shutdown'
 import { inspectPtyProviderProcess } from '../providers/pty-process-inspection'
 import type {
   IPtyProvider,
@@ -19,9 +22,9 @@ export type CurrentDaemonInventoryState =
   | { status: 'failed'; error: string }
 
 export class DegradedDaemonPtyProvider implements IPtyProvider {
-  readonly routesFreshSpawnsToLocalProvider = true
+  readonly routesFreshSpawnsToLocalProvider: boolean
   // Why: surface that fresh PTYs lack daemon persistence until restart.
-  readonly isDegraded = true
+  readonly isDegraded: boolean
 
   private current: DaemonPtyAdapter
   private legacy: DaemonPtyAdapter[]
@@ -35,6 +38,8 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     incarnationId?: string
   }) => void)[] = []
   private sessionIncarnations = new Map<string, string>()
+  private retiredFallbackIncarnations = new Map<string, string | undefined>()
+  private retryableFallbackSessions: FallbackSessionIdentity[] = []
   private currentDaemonInventory = new Map<string, string | undefined>()
   private currentDaemonInventoryState: CurrentDaemonInventoryState = { status: 'complete' }
 
@@ -42,10 +47,21 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     current: DaemonPtyAdapter
     legacy: DaemonPtyAdapter[]
     fallback: IPtyProvider
+    preservedFallbackSessions?: FallbackSessionIdentity[]
+    routesFreshSpawnsToLocalProvider?: boolean
   }) {
     this.current = opts.current
     this.legacy = opts.legacy
     this.fallback = opts.fallback
+    this.routesFreshSpawnsToLocalProvider = opts.routesFreshSpawnsToLocalProvider ?? true
+    this.isDegraded = this.routesFreshSpawnsToLocalProvider
+
+    for (const session of opts.preservedFallbackSessions ?? []) {
+      this.sessionProviders.set(session.id, this.fallback)
+      if (session.incarnationId) {
+        this.sessionIncarnations.set(session.id, session.incarnationId)
+      }
+    }
 
     for (const provider of this.allProviders()) {
       this.unsubscribers.push(
@@ -68,6 +84,15 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
         }),
         provider.onExit((payload) => {
           const mappedProvider = this.sessionProviders.get(payload.id)
+          const retiredIncarnation = this.retiredFallbackIncarnations.get(payload.id)
+          if (
+            mappedProvider === undefined &&
+            retiredIncarnation !== undefined &&
+            (payload.incarnationId === undefined || payload.incarnationId === retiredIncarnation)
+          ) {
+            this.retiredFallbackIncarnations.delete(payload.id)
+            return
+          }
           const trackedIncarnation = this.sessionIncarnations.get(payload.id)
           if (mappedProvider !== undefined && mappedProvider !== provider) {
             return
@@ -128,9 +153,10 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
 
   async spawn(opts: PtySpawnOptions): Promise<PtySpawnResult> {
     const mapped = opts.sessionId ? this.sessionProviders.get(opts.sessionId) : undefined
-    const target = mapped ?? this.fallback
+    const target = mapped ?? (this.routesFreshSpawnsToLocalProvider ? this.fallback : this.current)
     const result = await target.spawn(opts)
     this.sessionProviders.set(result.id, target)
+    this.retiredFallbackIncarnations.delete(result.id)
     if (result.incarnationId) {
       this.sessionIncarnations.set(result.id, result.incarnationId)
     } else {
@@ -144,6 +170,9 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   }
 
   hasPty(id: string): boolean {
+    if (this.retiredFallbackIncarnations.has(id)) {
+      return false
+    }
     const mapped = this.sessionProviders.get(id)
     return mapped ? (mapped.hasPty?.(id) ?? true) : this.findProviderForExistingSession(id) !== null
   }
@@ -376,7 +405,31 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   }
 
   async shutdownFallbackSessions(): Promise<number> {
-    return shutdownDegradedFallbackSessions(this.sessionProviders, this.fallback)
+    this.retryableFallbackSessions = []
+    const result = await shutdownDegradedFallbackSessions(
+      this.sessionProviders,
+      this.fallback,
+      (id) => this.sessionIncarnations.get(id)
+    )
+    this.retryableFallbackSessions = result.retryable
+    for (const session of result.retired) {
+      const incarnationId = session.incarnationId ?? this.sessionIncarnations.get(session.id)
+      this.sessionProviders.delete(session.id)
+      this.sessionIncarnations.delete(session.id)
+      this.retiredFallbackIncarnations.set(session.id, incarnationId)
+      for (const listener of this.exitListeners) {
+        listener({ id: session.id, code: -1, ...(incarnationId ? { incarnationId } : {}) })
+      }
+    }
+    return result.killedCount
+  }
+
+  getRetryableFallbackSessions(): FallbackSessionIdentity[] {
+    return this.retryableFallbackSessions.map((session) => ({ ...session }))
+  }
+
+  getFallbackProvider(): IPtyProvider {
+    return this.fallback
   }
 
   getCurrentDaemonSessionIds(): string[] {
@@ -459,11 +512,14 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     return (
       this.sessionProviders.get(sessionId) ??
       this.findProviderForExistingSession(sessionId) ??
-      this.fallback
+      (this.routesFreshSpawnsToLocalProvider ? this.fallback : this.current)
     )
   }
 
   private findProviderForExistingSession(sessionId: string): IPtyProvider | null {
+    if (this.retiredFallbackIncarnations.has(sessionId)) {
+      return null
+    }
     for (const provider of this.allProviders()) {
       if (provider.hasPty?.(sessionId) === true) {
         this.sessionProviders.set(sessionId, provider)
