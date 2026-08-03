@@ -15,64 +15,21 @@ import { renameDurableSync, writeFileDurableSync } from './durable-file-write'
 import { join, dirname, isAbsolute, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
-import type {
-  Automation,
-  AutomationCreateInput,
-  AutomationDispatchResult,
-  AutomationPrecheckResult,
-  AutomationRunOutputSnapshot,
-  AutomationRun,
-  AutomationSchedulerOwner,
-  AutomationRunTrigger,
-  AutomationUpdateInput
-} from '../shared/automations-types'
+
 import {
   latestAutomationOccurrenceAtOrBefore,
   nextAutomationOccurrenceAfter
 } from '../shared/automation-schedules'
 import { getAutomationLegacyRepoId } from '../shared/automation-run-identity'
 import { normalizeAutomationPrecheck } from '../shared/automation-precheck'
-import type {
-  PersistedState,
-  Project,
-  ProjectUpdateArgs,
-  ProjectHostSetup,
-  ProjectHostSetupCreateArgs,
-  ProjectHostSetupCreateResult,
-  ProjectHostSetupDeleteArgs,
-  ProjectHostSetupDeleteResult,
-  ProjectHostSetupUpdateArgs,
-  ProjectHostSetupUpdateResult,
-  RepoProjectHostSetupMethod,
-  Repo,
-  ProjectGroup,
-  FolderWorkspace,
-  SparsePreset,
-  PersistedMobileClientTabSelections,
-  WorktreeMeta,
-  WorktreeLineage,
-  WorkspaceLineage,
-  WorkspaceKey,
-  GlobalSettings,
-  OrcaWorkspaceLayout,
-  NotificationSettings,
-  OnboardingChecklistState,
-  OnboardingOutcome,
-  OnboardingState,
-  LegacyPaneKeyAliasEntry,
-  TerminalPaneLayoutNode,
-  TerminalLayoutSnapshot,
-  TerminalTab,
-  WorkspaceSessionPatch,
-  WorkspaceSessionState
-} from '../shared/types'
+
 import {
   deriveGlobalWindowsRuntimeDefaultFromLegacySettings,
   normalizeProjectRuntimePreference
 } from '../shared/project-execution-runtime'
 import { projectHostSetupProjectionFromRepos } from '../shared/project-host-setup-projection'
 import { isPluginPanelTabKey } from '../shared/plugins/plugin-manifest'
-import type { GitRemoteIdentity } from '../shared/git-remote-identity'
+
 import {
   areTaskSourceContextsEqual,
   buildTaskSourceContextFromRepo,
@@ -84,7 +41,7 @@ import {
   normalizeWorkspaceLinkedItem
 } from '../shared/workspace-linked-item'
 import { isWorkspaceLinkedItemSourceContextMatch } from '../shared/workspace-linked-item-source-context'
-import type { MigrationUnsupportedPtyEntry } from '../shared/agent-status-types'
+
 import { MOBILE_PAIRING_USERDATA_FILES } from './runtime/mobile-pairing-files'
 import { normalizePersistedMobileClientTabSelections } from './runtime/client-session-tab-selection-persistence'
 import { sanitizeWorkspaceSessionTerminalRetirements } from './runtime/mobile-session-terminal-persistence-retirement'
@@ -94,10 +51,7 @@ import {
 } from './orca-profiles/profile-project-session-state'
 import { hardenExistingSecureFile } from '../shared/secure-file'
 import {
-  LEGACY_DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
-  type RemovedSshTargetTombstone,
-  type SshRemotePtyLease,
-  type SshTarget
+  LEGACY_DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS
 } from '../shared/ssh-types'
 import { isFolderRepo } from '../shared/repo-kind'
 import {
@@ -107,8 +61,7 @@ import {
   normalizeExecutionHostOrder,
   normalizeExecutionHostId,
   normalizeVisibleExecutionHostIds,
-  toSshExecutionHostId,
-  type ExecutionHostId
+  toSshExecutionHostId
 } from '../shared/execution-host'
 import {
   getDefaultPersistedState,
@@ -182,14 +135,12 @@ import {
   getFeatureInteractionCategory,
   getFeatureInteractionUsageBucket,
   normalizeFeatureInteractions,
-  normalizeFeatureInteractionTelemetryBuckets,
-  type FeatureInteractionId
+  normalizeFeatureInteractionTelemetryBuckets
 } from '../shared/feature-interactions'
 import { normalizeContextualTourIds } from '../shared/contextual-tours'
 import { normalizeFeatureTipIds } from '../shared/feature-tips'
 import {
-  parseCodexResetCreditAttemptLedger,
-  type CodexResetCreditAttemptLedger
+  parseCodexResetCreditAttemptLedger
 } from '../shared/codex-reset-credit-attempt-ledger'
 import { normalizeManualRepoOrder } from '../shared/manual-repo-order'
 import {
@@ -258,8 +209,7 @@ import {
   deleteTerminalScrollbackSnapshotSync,
   getProfileTerminalScrollbackSnapshotRoot,
   migrateWorkspaceSessionTerminalScrollbackSnapshots,
-  readTerminalScrollbackSnapshotSync,
-  type TerminalScrollbackSnapshotStorage
+  readTerminalScrollbackSnapshotSync
 } from './terminal-scrollback-snapshots'
 import { track } from './telemetry/client'
 import { getCohortAtEmit } from './telemetry/cohort-classifier'
@@ -277,15 +227,16 @@ import {
   remapLeafRecordForPersistence
 } from './persistence-layout-records'
 
-import { removeWorkspaceSessionOwner,
+import {
+  removeWorkspaceSessionOwner,
   removeWorkspaceSessionOwners,
   inferFolderScopeConnectionIdForMigration,
   backfillFolderScopeConnectionIds,
   deleteRemovedTerminalScrollbackSnapshots,
   projectHostSetupCompatibilityStateEqual,
   mergeProjectHostSetupCompatibilityState,
-  type StoreOptions,
-  getDefaultWorktreeMeta } from './persistence-state-phase-8'
+  getDefaultWorktreeMeta
+} from './persistence-state-phase-8'
 import {
   decrypt,
   decryptOptionalSecret,
