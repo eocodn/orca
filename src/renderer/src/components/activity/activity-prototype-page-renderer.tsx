@@ -185,9 +185,6 @@ export function ActivityPrototypePageRenderer(
     visibleThreadGroups,
     visibleThreads
   } = props as any
-  return () => window.removeEventListener('keydown', focusActivityFilter, { capture: true })
-  }, [activePortalTargetEl, inactivePortalTargetEl])
-
   const markThreadRead = (thread: AgentPaneThread): void => {
     storeData.acknowledgeAgents([thread.paneKey])
   }

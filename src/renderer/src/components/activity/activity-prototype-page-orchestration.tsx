@@ -402,5 +402,8 @@ export default function ActivityPrototypePage(): React.JSX.Element {
     }
 
     window.addEventListener('keydown', focusActivityFilter, { capture: true })
-    return <ActivityPrototypePageRenderer {...{ ActivityPrototypePage, activePortalSlotId, activePortalTargetEl, activityFilterInputRef, allThreads, compactMode, effectiveSelectedPaneKey, focusActivityFilter, groupBy, inactivePortalTargetEl, isThreadListResizing, onResizeStart, query, readFilter, selectedHasLiveTab, selectedThread, setActivityPageRef, setCompactMode, setGroupBy, setPrimaryPortalTarget, setQuery, setReadFilter, setSecondaryPortalTarget, setSelectedPaneKey, showTerminalLoadingLabel, stagedThread, storeData, threadListRef, threadListWidth, visiblePortalReady, visiblePortalUnavailable, visibleThread, visibleThreadGroups, visibleThreads }} />
+    return () => window.removeEventListener('keydown', focusActivityFilter, { capture: true })
+  }, [activePortalTargetEl, inactivePortalTargetEl])
+
+  return <ActivityPrototypePageRenderer {...{ ActivityPrototypePage, activePortalSlotId, activePortalTargetEl, activityFilterInputRef, allThreads, compactMode, effectiveSelectedPaneKey, focusActivityFilter, groupBy, inactivePortalTargetEl, isThreadListResizing, onResizeStart, query, readFilter, selectedHasLiveTab, selectedThread, setActivityPageRef, setCompactMode, setGroupBy, setPrimaryPortalTarget, setQuery, setReadFilter, setSecondaryPortalTarget, setSelectedPaneKey, showTerminalLoadingLabel, stagedThread, storeData, threadListRef, threadListWidth, visiblePortalReady, visiblePortalUnavailable, visibleThread, visibleThreadGroups, visibleThreads }} />
 }

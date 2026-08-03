@@ -591,6 +591,3 @@ export function CombinedDiffViewerView({ context }: { context: Record<string, an
     </>
   )
 }
-
-}
-
