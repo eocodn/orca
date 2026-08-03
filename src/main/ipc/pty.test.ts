@@ -7528,6 +7528,53 @@ describe('registerPtyHandlers', () => {
     }
   })
 
+  it('preserves replacement ownership when a reused id is listed by an earlier lifecycle', async () => {
+    const ptyId = 'pty-list-sessions-reused-id'
+    let resolveListing!: (
+      sessions: { id: string; incarnationId: string; cwd: string; title: string }[]
+    ) => void
+    const listing = new Promise<{ id: string; incarnationId: string; cwd: string; title: string }[]>(
+      (resolve) => {
+        resolveListing = resolve
+      }
+    )
+    vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockReturnValue(listing)
+    ptyRuntimeState.ptyOwnership.set(ptyId, 'ssh-old')
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-old')
+    registerPtyHandlers(mainWindow as never)
+
+    try {
+      const pending = handlers.get('pty:listSessions')!(null, undefined)
+      ptyRuntimeState.ptyOwnership.set(ptyId, 'ssh-new')
+      ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-new')
+      resolveListing([
+        { id: ptyId, incarnationId: 'incarnation-old', cwd: '/old', title: 'shell' }
+      ])
+
+      await expect(pending).rejects.toThrow('pty_process_list_incomplete')
+      expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBe('ssh-new')
+    } finally {
+      ptyRuntimeState.ptyOwnership.delete(ptyId)
+      ptyRuntimeState.ptyIncarnationById.delete(ptyId)
+    }
+  })
+
+  it('removes ownership only for lifecycle-stable sessions absent from a complete listing', async () => {
+    const ptyId = 'pty-list-sessions-stale-owner'
+    vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockResolvedValue([])
+    ptyRuntimeState.ptyOwnership.set(ptyId, null)
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-stale-owner')
+    registerPtyHandlers(mainWindow as never)
+
+    try {
+      await expect(handlers.get('pty:listSessions')!(null, undefined)).resolves.toEqual([])
+      expect(ptyRuntimeState.ptyOwnership.has(ptyId)).toBe(false)
+    } finally {
+      ptyRuntimeState.ptyOwnership.delete(ptyId)
+      ptyRuntimeState.ptyIncarnationById.delete(ptyId)
+    }
+  })
+
   it('reports authoritative snapshot capability with the owning provider context', () => {
     const capabilityProvider = {
       authoritativeIds: new Set(['current-pty']),

@@ -8,6 +8,7 @@ import {
   capturePtyLifecycleTarget,
   getProviderGeneration,
   isCurrentPtyListing,
+  isCurrentPtyLifecycleTarget,
   isCurrentProvider,
   tryGetProviderForPty
 } from './pty-ipc-runtime-provider-routing'
@@ -59,7 +60,11 @@ export function installPtyIpcQueryHandlers(): void {
     // Stage all provider-derived mutations so failures cannot publish partial ownership.
     const staged = new Map<
       string,
-      { connectionId: string | null; session: PtyListedSession }
+      {
+        connectionId: string | null
+        incarnationId: string | undefined
+        session: PtyListedSession
+      }
     >()
     for (const { source, processes } of listings) {
       for (const process of processes) {
@@ -69,6 +74,7 @@ export function installPtyIpcQueryHandlers(): void {
         }
         staged.set(process.id, {
           connectionId: source.connectionId,
+          incarnationId: process.incarnationId,
           session: {
             id: process.id,
             cwd: process.cwd,
@@ -84,10 +90,33 @@ export function installPtyIpcQueryHandlers(): void {
       }
     }
 
+    // Recheck every captured identity immediately before the synchronous commit.
+    for (const [id, lifecycleTarget] of lifecycleTargets) {
+      if (!isCurrentPtyLifecycleTarget(id, lifecycleTarget)) {
+        throw new Error('pty_process_list_incomplete')
+      }
+    }
+    for (const [id, { incarnationId }] of staged) {
+      const lifecycleTarget = lifecycleTargets.get(id) ?? emptyLifecycleTarget
+      if (!isCurrentPtyListing(id, incarnationId, lifecycleTarget)) {
+        throw new Error('pty_process_list_incomplete')
+      }
+    }
+
+    const staleOwnershipIds = Array.from(lifecycleTargets, ([id, lifecycleTarget]) =>
+      lifecycleTarget.ownershipPresent && !staged.has(id) ? id : null
+    ).filter((id): id is string => id !== null)
     const deduped = new Map<string, PtyListedSession>()
-    for (const [id, { connectionId, session }] of staged) {
-      state.ptyOwnership.set(id, connectionId)
+    for (const [id, { session }] of staged) {
       deduped.set(id, session)
+    }
+    // This is the only mutation boundary: captured, unchanged owners absent from a complete
+    // provider snapshot are stale; identities changed during listing are rejected above.
+    for (const id of staleOwnershipIds) {
+      state.ptyOwnership.delete(id)
+    }
+    for (const [id, { connectionId }] of staged) {
+      state.ptyOwnership.set(id, connectionId)
     }
     return Array.from(deduped.values())
   })
