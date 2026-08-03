@@ -67,19 +67,20 @@ export function composeParsedCallback(
 ): TerminalOutputParsedCallback {
   const clearGeneration = captureTerminalOutputClearGeneration(terminal)
   return () => {
-    try {
+    runGuardedWriteCompletionStep('queued-on-parsed', () => {
       if (isCurrentTerminalOutputClearGeneration(terminal, clearGeneration)) {
         onParsed?.()
       }
-    } finally {
-      ackCreditsParsed?.()
-      pacer?.()
+    })
+    runGuardedWriteCompletionStep('queued-ack-credit', () => ackCreditsParsed?.())
+    runGuardedWriteCompletionStep('queued-pacer', () => pacer?.())
+    runGuardedWriteCompletionStep('queued-stall-settlement', () => {
       // Why: onParsed can clear and replace this terminal before the callback
       // settles; never let that stale completion cancel the replacement watch.
       if (isCurrentTerminalOutputClearGeneration(terminal, clearGeneration)) {
         settleTerminalWriteStallWatch(terminal)
       }
-    }
+    })
   }
 }
 
@@ -88,11 +89,8 @@ export function composeWriteFailureCallback(
   ackCreditsParsed: (() => void) | undefined
 ): () => void {
   return () => {
-    try {
-      ackCreditsParsed?.()
-    } finally {
-      failTerminalWriteStallWatch(terminal)
-    }
+    runGuardedWriteCompletionStep('queued-ack-credit-failure', () => ackCreditsParsed?.())
+    runGuardedWriteCompletionStep('queued-stall-failure', () => failTerminalWriteStallWatch(terminal))
   }
 }
 

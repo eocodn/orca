@@ -4,6 +4,14 @@ import {
   runGuardedWriteCompletionStep
 } from './xterm-write-callback-guard'
 import { writeForegroundTerminalChunk } from './pane-terminal-foreground-render-settle'
+import {
+  armTerminalWriteStallWatch,
+  cancelTerminalWriteStallWatch
+} from './terminal-write-pipeline-health'
+import {
+  composeParsedCallback,
+  composeWriteFailureCallback
+} from './terminal-output-scheduler-queue-runtime-write'
 
 const mocks = vi.hoisted(() => ({
   recordRendererCrashBreadcrumb: vi.fn()
@@ -126,5 +134,41 @@ describe('writeForegroundTerminalChunk completion guarding', () => {
     } finally {
       errorSpy.mockRestore()
     }
+  })
+})
+
+describe('queued xterm write completion guarding', () => {
+  it('contains ACK failures and still settles the pacer and stall watch', () => {
+    vi.useFakeTimers()
+    const terminal = { write: vi.fn() }
+    const onParsed = vi.fn()
+    const pacer = vi.fn()
+    const ackCreditsParsed = vi.fn(() => {
+      throw new Error('synthetic IPC ACK failure')
+    })
+
+    armTerminalWriteStallWatch(terminal, { stallCheckMs: 1_000 })
+    try {
+      const completion = composeParsedCallback(terminal, onParsed, ackCreditsParsed, pacer)
+
+      expect(() => completion()).not.toThrow()
+      expect(onParsed).toHaveBeenCalledTimes(1)
+      expect(pacer).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      cancelTerminalWriteStallWatch(terminal)
+      vi.useRealTimers()
+    }
+  })
+
+  it('contains ACK failures during write-failure settlement', () => {
+    const terminal = { write: vi.fn() }
+    const ackCreditsParsed = vi.fn(() => {
+      throw new Error('synthetic IPC ACK failure')
+    })
+
+    const completion = composeWriteFailureCallback(terminal, ackCreditsParsed)
+
+    expect(() => completion()).not.toThrow()
   })
 })
