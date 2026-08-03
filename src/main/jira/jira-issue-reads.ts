@@ -1,11 +1,22 @@
 import type {
+  JiraComment,
+  JiraCreateField,
+  JiraCreateFieldAllowedValue,
   JiraCreateIssueArgs,
   JiraCreateIssueResult,
   JiraIssue,
   JiraIssueFilter,
+  JiraIssueType,
   JiraIssueUpdate,
   JiraMutationResult,
-  JiraSiteSelection
+  JiraPriority,
+  JiraProject,
+  JiraProjectStatusOrder,
+  JiraSite,
+  JiraSiteSelection,
+  JiraStatus,
+  JiraTransition,
+  JiraUser
 } from '../../shared/types'
 import {
   acquire,
@@ -17,6 +28,23 @@ import {
   release,
   type JiraClientForSite
 } from './client'
+import {
+  adfToMarkdownText,
+  collectAdfMediaAttrs,
+  textToAdf,
+  type AdfToMarkdownOptions,
+  type JiraAdfMediaAttrs
+} from './adf-markdown'
+import {
+  extractAttachmentContentIdsFromHtml,
+  selectPreferredAttachmentIds,
+  warnIfMediaResolutionIncomplete
+} from './attachment-discovery'
+import {
+  createMediaMarkdownResolver,
+  loadIssueImageAttachments,
+  type MediaResolutionStats
+} from './attachment-images'
 import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
 import { ISSUE_DETAIL_FIELDS, ISSUE_SUMMARY_FIELDS, ISSUE_SUMMARY_TIMEOUT_MS, ISSUE_SEARCH_TIMEOUT_MS, type JiraRecord, clampLimit, type JiraIssueSearchFailure } from './jira-issue-primitives'
 import { withJiraDeadline, settleJiraSummaryRead, getErrorStatus, toIssueSearchFailureError, shouldSurfaceSiteFailure, mapUser, issueUrl, toBodyText } from './jira-issue-deadlines'

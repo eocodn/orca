@@ -1,23 +1,45 @@
 import type {
+  ClassifiedError,
+  GitLabAssignableUser,
   GitLabAuthDiagnostic,
+  GitLabDiscussionResolveResult,
+  GitLabJobTraceResult,
+  GitLabPagedResult,
+  GitLabPipelineJob,
   GitLabRateLimitSnapshot,
+  GitLabMRInlineCommentInput,
+  GitLabMRReviewersUpdateResult,
+  GitLabRetryJobResult,
+  GitLabTodo,
   GitLabViewer,
-  MRInfo
+  GitLabWorkItem,
+  GetGitLabRateLimitResult,
+  IssueSourcePreference,
+  ListMergeRequestsResult,
+  MRComment,
+  MRInfo,
+  MRListState
 } from '../../shared/types'
-import { derivePipelineStatus, mapMRInfo } from './mappers'
+import { derivePipelineStatus, mapIssueToWorkItem, mapMRInfo, mapMRToWorkItem } from './mappers'
 import {
   acquire,
+  classifyGlabError,
+  classifyListIssuesError,
   getGlabKnownHosts,
   getProjectRef,
+  getProjectRefForRemote,
   glabHostnameArgs,
   glabRepoExecOptions,
   glabApiWithHeaders,
   glabExecFileAsync,
   parseGlabAuthStatusHosts,
   release,
+  resolveIssueSource,
+  type LocalGitExecOptions,
   type ProjectRef
 } from './gl-utils'
 import { rememberGlabKnownHosts } from './gitlab-known-host-probe'
+import type { IssueListState } from './issues'
 import {
   hasHostedReviewLocalGitOptions,
   getHostedReviewLocalGitOptions,
@@ -368,3 +390,4 @@ function getMergeRequestForBranchOrThrow(
 
 export { encodedProject, GITLAB_RATE_LIMIT_CACHE_TTL_MS, GITLAB_RATE_LIMIT_CACHE_MAX_ENTRIES, gitLabRateLimitCache, hostedReviewLocalGitOptionArgs, getAuthenticatedViewer, diagnoseAuth, parseRateLimitHeader, parseRateLimitResetAt, parseGitLabRateLimitSnapshot, _resetGitLabRateLimitCache, _getGitLabRateLimitCacheSize, pruneGitLabRateLimitCache, rememberGitLabRateLimitSnapshot, getRateLimit, getProjectSlug, getMergeRequest, getMergeRequestForBranch, getMergeRequestForBranchOrThrow }
 export { type HostedReviewLocalGitOptions }
+

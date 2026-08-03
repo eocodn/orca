@@ -1,5 +1,6 @@
 import { randomBytes} from 'node:crypto'
 
+import Database from '../../sqlite/sync-database'
 import type {
   TaskStatus,
   DispatchStatus,

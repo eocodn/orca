@@ -1,25 +1,64 @@
+import { existsSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import * as path from 'node:path'
 import type {
   GitBranchChangeEntry,
+  GitBranchChangeStatus,
+  GitBranchCompareResult,
+  GitBranchCompareSummary,
   GitCommitCompareResult,
-  GitDiffResult
+  GitConflictKind,
+  GitConflictOperation,
+  GitDiffResult,
+  GitFileStatus,
+  GitStatusEntry,
+  GitStatusResult,
+  GitUpstreamStatus
 } from '../../shared/types'
+import type { CommitMessageDraftContext } from '../../shared/commit-message-generation'
+import {
+  getEffectiveGitUpstreamStatus,
+  getGitUpstreamStatusForUpstreamName,
+  splitRemoteBranchName
+} from '../../shared/git-effective-upstream'
+import { createGitConfigSnapshotRunner } from '../../shared/git-config-snapshot-runner'
 import { isBinaryBuffer } from '../../shared/binary-buffer'
 import {
-  parseNumstat
+  applyLineStats,
+  collectUntrackedAdditions,
+  parseNumstat,
+  type GitLineStats
 } from '../../shared/git-uncommitted-line-stats'
 import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
 import {
   gitExecFileAsync,
-  gitExecFileAsyncBuffer
+  gitExecFileAsyncBuffer,
+  gitOptionalLocksDisabledEnv,
+  gitStreamStdout
 } from './runner'
-import { isMaxBufferOverflowError } from './max-buffer-overflow'
+import { StatusPorcelainParser } from '../../shared/git-status-porcelain-parser'
+import { findExistingWorktreeSymlinkPaths } from './worktree-symlink-detection'
+import { capGitStatusEntries, resolveGitStatusLimit } from '../../shared/git-status-limit'
+import { describeMaxBufferOverflowError, isMaxBufferOverflowError } from './max-buffer-overflow'
+import {
+  removeSafeUntrackedDiscardTarget,
+  removeSafeUntrackedDiscardTargets
+} from '../../shared/git-discard-path-safety'
+import { readBranchCompareHead } from '../../shared/git-branch-compare-head'
+import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
+import { resolveWorktreeBaseCommitOid } from './worktree-base-ref-probe'
 import { getLargeDiffRenderLimit } from '../../shared/large-diff-render-limit'
-import { stableInFlightKey } from '../../shared/in-flight-promise-dedupe'
+import { InFlightPromiseDedupe, stableInFlightKey } from '../../shared/in-flight-promise-dedupe'
 import type { GitRuntimeOptions } from './git-runtime-options'
 import { gitOptionsForWorktree } from './git-runtime-options'
+import { GitStatusReadLeaseOwner } from './git-status-read-lease-owner'
 import { parseGitRevListFirstParentOid } from '../../shared/git-rev-list-output'
+import {
+  beginGitStatusLineStatsCacheWrite,
+  clearGitStatusLineStatsCache,
+  clearGitStatusLineStatsCacheKey,
+  reuseOrRecomputeGitStatusLineStats
+} from '../../shared/git-status-line-stats-cache'
 import { MAX_GIT_SHOW_BYTES, gitDiffReadDedupe, gitRuntimeOptionsKey, getStatus } from './status-read'
 import { parseBranchStatusChar } from './status-upstream'
 async function getCommitCompare(
@@ -485,3 +524,4 @@ const PREVIEWABLE_BINARY_MIME_TYPES: Record<string, string> = {
 
 export { getCommitCompare, getCommitDiff, loadCommitDiff, loadBranchChanges, loadCommitChanges, parseBranchChangeLine, resolveCompareRef, resolveRefOid, resolveMergeBase, countAheadCommits, readUnstagedLeftBlob, readGitBlobAtIndexPath, readGitBlobAtOidPath, readWorkingTreeFile, bufferToBlob, buildDiffResult, PREVIEWABLE_BINARY_MIME_TYPES }
 export { type GitBlobReadResult }
+

@@ -1,6 +1,14 @@
-import { basename } from 'node:path'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { gitExecFileSync, gitExecFileAsync } from './runner'
+import type { BaseRefSearchResult } from '../../shared/types'
 import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
+import { normalizeRuntimePathSeparators } from '../../shared/cross-platform-path'
+import { isForEachRefExcludeUnsupportedError } from '../../shared/git-ref-command-capabilities'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import { toWindowsWslPath } from '../wsl'
+import { buildHostedRemoteCommitUrl, buildHostedRemoteFileUrl } from './hosted-remote-url'
+import { getLocalGitCapabilityCache } from './git-capability-state'
 import { type LocalGitExecOptions, type LocalDefaultBaseRefGitOptions, DEFAULT_BASE_REF_PROBE_TIMEOUT_MS, gitExecOptions, DEFAULT_BASE_REF_PROBES, resolveDefaultBaseRefFromProbes } from './repo-detection'
 function getRepoName(path: string): string {
   const name = basename(path)
@@ -210,3 +218,4 @@ const REF_SEARCH_LEGACY_HEADROOM = 100
 
 export { getRepoName, getRemoteUrl, getRemoteUrlByName, hasGitRef, gitRefToDefaultBaseRef, getVerifiedOriginHeadBaseRef, getDefaultBaseRef, getBaseRefDefault, getRemoteDrift, getRecentDriftSubjects, parseRemoteCount, getRemoteCount, hasGitRefViaExec, resolveVerifiedOriginHeadBaseRefViaExec, resolveDefaultBaseRefViaExec, resolveDefaultBaseRefWithLocalGit, getDefaultBaseRefAsync, REF_SEARCH_CANDIDATE_MULTIPLIER, REF_SEARCH_LEGACY_HEADROOM }
 export { type GitExec }
+

@@ -1,4 +1,42 @@
-import { acquire, clearToken, getClients, isAuthError, release } from './client'
+import type {
+  LinearIssue,
+  LinearIssueUpdate,
+  LinearComment,
+  LinearCollectionResult,
+  LinearWorkspaceError,
+  LinearWorkspaceSelection
+} from '../../shared/types'
+import type { LinearClient } from '@linear/sdk'
+import { loadLinearSdk } from './linear-sdk'
+import {
+  LINEAR_ISSUE_API_PAGE_SIZE_MAX,
+  clampLinearIssueListLimit
+} from '../../shared/linear-issue-read-limits'
+import {
+  isEmptyLinearIssueAttributeFilter,
+  type LinearIssueAttributeFilter
+} from '../../shared/linear-issue-attribute-filter'
+import {
+  acquire,
+  release,
+  getClients,
+  isAuthError,
+  clearToken,
+  type LinearClientForWorkspace
+} from './client'
+import { buildLinearListIssueFilter } from './issue-list-filter'
+import { mapLinearIssue } from './mappers'
+import {
+  AGENT_ISSUE_WRITE_FIELDS,
+  ALL_ISSUES_QUERY,
+  ATTACHMENT_BY_UUID_QUERY,
+  COMMENT_BY_UUID_QUERY,
+  ISSUE_BY_UUID_QUERY,
+  ISSUE_COMMENTS_QUERY,
+  SEARCH_ISSUES_QUERY,
+  VIEWER_ASSIGNED_ISSUES_QUERY,
+  VIEWER_CREATED_ISSUES_QUERY
+} from './linear-issue-queries'
 import { LinearWriteFailure, type LinearIssueWriteRecord } from './linear-issue-primitives'
 import { runLinearWrite, confirmLinearWrite } from './linear-issue-reads'
 import { getCreatedIssueRecord } from './linear-issue-write-confirmation'
@@ -124,3 +162,4 @@ async function createIssueForAgent(
 }
 
 export { createIssue, createIssueForAgent }
+

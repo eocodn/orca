@@ -1,7 +1,32 @@
 import { readFile, stat } from 'node:fs/promises'
-import { isAbsolute, join, resolve } from 'node:path'
+import { isAbsolute, join, posix, resolve, win32 } from 'node:path'
+import {
+  branchHasNoUnmergedChangesOnAnyTarget,
+  getBranchCleanupTargetRefs,
+  refreshBranchCleanupTargetRefs
+} from '../../shared/git-branch-cleanup'
+import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
+import { withSpan } from '../observability/tracer'
+import type {
+  GitWorktreeInfo,
+  LocalBaseRefRefreshResult,
+  LocalBaseRefUpdateSuggestion,
+  RemoveWorktreeResult
+} from '../../shared/types'
+import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
+import { isSubmoduleWorktreeRemovalRefusal } from '../../shared/worktree-submodule-removal'
+import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
+import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import {
+  hasUnsupportedRevParsePathFormatEcho,
+  isUnsupportedRevParsePathFormatError,
+  isUnsupportedWorktreeListZError
+} from '../../shared/git-worktree-command-capabilities'
+import { getLocalGitCapabilityCache } from './git-capability-state'
 import { gitExecFileAsync, translateWslOutputPaths } from './runner'
-import { resolveGitDir } from './status'
+import { resolveGitDir, runWithGitReadCacheInvalidation } from './status'
+import { hasWorktreeBaseCommitRef } from './worktree-base-ref-probe'
 import { type GitWorktreeExecOptions, type WorktreeRemovalPreflightOptions, WORKTREE_REMOVAL_PREFLIGHT_TIMEOUT_MS, gitExecOptions, normalizeLocalBranchRef } from './worktree-foundation'
 import { parseWorktreeList } from './worktree-listing'
 async function forceDeleteLocalBranch(
@@ -271,3 +296,4 @@ function parseGitConfigBoolean(raw: string | undefined): boolean {
 }
 
 export { forceDeleteLocalBranch, isLocalBranchCheckedOut, assertWorktreeCleanForRemoval, getBlockingUntrackedStatusEntries, translateWorktreePath, detectSparseCheckout, resolveGitCommonDir, isSparseCheckoutEnabled, readGitConfigText, parseCoreSparseCheckoutFlag, GIT_CONFIG_SECTION_HEADER, GIT_CONFIG_ASSIGNMENT, parseGitConfigFlag, stripGitConfigComment, parseGitConfigBoolean }
+

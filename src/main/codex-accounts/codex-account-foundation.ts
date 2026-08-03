@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import { execFileSync, type ChildProcess } from 'node:child_process'
-import { readFileSync, rmSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve, sep } from 'node:path'
+import { homedir } from 'node:os'
+import { app } from 'electron'
+import { getSpawnArgsForWindows } from '../win32-utils'
 import type {
   CodexManagedAccount,
   CodexManagedAccountSummary,
@@ -23,14 +26,37 @@ import type {
   DurableCodexResetCreditAttempt
 } from '../../shared/codex-reset-credit-attempt-ledger'
 import type { CodexRuntimeHomeService } from './runtime-home-service'
+import { writeFileAtomically } from './fs-utils'
+import { rewriteRelativePathConfigValues } from '../codex/codex-config-path-reference-rewrite'
+import { stripCodexManagedHookTrustEntriesFromConfig } from '../codex/codex-managed-trust-reconciliation'
+import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
+import { getCodexManagedHookInstallMaterial } from '../codex/hook-service'
+import { syncSystemConfigIntoManagedCodexHome } from '../codex/codex-config-mirror'
+import { getSystemCodexHomePath } from '../codex/codex-home-paths'
+import { MANAGED_HOOK_TIMEOUT_SECONDS } from '../agent-hooks/installer-utils'
+import { readCodexTopLevelModelProvider } from '../codex/codex-model-provider-config'
+import { resolveCodexCommand } from '../codex-cli/command'
 import type { Store } from '../persistence'
 import type { RateLimitService } from '../rate-limits/service'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import { toWindowsWslPath } from '../wsl'
+import { buildEncodedWslBashCommand } from '../wsl-bash-command'
 import {
+  buildWslCodexAvailabilityArgs,
   buildWslCodexLoginArgs,
+  WSL_CODEX_AVAILABILITY_TIMEOUT_MS
 } from './wsl-codex-command'
 import {
+  getCodexSelectionTargetForAccount,
+  getSelectedCodexAccountIdForTarget,
+  normalizeCodexAccountSelectionTarget,
+  normalizeCodexRuntimeSelection,
   pruneInvalidCodexRuntimeSelection,
+  removeCodexAccountIdFromSelection,
+  setSelectedCodexAccountIdForTarget,
+  type CodexAccountSelectionTarget
 } from './runtime-selection'
+import { assertOwnedHostCodexManagedHomePath } from './host-codex-managed-home-ownership'
 
 export const LOGIN_TIMEOUT_MS = 120_000
 export const MAX_LOGIN_OUTPUT_CHARS = 4_000

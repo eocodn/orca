@@ -1,3 +1,4 @@
+import type { AutomationSchedulePreset } from './automations-types'
 import { isClipboardTextByteLengthOverLimit } from './clipboard-text'
 
 export const DAY_MS = 24 * 60 * 60 * 1000

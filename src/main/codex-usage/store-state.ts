@@ -13,8 +13,9 @@ import type {
   CodexUsageSnapshot,
   CodexUsageSummary
 } from '../../shared/codex-usage-types'
+import type { AutomationRunUsage } from '../../shared/automations-types'
 import type { Store } from '../persistence'
-import type { UsageWorktreeRef } from '../usage-worktree-metadata'
+import { loadKnownUsageWorktreesByRepo, type UsageWorktreeRef } from '../usage-worktree-metadata'
 import type { CodexUsagePersistedState } from './types'
 
 // Why: v5 keys Codex ownership on raw token_count identity without session id

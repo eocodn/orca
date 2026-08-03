@@ -6,30 +6,60 @@
  * `wsl.exe -d <distro>` with translated Linux paths.
  */
 import {
-  spawn
+  execFile,
+  execFileSync,
+  spawn,
+  type ChildProcess,
+  type ExecFileOptions,
+  type SpawnOptions
 } from 'node:child_process'
+import { StringDecoder } from 'node:string_decoder'
 import { withGitSpan } from '../observability/instrumentation'
+import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
+import {
+  classifyGhRateLimitBucket,
+  createGhRateLimitBlockedError,
+  getGhRateLimitBlockedUntilMs,
+  ghRateLimitScopeKey,
+  isGhPrimaryRateLimitStderr,
+  isGhRateLimitProbe,
+  notifyGhPrimaryRateLimit,
+  type GhRateLimitBucket
+} from './gh-rate-limit-breaker'
+import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
 import { addWslEnvKeys } from '../wsl-env'
 import {
   appendGitConfigEnv,
   gitCredentialPromptGuardEnv
 } from '../../shared/git-credential-prompt-env'
-import { isWindowsBatchScript, resolveWindowsCommand } from '../win32-utils'
+import { getSpawnArgsForWindows, isWindowsBatchScript, resolveWindowsCommand } from '../win32-utils'
 import {
+  buildWslLoginShellCommand,
+  escapeWslShCommandForWindows,
   quotePosixShell
 } from '../../shared/wsl-login-shell-command'
 import { UNTRANSLATED_GIT_OUTPUT_ENV } from '../../shared/git-output-locale'
+import { endSubprocessStdin } from '../../shared/subprocess-stdin-write'
+// Re-exported for existing importers; lightweight consumers should import from './exec-error' to avoid this heavy module.
+import { extractExecError, parseRetryAfterMs } from './exec-error'
 // ─── Core resolution ────────────────────────────────────────────────
 
 // Env-assignment prefix for WSL-routed git, where spawn env can't cross the wsl.exe boundary; values are shell-safe unquoted.
-import {
+import { GIT_OUTPUT_LOCALE_SHELL_PREFIX,
   DEFAULT_GIT_MAX_BUFFER,
   type GitExecOptions,
   type CommandExecOptions,
+  isMissingCommandError,
+  hasPathSeparator,
   shouldRetryWindowsCommandShim,
+  createAbortError,
+  WINDOWS_TREE_KILL_WAIT_MS,
+  killSpawnedCommandTree,
+  type ExecFileCaptureOptions,
+  emptyExecFileOutput,
+  isExecFileResultObject,
   execFileCapture,
-  spawnCommandCapture
-} from './runner-execution-foundation'
+  spawnCommandCapture } from './runner-execution-foundation'
 import { resolveCommand } from './runner-command-resolution'
 
 export function gitOptionalLocksDisabledEnv(

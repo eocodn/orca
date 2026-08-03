@@ -10,6 +10,7 @@ import {
   type JsonRpcNotification,
   type JsonRpcResponse
 } from './protocol'
+import { ClientRequestAborts } from './client-request-aborts'
 import { MAX_TIMER_DELAY_MS, isSafeTimerDelayMs } from '../shared/timer-delay'
 import {
   DISPATCHER_CONTROL_QUEUE_MAX_BYTES,
@@ -20,6 +21,10 @@ import {
   type RelayClientWrite,
   type SinkWriteSettlement
 } from './dispatcher-client-writer'
+import {
+  LegacyRelayPublicationLedger,
+  type LegacyPublicationLease
+} from './legacy-relay-publication-ledger'
 
 export type {
   RelayClientSinkOptions,

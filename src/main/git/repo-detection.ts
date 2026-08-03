@@ -1,9 +1,14 @@
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { gitExecFileSync } from './runner'
+import { gitExecFileSync, gitExecFileAsync } from './runner'
+import type { BaseRefSearchResult } from '../../shared/types'
+import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
 import { normalizeRuntimePathSeparators } from '../../shared/cross-platform-path'
+import { isForEachRefExcludeUnsupportedError } from '../../shared/git-ref-command-capabilities'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 import { toWindowsWslPath } from '../wsl'
+import { buildHostedRemoteCommitUrl, buildHostedRemoteFileUrl } from './hosted-remote-url'
+import { getLocalGitCapabilityCache } from './git-capability-state'
 type LocalGitExecOptions = {
   wslDistro?: string
 }
@@ -453,3 +458,4 @@ function isGitBooleanFalse(value: string): boolean {
 
 export { DEFAULT_BASE_REF_PROBE_TIMEOUT_MS, gitExecOptions, DEFAULT_BASE_REF_PROBES, resolveDefaultBaseRefFromProbes, isGitRepo, warnedMarkerFallbackThisSession, probeGitRepo, getGitRepoRoot, canonicalizeGitDirPath, getLinkedWorktreeMainRepoRoot, normalizeGitRepoRootForInputPath, scanGitMarkerSync, resolveRealPathSync, scanGitMarkerAncestorsSync, ancestorDirectories, isInsideDotGitMarker, pathsReferToSameEntry, scanWorktreeMarkerSync, parseGitdirFile, resolveGitMetadataPath, hasValidGitDirectorySync, hasValidCommonGitDirectorySync, hasValidLinkedWorktreeGitDirectorySync, hasValidBareRepoMarkerSync, gitConfigDeclaresNonBare, normalizeGitConfigValue, stripGitConfigInlineComment, isGitBooleanFalse }
 export { type LocalGitExecOptions, type LocalDefaultBaseRefGitOptions, type GitRepoProbeResult, type GitMarkerScanResult }
+

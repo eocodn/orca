@@ -34,7 +34,7 @@ import {
   release as releaseGlab
 } from '../gitlab/gl-utils'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
-import { detectHostedReviewProvider } from './forge-provider'
+import { detectHostedReviewProvider, getForgeProviderForRepository } from './forge-provider'
 import { getHostedReviewForBranch } from './hosted-review'
 import {
   getHostedReviewLocalGitOptions,

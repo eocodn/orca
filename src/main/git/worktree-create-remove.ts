@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+import { readFile, stat } from 'node:fs/promises'
+import { isAbsolute, join, posix, resolve, win32 } from 'node:path'
 import {
   branchHasNoUnmergedChangesOnAnyTarget,
   getBranchCleanupTargetRefs,
@@ -7,15 +8,24 @@ import {
 import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
 import { withSpan } from '../observability/tracer'
 import type {
+  GitWorktreeInfo,
   LocalBaseRefRefreshResult,
   LocalBaseRefUpdateSuggestion,
   RemoveWorktreeResult
 } from '../../shared/types'
 import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
 import { isSubmoduleWorktreeRemovalRefusal } from '../../shared/worktree-submodule-removal'
+import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
+import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import {
+  hasUnsupportedRevParsePathFormatEcho,
+  isUnsupportedRevParsePathFormatError,
+  isUnsupportedWorktreeListZError
+} from '../../shared/git-worktree-command-capabilities'
 import { getLocalGitCapabilityCache } from './git-capability-state'
-import { gitExecFileAsync } from './runner'
-import { runWithGitReadCacheInvalidation } from './status'
+import { gitExecFileAsync, translateWslOutputPaths } from './runner'
+import { resolveGitDir, runWithGitReadCacheInvalidation } from './status'
 import { hasWorktreeBaseCommitRef } from './worktree-base-ref-probe'
 import { type AddWorktreeResult, type SparseWorktreeCreateError, type GitWorktreeExecOptions, type AddWorktreeOptions, type RemoveWorktreeOptions, WORKTREE_ADD_TIMEOUT_MS, gitExecOptions, isBranchCheckedOutInWorktreeError, normalizeLocalBranchRef, getLocalBaseRefUpdateSuggestionForWorktreeCreate, persistWorktreeCreationBase, unsetWorktreeCreationBase, areWorktreePathsEqual } from './worktree-foundation'
 import { bumpWorktreeScanGeneration, listWorktrees, refreshLocalBaseRefForWorktreeCreate } from './worktree-listing'
@@ -407,3 +417,4 @@ async function deleteAlreadyMergedBranchAfterSafeDeleteFailure(
 }
 
 export { addWorktree, performAddWorktree, addSparseWorktree, moveWorktree, removeWorktree, performRemoveWorktree, deleteBranchAfterWorktreeRemoval, deleteLocalBranchAfterWorktreeRemoval, deleteAlreadyMergedBranchAfterSafeDeleteFailure }
+

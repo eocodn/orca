@@ -1,4 +1,11 @@
-import type { Worker } from 'node:worker_threads'
+import { Worker } from 'node:worker_threads'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { app } from 'electron'
+import { getCatalogModel } from './model-catalog'
+import type { ModelManager } from './model-manager'
+import { OpenAiTranscriptionSession } from './openai-transcription-client'
+import { readOpenAiSpeechApiKey } from './openai-api-key-store'
 
 export const START_DICTATION_TIMEOUT_MS = 60_000
 const STOP_DICTATION_TIMEOUT_MS = 60_000

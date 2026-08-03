@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
+import Database from '../../sqlite/sync-database'
 import type {
   WorkerDispatchState,
   FederatedDispatchRow,

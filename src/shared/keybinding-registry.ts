@@ -1,4 +1,5 @@
-import type { KeybindingActionId, KeybindingDefinition, KeybindingPlatform, PluginKeybindingActionId } from "./keybinding-contract"
+import type { AgentTabActionId, KeybindingActionId, KeybindingDefinition, KeybindingPlatform, PluginKeybindingActionId } from "./keybinding-contract"
+import type { TuiAgent } from "./types"
 import { KEYBINDING_DEFINITIONS } from "./keybinding-definitions"
 
 export const LEGACY_TAB_SWITCH_BINDINGS: Readonly<Partial<Record<KeybindingActionId, string[]>>> = {

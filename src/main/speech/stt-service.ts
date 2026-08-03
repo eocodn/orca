@@ -1,7 +1,18 @@
-import type { Worker } from 'node:worker_threads'
+import { Worker } from 'node:worker_threads'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { app } from 'electron'
+import { getCatalogModel } from './model-catalog'
 import type { ModelManager } from './model-manager'
-import type { OpenAiTranscriptionSession } from './openai-transcription-client'
-import type { StopInFlight, SttEventSink } from './stt-service-foundation'
+import { OpenAiTranscriptionSession } from './openai-transcription-client'
+import { readOpenAiSpeechApiKey } from './openai-api-key-store'
+
+import * as foundation from './stt-service-foundation'
+const { IDLE_WORKER_TEARDOWN_MS, START_DICTATION_TIMEOUT_MS, STOP_DICTATION_TIMEOUT_MS } = foundation
+type StopInFlight = foundation.StopInFlight
+type StopOutcome = foundation.StopOutcome
+type SttEvent = foundation.SttEvent
+type SttEventSink = foundation.SttEventSink
 
 import { SttServiceMethods1, type SttServiceMethods1Surface } from './stt-service-start-dictation-stop-dictation'
 import { SttServiceMethods2, type SttServiceMethods2Surface } from './stt-service-create-stop-promise-prepare-model-for-deletion'

@@ -1,8 +1,37 @@
+import { app, net } from 'electron'
 import { join, resolve, relative } from 'node:path'
-import { existsSync, statSync } from 'node:fs'
-import type { SpeechModelManifest, SpeechModelState } from '../../shared/speech-types'
-import { getCatalogModel } from './model-catalog'
+import {
+  existsSync,
+  mkdirSync,
+  createWriteStream,
+  createReadStream,
+  rmSync,
+  statSync
+} from 'node:fs'
+import { rename, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { pipeline } from 'node:stream/promises'
+import type {
+  SpeechModelManifest,
+  SpeechModelState,
+  SpeechModelStatus
+} from '../../shared/speech-types'
+import { SPEECH_MODEL_CATALOG, getCatalogModel, isLocalSpeechModel } from './model-catalog'
 import { hasOpenAiSpeechApiKey } from './openai-api-key-store'
+import {
+  getSpeechModelCacheDirCandidates,
+  migrateSpeechModelCacheIfNeeded,
+  type SpeechModelCacheDir
+} from './model-cache-path'
+
+import * as foundation from './speech-model-management-foundation'
+const { DOWNLOAD_IDLE_TIMEOUT_MS, DOWNLOAD_RETRY_DELAYS_MS, MAX_NO_PROGRESS_ATTEMPTS, MAX_RETRY_AFTER_MS, MAX_TOTAL_DOWNLOAD_REQUESTS, RETRYABLE_HTTP_STATUSES, RETRYABLE_NET_ERROR, describeInterruptedDownload, getHeaderValue, isRetryableDownloadError, parseContentRange, parseRetryAfterMs, sleepUnlessAborted } = foundation
+type ContentRange = foundation.ContentRange
+type DownloadHandle = foundation.DownloadHandle
+type DownloadIncomingMessage = foundation.DownloadIncomingMessage
+type DownloadTotals = foundation.DownloadTotals
+type HttpStatusError = foundation.HttpStatusError
+type ProgressCallback = foundation.ProgressCallback
 
 export const ModelManagerMethods2 = {
   async getModelState(this: any, modelId: string): Promise<SpeechModelState> {

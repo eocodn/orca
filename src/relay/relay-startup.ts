@@ -8,9 +8,19 @@
 // On client disconnect it enters a grace period, keeping PTYs alive on a Unix domain socket; a later launch
 // reconnects via `relay.js --connect`, bridging the new SSH channel's stdio to the existing relay's socket.
 
+import { createServer, createConnection, type Socket, type Server } from 'node:net'
 import { join } from 'node:path'
 import { unlinkSync, existsSync, statSync, readFileSync, chmodSync } from 'node:fs'
-import { readLaunchVersion } from './relay-handshake'
+import {
+  RELAY_SENTINEL,
+  FrameDecoder,
+  MessageType,
+  encodeJsonRpcFrame,
+  parseJsonRpcMessage,
+  type DecodedFrame,
+  type JsonRpcResponse
+} from './protocol'
+import { readLaunchVersion, runConnectHandshake, setupDaemonHandshake } from './relay-handshake'
 import { RelayDispatcher } from './dispatcher'
 import { RelayContext, expandTilde } from './context'
 import { PtyHandler } from './pty-handler'
@@ -40,10 +50,13 @@ import {
   isPiCompatibleAgentType
 } from '../shared/pi-agent-kind'
 import { resolveSetupAgentSequenceLaunchCommand } from '../shared/setup-agent-sequencing'
+import { pickRemoteCliEnv } from './remote-cli-env'
 import { relayLogLine } from './relay-diagnostic-log'
 import { remoteCliRequestTimeoutMs } from './remote-cli-timeout'
+import { shouldReadRemoteCliStdin } from './remote-cli-stdin'
 import { registerManagedHookInstaller } from './managed-hook-installer'
 import { registerRelayPluginHostCallHandlers } from './plugin-host-call-handler'
+import { DispatcherClientWriter } from './dispatcher-client-writer'
 import { SshPtyConsumerSessionAdapter } from './ssh-pty-consumer-session-adapter'
 import { RelayPtySourcePublication } from './relay-pty-source-publication'
 

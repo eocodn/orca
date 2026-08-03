@@ -1,5 +1,6 @@
 
 
+import Database from '../../sqlite/sync-database'
 import type {
   DispatchContextRow,
   LegacyAdoptionRow,

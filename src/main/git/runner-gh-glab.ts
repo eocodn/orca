@@ -7,8 +7,15 @@
  */
 import {
   execFile,
-  spawn
+  execFileSync,
+  spawn,
+  type ChildProcess,
+  type ExecFileOptions,
+  type SpawnOptions
 } from 'node:child_process'
+import { StringDecoder } from 'node:string_decoder'
+import { withGitSpan } from '../observability/instrumentation'
+import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
 import {
   classifyGhRateLimitBucket,
   createGhRateLimitBlockedError,
@@ -19,7 +26,20 @@ import {
   notifyGhPrimaryRateLimit,
   type GhRateLimitBucket
 } from './gh-rate-limit-breaker'
+import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
+import { addWslEnvKeys } from '../wsl-env'
+import {
+  appendGitConfigEnv,
+  gitCredentialPromptGuardEnv
+} from '../../shared/git-credential-prompt-env'
+import { getSpawnArgsForWindows, isWindowsBatchScript, resolveWindowsCommand } from '../win32-utils'
+import {
+  buildWslLoginShellCommand,
+  escapeWslShCommandForWindows,
+  quotePosixShell
+} from '../../shared/wsl-login-shell-command'
 import { UNTRANSLATED_GIT_OUTPUT_ENV } from '../../shared/git-output-locale'
+import { endSubprocessStdin } from '../../shared/subprocess-stdin-write'
 // Re-exported for existing importers; lightweight consumers should import from './exec-error' to avoid this heavy module.
 import { extractExecError, parseRetryAfterMs } from './exec-error'
 // ─── Core resolution ────────────────────────────────────────────────
@@ -481,3 +501,4 @@ async function glabExecFileAsync(
 
 export { NON_IDEMPOTENT_METHODS, NON_IDEMPOTENT_GH_VERBS, argsLookIdempotent, isTransientGhError, GH_RETRY_DELAYS_MS, GH_RETRY_AFTER_MAX_MS, DEFAULT_GH_EXEC_TIMEOUT_MS, sleep, defaultGhExecTimeoutMs, nonInteractiveGhEnv, hasGhHostnameFlag, hostQualifiedGhRepoValue, applyGhHostToArgs, explicitGhHostname, explicitGhRepoHostname, ghRateLimitScope, assertGhRateLimitScopeAvailable, ghExecFileAsync, redirectPortedHostnameToEnv, glabExecFileAsync }
 export { type GhExecOptions, type GlabExecOptions }
+

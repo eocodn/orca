@@ -4,10 +4,14 @@ import type {
   LinearCustomViewModel,
   LinearCustomViewSummary,
   LinearIssue,
+  LinearProjectDetail,
+  LinearProjectMemberSummary,
   LinearProjectSummary,
+  LinearWorkspaceError,
   LinearWorkspaceSelection
 } from '../../shared/types'
 import {
+  LINEAR_ISSUE_API_PAGE_SIZE_MAX,
   clampLinearIssueListLimit
 } from '../../shared/linear-issue-read-limits'
 import {
@@ -15,13 +19,20 @@ import {
   clearToken,
   getClients,
   isAuthError,
-  release
+  release,
+  type LinearClientForWorkspace
 } from './client'
 import {
+  CREATE_PROJECT_MUTATION,
   CUSTOM_VIEWS_QUERY,
   CUSTOM_VIEW_ISSUES_QUERY,
   CUSTOM_VIEW_PROJECTS_QUERY,
-  CUSTOM_VIEW_QUERY
+  CUSTOM_VIEW_QUERY,
+  PROJECTS_QUERY,
+  PROJECT_ISSUES_QUERY,
+  PROJECT_QUERY,
+  PROJECT_TEAMS_QUERY,
+  SEARCH_PROJECTS_QUERY
 } from './linear-project-queries'
 import { type LinearRawVariables, type CustomViewConnectionResponse, clampLimit, coalesce, normalizeConcreteWorkspaceId, mapProjectForWorkspace, mapCustomViewModel, mapCustomViewForWorkspace, readIssueConnectionPages, readCollection, readConcreteCollection } from './linear-project-primitives'
 async function listCustomViews(
@@ -162,3 +173,4 @@ async function listCustomViewProjects(
 }
 
 export { listCustomViews, getCustomView, listCustomViewIssues, listCustomViewProjects }
+

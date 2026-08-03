@@ -27,6 +27,7 @@ import { buildEditableContextMenuTemplate } from './editable-context-menu'
 import { setTrustedUIRendererWebContentsId } from '../ipc/ui'
 import { rectHasVisibleAreaOnAnyDisplay } from './window-bounds-validation'
 import { installPrivilegedWindowNavigationPolicy } from './privileged-window-navigation'
+import { isMacosTahoeOrNewer } from './macos-tahoe-release'
 import { registerPluginPanelNavigationGuard } from '../plugins/plugin-panel-navigation-guard'
 import {
   MIN_HEIGHT,

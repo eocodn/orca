@@ -32,6 +32,7 @@ import {
   preserveBranchHeadFallback,
   removeLocalWorktreePath,
   removeWorktree,
+  removeWorktreeLinkedPaths,
   removeWorktreeMetadataAndTransientState,
   removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
   rememberPreservedBranchCleanupTarget,

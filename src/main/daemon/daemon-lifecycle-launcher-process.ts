@@ -4,11 +4,14 @@ import { writeFileSync } from 'node:fs'
 import { fork } from 'node:child_process'
 import {
   getDaemonPidPath,
+  getDaemonSocketPath,
+  getDaemonTokenPath,
   serializeDaemonPidFile,
   unlinkOwnedDaemonPidFile,
   type DaemonLauncher,
   type DaemonProcessHandle
 } from './daemon-spawner'
+import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter'
 import { DaemonClient } from './client'
 import { PROTOCOL_VERSION } from './types'
 import {
@@ -16,21 +19,30 @@ import {
   getDaemonLaunchIdentity,
   checkDaemonHealth,
   isDaemonStaleForCurrentBundle,
-  killStaleDaemon
+  killStaleDaemon,
+  parseDaemonPidFile
 } from './daemon-health'
 import { materializeRelocatedDaemonHost } from './daemon-host-relocation'
 import { trackDaemonReplaced } from './daemon-lifecycle-event'
 import type { DaemonReplaceReason } from '../../shared/daemon-lifecycle-telemetry'
+import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 
 import {
+  logDaemonMilestone,
+  getRuntimeDir,
+  getHistoryDir,
   getDaemonEntryPath,
   daemonLogArgs,
   probeSocket,
   getAliveDaemonSessionCount,
   createPreservedDaemonHandle,
   holdDaemonAdoptionLease,
+  releaseDaemonAdoptionLease,
+  takeDaemonAdoptionLeaseRelease,
+  cleanupFailedDaemonAdoption,
   terminateLaunchedDaemonChild,
+  isNoSuchProcessError,
   shouldPreserveDaemonWithLiveSessions,
   WEDGED_DAEMON_GRACE_RETRIES
 } from './daemon-lifecycle-adoption-process'

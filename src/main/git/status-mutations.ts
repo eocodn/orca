@@ -1,15 +1,64 @@
+import { existsSync } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
 import * as path from 'node:path'
+import type {
+  GitBranchChangeEntry,
+  GitBranchChangeStatus,
+  GitBranchCompareResult,
+  GitBranchCompareSummary,
+  GitCommitCompareResult,
+  GitConflictKind,
+  GitConflictOperation,
+  GitDiffResult,
+  GitFileStatus,
+  GitStatusEntry,
+  GitStatusResult,
+  GitUpstreamStatus
+} from '../../shared/types'
 import type { CommitMessageDraftContext } from '../../shared/commit-message-generation'
 import {
-  gitExecFileAsync
+  getEffectiveGitUpstreamStatus,
+  getGitUpstreamStatusForUpstreamName,
+  splitRemoteBranchName
+} from '../../shared/git-effective-upstream'
+import { createGitConfigSnapshotRunner } from '../../shared/git-config-snapshot-runner'
+import { isBinaryBuffer } from '../../shared/binary-buffer'
+import {
+  applyLineStats,
+  collectUntrackedAdditions,
+  parseNumstat,
+  type GitLineStats
+} from '../../shared/git-uncommitted-line-stats'
+import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
+import {
+  gitExecFileAsync,
+  gitExecFileAsyncBuffer,
+  gitOptionalLocksDisabledEnv,
+  gitStreamStdout
 } from './runner'
+import { StatusPorcelainParser } from '../../shared/git-status-porcelain-parser'
+import { findExistingWorktreeSymlinkPaths } from './worktree-symlink-detection'
+import { capGitStatusEntries, resolveGitStatusLimit } from '../../shared/git-status-limit'
 import { describeMaxBufferOverflowError, isMaxBufferOverflowError } from './max-buffer-overflow'
 import {
   removeSafeUntrackedDiscardTarget,
   removeSafeUntrackedDiscardTargets
 } from '../../shared/git-discard-path-safety'
+import { readBranchCompareHead } from '../../shared/git-branch-compare-head'
+import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
+import { resolveWorktreeBaseCommitOid } from './worktree-base-ref-probe'
+import { getLargeDiffRenderLimit } from '../../shared/large-diff-render-limit'
+import { InFlightPromiseDedupe, stableInFlightKey } from '../../shared/in-flight-promise-dedupe'
 import type { GitRuntimeOptions } from './git-runtime-options'
 import { gitOptionsForWorktree } from './git-runtime-options'
+import { GitStatusReadLeaseOwner } from './git-status-read-lease-owner'
+import { parseGitRevListFirstParentOid } from '../../shared/git-rev-list-output'
+import {
+  beginGitStatusLineStatsCacheWrite,
+  clearGitStatusLineStatsCache,
+  clearGitStatusLineStatsCacheKey,
+  reuseOrRecomputeGitStatusLineStats
+} from '../../shared/git-status-line-stats-cache'
 import { MAX_STAGED_COMMIT_CONTEXT_BYTES, BULK_CHUNK_SIZE, invalidateGitReadCaches } from './status-read'
 async function stageFile(
   worktreePath: string,
@@ -357,3 +406,4 @@ async function bulkUnstageFiles(
 }
 
 export { stageFile, unstageFile, getStagedCommitContext, commitChanges, discardChanges, normalizeGitPathForCompare, literalPathspec, isTrackedPathSpec, listTrackedPathSpecs, cleanUntrackedPaths, bulkDiscardChanges, isWithinWorktree, bulkStageFiles, bulkUnstageFiles }
+

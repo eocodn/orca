@@ -1,7 +1,12 @@
-import { join, resolve } from 'node:path'
-import { gitExecFileAsync } from './runner'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { gitExecFileSync, gitExecFileAsync } from './runner'
 import type { BaseRefSearchResult } from '../../shared/types'
+import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
+import { normalizeRuntimePathSeparators } from '../../shared/cross-platform-path'
 import { isForEachRefExcludeUnsupportedError } from '../../shared/git-ref-command-capabilities'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import { toWindowsWslPath } from '../wsl'
 import { buildHostedRemoteCommitUrl, buildHostedRemoteFileUrl } from './hosted-remote-url'
 import { getLocalGitCapabilityCache } from './git-capability-state'
 import { type LocalGitExecOptions, gitExecOptions } from './repo-detection'
@@ -406,3 +411,4 @@ function getRemoteCommitUrl(repoPath: string, sha: string): string | null {
 
 export { getRefSearchTokens, getRefSearchCandidateCount, buildSearchBaseRefsArgv, runSearchBaseRefsGit, mergeBaseRefSearchResultGroups, getDefaultRemote, searchBaseRefs, searchBaseRefDetails, listRemoteNames, parseAndFilterSearchRefs, parseAndFilterSearchRefDetails, resolveLocalBranchName, normalizeRefSearchQuery, hasGitRefAsync, getBranchConflictKind, isAllowedRemoteBaseRef, getRemoteFileUrl, getRemoteCommitUrl }
 export { type RefSearchPatternGroup, type BranchConflictKind }
+

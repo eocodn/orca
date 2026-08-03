@@ -6,9 +6,9 @@
 // On client disconnect it enters a grace period, keeping PTYs alive on a Unix domain socket; a later launch
 // reconnects via `relay.js --connect`, bridging the new SSH channel's stdio to the existing relay's socket.
 
-import { createConnection, type Socket } from 'node:net'
+import { createServer, createConnection, type Socket, type Server } from 'node:net'
 import { join } from 'node:path'
-import { statSync, readFileSync, chmodSync } from 'node:fs'
+import { unlinkSync, existsSync, statSync, readFileSync, chmodSync } from 'node:fs'
 import {
   RELAY_SENTINEL,
   FrameDecoder,
@@ -18,11 +18,45 @@ import {
   type DecodedFrame,
   type JsonRpcResponse
 } from './protocol'
-import { readLaunchVersion, runConnectHandshake } from './relay-handshake'
-import { DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS } from '../shared/ssh-types'
+import { readLaunchVersion, runConnectHandshake, setupDaemonHandshake } from './relay-handshake'
+import { RelayDispatcher } from './dispatcher'
+import { RelayContext, expandTilde } from './context'
+import { PtyHandler } from './pty-handler'
+import { FsHandler } from './fs-handler'
+import { installRelayLogRotation } from './rotating-log-writer'
+import { GitHandler } from './git-handler'
+import { PreflightHandler } from './preflight-handler'
+import { ExternalAutomationsHandler } from './external-automations-handler'
+import { PortScanHandler } from './port-scan-handler'
+import { AgentExecHandler } from './agent-exec-handler'
+import { WorkspaceSessionHandler } from './workspace-session-handler'
+import { endpointDirForRelaySocket, RelayAgentHookServer } from './agent-hook-server'
+import { PluginOverlayManager } from './plugin-overlay'
+import {
+  AGENT_HOOK_INSTALL_PLUGINS_METHOD,
+  AGENT_HOOK_NOTIFICATION_METHOD,
+  AGENT_HOOK_REQUEST_REPLAY_METHOD
+} from '../shared/agent-hook-relay'
+import {
+  DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
+} from '../shared/ssh-types'
+import { assertPluginSourceUnderByteCap } from './plugin-source-limit'
+import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
+import {
+  detectExplicitPiAgentKindFromCommand,
+  isPiCompatibleAgentType
+} from '../shared/pi-agent-kind'
+import { resolveSetupAgentSequenceLaunchCommand } from '../shared/setup-agent-sequencing'
 import { pickRemoteCliEnv } from './remote-cli-env'
+import { relayLogLine } from './relay-diagnostic-log'
+import { remoteCliRequestTimeoutMs } from './remote-cli-timeout'
 import { shouldReadRemoteCliStdin } from './remote-cli-stdin'
+import { registerManagedHookInstaller } from './managed-hook-installer'
+import { registerRelayPluginHostCallHandlers } from './plugin-host-call-handler'
 import { DispatcherClientWriter } from './dispatcher-client-writer'
+import { SshPtyConsumerSessionAdapter } from './ssh-pty-consumer-session-adapter'
+import { RelayPtySourcePublication } from './relay-pty-source-publication'
 
 const DEFAULT_GRACE_MS = DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS * 1000
 const SOCK_NAME = 'relay.sock'
@@ -442,3 +476,4 @@ export async function readOrcaCliStdin(): Promise<string | undefined> {
   }
   return Buffer.concat(chunks).toString('utf8')
 }
+

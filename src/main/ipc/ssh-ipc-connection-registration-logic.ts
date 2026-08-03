@@ -55,6 +55,7 @@ import {
   teardownSshTargetTransport,
   teardownActiveSshSession,
   relayGracePeriodForTarget,
+  type ConnectAttempt,
   connectInFlight,
   pendingTransportReconnects,
   resetRelayInFlight,

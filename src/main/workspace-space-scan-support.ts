@@ -1,7 +1,11 @@
 import { posix, win32 } from 'node:path'
 import { platform } from 'node:process'
-import type { GitWorktreeInfo, Repo, Worktree } from '../shared/types'
+import type { Dirent } from 'node:fs'
+import type { Store } from './persistence'
+import { isFolderRepo } from '../shared/repo-kind'
+import type { DirEntry, GitWorktreeInfo, Repo, Worktree } from '../shared/types'
 import type {
+  WorkspaceSpaceAnalysis,
   WorkspaceSpaceDirectoryScanResult,
   WorkspaceSpaceItem,
   WorkspaceSpaceRepoSummary,
@@ -9,8 +13,23 @@ import type {
   WorkspaceSpaceScanStatus,
   WorkspaceSpaceWorktree
 } from '../shared/workspace-space-types'
-import type { WorkspaceSpaceEntryScan } from '../shared/workspace-space-entry-traversal'
-import { WorkspaceSpaceScanCapacityError } from '../shared/workspace-space-scan-budget'
+import { compactWorkspaceSpaceItems } from '../shared/workspace-space-compaction'
+import { mapWithConcurrency } from '../shared/map-with-concurrency'
+import {
+  scanWorkspaceSpaceEntryTree,
+  type WorkspaceSpaceEntryScan
+} from '../shared/workspace-space-entry-traversal'
+import {
+  collectWorkspaceSpaceDirectoryEntries,
+  createWorkspaceSpaceScanBudget,
+  WorkspaceSpaceScanCapacityError
+} from '../shared/workspace-space-scan-budget'
+import type { IFilesystemProvider } from './providers/types'
+import { getSshFilesystemProvider } from './providers/ssh-filesystem-dispatch'
+import { getSshGitProvider } from './providers/ssh-git-dispatch'
+import { createFolderWorktree, listRepoWorktrees } from './repo-worktrees'
+import { mergeWorktree } from './ipc/worktree-logic'
+import { getLocalProjectWorktreeGitOptions } from './project-runtime-git-options'
 
 export const REPO_SCAN_CONCURRENCY = 2
 export const WORKTREE_SCAN_CONCURRENCY = 3

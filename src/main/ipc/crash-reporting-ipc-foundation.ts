@@ -1,18 +1,37 @@
 // Crash report IPC handlers and renderer-report deduplication.
 import os from 'node:os'
-import { app } from 'electron'
+import { app, clipboard, ipcMain } from 'electron'
 import {
   type CrashReportBreadcrumbData,
+  type CrashReportCopyDiagnosticsArgs,
   type CrashReportDiagnosticBundle,
   type ReactErrorBoundaryReportArgs,
   type ReactErrorBoundaryReportResult,
+  type CrashReportSubmitArgs,
+  type CrashReportSubmitResult,
+  formatCrashReportText,
   formatUncapturedCrashReportText,
   sanitizeCrashReportDetails,
   sanitizeCrashReportString
 } from '../../shared/crash-reporting'
+import { submitFeedback } from './feedback'
 import type { CrashReportStore } from '../crash-reporting/crash-report-store'
-import { getCrashBreadcrumbSnapshot } from '../crash-reporting/crash-breadcrumb-store'
+import {
+  getCrashBreadcrumbSnapshot,
+  recordCoalescedCrashBreadcrumb,
+  recordCrashBreadcrumb
+} from '../crash-reporting/crash-breadcrumb-store'
 import { startSpan } from '../observability/tracer'
+import {
+  diagnosticBundleForReportOnlyRetry,
+  prepareCrashDiagnosticBundle,
+  resolveSubmittedDiagnosticBundle
+} from '../crash-reporting/crash-feedback-diagnostic-bundle'
+import {
+  assertClipboardTextWriteWithinLimit,
+  isClipboardTextWriteTooLargeError
+} from '../../shared/clipboard-text'
+import { formatCrashReportCopyText } from '../crash-reporting/crash-report-copy-text'
 import { TERMINAL_WEBGL_DIAGNOSTIC_BREADCRUMB } from '../../shared/terminal-webgl-diagnostics'
 
 export const inFlightSubmissions = new Set<string>()
@@ -373,3 +392,4 @@ export function rendererBreadcrumbCoalesceKey(
       : [data?.reasonStack, data?.reasonType, data?.reasonName]
   return JSON.stringify([name, message, ...sourceIdentity])
 }
+

@@ -1,7 +1,38 @@
 // Browser IPC handlers and tab lifecycle implementation.
-import { webContents } from 'electron'
-import { browserManager } from '../browser/browser-manager'
+import { BrowserWindow, ipcMain, webContents } from 'electron'
+import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
 import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
+import { browserSessionRegistry } from '../browser/browser-session-registry'
+import {
+  pickCookieFile,
+  importCookiesFromFile,
+  detectInstalledBrowsers,
+  selectBrowserProfile,
+  importCookiesFromBrowser
+} from '../browser/browser-cookie-import'
+import type {
+  BrowserSetGrabModeArgs,
+  BrowserSetGrabModeResult,
+  BrowserAwaitGrabSelectionArgs,
+  BrowserGrabResult,
+  BrowserCancelGrabArgs,
+  BrowserCaptureSelectionScreenshotArgs,
+  BrowserCaptureSelectionScreenshotResult,
+  BrowserExtractHoverArgs,
+  BrowserExtractHoverResult
+} from '../../shared/browser-grab-types'
+import type {
+  BrowserCookieImportResult,
+  BrowserCertificateProceedResult,
+  BrowserSessionProfile,
+  BrowserSessionProfileScope,
+  BrowserViewportOverride
+} from '../../shared/types'
+import {
+  isValidBrowserAnnotationViewportBridgeMarkers,
+  isValidBrowserAnnotationViewportBridgeToken,
+  type BrowserSetAnnotationViewportBridgeArgs
+} from '../../shared/browser-annotation-viewport-bridge'
 
 export let trustedBrowserRendererWebContentsId: number | null = null
 export let agentBrowserBridgeRef: AgentBrowserBridge | null = null
@@ -159,3 +190,4 @@ export function isTrustedBrowserRenderer(sender: Electron.WebContents): boolean 
 
   return senderUrl.startsWith('file://')
 }
+

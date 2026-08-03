@@ -1,4 +1,5 @@
 import type { AgentHookSource } from './agent-hook-relay'
+import type { HookListenerState } from './agent-hook-state'
 import type { ExtractedPromptText, ToolSnapshot } from './agent-hook-prompt-tools'
 import * as prompt from './agent-hook-prompt-tools'
 import * as sourceTools from './agent-hook-source-tools'

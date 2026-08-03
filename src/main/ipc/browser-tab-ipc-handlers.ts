@@ -1,8 +1,31 @@
 // Browser IPC handlers and tab lifecycle implementation.
-import { ipcMain } from 'electron'
+import { BrowserWindow, ipcMain, webContents } from 'electron'
 import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
+import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
+import { browserSessionRegistry } from '../browser/browser-session-registry'
+import {
+  pickCookieFile,
+  importCookiesFromFile,
+  detectInstalledBrowsers,
+  selectBrowserProfile,
+  importCookiesFromBrowser
+} from '../browser/browser-cookie-import'
 import type {
+  BrowserSetGrabModeArgs,
+  BrowserSetGrabModeResult,
+  BrowserAwaitGrabSelectionArgs,
+  BrowserGrabResult,
+  BrowserCancelGrabArgs,
+  BrowserCaptureSelectionScreenshotArgs,
+  BrowserCaptureSelectionScreenshotResult,
+  BrowserExtractHoverArgs,
+  BrowserExtractHoverResult
+} from '../../shared/browser-grab-types'
+import type {
+  BrowserCookieImportResult,
   BrowserCertificateProceedResult,
+  BrowserSessionProfile,
+  BrowserSessionProfileScope,
   BrowserViewportOverride
 } from '../../shared/types'
 import {
@@ -11,16 +34,7 @@ import {
   type BrowserSetAnnotationViewportBridgeArgs
 } from '../../shared/browser-annotation-viewport-bridge'
 
-import {
-  agentBrowserBridgeRef,
-  pendingTabRegistrations,
-  pendingWorktreeTabRegistrations,
-  pendingAnyTabRegistrations,
-  grabModeIntentByPageId,
-  grabModeOperationByPageId,
-  resolvePendingRegistrations,
-  isTrustedBrowserRenderer
-} from './browser-ipc-foundation'
+import { trustedBrowserRendererWebContentsId, agentBrowserBridgeRef, pendingTabRegistrations, pendingWorktreeTabRegistrations, pendingAnyTabRegistrations, grabModeIntentByPageId, grabModeOperationByPageId, GRAB_REGISTRATION_WAIT_MS, waitForRegistrationSet, resolvePendingRegistrations, isLiveBrowserWebContentsId, hasRegisteredTabForWorktree, waitForTabRegistration, waitForNextTabRegistration, queueGrabModeOperation, waitForWorktreeTabRegistration, waitForAnyTabRegistration, setTrustedBrowserRendererWebContentsId, setAgentBrowserBridgeRef, isTrustedBrowserRenderer } from './browser-ipc-foundation'
 
 export function registerBrowserTabHandlers(): void {
   ipcMain.removeHandler('browser:registerGuest')

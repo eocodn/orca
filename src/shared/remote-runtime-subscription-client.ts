@@ -12,6 +12,7 @@ import {
   publicKeyToBase64
 } from './e2ee-crypto'
 import {
+  isKeepaliveFrame,
   RuntimeRpcEnvelopeSchema,
   type RuntimeRpcResponse
 } from './runtime-rpc-envelope'

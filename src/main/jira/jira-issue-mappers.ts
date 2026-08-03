@@ -1,16 +1,37 @@
 import type {
+  JiraComment,
+  JiraCreateField,
+  JiraCreateFieldAllowedValue,
+  JiraCreateIssueArgs,
+  JiraCreateIssueResult,
   JiraIssue,
   JiraIssueFilter,
-  JiraSite
+  JiraIssueType,
+  JiraIssueUpdate,
+  JiraMutationResult,
+  JiraPriority,
+  JiraProject,
+  JiraProjectStatusOrder,
+  JiraSite,
+  JiraSiteSelection,
+  JiraStatus,
+  JiraTransition,
+  JiraUser
 } from '../../shared/types'
 import {
+  acquire,
   apiBasePath,
+  clearToken,
+  getClients,
+  isAuthError,
   jiraRequest,
+  release,
   type JiraClientForSite
 } from './client'
 import {
   adfToMarkdownText,
   collectAdfMediaAttrs,
+  textToAdf,
   type AdfToMarkdownOptions,
   type JiraAdfMediaAttrs
 } from './adf-markdown'
@@ -24,6 +45,7 @@ import {
   loadIssueImageAttachments,
   type MediaResolutionStats
 } from './attachment-images'
+import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
 import { ISSUE_LIST_FIELDS, type JiraRecord, type JiraSearchResponse } from './jira-issue-primitives'
 import { asRecord, asString, asStringArray, mapUser, mapProject, mapIssueType, mapPriority, mapStatus, issueUrl } from './jira-issue-deadlines'
 function mapJiraIssue(
@@ -188,3 +210,4 @@ async function searchIssuesForClient(
 
 export { mapJiraIssue, collectIssueMediaRequest, prepareMediaResolver, flushMediaResolutionWarn, sortAndLimitIssues, filterToJql, searchIssuesForClient }
 export { type MediaRequest, type PreparedMedia }
+

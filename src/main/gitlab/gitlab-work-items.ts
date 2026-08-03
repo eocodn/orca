@@ -1,25 +1,51 @@
 import type {
   ClassifiedError,
+  GitLabAssignableUser,
+  GitLabAuthDiagnostic,
+  GitLabDiscussionResolveResult,
+  GitLabJobTraceResult,
+  GitLabPagedResult,
+  GitLabPipelineJob,
+  GitLabRateLimitSnapshot,
+  GitLabMRInlineCommentInput,
+  GitLabMRReviewersUpdateResult,
+  GitLabRetryJobResult,
   GitLabTodo,
+  GitLabViewer,
   GitLabWorkItem,
+  GetGitLabRateLimitResult,
   IssueSourcePreference,
+  ListMergeRequestsResult,
+  MRComment,
+  MRInfo,
   MRListState
 } from '../../shared/types'
-import { mapIssueToWorkItem, mapMRToWorkItem } from './mappers'
+import { derivePipelineStatus, mapIssueToWorkItem, mapMRInfo, mapMRToWorkItem } from './mappers'
 import {
   acquire,
+  classifyGlabError,
   classifyListIssuesError,
   getGlabKnownHosts,
   getProjectRef,
+  getProjectRefForRemote,
   glabHostnameArgs,
   glabRepoExecOptions,
+  glabApiWithHeaders,
   glabExecFileAsync,
+  parseGlabAuthStatusHosts,
   release,
   resolveIssueSource,
   type LocalGitExecOptions,
   type ProjectRef
 } from './gl-utils'
+import { rememberGlabKnownHosts } from './gitlab-known-host-probe'
 import type { IssueListState } from './issues'
+import {
+  hasHostedReviewLocalGitOptions,
+  getHostedReviewLocalGitOptions,
+  type HostedReviewExecutionOptions
+} from '../source-control/hosted-review-git-options'
+import { shouldHideNonOpenReviewOnDefaultBranch } from '../source-control/repo-default-branch'
 
 // Why: glab REST addresses projects by URL-encoded path; escapes slashes for nested groups.
 import { encodedProject } from './gitlab-auth-project'
@@ -265,3 +291,4 @@ async function listTodos(
 // ── MR mutations ──────────────────────────────────────────────────
 
 export { parseHeaderInt, getWorkItemByProjectRef, mrStateToIssueState, listWorkItems, fetchIssuesAsWorkItems, listTodos }
+

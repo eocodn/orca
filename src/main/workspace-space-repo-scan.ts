@@ -1,7 +1,7 @@
 import type { Store } from "./persistence"
 import { isFolderRepo } from "../shared/repo-kind"
 import type { GitWorktreeInfo, Repo, Worktree } from "../shared/types"
-import type { WorkspaceSpaceWorktree } from "../shared/workspace-space-types"
+import type { WorkspaceSpaceScanStatus, WorkspaceSpaceRepoSummary, WorkspaceSpaceWorktree } from "../shared/workspace-space-types"
 import { getSshFilesystemProvider } from "./providers/ssh-filesystem-dispatch"
 import { getSshGitProvider } from "./providers/ssh-git-dispatch"
 import { createFolderWorktree, listRepoWorktrees } from "./repo-worktrees"

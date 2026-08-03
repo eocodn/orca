@@ -3,11 +3,19 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { UsageCacheSnapshotWriter } from '../usage-cache-snapshot-writer'
 import type {
+  ClaudeUsageBreakdownKind,
+  ClaudeUsageBreakdownRow,
+  ClaudeUsageDailyPoint,
   ClaudeUsageRange,
-  ClaudeUsageScanState
+  ClaudeUsageScanState,
+  ClaudeUsageScope,
+  ClaudeUsageSessionRow,
+  ClaudeUsageSnapshot,
+  ClaudeUsageSummary
 } from '../../shared/claude-usage-types'
+import type { AutomationRunUsage } from '../../shared/automations-types'
 import type { Store } from '../persistence'
-import type { UsageWorktreeRef } from '../usage-worktree-metadata'
+import { loadKnownUsageWorktreesByRepo, type UsageWorktreeRef } from '../usage-worktree-metadata'
 import type { ClaudeUsagePersistedState } from './types'
 
 // Why: v5 widens Claude ownership keys (message-id / uuid fallbacks). Older
@@ -25,7 +33,7 @@ export function initClaudeUsagePath(): void {
   _claudeUsageFile = join(app.getPath('userData'), 'orca-claude-usage.json')
 }
 
-export type AutomationUsageLookupInput = {
+type AutomationUsageLookupInput = {
   worktreeId: string | null
   terminalSessionId: string | null
   startedAt: number | null

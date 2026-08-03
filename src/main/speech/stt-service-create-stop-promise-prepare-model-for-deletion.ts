@@ -1,9 +1,18 @@
 import { Worker } from 'node:worker_threads'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { app } from 'electron'
+import { getCatalogModel } from './model-catalog'
+import type { ModelManager } from './model-manager'
+import { OpenAiTranscriptionSession } from './openai-transcription-client'
+import { readOpenAiSpeechApiKey } from './openai-api-key-store'
 
 import * as foundation from './stt-service-foundation'
+const { IDLE_WORKER_TEARDOWN_MS, START_DICTATION_TIMEOUT_MS, STOP_DICTATION_TIMEOUT_MS } = foundation
+type StopInFlight = foundation.StopInFlight
 type StopOutcome = foundation.StopOutcome
+type SttEvent = foundation.SttEvent
 type SttEventSink = foundation.SttEventSink
-const { STOP_DICTATION_TIMEOUT_MS } = foundation
 
 export const SttServiceMethods2 = {
   createStopPromise(this: any, worker: Worker, capturedSink: SttEventSink | null): Promise<void> {

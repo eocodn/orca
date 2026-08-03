@@ -1,18 +1,62 @@
+import {  createHash, randomUUID } from 'node:crypto'
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, relative, resolve, sep } from 'node:path'
+import type {
+  ClaudeManagedAccount,
+  ClaudeManagedAccountSummary,
+  ClaudeRateLimitAccountsState
+} from '../../shared/types'
+import type { Store } from '../persistence'
+import type { RateLimitService } from '../rate-limits/service'
 import { resolveClaudeCommand } from '../codex-cli/command'
-import { getClaudeManagedAccountsRoot, resolveOwnedClaudeManagedAuthPath } from './managed-auth-path'
-import { deleteManagedClaudeKeychainCredentials } from './keychain'
+import type { ClaudeRuntimeAuthService } from './runtime-auth-service'
+import {
+  getClaudeManagedAccountsRoot,
+  readClaudeManagedAuthFile,
+  resolveOwnedClaudeManagedAuthPath,
+  writeClaudeManagedAuthFile
+} from './managed-auth-path'
+import {
+  deleteActiveClaudeKeychainCredentialsStrict,
+  deleteManagedClaudeKeychainCredentials,
+  readActiveClaudeKeychainCredentials,
+  readActiveClaudeKeychainCredentialsStrict,
+  readManagedClaudeKeychainCredentials,
+  writeActiveClaudeKeychainCredentials,
+  writeManagedClaudeKeychainCredentials
+} from './keychain'
+import { beginClaudeAuthSwitch, endClaudeAuthSwitch } from './live-pty-gate'
+import { findDuplicateClaudeAccount } from './claude-duplicate-account'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 import { toWindowsWslPath } from '../wsl'
 import { buildEncodedWslBashCommand } from '../wsl-bash-command'
 import { buildWindowsCommandInvocation } from './windows-command-invocation'
-import { MAX_COMMAND_OUTPUT_CHARS,
+import {
+  getClaudeSelectionTargetForAccount,
+  getSelectedClaudeAccountIdForTarget,
+  normalizeClaudeAccountSelectionTarget,
+  normalizeClaudeRuntimeSelection,
+  pruneInvalidClaudeRuntimeSelection,
+  removeClaudeAccountIdFromSelection,
+  setSelectedClaudeAccountIdForTarget,
+  type ClaudeAccountSelectionTarget
+} from './runtime-selection'
+
+
+import { LOGIN_TIMEOUT_MS,
+  STATUS_TIMEOUT_MS,
+  MAX_COMMAND_OUTPUT_CHARS,
   WINDOWS_TASKKILL_TIMEOUT_MS,
   CLAUDE_AUTH_DENIED_PATTERN,
+  type ClaudeIdentity,
+  type CapturedClaudeAuth,
+  type ManagedClaudeAuthSnapshot,
   type ClaudeAccountAddTarget,
+  type ClaudeAccountImportOptions,
   type ManagedClaudeAuthLocation,
+  DuplicateClaudeAccountError,
   shellQuote  } from './claude-account-foundation'
 import { ClaudeAccountServicePhase1 } from './claude-account-login'
 

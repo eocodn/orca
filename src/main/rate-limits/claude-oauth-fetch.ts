@@ -1,11 +1,45 @@
 import { net, session } from 'electron'
 import type {
   ProviderRateLimits,
-  RateLimitWindow
+  RateLimitWindow,
+  UsageRateLimitFailureKind,
+  UsageRateLimitMetadata,
+  UsageRateLimitSource
 } from '../../shared/rate-limit-types'
+import type { NetworkProxySettings } from '../../shared/network-proxy'
+import { fetchViaPty } from './claude-pty'
+import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
+import {
+  isOauthTokenExpiring,
+  refreshClaudeOauthCredentials
+} from '../claude-accounts/oauth-refresh'
 import { createOAuthUsageError, OAuthUsageError } from './claude-oauth-usage-error'
 import { mapClaudeUsageWindow, type ClaudeUsageWindowInput } from './claude-usage-window'
+import { withMacTailscaleDnsHint } from '../network/macos-tailscale-dns-diagnostic'
 import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
+import { resolveClaudeUsageRefreshPlan } from './claude-usage-refresh-plan'
+import {
+  classifyClaudeCredentialAbsence,
+  classifyClaudeOAuthUsageError,
+  type ClaudeUsageErrorClassification
+} from './claude-usage-error-classification'
+import {
+  parseOAuthCredentialsJson,
+  readOAuthCredentials,
+  type OAuthCredentialReadOptions,
+  type OAuthCredentialReadResult
+} from './claude-oauth-credentials'
+import {
+  canTrustManagedUsagePanelSupplement,
+  getManagedUsagePanelAuthPreparation,
+  readManagedCredentials,
+  readStagedManagedPreviewCredentials,
+  resolveManagedCredentialsLocation,
+  type InactiveClaudeAccountInfo,
+  type ManagedCredentialsLocation,
+  withManagedPreviewKeychainCredentials,
+  writeManagedCredentialsJson
+} from './claude-managed-credentials'
 
 const OAUTH_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA_HEADER = 'oauth-2025-04-20'

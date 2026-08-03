@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { Store } from '../persistence'
 import type { SparsePreset } from '../../shared/types'
-import { normalizeSparsePresetDirectories, normalizeSparsePresetName, notifySparsePresetsChanged } from './repo-ipc-handlers'
+import {
+  normalizeSparsePresetDirectories,
+  normalizeSparsePresetName,
+  notifySparsePresetsChanged
+} from './repo-ipc-handlers'
 
 export function registerSparsePresetHandlers(mainWindow: BrowserWindow, store: Store): void {
   ipcMain.handle('sparsePresets:list', (_event, args: { repoId: string }) => {

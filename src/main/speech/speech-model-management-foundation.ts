@@ -1,3 +1,29 @@
+import { app, net } from 'electron'
+import { join, resolve, relative } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  createWriteStream,
+  createReadStream,
+  rmSync,
+  statSync
+} from 'node:fs'
+import { rename, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { pipeline } from 'node:stream/promises'
+import type {
+  SpeechModelManifest,
+  SpeechModelState,
+  SpeechModelStatus
+} from '../../shared/speech-types'
+import { SPEECH_MODEL_CATALOG, getCatalogModel, isLocalSpeechModel } from './model-catalog'
+import { hasOpenAiSpeechApiKey } from './openai-api-key-store'
+import {
+  getSpeechModelCacheDirCandidates,
+  migrateSpeechModelCacheIfNeeded,
+  type SpeechModelCacheDir
+} from './model-cache-path'
+
 type DownloadHandle = {
   abort: () => void
   completion: Promise<void>

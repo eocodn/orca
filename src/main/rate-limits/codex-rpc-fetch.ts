@@ -9,7 +9,7 @@ import {
 } from './codex-rate-limit-window-classification'
 import type { FetchCodexRateLimitsOptions } from './codex-fetcher'
 import { resolveCodexCommand } from '../codex-cli/command'
-import { getSpawnArgsForWindows } from '../win32-utils'
+import { getCmdExePath, getSpawnArgsForWindows } from '../win32-utils'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 import {
   buildWslLoginShellCommand,

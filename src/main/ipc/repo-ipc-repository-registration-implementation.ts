@@ -2,17 +2,33 @@
 import type { BrowserWindow } from 'electron'
 import { dialog, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
+import { access, mkdir, readdir, rm } from 'node:fs/promises'
+import { isAbsolute, join } from 'node:path'
 import type { Store } from '../persistence'
 import type { ActiveCloneMetadata, ActiveRemoteCloneMetadata } from './repo-ipc-clone'
-import { cloneInFlightByPath, latestCloneGenerationByPath, pendingAbortCleanupByPath } from './repo-ipc-clone'
+import {
+  cloneInFlightByPath,
+  latestCloneGenerationByPath,
+  pendingAbortCleanupByPath
+} from './repo-ipc-clone'
 import type { BaseRefDefaultResult, Repo } from '../../shared/types'
 import type { ExecutionHostId } from '../../shared/execution-host'
 import { isFolderRepo } from '../../shared/repo-kind'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../shared/constants'
-import { getBaseRefDefault, getRemoteCount, getRepoName, parseRemoteCount, resolveDefaultBaseRefViaExec } from '../git/repo'
-import { gitSpawn, nonInteractiveGitEnv } from '../git/runner'
-import { cleanupClaimedCloneTarget, claimCloneTarget, deriveValidatedClonePath, getClonePathComparisonKey } from '../git/repo-clone-path'
+import {
+  getBaseRefDefault,
+  getRemoteCount,
+  getRepoName,
+  parseRemoteCount,
+  resolveDefaultBaseRefViaExec
+} from '../git/repo'
+import { gitExecFileAsync, gitSpawn, nonInteractiveGitEnv } from '../git/runner'
+import {
+  cleanupClaimedCloneTarget,
+  claimCloneTarget,
+  deriveValidatedClonePath,
+  getClonePathComparisonKey
+} from '../git/repo-clone-path'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { getSshGitUsername, resolveLocalGitUsername } from '../git/git-username'
 import { getGitCloneFailureMessage } from '../../shared/git-clone-failure-message'
@@ -20,7 +36,13 @@ import { invalidateAuthorizedRootsCache } from './filesystem-auth'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { runWithGitReadCacheInvalidation } from '../git/status'
-import { cloneRemoteRepo, emitCloneProgressFromText, emitRepoAdded, getRepoForExecutionHost, searchBaseRefDetailsForRepo } from './repo-ipc-handlers'
+import {
+  cloneRemoteRepo,
+  emitCloneProgressFromText,
+  emitRepoAdded,
+  getRepoForExecutionHost,
+  searchBaseRefDetailsForRepo
+} from './repo-ipc-handlers'
 import { notifyReposChanged } from './repo-ipc-imports'
 import { registerProjectGroupHandlers } from './repo-ipc-project-group-registration'
 import { registerRepositoryCatalogHandlers } from './repo-ipc-repository-catalog-registration'

@@ -1,3 +1,52 @@
+import type {
+  JiraComment,
+  JiraCreateField,
+  JiraCreateFieldAllowedValue,
+  JiraCreateIssueArgs,
+  JiraCreateIssueResult,
+  JiraIssue,
+  JiraIssueFilter,
+  JiraIssueType,
+  JiraIssueUpdate,
+  JiraMutationResult,
+  JiraPriority,
+  JiraProject,
+  JiraProjectStatusOrder,
+  JiraSite,
+  JiraSiteSelection,
+  JiraStatus,
+  JiraTransition,
+  JiraUser
+} from '../../shared/types'
+import {
+  acquire,
+  apiBasePath,
+  clearToken,
+  getClients,
+  isAuthError,
+  jiraRequest,
+  release,
+  type JiraClientForSite
+} from './client'
+import {
+  adfToMarkdownText,
+  collectAdfMediaAttrs,
+  textToAdf,
+  type AdfToMarkdownOptions,
+  type JiraAdfMediaAttrs
+} from './adf-markdown'
+import {
+  extractAttachmentContentIdsFromHtml,
+  selectPreferredAttachmentIds,
+  warnIfMediaResolutionIncomplete
+} from './attachment-discovery'
+import {
+  createMediaMarkdownResolver,
+  loadIssueImageAttachments,
+  type MediaResolutionStats
+} from './attachment-images'
+import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
+import { mapJiraIssue } from './jira-issue-mappers'
 const ISSUE_FIELDS = [
   'summary',
   'description',
@@ -55,4 +104,5 @@ type JiraIssueSearchFailure = {
 /** Run against one signal that trips on the caller's abort or the request deadline. */
 
 export { ISSUE_FIELDS, ISSUE_LIST_FIELDS, ISSUE_DETAIL_FIELDS, ISSUE_SUMMARY_TIMEOUT_MS, ISSUE_SEARCH_TIMEOUT_MS, clampLimit }
-export { ISSUE_SUMMARY_FIELDS, type JiraRecord, type JiraSearchResponse, type JiraPagedResponse, type JiraPageItemKey, type JiraIssueSearchFailure }
+export { type ISSUE_SUMMARY_FIELDS, type JiraRecord, type JiraSearchResponse, type JiraPagedResponse, type JiraPageItemKey, type JiraIssueSearchFailure }
+

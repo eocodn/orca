@@ -1,15 +1,32 @@
-import { stat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, stat } from 'node:fs/promises'
+import { isAbsolute, join, posix, resolve, win32 } from 'node:path'
+import {
+  branchHasNoUnmergedChangesOnAnyTarget,
+  getBranchCleanupTargetRefs,
+  refreshBranchCleanupTargetRefs
+} from '../../shared/git-branch-cleanup'
+import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
+import { withSpan } from '../observability/tracer'
 import type {
   GitWorktreeInfo,
-  LocalBaseRefRefreshResult
+  LocalBaseRefRefreshResult,
+  LocalBaseRefUpdateSuggestion,
+  RemoveWorktreeResult
 } from '../../shared/types'
+import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
+import { isSubmoduleWorktreeRemovalRefusal } from '../../shared/worktree-submodule-removal'
 import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
+import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
+import { parseWslUncPath } from '../../shared/wsl-paths'
 import {
+  hasUnsupportedRevParsePathFormatEcho,
+  isUnsupportedRevParsePathFormatError,
   isUnsupportedWorktreeListZError
 } from '../../shared/git-worktree-command-capabilities'
 import { getLocalGitCapabilityCache } from './git-capability-state'
 import { gitExecFileAsync, translateWslOutputPaths } from './runner'
+import { resolveGitDir, runWithGitReadCacheInvalidation } from './status'
+import { hasWorktreeBaseCommitRef } from './worktree-base-ref-probe'
 import { type GitWorktreeExecOptions, type AddWorktreeOptions, SPARSE_CHECKOUT_DETECTION_CONCURRENCY, PRUNABLE_EXISTENCE_PROBE_CONCURRENCY, WORKTREE_LIST_TIMEOUT_MS, gitExecOptions, getErrorCode, isNotGitRepositoryError, evaluateLocalBaseRefRefreshability, normalizeMainWorktreePath } from './worktree-foundation'
 import { translateWorktreePath, detectSparseCheckout } from './worktree-cleanup-sparse'
 function parseWorktreeList(
@@ -444,3 +461,4 @@ async function refreshLocalBaseRefForWorktreeCreate(
  */
 
 export { parseWorktreeList, splitLineWorktreeList, splitNulWorktreeList, readWorktreeList, annotatePrunableByExistence, readTranslatedWorktreeGraph, listWorktreeGraph, inFlightWorktreeScans, worktreeScanGenerations, hasInFlightWorktreeScanForRepo, bumpWorktreeScanGeneration, pruneWorktreeScanGeneration, _getWorktreeScanCacheSizesForTests, _resetWorktreeScanCacheForTests, listWorktrees, listWorktreesUnshared, listWorktreesStrict, annotateSparseCheckoutStatus, refreshLocalBaseRefForWorktreeCreate }
+

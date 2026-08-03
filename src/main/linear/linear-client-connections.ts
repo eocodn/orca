@@ -1,6 +1,14 @@
+import { safeStorage } from 'electron'
 import type { LinearClient } from '@linear/sdk'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { loadLinearSdk } from './linear-sdk'
-import { CredentialDecryptionError } from '../integration-credential-file'
+import {
+  CredentialDecryptionError,
+  credentialFileHasContent,
+  readStoredCredentialToken
+} from '../integration-credential-file'
 import type {
   LinearConnectionStatus,
   LinearViewer,
@@ -9,7 +17,7 @@ import type {
 } from '../../shared/types'
 
 // ── Concurrency limiter — max 4 parallel Linear API calls ────────────
-import { LEGACY_WORKSPACE_ID, type LinearClientForWorkspace, LINEAR_PUBLIC_FILE_URL_EXPIRY_SECONDS, credentialErrors, setCachedLegacyViewer, setLegacyViewerLoaded } from './linear-client-limiter'
+import { LEGACY_WORKSPACE_ID, type LinearClientForWorkspace, LINEAR_PUBLIC_FILE_URL_EXPIRY_SECONDS, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, setCachedLegacyViewer, setLegacyViewerLoaded } from './linear-client-limiter'
 import { getLegacyViewer, getWorkspaceFile, writeWorkspaceFile, getLegacyWorkspace, getWorkspaceState, clearLegacyViewerOnDisk, saveWorkspaceToken } from './linear-client-storage'
 import { loadToken, clearTokenFile, clearToken, workspaceFromLinearData, upsertWorkspace, replaceLegacyWorkspace, resolveWorkspaceId } from './linear-client-workspaces'
 function getClient(workspaceId?: string | null): LinearClient | null {

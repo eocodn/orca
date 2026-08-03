@@ -1,6 +1,8 @@
-import type { HookListenerState } from './agent-hook-state'
+import type { AgentHookSource } from './agent-hook-relay'
+import type { AgentHookEventPayload, ClaudeLeadTurnState, CodexLeadTurnState, HookListenerState } from './agent-hook-state'
+import type { ExtractedPromptText, ToolSnapshot } from './agent-hook-prompt-tools'
 
-import { normalizeAgentStatusPayload, type ParsedAgentStatusPayload } from './agent-status-types'
+import { normalizeAgentStatusPayload, type AgentStatusState, type ParsedAgentStatusPayload } from './agent-status-types'
 import * as state from './agent-hook-state'
 import * as request from './agent-hook-request-body'
 import * as prompt from './agent-hook-prompt-tools'
@@ -8,11 +10,13 @@ import * as transcript from './agent-hook-transcript'
 import * as sourceTools from './agent-hook-source-tools'
 import * as providerTools from './agent-hook-provider-tools'
 import * as policy from './agent-hook-event-policy'
-const { clearPaneTurnCacheState } = state
-const { stripGrokUserQueryWrapper, resolvePrompt, resolveToolState, readString, readFirstString } = prompt
-const { normalizeCopilotEventName, resolveCopilotEventName } = sourceTools
-const { isAskUserTool, isDroidPermissionNotification, isDroidIdleNotification, isDroidAskUserTool, isDroidHighRiskToolUse, isGrokEvent, isGrokPermissionNotification, getGrokNotificationType, isGrokRoutinePermissionPromptNotification, isGrokIdleNotification } = providerTools
-const { isNewTurnEvent, extractToolFields } = policy
+const { createHookListenerState, clearPaneCacheState, movePaneScopedMapEntries, movePaneScopedSetEntries, movePaneCacheState, clearPaneTurnCacheState, deletePaneScopedCacheEntry, deletePaneScopedSetEntry, clearAllListenerCaches, warnOnHookEnvOrVersionMismatch } = state
+const { HOOK_REQUEST_MAX_BYTES, HOOK_REQUEST_INITIAL_BUFFER_BYTES, AGENT_HOOK_JSON_STRUCTURE_LIMITS, parseAgentHookJson, MAX_WARNED_KEYS, HOOK_REQUEST_SLOWLORIS_MS, OPENCODE_HOOK_TEXT_MAX_CHARS, capOpenCodeHookText, MAX_PANE_KEY_LEN, parseFormEncodedBody, readRequestBody, ignoreSettledRequestError } = request
+const { contentBlockArrayText, extractPromptText, stripGrokUserQueryWrapper, resolvePrompt, resolveToolState, TOOL_INPUT_KEYS_BY_TOOL, FALLBACK_TOOL_INPUT_KEYS, deriveToolInputPreview, deriveFallbackToolInputPreview, readString, hasOwnField, hasAnyOwnField, toolUpdate, clearActiveToolFieldsUpdate, stripHookEnvelopeKeys, summarizeApprovalInput, deriveInteractivePrompt, readFirstString, parseJsonObjectString, extractToolResponseText } = prompt
+const { TRANSCRIPT_CHUNK_BYTES, TRANSCRIPT_MAX_SCAN_BYTES, EMPTY_TRANSCRIPT_REGION, AMP_THREAD_ID_MAX_LENGTH, AMP_MAX_SCOPED_THREAD_CACHE_KEYS, GROK_SESSION_CWD_MAX_LENGTH, GROK_HOME_ENVELOPE_MAX_LENGTH, extractAssistantTextFromLine, extractAssistantContentText, extractAntigravityUserRequest, extractUserPromptTextFromLine, readLastAssistantFromTranscript, readLastUserPromptFromTranscript, extractCommandCodeUserPromptFromLine, hashInteractionKeyPart, findLastCommandCodePromptInRegion, readLastCommandCodeUserPromptEntryFromTranscript, extractCommandCodeAssistantTextFromLine, readLastCommandCodeAssistantFromTranscript, parseHookBodyPayloadRecord, readBoundedString, readGrokHomeEnvelope, hasControlCharacter, readGrokSessionMetadata, getGrokChatHistoryPath, readLastAssistantFromGrokChatHistory, hasPendingAgentResultText, hasNonEmptyString, hasExplicitLastAssistantResult, preparePendingGrokResultDiscovery, readLastAssistantFromTranscriptOnce, readLastTextFromTranscriptOnce, findLastExtractedTranscriptLineText } = transcript
+const { extractClaudeToolFields, extractCodexToolFields, extractGeminiToolFields, readAntigravityToolCall, extractAntigravityToolFields, extractAmpToolFields, extractOpenCodeToolFields, extractCursorToolFields, normalizeCopilotEventName, resolveCopilotEventName, readCopilotToolCall } = sourceTools
+const { isAskUserTool, extractCopilotToolFields, extractPiToolFields, isDroidPermissionNotification, isDroidIdleNotification, isDroidAskUserTool, readDroidToolRiskLevel, isDroidHighRiskToolUse, extractDroidToolFields, extractCommandCodeToolFields, normalizeHookEventName, isGrokEvent, extractGrokToolFields, extractHermesToolFields, isGrokPermissionNotification, getGrokNotificationType, isGrokRoutinePermissionPromptNotification, isGrokIdleNotification } = providerTools
+const { isNewTurnEvent, hasExplicitUserPrompt, extractToolFields } = policy
 
 export function normalizeOpenCodeFamilyEvent(
   source: 'opencode' | 'mimo-code',

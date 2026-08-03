@@ -1,20 +1,37 @@
 import type {
   LinearCollectionResult,
   LinearConcreteWorkspaceId,
+  LinearCustomViewModel,
+  LinearCustomViewSummary,
+  LinearIssue,
   LinearProjectDetail,
+  LinearProjectMemberSummary,
   LinearProjectSummary,
+  LinearWorkspaceError,
   LinearWorkspaceSelection
 } from '../../shared/types'
+import {
+  LINEAR_ISSUE_API_PAGE_SIZE_MAX,
+  clampLinearIssueListLimit
+} from '../../shared/linear-issue-read-limits'
 import {
   acquire,
   clearToken,
   getClients,
   isAuthError,
-  release
+  release,
+  type LinearClientForWorkspace
 } from './client'
 import {
+  CREATE_PROJECT_MUTATION,
+  CUSTOM_VIEWS_QUERY,
+  CUSTOM_VIEW_ISSUES_QUERY,
+  CUSTOM_VIEW_PROJECTS_QUERY,
+  CUSTOM_VIEW_QUERY,
   PROJECTS_QUERY,
+  PROJECT_ISSUES_QUERY,
   PROJECT_QUERY,
+  PROJECT_TEAMS_QUERY,
   SEARCH_PROJECTS_QUERY
 } from './linear-project-queries'
 import { type LinearRawVariables, type ProjectConnectionResponse, LINEAR_PROJECT_API_PAGE_SIZE_MAX, clampLimit, coalesce, normalizeConcreteWorkspaceId, mapProjectForWorkspace, mapProjectDetailForWorkspace, readCollection } from './linear-project-primitives'
@@ -152,3 +169,4 @@ async function getProject(
 }
 
 export { listProjects, listProjectsByExactName, getProject }
+
