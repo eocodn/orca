@@ -48,6 +48,7 @@ describe('remote runtime host-session expiry recovery', () => {
       destroyed: false,
       recoveringPaneHandle: null,
       inputBatcher,
+      recovery: { begin: vi.fn(() => 1) },
       clearPendingViewportClaim: vi.fn(() => events.push('clear-viewport')),
       closeMultiplexedStream: vi.fn(() => events.push('close-old-subscription')),
       callRuntime: vi.fn(async () => {
@@ -98,6 +99,7 @@ describe('remote runtime host-session expiry recovery', () => {
     await vi.waitFor(() => expect(subscribeToHandle).toHaveBeenCalledOnce())
 
     expect(inputBatcher.clear).toHaveBeenCalledOnce()
+    expect(context.recovery.begin).toHaveBeenCalledOnce()
     expect(quarantineWhenConnected).toBe(true)
     expect(events.indexOf('clear-input')).toBeLessThan(events.indexOf('replace-handle'))
     expect(events.indexOf('close-old-subscription')).toBeLessThan(events.indexOf('replace-handle'))

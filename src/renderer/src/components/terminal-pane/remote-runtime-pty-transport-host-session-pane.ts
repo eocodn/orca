@@ -156,8 +156,9 @@ export function installRemoteRuntimePtyHostSessionPane(
     const expiredHandle = context.handle
     if (!expiredHandle || !tabId || !leafId || !worktreeId || context.recoveringPaneHandle) return
     context.recoveringPaneHandle = expiredHandle
-    context.connected = false
     context.inputBatcher.clear()
+    context.recovery.begin()
+    context.connected = false
     context.clearPendingViewportClaim()
     context.closeMultiplexedStream()
     const hostTabId = isWebTerminalSurfaceTabId(tabId) ? toHostSessionTabId(tabId) : tabId

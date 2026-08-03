@@ -103,14 +103,16 @@ export function installRemoteRuntimePtyStreamRecovery(
           return
         }
         if (!update.terminalHandle || update.terminalHandle === previousHandle) return
+        const endpointReplaced = update.terminalHandle !== previousHandle
         context.rebindRemoteTerminalHandle(update.terminalHandle)
+        if (endpointReplaced) {
+          context.inputBatcher.clear()
+          if (context.opts.tabId) armTerminalInputQuarantine(context.opts.tabId)
+        }
         const reboundHandle = context.handle
         const reboundPtyId = context.remotePtyId
         void context
           .subscribeToHandle()
-          .then(() => {
-            if (context.opts.tabId) armTerminalInputQuarantine(context.opts.tabId)
-          })
           .catch((error) => {
           if (
             reboundHandle &&
@@ -183,7 +185,10 @@ export function installRemoteRuntimePtyStreamRecovery(
         context.retireRemoteTerminalId()
         return
       }
-      if (nextHandle !== previousHandle) context.rebindRemoteTerminalHandle(nextHandle)
+      if (nextHandle !== previousHandle) {
+        context.rebindRemoteTerminalHandle(nextHandle)
+        endpointReplaced = true
+      }
     } else if (tabId && leafId && worktreeId) {
       const resolved = await context.resolvePersistedHostPane()
       if (context.destroyed || !context.connected || context.handle !== previousHandle) return
@@ -197,8 +202,11 @@ export function installRemoteRuntimePtyStreamRecovery(
       }
     }
     context.clearPublishedHandleWait()
+    if (endpointReplaced) {
+      context.inputBatcher.clear()
+      if (tabId) armTerminalInputQuarantine(tabId)
+    }
     await context.subscribeToHandle(recoveryEpoch)
-    if (endpointReplaced && tabId) armTerminalInputQuarantine(tabId)
   }
   context.scheduleResubscribeAfterTransportClose = (
     requireReplacement = false,
