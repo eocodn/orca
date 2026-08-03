@@ -645,7 +645,7 @@ describe('registerPtyHandlers', () => {
     const pauseProducer = vi.fn()
     const resumeProducer = vi.fn()
     const setPtyBackgrounded = vi.fn()
-    const clearBuffer = vi.fn()
+    const clearBuffer = vi.fn(() => Promise.resolve())
     const shutdown = vi.fn()
     let dataHandler:
       | ((payload: { id: string; incarnationId: string; data: string }) => void)

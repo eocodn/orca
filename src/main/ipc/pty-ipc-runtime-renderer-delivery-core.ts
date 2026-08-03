@@ -76,6 +76,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
   state.backgroundedDeliverySyncByPty = new Map()
   state.pendingDataDropWarnedPtys = new Set()
   state.lastHiddenDropContradictionWarnAtMs = 0
+  const rendererDeliveryInterestPtys = new Set<string>()
   state.producerFlowControl = new PtyProducerFlowController({
     pauseProducer: (id) => tryGetProviderForPty(id)?.pauseProducer?.(id),
     resumeProducer: (id) => tryGetProviderForPty(id)?.resumeProducer?.(id)
@@ -115,11 +116,13 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     state.producerFlowControl.update(id, state.pendingData.get(id)?.data.length ?? 0)
   }
 
-  // Why: hidden ptys are exempt from state.pendingData flow control, so background agents can run 100MB+ ahead in the daemon stream buffer; this sync tells the provider transport which ptys to keep-tail thin.
-  // Why keyed on the visibility registry (not gate marks): thinning asks "does any visible view show this PTY?"; remote-view subscribers consume raw bytes, so their presence vetoes thinning.
+  // Why: background hints follow renderer visibility, while interest sidecars and remote views veto thinning.
   function syncPtyBackgroundedDelivery(id: string, caller: string): void {
-    const background =
-      state.rendererPtyIsKnownHidden(id) && !(runtime?.hasRawTerminalViewSubscriber?.(id) ?? false)
+    if (caller.startsWith('delivery-interest:')) {
+      if (caller.endsWith(':on')) rendererDeliveryInterestPtys.add(id)
+      else rendererDeliveryInterestPtys.delete(id)
+    }
+    const background = state.rendererPtyIsKnownHidden(id) && !rendererDeliveryInterestPtys.has(id) && !(runtime?.hasRawTerminalViewSubscriber?.(id) ?? false)
     if ((state.backgroundedDeliverySyncByPty.get(id) ?? false) === background) {
       return
     }
@@ -137,17 +140,14 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     state.backgroundedDeliverySyncByPty.set(id, background)
     provider.setPtyBackgrounded(id, background)
   }
-  ptyRuntimeState.clearBackgroundedDeliverySyncForPty = (id: string) => {
-    state.backgroundedDeliverySyncByPty.delete(id)
-  }
+  ptyRuntimeState.clearBackgroundedDeliverySyncForPty = (id: string) => { state.backgroundedDeliverySyncByPty.delete(id); rendererDeliveryInterestPtys.delete(id) }
   if (runtime) {
     runtime.onRemoteTerminalViewPresenceChanged = (id) =>
       syncPtyBackgroundedDelivery(id, 'remote-view')
   }
   function resyncBackgroundedDeliveriesAfterGateReset(): void {
-    for (const id of state.backgroundedDeliverySyncByPty.keys()) {
-      syncPtyBackgroundedDelivery(id, 'gate-reset')
-    }
+    rendererDeliveryInterestPtys.clear()
+    state.backgroundedDeliverySyncByPty.forEach((_background, id) => syncPtyBackgroundedDelivery(id, 'gate-reset'))
   }
 
   function getRendererInFlightCharsForPty(id: string): number {
