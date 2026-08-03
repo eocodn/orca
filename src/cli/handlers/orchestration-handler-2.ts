@@ -1,5 +1,4 @@
 import type { CommandHandler } from '../dispatch'
-import type { RuntimeClient } from '../runtime-client'
 import { printResult } from '../format'
 import {
   getOptionalPositiveIntegerFlag,
@@ -7,21 +6,6 @@ import {
   getRequiredStringFlag
 } from '../flags'
 import { RuntimeClientError } from '../runtime-client'
-import { getTerminalHandle } from '../selectors'
-import {
-  clampOrchestrationAskTimeoutMs,
-  resolveOrchestrationAskClientTimeoutMs
-} from '../../shared/orchestration-ask-timeout'
-import { abbreviateOrchestrationTasks } from '../../shared/orchestration-task-summary'
-import { parsePositiveSafeIntegerText } from '../../shared/timer-delay'
-import type {
-  OrchestrationWorkerReadResult,
-  OrchestrationWorkerReadSource
-} from '../../shared/orchestration-worker-output'
-import type { NativeChatMessage } from '../../shared/native-chat-types'
-import type { RuntimeTerminalRead } from '../../shared/runtime-types'
-import { orchestrationMigrationData } from '../../shared/orchestration-rpc-contract'
-import { ORCHESTRATION_RUN_PAGE_LIMIT } from '../../shared/orchestration-run-pagination'
 import {
   formatMessageReadOnlyTag,
   formatOrchestrationCheckText,
@@ -29,8 +13,7 @@ import {
   type LegacyCompatibilityResult,
   type OrchestrationMessageSummary as MessageSummary
 } from '../../shared/orchestration-check-output'
-
-// Why: 15 s is well under Claude Code's ~2 min Bash-tool silence budget while keeping log volume low. See design doc §3.4.
+import type { OrchestrationSendResult } from './orchestration-handler-support'
 import * as orchestrationSupport from './orchestration-handler-support'
 
 export const ORCHESTRATION_HANDLERS_2: Record<string, CommandHandler> = {
@@ -58,7 +41,12 @@ export const ORCHESTRATION_HANDLERS_2: Record<string, CommandHandler> = {
     }
 
     // Why: lifecycle senders keep ORCA_TERMINAL_HANDLE verbatim — no liveness probe (worker_done must survive the mid-restart window) and no remint (older runtimes require from === the stale assignee_handle).
-    const from = await orchestrationSupport.resolveOrchestrationTerminalHandle(flags, cwd, client, 'from')
+    const from = await orchestrationSupport.resolveOrchestrationTerminalHandle(
+      flags,
+      cwd,
+      client,
+      'from'
+    )
     const sendParams = {
       from,
       to,
@@ -114,7 +102,12 @@ export const ORCHESTRATION_HANDLERS_2: Record<string, CommandHandler> = {
     }
     const timeoutMs = orchestrationSupport.getOptionalPositiveIntegerValueFlag(flags, 'timeout-ms')
     const explicitTerminal = getOptionalStringFlag(flags, 'terminal')
-    const terminal = await orchestrationSupport.resolveOrchestrationTerminalHandle(flags, cwd, client, 'terminal')
+    const terminal = await orchestrationSupport.resolveOrchestrationTerminalHandle(
+      flags,
+      cwd,
+      client,
+      'terminal'
+    )
 
     // Why: Claude Code auto-backgrounds subprocesses silent ~2 min; emit JSON keepalives to stderr (stdout stays one payload). See §3.4.
     const stopKeepalive = wait ? orchestrationSupport.startCheckKeepalive(timeoutMs) : null
@@ -131,22 +124,27 @@ export const ORCHESTRATION_HANDLERS_2: Record<string, CommandHandler> = {
     }
     let result: Awaited<ReturnType<typeof client.call<CheckResult>>>
     try {
-      result = await orchestrationSupport.callMutation<CheckResult>(client, flags, 'orchestration.check', {
-        terminal,
-        terminalPaneKey: explicitTerminal ? undefined : process.env.ORCA_PANE_KEY || undefined,
-        // Why: peek also sends unread:false so pre-peek runtimes degrade to non-consuming all mode instead of destructive mark-read.
-        unread: flags.has('unread') ? true : peek ? false : undefined,
-        peek: peek ? true : undefined,
-        all: flags.has('all') ? true : undefined,
-        types: getOptionalStringFlag(flags, 'types'),
-        format: flags.has('format') ? true : undefined,
-        inject: flags.has('inject') ? true : undefined,
-        compatibilityCliCommand: orchestrationSupport.resolveCompatibilityCliCommand(),
-        run: getOptionalStringFlag(flags, 'run'),
-        ack: getOptionalStringFlag(flags, 'ack'),
-        wait: wait ? true : undefined,
-        timeoutMs
-      })
+      result = await orchestrationSupport.callMutation<CheckResult>(
+        client,
+        flags,
+        'orchestration.check',
+        {
+          terminal,
+          terminalPaneKey: explicitTerminal ? undefined : process.env.ORCA_PANE_KEY || undefined,
+          // Why: peek also sends unread:false so pre-peek runtimes degrade to non-consuming all mode instead of destructive mark-read.
+          unread: flags.has('unread') ? true : peek ? false : undefined,
+          peek: peek ? true : undefined,
+          all: flags.has('all') ? true : undefined,
+          types: getOptionalStringFlag(flags, 'types'),
+          format: flags.has('format') ? true : undefined,
+          inject: flags.has('inject') ? true : undefined,
+          compatibilityCliCommand: orchestrationSupport.resolveCompatibilityCliCommand(),
+          run: getOptionalStringFlag(flags, 'run'),
+          ack: getOptionalStringFlag(flags, 'ack'),
+          wait: wait ? true : undefined,
+          timeoutMs
+        }
+      )
     } finally {
       stopKeepalive?.()
     }
@@ -200,7 +198,12 @@ export const ORCHESTRATION_HANDLERS_2: Record<string, CommandHandler> = {
   },
 
   'orchestration reply': async ({ flags, client, cwd, json }) => {
-    const from = await orchestrationSupport.resolveOrchestrationTerminalHandle(flags, cwd, client, 'from')
+    const from = await orchestrationSupport.resolveOrchestrationTerminalHandle(
+      flags,
+      cwd,
+      client,
+      'from'
+    )
     const result = await orchestrationSupport.callMutation<{ message: { id: string } }>(
       client,
       flags,
@@ -246,7 +249,5 @@ export const ORCHESTRATION_HANDLERS_2: Record<string, CommandHandler> = {
         })
         .join(full ? '\n\n' : '\n')
     })
-  },
-
-
+  }
 }

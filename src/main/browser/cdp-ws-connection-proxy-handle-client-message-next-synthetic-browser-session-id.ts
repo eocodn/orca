@@ -1,13 +1,5 @@
-import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { WebContents } from 'electron'
-import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
+import { WebSocket } from 'ws'
 
-import * as foundation from './cdp-ws-connection-proxy-foundation'
-const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
 
 export const CdpWsProxyMethods4 = {
   handleClientMessage(this: any, client: WebSocket, raw: string): void {
@@ -151,19 +143,19 @@ export const CdpWsProxyMethods4 = {
       return
     }
     this.forwardCommand(client, clientId, msg.method, msg.params ?? {}, msg.sessionId)
-  }
+  },
   resolveDebuggerSessionId(this: any, msgSessionId?: string): string | undefined {
     const syntheticSession =
       (msgSessionId && this.clientSessionIds.has(msgSessionId)) ||
       (msgSessionId && this.clientBrowserSessionIds.has(msgSessionId))
     return msgSessionId && !syntheticSession ? msgSessionId : undefined
-  }
+  },
   nextSyntheticPageSessionId(this: any): string {
     this.nextClientSessionOrdinal += 1
     return this.nextClientSessionOrdinal === 1
       ? 'orca-proxy-session'
       : `orca-proxy-session-${this.nextClientSessionOrdinal}`
-  }
+  },
   nextSyntheticBrowserSessionId(this: any): string {
     this.nextClientBrowserSessionOrdinal += 1
     return this.nextClientBrowserSessionOrdinal === 1

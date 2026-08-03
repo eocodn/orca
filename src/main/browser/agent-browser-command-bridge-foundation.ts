@@ -1,54 +1,10 @@
-import { execFile, type ChildProcess } from 'node:child_process'
-import { existsSync, accessSync, chmodSync, readFileSync, constants } from 'node:fs'
+import { type ChildProcess } from 'node:child_process'
+import { existsSync, accessSync, chmodSync, constants } from 'node:fs'
 import { join } from 'node:path'
 import { platform, arch } from 'node:os'
 import { app, type WebContents } from 'electron'
-import { CdpWsProxy } from './cdp-ws-proxy'
-import { captureFullPageScreenshot } from './cdp-screenshot'
-import { acquireElectronDebugger } from './electron-debugger-lease'
-import type { BrowserManager } from './browser-manager'
+import type { CdpWsProxy } from './cdp-ws-proxy'
 import { BrowserError } from './cdp-bridge'
-import type {
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserSnapshotResult,
-  BrowserClickResult,
-  BrowserGotoResult,
-  BrowserFillResult,
-  BrowserTypeResult,
-  BrowserSelectResult,
-  BrowserScrollResult,
-  BrowserBackResult,
-  BrowserReloadResult,
-  BrowserScreenshotResult,
-  BrowserEvalResult,
-  BrowserHoverResult,
-  BrowserDragResult,
-  BrowserUploadResult,
-  BrowserWaitResult,
-  BrowserCheckResult,
-  BrowserFocusResult,
-  BrowserClearResult,
-  BrowserSelectAllResult,
-  BrowserKeypressResult,
-  BrowserPdfResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserCookieDeleteResult,
-  BrowserViewportResult,
-  BrowserGeolocationResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptDisableResult,
-  BrowserConsoleResult,
-  BrowserNetworkLogResult,
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCookie
-} from '../../shared/runtime-types'
-import { assertClipboardTextWriteWithinLimitWithYield } from '../../shared/clipboard-text'
-import { normalizeBrowserNavigationUrl } from '../../shared/browser-url'
-import { iterateBrowserTextInsertionChunks } from './browser-text-insertion'
 
 // Why: must exceed agent-browser's internal timeouts (goto 30s, wait 60s) so the bridge never kills a command before its own timeout fires.
 const EXEC_TIMEOUT_MS = 90_000
@@ -567,5 +523,38 @@ function translateResult(
   }
 }
 
-
-export { CONSECUTIVE_TIMEOUT_LIMIT, EMBEDDED_NAVIGATION_TIMEOUT_MS, EXEC_TIMEOUT_MS, STALE_SESSION_CLOSE_TIMEOUT_MS, WAIT_PROCESS_TIMEOUT_GRACE_MS, agentBrowserNativeName, cdpMouseButtonMask, cdpMouseModifierMask, classifyErrorCode, focusedRichTextEditExpression, focusedValueSetExpression, isAbortedNavigationError, isExplicitContentEditableResult, isTabClosedTransportError, isWebContentsLoading, mobileTouchClickExpression, normalizeCdpMouseButton, pageUnavailableMessageForSession, parseShellArgs, readClickPoint, resolveAgentBrowserBinary, resolveMobileTouchClickPoint, stripAgentBrowserTargetArgs, translateResult, waitForAbortedNavigationReplacement, type AgentBrowserBridgeOptions, type AgentBrowserExecOptions, type BrowserClickPoint, type BrowserMouseModifier, type CdpMouseButton, type EnqueueTargetedCommandOptions, type QueuedCommand, type ResolvedBrowserCommandTarget, type SessionState }
+export {
+  CONSECUTIVE_TIMEOUT_LIMIT,
+  EMBEDDED_NAVIGATION_TIMEOUT_MS,
+  EXEC_TIMEOUT_MS,
+  STALE_SESSION_CLOSE_TIMEOUT_MS,
+  WAIT_PROCESS_TIMEOUT_GRACE_MS,
+  agentBrowserNativeName,
+  cdpMouseButtonMask,
+  cdpMouseModifierMask,
+  classifyErrorCode,
+  focusedRichTextEditExpression,
+  focusedValueSetExpression,
+  isAbortedNavigationError,
+  isExplicitContentEditableResult,
+  isTabClosedTransportError,
+  isWebContentsLoading,
+  mobileTouchClickExpression,
+  normalizeCdpMouseButton,
+  pageUnavailableMessageForSession,
+  parseShellArgs,
+  readClickPoint,
+  resolveAgentBrowserBinary,
+  resolveMobileTouchClickPoint,
+  stripAgentBrowserTargetArgs,
+  translateResult,
+  waitForAbortedNavigationReplacement,
+  type AgentBrowserBridgeOptions,
+  type AgentBrowserExecOptions,
+  type BrowserClickPoint,
+  type CdpMouseButton,
+  type EnqueueTargetedCommandOptions,
+  type QueuedCommand,
+  type ResolvedBrowserCommandTarget,
+  type SessionState
+}

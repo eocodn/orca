@@ -1,13 +1,6 @@
-import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { WebContents } from 'electron'
+import { WebSocket } from 'ws'
 import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
 
-import * as foundation from './cdp-ws-connection-proxy-foundation'
-const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
 
 export const CdpWsProxyMethods8 = {
   handleStreamClose(this: any,
@@ -17,7 +10,7 @@ export const CdpWsProxyMethods8 = {
   ): void {
     this.pdfStreams.close(params)
     this.sendResult(clientId, {}, client)
-  }
+  },
   handleScreenshot(this: any,
     client: WebSocket,
     clientId: number,

@@ -1,18 +1,10 @@
-import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { WebContents } from 'electron'
-import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
+import { WebSocket } from 'ws'
 
-import * as foundation from './cdp-ws-connection-proxy-foundation'
-const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
 
 export const CdpWsProxyMethods5 = {
   isActiveClient(this: any, client: WebSocket): boolean {
     return this.client === client && client.readyState === WebSocket.OPEN
-  }
+  },
   sendDebuggerCommand(this: any,
     method: string,
     params: Record<string, unknown>,
@@ -22,7 +14,7 @@ export const CdpWsProxyMethods5 = {
       ? this.webContents.debugger.sendCommand(method, params, sessionId)
       : this.webContents.debugger.sendCommand(method, params)
     return Promise.resolve(command)
-  }
+  },
   forwardCommand(this: any,
     client: WebSocket,
     clientId: number,
@@ -46,7 +38,7 @@ export const CdpWsProxyMethods5 = {
     } catch (err) {
       this.sendError(clientId, err instanceof Error ? err.message : String(err), client)
     }
-  }
+  },
   async navigateWithLifecycle(this: any,
     client: WebSocket,
     clientId: number,

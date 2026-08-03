@@ -1,27 +1,45 @@
 import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { WebContents } from 'electron'
-import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
+import { CdpPdfStreamStore } from './cdp-print-to-pdf'
+import type { ElectronDebuggerLease } from './electron-debugger-lease'
 
-import * as foundation from './cdp-ws-connection-proxy-foundation'
-const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
-
-import { CdpWsProxyMethods1, type CdpWsProxyMethods1Surface } from './cdp-ws-connection-proxy-stop-clear-client-state'
-import { CdpWsProxyMethods2, type CdpWsProxyMethods2Surface } from './cdp-ws-connection-proxy-send-send-error'
-import { CdpWsProxyMethods3, type CdpWsProxyMethods3Surface } from './cdp-ws-connection-proxy-build-target-info-detach-debugger'
-import { CdpWsProxyMethods4, type CdpWsProxyMethods4Surface } from './cdp-ws-connection-proxy-handle-client-message-next-synthetic-browser-session-id'
-import { CdpWsProxyMethods5, type CdpWsProxyMethods5Surface } from './cdp-ws-connection-proxy-is-active-client-navigate-with-lifecycle'
-import { CdpWsProxyMethods6, type CdpWsProxyMethods6Surface } from './cdp-ws-connection-proxy-reload-with-lifecycle-forward-dom-focus'
-import { CdpWsProxyMethods7, type CdpWsProxyMethods7Surface } from './cdp-ws-connection-proxy-send-dom-focus-handle-stream-read'
-import { CdpWsProxyMethods8, type CdpWsProxyMethods8Surface } from './cdp-ws-connection-proxy-handle-stream-close-handle-screenshot'
+import {
+  CdpWsProxyMethods1,
+  type CdpWsProxyMethods1Surface
+} from './cdp-ws-connection-proxy-stop-clear-client-state'
+import {
+  CdpWsProxyMethods2,
+  type CdpWsProxyMethods2Surface
+} from './cdp-ws-connection-proxy-send-send-error'
+import {
+  CdpWsProxyMethods3,
+  type CdpWsProxyMethods3Surface
+} from './cdp-ws-connection-proxy-build-target-info-detach-debugger'
+import {
+  CdpWsProxyMethods4,
+  type CdpWsProxyMethods4Surface
+} from './cdp-ws-connection-proxy-handle-client-message-next-synthetic-browser-session-id'
+import {
+  CdpWsProxyMethods5,
+  type CdpWsProxyMethods5Surface
+} from './cdp-ws-connection-proxy-is-active-client-navigate-with-lifecycle'
+import {
+  CdpWsProxyMethods6,
+  type CdpWsProxyMethods6Surface
+} from './cdp-ws-connection-proxy-reload-with-lifecycle-forward-dom-focus'
+import {
+  CdpWsProxyMethods7,
+  type CdpWsProxyMethods7Surface
+} from './cdp-ws-connection-proxy-send-dom-focus-handle-stream-read'
+import {
+  CdpWsProxyMethods8,
+  type CdpWsProxyMethods8Surface
+} from './cdp-ws-connection-proxy-handle-stream-close-handle-screenshot'
 
 export * from './cdp-ws-connection-proxy-foundation'
 
 export class CdpWsProxy {
-
   // Why: holds each session's last DOM.focus params to replay right before the next
   // Input.insertText, countering the native webContents.focus() that would blur the target.
   private pendingDomFocusBySession = new Map<
@@ -46,8 +64,28 @@ export class CdpWsProxy {
   private nextClientBrowserSessionOrdinal = 0
   private readonly pdfStreams = new CdpPdfStreamStore()
 
-
-  constructor(private readonly webContents: WebContents) {}
+  constructor(private readonly webContents: WebContents) {
+    void [
+      this.pendingDomFocusBySession,
+      this.httpServer,
+      this.wss,
+      this.client,
+      this.responseSessionIdsByClient,
+      this.detachClientListeners,
+      this.port,
+      this.debuggerMessageHandler,
+      this.debuggerDetachHandler,
+      this.debuggerLease,
+      this.attached,
+      this.clientSessionId,
+      this.clientSessionIds,
+      this.clientBrowserSessionIds,
+      this.nextClientSessionOrdinal,
+      this.nextClientBrowserSessionOrdinal,
+      this.pdfStreams,
+      this.webContents
+    ]
+  }
 
   async start(): Promise<string> {
     await this.attachDebugger()
@@ -107,6 +145,25 @@ export class CdpWsProxy {
   }
 }
 
-export interface CdpWsProxy extends CdpWsProxyMethods1Surface, CdpWsProxyMethods2Surface, CdpWsProxyMethods3Surface, CdpWsProxyMethods4Surface, CdpWsProxyMethods5Surface, CdpWsProxyMethods6Surface, CdpWsProxyMethods7Surface, CdpWsProxyMethods8Surface {}
+export interface CdpWsProxy
+  extends
+    CdpWsProxyMethods1Surface,
+    CdpWsProxyMethods2Surface,
+    CdpWsProxyMethods3Surface,
+    CdpWsProxyMethods4Surface,
+    CdpWsProxyMethods5Surface,
+    CdpWsProxyMethods6Surface,
+    CdpWsProxyMethods7Surface,
+    CdpWsProxyMethods8Surface {}
 
-Object.assign(CdpWsProxy.prototype, CdpWsProxyMethods1, CdpWsProxyMethods2, CdpWsProxyMethods3, CdpWsProxyMethods4, CdpWsProxyMethods5, CdpWsProxyMethods6, CdpWsProxyMethods7, CdpWsProxyMethods8)
+Object.assign(
+  CdpWsProxy.prototype,
+  CdpWsProxyMethods1,
+  CdpWsProxyMethods2,
+  CdpWsProxyMethods3,
+  CdpWsProxyMethods4,
+  CdpWsProxyMethods5,
+  CdpWsProxyMethods6,
+  CdpWsProxyMethods7,
+  CdpWsProxyMethods8
+)

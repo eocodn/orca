@@ -2,9 +2,14 @@ import { execFileSync } from 'node:child_process'
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { browserRootPath, CHROMIUM_BROWSERS, type DetectedBrowser } from './browser-profile-discovery'
+import {
+  browserRootPath,
+  CHROMIUM_BROWSERS,
+  type DetectedBrowser
+} from './browser-profile-discovery'
 import { deriveUrl, type ValidatedCookie } from './browser-cookie-value-validation'
 import { diag } from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
+import { MAC_EPOCH_DELTA } from './browser-cookie-import-pipeline-detect-firefox-detect-installed-browsers'
 const PBKDF2_ITERATIONS = 1003
 const PBKDF2_KEY_LENGTH = 16
 const PBKDF2_SALT = 'saltysalt'

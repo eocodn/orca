@@ -1,13 +1,8 @@
-import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { WebContents } from 'electron'
-import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
+import { WebSocket } from 'ws'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
+import { acquireElectronDebugger } from './electron-debugger-lease'
 
-import * as foundation from './cdp-ws-connection-proxy-foundation'
-const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
 
 export const CdpWsProxyMethods3 = {
   buildTargetInfo(this: any): Record<string, unknown> {
@@ -20,7 +15,7 @@ export const CdpWsProxyMethods3 = {
       attached: true,
       canAccessOpener: false
     }
-  }
+  },
   handleHttpRequest(this: any, req: IncomingMessage, res: ServerResponse): void {
     const url = req.url ?? ''
     if (url === '/json/version' || url === '/json/version/') {
@@ -55,7 +50,7 @@ export const CdpWsProxyMethods3 = {
     }
     res.writeHead(404)
     res.end()
-  }
+  },
   async attachDebugger(this: any): Promise<void> {
     if (this.attached) {
       return
@@ -103,7 +98,7 @@ export const CdpWsProxyMethods3 = {
     }
     this.webContents.debugger.on('message', this.debuggerMessageHandler as never)
     this.webContents.debugger.on('detach', this.debuggerDetachHandler as never)
-  }
+  },
   detachDebugger(this: any): void {
     if (this.debuggerMessageHandler) {
       this.webContents.debugger.removeListener('message', this.debuggerMessageHandler as never)

@@ -1,13 +1,6 @@
-import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { WebContents } from 'electron'
-import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
+import { WebSocket } from 'ws'
+import { buildPrintToPdfOptions } from './cdp-print-to-pdf'
 
-import * as foundation from './cdp-ws-connection-proxy-foundation'
-const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
 
 export const CdpWsProxyMethods7 = {
   async sendDomFocus(this: any,
@@ -28,7 +21,7 @@ export const CdpWsProxyMethods7 = {
       this.sendError(clientId, err instanceof Error ? err.message : String(err), client)
       return undefined
     }
-  }
+  },
   async forwardInsertText(this: any,
     client: WebSocket,
     clientId: number,
@@ -61,7 +54,7 @@ export const CdpWsProxyMethods7 = {
       }
     }
     this.forwardCommand(client, clientId, 'Input.insertText', params, effectiveSessionId)
-  }
+  },
   async handlePrintToPdf(this: any,
     client: WebSocket,
     clientId: number,
@@ -89,7 +82,7 @@ export const CdpWsProxyMethods7 = {
     } catch (err) {
       this.sendError(clientId, err instanceof Error ? err.message : String(err), client)
     }
-  }
+  },
   handleStreamRead(this: any,
     client: WebSocket,
     clientId: number,

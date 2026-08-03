@@ -1,34 +1,12 @@
 import type { CommandHandler } from '../dispatch'
 import type { RuntimeClient } from '../runtime-client'
-import { printResult } from '../format'
-import {
-  getOptionalPositiveIntegerFlag,
-  getOptionalStringFlag,
-  getRequiredStringFlag
-} from '../flags'
+import { getOptionalStringFlag } from '../flags'
 import { RuntimeClientError } from '../runtime-client'
 import { getTerminalHandle } from '../selectors'
-import {
-  clampOrchestrationAskTimeoutMs,
-  resolveOrchestrationAskClientTimeoutMs
-} from '../../shared/orchestration-ask-timeout'
-import { abbreviateOrchestrationTasks } from '../../shared/orchestration-task-summary'
 import { parsePositiveSafeIntegerText } from '../../shared/timer-delay'
-import type {
-  OrchestrationWorkerReadResult,
-  OrchestrationWorkerReadSource
-} from '../../shared/orchestration-worker-output'
+import type { OrchestrationWorkerReadResult } from '../../shared/orchestration-worker-output'
 import type { NativeChatMessage } from '../../shared/native-chat-types'
 import type { RuntimeTerminalRead } from '../../shared/runtime-types'
-import { orchestrationMigrationData } from '../../shared/orchestration-rpc-contract'
-import { ORCHESTRATION_RUN_PAGE_LIMIT } from '../../shared/orchestration-run-pagination'
-import {
-  formatMessageReadOnlyTag,
-  formatOrchestrationCheckText,
-  prepareOrchestrationCheckOutput,
-  type LegacyCompatibilityResult,
-  type OrchestrationMessageSummary as MessageSummary
-} from '../../shared/orchestration-check-output'
 
 // Why: 15 s is well under Claude Code's ~2 min Bash-tool silence budget while keeping log volume low. See design doc §3.4.
 export const DEFAULT_KEEPALIVE_INTERVAL_MS = 15_000
@@ -120,7 +98,7 @@ export function resolvePackagedWindowsCompatibilityCommand(): 'orca' | 'orca-ide
   )
 }
 
-async function flushStdout(): Promise<void> {
+export async function flushStdout(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     process.stdout.write('', (error) => {
       if (error) {
@@ -190,7 +168,7 @@ export function getOptionalStructuredMessagePayload(
   return JSON.stringify(payload)
 }
 
-async function resolveOrchestrationTerminalHandle(
+export async function resolveOrchestrationTerminalHandle(
   flags: Map<string, string | boolean>,
   cwd: string,
   client: Parameters<CommandHandler>[0]['client'],
@@ -307,7 +285,7 @@ export function getClientErrorMessage(err: unknown): string | undefined {
   return typeof message === 'string' ? message : undefined
 }
 
-async function resolveCoordinatorTerminalHandle(
+export async function resolveCoordinatorTerminalHandle(
   flags: Map<string, string | boolean>,
   cwd: string,
   client: Parameters<CommandHandler>[0]['client']
@@ -398,7 +376,9 @@ export type LegacyWorkerReadResult = {
   terminal: RuntimeTerminalRead
 }
 
-export function formatWorkerRead(value: OrchestrationWorkerReadResult | LegacyWorkerReadResult): string {
+export function formatWorkerRead(
+  value: OrchestrationWorkerReadResult | LegacyWorkerReadResult
+): string {
   if (!('source' in value) || value.source === 'terminal') {
     return value.terminal.tail.join('\n')
   }

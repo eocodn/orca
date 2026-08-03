@@ -1,71 +1,9 @@
-import { randomUUID } from 'node:crypto'
 
-import { shell, webContents } from 'electron'
-import { ORCA_BROWSER_BLANK_URL } from '../../shared/constants'
-import {
-  normalizeBrowserNavigationUrl,
-  normalizeExternalBrowserUrl,
-  redactKagiSessionToken,
-  toSecureCertificateEndpoint
-} from '../../shared/browser-url'
-import type {
-  BrowserDownloadFinishedEvent,
-  BrowserDownloadProgressEvent,
-  BrowserDownloadRequestedEvent,
-  BrowserPermissionDeniedEvent,
-  BrowserPopupEvent
-} from '../../shared/browser-guest-events'
-import type {
-  BrowserGrabCancelReason,
-  BrowserGrabPayload,
-  BrowserGrabRect,
-  BrowserGrabResult,
-  BrowserGrabScreenshot
-} from '../../shared/browser-grab-types'
-import { buildGuestOverlayScript } from './grab-guest-script'
-import { clampGrabPayload } from './browser-grab-payload'
-import { captureSelectionScreenshot as captureGrabSelectionScreenshot } from './browser-grab-screenshot'
-import { BrowserGrabSessionController } from './browser-grab-session-controller'
+import { webContents } from 'electron'
 import { browserDownloadDestinationReservations } from './browser-download-destination'
-import {
-  resolveRendererWebContents,
-  setupGrabShortcutForwarding,
-  setupGuestContextMenu,
-  setupGuestMouseWheelZoomForwarding,
-  setupGuestShortcutForwarding
-} from './browser-guest-ui'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { openPopupWithOriginBar, type PopupChildWindowOptions } from './popup-origin-bar-window'
-import {
-  BROWSER_CLICKED_LINK_ROUTING_WORLD_ID,
-  buildBrowserClickedLinkRoutingScript,
-  buildBrowserIframeClickedLinkRoutingScript
-} from './browser-clicked-link-routing'
-import { cleanElectronUserAgent } from './browser-session-ua'
-import type {
-  BrowserViewportOverride,
-  BrowserCertificateFailure,
-  BrowserLoadError
-} from '../../shared/types'
-import {
-  type BrowserAnnotationViewportBridgeOptions,
-  BROWSER_ANNOTATION_VIEWPORT_BRIDGE_WORLD_ID,
-  buildBrowserAnnotationViewportBridgeScript
-} from '../../shared/browser-annotation-viewport-bridge'
-import type { KeybindingOverrides } from '../../shared/keybindings'
-import {
-  BrowserCertificateTrustController,
-  type ManagedBrowserGuestContext
-} from './browser-certificate-trust-controller'
 
 import * as foundation from './browser-manager-lifecycle-foundation'
-const { AUTOMATION_VISIBILITY_ACQUIRE_TIMEOUT_MS, SAFE_POPUP_WINDOW_OPTIONS, buildMobileUserAgent, cleanupLateAutomationVisibilityToken, createNoopRestoreForTimedOutAutomationAcquire, extractChromeMajor, isAutomationVisibilityToken, isChromiumInternalErrorUrl, releaseAutomationVisibilityToken, resolveWithTimeout, safeOrigin } = foundation
-type ActiveDownload = foundation.ActiveDownload
-type BrowserDownloadDoneState = foundation.BrowserDownloadDoneState
 type BrowserGuestRegistration = foundation.BrowserGuestRegistration
-type PendingPermissionEvent = foundation.PendingPermissionEvent
-type PendingPopupEvent = foundation.PendingPopupEvent
-type PopupOwnerContext = foundation.PopupOwnerContext
 
 export const BrowserManagerMethods5 = {
   registerGuest(this: any, {
@@ -129,7 +67,7 @@ export const BrowserManagerMethods5 = {
     this.flushPendingPopupEvents(browserTabId, webContentsId)
     this.flushPendingDownloadRequests(browserTabId, webContentsId)
     return true
-  }
+  },
   unregisterGuest(this: any, browserTabId: string): void {
     // Why: teardown mid-grab must cancel it so the renderer gets a signal, not a dangling Promise.
     this.cancelGrabOp(browserTabId, 'evicted')
@@ -178,7 +116,7 @@ export const BrowserManagerMethods5 = {
     // Why: drop the viewport-op chain so the Map doesn't retain a promise keyed to a destroyed guest.
     this.viewportOpsByTabId.delete(browserTabId)
     this.annotationViewportBridgeOpsByTabId.delete(browserTabId)
-  }
+  },
   registerOffscreenGuest(this: any, {
     browserPageId,
     worktreeId,
@@ -208,7 +146,7 @@ export const BrowserManagerMethods5 = {
       this.worktreeIdByTabId.set(browserPageId, worktreeId)
     }
     this.certificateTrustController?.onGuestRegistered(webContentsId, browserPageId)
-  }
+  },
   unregisterAll(this: any): void {
     // Cancel all active grab ops before tearing down registrations
     this.grabSessionController.cancelAll('evicted')

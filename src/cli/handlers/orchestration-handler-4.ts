@@ -1,5 +1,4 @@
 import type { CommandHandler } from '../dispatch'
-import type { RuntimeClient } from '../runtime-client'
 import { printResult } from '../format'
 import {
   getOptionalPositiveIntegerFlag,
@@ -7,30 +6,11 @@ import {
   getRequiredStringFlag
 } from '../flags'
 import { RuntimeClientError } from '../runtime-client'
-import { getTerminalHandle } from '../selectors'
-import {
-  clampOrchestrationAskTimeoutMs,
-  resolveOrchestrationAskClientTimeoutMs
-} from '../../shared/orchestration-ask-timeout'
-import { abbreviateOrchestrationTasks } from '../../shared/orchestration-task-summary'
-import { parsePositiveSafeIntegerText } from '../../shared/timer-delay'
 import type {
   OrchestrationWorkerReadResult,
   OrchestrationWorkerReadSource
 } from '../../shared/orchestration-worker-output'
-import type { NativeChatMessage } from '../../shared/native-chat-types'
-import type { RuntimeTerminalRead } from '../../shared/runtime-types'
-import { orchestrationMigrationData } from '../../shared/orchestration-rpc-contract'
-import { ORCHESTRATION_RUN_PAGE_LIMIT } from '../../shared/orchestration-run-pagination'
-import {
-  formatMessageReadOnlyTag,
-  formatOrchestrationCheckText,
-  prepareOrchestrationCheckOutput,
-  type LegacyCompatibilityResult,
-  type OrchestrationMessageSummary as MessageSummary
-} from '../../shared/orchestration-check-output'
-
-// Why: 15 s is well under Claude Code's ~2 min Bash-tool silence budget while keeping log volume low. See design doc §3.4.
+import type { LegacyWorkerReadResult } from './orchestration-handler-support'
 import * as orchestrationSupport from './orchestration-handler-support'
 
 export const ORCHESTRATION_HANDLERS_4: Record<string, CommandHandler> = {
@@ -148,7 +128,5 @@ export const ORCHESTRATION_HANDLERS_4: Record<string, CommandHandler> = {
       json,
       (value) => `Worker ${value.dispatchId} [${value.state}]\nWarning: ${value.warning}`
     )
-  },
-
-
+  }
 }

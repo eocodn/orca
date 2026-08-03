@@ -1,1 +1,1 @@
-export * from './browser-manager-lifecycle.ts'
+export * from './browser-manager-lifecycle'

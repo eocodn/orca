@@ -1,57 +1,7 @@
 import { webContents } from 'electron'
-import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
-} from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 
 import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+const { BrowserError } = foundation
 
 export const CdpBridgeMethods11 = {
   onTabClosed(this: any, webContentsId: number): void {
@@ -68,10 +18,10 @@ export const CdpBridgeMethods11 = {
       this.tabState.delete(tabId)
       this.commandQueues.delete(tabId)
     }
-  }
+  },
   onTabChanged(this: any, webContentsId: number): void {
     this.activeWebContentsId = webContentsId
-  }
+  },
   getActiveGuest(this: any): Electron.WebContents {
     if (this.activeWebContentsId !== null) {
       const guest = webContents.fromId(this.activeWebContentsId)
@@ -107,7 +57,7 @@ export const CdpBridgeMethods11 = {
       )
     }
     return guest
-  }
+  },
   getRegisteredTabs(this: any): Map<string, number> {
     // Why: reach into BrowserManager's private tab map since it exposes no public listTabs().
     return (this.browserManager as unknown as { webContentsIdByTabId: Map<string, number> })

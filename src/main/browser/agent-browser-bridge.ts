@@ -1,1 +1,1 @@
-export * from './agent-browser-command-bridge.ts'
+export * from './agent-browser-command-bridge'

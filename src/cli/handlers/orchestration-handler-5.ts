@@ -1,36 +1,12 @@
 import type { CommandHandler } from '../dispatch'
-import type { RuntimeClient } from '../runtime-client'
 import { printResult } from '../format'
-import {
-  getOptionalPositiveIntegerFlag,
-  getOptionalStringFlag,
-  getRequiredStringFlag
-} from '../flags'
+import { getOptionalStringFlag, getRequiredStringFlag } from '../flags'
 import { RuntimeClientError } from '../runtime-client'
-import { getTerminalHandle } from '../selectors'
 import {
   clampOrchestrationAskTimeoutMs,
   resolveOrchestrationAskClientTimeoutMs
 } from '../../shared/orchestration-ask-timeout'
-import { abbreviateOrchestrationTasks } from '../../shared/orchestration-task-summary'
-import { parsePositiveSafeIntegerText } from '../../shared/timer-delay'
-import type {
-  OrchestrationWorkerReadResult,
-  OrchestrationWorkerReadSource
-} from '../../shared/orchestration-worker-output'
-import type { NativeChatMessage } from '../../shared/native-chat-types'
-import type { RuntimeTerminalRead } from '../../shared/runtime-types'
-import { orchestrationMigrationData } from '../../shared/orchestration-rpc-contract'
-import { ORCHESTRATION_RUN_PAGE_LIMIT } from '../../shared/orchestration-run-pagination'
-import {
-  formatMessageReadOnlyTag,
-  formatOrchestrationCheckText,
-  prepareOrchestrationCheckOutput,
-  type LegacyCompatibilityResult,
-  type OrchestrationMessageSummary as MessageSummary
-} from '../../shared/orchestration-check-output'
-
-// Why: 15 s is well under Claude Code's ~2 min Bash-tool silence budget while keeping log volume low. See design doc §3.4.
+import type { LegacyCompatibilityResult } from '../../shared/orchestration-check-output'
 import * as orchestrationSupport from './orchestration-handler-support'
 
 export const ORCHESTRATION_HANDLERS_5: Record<string, CommandHandler> = {
@@ -65,9 +41,17 @@ export const ORCHESTRATION_HANDLERS_5: Record<string, CommandHandler> = {
   },
 
   'orchestration ask': async ({ flags, client, cwd, json }) => {
-    const parsedTimeoutMs = orchestrationSupport.getOptionalPositiveIntegerValueFlag(flags, 'timeout-ms')
+    const parsedTimeoutMs = orchestrationSupport.getOptionalPositiveIntegerValueFlag(
+      flags,
+      'timeout-ms'
+    )
     const timeoutMs = clampOrchestrationAskTimeoutMs(parsedTimeoutMs)
-    const from = await orchestrationSupport.resolveOrchestrationTerminalHandle(flags, cwd, client, 'from')
+    const from = await orchestrationSupport.resolveOrchestrationTerminalHandle(
+      flags,
+      cwd,
+      client,
+      'from'
+    )
     const question = getOptionalStringFlag(flags, 'question')
     const resume = getOptionalStringFlag(flags, 'resume')
     if ((question ? 1 : 0) + (resume ? 1 : 0) !== 1) {
@@ -105,7 +89,8 @@ export const ORCHESTRATION_HANDLERS_5: Record<string, CommandHandler> = {
         timeoutMs: parsedTimeoutMs === undefined ? undefined : timeoutMs,
         from,
         compatibilityCliCommand: orchestrationSupport.resolveCompatibilityCliCommand(),
-        compatibilityWindowsCommand: orchestrationSupport.resolvePackagedWindowsCompatibilityCommand()
+        compatibilityWindowsCommand:
+          orchestrationSupport.resolvePackagedWindowsCompatibilityCommand()
       },
       // Why: extend past timeoutMs so the RPC transport's 60s default doesn't abort before the runtime's own timeout resolves.
       {
@@ -179,7 +164,5 @@ export const ORCHESTRATION_HANDLERS_5: Record<string, CommandHandler> = {
       }
       return `${r.dispatch.id} task=${r.dispatch.task_id} [${r.dispatch.status}]`
     })
-  },
-
-
+  }
 }

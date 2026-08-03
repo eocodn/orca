@@ -1,10 +1,4 @@
-import { WebSocketServer, WebSocket } from 'ws'
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { WebContents } from 'electron'
-import { captureScreenshot } from './cdp-screenshot'
-import { buildPrintToPdfOptions, CdpPdfStreamStore } from './cdp-print-to-pdf'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-import { acquireElectronDebugger, type ElectronDebuggerLease } from './electron-debugger-lease'
+import { WebSocket } from 'ws'
 
 import * as foundation from './cdp-ws-connection-proxy-foundation'
 const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
@@ -48,10 +42,10 @@ export const CdpWsProxyMethods6 = {
     } catch (err) {
       this.sendError(clientId, err instanceof Error ? err.message : String(err), client)
     }
-  }
+  },
   getUnsupportedRootReloadParam(this: any, params: Record<string, unknown>): string | null {
     return Object.keys(params).find((key) => key !== 'ignoreCache') ?? null
-  }
+  },
   async primePageLifecycle(this: any, sessionId?: string): Promise<void> {
     let timeout: ReturnType<typeof setTimeout> | null = null
     const priming = (async (): Promise<void> => {
@@ -74,7 +68,7 @@ export const CdpWsProxyMethods6 = {
         clearTimeout(timeout)
       }
     }
-  }
+  },
   forwardDomFocus(this: any,
     client: WebSocket,
     clientId: number,

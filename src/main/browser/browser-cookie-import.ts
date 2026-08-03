@@ -1,1 +1,1 @@
-export * from './browser-cookie-import-pipeline.ts'
+export * from './browser-cookie-import-pipeline'

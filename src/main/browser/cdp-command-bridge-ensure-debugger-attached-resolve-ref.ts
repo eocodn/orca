@@ -1,57 +1,14 @@
-import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
   BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
 } from '../../shared/runtime-types'
 import {
-  buildSnapshot,
   type CdpCommandSender,
   type RefEntry,
-  type SnapshotResult
 } from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
 import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 
 import * as foundation from './cdp-command-bridge-foundation'
 const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
 
 export const CdpBridgeMethods13 = {
   async ensureDebuggerAttached(this: any, guest: Electron.WebContents): Promise<void> {
@@ -244,7 +201,7 @@ export const CdpBridgeMethods13 = {
     guest.debugger.on('message', messageListener)
 
     state.debuggerAttached = true
-  }
+  },
   makeCdpSender(this: any, guest: Electron.WebContents, sessionId?: string): CdpCommandSender {
     return (method: string, params?: Record<string, unknown>) => {
       const command = guest.debugger.sendCommand(method, params, sessionId) as Promise<unknown>
@@ -261,10 +218,10 @@ export const CdpBridgeMethods13 = {
         })
       ])
     }
-  }
+  },
   senderForRef(this: any, guest: Electron.WebContents, ref: RefEntry): CdpCommandSender {
     return ref.sessionId ? this.makeCdpSender(guest, ref.sessionId) : this.makeCdpSender(guest)
-  }
+  },
   async resolveRef(this: any,
     guest: Electron.WebContents,
     sender: CdpCommandSender,

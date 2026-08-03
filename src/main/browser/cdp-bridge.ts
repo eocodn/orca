@@ -1,1 +1,1 @@
-export * from './cdp-command-bridge.ts'
+export * from './cdp-command-bridge'

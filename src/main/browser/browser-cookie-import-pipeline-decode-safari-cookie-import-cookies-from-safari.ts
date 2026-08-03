@@ -18,21 +18,92 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // Why: write the diag log to userData, not world-readable /tmp, so only the current user can read it.
-import { _diagLog, getDiagLogPath, reasonWithDiagLog, COOKIE_IMPORT_ERROR_SUMMARY_MAX_CHARS } from './browser-cookie-import-pipeline-diag-log-cookie-import-error-summary-max-chars'
-import { type BrowserProfile, COOKIE_IMPORT_ERROR_SCAN_MAX_CHARS, summarizeCookieImportError, diag } from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
-import { type DetectedBrowser, type ChromiumBrowserDef, CHROMIUM_BROWSERS, browserRootPath } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
-import { isSafeBrowserProfileDirectory, discoverProfiles, firefoxProfilesRoot, discoverFirefoxProfiles } from './browser-cookie-import-pipeline-is-safe-browser-profile-directory-discover-firefox-profiles'
-import { detectFirefox, MAC_EPOCH_DELTA, detectSafari, detectInstalledBrowsers } from './browser-cookie-import-pipeline-detect-firefox-detect-installed-browsers'
-import { type RawCookieEntry, type ValidatedCookie, selectBrowserProfile, chromiumSameSite } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
-import { firefoxSameSite, normalizeSameSite, deriveUrl, validateCookieEntry } from './browser-cookie-import-pipeline-firefox-same-site-validate-cookie-entry'
-import { importValidatedCookies, pickCookieFile, importCookiesFromFile, getUserAgentForBrowser } from './browser-cookie-import-pipeline-import-validated-cookies-get-user-agent-for-browser'
-import { PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH, PBKDF2_SALT, CHROMIUM_EPOCH_OFFSET } from './browser-cookie-import-pipeline-pbkdf2-iterations-chromium-epoch-offset'
-import { type EncryptionKeyResult, type ChromiumCookieColumnInfo, chromiumTimestampToUnix, parseSqliteDefaultValue } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
-import { normalizeSqliteCookieValue, isSqliteNotNull, fallbackChromiumCookieColumnValue, buildChromiumCookieInsertParams } from './browser-cookie-import-pipeline-normalize-sqlite-cookie-value-build-chromium-cookie-insert-params'
-import { getEncryptionKey, getMacEncryptionKey, getLinuxEncryptionKey, getWindowsEncryptionKey } from './browser-cookie-import-pipeline-get-encryption-key-get-windows-encryption-key'
-import { CHROMIUM_COOKIE_HMAC_LEN, hasHmacPrefix, stripHmac, decryptCookieValueRaw } from './browser-cookie-import-pipeline-chromium-cookie-hmac-len-decrypt-cookie-value-raw'
-import { decryptAes256Gcm, decodeSafariBinaryCookies, appendSafariCookies, decodeSafariPage } from './browser-cookie-import-pipeline-decrypt-aes256-gcm-decode-safari-page'
+import {
+  _diagLog,
+  getDiagLogPath,
+  reasonWithDiagLog,
+  COOKIE_IMPORT_ERROR_SUMMARY_MAX_CHARS
+} from './browser-cookie-import-pipeline-diag-log-cookie-import-error-summary-max-chars'
+import {
+  type BrowserProfile,
+  COOKIE_IMPORT_ERROR_SCAN_MAX_CHARS,
+  summarizeCookieImportError,
+  diag
+} from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
+import {
+  type DetectedBrowser,
+  type ChromiumBrowserDef,
+  CHROMIUM_BROWSERS,
+  browserRootPath
+} from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
+import {
+  isSafeBrowserProfileDirectory,
+  discoverProfiles,
+  firefoxProfilesRoot,
+  discoverFirefoxProfiles
+} from './browser-cookie-import-pipeline-is-safe-browser-profile-directory-discover-firefox-profiles'
+import {
+  detectFirefox,
+  MAC_EPOCH_DELTA,
+  detectSafari,
+  detectInstalledBrowsers
+} from './browser-cookie-import-pipeline-detect-firefox-detect-installed-browsers'
+import {
+  type RawCookieEntry,
+  type ValidatedCookie,
+  selectBrowserProfile,
+  chromiumSameSite
+} from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
+import {
+  firefoxSameSite,
+  normalizeSameSite,
+  deriveUrl,
+  validateCookieEntry
+} from './browser-cookie-import-pipeline-firefox-same-site-validate-cookie-entry'
+import {
+  importValidatedCookies,
+  pickCookieFile,
+  importCookiesFromFile,
+  getUserAgentForBrowser
+} from './browser-cookie-import-pipeline-import-validated-cookies-get-user-agent-for-browser'
+import {
+  PBKDF2_ITERATIONS,
+  PBKDF2_KEY_LENGTH,
+  PBKDF2_SALT,
+  CHROMIUM_EPOCH_OFFSET
+} from './browser-cookie-import-pipeline-pbkdf2-iterations-chromium-epoch-offset'
+import {
+  type EncryptionKeyResult,
+  type ChromiumCookieColumnInfo,
+  chromiumTimestampToUnix,
+  parseSqliteDefaultValue
+} from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
+import {
+  normalizeSqliteCookieValue,
+  isSqliteNotNull,
+  fallbackChromiumCookieColumnValue,
+  buildChromiumCookieInsertParams
+} from './browser-cookie-import-pipeline-normalize-sqlite-cookie-value-build-chromium-cookie-insert-params'
+import {
+  getEncryptionKey,
+  getMacEncryptionKey,
+  getLinuxEncryptionKey,
+  getWindowsEncryptionKey
+} from './browser-cookie-import-pipeline-get-encryption-key-get-windows-encryption-key'
+import {
+  CHROMIUM_COOKIE_HMAC_LEN,
+  hasHmacPrefix,
+  stripHmac,
+  decryptCookieValueRaw
+} from './browser-cookie-import-pipeline-chromium-cookie-hmac-len-decrypt-cookie-value-raw'
+import {
+  decryptAes256Gcm,
+  decodeSafariBinaryCookies,
+  appendSafariCookies,
+  decodeSafariPage
+} from './browser-cookie-import-pipeline-decrypt-aes256-gcm-decode-safari-page'
 import { importCookiesFromBrowser } from './browser-cookie-import-pipeline-import-cookies-from-browser-import-cookies-from-browser'
+import type { BrowserCookieImportResult } from '../../shared/types'
 
 export function decodeSafariCookie(buf: Buffer): ValidatedCookie | null {
   if (buf.length < 48) {
@@ -90,7 +161,6 @@ export function decodeSafariCookie(buf: Buffer): ValidatedCookie | null {
   }
 }
 
-
 export function readCString(buf: Buffer, offset: number, end: number): string | null {
   if (offset < 0 || offset >= end) {
     return null
@@ -108,7 +178,6 @@ export function readCString(buf: Buffer, offset: number, end: number): string | 
 // ---------------------------------------------------------------------------
 // Firefox import
 // ---------------------------------------------------------------------------
-
 
 export async function importCookiesFromFirefox(
   browser: DetectedBrowser,
@@ -214,7 +283,6 @@ export async function importCookiesFromFirefox(
 // ---------------------------------------------------------------------------
 // Safari import
 // ---------------------------------------------------------------------------
-
 
 export async function importCookiesFromSafari(
   browser: DetectedBrowser,
