@@ -11,10 +11,14 @@ import { stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
 import { CODEX_HOME_ENV_KEYS, getCompatibleSelectedCodexHomePath, getCodexSelectionTargetForPty, shouldSkipCodexHomeEnvForWindowsShell, shouldStripInheritedOrcaCodexHome, promoteAgentTeamsShimPath, deleteRequestedEnvKeys, mergePtyEnvDeletions, removeCodexHomeDeletionRequests, getInheritedAgentHookEnvKeysToDelete, getInheritedClaudeSessionStampEnvKeysToDelete } from './pty-ipc-runtime-host-env-foundation'
 import { buildPtyHostEnv } from './pty-ipc-runtime-host-env-assembly'
 import type { PtyRendererDeliveryContext } from './pty-ipc-runtime-renderer-delivery-context'
+import {
+  makePtySpawnDuplicatePreparationOutcome,
+  type PtySpawnPreparationOutcome
+} from './pty-ipc-runtime-spawn-preparation-types'
 
 type PtySpawnArgs = Parameters<NonNullable<RuntimePtyController['spawn']>>[0]
 
-export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Record<string, any>): (args: PtySpawnArgs) => Promise<Record<string, any>> {
+export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Record<string, any>): (args: PtySpawnArgs) => Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> {
   const {
     getLocalPtyStartupPromise, assertFolderWorkspacePtyPathUsable, resolvePtySpawnStartupCwd,
     getProvider, getSettings, store, runtime, resolveLocalProjectRuntimeForWorktreeId,
@@ -26,7 +30,7 @@ export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Re
     beginPtySpawnForWorktree, reservePaneSpawn, paneSpawnReservationsByPaneKey
   } = state
 
-  return async (args: PtySpawnArgs): Promise<Record<string, any>> => {
+  return async (args: PtySpawnArgs): Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> => {
     const startupPromise = getLocalPtyStartupPromise(args.connectionId)
     if (startupPromise) {
       await startupPromise
@@ -333,7 +337,7 @@ export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Re
       ? paneSpawnReservationsByPaneKey.get(materializedPaneKey)
       : undefined
     if (existingPaneSpawn) {
-      return await existingPaneSpawn.promise
+      return makePtySpawnDuplicatePreparationOutcome(existingPaneSpawn.promise)
     }
     const finishTerminalInstall = beginPtySpawnForWorktree(
       args.worktreeId,
@@ -343,6 +347,9 @@ export function createPtySpawnPreparation(state: PtyRendererDeliveryContext & Re
     const paneSpawnReservation = materializedPaneKey
       ? reservePaneSpawn(materializedPaneKey)
       : null
-    return { args, startupPromise, cwd, provider, isClaudeLaunch, terminalRuntimeOptions, daemonShellOverride, isDaemonHostSpawn, callerRequestedSessionId, requestedSessionId, sessionId, effectiveSessionRelayId, effectiveSessionAppId, isMintedSessionId, expectedWslDistro, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, claudeAuth, shouldPersistHostSessionBinding, hostSessionBinding, sshScopedEnv, env, requestedAgentTeamsPath, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, authEnvToDelete, spawnOptions, startupTerminalColorQueryReplyColors, reportPtySpawnCommitted, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, materializedPaneKey, metadataLeafId, metadataPaneKey, spawnIdentityPaneKey, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation }
+    return {
+      kind: 'fresh',
+      prepared: { args, startupPromise, cwd, provider, isClaudeLaunch, terminalRuntimeOptions, daemonShellOverride, isDaemonHostSpawn, callerRequestedSessionId, requestedSessionId, sessionId, effectiveSessionRelayId, effectiveSessionAppId, isMintedSessionId, expectedWslDistro, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, claudeAuth, shouldPersistHostSessionBinding, hostSessionBinding, sshScopedEnv, env, requestedAgentTeamsPath, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, authEnvToDelete, spawnOptions, startupTerminalColorQueryReplyColors, reportPtySpawnCommitted, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, materializedPaneKey, metadataLeafId, metadataPaneKey, spawnIdentityPaneKey, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation }
+    }
   }
 }

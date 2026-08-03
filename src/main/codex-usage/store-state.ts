@@ -1,4 +1,3 @@
-import { estimateCostUsd, normalizePersistedState } from './model-pricing'
 import { app } from 'electron'
 import { join } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
@@ -18,16 +17,19 @@ import type { AutomationRunUsage } from '../../shared/automations-types'
 import type { Store } from '../persistence'
 import { loadKnownUsageWorktreesByRepo, type UsageWorktreeRef } from '../usage-worktree-metadata'
 import type { CodexUsagePersistedState } from './types'
-import { createWorktreeRefs, scanCodexUsageFiles } from './scanner'
 
 // Why: v5 keys Codex ownership on raw token_count identity without session id
 // so forks that rewrite session_meta still match. Older caches used session-
 // scoped keys and can double-count after fork/resume (#8006).
 const SCHEMA_VERSION = 5
-const STALE_MS = 5 * 60_000
-const AUTOMATION_ATTRIBUTION_WINDOW_MS = 5 * 60_000
+export const STALE_MS = 5 * 60_000
+export const AUTOMATION_ATTRIBUTION_WINDOW_MS = 5 * 60_000
 
 let _codexUsageFile: string | null = null
+
+export function initCodexUsagePath(): void {
+  _codexUsageFile = join(app.getPath('userData'), 'orca-codex-usage.json')
+}
 
 export type AutomationUsageLookupInput = {
   worktreeId: string | null
@@ -90,6 +92,27 @@ function getDefaultState(): CodexUsagePersistedState {
       lastScanCompletedAt: null,
       lastScanError: null
     }
+  }
+}
+
+export function normalizePersistedState(state: CodexUsagePersistedState): CodexUsagePersistedState {
+  if (state.schemaVersion !== SCHEMA_VERSION) {
+    // Why: location projections change persisted meaning, so old caches must rebuild.
+    const defaults = getDefaultState()
+    return {
+      ...defaults,
+      scanState: {
+        ...defaults.scanState,
+        enabled: state.scanState?.enabled ?? defaults.scanState.enabled
+      }
+    }
+  }
+  return {
+    ...state,
+    sessions: state.sessions.map((session) => ({
+      ...session,
+      locationModelBreakdown: session.locationModelBreakdown ?? []
+    }))
   }
 }
 

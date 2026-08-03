@@ -3,16 +3,27 @@ import type {
   CodexUsageBreakdownRow,
   CodexUsageDailyPoint,
   CodexUsageRange,
+  CodexUsageScanState,
   CodexUsageScope,
   CodexUsageSessionRow,
   CodexUsageSnapshot,
   CodexUsageSummary
 } from '../../shared/codex-usage-types'
 import type { AutomationRunUsage } from '../../shared/automations-types'
-import { getSessionProjectLabel } from './scanner'
+import type { CodexUsagePersistedState } from './types'
+import { createWorktreeRefs, getSessionProjectLabel, scanCodexUsageFiles } from './scanner'
 import { estimateCostUsd } from './model-pricing'
-import { CodexUsageStoreBase, type AutomationUsageLookupInput } from './store-state'
-import { getLocalDay, getRangeCutoff, type ScopedCodexUsageModelRow } from './store-state'
+import {
+  AUTOMATION_ATTRIBUTION_WINDOW_MS,
+  CodexUsageStoreBase,
+  getLocalDay,
+  getRangeCutoff,
+  getWorktreeFingerprint,
+  STALE_MS,
+  type AutomationUsageLookupInput,
+  type ScopedCodexUsageModelRow
+} from './store-state'
+import { loadKnownUsageWorktreesByRepo } from '../usage-worktree-metadata'
 
 export class CodexUsageStore extends CodexUsageStoreBase {
 getSnapshot(

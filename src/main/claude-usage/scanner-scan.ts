@@ -60,7 +60,7 @@ export async function scanClaudeUsageFiles(
       }
     }
     if (index + batch.length < files.length) {
-      await yieldToEventLoop()
+      await yieldToClaudeUsageEventLoop()
     }
   }
 
@@ -113,7 +113,7 @@ export async function scanClaudeUsageFiles(
       })
     }
     if (index + batch.length < pathsToParse.length) {
-      await yieldToEventLoop()
+      await yieldToClaudeUsageEventLoop()
     }
   }
 

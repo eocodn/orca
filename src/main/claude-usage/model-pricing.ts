@@ -74,33 +74,6 @@ const MODEL_ALIASES: Record<string, string> = {
   'claude-sonnet-4-6-thinking': 'claude-sonnet-4-6'
 }
 
-function getDefaultState(): ClaudeUsagePersistedState {
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    worktreeFingerprint: null,
-    processedFiles: [],
-    sessions: [],
-    dailyAggregates: [],
-    scanState: {
-      enabled: false,
-      lastScanStartedAt: null,
-      lastScanCompletedAt: null,
-      lastScanError: null
-    }
-  }
-}
-
-export function initClaudeUsagePath(): void {
-  _claudeUsageFile = join(app.getPath('userData'), 'orca-claude-usage.json')
-}
-
-function getClaudeUsageFile(): string {
-  if (!_claudeUsageFile) {
-    _claudeUsageFile = join(app.getPath('userData'), 'orca-claude-usage.json')
-  }
-  return _claudeUsageFile
-}
-
 function hasClaudeModelVersion(model: string, family: string, version: string): boolean {
   const normalized = model.replace(/\./g, '-')
   return new RegExp(`${family}-${version}(?:$|[^0-9])`).test(normalized)
@@ -249,4 +222,3 @@ function estimateCostUsd(
 }
 
 export { estimateCostUsd }
-

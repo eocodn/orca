@@ -3,19 +3,25 @@ import type {
   ClaudeUsageBreakdownRow,
   ClaudeUsageDailyPoint,
   ClaudeUsageRange,
+  ClaudeUsageScanState,
   ClaudeUsageSessionRow,
   ClaudeUsageSnapshot,
   ClaudeUsageSummary,
   ClaudeUsageScope
 } from '../../shared/claude-usage-types'
 import type { AutomationRunUsage } from '../../shared/automations-types'
-import { getSessionProjectLabel } from './scanner'
+import { createWorktreeRefs, getSessionProjectLabel, scanClaudeUsageFiles } from './scanner'
 import { estimateCostUsd } from './model-pricing'
 import {
+  AUTOMATION_ATTRIBUTION_WINDOW_MS,
   ClaudeUsageStoreBase,
+  getLocalDay,
+  getRangeCutoff,
+  getWorktreeFingerprint,
+  STALE_MS,
   type AutomationUsageLookupInput
 } from './store-state'
-import { getLocalDay, getRangeCutoff } from './store-state'
+import { loadKnownUsageWorktreesByRepo } from '../usage-worktree-metadata'
 
 export class ClaudeUsageStore extends ClaudeUsageStoreBase {
 getSnapshot(

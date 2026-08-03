@@ -32,7 +32,11 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
   } = state
 
   return async (args: Record<string, any>) => {
-    const prepared = await prepare(args)
+    const preparation = await prepare(args)
+    if (preparation.kind === 'duplicate') {
+      return await preparation.promise
+    }
+    const prepared = preparation.prepared
     let {
       spawnTiming, startupCwdFallback, cwd, provider, isClaudeLaunch, isDaemonHostSpawn, isMintedSessionId,
       effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro,

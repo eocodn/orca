@@ -11,8 +11,12 @@ import { createPtySpawnTiming } from './pty-spawn-timing'
 import { CODEX_HOME_ENV_KEYS } from './pty-ipc-runtime-host-env-foundation'
 import { isNativeWindowsLocalPtySpawn } from '../runtime/terminal-model-query-authority'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'
+import {
+  makePtySpawnDuplicatePreparationOutcome,
+  type PtySpawnPreparationOutcome
+} from './pty-ipc-runtime-spawn-preparation-types'
 
-export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext & Record<string, any>): (args: Record<string, any>) => Promise<Record<string, any>> {
+export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext & Record<string, any>): (args: Record<string, any>) => Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> {
   const {
     runtime, getSettings, ptySizes, pendingPtySizes,
     getLocalPtyStartupPromise, assertFolderWorkspacePtyPathUsable, resolvePtySpawnStartupCwd, localStartupCwdDirectoryExists,
@@ -28,7 +32,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     reservePaneSpawn, transitionSpawnHiddenRendererPtyDeliveryState
   } = state
 
-  return async (args: Record<string, any>): Promise<Record<string, any>> => {
+  return async (args: Record<string, any>): Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> => {
     const spawnTiming = createPtySpawnTiming()
     const startupPromise = getLocalPtyStartupPromise(args.connectionId)
     if (startupPromise) {
@@ -403,7 +407,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
       ? paneSpawnReservationsByPaneKey.get(reservationPaneKey)
       : undefined
     if (existingPaneSpawn) {
-      return await existingPaneSpawn.promise
+      return makePtySpawnDuplicatePreparationOutcome(existingPaneSpawn.promise)
     }
     const finishTerminalInstall = beginPtySpawnForWorktree(
       args.worktreeId,
@@ -420,6 +424,9 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     if (preSpawnHiddenMarkId !== null) {
       transitionSpawnHiddenRendererPtyDeliveryState(preSpawnHiddenMarkId, true)
     }
-    return { args, spawnTiming, startupPromise, allowMissingCwdFallback, didFallbackToWorkspaceRootCwd, cwd, startupCwdFallback, provider, isClaudeLaunch, terminalRuntimeOptions, initialShellOverride, isDaemonHostSpawn, isMintedSessionId, effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro, initialSelectionTarget, claudeAuth, startupTerminalColorQueryReplyColors, sshSourceEnv, baseEnvWithAuth, spawnPaneKey, parsedSpawnPaneKey, verifiedPaneKey, verifiedLeafId, metadataLeafId, metadataPaneKey, legacySpawnPaneKey, migrationUnsupportedPaneKey, stablePaneKey, baseEnv, shouldRefreshAgentTeamsEnv, effectiveLaunchConfig, shouldPreAllocateTerminalHandle, preAllocatedHandle, requestedAgentTeamsPath, agentTeamsEnvToDelete, validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride, nativeWindowsConptySpawn, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, env, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, spawnEnv, envToDelete, combinedEnvToDelete, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation, initiallyHidden, preSpawnHiddenMarkId }
+    return {
+      kind: 'fresh',
+      prepared: { args, spawnTiming, startupPromise, allowMissingCwdFallback, didFallbackToWorkspaceRootCwd, cwd, startupCwdFallback, provider, isClaudeLaunch, terminalRuntimeOptions, initialShellOverride, isDaemonHostSpawn, isMintedSessionId, effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro, initialSelectionTarget, claudeAuth, startupTerminalColorQueryReplyColors, sshSourceEnv, baseEnvWithAuth, spawnPaneKey, parsedSpawnPaneKey, verifiedPaneKey, verifiedLeafId, metadataLeafId, metadataPaneKey, legacySpawnPaneKey, migrationUnsupportedPaneKey, stablePaneKey, baseEnv, shouldRefreshAgentTeamsEnv, effectiveLaunchConfig, shouldPreAllocateTerminalHandle, preAllocatedHandle, requestedAgentTeamsPath, agentTeamsEnvToDelete, validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride, nativeWindowsConptySpawn, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, env, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, spawnEnv, envToDelete, combinedEnvToDelete, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation, initiallyHidden, preSpawnHiddenMarkId }
+    }
   }
 }

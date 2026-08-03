@@ -83,59 +83,6 @@ const MODEL_PRICING: Record<string, CodexModelPricing> = {
 
 const REASONING_TIER_SUFFIXES = ['minimal', 'low', 'medium', 'high', 'xhigh', 'auto', 'none']
 
-function getDefaultState(): CodexUsagePersistedState {
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    worktreeFingerprint: null,
-    processedFiles: [],
-    sessions: [],
-    dailyAggregates: [],
-    scanState: {
-      enabled: false,
-      lastScanStartedAt: null,
-      lastScanCompletedAt: null,
-      lastScanError: null
-    }
-  }
-}
-
-export function normalizePersistedState(state: CodexUsagePersistedState): CodexUsagePersistedState {
-  if (state.schemaVersion !== SCHEMA_VERSION) {
-    // Why: Orca-scoped Codex projections now depend on locationModelBreakdown.
-    // Reusing an older cache would silently serve wrong model/session rows
-    // until the next forced rescan, so schema changes must invalidate stale
-    // persisted analytics instead of best-effort patching partial data.
-    // Preserve scanState.enabled so existing users keep tracking on across
-    // schema bumps; the next refresh will repopulate the analytics.
-    const defaults = getDefaultState()
-    return {
-      ...defaults,
-      scanState: {
-        ...defaults.scanState,
-        enabled: state.scanState?.enabled ?? defaults.scanState.enabled
-      }
-    }
-  }
-  return {
-    ...state,
-    sessions: state.sessions.map((session) => ({
-      ...session,
-      locationModelBreakdown: session.locationModelBreakdown ?? []
-    }))
-  }
-}
-
-export function initCodexUsagePath(): void {
-  _codexUsageFile = join(app.getPath('userData'), 'orca-codex-usage.json')
-}
-
-function getCodexUsageFile(): string {
-  if (!_codexUsageFile) {
-    _codexUsageFile = join(app.getPath('userData'), 'orca-codex-usage.json')
-  }
-  return _codexUsageFile
-}
-
 function stripParenthesizedReasoningTier(model: string): string | null {
   const match = model.match(/^(.*)\(([^()]*)\)$/)
   if (!match) {
@@ -274,4 +221,3 @@ function estimateCostUsd(
 }
 
 export { estimateCostUsd }
-
