@@ -1,69 +1,13 @@
 import { basename, delimiter, win32 as pathWin32 } from 'node:path'
-import { randomUUID } from 'node:crypto'
-import { resolveWindowsShellLaunchArgs } from './windows-shell-args'
-import {
-  resolveEffectiveWindowsPowerShell,
-  shouldProbeWindowsPowerShellAvailability,
-  type WindowsPowerShellShellFamily
-} from './windows-powershell'
-import { buildWindowsPowerShellSpawnAttempts } from './windows-shell-fallback-chain'
-import { resolveProcessCwd } from './process-cwd'
-import { existsSync } from 'node:fs'
-import * as pty from 'node-pty'
-import { getDefaultWslDistro, parseWslPath, isWslAvailable } from '../wsl'
+import type * as pty from 'node-pty'
+import { parseWslPath } from '../wsl'
 import { splitWorktreeIdForFilesystem } from '../../shared/worktree-id'
-import {
-  injectHistoryEnv,
-  updateHistFileForFallback,
-  logHistoryInjection
-} from '../terminal-history'
-import type { IPtyProvider, PtyProcessInfo, PtySpawnOptions, PtySpawnResult } from './types'
-import {
-  ensureNodePtySpawnHelperExecutable,
-  validateWorkingDirectory,
-  spawnShellWithFallback
-} from './local-pty-utils'
+import type { PtySpawnResult } from './types'
 import { prepareMacosTccLoginShell } from './macos-tcc-login-shell'
-import {
-  getAttributionShellLaunchConfig,
-  getShellReadyLaunchConfig,
-  createShellReadyScanState,
-  drainShellReadyHeldBytes,
-  scanForShellReady,
-  writeStartupCommandWhenShellReady,
-  STARTUP_COMMAND_READY_MAX_WAIT_MS
-} from './local-pty-shell-ready'
-import type { ShellReadySignal } from './local-pty-shell-ready'
-import { removeInheritedNoColor } from '../pty/terminal-color-env'
-import { removeAppImageRuntimeEnv } from '../pty/appimage-terminal-env'
-import { stripInheritedBuildModeEnv } from '../pty/build-mode-env'
-import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-wsl-env'
-import { addWslEnvKeys } from '../wsl-env'
-import {
-  POWERLEVEL10K_WIZARD_DISABLE_ENV,
-  seedPowerlevel10kWizardEnv
-} from '../pty/powerlevel10k-wizard-env'
-import {
-  isWindowsGitBashShellPath,
-  resolveGitBashPath,
-  resolveWindowsGitBashShellPath
-} from '../git-bash'
-import { WINDOWS_GIT_BASH_SHELL } from '../../shared/windows-terminal-shell'
-import { resolveAgentForegroundProcessWithAvailability } from './agent-foreground-process'
-import { resolveStableForegroundProcess } from './stable-foreground-process'
-import { getAgentForegroundContextPaths } from './agent-foreground-context-paths'
-import { recognizeAgentProcessFromCommandLine } from '../../shared/agent-process-recognition'
-import { killWithDescendantSweep } from '../pty-descendant-termination'
-import { readWindowsConptyProcessIds } from './windows-conpty-process-membership'
-import { canConfirmAgentFromConsolePresence } from './windows-console-foreground'
 import { forceKillPosixPtyProcessGroups } from '../pty/posix-pty-process-groups'
-import { shouldUseShellReadyStartupDelivery } from '../../shared/codex-startup-delivery'
-import { assertSafeAgentStartupCwd, resolveSafePtyDefaultCwd } from './pty-default-cwd'
-import { ORCA_HERMES_STARTUP_QUERY_ENV } from '../../shared/hermes-startup-query'
+import { resolveSafePtyDefaultCwd } from './pty-default-cwd'
 import { PhysicalExitTracker } from '../../shared/physical-exit-tracker'
-import { mergeGitConfigEnvProtocol } from '../../shared/git-credential-prompt-env'
-import { PtyStartupIngress, type PtyIngressEmission } from '../../shared/pty-startup-ingress'
-import { resolvePtyOwnerBackend } from '../../shared/pty-owner-backend'
+import type { PtyStartupIngress } from '../../shared/pty-startup-ingress'
 
 export const PANE_IDENTITY_ENV_KEYS = [
   'ORCA_PANE_KEY',
@@ -110,8 +54,20 @@ export const LOCAL_PTY_PHYSICAL_EXIT_TIMEOUT_MS = 8_000
 export const LOCAL_PTY_GRACEFUL_FORCE_TIMEOUT_MS = 5_000
 export const LOCAL_PTY_FORCE_KILL_RETRY_MS = 250
 
-export let loadGeneration = 0
+let loadGeneration = 0
 export const ptyLoadGeneration = new Map<string, number>()
+
+export function getLocalPtyGeneration(): number {
+  return loadGeneration
+}
+
+export function advanceLocalPtyGeneration(): number {
+  return ++loadGeneration
+}
+
+export function resetLocalPtyGeneration(): void {
+  loadGeneration = 0
+}
 
 export type DataCallback = (payload: {
   id: string
@@ -251,7 +207,10 @@ export function createPtyPhysicalExit(id: string): void {
   ptyPhysicalExits.set(id, new PhysicalExitTracker())
 }
 
-export function waitForPtyPhysicalExit(id: string, physicalExit?: PhysicalExitTracker): Promise<void> {
+export function waitForPtyPhysicalExit(
+  id: string,
+  physicalExit?: PhysicalExitTracker
+): Promise<void> {
   if (!physicalExit) {
     return Promise.reject(new Error(`PTY "${id}" exit tracking unavailable`))
   }
@@ -321,7 +280,7 @@ export function allocatePtyId(sessionId: string | undefined): string {
   return id
 }
 
-async function prepareLocalPtySpawn(id: string): Promise<void> {
+export async function prepareLocalPtySpawn(id: string): Promise<void> {
   const pendingSpawn: PendingLocalPtySpawn = { canceled: false }
   const pending = pendingLocalPtySpawns.get(id) ?? new Set()
   pending.add(pendingSpawn)
@@ -388,7 +347,9 @@ export function reattachLocalPty(id: string, cols: number, rows: number): PtySpa
 /**
  * Normalizes node-pty foreground process strings to executable basenames.
  */
-export function normalizeForegroundProcessName(processName: string | null | undefined): string | null {
+export function normalizeForegroundProcessName(
+  processName: string | null | undefined
+): string | null {
   const trimmed = processName?.trim().replace(/^["']|["']$/g, '') ?? ''
   if (!trimmed || trimmed === 'xterm-256color') {
     return null

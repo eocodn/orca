@@ -1,13 +1,10 @@
 import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
 import type { GitProviderStatusOptions } from './types'
-import type {
-  GitStatusResult,
-  GitDiffResult,
-  GitStagingArea
-} from '../../shared/types'
+import type { GitStatusResult, GitDiffResult, GitStagingArea } from '../../shared/types'
 import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
 import { JsonRpcErrorCode } from '../ssh/relay-protocol'
 import { requestGitStreamable } from '../ssh/ssh-git-response-stream-reader'
+import { gitExecMutatesRepository } from '../../shared/git-exec-mutation'
 import type { CommitMessageDraftContext } from '../../shared/commit-message-generation'
 import type { CommitMessagePlan } from '../../shared/commit-message-plan'
 import type { RemoteCommitMessageExecResult } from '../text-generation/commit-message-text-generation'
@@ -33,7 +30,9 @@ function isJsonRpcMethodNotFoundError(error: unknown): boolean {
 }
 
 export class SshGitProviderBase {
-  protected readonly gitDiffReadDedupe = new InFlightPromiseDedupe<GitDiffResult | GitDiffResult[]>()
+  protected readonly gitDiffReadDedupe = new InFlightPromiseDedupe<
+    GitDiffResult | GitDiffResult[]
+  >()
 
   protected connectionId: string
   protected mux: SshChannelMultiplexer
@@ -182,6 +181,21 @@ export class SshGitProviderBase {
       stagedSummary,
       stagedPatch
     }
+  }
+
+  async exec(
+    args: string[],
+    cwd: string,
+    options?: { signal?: AbortSignal; timeoutMs?: number }
+  ): Promise<{ stdout: string; stderr: string }> {
+    const run = () =>
+      options
+        ? requestGitStreamable(this.mux, 'git.exec', { args, cwd }, options)
+        : requestGitStreamable(this.mux, 'git.exec', { args, cwd })
+    const result = gitExecMutatesRepository(args)
+      ? await this.runWithDiffDedupeClear(run)
+      : await run()
+    return result as { stdout: string; stderr: string }
   }
 
   async executeCommitMessagePlan(
@@ -356,7 +370,6 @@ export class SshGitProviderBase {
         })) as GitDiffResult
     ) as Promise<GitDiffResult>
   }
-
 }
 
 export { isJsonRpcMethodNotFoundError }

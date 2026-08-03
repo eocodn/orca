@@ -1,20 +1,57 @@
 import { basename } from 'node:path'
 import { existsSync } from 'node:fs'
-import * as pty from 'node-pty'
+import type * as pty from 'node-pty'
 import { resolveProcessCwd } from './process-cwd'
 import type { PtyProcessInfo } from './types'
 import { killWithDescendantSweep } from '../pty-descendant-termination'
 import { resolveAgentForegroundProcessWithAvailability } from './agent-foreground-process'
 import { resolveStableForegroundProcess } from './stable-foreground-process'
-import { getAgentForegroundContextPaths } from './agent-foreground-context-paths'
 import { recognizeAgentProcessFromCommandLine } from '../../shared/agent-process-recognition'
 import { readWindowsConptyProcessIds } from './windows-conpty-process-membership'
 import { canConfirmAgentFromConsolePresence } from './windows-console-foreground'
 import { resolveGitBashPath } from '../git-bash'
 import { isWslAvailable } from '../wsl'
-import { LocalPtyProviderSpawn, advanceLocalPtyGeneration, resetLocalPtyGeneration, ptyProcesses, ptyIncarnations, ptyAgentSessionIds, ptyShutdownOperations, ptyShellName, ptyAgentForegroundContextPaths, ptyLastRecognizedForeground, ptyTerminalHandle, ptyWorktreeId, ptyInitialCwd, ptyWslDistroById, ptyTerminationMode, ptyLoadGeneration, dataListeners, exitListeners, startupIngressByPty, disposePtyListeners, disposePtyExitListener, clearLocalPtyForceKillTimer, runPtyCleanup, clearPtyState, waitForPtyPhysicalExit, killLocalPtyProcess, armLocalPtyForceKill, cancelPendingLocalPtySpawns, cancelAllPendingLocalPtySpawns, resolveForegroundFallbackProcess, destroyPtyProcess, requestPtyTermination } from './local-pty-provider-spawn'
-import type { PtyShutdownOperation, DataCallback, ExitCallback } from './local-pty-provider-spawn'
-export class LocalPtyProvider extends LocalPtyProviderSpawn {
+import {
+  LocalPtyProviderSpawn,
+  advanceLocalPtyGeneration,
+  resetLocalPtyGeneration
+} from './local-pty-provider-spawn'
+import {
+  ptyProcesses,
+  ptyIncarnations,
+  ptyAgentSessionIds,
+  ptyShutdownOperations,
+  ptyPhysicalExits,
+  pendingLocalPtySpawns,
+  ptyShellName,
+  ptyAgentForegroundContextPaths,
+  ptyLastRecognizedForeground,
+  ptyTerminalHandle,
+  ptyWorktreeId,
+  ptyInitialCwd,
+  ptyWslDistroById,
+  ptyTerminationMode,
+  ptyLoadGeneration,
+  dataListeners,
+  exitListeners,
+  startupIngressByPty,
+  disposePtyListeners,
+  disposePtyExitListener,
+  clearLocalPtyForceKillTimer,
+  runPtyCleanup,
+  clearPtyState,
+  waitForPtyPhysicalExit,
+  killLocalPtyProcess,
+  armLocalPtyForceKill,
+  cancelPendingLocalPtySpawns,
+  cancelAllPendingLocalPtySpawns,
+  resolveForegroundFallbackProcess,
+  destroyPtyProcess,
+  requestPtyTermination
+} from './local-pty-state'
+import type { IPtyProvider } from './types'
+import type { PtyShutdownOperation, DataCallback, ExitCallback } from './local-pty-state'
+export class LocalPtyProvider extends LocalPtyProviderSpawn implements IPtyProvider {
   // Local PTYs are always attached -- no-op. Remote providers use this to resubscribe.
   async attach(_id: string): Promise<void> {}
   hasPty(id: string): boolean {

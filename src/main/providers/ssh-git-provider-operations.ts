@@ -14,6 +14,7 @@ import type {
 import { buildHostedRemoteCommitUrl, buildHostedRemoteFileUrl } from '../git/hosted-remote-url'
 import { requestGitStreamable } from '../ssh/ssh-git-response-stream-reader'
 import { gitExecMutatesRepository } from '../../shared/git-exec-mutation'
+import { stableInFlightKey } from '../../shared/in-flight-promise-dedupe'
 import type { IGitProvider } from './types'
 import { SshGitProviderBase, isJsonRpcMethodNotFoundError } from './ssh-git-provider-base'
 
@@ -592,4 +593,3 @@ export class SshGitProvider extends SshGitProviderBase implements IGitProvider {
     return buildHostedRemoteCommitUrl(remoteUrl, sha)
   }
 }
-

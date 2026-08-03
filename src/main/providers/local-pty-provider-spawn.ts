@@ -1,23 +1,19 @@
 import { win32 as pathWin32 } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { resolveWindowsShellLaunchArgs } from './windows-shell-args'
-import { resolveProcessCwd } from './process-cwd'
-import { existsSync } from 'node:fs'
 import * as pty from 'node-pty'
 import { parseWslPath } from '../wsl'
-import { splitWorktreeIdForFilesystem } from '../../shared/worktree-id'
 import {
   injectHistoryEnv,
   updateHistFileForFallback,
   logHistoryInjection
 } from '../terminal-history'
-import type { IPtyProvider, PtyProcessInfo, PtySpawnOptions, PtySpawnResult } from './types'
+import type { PtySpawnOptions, PtySpawnResult } from './types'
 import {
   ensureNodePtySpawnHelperExecutable,
   validateWorkingDirectory,
   spawnShellWithFallback
 } from './local-pty-utils'
-import { prepareMacosTccLoginShell } from './macos-tcc-login-shell'
 import {
   createShellReadyScanState,
   drainShellReadyHeldBytes,
@@ -28,29 +24,18 @@ import {
 import type { ShellReadySignal } from './local-pty-shell-ready'
 import { resolveLocalPtyWindowsShellLaunch } from './local-pty-windows-shell-launch'
 import { prepareLocalPtySpawnEnvironment } from './local-pty-spawn-environment'
-import { resolveAgentForegroundProcessWithAvailability } from './agent-foreground-process'
-import { resolveStableForegroundProcess } from './stable-foreground-process'
 import { getAgentForegroundContextPaths } from './agent-foreground-context-paths'
 import { recognizeAgentProcessFromCommandLine } from '../../shared/agent-process-recognition'
-import { killWithDescendantSweep } from '../pty-descendant-termination'
-import { readWindowsConptyProcessIds } from './windows-conpty-process-membership'
-import { canConfirmAgentFromConsolePresence } from './windows-console-foreground'
-import { forceKillPosixPtyProcessGroups } from '../pty/posix-pty-process-groups'
-import { assertSafeAgentStartupCwd, resolveSafePtyDefaultCwd } from './pty-default-cwd'
-import { PhysicalExitTracker } from '../../shared/physical-exit-tracker'
 import { PtyStartupIngress, type PtyIngressEmission } from '../../shared/pty-startup-ingress'
 import { resolvePtyOwnerBackend } from '../../shared/pty-owner-backend'
+import { assertSafeAgentStartupCwd } from './pty-default-cwd'
 import {
-  PANE_IDENTITY_ENV_KEYS,
-  ptyCounter,
   ptyProcesses,
   ptyIncarnations,
   ptyAgentSessionIds,
   ptyShutdownOperations,
-  pendingLocalPtySpawns,
   ptyShellName,
   ptyAgentForegroundContextPaths,
-  ptyLastRecognizedForeground,
   ptyTerminalHandle,
   ptyWorktreeId,
   ptyInitialCwd,
@@ -60,102 +45,29 @@ import {
   ptyCleanupCallbacks,
   ptyTerminationMode,
   ptyPhysicalExits,
-  ptyForceKillTimers,
-  LOCAL_PTY_PHYSICAL_EXIT_TIMEOUT_MS,
-  LOCAL_PTY_GRACEFUL_FORCE_TIMEOUT_MS,
-  LOCAL_PTY_FORCE_KILL_RETRY_MS,
-  loadGeneration,
   ptyLoadGeneration,
   dataListeners,
   exitListeners,
   startupIngressByPty,
-  getDefaultCwd,
   promoteAgentTeamsShimPath,
-  disposePtyListeners,
-  disposePtyExitListener,
-  clearLocalPtyForceKillTimer,
-  runPtyCleanup,
   getWslContextFromWorktreeId,
   getWslContextFromPreferredDistro,
-  clearPtyState,
   createPtyPhysicalExit,
-  waitForPtyPhysicalExit,
-  killLocalPtyProcess,
-  armLocalPtyForceKill,
+  getDefaultCwd,
   allocatePtyId,
-  cancelPendingLocalPtySpawns,
-  cancelAllPendingLocalPtySpawns,
+  prepareLocalPtySpawn,
   normalizeLocalCallerSessionId,
   reattachLocalPty,
-  normalizeForegroundProcessName,
-  resolveForegroundFallbackProcess,
   getSpawnedShellName,
   destroyPtyProcess,
-  requestPtyTermination
-} from './local-pty-state'
-import type {
-  PtyShutdownOperation,
-  PendingLocalPtySpawn,
-  DataCallback,
-  ExitCallback
+  clearPtyState,
+  getLocalPtyGeneration
 } from './local-pty-state'
 
 export {
-  PANE_IDENTITY_ENV_KEYS,
-  ptyCounter,
-  ptyProcesses,
-  ptyIncarnations,
-  ptyAgentSessionIds,
-  ptyShutdownOperations,
-  pendingLocalPtySpawns,
-  ptyShellName,
-  ptyAgentForegroundContextPaths,
-  ptyLastRecognizedForeground,
-  ptyTerminalHandle,
-  ptyWorktreeId,
-  ptyInitialCwd,
-  ptyWslDistroById,
-  ptyDisposables,
-  ptyExitDisposables,
-  ptyCleanupCallbacks,
-  ptyTerminationMode,
-  ptyPhysicalExits,
-  ptyForceKillTimers,
   LOCAL_PTY_PHYSICAL_EXIT_TIMEOUT_MS,
   LOCAL_PTY_GRACEFUL_FORCE_TIMEOUT_MS,
-  LOCAL_PTY_FORCE_KILL_RETRY_MS,
-  loadGeneration,
-  ptyLoadGeneration,
-  dataListeners,
-  exitListeners,
-  startupIngressByPty,
-  getDefaultCwd,
-  promoteAgentTeamsShimPath,
-  disposePtyListeners,
-  disposePtyExitListener,
-  clearLocalPtyForceKillTimer,
-  runPtyCleanup,
-  getWslContextFromWorktreeId,
-  getWslContextFromPreferredDistro,
-  clearPtyState,
-  createPtyPhysicalExit,
-  waitForPtyPhysicalExit,
-  killLocalPtyProcess,
-  armLocalPtyForceKill,
-  allocatePtyId,
-  cancelPendingLocalPtySpawns,
-  cancelAllPendingLocalPtySpawns,
-  normalizeLocalCallerSessionId,
-  reattachLocalPty,
-  normalizeForegroundProcessName,
-  resolveForegroundFallbackProcess,
-  getSpawnedShellName,
-  destroyPtyProcess,
-  requestPtyTermination,
-  PtyShutdownOperation,
-  PendingLocalPtySpawn,
-  DataCallback,
-  ExitCallback
+  LOCAL_PTY_FORCE_KILL_RETRY_MS
 } from './local-pty-state'
 
 export type LocalPtyProviderOptions = {
@@ -191,15 +103,9 @@ export type LocalPtyProviderOptions = {
   ) => void
 }
 
-export function advanceLocalPtyGeneration(): number {
-  return ++loadGeneration
-}
+export { advanceLocalPtyGeneration, resetLocalPtyGeneration } from './local-pty-state'
 
-export function resetLocalPtyGeneration(): void {
-  loadGeneration = 0
-}
-
-export class LocalPtyProviderSpawn implements IPtyProvider {
+export class LocalPtyProviderSpawn {
   protected opts: LocalPtyProviderOptions
 
   constructor(opts: LocalPtyProviderOptions = {}) {
@@ -407,7 +313,7 @@ export class LocalPtyProviderSpawn implements IPtyProvider {
       id,
       getAgentForegroundContextPaths({ cwd: args.cwd, worktreeId: args.worktreeId })
     )
-    ptyLoadGeneration.set(id, loadGeneration)
+    ptyLoadGeneration.set(id, getLocalPtyGeneration())
     ptyIncarnations.set(id, incarnationId)
     this.opts.onSpawned?.(id, incarnationId)
 
