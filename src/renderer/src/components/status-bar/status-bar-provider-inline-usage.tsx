@@ -1,5 +1,44 @@
-import {   AlertTriangle,   Activity,   RotateCcw,   Plug,   ChevronDown,   ChevronRight,   Loader2,   PanelsTopLeft,   RefreshCw,   Server } from 'lucide-react' import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react' import { lazyWithRetry } from '@/lib/lazy-with-retry' import { Button } from '@/components/ui/button' import { Checkbox } from '@/components/ui/checkbox' import {   Dialog,   DialogContent,   DialogDescription,   DialogFooter,   DialogHeader,   DialogTitle } from '@/components/ui/dialog' import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip' import {   DropdownMenu,   DropdownMenuCheckboxItem,   DropdownMenuContent,   DropdownMenuItem,   DropdownMenuLabel,   DropdownMenuSeparator,   DropdownMenuSub,   DropdownMenuSubContent,   DropdownMenuSubTrigger,   DropdownMenuTrigger } from '@/components/ui/dropdown-menu' import { useAppStore } from '../../store' import { selectFloatingWorkspaceHasUnread } from '../../store/selectors' import type {   ClaudeRateLimitAccountsState,   CodexRateLimitAccountsState,   GlobalSettings } from '../../../../shared/types' import type {   ProviderRateLimits,   RateLimitRuntimeTarget,   RateLimitWindow } from '../../../../shared/rate-limit-types' import { resolveLocalAccountRuntimeTarget } from '../../../../shared/local-account-runtime' import { getRendererAppPlatform } from '../../lib/renderer-app-platform' import {   ProviderIcon,   ProviderPanel,   barColor,   clampUsedPercent,   formatResetCreditExpiry,   getProviderDisplayName,   getProviderUsageStatusLabel } from './tooltip' import { ClaudeIcon, GeminiIcon, MiniMaxIcon, OpenAIIcon, OpenCodeGoIcon } from './icons' import { AgentIcon } from '@/lib/agent-catalog' import { UsageRosterPanel, getTightestUsageSection } from './UsageRosterPanel' import { getUsageProviderAccountsSectionId } from './usage-provider-settings-target' import { formatRateLimitWindowChipLabel } from '@/lib/window-label-formatter' import { useResetCountdownClock } from '@/hooks/useResetCountdownClock' import {   markLiveCodexSessionsForRestart,   resolveCodexRestartPromptAccountLabel } from '@/lib/codex-session-restart' import { UpdateStatusSegment } from './UpdateStatusSegment' import { SkillUpdateStatusSegment } from './SkillUpdateStatusSegment' import { RemoteServerUpdateStatusSegment } from './RemoteServerUpdateStatusSegment' import { isStatusBarItemAvailable } from './status-bar-agent-gating' import { getVisibleUsageProvider, isUsageEmptyState } from './status-bar-provider-visibility' import { StatusBarUsageEmptyCta } from './StatusBarUsageEmptyCta' import { UsagePercentageDisplayChangeNotice } from './UsagePercentageDisplayChangeNotice' import {   STATUS_BAR_CONTEXT_MENU_EXEMPT_PROPS,   shouldOpenStatusBarContextMenu } from './status-bar-context-menu-policy' import { TOGGLE_FLOATING_TERMINAL_EVENT } from '@/lib/floating-terminal' import { useShortcutLabel } from '@/hooks/useShortcutLabel' import { FloatingTerminalIconContextMenu } from '@/components/floating-terminal/FloatingTerminalIconContextMenu' import { summarizeCodexRestartStatus } from './codex-restart-status-summary' import {   getWindowsTerminalCapabilityOwnerKey,   useWindowsTerminalCapabilities } from '@/lib/windows-terminal-capabilities' import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client' import {   fetchProviderAccountsSnapshot,   selectClaudeProviderAccount,   selectCodexProviderAccount } from '@/runtime/runtime-provider-accounts-client' import { translate } from '@/i18n/i18n' import {   getDisplayedUsagePercentage,   normalizeUsagePercentageDisplay,   type UsagePercentageDisplay } from '../../../../shared/usage-percentage-display' import { formatUsagePercentageLabel } from './usage-percentage-label' import {   normalizeStatusBarUsageMode,   type StatusBarUsageMode } from '../../../../shared/status-bar-usage-mode'
-
+import {   AlertTriangle,   Activity,   RotateCcw,   Plug,   ChevronDown,   ChevronRight,   Loader2,   PanelsTopLeft,   RefreshCw,   Server } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazyWithRetry } from '@/lib/lazy-with-retry'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import {   Dialog,   DialogContent,   DialogDescription,   DialogFooter,   DialogHeader,   DialogTitle } from '@/components/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {   DropdownMenu,   DropdownMenuCheckboxItem,   DropdownMenuContent,   DropdownMenuItem,   DropdownMenuLabel,   DropdownMenuSeparator,   DropdownMenuSub,   DropdownMenuSubContent,   DropdownMenuSubTrigger,   DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useAppStore } from '../../store'
+import { selectFloatingWorkspaceHasUnread } from '../../store/selectors'
+import type {   ClaudeRateLimitAccountsState,   CodexRateLimitAccountsState,   GlobalSettings } from '../../../../shared/types'
+import type {   ProviderRateLimits,   RateLimitRuntimeTarget,   RateLimitWindow } from '../../../../shared/rate-limit-types'
+import { resolveLocalAccountRuntimeTarget } from '../../../../shared/local-account-runtime'
+import { getRendererAppPlatform } from '../../lib/renderer-app-platform'
+import {   ProviderIcon,   ProviderPanel,   barColor,   clampUsedPercent,   formatResetCreditExpiry,   getProviderDisplayName,   getProviderUsageStatusLabel } from './tooltip'
+import { ClaudeIcon, GeminiIcon, MiniMaxIcon, OpenAIIcon, OpenCodeGoIcon } from './icons'
+import { AgentIcon } from '@/lib/agent-catalog'
+import { UsageRosterPanel, getTightestUsageSection } from './UsageRosterPanel'
+import { getUsageProviderAccountsSectionId } from './usage-provider-settings-target'
+import { formatRateLimitWindowChipLabel } from '@/lib/window-label-formatter'
+import { useResetCountdownClock } from '@/hooks/useResetCountdownClock'
+import {   markLiveCodexSessionsForRestart,   resolveCodexRestartPromptAccountLabel } from '@/lib/codex-session-restart'
+import { UpdateStatusSegment } from './UpdateStatusSegment'
+import { SkillUpdateStatusSegment } from './SkillUpdateStatusSegment'
+import { RemoteServerUpdateStatusSegment } from './RemoteServerUpdateStatusSegment'
+import { isStatusBarItemAvailable } from './status-bar-agent-gating'
+import { getVisibleUsageProvider, isUsageEmptyState } from './status-bar-provider-visibility'
+import { StatusBarUsageEmptyCta } from './StatusBarUsageEmptyCta'
+import { UsagePercentageDisplayChangeNotice } from './UsagePercentageDisplayChangeNotice'
+import {   STATUS_BAR_CONTEXT_MENU_EXEMPT_PROPS,   shouldOpenStatusBarContextMenu } from './status-bar-context-menu-policy'
+import { TOGGLE_FLOATING_TERMINAL_EVENT } from '@/lib/floating-terminal'
+import { useShortcutLabel } from '@/hooks/useShortcutLabel'
+import { FloatingTerminalIconContextMenu } from '@/components/floating-terminal/FloatingTerminalIconContextMenu'
+import { summarizeCodexRestartStatus } from './codex-restart-status-summary'
+import {   getWindowsTerminalCapabilityOwnerKey,   useWindowsTerminalCapabilities } from '@/lib/windows-terminal-capabilities'
+import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
+import {   fetchProviderAccountsSnapshot,   selectClaudeProviderAccount,   selectCodexProviderAccount } from '@/runtime/runtime-provider-accounts-client'
+import { translate } from '@/i18n/i18n'
+import {   getDisplayedUsagePercentage,   normalizeUsagePercentageDisplay,   type UsagePercentageDisplay } from '../../../../shared/usage-percentage-display'
+import { formatUsagePercentageLabel } from './usage-percentage-label'
+import {   normalizeStatusBarUsageMode,   type StatusBarUsageMode } from '../../../../shared/status-bar-usage-mode'
 function MiniBar({
   usedPct,
   display
@@ -366,5 +405,3 @@ export function ProviderSegment({
     </span>
   )
 }
-
-export 

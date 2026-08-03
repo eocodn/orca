@@ -1,5 +1,4 @@
 // Concrete surface implementation for WorkspaceSpaceManagerPanel.tsx
-   breakdown, and table pieces share one scan state and should evolve as one resource-manager surface. */
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: the relative time clock advances from a wall-clock interval, which is an external timer rather than render-derived state. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {

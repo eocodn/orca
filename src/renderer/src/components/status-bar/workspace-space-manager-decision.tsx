@@ -1,5 +1,4 @@
 // Concrete surface implementation for WorkspaceSpaceManagerPanel.tsx
-   breakdown, and table pieces share one scan state and should evolve as one resource-manager surface. */
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: the relative time clock advances from a wall-clock interval, which is an external timer rather than render-derived state. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -96,14 +95,14 @@ const TREEMAP_FILLS = [
   'color-mix(in srgb, var(--chart-1) 38%, var(--card))'
 ]
 
-export export function getTreemapFill(rect: TreemapRect, selected: boolean): string {
+export function getTreemapFill(rect: TreemapRect, selected: boolean): string {
   if (selected) {
     return 'color-mix(in srgb, var(--ring) 40%, var(--card))'
   }
   return TREEMAP_FILLS[rect.index % TREEMAP_FILLS.length]
 }
 
-export export function Metric({
+export function Metric({
   label,
   value,
   title
@@ -124,7 +123,7 @@ export export function Metric({
   )
 }
 
-export export function UpdatedMetric({
+export function UpdatedMetric({
   scannedAt,
   isScanning
 }: {
@@ -162,7 +161,7 @@ export export function UpdatedMetric({
   )
 }
 
-export export function CheckButton({
+export function CheckButton({
   checked,
   disabled,
   label,
@@ -208,7 +207,7 @@ export export function CheckButton({
   )
 }
 
-export export function SortIndicator({
+export function SortIndicator({
   sortKey,
   activeKey,
   direction
@@ -223,7 +222,7 @@ export export function SortIndicator({
   return direction === 'asc' ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
 }
 
-export export function StatusBadge({
+export function StatusBadge({
   worktree,
   decisionDetails,
   deleteState
@@ -342,7 +341,7 @@ export export function StatusBadge({
   )
 }
 
-export export function DecisionLine({
+export function DecisionLine({
   icon,
   label,
   value,
@@ -446,7 +445,7 @@ export function getDeleteDecisionLabel(
   return 'Can be deleted after review'
 }
 
-export export function WorkspaceDecisionHoverCard({
+export function WorkspaceDecisionHoverCard({
   worktree,
   details,
   gitRefreshState,
@@ -584,5 +583,3 @@ export export function WorkspaceDecisionHoverCard({
     </HoverCardContent>
   )
 }
-
-export 

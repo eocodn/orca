@@ -1,5 +1,4 @@
 // Concrete surface implementation for WorkspaceSpaceManagerPanel.tsx
-   breakdown, and table pieces share one scan state and should evolve as one resource-manager surface. */
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: the relative time clock advances from a wall-clock interval, which is an external timer rather than render-derived state. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -96,7 +95,7 @@ const TREEMAP_FILLS = [
   'color-mix(in srgb, var(--chart-1) 38%, var(--card))'
 ]
 
-export import {
+export {
   BreakdownRow,
   DecisionLine,
   getAgentDecisionLabel,
@@ -274,7 +273,7 @@ export function WorkspaceTreemap({
   )
 }
 
-export export function SizeBar({ value, max }: { value: number; max: number }): React.JSX.Element {
+export function SizeBar({ value, max }: { value: number; max: number }): React.JSX.Element {
   const pct = max > 0 ? Math.max(2, Math.min(100, (value / max) * 100)) : 0
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -283,7 +282,7 @@ export export function SizeBar({ value, max }: { value: number; max: number }): 
   )
 }
 
-export export function BreakdownList({
+export function BreakdownList({
   worktree,
   isScanning
 }: {
@@ -367,7 +366,7 @@ export export function BreakdownList({
   )
 }
 
-export export function BreakdownRow({
+export function BreakdownRow({
   item,
   maxSize
 }: {
@@ -387,7 +386,7 @@ export export function BreakdownRow({
   )
 }
 
-export export function WorkspaceRow({
+export function WorkspaceRow({
   worktree,
   maxSize,
   selected,
@@ -559,5 +558,4 @@ export export function WorkspaceRow({
     </ContextMenu>
   )
 }
-
 

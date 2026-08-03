@@ -1,4 +1,38 @@
-   breakdown, and table pieces share one scan state and should evolve as one resource-manager surface. */ /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: the relative time clock advances from a wall-clock interval, which is an external timer rather than render-derived state. */ import { useCallback, useEffect, useMemo, useRef, useState } from 'react' import {   AlertTriangle,   ArrowDown,   ArrowUp,   Bot,   Check,   Circle,   ExternalLink,   FileWarning,   GitBranch,   GitPullRequest,   HardDrive,   Loader2,   Minus,   RefreshCw,   Search,   Server,   Terminal,   Trash2,   ZoomIn,   ZoomOut,   X } from 'lucide-react' import type {   AgentStatusEntry,   MigrationUnsupportedPtyEntry } from '../../../../shared/agent-status-types' import type { GitStatusResult, Repo, TerminalTab, Worktree } from '../../../../shared/types' import type {   WorkspaceSpaceItem,   WorkspaceSpaceWorktree } from '../../../../shared/workspace-space-types' import { cn } from '@/lib/utils' import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval' import { toast } from 'sonner' import { activateAndRevealWorktree } from '@/lib/worktree-activation' import { useAppStore } from '../../store' import { getRepoMapFromState, getWorktreeMapFromState } from '../../store/selectors' import { getHostedReviewCacheKey } from '../../store/slices/hosted-review' import { issueCacheKey as getIssueCacheKey } from '../../store/slices/github' import { refreshGitStatusForWorktree } from '../right-sidebar/git-status-refresh' import { runWorktreeBatchDelete } from '../sidebar/delete-worktree-flow' import { prepareActiveWorktreeFocusAfterDelete } from '../sidebar/active-worktree-focus-after-delete' import { branchDisplayName } from '../sidebar/WorktreeCardHelpers' import { Badge } from '../ui/badge' import { Button } from '../ui/button' import {   ContextMenu,   ContextMenuContent,   ContextMenuItem,   ContextMenuTrigger } from '../ui/context-menu' import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card' import { Input } from '../ui/input' import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select' import {   formatBytes,   formatCompactCount,   getWorkspaceSpaceBranchLabel,   getWorkspaceSpaceProgressLabel,   getWorkspaceSpaceScanDateTimeLabel,   getWorkspaceSpaceScanTimeLabel,   getWorkspaceSpaceStatusLabel } from './workspace-space-format' import { buildTreemapLayout, type TreemapRect } from './workspace-space-layout' import {   filterWorkspaceSpaceRows,   countWorkspaceSpaceActiveAgents,   getLargestWorkspaceSpaceItemSize,   getLargestWorkspaceSpaceRowSize,   getSelectedDeletableWorkspaceIds,   getVisibleDeletableWorkspaceIds,   getWorkspaceSpaceGitStatusRefreshCandidates,   isWorkspaceSpaceRowReadyToDelete,   pruneWorkspaceSpaceSelectedIds,   resolveWorkspaceSpaceInspectedWorktreeId,   resolveWorkspaceSpaceTreemapZoomWorktreeId,   sortWorkspaceSpaceRows,   type WorkspaceSpaceSortDirection,   type WorkspaceSpaceSortKey } from './workspace-space-presentation' import { translate } from '@/i18n/i18n' import type { WorktreeForceDeleteReason } from '../../../../shared/worktree-removal' const TREEMAP_FILLS = [   'color-mix(in srgb, var(--chart-2) 34%, var(--card))',   'color-mix(in srgb, var(--foreground) 20%, var(--card))',   'color-mix(in srgb, var(--chart-4) 28%, var(--card))',   'color-mix(in srgb, var(--primary) 24%, var(--card))',   'color-mix(in srgb, var(--chart-1) 38%, var(--card))' ] const GIT_STATUS_REFRESH_CONCURRENCY = 6 type WorkspaceSpaceDeleteState = {   isDeleting: boolean   error: string | null   canForceDelete: boolean   forceDeleteReason: WorktreeForceDeleteReason | null } type WorkspaceGitRefreshState = {   isRefreshing: boolean   error: string | null }
+/* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: the relative time clock advances from a wall-clock interval, which is an external timer rather than render-derived state. */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {   AlertTriangle,   ArrowDown,   ArrowUp,   Bot,   Check,   Circle,   ExternalLink,   FileWarning,   GitBranch,   GitPullRequest,   HardDrive,   Loader2,   Minus,   RefreshCw,   Search,   Server,   Terminal,   Trash2,   ZoomIn,   ZoomOut,   X } from 'lucide-react'
+import type {   AgentStatusEntry,   MigrationUnsupportedPtyEntry } from '../../../../shared/agent-status-types'
+import type { GitStatusResult, Repo, TerminalTab, Worktree } from '../../../../shared/types'
+import type {   WorkspaceSpaceItem,   WorkspaceSpaceWorktree } from '../../../../shared/workspace-space-types'
+import { cn } from '@/lib/utils'
+import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
+import { toast } from 'sonner'
+import { activateAndRevealWorktree } from '@/lib/worktree-activation'
+import { useAppStore } from '../../store'
+import { getRepoMapFromState, getWorktreeMapFromState } from '../../store/selectors'
+import { getHostedReviewCacheKey } from '../../store/slices/hosted-review'
+import { issueCacheKey as getIssueCacheKey } from '../../store/slices/github'
+import { refreshGitStatusForWorktree } from '../right-sidebar/git-status-refresh'
+import { runWorktreeBatchDelete } from '../sidebar/delete-worktree-flow'
+import { prepareActiveWorktreeFocusAfterDelete } from '../sidebar/active-worktree-focus-after-delete'
+import { branchDisplayName } from '../sidebar/WorktreeCardHelpers'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
+import {   ContextMenu,   ContextMenuContent,   ContextMenuItem,   ContextMenuTrigger } from '../ui/context-menu'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card'
+import { Input } from '../ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import {   formatBytes,   formatCompactCount,   getWorkspaceSpaceBranchLabel,   getWorkspaceSpaceProgressLabel,   getWorkspaceSpaceScanDateTimeLabel,   getWorkspaceSpaceScanTimeLabel,   getWorkspaceSpaceStatusLabel } from './workspace-space-format'
+import { buildTreemapLayout, type TreemapRect } from './workspace-space-layout'
+import {   filterWorkspaceSpaceRows,   countWorkspaceSpaceActiveAgents,   getLargestWorkspaceSpaceItemSize,   getLargestWorkspaceSpaceRowSize,   getSelectedDeletableWorkspaceIds,   getVisibleDeletableWorkspaceIds,   getWorkspaceSpaceGitStatusRefreshCandidates,   isWorkspaceSpaceRowReadyToDelete,   pruneWorkspaceSpaceSelectedIds,   resolveWorkspaceSpaceInspectedWorktreeId,   resolveWorkspaceSpaceTreemapZoomWorktreeId,   sortWorkspaceSpaceRows,   type WorkspaceSpaceSortDirection,   type WorkspaceSpaceSortKey } from './workspace-space-presentation'
+import { translate } from '@/i18n/i18n'
+import type { WorktreeForceDeleteReason } from '../../../../shared/worktree-removal'
+const TREEMAP_FILLS = [   'color-mix(in srgb, var(--chart-2) 34%, var(--card))',   'color-mix(in srgb, var(--foreground) 20%, var(--card))',   'color-mix(in srgb, var(--chart-4) 28%, var(--card))',   'color-mix(in srgb, var(--primary) 24%, var(--card))',   'color-mix(in srgb, var(--chart-1) 38%, var(--card))' ]
+const GIT_STATUS_REFRESH_CONCURRENCY = 6
+
+type WorkspaceSpaceDeleteState = {   isDeleting: boolean   error: string | null   canForceDelete: boolean   forceDeleteReason: WorktreeForceDeleteReason | null }
+
+type WorkspaceGitRefreshState = {   isRefreshing: boolean   error: string | null }
 
 export type WorkspaceDecisionDetails = {
   isActive: boolean
