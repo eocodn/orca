@@ -50,6 +50,7 @@ export class WslHookRelayManager {
   private recovery: WslRelayRecovery
   private states = new Map<string, DistroState>()
   private defaultDistro: string | null = null
+  private defaultDistroResolution?: Promise<string | null>
   private disposed = false
   private warnedBundleMissing = false
 
@@ -341,13 +342,34 @@ export class WslHookRelayManager {
     if (this.defaultDistro) {
       return this.defaultDistro
     }
+    if (this.defaultDistroResolution) {
+      return this.defaultDistroResolution
+    }
+
+    let resolution: Promise<string | null>
     try {
-      const distros = await this.deps.listDistros()
-      this.defaultDistro = distros[0] ?? null
+      resolution = this.deps
+        .listDistros()
+        .then((distros) => {
+          this.defaultDistro = distros[0] ?? null
+          return this.defaultDistro
+        })
+        .catch(() => {
+          this.defaultDistro = null
+          return null
+        })
     } catch {
       this.defaultDistro = null
+      resolution = Promise.resolve(null)
     }
-    return this.defaultDistro
+    this.defaultDistroResolution = resolution
+    try {
+      return await resolution
+    } finally {
+      if (this.defaultDistroResolution === resolution) {
+        this.defaultDistroResolution = undefined
+      }
+    }
   }
 }
 

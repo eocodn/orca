@@ -311,6 +311,23 @@ describe('WslHookRelayManager', () => {
     manager.disposeAll()
   })
 
+  it('fences concurrent default-distro startup behind one resolution', async () => {
+    let releaseDistros: ((distros: string[]) => void) | undefined
+    const listDistros = vi.fn(
+      () => new Promise<string[]>((resolve) => (releaseDistros = resolve))
+    )
+    const { manager, deps } = createManager({ listDistros })
+
+    manager.ensureForDistro(null)
+    manager.ensureForDistro(null)
+    expect(listDistros).toHaveBeenCalledTimes(1)
+
+    releaseDistros?.(['Ubuntu'])
+    await vi.waitFor(() => expect(deps.installHooks).toHaveBeenCalledTimes(1))
+    expect(deps.spawnRelay).toHaveBeenCalledTimes(1)
+    manager.disposeAll()
+  })
+
   it('reinstalls once on a stale-version exit (42) and then connects', async () => {
     const waitForSentinel = vi
       .fn()
