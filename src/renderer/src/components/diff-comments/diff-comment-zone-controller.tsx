@@ -19,6 +19,29 @@ export type ZoneEntry = {
   lastRenderSignature: string
   laidOut: boolean
 }
+
+// Keep the initial estimate and live resize calculations aligned across the zone lifecycle.
+const ZONE_CHROME_PX = 68
+const ZONE_LINE_PX = 20
+const ZONE_MIN_PX = 88
+
+function getRenderSignature(
+  comment: DecoratedDiffComment,
+  formatCommentPrompt?: (comment: DecoratedDiffComment) => string
+): string {
+  return JSON.stringify({
+    body: comment.body,
+    sentAt: comment.sentAt ?? null,
+    author: comment.author ?? null,
+    authorAvatarUrl: comment.authorAvatarUrl ?? null,
+    createdAtLabel: comment.createdAtLabel ?? null,
+    url: comment.url ?? null,
+    canDelete: comment.canDelete ?? null,
+    canEdit: comment.canEdit ?? null,
+    sendPrompt: formatCommentPrompt ? formatCommentPrompt(comment) : null
+  })
+}
+
 export function useDiffCommentZoneController({
   editor,
   filePath,
@@ -55,7 +78,7 @@ export function useDiffCommentZoneController({
   getSingleCommentSendScopes: (
     comment: DecoratedDiffComment,
     formatCommentPrompt?: (comment: DecoratedDiffComment) => string
-  ) => Array<{ id: string; label: string; notes: DecoratedDiffComment[]; prompt: string }>
+  ) => { id: string; label: string; notes: DecoratedDiffComment[]; prompt: string }[]
 }): void {
   useEffect(() => {
     if (!editor) {
@@ -261,7 +284,6 @@ export function useDiffCommentZoneController({
     editor,
     filePath,
     formatCommentPrompt,
-    monacoModelIdentity,
     worktreeId,
     comments
   ])

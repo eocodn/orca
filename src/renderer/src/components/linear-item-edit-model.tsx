@@ -1,54 +1,6 @@
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: Linear drawer state hydrates full issue details and comments from provider IPC for the selected issue. */
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ArrowRight,
-  ChevronDown,
-  ExternalLink,
-  Gauge,
-  LoaderCircle,
-  Send,
-  Tag,
-  UserRound,
-  X
-} from 'lucide-react'
-import { toast } from 'sonner'
-
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { LinearIssueTextEditor } from '@/components/LinearIssueTextEditor'
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { VisuallyHidden } from 'radix-ui'
-import CommentMarkdown from '@/components/sidebar/CommentMarkdown'
-import { cn } from '@/lib/utils'
-import {
-  getCommentBodySubmitState,
-  hasBoundedCommentBodyText
-} from '@/lib/comment-body-submit-state'
-import { useAppStore } from '@/store'
-import { getScreenSubmitShortcutLabel, isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
-import { createBrowserUuid } from '@/lib/browser-uuid'
-import {
-  useTeamStates,
-  useTeamLabels,
-  useTeamMembers,
-  useImmediateMutation
-} from '@/hooks/useIssueMetadata'
-import {
-  getLinearStateMarkerStyle,
-  getLinearStatePillStyle
-} from '@/components/linear-state-pill-style'
-import { LinearPriorityIcon } from '@/components/linear-priority-icon'
-import type { LinearIssue, LinearComment } from '../../../shared/types'
-import type { TaskSourceContext } from '../../../shared/task-source-context'
-import {
-  linearAddIssueComment,
-  linearGetIssue,
-  linearIssueComments,
-  linearUpdateIssue
-} from '@/runtime/runtime-linear-client'
-import { translate } from '@/i18n/i18n'
+import React from 'react'
+import { ChevronDown, LoaderCircle } from 'lucide-react'
 export function LinearIcon({ className }: { className?: string }): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" aria-hidden className={className} fill="currentColor">
@@ -96,23 +48,4 @@ export function LinearEditChipAdornment({
   }
 
   return <ChevronDown className="size-3 shrink-0 opacity-55" />
-}
-
-function formatRelativeTime(input: string): string {
-  const date = new Date(input)
-  if (Number.isNaN(date.getTime())) {
-    return 'recently'
-  }
-  const diffMs = date.getTime() - Date.now()
-  const diffMinutes = Math.round(diffMs / 60_000)
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-  if (Math.abs(diffMinutes) < 60) {
-    return formatter.format(diffMinutes, 'minute')
-  }
-  const diffHours = Math.round(diffMinutes / 60)
-  if (Math.abs(diffHours) < 24) {
-    return formatter.format(diffHours, 'hour')
-  }
-  const diffDays = Math.round(diffHours / 24)
-  return formatter.format(diffDays, 'day')
 }
