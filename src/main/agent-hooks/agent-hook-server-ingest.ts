@@ -229,6 +229,14 @@ export class AgentHookServerIngest extends AgentHookServerAuthority {
       isReplay: envelope.isReplay === true ? true : undefined,
       payload: normalizedPayload
     }
+    // Replay is recovery data; once this process has observed the pane live, it cannot replace it.
+    if (
+      event.isReplay === true &&
+      this.runtimeObservedStatusPaneKeys.has(paneKey) &&
+      this.state.lastStatusByPaneKey.has(paneKey)
+    ) {
+      return
+    }
     this.recordCurrentAuthorityObservation(event)
     this.applyNormalizedStatus(event)
   }

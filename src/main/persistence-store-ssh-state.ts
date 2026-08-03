@@ -30,6 +30,7 @@ import {
   latestAutomationOccurrenceAtOrBefore,
   nextAutomationOccurrenceAfter
 } from '../shared/automation-schedules'
+import { isFinalAutomationRunStatus } from '../shared/automations-types'
 import { getAutomationLegacyRepoId } from '../shared/automation-run-identity'
 import { normalizeAutomationPrecheck } from '../shared/automation-precheck'
 import type {
@@ -358,6 +359,20 @@ export class StorePhase7 extends StorePhase6 {
     }
     const now = Date.now()
     const current = this.state.automationRuns[index]
+    if (isFinalAutomationRunStatus(current.status)) {
+      if (
+        result.status === current.status &&
+        Object.hasOwn(result, 'usage') &&
+        current.usage === null &&
+        result.usage != null
+      ) {
+        const updated = { ...current, usage: result.usage }
+        this.state.automationRuns[index] = updated
+        this.flush()
+        return updated
+      }
+      return current
+    }
     const workspaceId = result.workspaceId ?? current.workspaceId
     const workspaceDisplayName = Object.hasOwn(result, 'workspaceDisplayName')
       ? normalizeAutomationRunWorkspaceDisplayName(result.workspaceDisplayName ?? null)

@@ -191,6 +191,11 @@ export class AutomationService {
       return
     }
     const run = this.store.createAutomationRun(automation, scheduledFor)
+    if (run.status !== 'pending') {
+      // A persisted dispatching run owns this occurrence after a restart; do not launch it twice.
+      this.store.advanceAutomationNextRun(automation.id, now)
+      return
+    }
     const graceMs = automation.missedRunGraceMinutes * 60 * 1000
     if (now - scheduledFor > graceMs) {
       this.store.updateAutomationRun({

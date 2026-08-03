@@ -594,6 +594,83 @@ describe('AutomationService', () => {
     expect(store.listAutomationRuns(automation.id).some((entry) => entry.id === run.id)).toBe(false)
   })
 
+  it('does not dispatch an existing in-flight scheduled run again after service restart', async () => {
+    vi.setSystemTime(new Date('2026-05-13T08:00:00Z'))
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Restart-safe check',
+      prompt: 'Check the repo',
+      agentId: 'claude',
+      projectId: 'r1',
+      workspaceMode: 'existing',
+      workspaceId: 'wt1',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: new Date('2026-05-13T00:00:00Z').getTime()
+    })
+    const run = store.createAutomationRun(automation, new Date('2026-05-13T09:00:00Z').getTime())
+    store.updateAutomationRun({
+      runId: run.id,
+      status: 'dispatching',
+      workspaceId: 'wt1',
+      error: null
+    })
+    const headlessDispatcher = vi.fn()
+    const service = new AutomationService(store, {
+      tickMs: 60_000,
+      allowRemoteHostScheduling: true,
+      headlessDispatcher
+    })
+
+    vi.setSystemTime(new Date('2026-05-13T09:01:00Z'))
+    service.start()
+    await Promise.resolve()
+    service.stop()
+
+    expect(headlessDispatcher).not.toHaveBeenCalledWith(
+      expect.objectContaining({ run: expect.objectContaining({ id: run.id }) })
+    )
+  })
+
+  it('does not let a late retry result mutate a finalized automation run', async () => {
+    vi.setSystemTime(new Date('2026-05-13T10:00:00Z'))
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Retry-safe check',
+      prompt: 'Check the repo',
+      agentId: 'claude',
+      projectId: 'r1',
+      workspaceMode: 'existing',
+      workspaceId: 'wt1',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: new Date('2026-05-13T00:00:00Z').getTime()
+    })
+    const run = store.createAutomationRun(automation, Date.now(), 'manual')
+    const service = new AutomationService(store, { tickMs: 60_000 })
+
+    await service.markDispatchResult({
+      runId: run.id,
+      status: 'dispatch_failed',
+      workspaceId: 'wt1',
+      error: 'timed out'
+    })
+    await service.markDispatchResult({
+      runId: run.id,
+      status: 'completed',
+      workspaceId: 'wt1',
+      error: null
+    })
+
+    expect(store.listAutomationRuns(automation.id)[0]).toMatchObject({
+      id: run.id,
+      status: 'dispatch_failed',
+      error: 'timed out'
+    })
+  })
+
   it('records unsupported usage cleanly for completed agents without local usage stores', async () => {
     vi.setSystemTime(new Date('2026-05-13T10:00:00'))
     const store = await createStore()

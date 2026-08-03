@@ -15,6 +15,7 @@ import {
   STATUS_PERSIST_DEBOUNCE_MS
 } from './agent-hook-server-shared'
 import {
+  clearAllListenerCaches,
   seedClaudeSubagentRosterFromSnapshots,
   seedCodexStateFromSnapshot,
   writeEndpointFile,
@@ -56,7 +57,9 @@ export class AgentHookServer extends AgentHookServerRuntime {
       return
     }
     // Why: keep hydrate idempotent so a future re-start path can't merge prior-session state.
-    this.state.lastStatusByPaneKey.clear()
+    clearAllListenerCaches(this.state)
+    this.runtimeObservedStatusPaneKeys.clear()
+    this.currentAuthorityObservations.clear()
     this.hydratedLaunchTokenHashByPaneKey.clear()
     this.persistedAuthorityCommitmentsByPaneKey.clear()
     let raw: string
