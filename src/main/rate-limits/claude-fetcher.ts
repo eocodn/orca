@@ -1,27 +1,20 @@
 import { net, session } from 'electron'
 import type {
-  ProviderRateLimits,
-  RateLimitWindow,
-  UsageRateLimitFailureKind,
-  UsageRateLimitMetadata,
-  UsageRateLimitSource
+  ProviderRateLimits
 } from '../../shared/rate-limit-types'
-import type { NetworkProxySettings } from '../../shared/network-proxy'
 import { fetchViaPty } from './claude-pty'
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
 import {
   isOauthTokenExpiring,
   refreshClaudeOauthCredentials
 } from '../claude-accounts/oauth-refresh'
-import { createOAuthUsageError, OAuthUsageError } from './claude-oauth-usage-error'
-import { mapClaudeUsageWindow, type ClaudeUsageWindowInput } from './claude-usage-window'
+import { OAuthUsageError } from './claude-oauth-usage-error'
 import { withMacTailscaleDnsHint } from '../network/macos-tailscale-dns-diagnostic'
 import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
 import { resolveClaudeUsageRefreshPlan } from './claude-usage-refresh-plan'
 import {
   classifyClaudeCredentialAbsence,
-  classifyClaudeOAuthUsageError,
-  type ClaudeUsageErrorClassification
+  classifyClaudeOAuthUsageError
 } from './claude-usage-error-classification'
 import {
   parseOAuthCredentialsJson,
@@ -105,15 +98,11 @@ function warnClaudeUsageFetchFailure(
 import { abortedClaudeRateLimitResult, fetchViaOAuth } from './claude-oauth-fetch'
 import {
   recordAttempt,
-  withClaudeUsageMetadata,
   makeClaudeUsageResult,
   metadataForAttempt,
-  classifyClaudeCliUsageFailure,
   fetchClaudeUsageViaCli,
-  isManagedClaudeAuth,
   canSupplementOAuthUsageFromCli,
   mergeClaudeUsageWindows,
-  supplementOAuthUsageFromCli,
   completeOAuthUsageSuccess,
   canRetryWithLegacyKeychainToken,
   retryOAuthWithLegacyKeychainToken,
