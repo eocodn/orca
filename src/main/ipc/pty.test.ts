@@ -262,6 +262,7 @@ import { resolveWindowsShellLaunchArgs } from '../providers/windows-shell-args'
 import { _resetWslCachesForTests, _setWslCachesForTests } from '../wsl'
 import { wslHookRelayManager } from '../agent-hooks/wsl-hook-relay-manager'
 import { acquireWatcherRemovalGate } from './watcher-removal-gate'
+import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import {
   acceptSshPtyOutputData,
   acceptSshPtyOutputExit,
@@ -490,7 +491,9 @@ describe('registerPtyHandlers', () => {
       'ssh-reattach-fail',
       'ssh-reattach-ok',
       'ssh-runtime-env',
-      'ssh-generation-replacement'
+      'ssh-generation-replacement',
+      'ssh-stale-inventory',
+      'ssh-list-sessions-error'
     ]) {
       unregisterSshPtyProvider(leakedConnectionId)
     }
@@ -7438,6 +7441,60 @@ describe('registerPtyHandlers', () => {
     await pendingInventory
   })
 
+  it('does not publish local ownership when an SSH inventory fails', async () => {
+    const localId = 'pty-list-sessions-local-before-error'
+    const previousId = 'pty-list-sessions-existing-owner'
+    ptyRuntimeState.ptyOwnership.set(previousId, 'ssh-existing-owner')
+    vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockResolvedValue([
+      { id: localId, cwd: '/local', title: 'shell' }
+    ])
+    registerSshPtyProvider('ssh-list-sessions-error', {
+      listProcesses: vi.fn(async () => {
+        throw new Error('relay unavailable')
+      })
+    } as never)
+    registerPtyHandlers(mainWindow as never)
+
+    try {
+      await expect(handlers.get('pty:listSessions')!(null, undefined)).rejects.toThrow(
+        'relay unavailable'
+      )
+      expect(ptyRuntimeState.ptyOwnership.get(previousId)).toBe('ssh-existing-owner')
+      expect(ptyRuntimeState.ptyOwnership.has(localId)).toBe(false)
+    } finally {
+      ptyRuntimeState.ptyOwnership.delete(previousId)
+      unregisterSshPtyProvider('ssh-list-sessions-error')
+    }
+  })
+
+  it('rejects a listing row from an earlier PTY incarnation before publishing it', async () => {
+    const ptyId = 'pty-list-sessions-stale-incarnation'
+    let resolveListing!: (
+      sessions: { id: string; incarnationId: string; cwd: string; title: string }[]
+    ) => void
+    const listing = new Promise<{ id: string; incarnationId: string; cwd: string; title: string }[]>(
+      (resolve) => {
+        resolveListing = resolve
+      }
+    )
+    vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockReturnValue(listing)
+    ptyRuntimeState.ptyOwnership.set(ptyId, null)
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-new')
+    registerPtyHandlers(mainWindow as never)
+
+    try {
+      const pending = handlers.get('pty:listSessions')!(null, undefined)
+      resolveListing([
+        { id: ptyId, incarnationId: 'incarnation-old', cwd: '/old', title: 'shell' }
+      ])
+      await expect(pending).rejects.toThrow('pty_process_list_incomplete')
+      expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBeNull()
+    } finally {
+      ptyRuntimeState.ptyOwnership.delete(ptyId)
+      ptyRuntimeState.ptyIncarnationById.delete(ptyId)
+    }
+  })
+
   it('reports authoritative snapshot capability with the owning provider context', () => {
     const capabilityProvider = {
       authoritativeIds: new Set(['current-pty']),
@@ -10339,9 +10396,7 @@ describe('registerPtyHandlers', () => {
     registerSshPtyProvider('ssh-stale-inventory', replacementProvider as never)
     oldInventory.resolve([{ id: 'stale-remote-pty', cwd: '/old', title: 'old' }])
 
-    await expect(pendingInventory).resolves.not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: 'stale-remote-pty' })])
-    )
+    await expect(pendingInventory).rejects.toThrow('pty_process_list_incomplete')
   })
 
   it('rechecks lifecycle state after delayed exact inventory before retaining a tombstone', async () => {

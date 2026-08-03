@@ -146,16 +146,37 @@ export async function visitPtyProcessListingsInBatches<T>(
   }
 }
 
+export type PtyProcessListingBySource<T> = Readonly<{
+  source: T
+  processes: readonly PtyProcessInfo[]
+}>
+
+// Keep admitted rows source-qualified so callers can validate before publishing state.
+export async function collectPtyProcessListingsBySource<T>(
+  sources: Iterable<T>,
+  load: (source: T) => Promise<readonly PtyProcessInfo[]>
+): Promise<PtyProcessListingBySource<T>[]> {
+  const admission = new PtyProcessListAdmission()
+  const listings: PtyProcessListingBySource<T>[] = []
+  await visitPtyProcessListingsInBatches(sources, load, (source, processes) => {
+    listings.push({
+      source,
+      processes: processes.map((process) => admission.admit(process))
+    })
+  })
+  return listings
+}
+
 export async function collectPtyProcessListings<T>(
   sources: Iterable<T>,
   load: (source: T) => Promise<readonly PtyProcessInfo[]>
 ): Promise<PtyProcessInfo[]> {
-  const admission = new PtyProcessListAdmission()
+  const listings = await collectPtyProcessListingsBySource(sources, load)
   const processes: PtyProcessInfo[] = []
-  await visitPtyProcessListingsInBatches(sources, load, (_source, listing) => {
-    for (const process of listing) {
-      processes.push(admission.admit(process))
+  for (const listing of listings) {
+    for (const process of listing.processes) {
+      processes.push(process)
     }
-  })
+  }
   return processes
 }

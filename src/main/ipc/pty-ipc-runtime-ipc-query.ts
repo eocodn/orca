@@ -2,9 +2,15 @@ import { ipcMain } from 'electron'
 import type { PtyListedSession } from '../../shared/pty-listed-session'
 import { parseAppSshPtyId } from '../providers/ssh-pty-id'
 import { inspectPtyProviderProcessForRenderer } from '../providers/pty-process-inspection'
-import { PtyProcessListAdmission, visitPtyProcessListingsInBatches } from '../providers/pty-process-list-admission'
+import { collectPtyProcessListingsBySource } from '../providers/pty-process-list-admission'
 import { routesFreshSpawnsToLocalProvider } from './pty-ipc-runtime-spawn-routing'
-import { tryGetProviderForPty } from './pty-ipc-runtime-provider-routing'
+import {
+  capturePtyLifecycleTarget,
+  getProviderGeneration,
+  isCurrentPtyListing,
+  isCurrentProvider,
+  tryGetProviderForPty
+} from './pty-ipc-runtime-provider-routing'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
@@ -12,41 +18,77 @@ export function installPtyIpcQueryHandlers(): void {
   const state = getPtyRegistrationSharedState() as Record<string, any>
 
   ipcMain.handle('pty:listSessions', async (): Promise<PtyListedSession[]> => {
-    const deduped = new Map<string, PtyListedSession>()
-    const admission = new PtyProcessListAdmission()
     const providers = [
-      { provider: ptyRuntimeState.localProvider, connectionId: null as string | null },
-      ...Array.from(ptyRuntimeState.sshProviders, ([connectionId, provider]: [string, any]) => ({ provider, connectionId }))
+      {
+        provider: ptyRuntimeState.localProvider,
+        connectionId: null as string | null,
+        generation: getProviderGeneration(ptyRuntimeState.localProvider)
+      },
+      ...Array.from(
+        ptyRuntimeState.sshProviders,
+        ([connectionId, provider]: [string, any]) => ({
+          provider,
+          connectionId,
+          generation: getProviderGeneration(provider)
+        })
+      )
     ]
-    await visitPtyProcessListingsInBatches(
+    const lifecycleTargets = new Map(
+      [
+        ...ptyRuntimeState.ptyOwnership.keys(),
+        ...ptyRuntimeState.ptyIncarnationById.keys(),
+        ...ptyRuntimeState.pendingPtyIncarnationById.keys(),
+        ...ptyRuntimeState.ptyStateTokenById.keys(),
+        ...ptyRuntimeState.clearedPtyLifecycleIds
+      ].map((id) => [id, capturePtyLifecycleTarget(id)] as const)
+    )
+    const emptyLifecycleTarget = capturePtyLifecycleTarget('')
+    const listings = await collectPtyProcessListingsBySource(
       providers,
-      ({ provider, connectionId }) =>
-        connectionId === null ? provider.listProcesses() : provider.listProcesses().catch(() => []),
-      ({ provider, connectionId }, sessions) => {
-        const isCurrentProvider =
-          connectionId === null
-            ? ptyRuntimeState.localProvider === provider
-            : state.sshProviders.get(connectionId) === provider
-        if (!isCurrentProvider) {
-          return
+      ({ provider }) => provider.listProcesses()
+    )
+    if (
+      listings.some(
+        ({ source: { provider, connectionId, generation } }) =>
+          !isCurrentProvider(provider, connectionId, generation)
+      )
+    ) {
+      throw new Error('pty_process_list_incomplete')
+    }
+
+    // Stage all provider-derived mutations so failures cannot publish partial ownership.
+    const staged = new Map<
+      string,
+      { connectionId: string | null; session: PtyListedSession }
+    >()
+    for (const { source, processes } of listings) {
+      for (const process of processes) {
+        const lifecycleTarget = lifecycleTargets.get(process.id) ?? emptyLifecycleTarget
+        if (!isCurrentPtyListing(process.id, process.incarnationId, lifecycleTarget)) {
+          throw new Error('pty_process_list_incomplete')
         }
-        for (const rawSession of sessions) {
-          const session = admission.admit(rawSession)
-          state.ptyOwnership.set(session.id, connectionId)
-          deduped.set(session.id, {
-            id: session.id,
-            cwd: session.cwd,
-            title: session.title,
+        staged.set(process.id, {
+          connectionId: source.connectionId,
+          session: {
+            id: process.id,
+            cwd: process.cwd,
+            title: process.title,
             agentOwnership:
-              (session.agentSessionOwners?.length ?? 0) > 0
+              (process.agentSessionOwners?.length ?? 0) > 0
                 ? 'present'
-                : provider.providesAgentSessionOwnerListings?.(session.id) === true
+                : source.provider.providesAgentSessionOwnerListings?.(process.id) === true
                   ? 'absent'
                   : 'unknown'
-          })
-        }
+          }
+        })
       }
-    )
+    }
+
+    const deduped = new Map<string, PtyListedSession>()
+    for (const [id, { connectionId, session }] of staged) {
+      state.ptyOwnership.set(id, connectionId)
+      deduped.set(id, session)
+    }
     return Array.from(deduped.values())
   })
 

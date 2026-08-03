@@ -5,6 +5,7 @@ import {
   MAX_AGGREGATED_PTY_PROCESS_LIST_OWNERS,
   PTY_PROCESS_LIST_PROVIDER_BATCH_SIZE,
   PtyProcessListAdmission,
+  collectPtyProcessListingsBySource,
   visitPtyProcessListingsInBatches
 } from './pty-process-list-admission'
 
@@ -83,5 +84,21 @@ describe('visitPtyProcessListingsInBatches', () => {
     await visiting
 
     expect(peak).toBe(PTY_PROCESS_LIST_PROVIDER_BATCH_SIZE)
+  })
+})
+
+describe('collectPtyProcessListingsBySource', () => {
+  it('does not yield a partial aggregate when a later provider listing fails', async () => {
+    await expect(
+      collectPtyProcessListingsBySource(
+        [1, 2],
+        async (source) => {
+          if (source === 2) {
+            throw new Error('provider unavailable')
+          }
+          return [{ id: 'pty-1', cwd: '', title: 'shell' }]
+        }
+      )
+    ).rejects.toThrow('provider unavailable')
   })
 })

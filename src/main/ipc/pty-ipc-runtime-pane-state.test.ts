@@ -48,6 +48,7 @@ describe('pty pane state', () => {
     unregisterSshPtyProvider('ssh-pane-state-race')
     unregisterSshPtyProvider('ssh-pane-state-same-generation')
     unregisterSshPtyProvider('ssh-pane-state-partial-listing')
+    unregisterSshPtyProvider('ssh-pane-state-listing-error')
     ptyRuntimeState.sshProvidersByGeneration.clear()
     ptyRuntimeState.ptyOwnership.clear()
     ptyRuntimeState.ptyIncarnationById.clear()
@@ -258,6 +259,43 @@ describe('pty pane state', () => {
 
     await reconciliation
 
+    expect(ptyRuntimeState.agentSessionOwners.listForPty(ptyId)).toEqual([owner])
+  })
+
+  it('keeps a live owner when an authoritative provider listing fails', async () => {
+    const connectionId = 'ssh-pane-state-listing-error'
+    const ptyId = `ssh:${connectionId}@@pty-current`
+    const owner = {
+      claim: {
+        digestVersion: 1,
+        keyId: 'listing-error-key',
+        identityDigest: 'listing-error-digest',
+        worktreeScopeDigest: 'listing-error-worktree',
+        agent: 'codex'
+      },
+      generation: 'listing-error-owner-generation',
+      phase: 'live',
+      ptyId,
+      surface: {
+        worktreeId: 'worktree',
+        tabId: 'tab-listing-error',
+        leafId: '66666666-6666-4666-8666-666666666666',
+        terminalHandle: 'term_listing_error'
+      }
+    } as AgentSessionOwnerBinding
+    const provider = {
+      providerGeneration: 9,
+      providesAgentSessionOwnerListings: () => true,
+      listProcesses: vi.fn(async () => {
+        throw new Error('provider listing failed')
+      })
+    }
+
+    registerSshPtyProvider(connectionId, provider as never)
+    ptyRuntimeState.ptyOwnership.set(ptyId, connectionId)
+    ptyRuntimeState.agentSessionOwners.register(owner)
+
+    await expect(reconcileAgentSessionOwnerListings()).rejects.toThrow('provider listing failed')
     expect(ptyRuntimeState.agentSessionOwners.listForPty(ptyId)).toEqual([owner])
   })
 })
