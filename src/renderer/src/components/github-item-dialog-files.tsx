@@ -1,23 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import {
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  PanelLeftOpen,
-  RefreshCw
-} from 'lucide-react'
+import type { editor as monacoEditor } from 'monaco-editor'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
-import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import CommentMarkdown from '@/components/sidebar/CommentMarkdown'
-import { cn } from '@/lib/utils'
-import { detectLanguage } from '@/lib/language-detect'
 import { DiffSectionItem } from '@/components/editor/DiffSectionItem'
+import type { DecoratedDiffComment } from '@/components/diff-comments/use-diff-comment-decorator-surface'
 import {
   CombinedDiffFileTree,
   createCombinedDiffSectionIndexMap,
@@ -30,12 +17,6 @@ import {
 import type { DiffSection } from '@/components/editor/diff-section-types'
 import { removeDiffSectionMeasuredHeight } from '@/components/editor/diff-section-height-cache'
 import {
-  MAX_RENDERED_DIFF_COMBINED_CHARACTERS,
-  MAX_RENDERED_DIFF_LINES_PER_SIDE,
-  getLargeDiffRenderLimit,
-  type LargeDiffRenderLimit
-} from '@/components/editor/large-diff-render-limit'
-import {
   getCombinedDiffBranchEntriesInTreeOrder,
   type CombinedDiffFileTreeEntry
 } from '@/components/editor/combined-diff-file-tree-model'
@@ -43,167 +24,31 @@ import {
   getStoredTextDiffContent,
   getStoredTextDiffResult
 } from '@/components/editor/large-diff-section-content'
-import { getPrCommentCodeContext } from '@/components/github/pr-comment-code-context'
+import { githubRepoIdentityKey } from '../../../shared/github-repository-identity-key'
+import { formatGitHubWorkItemRelativeTime as formatRelativeTime } from './github-work-item-display'
+import { isPRFileViewed, loadPRFileContents, addPRReviewCommentForRepo } from './github-item-dialog-cache'
+import {
+  getPRFileContentsRenderLimit,
+  getPRFileDiffResult,
+  getPRFileSectionKey,
+  gitHubPRFileToBranchEntry
+} from './github-pr-file-model'
+import { PRViewedCheckbox } from './github-item-dialog-files-viewed-checkbox'
+import { PRFilesCombinedDiffViewerToolbar } from './github-item-dialog-files-viewer-toolbar'
 import { translate } from '@/i18n/i18n'
-import { addPRReviewCommentForRepo, loadPRFileContents, setPRFileViewedForRepo } from './github-item-dialog-cache'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
-import { resolvePullRequestRepo } from './github-item-dialog-model'
 import type {
   GitHubOwnerRepo,
   GitHubPRFile,
   GitHubPRFileContents,
-  GitHubPRFileViewedState,
-  GitHubWorkItem,
   GitBranchChangeEntry,
   GitDiffResult,
   PRComment
 } from '../../../shared/types'
 
-export function PRViewedCheckbox({
-  checked,
-  pending,
-  filePath,
-  onToggle
-}: {
-  checked: boolean
-  pending: boolean
-  filePath: string
-  onToggle: () => void
-}): React.JSX.Element {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={checked}
-          aria-label={translate(
-            'auto.components.GitHubItemDialog.2d89a38d9d',
-            '{{value0}} {{value1}} as viewed',
-            { value0: checked ? 'Unmark' : 'Mark', value1: filePath }
-          )}
-          disabled={pending}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggle()
-          }}
-          className={cn(
-            'flex h-6 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-[11px] text-muted-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            checked && 'text-foreground',
-            pending && 'cursor-default opacity-60'
-          )}
-        >
-          <span
-            className={cn(
-              'flex size-4 items-center justify-center rounded-sm border transition-colors',
-              checked
-                ? 'border-foreground bg-foreground text-background'
-                : 'border-muted-foreground/50 bg-background text-transparent'
-            )}
-          >
-            {pending ? (
-              <LoaderCircle className="size-3 animate-spin text-muted-foreground" />
-            ) : checked ? (
-              <Check className="size-3" strokeWidth={3} />
-            ) : null}
-          </span>
-          <span>{translate('auto.components.GitHubItemDialog.af924014f8', 'Viewed')}</span>
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={4}>
-        {checked
-          ? translate('auto.components.GitHubItemDialog.ba8e329d92', 'Unmark viewed')
-          : translate('auto.components.GitHubItemDialog.16c1abe76c', 'Mark viewed')}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
+export { PRViewedCheckbox } from './github-item-dialog-files-viewed-checkbox'
 
 const PR_DIFF_OVERSCAN = 5
-
-function mapPRFileStatus(status: GitHubPRFile['status']): GitBranchChangeEntry['status'] {
-  switch (status) {
-    case 'added':
-      return 'added'
-    case 'removed':
-      return 'deleted'
-    case 'renamed':
-      return 'renamed'
-    case 'copied':
-      return 'copied'
-    case 'changed':
-    case 'modified':
-    case 'unchanged':
-      return 'modified'
-  }
-}
-
-function getPRFileSectionKey(path: string): string {
-  return `combined-commit:${path}`
-}
-
-function gitHubPRFileToBranchEntry(file: GitHubPRFile): GitBranchChangeEntry {
-  return {
-    path: file.path,
-    oldPath: file.oldPath,
-    status: mapPRFileStatus(file.status),
-    added: file.additions,
-    removed: file.deletions
-  }
-}
-
-function getPRFileContentsRenderLimit(contents: GitHubPRFileContents): LargeDiffRenderLimit {
-  if (!contents.originalTooLarge && !contents.modifiedTooLarge) {
-    return getLargeDiffRenderLimit({
-      originalContent: contents.original,
-      modifiedContent: contents.modified
-    })
-  }
-
-  return {
-    limited: true,
-    reason: 'character-count' as const,
-    lineCounts: null,
-    characterCount:
-      contents.original.length +
-      contents.modified.length +
-      (contents.originalTooLarge ? GITHUB_PR_RAW_CONTENT_OVERFLOW_CHARACTER_COUNT : 0) +
-      (contents.modifiedTooLarge ? GITHUB_PR_RAW_CONTENT_OVERFLOW_CHARACTER_COUNT : 0),
-    limits: {
-      maxLinesPerSide: MAX_RENDERED_DIFF_LINES_PER_SIDE,
-      maxCombinedCharacters: MAX_RENDERED_DIFF_COMBINED_CHARACTERS
-    }
-  }
-}
-
-function getPRFileDiffResult(contents: GitHubPRFileContents): GitDiffResult {
-  if (contents.originalIsBinary) {
-    return {
-      kind: 'binary',
-      originalContent: contents.original,
-      modifiedContent: contents.modified,
-      originalIsBinary: true,
-      modifiedIsBinary: contents.modifiedIsBinary
-    }
-  }
-  if (contents.modifiedIsBinary) {
-    return {
-      kind: 'binary',
-      originalContent: contents.original,
-      modifiedContent: contents.modified,
-      originalIsBinary: false,
-      modifiedIsBinary: true
-    }
-  }
-
-  return {
-    kind: 'text',
-    originalContent: contents.original,
-    modifiedContent: contents.modified,
-    originalIsBinary: false,
-    modifiedIsBinary: false
-  }
-}
 
 type PRFilesCombinedDiffViewerProps = {
   files: GitHubPRFile[]
@@ -653,55 +498,16 @@ export function PRFilesCombinedDiffViewer({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background/50 px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          {fileTreeCollapsed && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={translate(
-                    'auto.components.GitHubItemDialog.1257d1435d',
-                    'Show file tree'
-                  )}
-                  onClick={() => setFileTreeCollapsed(false)}
-                >
-                  <PanelLeftOpen className="size-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
-                {translate('auto.components.GitHubItemDialog.1257d1435d', 'Show file tree')}
-              </TooltipContent>
-            </Tooltip>
-          )}
-          <span className="truncate text-xs text-muted-foreground">
-            {files.filter(isPRFileViewed).length} / {files.length}{' '}
-            {translate('auto.components.GitHubItemDialog.f2d02cdf8c', 'files viewed')}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            className="w-20 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setAllSectionsCollapsed(!allSectionsCollapsed)}
-          >
-            {allSectionsCollapsed
-              ? translate('auto.components.GitHubItemDialog.3c19ec3069', 'Expand All')
-              : translate('auto.components.GitHubItemDialog.d00a0a7f8f', 'Collapse All')}
-          </button>
-          <button
-            type="button"
-            className="w-24 rounded border border-border px-2 py-0.5 text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setSideBySide((prev) => !prev)}
-          >
-            {sideBySide
-              ? translate('auto.components.GitHubItemDialog.6e43a16435', 'Inline')
-              : translate('auto.components.GitHubItemDialog.31770bef03', 'Side by Side')}
-          </button>
-        </div>
-      </div>
+      <PRFilesCombinedDiffViewerToolbar
+        viewedFileCount={files.filter(isPRFileViewed).length}
+        fileCount={files.length}
+        fileTreeCollapsed={fileTreeCollapsed}
+        onFileTreeCollapsedChange={setFileTreeCollapsed}
+        allSectionsCollapsed={allSectionsCollapsed}
+        onAllSectionsCollapsedChange={setAllSectionsCollapsed}
+        sideBySide={sideBySide}
+        onSideBySideChange={setSideBySide}
+      />
       <div className="flex min-h-0 flex-1">
         <CombinedDiffFileTree
           mode="commit"
