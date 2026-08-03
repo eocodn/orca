@@ -11,4 +11,4 @@ export {
   setPtyOwnership,
   rebindLocalProviderListeners,
   unbindLocalProviderListeners
-} from './pty-ipc-runtime-registration-implementation'
+} from './pty-ipc-runtime-registration-facade'
