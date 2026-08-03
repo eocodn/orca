@@ -165,6 +165,7 @@ export function installRemoteRuntimePtyStreamRecovery(
     recoveryEpoch
   ) => {
     const { tabId, leafId, worktreeId } = context.opts
+    let endpointReplaced = false
     if (tabId && isWebTerminalSurfaceTabId(tabId)) {
       const nextHandle = await context.waitForResubscribeHostSessionHandle(
         toHostSessionTabId(tabId),
@@ -190,10 +191,14 @@ export function installRemoteRuntimePtyStreamRecovery(
         context.retireRemoteTerminalId()
         return
       }
-      if (resolved.handle !== previousHandle) context.rebindRemoteTerminalHandle(resolved.handle)
+      if (resolved.handle !== previousHandle) {
+        context.rebindRemoteTerminalHandle(resolved.handle)
+        endpointReplaced = true
+      }
     }
     context.clearPublishedHandleWait()
     await context.subscribeToHandle(recoveryEpoch)
+    if (endpointReplaced && tabId) armTerminalInputQuarantine(tabId)
   }
   context.scheduleResubscribeAfterTransportClose = (
     requireReplacement = false,

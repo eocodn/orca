@@ -125,13 +125,15 @@ describe('createRemoteRuntimePtyTransport', () => {
     )
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.doUnmock('../../runtime/remote-runtime-terminal-multiplexer')
     vi.doMock('@/runtime/web-runtime-session', () => ({
       refreshWebRuntimeSessionTabsSnapshot: refreshSessionTabsSnapshot
     }))
     vi.clearAllMocks()
+    const { _resetTerminalInputQuarantineForTests } = await import('./terminal-input-quarantine')
+    _resetTerminalInputQuarantineForTests()
     subscriptionCallbacks = null
     resolvedPaneHandle = 'terminal-1'
     subscriptionSendBinary.mockReset()
@@ -1475,6 +1477,34 @@ describe('createRemoteRuntimePtyTransport', () => {
     )
     expect([...getAllOverrides().keys()]).toEqual(['remote:env-1@@terminal-2'])
     expect([...getAllDrivers().keys()]).toEqual(['remote:env-1@@terminal-2'])
+  })
+
+  it('arms input quarantine when regular persisted pane recovery replaces its endpoint', async () => {
+    const { createRemoteRuntimePtyTransport } = await import('./remote-runtime-pty-transport')
+    const { isTerminalInputQuarantined } = await import('./terminal-input-quarantine')
+    const transport = createRemoteRuntimePtyTransport('env-1', {
+      worktreeId: 'wt-1',
+      tabId: 'tab-1',
+      leafId: 'pane:1'
+    })
+
+    transport.attach({
+      existingPtyId: 'remote:env-1@@terminal-1',
+      cols: 80,
+      rows: 24,
+      callbacks: {}
+    })
+    await vi.waitFor(() => expect(subscriptionSendBinary).toHaveBeenCalled())
+    expect(latestSubscribePayload()).toMatchObject({ terminal: 'terminal-1' })
+
+    resolvedPaneHandle = 'terminal-2'
+    subscriptionCallbacks?.onClose?.()
+
+    await vi.waitFor(() => {
+      expect(latestSubscribePayload()).toMatchObject({ terminal: 'terminal-2' })
+      expect(isTerminalInputQuarantined('tab-1')).toBe(true)
+    })
+    transport.destroy?.()
   })
 
   it('retires the mirror when the host no longer publishes the surface after a transport close', async () => {
