@@ -1,57 +1,24 @@
-import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
-import { app } from 'electron'
-import { mkdirSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { fork, type ChildProcess } from 'node:child_process'
-import { connect } from 'node:net'
 import {
   DaemonSpawner,
-  getDaemonPidPath,
-  getDaemonSocketPath,
-  getDaemonTokenPath,
-  serializeDaemonPidFile,
-  unlinkOwnedDaemonPidFile,
-  type DaemonLauncher,
-  type DaemonProcessHandle
+  getDaemonPidPath
 } from './daemon-spawner'
 import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter'
 import { DaemonPtyRouter } from './daemon-pty-router'
-import { DaemonClient } from './client'
-import {
-  CLEAN_DISCONNECT_PROTOCOL_VERSION,
-  PREVIOUS_DAEMON_PROTOCOL_VERSIONS,
-  PROTOCOL_VERSION,
-  type ListSessionsResult
-} from './types'
-import {
-  getMacDaemonSystemResolverHealth,
-  getDaemonLaunchIdentity,
-  checkDaemonHealth,
-  isDaemonStaleForCurrentBundle,
-  killStaleDaemon,
-  parseDaemonPidFile
-} from './daemon-health'
 import {
   collectPinnedDaemonVersions,
-  materializeRelocatedDaemonHost,
   pruneOldDaemonHosts
 } from './daemon-host-relocation'
 import { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
-import { trackDaemonReplaced, trackDaemonRetired } from './daemon-lifecycle-event'
-import type { DaemonReplaceReason } from '../../shared/daemon-lifecycle-telemetry'
+import { trackDaemonRetired } from './daemon-lifecycle-event'
 import {
   getLocalPtyProvider,
   setLocalPtyProvider,
-  unbindLocalProviderListeners,
   rebindLocalProviderListeners
 } from '../ipc/pty'
-import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
-import { getDaemonLogFilePath } from '../observability/logs-directory'
 import {
   confirmSeededClaudeLivePtys,
   hasSeededUnconfirmedClaudePtys
 } from '../claude-accounts/live-pty-gate'
-import { parseDaemonReadyIdentity } from './daemon-ready-identity'
 
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'

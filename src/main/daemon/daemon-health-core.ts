@@ -16,8 +16,6 @@ import {
 
 const HEALTH_CHECK_TIMEOUT_MS = 3_000
 const RESOLVER_HEALTH_CHECK_TIMEOUT_MS = 3_000
-const KILL_WAIT_MS = 3_000
-const KILL_POLL_MS = 100
 const START_TIME_TOLERANCE_MS = 1_500
 // Why: e2e forces the failed-health preserve path without SIGSTOP races â
 // a stopped daemon also blocks listSessions, so the unhealthy guard cannot
@@ -28,8 +26,6 @@ export const E2E_FORCE_DAEMON_HEALTH_UNREACHABLE_ENV = 'ORCA_E2E_FORCE_DAEMON_HE
 // the gap between them is the exe bootstrap, which AV/disk pressure can
 // stretch to seconds. Pid recycling differs by minutes-to-days, so a wide
 // tolerance keeps the guard effective without false mismatches.
-const WIN32_START_TIME_TOLERANCE_MS = 10_000
-
 // 'rejected' means the daemon answered and refused the handshake (bad token,
 // foreign protocol) â it can never be adopted, unlike 'unreachable', which
 // also covers a live-but-wedged daemon that simply missed the RPC budget.

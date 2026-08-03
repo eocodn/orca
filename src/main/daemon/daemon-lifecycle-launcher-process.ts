@@ -1,11 +1,8 @@
-import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
-import { mkdirSync, existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { fork, type ChildProcess } from 'node:child_process'
-import { connect } from 'node:net'
+import { writeFileSync } from 'node:fs'
+import { fork } from 'node:child_process'
 import {
-  DaemonSpawner,
   getDaemonPidPath,
   getDaemonSocketPath,
   getDaemonTokenPath,
@@ -15,14 +12,8 @@ import {
   type DaemonProcessHandle
 } from './daemon-spawner'
 import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter'
-import { DaemonPtyRouter } from './daemon-pty-router'
 import { DaemonClient } from './client'
-import {
-  CLEAN_DISCONNECT_PROTOCOL_VERSION,
-  PREVIOUS_DAEMON_PROTOCOL_VERSIONS,
-  PROTOCOL_VERSION,
-  type ListSessionsResult
-} from './types'
+import { PROTOCOL_VERSION } from './types'
 import {
   getMacDaemonSystemResolverHealth,
   getDaemonLaunchIdentity,
@@ -31,27 +22,10 @@ import {
   killStaleDaemon,
   parseDaemonPidFile
 } from './daemon-health'
-import {
-  collectPinnedDaemonVersions,
-  materializeRelocatedDaemonHost,
-  pruneOldDaemonHosts
-} from './daemon-host-relocation'
-import { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
-import { trackDaemonReplaced, trackDaemonRetired } from './daemon-lifecycle-event'
+import { materializeRelocatedDaemonHost } from './daemon-host-relocation'
+import { trackDaemonReplaced } from './daemon-lifecycle-event'
 import type { DaemonReplaceReason } from '../../shared/daemon-lifecycle-telemetry'
-import {
-  getLocalPtyProvider,
-  setLocalPtyProvider,
-  unbindLocalProviderListeners,
-  rebindLocalProviderListeners
-} from '../ipc/pty'
 import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
-import { getDaemonLogFilePath } from '../observability/logs-directory'
-import {
-  confirmSeededClaudeLivePtys,
-  hasSeededUnconfirmedClaudePtys
-} from '../claude-accounts/live-pty-gate'
-import { parseDaemonReadyIdentity } from './daemon-ready-identity'
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 
 import {

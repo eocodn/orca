@@ -1,48 +1,23 @@
-import { createServer, type Server, type Socket } from 'node:net'
-import { randomUUID } from 'node:crypto'
+import { type Socket } from 'node:net'
 import { performance } from 'node:perf_hooks'
-import { writeFileSync, chmodSync } from 'node:fs'
 import { StringDecoder } from 'node:string_decoder'
-import { encodeNdjson, createNdjsonParser } from './ndjson'
+import { encodeNdjson } from './ndjson'
 import { TerminalHost } from './terminal-host'
-import { DaemonStreamDataBatcher } from './daemon-stream-data-batcher'
-import {
-  BackgroundTransientFactRelay,
-  BACKGROUND_STREAM_DROP_ENABLED
-} from './daemon-background-transient-facts'
-import { extractHiddenStartupRendererQueryData } from '../../shared/terminal-reply-query-extraction'
-import {
-  recordDaemonStreamBacklogEvent,
-  startDaemonStreamBacklogProbe
-} from './daemon-stream-backlog-probe'
-import { readCurrentProcessMacSystemResolverHealth } from '../network/macos-system-resolver-health'
-import type { SubprocessHandle } from './session'
-import { checkPtySpawnHealth } from './pty-subprocess'
-import { createNoopDaemonFileLog, type DaemonFileLog } from './daemon-file-log'
+import { recordDaemonStreamBacklogEvent } from './daemon-stream-backlog-probe'
 import { isTuiAgent } from '../../shared/tui-agent-config'
 import { parsePtyStartupIngressIntent } from '../../shared/pty-startup-ingress'
-import { unlinkOwnedDaemonPidFile, unlinkOwnedDaemonTokenFile } from './daemon-spawner'
 import {
-  CLEAN_DISCONNECT_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   NOTIFY_PREFIX,
-  SessionNotFoundError,
-  TerminalAttachCanceledError,
-  type HelloMessage,
   type DaemonRequest
 } from './types'
 import {
   isAgentSessionExecutionClaim,
   isAgentSessionSurfaceBinding
 } from '../../shared/agent-session-host-authority'
-import { TerminalHistorySeedTransferRegistry } from './terminal-history-seed-transfer-registry'
 import { DaemonServerFoundation } from './daemon-server-foundation'
 
-
-import { type DaemonServerOptions,
-  type ConnectedClient,
-  type PendingPtySpawnPreparation,
-  type PendingShutdownReply  } from './daemon-server-foundation'
+import { type ConnectedClient, type PendingPtySpawnPreparation } from './daemon-server-foundation'
 import { DaemonServerPhase1 } from './daemon-server-shutdown'
 
 export class DaemonServerPhase2 extends DaemonServerPhase1 {

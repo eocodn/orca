@@ -7,7 +7,6 @@ import { PROTOCOL_VERSION } from './types'
 import {
   canConnectSocket,
   commandLineMatchesDaemon,
-  getProcessStartedAtMs,
   parseDaemonPidFile,
   type ParsedDaemonPid,
   startTimeMatches,
@@ -294,4 +293,3 @@ export async function killStaleDaemon(
   }
   return killedDaemon
 }
-
