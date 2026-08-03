@@ -12,7 +12,11 @@ import { OrcaRuntimeService } from './orca-runtime'
 import { OrchestrationDb } from './orchestration/db'
 import * as runtimeMetadataModule from './runtime-metadata'
 import { readRuntimeMetadata, writeRuntimeMetadata } from './runtime-metadata'
-import { createRuntimeTransportMetadata, OrcaRuntimeRpcServer } from './runtime-rpc'
+import {
+  createRuntimeTransportMetadata,
+  OrcaRuntimeRpcServer,
+  type PairingOfferUnavailableReason
+} from './runtime-rpc'
 import { parsePairingCode } from '../../shared/pairing'
 import { subscribeRemoteRuntimeRequest } from '../../shared/remote-runtime-client'
 import {
@@ -291,6 +295,18 @@ class FakeWebSocket extends EventEmitter {
 }
 
 describe('OrcaRuntimeRpcServer', () => {
+  it('exports pairing offer unavailable reasons through the runtime RPC facade', () => {
+    const reasons = [
+      'websocket_unavailable',
+      'device_registry_unavailable',
+      'e2ee_key_unavailable',
+      'invalid_advertised_endpoint',
+      'relay_mint_failed'
+    ] as const satisfies readonly PairingOfferUnavailableReason[]
+
+    expect(reasons).toHaveLength(5)
+  })
+
   const makeStore = (overrides?: { isUnread?: boolean }) => ({
     getRepo: (id: string) =>
       makeStore(overrides)

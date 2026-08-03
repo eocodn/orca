@@ -17,6 +17,7 @@ import { RecentPtyOutputBuffer } from '../main/runtime/recent-pty-output-buffer'
 import type { ManagedPty } from './pty-session-stage-contracts'
 
 export {
+  IMMEDIATE_PTY_EXIT_TIMEOUT_MS,
   MAX_RELAY_PTY_SESSIONS,
   REPLAY_BUFFER_MAX,
   attachIdentityMismatches,

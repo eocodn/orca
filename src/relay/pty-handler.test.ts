@@ -100,6 +100,10 @@ function createMockDispatcher() {
 }
 
 describe('PtyHandler', () => {
+  it('exports the immediate PTY exit timeout through the relay facade', () => {
+    expect(IMMEDIATE_PTY_EXIT_TIMEOUT_MS).toBe(8_000)
+  })
+
   let dispatcher: ReturnType<typeof createMockDispatcher>
   let handler: PtyHandler
 

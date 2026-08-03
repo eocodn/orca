@@ -2,6 +2,7 @@ export { RuntimeRpcDispatchServer as OrcaRuntimeRpcServer } from './runtime-rpc-
 export type {
   OrcaRuntimeRpcServerOptions,
   PairingOfferUnavailable,
+  PairingOfferUnavailableReason,
   MobilePairingConnectionContext
 } from './runtime-rpc-support'
 export {
