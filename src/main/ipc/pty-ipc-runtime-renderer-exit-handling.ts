@@ -121,6 +121,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
             {
               id: payload.id,
               data: remaining.data,
+              ...(remaining.incarnationId ? { incarnationId: remaining.incarnationId } : {}),
               droppedOutput: true
             },
             remaining.projectionAdmissionIds
@@ -134,7 +135,8 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
               remaining.startSeq,
               remaining.containsBackgroundOutput,
               remaining.rawLength,
-              remaining.transformed
+              remaining.transformed,
+              remaining.incarnationId
             ),
             remaining.projectionAdmissionIds
           )
@@ -204,6 +206,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
   function acceptPtyDataForRenderer(
     payload: {
       id: string
+      incarnationId?: string
       data: string
       sequenceChars?: number
       transformed?: boolean
@@ -274,7 +277,8 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
       containsBackgroundOutput,
       rawLength,
       payload.transformed === true,
-      projectionId
+      projectionId,
+      payload.incarnationId
     )
     const shouldEmitPendingCapRestoreMarker =
       pending.droppedOutput === true &&
@@ -307,6 +311,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
           payload.id,
           {
             id: payload.id,
+            ...(pending.incarnationId ? { incarnationId: pending.incarnationId } : {}),
             data: nextData,
             ...(typeof pending.startSeq === 'number'
               ? {

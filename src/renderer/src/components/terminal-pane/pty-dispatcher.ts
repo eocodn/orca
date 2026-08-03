@@ -50,6 +50,7 @@ export {
 // One global IPC listener per channel (routed by PTY ID) avoids the N-listener MaxListenersExceededWarning with many panes.
 
 export type PtyDataMeta = {
+  incarnationId?: string
   seq?: number
   rawLength?: number
   transformed?: boolean
@@ -66,6 +67,7 @@ const ptyExitSidecars = new Map<
 >()
 export const ptyWriteUnavailableHandlers = new Map<string, () => void>()
 let ptyDispatcherAttached = false
+const activePtyIncarnationById = new Map<string, string>()
 
 let pushListenerUnsubscribes: (() => void)[] = []
 
@@ -112,6 +114,7 @@ function attachPtyPushListeners(): void {
 
 function handleDispatchedPtyData(payload: {
   id: string
+  incarnationId?: string
   data: string
   seq?: number
   rawLength?: number
@@ -119,7 +122,18 @@ function handleDispatchedPtyData(payload: {
   background?: boolean
   droppedOutput?: boolean
 }): void {
+  if (payload.incarnationId) {
+    const activeIncarnation = activePtyIncarnationById.get(payload.id)
+    if (activeIncarnation !== undefined && activeIncarnation !== payload.incarnationId) {
+      return
+    }
+    activePtyIncarnationById.set(payload.id, payload.incarnationId)
+  }
   let meta: PtyDataMeta | undefined
+  if (payload.incarnationId) {
+    meta ??= {}
+    meta.incarnationId = payload.incarnationId
+  }
   if (typeof payload.seq === 'number') {
     meta ??= {}
     meta.seq = payload.seq
@@ -162,9 +176,9 @@ function handleDispatchedPtyData(payload: {
       }
     }
   }
-  recordPtyDataReceived(payload.id, chars)
+  recordPtyDataReceived(payload.id, chars, payload.incarnationId)
   // Why deferred: main budgets by bytes PARSED not received; ACK fires when xterm consumes, and undelivered chunks settle at return so no PTY stays backpressured.
-  deliverPtyDataWithDeferredAck(payload.id, chars, dispatch)
+  deliverPtyDataWithDeferredAck(payload.id, chars, dispatch, payload.incarnationId)
 }
 
 function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
@@ -190,6 +204,7 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
       }
       // Why: main drops its accounting on exit; drop totals too so a reused id restarts at zero on both sides.
       clearProcessedPtyCharTotal(payload.id)
+      activePtyIncarnationById.delete(payload.id)
       clearReceivedPtyCharTotal(payload.id)
       const sidecars = ptyExitSidecars.get(payload.id)
       if (sidecars) {

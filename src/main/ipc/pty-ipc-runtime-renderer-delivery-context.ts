@@ -20,6 +20,7 @@ export type { PtyShutdownObservation, PtyShutdownTarget } from './pty-ipc-runtim
 
 export type PtyDataPayload = {
   id: string
+  incarnationId?: string
   data: string
   seq?: number
   rawLength?: number
@@ -29,6 +30,7 @@ export type PtyDataPayload = {
 }
 
 export type RendererPtyDeliveryAccounting = {
+  incarnationId?: string
   sentChars: number
   ackedChars: number
   lastSendAtMs: number
@@ -70,7 +72,6 @@ export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   deliveryResyncOutstandingRequestId: number | null
   deliveryResyncTimer: ReturnType<typeof setTimeout> | null
   deliveryResyncUnansweredWarnLogged: boolean
-  lastAckReceivedAtMs: number | null
   peakPendingChars: number
   peakMaxPendingCharsByPty: number
   peakRendererInFlightChars: number
@@ -98,18 +99,18 @@ export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   sendModelRestoreNeededMarker: (id: string, reason: PtyModelRestoreReason, markerSeq?: number) => void
   flushPendingData: () => void
   schedulePendingDataFlush: (delayMs: number) => void
-  appendPendingPtyData: (id: string, existing: PendingPtyData | undefined, data: string, startSeq: number | undefined, preservesSeq: boolean, containsBackgroundOutput: boolean, rawLength?: number, transformed?: boolean, projectionSemanticsId?: string) => PendingPtyData
+  appendPendingPtyData: (id: string, existing: PendingPtyData | undefined, data: string, startSeq: number | undefined, preservesSeq: boolean, containsBackgroundOutput: boolean, rawLength?: number, transformed?: boolean, projectionSemanticsId?: string, incarnationId?: string) => PendingPtyData
   clearPendingPtyData: () => void
   clearPendingPtyDataForPty: (id: string) => void
   updateProducerFlowControl: (id: string) => void
   syncPtyBackgroundedDelivery: (id: string, caller: string) => void
   resyncBackgroundedDeliveriesAfterGateReset: () => void
   canSendPtyDataToRenderer: (id: string, options?: { interactive?: boolean }) => boolean
-  applyCumulativeAck: (id: string, processedChars: number) => number
+  applyCumulativeAck: (id: string, processedChars: number, incarnationId?: string) => number
   requestDeliveryResyncForGatedPty: () => void
   writeOffLostRendererDelivery: (report: PtyRendererDeliveryStateReport) => PtyDeliveryWriteOff[]
   recordPtyRendererDeliveryPressure: (id: string) => void
-  makePtyDataPayload: (id: string, data: string, startSeq: number | undefined, containsBackgroundOutput: boolean | undefined, rawLength?: number, transformed?: boolean) => PtyDataPayload
+  makePtyDataPayload: (id: string, data: string, startSeq: number | undefined, containsBackgroundOutput: boolean | undefined, rawLength?: number, transformed?: boolean, incarnationId?: string) => PtyDataPayload
   getPtyPayloadCharCount: (payload: { data: string; rawLength?: number }) => number
   getRendererInFlightCharsForPty: (id: string) => number
   setPendingPtyData: (id: string, pending: PendingPtyData) => void

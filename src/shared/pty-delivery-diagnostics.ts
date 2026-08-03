@@ -71,6 +71,7 @@ export function redactPtyIdForDiagnostics(id: string): string {
 
 export type PtyPerPtyDeliveryDiagnostics = {
   id: string
+  incarnationId?: string
   sentChars: number
   ackedChars: number
   inFlightChars: number

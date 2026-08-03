@@ -21,27 +21,34 @@ type E2eTerminalPtyAckGateWindow = Window & {
 }
 
 const e2eTerminalAckGatePtyIds = new Set<string>()
-const e2eTerminalAckGateHeldChars = new Map<string, number>()
-// Why: monotonic per-PTY totals of processed chars, mirrored to main as
-// TCP-style cumulative ACKs so a lost ACK message never becomes permanent
-// in-flight debt. Cleared on pty:exit so a reused id restarts aligned with
-// main's fresh accounting; a renderer reload resets it with the page.
-const processedPtyCharTotals = new Map<string, number>()
+const e2eTerminalAckGateHeldChars = new Map<
+  string,
+  { chars: number; incarnationId?: string }
+>()
+// Why: monotonic totals are scoped to the PTY incarnation; a reused id must
+// not let an old renderer ACK repay a new process's delivery debt.
+const processedPtyCharTotals = new Map<string, { incarnationId?: string; chars: number }>()
 
-function sendPtyAck(ptyId: string, chars: number): void {
-  const processedChars = (processedPtyCharTotals.get(ptyId) ?? 0) + chars
-  processedPtyCharTotals.set(ptyId, processedChars)
+function sendPtyAck(ptyId: string, chars: number, incarnationId?: string): void {
+  const previous = processedPtyCharTotals.get(ptyId)
+  const processedChars =
+    previous && previous.incarnationId === incarnationId ? previous.chars + chars : chars
+  processedPtyCharTotals.set(ptyId, { incarnationId, chars: processedChars })
   // Why: keep the legacy per-chunk delta alongside the cumulative total so an
   // older main (dev hot-reload mix) still credits deltas.
-  window.api.pty.ackData?.(ptyId, chars, processedChars)
+  if (incarnationId === undefined) {
+    window.api.pty.ackData?.(ptyId, chars, processedChars)
+  } else {
+    window.api.pty.ackData?.(ptyId, chars, processedChars, incarnationId)
+  }
 }
 
 function releaseE2eTerminalAckGate(): void {
   const held = Array.from(e2eTerminalAckGateHeldChars.entries())
   e2eTerminalAckGatePtyIds.clear()
   e2eTerminalAckGateHeldChars.clear()
-  for (const [ptyId, chars] of held) {
-    sendPtyAck(ptyId, chars)
+  for (const [ptyId, heldAck] of held) {
+    sendPtyAck(ptyId, heldAck.chars, heldAck.incarnationId)
   }
 }
 
@@ -62,8 +69,8 @@ export function exposeE2eTerminalPtyAckGate(): void {
     release: releaseE2eTerminalAckGate,
     snapshot: () => {
       let heldAckChars = 0
-      for (const chars of e2eTerminalAckGateHeldChars.values()) {
-        heldAckChars += chars
+      for (const heldAck of e2eTerminalAckGateHeldChars.values()) {
+        heldAckChars += heldAck.chars
       }
       return {
         gatedPtyCount: e2eTerminalAckGatePtyIds.size,
@@ -74,14 +81,18 @@ export function exposeE2eTerminalPtyAckGate(): void {
   }
 }
 
-export function ackPtyData(ptyId: string, chars: number): void {
+export function ackPtyData(ptyId: string, chars: number, incarnationId?: string): void {
   // Why: held e2e-gate chars stay out of the cumulative total too, so a
   // delivery-resync probe cannot leak them past the simulated backpressure.
   if (e2eTerminalAckGatePtyIds.has(ptyId)) {
-    e2eTerminalAckGateHeldChars.set(ptyId, (e2eTerminalAckGateHeldChars.get(ptyId) ?? 0) + chars)
+    const held = e2eTerminalAckGateHeldChars.get(ptyId)
+    e2eTerminalAckGateHeldChars.set(ptyId, {
+      chars: (held?.chars ?? 0) + chars,
+      ...(incarnationId ? { incarnationId } : {})
+    })
     return
   }
-  sendPtyAck(ptyId, chars)
+  sendPtyAck(ptyId, chars, incarnationId)
 }
 
 // ─── Parse-deferred ACK crediting ───────────────────────────────────
@@ -101,17 +112,27 @@ export function ackPtyData(ptyId: string, chars: number): void {
 export function deliverPtyDataWithDeferredAck(
   ptyId: string,
   chars: number,
-  deliver: () => void
+  deliver: () => void,
+  incarnationId?: string
 ): void {
-  deliverTerminalDataWithDeferredCredit(() => ackPtyData(ptyId, chars), deliver)
+  deliverTerminalDataWithDeferredCredit(() => ackPtyData(ptyId, chars, incarnationId), deliver)
 }
 
 export function takeCurrentPtyDeliveryAckCredit(): (() => void) | null {
   return takeCurrentTerminalDeliveryCredit()
 }
 
-export function getProcessedPtyCharTotals(): Record<string, number> {
-  return Object.fromEntries(processedPtyCharTotals)
+export function getProcessedPtyCharTotals(): Record<
+  string,
+  number | { incarnationId: string; processedChars: number }
+> {
+  const totals: Record<string, number | { incarnationId: string; processedChars: number }> = {}
+  for (const [ptyId, total] of processedPtyCharTotals) {
+    totals[ptyId] = total.incarnationId
+      ? { incarnationId: total.incarnationId, processedChars: total.chars }
+      : total.chars
+  }
+  return totals
 }
 
 export function clearProcessedPtyCharTotal(ptyId: string): void {

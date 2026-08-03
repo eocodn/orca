@@ -53,6 +53,7 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
       state.acceptPtyDataForRenderer(
         {
           id: event.id,
+          incarnationId: event.ptyIncarnation,
           data: event.data,
           sequenceChars: event.rawLength,
           transformed: event.transformed

@@ -9,7 +9,9 @@ import { PTY_DELIVERY_HEAL_MIN_ACK_SILENCE_MS } from './pty-ipc-runtime-renderer
 import { redactPtyIdForDiagnostics } from '../../shared/pty-delivery-diagnostics'
 import type {
   PtyDeliveryWriteOff,
+  PtyRendererDeliveryHealth,
   PtyRendererDeliveryHealthReply,
+  PtyRendererProcessedChars,
   PtyRendererDeliveryStateReport
 } from '../../shared/pty-renderer-delivery-health'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
@@ -301,18 +303,21 @@ export function installPtyInputDeliveryHandlers(state: PtyRendererDeliveryContex
   // Why: renderer ACKs bound main→renderer delivery without stopping PTY ingestion — agent/status consumers still see every chunk via the provider/runtime path.
   ipcMain.on(
     'pty:ackData',
-    (_event, args: { id: string; charCount?: number; processedChars?: number }) => {
-      state.lastAckReceivedAtMs = Date.now()
+    (_event, args: { id: string; charCount?: number; processedChars?: number; incarnationId?: string }) => {
+      const accounting = rendererDeliveryAccountingByPty.get(args.id)
+      if (!accounting || (args.incarnationId !== undefined && accounting.incarnationId !== args.incarnationId)) {
+        return
+      }
+      accounting.lastAckAtMs = Date.now()
       // Why: a live ACK channel means a future unanswered probe is a fresh diagnostic event, not a continuation of the last silent streak.
       state.deliveryResyncUnansweredWarnLogged = false
       let acknowledged = 0
       if (typeof args.processedChars === 'number' && Number.isFinite(args.processedChars)) {
-        acknowledged = applyCumulativeAck(args.id, Math.max(0, args.processedChars))
+        acknowledged = applyCumulativeAck(args.id, Math.max(0, args.processedChars), args.incarnationId)
       } else {
         // Why: tolerate legacy per-chunk delta payloads — dev hot-reload can pair an old renderer with a new main.
-        const accounting = rendererDeliveryAccountingByPty.get(args.id)
         const delta = Number.isFinite(args.charCount) ? Math.max(0, args.charCount ?? 0) : 0
-        acknowledged = accounting ? applyCumulativeAck(args.id, accounting.ackedChars + delta) : 0
+        acknowledged = applyCumulativeAck(args.id, accounting.ackedChars + delta, args.incarnationId)
       }
       tryGetProviderForPty(args.id)?.acknowledgeDataEvent(args.id, acknowledged)
       schedulePendingDataAfterCreditReport(acknowledged > 0)
@@ -321,7 +326,7 @@ export function installPtyInputDeliveryHandlers(state: PtyRendererDeliveryContex
 
   ipcMain.on(
     'pty:deliveryResyncResponse',
-    (_event, args: { requestId: number; processedCharsByPty: Record<string, number> }) => {
+    (_event, args: { requestId: number; processedCharsByPty: Record<string, number | PtyRendererProcessedChars> }) => {
       if (
         state.deliveryResyncOutstandingRequestId === null ||
         args?.requestId !== state.deliveryResyncOutstandingRequestId
@@ -332,11 +337,13 @@ export function installPtyInputDeliveryHandlers(state: PtyRendererDeliveryContex
       state.deliveryResyncUnansweredWarnLogged = false
       // Why max-merge: the renderer's cumulative totals are authoritative for what it processed, draining exactly the in-flight debt from lost ACKs.
       let creditedAny = false
-      for (const [id, processedChars] of Object.entries(args.processedCharsByPty ?? {})) {
+      for (const [id, report] of Object.entries(args.processedCharsByPty ?? {})) {
+        const processedChars = typeof report === 'number' ? report : report?.processedChars
+        const incarnationId = typeof report === 'number' ? undefined : report?.incarnationId
         if (typeof processedChars !== 'number' || !Number.isFinite(processedChars)) {
           continue
         }
-        const acknowledged = applyCumulativeAck(id, Math.max(0, processedChars))
+        const acknowledged = applyCumulativeAck(id, Math.max(0, processedChars), incarnationId)
         if (acknowledged > 0) {
           creditedAny = true
           tryGetProviderForPty(id)?.acknowledgeDataEvent(id, acknowledged)
@@ -352,38 +359,59 @@ export function installPtyInputDeliveryHandlers(state: PtyRendererDeliveryContex
     (_event, args: PtyRendererDeliveryStateReport): PtyRendererDeliveryHealthReply => {
       // Extra repair lane for the lost-ACK variant: identical max-merge to the resync response, so a heal is only reached when merging cannot drain.
       let creditedAny = false
-      for (const [id, processedChars] of Object.entries(args?.processedCharsByPty ?? {})) {
+      for (const [id, report] of Object.entries(args?.processedCharsByPty ?? {})) {
+        const processedChars = typeof report === 'number' ? report : report?.processedChars
+        const incarnationId = typeof report === 'number' ? undefined : report?.incarnationId
         if (typeof processedChars !== 'number' || !Number.isFinite(processedChars)) {
           continue
         }
-        const acknowledged = applyCumulativeAck(id, Math.max(0, processedChars))
+        const acknowledged = applyCumulativeAck(id, Math.max(0, processedChars), incarnationId)
         if (acknowledged > 0) {
           creditedAny = true
           tryGetProviderForPty(id)?.acknowledgeDataEvent(id, acknowledged)
         }
       }
       let writtenOff: PtyDeliveryWriteOff[] = []
-      // Why the main-side ACK-silence check: requiring main to have also seen no ACK stops a buggy/foreign caller from writing off live delivery.
-      if (
-        args?.heal === true &&
-        state.rendererInFlightTotalChars > 0 &&
-        (state.lastAckReceivedAtMs === null ||
-          Date.now() - state.lastAckReceivedAtMs >= PTY_DELIVERY_HEAL_MIN_ACK_SILENCE_MS)
-      ) {
+      // Why: only a PTY whose own ACK lane is silent may be written off; another PTY's recent ACK cannot protect or condemn it.
+      const hasStalledPty = [...rendererDeliveryAccountingByPty.values()].some((accounting) => {
+        if (accounting.sentChars <= accounting.ackedChars) {
+          return false
+        }
+        return accounting.lastAckAtMs === null ||
+          Date.now() - accounting.lastAckAtMs >= PTY_DELIVERY_HEAL_MIN_ACK_SILENCE_MS
+      })
+      if (args?.heal === true && hasStalledPty) {
         writtenOff = writeOffLostRendererDelivery(args)
         creditedAny ||= writtenOff.length > 0
       }
       schedulePendingDataAfterCreditReport(creditedAny)
       let inFlightPtyCount = 0
-      for (const accounting of rendererDeliveryAccountingByPty.values()) {
-        if (accounting.sentChars - accounting.ackedChars > 0) {
+      const perPty: PtyRendererDeliveryHealth[] = []
+      let msSinceLastAck: number | null = 0
+      for (const [id, accounting] of rendererDeliveryAccountingByPty) {
+        const inFlightChars = accounting.sentChars - accounting.ackedChars
+        if (inFlightChars > 0) {
           inFlightPtyCount++
+          const ptyMsSinceLastAck =
+            accounting.lastAckAtMs === null ? null : Date.now() - accounting.lastAckAtMs
+          if (ptyMsSinceLastAck === null) {
+            msSinceLastAck = null
+          } else if (msSinceLastAck !== null) {
+            msSinceLastAck = Math.max(msSinceLastAck, ptyMsSinceLastAck)
+          }
+          perPty.push({
+            id,
+            ...(accounting.incarnationId ? { incarnationId: accounting.incarnationId } : {}),
+            inFlightChars,
+            msSinceLastAck: ptyMsSinceLastAck
+          })
         }
       }
       return {
         inFlightTotalChars: state.rendererInFlightTotalChars,
         inFlightPtyCount,
-        msSinceLastAck: state.lastAckReceivedAtMs === null ? null : Date.now() - state.lastAckReceivedAtMs,
+        msSinceLastAck: inFlightPtyCount === 0 ? null : msSinceLastAck,
+        perPty,
         ...(writtenOff.length > 0 ? { writtenOff } : {})
       }
     }

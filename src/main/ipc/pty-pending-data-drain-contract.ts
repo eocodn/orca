@@ -2,6 +2,7 @@ import type { Mode2031ReplyScanState } from '../../shared/terminal-color-scheme-
 
 export type PendingPtyData = {
   data: string
+  incarnationId?: string
   startSeq?: number
   rawLength?: number
   transformed?: true

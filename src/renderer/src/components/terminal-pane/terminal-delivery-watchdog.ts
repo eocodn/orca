@@ -44,6 +44,7 @@ type TerminalDeliveryWatchdogDeps = {
 }
 
 const receivedPtyCharTotals = new Map<string, number>()
+const receivedPtyIncarnationIds = new Map<string, string | undefined>()
 let receivedPtyDataEventCount = 0
 let blackholePtyPushDelivery = false
 
@@ -57,19 +58,26 @@ let watchdogConfig: TerminalDeliveryWatchdogConfig = {
 let eventCountAtLastTick = 0
 let stallStreakTicks = 0
 let lastHealAtMs: number | null = null
+const stallStreakByPty = new Map<string, number>()
+const lastHealAtByPty = new Map<string, number>()
 let healCount = 0
 let tickInFlight = false
 
 /** One Map upsert per received chunk — the watchdog's only hot-path cost.
  *  Counted at dispatcher enqueue, BEFORE parse-deferred ACK crediting, so
  *  main can tell "lost in the channel" from "received, parse-pending". */
-export function recordPtyDataReceived(ptyId: string, chars: number): void {
+export function recordPtyDataReceived(ptyId: string, chars: number, incarnationId?: string): void {
+  if (receivedPtyIncarnationIds.get(ptyId) !== incarnationId) {
+    receivedPtyCharTotals.set(ptyId, 0)
+    receivedPtyIncarnationIds.set(ptyId, incarnationId)
+  }
   receivedPtyDataEventCount += 1
   receivedPtyCharTotals.set(ptyId, (receivedPtyCharTotals.get(ptyId) ?? 0) + chars)
 }
 
 export function clearReceivedPtyCharTotal(ptyId: string): void {
   receivedPtyCharTotals.delete(ptyId)
+  receivedPtyIncarnationIds.delete(ptyId)
 }
 
 /** E2e blackhole: simulates the field wedge (push events vanish before the
@@ -79,13 +87,36 @@ export function isPtyPushDeliveryBlackholed(): boolean {
 }
 
 function isMainDeliveryStalled(health: PtyRendererDeliveryHealthReply): boolean {
-  // Why msSinceLastAck may be null: a wedged-from-first-byte session (the
-  // field case's brand-new terminal) never ACKs; in-flight debt alone is the
-  // signal then. A recent ACK means some pty still round-trips — not a wedge.
+  // Aggregate fields are retained for older mains; current mains expose the
+  // authoritative per-PTY silence/in-flight rows below.
+  if (health.perPty) {
+    return health.perPty.some(
+      (pty) =>
+        pty.inFlightChars > 0 &&
+        (pty.msSinceLastAck === null || pty.msSinceLastAck >= watchdogConfig.intervalMs)
+    )
+  }
   return (
     health.inFlightTotalChars > 0 &&
     (health.msSinceLastAck === null || health.msSinceLastAck >= watchdogConfig.intervalMs)
   )
+}
+
+function deliveryHealthKey(id: string, incarnationId?: string): string {
+  return `${id}\u0000${incarnationId ?? ''}`
+}
+
+function getStalledPtys(health: PtyRendererDeliveryHealthReply): string[] {
+  if (!health.perPty) {
+    return isMainDeliveryStalled(health) ? ['__aggregate__'] : []
+  }
+  return health.perPty
+    .filter(
+      (pty) =>
+        pty.inFlightChars > 0 &&
+        (pty.msSinceLastAck === null || pty.msSinceLastAck >= watchdogConfig.intervalMs)
+    )
+    .map((pty) => deliveryHealthKey(pty.id, pty.incarnationId))
 }
 
 async function runWatchdogTick(): Promise<void> {
@@ -97,8 +128,10 @@ async function runWatchdogTick(): Promise<void> {
   }
   if (receivedPtyDataEventCount !== eventCountAtLastTick) {
     eventCountAtLastTick = receivedPtyDataEventCount
-    stallStreakTicks = 0
-    return
+    if (stallStreakByPty.size === 0) {
+      stallStreakTicks = 0
+      return
+    }
   }
   if (!deps.hasAttachedPtys()) {
     stallStreakTicks = 0
@@ -109,20 +142,53 @@ async function runWatchdogTick(): Promise<void> {
     processedCharsByPty: getProcessedPtyCharTotals()
   })
   if (!health || !isMainDeliveryStalled(health)) {
+    if (!health?.perPty) {
+      stallStreakTicks = 0
+      return
+    }
+  }
+  const stalledPtys = getStalledPtys(health)
+  const stalledSet = new Set(stalledPtys)
+  if (health.perPty) {
+    const currentHealthKeys = new Set(
+      health.perPty.map((pty) => deliveryHealthKey(pty.id, pty.incarnationId))
+    )
+    for (const key of lastHealAtByPty.keys()) {
+      if (!currentHealthKeys.has(key)) {
+        lastHealAtByPty.delete(key)
+      }
+    }
+  }
+  for (const key of stallStreakByPty.keys()) {
+    if (!stalledSet.has(key)) {
+      stallStreakByPty.delete(key)
+    }
+  }
+  for (const key of stalledPtys) {
+    stallStreakByPty.set(key, (stallStreakByPty.get(key) ?? 0) + 1)
+  }
+  stallStreakTicks = Math.max(0, ...stallStreakByPty.values())
+  if (stalledPtys.length === 0) {
     stallStreakTicks = 0
     return
   }
-  stallStreakTicks += 1
+  const healablePtys = stalledPtys.filter(
+    (key) =>
+      (stallStreakByPty.get(key) ?? 0) >= watchdogConfig.stallTicksToHeal &&
+      (lastHealAtByPty.get(key) === undefined ||
+        Date.now() - (lastHealAtByPty.get(key) ?? 0) >= watchdogConfig.healCooldownMs)
+  )
   recordTerminalFreezeBreadcrumb('watchdog-stall', {
     stallStreakTicks,
     inFlightTotalChars: health.inFlightTotalChars,
-    msSinceLastAck: health.msSinceLastAck
+    msSinceLastAck: health.msSinceLastAck,
+    stalledPtyCount: stalledPtys.length
   })
-  if (stallStreakTicks < watchdogConfig.stallTicksToHeal) {
+  if (healablePtys.length === 0) {
     return
   }
-  if (lastHealAtMs !== null && Date.now() - lastHealAtMs < watchdogConfig.healCooldownMs) {
-    return
+  for (const key of healablePtys) {
+    lastHealAtByPty.set(key, Date.now())
   }
   await healDeadPushDelivery(deps, report, health)
 }
@@ -134,6 +200,7 @@ async function healDeadPushDelivery(
 ): Promise<void> {
   lastHealAtMs = Date.now()
   stallStreakTicks = 0
+  stallStreakByPty.clear()
   healCount += 1
   // Why read BEFORE re-attach: 0 here = the listener was detached (app-level
   // bug to hunt); ≥1 = events are being dropped below the emitter (channel

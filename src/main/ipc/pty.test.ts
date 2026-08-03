@@ -720,6 +720,9 @@ describe('registerPtyHandlers', () => {
         incarnationById.set(id, incarnationId)
         dataHandler?.({ id, incarnationId, data })
       },
+      setIncarnation: (id: string, incarnationId: string) => {
+        incarnationById.set(id, incarnationId)
+      },
       emitExit: (id: string, code = 0) =>
         exitHandler?.({ id, code, incarnationId: incarnationById.get(id) }),
       emitDataGap: (id: string, droppedChars: number) =>
@@ -2418,7 +2421,7 @@ describe('registerPtyHandlers', () => {
 
   function getPtyAckDataListener(): (
     event: unknown,
-    args: { id: string; charCount?: number; processedChars?: number }
+    args: { id: string; charCount?: number; processedChars?: number; incarnationId?: string }
   ) => void {
     const ackCall = onMock.mock.calls.find((call: unknown[]) => call[0] === 'pty:ackData')
     if (!ackCall) {
@@ -2426,7 +2429,7 @@ describe('registerPtyHandlers', () => {
     }
     return ackCall[1] as (
       event: unknown,
-      args: { id: string; charCount?: number; processedChars?: number }
+      args: { id: string; charCount?: number; processedChars?: number; incarnationId?: string }
     ) => void
   }
 
@@ -7250,6 +7253,53 @@ describe('registerPtyHandlers', () => {
         code: 0,
         incarnationId: `test-incarnation:${result.id}`
       })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rejects a delayed renderer ACK from an older PTY incarnation after id reuse', async () => {
+    vi.useFakeTimers()
+    const runtime = {
+      setPtyController: vi.fn(),
+      registerPty: vi.fn(),
+      onPtySpawned: vi.fn(),
+      onPtyExit: vi.fn(),
+      onPtyData: vi.fn(() => 12),
+      createPreAllocatedTerminalHandle: vi.fn(() => 'terminal-handle-reused'),
+      registerPreAllocatedHandleForPty: vi.fn()
+    }
+    try {
+      const provider = installObservableDaemonTestProvider()
+      registerPtyHandlers(mainWindow as never, runtime as never)
+      rebindLocalProviderListeners()
+      const result = (await handlers.get('pty:spawn')!(null, {
+        cols: 80,
+        rows: 24,
+        sessionId: 'pty-reused'
+      })) as { id: string }
+      const ackData = getPtyAckDataListener()
+
+      provider.emitData(result.id, 'old')
+      vi.advanceTimersByTime(2)
+      provider.emitExit(result.id)
+      provider.setIncarnation(result.id, 'incarnation-new')
+      provider.emitData(result.id, 'fresh')
+      vi.advanceTimersByTime(2)
+
+      ackData(null, {
+        id: result.id,
+        processedChars: 'old'.length,
+        incarnationId: `test-incarnation:${result.id}`
+      })
+      expect(getPtyRendererDeliveryDebugSnapshot().rendererInFlightChars).toBe('fresh'.length)
+
+      ackData(null, {
+        id: result.id,
+        processedChars: 'fresh'.length,
+        incarnationId: 'incarnation-new'
+      })
+      expect(getPtyRendererDeliveryDebugSnapshot().rendererInFlightChars).toBe(0)
     } finally {
       vi.useRealTimers()
     }

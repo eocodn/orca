@@ -41,13 +41,23 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     projectionAdmissionIds?: readonly string[]
   ): { sent: boolean; projectionsTransferred: boolean } {
     const charCount = state.getPtyPayloadCharCount(payload)
+    const incarnationId = payload.incarnationId ?? ptyRuntimeState.ptyIncarnationById.get(id)
     const accounting = state.rendererDeliveryAccountingByPty.get(id)
+    if (accounting && accounting.incarnationId !== incarnationId) {
+      // A delayed frame from an older incarnation must not enter the replacement's accounting.
+      if (projectionAdmissionIds) {
+        state.sshOutputIntake?.transferProjections(projectionAdmissionIds, 'stale-incarnation')
+      }
+      return { sent: false, projectionsTransferred: projectionAdmissionIds !== undefined }
+    }
     const hadAccounting = accounting !== undefined
     if (accounting) {
+      accounting.incarnationId ??= incarnationId
       accounting.sentChars += charCount
       accounting.lastSendAtMs = Date.now()
     } else {
       state.rendererDeliveryAccountingByPty.set(id, {
+        ...(incarnationId ? { incarnationId } : {}),
         sentChars: charCount,
         ackedChars: 0,
         lastSendAtMs: Date.now(),
@@ -57,7 +67,10 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     state.rendererInFlightTotalChars += charCount
     state.recordPtyRendererDeliveryPressure(id)
     try {
-      mainWindow.webContents.send('pty:data', payload)
+      mainWindow.webContents.send(
+        'pty:data',
+        incarnationId === undefined ? payload : { ...payload, incarnationId }
+      )
     } catch (error) {
       const current = state.rendererDeliveryAccountingByPty.get(id)
       if (current) {
@@ -261,7 +274,8 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     containsBackgroundOutput: boolean,
     rawLength = data.length,
     transformed = false,
-    projectionSemanticsId?: string
+    projectionSemanticsId?: string,
+    incarnationId?: string
   ): PendingPtyData {
     // Why stay dropped at O(1): once over the cap the restore sentinel supersedes interim bytes; queries still get carved out (bounded) so replies survive the whole episode.
     if (existing?.droppedOutput === true) {
@@ -290,6 +304,7 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     if (!existing) {
       const pending: PendingPtyData = {
         data,
+        ...(incarnationId ? { incarnationId } : {}),
         ...(typeof startSeq === 'number' ? { startSeq } : {}),
         ...(rawLength !== data.length ? { rawLength } : {}),
         ...(transformed ? { transformed: true } : {}),
@@ -413,6 +428,7 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
               {
                 id,
                 data: pending.data + getDroppedMode2031RendererData(pending),
+                ...(pending.incarnationId ? { incarnationId: pending.incarnationId } : {}),
                 droppedOutput: true
               },
               pending.projectionAdmissionIds
@@ -457,7 +473,8 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
             pending.startSeq,
             pending.containsBackgroundOutput,
             pending.rawLength,
-            pending.transformed
+            pending.transformed,
+            pending.incarnationId
           ),
           pending.projectionAdmissionIds
         )

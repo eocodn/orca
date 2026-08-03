@@ -18,13 +18,18 @@ export type PtyRendererDeliveryStateReport = {
   /** Cumulative processed (ACK-credited) chars per PTY — same totals the
    *  ACK path and resync response carry; merging them here is a free extra
    *  repair lane for the lost-ACK variant. */
-  processedCharsByPty: Record<string, number>
+  processedCharsByPty: Record<string, number | PtyRendererProcessedChars>
   /** Set on the confirming tick: main may write off provably-lost bytes and
    *  answer with restore markers for the renderer to route locally. */
   heal?: boolean
   /** `ipcRenderer.listenerCount('pty:data')` at heal time — discriminates
    *  "listener detached" from "channel dead" in field logs. */
   rendererPtyDataListenerCount?: number | null
+}
+
+export type PtyRendererProcessedChars = {
+  incarnationId: string
+  processedChars: number
 }
 
 export type PtyDeliveryWriteOff = {
@@ -40,6 +45,15 @@ export type PtyRendererDeliveryHealthReply = {
   inFlightPtyCount: number
   /** null = no ACK received since main-side counters were (re)created. */
   msSinceLastAck: number | null
+  /** Each live PTY/incarnation is evaluated independently; aggregate fields are compatibility summaries only. */
+  perPty?: PtyRendererDeliveryHealth[]
   /** Present only on a heal report that actually wrote off lost bytes. */
   writtenOff?: PtyDeliveryWriteOff[]
+}
+
+export type PtyRendererDeliveryHealth = {
+  id: string
+  incarnationId?: string
+  inFlightChars: number
+  msSinceLastAck: number | null
 }

@@ -54,11 +54,11 @@ export type PreloadApiPty = {
     clearBuffer: (id: string) => void
     kill: (id: string, opts?: { keepHistory?: boolean }) => Promise<void>
     ackColdRestore: (id: string) => void
-    ackData: (id: string, charCount: number, processedChars?: number) => void
+    ackData: (id: string, charCount: number, processedChars?: number, incarnationId?: string) => void
     onDeliveryResyncRequest: (callback: (payload: { requestId: number }) => void) => () => void
     respondDeliveryResync: (payload: {
       requestId: number
-      processedCharsByPty: Record<string, number>
+      processedCharsByPty: Record<string, number | { incarnationId: string; processedChars: number }>
     }) => void
     /** Renderer-initiated delivery health/heal lane over invoke — reaches main
      *  even when every main→renderer push channel is dead (field wedge). */
@@ -149,6 +149,7 @@ export type PreloadApiPty = {
     onData: (
       callback: (data: {
         id: string
+        incarnationId?: string
         data: string
         seq?: number
         rawLength?: number

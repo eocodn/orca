@@ -34,7 +34,8 @@ import {
   INTERACTIVE_OUTPUT_MAX_CHARS,
   INTERACTIVE_OUTPUT_WINDOW_MS,
   PTY_RENDERER_INTERACTIVE_RESERVE_CHARS,
-  PTY_RENDERER_TOTAL_IN_FLIGHT_HIGH_WATER_CHARS
+  PTY_RENDERER_TOTAL_IN_FLIGHT_HIGH_WATER_CHARS,
+  PTY_DELIVERY_HEAL_MIN_ACK_SILENCE_MS
 } from './pty-ipc-runtime-renderer-delivery-constants'
 
 const PRODUCER_FLOW_CONTROL_ENABLED = true
@@ -62,7 +63,6 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
   state.deliveryResyncOutstandingRequestId = null
   state.deliveryResyncTimer = null
   state.deliveryResyncUnansweredWarnLogged = false
-  state.lastAckReceivedAtMs = null
   state.peakPendingChars = 0
   state.peakMaxPendingCharsByPty = 0
   state.peakRendererInFlightChars = 0
@@ -264,6 +264,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       const accounting = state.rendererDeliveryAccountingByPty.get(id)
       perPty.push({
         id: redactPtyIdForDiagnostics(id),
+        ...(accounting?.incarnationId ? { incarnationId: accounting.incarnationId } : {}),
         sentChars: accounting?.sentChars ?? 0,
         ackedChars: accounting?.ackedChars ?? 0,
         inFlightChars: accounting ? accounting.sentChars - accounting.ackedChars : 0,
@@ -414,9 +415,15 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     startSeq: number | undefined,
     containsBackgroundOutput: boolean | undefined,
     rawLength = data.length,
-    transformed = false
+    transformed = false,
+    incarnationId?: string
   ): PtyDataPayload {
-    const payload: PtyDataPayload = { id, data }
+    const resolvedIncarnationId = incarnationId ?? ptyRuntimeState.ptyIncarnationById.get(id)
+    const payload: PtyDataPayload = {
+      id,
+      ...(resolvedIncarnationId ? { incarnationId: resolvedIncarnationId } : {}),
+      data
+    }
     if (typeof startSeq === 'number') {
       payload.seq = startSeq + rawLength
     }
@@ -447,10 +454,26 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     return getRendererInFlightCharsForPty(id) < ptyLimit && state.rendererInFlightTotalChars < totalLimit
   }
 
+  function getOldestInFlightAckSilenceMs(): number | null {
+    const now = Date.now()
+    let oldest: number | null = null
+    for (const accounting of state.rendererDeliveryAccountingByPty.values()) {
+      if (accounting.sentChars <= accounting.ackedChars) {
+        continue
+      }
+      const silence = accounting.lastAckAtMs === null ? null : now - accounting.lastAckAtMs
+      if (silence === null) {
+        return null
+      }
+      oldest = Math.max(oldest ?? 0, silence)
+    }
+    return oldest
+  }
+
   // Why max-merge cumulative totals: idempotent and reorder-tolerant — replayed/out-of-order ACKs can't double-credit and a lost ACK self-heals. Returns the newly acknowledged delta.
-  function applyCumulativeAck(id: string, processedChars: number): number {
+  function applyCumulativeAck(id: string, processedChars: number, incarnationId?: string): number {
     const accounting = state.rendererDeliveryAccountingByPty.get(id)
-    if (!accounting) {
+    if (!accounting || (incarnationId !== undefined && accounting.incarnationId !== incarnationId)) {
       return 0
     }
     // Clamped to sentChars so a corrupt payload cannot drive in-flight negative.
@@ -506,7 +529,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       }
       state.deliveryResyncUnansweredWarnLogged = true
       console.warn('[pty] delivery resync probe unanswered — renderer IPC unresponsive', {
-        msSinceLastAck: state.lastAckReceivedAtMs === null ? null : Date.now() - state.lastAckReceivedAtMs,
+        msSinceLastAck: getOldestInFlightAckSilenceMs(),
         ...readCurrentPtyRendererDeliveryDebugSnapshot()
       })
     }, PTY_DELIVERY_RESYNC_TIMEOUT_MS)
@@ -523,6 +546,12 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       if (accounting.sentChars - accounting.ackedChars <= 0) {
         continue
       }
+      if (
+        accounting.lastAckAtMs !== null &&
+        Date.now() - accounting.lastAckAtMs < PTY_DELIVERY_HEAL_MIN_ACK_SILENCE_MS
+      ) {
+        continue
+      }
       const received = report.receivedCharsByPty?.[id]
       const receivedChars =
         typeof received === 'number' && Number.isFinite(received) ? Math.max(0, received) : 0
@@ -530,7 +559,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       if (receivedChars > accounting.ackedChars) {
         continue
       }
-      const acknowledged = applyCumulativeAck(id, accounting.sentChars)
+      const acknowledged = applyCumulativeAck(id, accounting.sentChars, accounting.incarnationId)
       if (acknowledged <= 0) {
         continue
       }
@@ -565,7 +594,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       })
       console.warn('[pty] delivery heal: wrote off renderer-bound bytes lost in push channel', {
         rendererPtyDataListenerCount: report.rendererPtyDataListenerCount ?? null,
-        msSinceLastAck: state.lastAckReceivedAtMs === null ? null : Date.now() - state.lastAckReceivedAtMs,
+        msSinceLastAck: getOldestInFlightAckSilenceMs(),
         writtenOffByPty: writtenOff.map(({ id, writtenOffChars }) => ({ id, writtenOffChars })),
         ...readCurrentPtyRendererDeliveryDebugSnapshot()
       })

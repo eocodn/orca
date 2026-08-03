@@ -82,11 +82,12 @@ export function createPreloadApiPty(): Record<string, unknown> {
       ipcRenderer.send('pty:ackColdRestore', { id })
     },
     /** charCount is the legacy per-chunk delta; processedChars is the cumulative per-pty total (self-heals under lost ACKs). */
-    ackData: (id: string, charCount: number, processedChars?: number): void => {
+    ackData: (id: string, charCount: number, processedChars?: number, incarnationId?: string): void => {
       ipcRenderer.send('pty:ackData', {
         id,
         charCount,
-        ...(typeof processedChars === 'number' ? { processedChars } : {})
+        ...(typeof processedChars === 'number' ? { processedChars } : {}),
+        ...(incarnationId ? { incarnationId } : {})
       })
     },
     /** Main requests the renderer's cumulative processed totals when delivery looks stuck on lost ACKs. */
@@ -98,7 +99,7 @@ export function createPreloadApiPty(): Record<string, unknown> {
     },
     respondDeliveryResync: (payload: {
       requestId: number
-      processedCharsByPty: Record<string, number>
+      processedCharsByPty: Record<string, number | { incarnationId: string; processedChars: number }>
     }): void => {
       ipcRenderer.send('pty:deliveryResyncResponse', payload)
     },
@@ -215,6 +216,7 @@ export function createPreloadApiPty(): Record<string, unknown> {
     onData: (
       callback: (data: {
         id: string
+        incarnationId?: string
         data: string
         seq?: number
         rawLength?: number
@@ -227,6 +229,7 @@ export function createPreloadApiPty(): Record<string, unknown> {
         _event: Electron.IpcRendererEvent,
         data: {
           id: string
+          incarnationId?: string
           data: string
           seq?: number
           rawLength?: number

@@ -148,6 +148,52 @@ describe('terminal delivery watchdog', () => {
     expect(restoreEvents).toEqual([{ id: 'pty-1', reason: 'delivery-heal', markerSeq: 42 }])
   })
 
+  it('heals a silent PTY when another PTY has a recent ACK', async () => {
+    reportMock.mockImplementation((args) =>
+      Promise.resolve(
+        (args as { heal?: boolean }).heal
+          ? {
+              inFlightTotalChars: 0,
+              inFlightPtyCount: 0,
+              msSinceLastAck: 100,
+              writtenOff: [{ id: 'pty-stalled', writtenOffChars: 128 }]
+            }
+          : {
+              inFlightTotalChars: 128,
+              inFlightPtyCount: 1,
+              msSinceLastAck: 100,
+              perPty: [
+                {
+                  id: 'pty-healthy',
+                  incarnationId: 'inc-healthy',
+                  inFlightChars: 0,
+                  msSinceLastAck: 100
+                },
+                {
+                  id: 'pty-stalled',
+                  incarnationId: 'inc-stalled',
+                  inFlightChars: 128,
+                  msSinceLastAck: 30_000
+                }
+              ]
+            }
+      ) as unknown as PtyRendererDeliveryHealthReply
+    )
+    const { recordPtyDataReceived } = await startWatchdog()
+
+    recordPtyDataReceived('pty-healthy', 1)
+    recordPtyDataReceived('pty-stalled', 128)
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+
+    expect(reattachMock).toHaveBeenCalledTimes(1)
+    const healCall = reportMock.mock.calls.find(
+      (call) => (call[0] as { heal?: boolean }).heal === true
+    )
+    expect(healCall?.[0]).toMatchObject({ heal: true })
+  })
+
   it('rate-limits heals to the cooldown while the wedge persists', async () => {
     reportMock.mockImplementation((args) =>
       Promise.resolve((args as { heal?: boolean }).heal ? { ...STALLED, writtenOff: [] } : STALLED)
