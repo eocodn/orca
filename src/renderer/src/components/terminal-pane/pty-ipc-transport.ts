@@ -30,6 +30,7 @@ import {
 } from './terminal-output-visibility'
 import { extractIpcErrorMessage } from '@/lib/ipc-error'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
+import { createTerminalInputDelivery } from './terminal-input-delivery'
 
 const SSH_SESSION_EXPIRED_ERROR = 'SSH_SESSION_EXPIRED'
 const SSH_PTY_CONNECTION_MISMATCH_MARKER = 'belongs to SSH connection'
@@ -70,6 +71,33 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
   const inputWriteQueue = createPtyInputWriteQueue({
     isWritable: (id) => connected && ptyId === id,
     write: (id, data) => window.api.pty.write(id, data)
+  })
+  const terminalInputDelivery = createTerminalInputDelivery({
+    tabId,
+    sendInput: (data) => {
+      if (!connected || !ptyId) return false
+      return inputWriteQueue.enqueue(ptyId, data)
+    },
+    sendInputImmediate: (data) => {
+      if (!connected || !ptyId) return false
+      return inputWriteQueue.enqueue(ptyId, data)
+    },
+    ...(connectionId
+      ? {}
+      : {
+          sendInputAccepted: async (data: string): Promise<boolean> => {
+            if (!connected || !ptyId) return false
+            const id = ptyId
+            await inputWriteQueue.waitForDrain()
+            if (!connected || ptyId !== id) return false
+            return writeAcceptedPtyInput({
+              id,
+              data,
+              isCurrent: () => connected && ptyId === id,
+              write: (writeId, chunk) => window.api.pty.writeAccepted(writeId, chunk)
+            })
+          }
+        })
   })
   const outputProcessor = createPtyOutputProcessor({
     onTitleChange,
@@ -493,38 +521,19 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
     },
 
     sendInput(data: string): boolean {
-      if (!connected || !ptyId) {
-        return false
-      }
-      return inputWriteQueue.enqueue(ptyId, data)
+      return terminalInputDelivery.sendInput(data)
     },
 
     // Why: kept distinct from sendInput so the remote transport can override with flush-then-send (#7329); local queue drains same-turn.
     sendInputImmediate(data: string): boolean {
-      if (!connected || !ptyId) {
-        return false
-      }
-      return inputWriteQueue.enqueue(ptyId, data)
+      return terminalInputDelivery.sendInputImmediate(data)
     },
 
     ...(connectionId
       ? {}
       : {
           async sendInputAccepted(data: string): Promise<boolean> {
-            if (!connected || !ptyId) {
-              return false
-            }
-            const id = ptyId
-            await inputWriteQueue.waitForDrain()
-            if (!connected || ptyId !== id) {
-              return false
-            }
-      return writeAcceptedPtyInput({
-        id,
-        data,
-        isCurrent: () => connected && ptyId === id,
-        write: (writeId, chunk) => window.api.pty.writeAccepted(writeId, chunk)
-      })
+            return terminalInputDelivery.sendInputAccepted!(data)
           }
         }),
 

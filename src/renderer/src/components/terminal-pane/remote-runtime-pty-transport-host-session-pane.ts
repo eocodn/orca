@@ -11,6 +11,7 @@ import { isWebTerminalSurfaceTabId, toHostSessionTabId } from '@/runtime/web-ter
 import { replaceFitOverridePtyId } from '@/lib/pane-manager/mobile-fit-overrides'
 import { replaceDriverPtyId } from '@/lib/pane-manager/mobile-driver-state'
 import type { RemoteRuntimePtyTransportContext } from './remote-runtime-pty-transport-session-context'
+import { armTerminalInputQuarantine } from './terminal-input-quarantine'
 
 export function installRemoteRuntimePtyHostSessionPane(
   context: RemoteRuntimePtyTransportContext
@@ -169,8 +170,13 @@ export function installRemoteRuntimePtyHostSessionPane(
         if (context.destroyed || context.handle !== expiredHandle) return
         context.adoptExecutionMetadata(terminal)
         const replacedPtyId = context.remotePtyId
+        const nextPtyId = toRemoteRuntimePtyId(
+          terminal.handle,
+          context.currentRuntimeEnvironmentId
+        )
+        const endpointReplaced = replacedPtyId !== null && replacedPtyId !== nextPtyId
         context.handle = terminal.handle
-        context.remotePtyId = toRemoteRuntimePtyId(terminal.handle, context.currentRuntimeEnvironmentId)
+        context.remotePtyId = nextPtyId
         context.unregisterShutdownHandlers(replacedPtyId)
         context.registerShutdownHandlers(context.remotePtyId)
         context.connected = true
@@ -180,6 +186,9 @@ export function installRemoteRuntimePtyHostSessionPane(
           context.opts.onPtyRebind?.(context.remotePtyId, replacedPtyId)
         }
         await context.subscribeToHandle()
+        if (endpointReplaced && context.opts.tabId) {
+          armTerminalInputQuarantine(context.opts.tabId)
+        }
       })
       .catch((error) => {
         if (!context.destroyed && context.handle === expiredHandle) {

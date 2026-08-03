@@ -13,6 +13,7 @@ import { isWebTerminalSurfaceTabId, toHostSessionTabId } from '@/runtime/web-ter
 import { subscribeAcceptedWebSessionTerminalHandle } from '@/runtime/web-session-terminal-handle-events'
 import { bufferPtyShutdownData, bufferPtyShutdownReplayData } from './pty-shutdown-data-suspension'
 import type { RemoteRuntimePtyTransportContext } from './remote-runtime-pty-transport-session-context'
+import { armTerminalInputQuarantine } from './terminal-input-quarantine'
 
 const SSH_SESSION_EXPIRED_ERROR = 'SSH_SESSION_EXPIRED'
 
@@ -105,7 +106,12 @@ export function installRemoteRuntimePtyStreamRecovery(
         context.rebindRemoteTerminalHandle(update.terminalHandle)
         const reboundHandle = context.handle
         const reboundPtyId = context.remotePtyId
-        void context.subscribeToHandle().catch((error) => {
+        void context
+          .subscribeToHandle()
+          .then(() => {
+            if (context.opts.tabId) armTerminalInputQuarantine(context.opts.tabId)
+          })
+          .catch((error) => {
           if (
             reboundHandle &&
             !context.recoverAfterSubscribeFailure(error, reboundHandle, reboundPtyId)

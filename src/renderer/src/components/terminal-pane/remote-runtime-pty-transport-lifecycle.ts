@@ -23,10 +23,47 @@ import type {
   RemoteRuntimePtyTransportContext
 } from './remote-runtime-pty-transport-session-context'
 import { isRemoteTerminalGoneMessage } from './remote-runtime-pty-transport-stream-recovery'
+import { createTerminalInputDelivery } from './terminal-input-delivery'
 
 export function createRemoteRuntimePtyTransportLifecycle(
   context: RemoteRuntimePtyTransportContext
 ): PtyTransport {
+  const terminalInputDelivery = createTerminalInputDelivery({
+    tabId: context.opts.tabId,
+    sendInput(data) {
+      if (!context.connected || !context.handle || context.recoveryBlocksIo()) return false
+      if (!data) return true
+      return context.inputBatcher.push(data)
+    },
+    sendInputImmediate(data) {
+      const targetHandle = context.handle
+      if (!context.connected || !targetHandle || context.recoveryBlocksIo()) return false
+      if (!data) return true
+      if (context.inputBatcher.hasPendingValidation()) {
+        const accepted = context.inputBatcher.push(data)
+        context.inputBatcher.flush()
+        return accepted
+      }
+      const pending = context.inputBatcher.takePending()
+      const text = `${pending}${data}`
+      const stream = context.getCurrentMultiplexedStream(targetHandle)
+      if (stream?.sendInput(text)) return true
+      if (context.pendingViewportClaim) {
+        context.pendingClaimInput += text
+        return true
+      }
+      void context.callRuntime('terminal.send', {
+        terminal: targetHandle,
+        text,
+        client: { id: context.clientId, type: 'desktop' },
+        ...(context.desiredViewport
+          ? { viewport: context.desiredViewport, claimViewport: true as const }
+          : {})
+      }).catch((error) => context.handleRemoteTerminalError(error))
+      return true
+    },
+    sendInputAccepted: (data) => context.sendInputAcceptedToRuntime(data)
+  })
   const transport: PtyTransport = {
     async connect(options) {
       context.cancelTerminalCreateRetryWait()
@@ -353,38 +390,12 @@ export function createRemoteRuntimePtyTransportLifecycle(
       context.storedCallbacks = {}
     },
     sendInput(data) {
-      if (!context.connected || !context.handle || context.recoveryBlocksIo()) return false
-      if (!data) return true
-      return context.inputBatcher.push(data)
+      return terminalInputDelivery.sendInput(data)
     },
     sendInputImmediate(data) {
-      const targetHandle = context.handle
-      if (!context.connected || !targetHandle || context.recoveryBlocksIo()) return false
-      if (!data) return true
-      if (context.inputBatcher.hasPendingValidation()) {
-        const accepted = context.inputBatcher.push(data)
-        context.inputBatcher.flush()
-        return accepted
-      }
-      const pending = context.inputBatcher.takePending()
-      const text = `${pending}${data}`
-      const stream = context.getCurrentMultiplexedStream(targetHandle)
-      if (stream?.sendInput(text)) return true
-      if (context.pendingViewportClaim) {
-        context.pendingClaimInput += text
-        return true
-      }
-      void context.callRuntime('terminal.send', {
-        terminal: targetHandle,
-        text,
-        client: { id: context.clientId, type: 'desktop' },
-        ...(context.desiredViewport
-          ? { viewport: context.desiredViewport, claimViewport: true as const }
-          : {})
-      }).catch((error) => context.handleRemoteTerminalError(error))
-      return true
+      return terminalInputDelivery.sendInputImmediate(data)
     },
-    sendInputAccepted: (data) => context.sendInputAcceptedToRuntime(data),
+    sendInputAccepted: (data) => terminalInputDelivery.sendInputAccepted!(data),
     claimViewport(cols, rows) {
       if (!context.connected || !context.handle) return false
       context.rememberViewport(cols, rows)
