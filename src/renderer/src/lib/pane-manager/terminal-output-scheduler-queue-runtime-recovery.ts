@@ -11,6 +11,7 @@ import {
   recordTerminalParseProgress
 } from './terminal-write-pipeline-health'
 import { fireQueuedAckCredits } from './pane-terminal-output-queue'
+import { invalidateTerminalOutputClearGeneration } from './terminal-output-clear-generation'
 import { exposeDebugApi, recordQueueDebugPressure } from './terminal-output-scheduler-queue-runtime-debug'
 import {
   PARSE_SETTLE_TIMEOUT_MS,
@@ -77,6 +78,7 @@ export function waitForTerminalOutputParsed(terminal: TerminalOutputTarget): Pro
 
 export function discardTerminalOutput(terminal: TerminalOutputTarget): void {
   exposeDebugApi()
+  invalidateTerminalOutputClearGeneration(terminal)
   const entry = queuedByTerminal.get(terminal)
   if (entry) {
     fireQueuedAckCredits(entry)

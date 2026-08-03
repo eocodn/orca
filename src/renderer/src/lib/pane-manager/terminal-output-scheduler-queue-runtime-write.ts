@@ -18,6 +18,10 @@ import {
 } from './pane-terminal-output-queue'
 import { discardTerminalOutput } from './terminal-output-scheduler-queue-runtime-recovery'
 import {
+  captureTerminalOutputClearGeneration,
+  isCurrentTerminalOutputClearGeneration
+} from './terminal-output-clear-generation'
+import {
   BACKGROUND_CHUNK_CHARS,
   type QueueEntry,
   type TerminalOutputParsedCallback,
@@ -61,9 +65,12 @@ export function composeParsedCallback(
   ackCreditsParsed: (() => void) | undefined,
   pacer: (() => void) | undefined
 ): TerminalOutputParsedCallback {
+  const clearGeneration = captureTerminalOutputClearGeneration(terminal)
   return () => {
     try {
-      onParsed?.()
+      if (isCurrentTerminalOutputClearGeneration(terminal, clearGeneration)) {
+        onParsed?.()
+      }
     } finally {
       ackCreditsParsed?.()
       pacer?.()

@@ -53,4 +53,35 @@ describe('terminal scrollback clear', () => {
 
     expect(terminal.refresh).not.toHaveBeenCalled()
   })
+
+  it('ignores a stale submitted onParsed callback after clearing', async () => {
+    vi.resetModules()
+
+    const { writeTerminalOutput } = await import('./pane-terminal-output-scheduler')
+    const { clearTerminalScrollbackAndFollowOutput } = await import('./terminal-scrollback-clear')
+    let parseCallback: (() => void) | undefined
+    const onParsed = vi.fn()
+    const ackCredit = vi.fn()
+    const terminal = {
+      buffer: { active: { viewportY: 0, baseY: 0 } },
+      clear: vi.fn(),
+      scrollToBottom: vi.fn(),
+      write: vi.fn((_data: string, callback?: () => void) => {
+        parseCallback = callback
+      })
+    }
+
+    writeTerminalOutput(terminal, 'already submitted', {
+      foreground: true,
+      forceForegroundRefresh: true,
+      onParsed,
+      ackCredit
+    })
+    expect(terminal.write).toHaveBeenCalledOnce()
+    clearTerminalScrollbackAndFollowOutput(terminal)
+    parseCallback?.()
+
+    expect(onParsed).not.toHaveBeenCalled()
+    expect(ackCredit).toHaveBeenCalledOnce()
+  })
 })
