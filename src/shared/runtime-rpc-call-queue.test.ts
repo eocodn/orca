@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   isBackgroundRuntimeMethod,
+  RuntimeRpcCallCanceledError,
   RuntimeRpcCallQueueOverloadError,
   RuntimeRpcCallQueuePool
 } from './runtime-rpc-call-queue'
@@ -164,5 +165,54 @@ describe('runtime RPC call queue', () => {
     await expect(
       queue.enqueue('runtime-b', 'status.get', async () => 'recovered', 10)
     ).resolves.toBe('recovered')
+  })
+
+  it('cancels queued calls from an obsolete environment generation', async () => {
+    const queue = new RuntimeRpcCallQueuePool(1, 1)
+    let releaseFirst: () => void = () => {}
+    const started: string[] = []
+    const first = queue.enqueue(
+      'runtime-a',
+      'status.get',
+      async () => {
+        started.push('first')
+        await new Promise<void>((resolve) => {
+          releaseFirst = resolve
+        })
+        return 'first'
+      },
+      0,
+      1
+    )
+    const stale = queue.enqueue(
+      'runtime-a',
+      'status.get',
+      async () => {
+        started.push('stale')
+        return 'stale'
+      },
+      0,
+      1
+    )
+    const current = queue.enqueue(
+      'runtime-a',
+      'status.get',
+      async () => {
+        started.push('current')
+        return 'current'
+      },
+      0,
+      2
+    )
+
+    await vi.waitFor(() => expect(started).toEqual(['first']))
+    const canceled = new RuntimeRpcCallCanceledError('runtime-a', 1)
+    expect(queue.cancelQueued('runtime-a', 1, canceled)).toBe(1)
+    await expect(stale).rejects.toBe(canceled)
+
+    releaseFirst()
+    await expect(first).resolves.toBe('first')
+    await expect(current).resolves.toBe('current')
+    expect(started).toEqual(['first', 'current'])
   })
 })

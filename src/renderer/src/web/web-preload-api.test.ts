@@ -687,6 +687,65 @@ describe('web runtime environment identity', () => {
       )
     }
   )
+
+  it.each(['replacement', 'removal'] as const)(
+    'does not recreate the old client for a queued call after %s',
+    async (change) => {
+      const pending: ((response: RuntimeRpcResponse<unknown>) => void)[] = []
+      let clientCount = 0
+      const call = vi.fn(
+        (method: string) =>
+          new Promise<RuntimeRpcResponse<unknown>>((resolve) => {
+            pending.push((response) => resolve({ ...response, id: method }))
+          })
+      )
+      vi.doMock('./web-runtime-client', () => ({
+        WebRuntimeClient: class {
+          constructor() {
+            clientCount += 1
+          }
+
+          call = call
+          close(): void {}
+        }
+      }))
+      const globals = installBrowserGlobals('Linux')
+      writeStoredRuntimeEnvironment(globals.storage, 'web-server-a')
+      const { installWebPreloadApi } = await import('./web-preload-api')
+      installWebPreloadApi()
+
+      const activeCalls = Array.from({ length: 8 }, () =>
+        globals.window.api.runtime.call({ method: 'repos.list' })
+      )
+      await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(8))
+      const queuedCall = globals.window.api.runtime.call({ method: 'repos.list' })
+
+      if (change === 'replacement') {
+        await globals.window.api.runtimeEnvironments.addFromPairingCode({
+          name: 'Server B',
+          pairingCode: encodePairingCode({ publicKeyB64: 'server-b-key' })
+        })
+      } else {
+        await globals.window.api.runtimeEnvironments.remove({ selector: 'web-server-a' })
+      }
+
+      await expect(queuedCall).rejects.toThrow(
+        'Runtime environment pairing changed; refresh and try again'
+      )
+      expect(clientCount).toBe(1)
+
+      for (const resolve of pending) {
+        resolve({
+          id: 'repos.list',
+          ok: true,
+          result: {},
+          _meta: { runtimeId: 'runtime-old' }
+        })
+      }
+      await expect(Promise.all(activeCalls)).resolves.toHaveLength(8)
+    }
+  )
+
   it('keeps the current host when verification rejects an incompatible replacement', async () => {
     vi.doMock('./web-runtime-client', () => ({
       WebRuntimeClient: class {

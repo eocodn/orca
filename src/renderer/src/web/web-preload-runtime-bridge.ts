@@ -103,7 +103,10 @@ import { parseWebPairingInput } from './web-pairing'
 import { copyClipboardTextViaExecCommand } from './web-clipboard-copy-fallback'
 import { WebRuntimeClient } from './web-runtime-client'
 import { isWebRuntimeUnauthorizedError } from './web-runtime-client-error'
-import { RuntimeRpcCallQueuePool } from '../../../shared/runtime-rpc-call-queue'
+import {
+  RuntimeRpcCallCanceledError,
+  RuntimeRpcCallQueuePool
+} from '../../../shared/runtime-rpc-call-queue'
 import {
   assertClipboardTextWriteWithinLimitWithYield,
   assertClipboardTextWithinLimitWithYield,
@@ -137,6 +140,41 @@ import { createWebKeybindingsApi } from './web-preload-keybindings'
 
 import { SETTINGS_STORAGE_KEY, UI_STORAGE_KEY, SESSION_STORAGE_KEY, ONBOARDING_STORAGE_KEY, GITHUB_CACHE_STORAGE_KEY, webE2EExposeStore, webE2EQuery, webE2EConfig, WEB_RUNTIME_WORKTREE_LIST_LIMIT, MAX_CLIPBOARD_IMAGE_BASE64_CHARS, MAX_CLIPBOARD_IMAGE_SOURCE_BYTES, MAX_CLIPBOARD_IMAGE_PIXELS, CLIPBOARD_IMAGE_UPLOAD_CHUNK_BASE64_CHARS, CLIPBOARD_IMAGE_SINGLE_FRAME_FALLBACK_BASE64_CHARS, CLIPBOARD_IMAGE_SAVE_TIMEOUT_MS, activeEnvironment, activeClient, activeClientEnvironmentId, manuallyDisconnectedEnvironmentIds, cachedWorktrees, cachedDetectedWorktrees, runtimeCallQueuePool, blobToBase64, assertClipboardImageBlobWithinLimit, convertImageBlobToPng, readClipboardImagePngBase64, invalidateRuntimeWorktreeCaches, GITHUB_WEB_RPC_METHODS, GITLAB_WEB_RPC_METHODS, installWebPreloadApi, writeWebClipboardText, createWebPreloadApi, createNativeChatApi, createRuntimeApi, createRuntimeEnvironmentsApi, createAiVaultApi, webAiVaultUnavailableResult, createReposApi, createWorktreesApi, createFileApi, webGitStatusAbortControllers, callAbortableRuntimeStatus, createGitApi, createBrowserApi, createEmulatorApi, createGitHubApi, createGitLabApi, createRuntimeNamespaceApi, createHooksApi, createWebUiApi, createPreflightApi, createCliApi, createAgentHooksApi, createMacosTccPromptsApi, createDeveloperPermissionsApi, createComputerUsePermissionsApi, createSkillsApi, createNotificationsApi, createRateLimitsApi, createMiniMaxCredentialsApi, createGrokAccountsApi, createAccountsApi, createUpdaterApi, createShellApi, createPtyApi, createSshApi, getStoredSettings, writeStoredSettings, getRuntimeBackedStoredSettings, syncRuntimeBackedSettings, updateRuntimePRBotAuthorOverride, getStoredOnboarding, sessionStorageKeyForHost, getStoredWorkspaceSession, closeWebOnboarding, readLocalWebUIState, mergeWebUIState, mergeFeatureInteractionState, mergeContextualTourSeenIds, mergeOsc52ClipboardNoticePending, mergeSettings, listAllRuntimeWorktrees, listAllRuntimeDetectedWorktrees, callRuntimeDetectedWorktrees, toLegacyDetectedWorktreeResult, isMissingPathError, resolveRuntimeWorktreeByPath, resolveRuntimeFilePath, mutateGitPath, mutateGitPaths, mapRepoPathArg, mapRuntimeNamespaceArg, createEmptyMemorySnapshot, getBrowserPlatform, readJson, writeJson, cloneJson, withFallback, createFallbackProxy, getFallbackResult, noopUnsubscribe, type WebSettingsApi, type WebGitHubApi, type WebGitHubResult, type WebRuntimeResultCaller, type WebRuntimeEnvelopeCaller, type WebGitHubRouteKey, type WebGitHubRuntimeMethod, type WebGitLabApi, type WebGitLabResult, type WebGitLabRouteKey, type WebGitLabRuntimeMethod } from './web-preload-compatibility'
 
+const WEB_RUNTIME_PAIRING_CHANGED_ERROR =
+  'Runtime environment pairing changed; refresh and try again'
+
+let runtimeEnvironmentGeneration = 0
+
+function isCurrentRuntimeEnvironment(
+  environment: StoredWebRuntimeEnvironment,
+  generation: number
+): boolean {
+  return activeEnvironment?.id === environment.id && runtimeEnvironmentGeneration === generation
+}
+
+function assertCurrentRuntimeEnvironment(
+  environment: StoredWebRuntimeEnvironment,
+  generation: number
+): void {
+  if (!isCurrentRuntimeEnvironment(environment, generation)) {
+    throw new RuntimeRpcCallCanceledError(environment.id, generation)
+  }
+}
+
+function mapCanceledRuntimeCall(
+  error: unknown,
+  environment: StoredWebRuntimeEnvironment,
+  generation: number
+): RuntimeRpcResponse<never> | never {
+  if (!(error instanceof RuntimeRpcCallCanceledError) || error.generation !== generation) {
+    throw error
+  }
+  if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
+    return manuallyDisconnectedResponse(environment)
+  }
+  throw new Error(WEB_RUNTIME_PAIRING_CHANGED_ERROR)
+}
+
 export async function callRuntimeEnvelope<TResult = unknown>(
   method: string,
   params?: unknown,
@@ -146,12 +184,22 @@ export async function callRuntimeEnvelope<TResult = unknown>(
   if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
     return manuallyDisconnectedResponse(environment)
   }
-  const response = await runtimeCallQueuePool.enqueue(environment.id, method, () => {
-    if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
-      return Promise.resolve(manuallyDisconnectedResponse(environment))
-    }
-    return getClientForEnvironment(environment).call(method, params, { timeoutMs })
-  })
+  const generation = runtimeEnvironmentGeneration
+  const response = await runtimeCallQueuePool
+    .enqueue(
+      environment.id,
+      method,
+      () => {
+        assertCurrentRuntimeEnvironment(environment, generation)
+        if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
+          return Promise.resolve(manuallyDisconnectedResponse(environment))
+        }
+        return getClientForEnvironment(environment).call(method, params, { timeoutMs })
+      },
+      0,
+      generation
+    )
+    .catch((error: unknown) => mapCanceledRuntimeCall(error, environment, generation))
   if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
     return manuallyDisconnectedResponse(environment)
   }
@@ -168,12 +216,22 @@ export async function callEnvironmentEnvelope<TResult = unknown>(
   if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
     return manuallyDisconnectedResponse(environment)
   }
-  const response = await runtimeCallQueuePool.enqueue(environment.id, method, () => {
-    if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
-      return Promise.resolve(manuallyDisconnectedResponse(environment))
-    }
-    return getClientForEnvironment(environment).call(method, params, { timeoutMs })
-  })
+  const generation = runtimeEnvironmentGeneration
+  const response = await runtimeCallQueuePool
+    .enqueue(
+      environment.id,
+      method,
+      () => {
+        assertCurrentRuntimeEnvironment(environment, generation)
+        if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
+          return Promise.resolve(manuallyDisconnectedResponse(environment))
+        }
+        return getClientForEnvironment(environment).call(method, params, { timeoutMs })
+      },
+      0,
+      generation
+    )
+    .catch((error: unknown) => mapCanceledRuntimeCall(error, environment, generation))
   if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
     return manuallyDisconnectedResponse(environment)
   }
@@ -230,8 +288,13 @@ export function captureWebFileMutationSession(): {
 } {
   const environment = requireActiveEnvironment()
   const client = getClientForEnvironment(environment)
+  const generation = runtimeEnvironmentGeneration
   const assertCurrent = (): void => {
-    if (activeClient !== client || requireActiveEnvironmentOrNull()?.id !== environment.id) {
+    if (
+      activeClient !== client ||
+      !isCurrentRuntimeEnvironment(environment, generation) ||
+      requireActiveEnvironmentOrNull()?.id !== environment.id
+    ) {
       throw new Error('Runtime pairing changed; refresh and try again')
     }
   }
@@ -241,10 +304,23 @@ export function captureWebFileMutationSession(): {
     timeoutMs?: number
   ): Promise<RuntimeRpcResponse<TResult>> => {
     assertCurrent()
-    const response = await runtimeCallQueuePool.enqueue(environment.id, method, () => {
-      assertCurrent()
-      return client.call(method, params, { timeoutMs })
-    })
+    const response = await runtimeCallQueuePool
+      .enqueue(
+        environment.id,
+        method,
+        () => {
+          assertCurrent()
+          return client.call(method, params, { timeoutMs })
+        },
+        0,
+        generation
+      )
+      .catch((error: unknown) => {
+        if (error instanceof RuntimeRpcCallCanceledError && error.generation === generation) {
+          throw new Error('Runtime pairing changed; refresh and try again')
+        }
+        throw error
+      })
     assertCurrent()
     updateEnvironmentFromResponse(environment, response)
     return response as RuntimeRpcResponse<TResult>
@@ -365,6 +441,16 @@ export function getClientForEnvironment(environment: StoredWebRuntimeEnvironment
 }
 
 export function closeActiveRuntimeClients(): void {
+  const environment = activeEnvironment
+  const generation = runtimeEnvironmentGeneration
+  runtimeEnvironmentGeneration += 1
+  if (environment) {
+    runtimeCallQueuePool.cancelQueued(
+      environment.id,
+      generation,
+      new RuntimeRpcCallCanceledError(environment.id, generation)
+    )
+  }
   activeClient?.close()
   activeClient = null
   activeClientEnvironmentId = null
