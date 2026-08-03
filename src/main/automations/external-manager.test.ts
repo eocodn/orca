@@ -338,6 +338,34 @@ describe('runExternalAutomationAction', () => {
       expect.any(Function)
     )
   })
+
+  it('retries a timed-out remote mutation with the same request id', async () => {
+    const request = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Request "externalAutomations.act" timed out after 30000ms'))
+      .mockResolvedValueOnce({ ok: true })
+    vi.mocked(getActiveMultiplexer).mockReturnValue({
+      isDisposed: () => false,
+      request
+    } as unknown as ReturnType<typeof getActiveMultiplexer>)
+
+    await runExternalAutomationAction({
+      managerId: 'hermes:ssh:ssh-1',
+      provider: 'hermes',
+      target: { type: 'ssh', connectionId: 'ssh-1' },
+      jobId: 'job-1',
+      action: 'run'
+    })
+
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(request.mock.calls[0]?.[1]).toEqual({
+      provider: 'hermes',
+      action: 'run',
+      jobId: 'job-1',
+      requestId: expect.any(String)
+    })
+    expect(request.mock.calls[1]?.[1]).toEqual(request.mock.calls[0]?.[1])
+  })
 })
 
 describe('listExternalAutomationRuns', () => {

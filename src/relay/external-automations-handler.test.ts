@@ -52,6 +52,21 @@ describe('ExternalAutomationsHandler', () => {
     )
   })
 
+  it('deduplicates a retried mutation with the same request id', async () => {
+    const { requestHandlers } = createHandlerHarness()
+    const params = {
+      provider: 'hermes',
+      action: 'run',
+      jobId: 'job-1',
+      requestId: 'mutation-1'
+    }
+
+    await requestHandlers.get('externalAutomations.act')?.(params)
+    await requestHandlers.get('externalAutomations.act')?.(params)
+
+    expect(execFileMock).toHaveBeenCalledTimes(1)
+  })
+
   it('paginates remote Hermes run history after ref lookup', async () => {
     const { handler, requestHandlers } = createHandlerHarness()
     const handlerInternals = handler as unknown as {

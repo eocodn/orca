@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- Why: external automation discovery, pagination,
  * and lifecycle routing share provider/target validation and remote relay fallbacks. */
 import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -32,6 +33,31 @@ const OPENCLAW_JOBS_FILE = join(homedir(), '.openclaw', 'cron', 'jobs.json')
 const EXTERNAL_JOB_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/
 const LOCAL_COMMAND_LOOKUP_TIMEOUT_MS = 5_000
 const LOCAL_AUTOMATION_COMMAND_TIMEOUT_MS = 30_000
+
+function isRelayRequestTimeout(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /Request "externalAutomations\.[^"]+" timed out after \d+ms/.test(error.message)
+  )
+}
+
+async function requestRemoteAutomationMutation(
+  mux: NonNullable<ReturnType<typeof getActiveMultiplexer>>,
+  method: 'externalAutomations.create' | 'externalAutomations.update' | 'externalAutomations.act',
+  params: Record<string, unknown>
+): Promise<unknown> {
+  const requestParams = { ...params, requestId: randomUUID() }
+  try {
+    return await mux.request(method, requestParams)
+  } catch (error) {
+    if (!isRelayRequestTimeout(error)) {
+      throw error
+    }
+    // The relay keeps the first mutation's result under requestId, so the retry
+    // can recover a lost response without running the provider command twice.
+    return await mux.request(method, requestParams)
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -491,7 +517,7 @@ export async function createExternalAutomation(
   if (!mux || mux.isDisposed()) {
     throw new Error(`SSH target "${input.target.connectionId}" is not connected.`)
   }
-  await mux.request('externalAutomations.create', {
+  await requestRemoteAutomationMutation(mux, 'externalAutomations.create', {
     provider: input.provider,
     ...normalized
   })
@@ -513,7 +539,7 @@ export async function updateExternalAutomation(
   if (!mux || mux.isDisposed()) {
     throw new Error(`SSH target "${input.target.connectionId}" is not connected.`)
   }
-  await mux.request('externalAutomations.update', {
+  await requestRemoteAutomationMutation(mux, 'externalAutomations.update', {
     provider: input.provider,
     jobId: input.jobId,
     ...normalized
@@ -541,7 +567,7 @@ export async function runExternalAutomationAction(
   if (!mux || mux.isDisposed()) {
     throw new Error(`SSH target "${input.target.connectionId}" is not connected.`)
   }
-  await mux.request('externalAutomations.act', {
+  await requestRemoteAutomationMutation(mux, 'externalAutomations.act', {
     provider: input.provider,
     action: input.action,
     jobId: input.jobId

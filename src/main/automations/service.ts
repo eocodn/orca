@@ -29,6 +29,7 @@ export class AutomationService {
   private webContents: WebContents | null = null
   private rendererReady = false
   private evaluating = false
+  private readonly inFlightDispatches = new Set<string>()
   private readonly claudeUsage: ClaudeUsageStore | null
   private readonly codexUsage: CodexUsageStore | null
   private readonly allowRemoteHostScheduling: boolean
@@ -77,11 +78,13 @@ export class AutomationService {
   }
 
   stop(): void {
-    if (!this.timer) {
-      return
+    if (this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
     }
-    clearInterval(this.timer)
-    this.timer = null
+    // A stopped service no longer owns renderer work; a later start must
+    // reconcile persisted dispatching runs instead of treating them as live.
+    this.inFlightDispatches.clear()
   }
 
   async runNow(automationId: string): Promise<AutomationRun> {
@@ -133,6 +136,7 @@ export class AutomationService {
   }
 
   async markDispatchResult(result: AutomationDispatchResult): Promise<AutomationRun> {
+    this.inFlightDispatches.delete(result.runId)
     const run = this.store.updateAutomationRun(result)
     clearAutomationDispatchTokens(run.automationId, run.id)
     if (!isFinalAutomationRunStatus(run.status)) {
@@ -191,13 +195,16 @@ export class AutomationService {
       return
     }
     const run = this.store.createAutomationRun(automation, scheduledFor)
-    if (run.status !== 'pending') {
-      // A persisted dispatching run owns this occurrence after a restart; do not launch it twice.
+    if (run.status === 'dispatching' && this.inFlightDispatches.has(run.id)) {
+      this.store.advanceAutomationNextRun(automation.id, now)
+      return
+    }
+    if (run.status !== 'pending' && run.status !== 'dispatching') {
       this.store.advanceAutomationNextRun(automation.id, now)
       return
     }
     const graceMs = automation.missedRunGraceMinutes * 60 * 1000
-    if (now - scheduledFor > graceMs) {
+    if (run.status === 'pending' && now - scheduledFor > graceMs) {
       this.store.updateAutomationRun({
         runId: run.id,
         status: 'skipped_missed',
@@ -227,11 +234,16 @@ export class AutomationService {
         error: target.error
       })
     }
+    if (this.inFlightDispatches.has(run.id)) {
+      return run
+    }
+    this.inFlightDispatches.add(run.id)
     const webContents = this.webContents
     if (!webContents || webContents.isDestroyed() || !this.rendererReady) {
       if (this.headlessDispatcher) {
         return await this.requestHeadlessDispatch(automation, run, target)
       }
+      this.inFlightDispatches.delete(run.id)
       return this.store.updateAutomationRun({
         runId: run.id,
         status: 'skipped_unavailable',
@@ -250,7 +262,12 @@ export class AutomationService {
       run: updated,
       dispatchToken: createAutomationDispatchToken(automation.id, updated.id)
     }
-    webContents.send('automations:dispatchRequested', payload)
+    try {
+      webContents.send('automations:dispatchRequested', payload)
+    } catch (error) {
+      this.inFlightDispatches.delete(run.id)
+      throw error
+    }
     return updated
   }
 
@@ -264,6 +281,7 @@ export class AutomationService {
         ? await this.runPrecheck(automation.id, run.id)
         : null
     if (precheckResult && !didAutomationPrecheckPass(precheckResult)) {
+      this.inFlightDispatches.delete(run.id)
       return this.store.updateAutomationRun({
         runId: run.id,
         status: 'skipped_precheck',
@@ -308,8 +326,12 @@ export class AutomationService {
             })
           )
       }
+      if (!launch.completion) {
+        this.inFlightDispatches.delete(run.id)
+      }
       return updated
     } catch (error) {
+      this.inFlightDispatches.delete(run.id)
       return this.store.updateAutomationRun({
         runId: run.id,
         status: 'dispatch_failed',

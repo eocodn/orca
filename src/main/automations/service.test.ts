@@ -594,7 +594,7 @@ describe('AutomationService', () => {
     expect(store.listAutomationRuns(automation.id).some((entry) => entry.id === run.id)).toBe(false)
   })
 
-  it('does not dispatch an existing in-flight scheduled run again after service restart', async () => {
+  it('re-dispatches a persisted dispatching scheduled run after service restart', async () => {
     vi.setSystemTime(new Date('2026-05-13T08:00:00Z'))
     const store = await createStore()
     store.addRepo(makeRepo())
@@ -616,7 +616,12 @@ describe('AutomationService', () => {
       workspaceId: 'wt1',
       error: null
     })
-    const headlessDispatcher = vi.fn()
+    const headlessDispatcher = vi.fn().mockResolvedValue({
+      workspaceId: 'wt1',
+      terminalSessionId: 'tab-1',
+      terminalPaneKey: 'pane-1',
+      terminalPtyId: 'pty-1'
+    })
     const service = new AutomationService(store, {
       tickMs: 60_000,
       allowRemoteHostScheduling: true,
@@ -625,12 +630,16 @@ describe('AutomationService', () => {
 
     vi.setSystemTime(new Date('2026-05-13T09:01:00Z'))
     service.start()
-    await Promise.resolve()
+    await vi.waitFor(() => expect(headlessDispatcher).toHaveBeenCalledTimes(1))
     service.stop()
 
-    expect(headlessDispatcher).not.toHaveBeenCalledWith(
+    expect(headlessDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({ run: expect.objectContaining({ id: run.id }) })
     )
+    expect(store.listAutomationRuns(automation.id)[0]).toMatchObject({
+      id: run.id,
+      status: 'dispatched'
+    })
   })
 
   it('does not let a late retry result mutate a finalized automation run', async () => {

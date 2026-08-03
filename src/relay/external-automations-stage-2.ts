@@ -1,4 +1,3 @@
- * run history, and actions must stay co-located behind one relay request handler. */
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { open, readdir, readFile, realpath, stat } from 'node:fs/promises'
@@ -6,16 +5,13 @@ import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
-import type { RelayDispatcher } from './dispatcher'
 
 const execFileAsync = promisify(execFile)
 const requireOptional = createRequire(__filename)
 const HERMES_HOME = process.env.HERMES_HOME?.trim() || join(homedir(), '.hermes')
 const HERMES_CRON_DIR = join(HERMES_HOME, 'cron')
-const HERMES_JOBS_FILE = join(HERMES_CRON_DIR, 'jobs.json')
 const HERMES_OUTPUT_DIR = join(HERMES_CRON_DIR, 'output')
 const HERMES_STATE_DB = join(HERMES_HOME, 'state.db')
-const OPENCLAW_JOBS_FILE = join(homedir(), '.openclaw', 'cron', 'jobs.json')
 const EXTERNAL_JOB_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/
 const HERMES_OUTPUT_FILE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})\.md$/
 const HERMES_RUN_KEY_PATTERN = /^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/
@@ -44,7 +40,6 @@ type NodeSqliteDatabaseSync = new (
 ) => SqliteDatabase
 let databaseConstructor: DatabaseConstructor | null | undefined
 
-type ExternalProvider = 'hermes' | 'openclaw'
 type HermesAction = 'pause' | 'resume' | 'run' | 'delete'
 type HermesOutputRunRef = {
   kind: 'output'
@@ -75,9 +70,78 @@ type HermesRunCountCacheEntry = {
 }
 
 const HERMES_RUN_COUNT_CACHE_TTL_MS = 2000
+const EXTERNAL_MUTATION_IDEMPOTENCY_TTL_MS = 10 * 60_000
+const EXTERNAL_MUTATION_LEDGER_MAX_ENTRIES = 256
+
+type ExternalMutationLedgerEntry = {
+  fingerprint: string
+  promise: Promise<{ ok: true }>
+  expiresAt: number
+  settled: boolean
+}
 
 import { ExternalAutomationsHandlerStage1 } from './external-automations-stage-1'
 export class ExternalAutomationsHandlerStage2 extends ExternalAutomationsHandlerStage1 {
+  private readonly externalMutationLedger = new Map<string, ExternalMutationLedgerEntry>()
+
+  protected runExternalAutomationMutation(
+    params: Record<string, unknown>,
+    operation: () => Promise<{ ok: true }>
+  ): Promise<{ ok: true }> {
+    const requestId = typeof params.requestId === 'string' ? params.requestId.trim() : ''
+    if (!requestId) {
+      return operation()
+    }
+    const now = Date.now()
+    for (const [key, entry] of this.externalMutationLedger) {
+      if (entry.expiresAt <= now) {
+        this.externalMutationLedger.delete(key)
+      }
+    }
+    const fingerprint = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(params)
+          .filter(([key]) => key !== 'requestId')
+          .sort(([left], [right]) => left.localeCompare(right))
+      )
+    )
+    const existing = this.externalMutationLedger.get(requestId)
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) {
+        return Promise.reject(
+          new Error('External automation request id was reused for a different mutation.')
+        )
+      }
+      return existing.promise
+    }
+    while (this.externalMutationLedger.size >= EXTERNAL_MUTATION_LEDGER_MAX_ENTRIES) {
+      const settledKey = [...this.externalMutationLedger].find(([, entry]) => entry.settled)?.[0]
+      if (!settledKey) {
+        break
+      }
+      this.externalMutationLedger.delete(settledKey)
+    }
+    const entry: ExternalMutationLedgerEntry = {
+      fingerprint,
+      promise: Promise.resolve().then(operation),
+      expiresAt: now + EXTERNAL_MUTATION_IDEMPOTENCY_TTL_MS,
+      settled: false
+    }
+    this.externalMutationLedger.set(requestId, entry)
+    void entry.promise.then(
+      () => {
+        entry.settled = true
+      },
+      () => {
+        entry.settled = true
+        if (this.externalMutationLedger.get(requestId) === entry) {
+          this.externalMutationLedger.delete(requestId)
+        }
+      }
+    )
+    return entry.promise
+  }
+
   protected getDatabaseConstructor(): DatabaseConstructor | null {
     if (databaseConstructor !== undefined) {
       return databaseConstructor
