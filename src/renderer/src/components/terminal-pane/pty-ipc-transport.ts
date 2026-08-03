@@ -214,7 +214,7 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
 
   function registerPtyExitHandler(id: string): boolean {
     const hadBufferedExit = hasPreHandlerPtyExit(id)
-    const exitHandler = (code: number): void => {
+    const exitHandler = (code: number, _incarnationId?: string): void => {
       if (ptyId !== null && ptyId !== id) {
         // Why: a preserved sleep/reconnect session can report its old exit after this transport already rebound to a replacement PTY.
         unregisterPtyHandlers(id)

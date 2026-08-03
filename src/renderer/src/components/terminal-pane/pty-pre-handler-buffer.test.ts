@@ -14,6 +14,8 @@ import {
 const RESCAN_PTY_ID = 'pty-pre-handler-rescan'
 const TRIM_PTY_ID = 'pty-pre-handler-trim'
 const EXIT_PTY_ID = 'pty-pre-handler-exit'
+const INCARNATION_EXIT_PTY_ID = 'pty-pre-handler-incarnation-exit'
+const INCARNATION_DATA_PTY_ID = 'pty-pre-handler-incarnation-data'
 const CAPPED_EXIT_PTY_IDS = Array.from({ length: 65 }, (_, index) => `pty-capped-exit-${index}`)
 
 describe('pre-handler PTY buffer', () => {
@@ -21,6 +23,8 @@ describe('pre-handler PTY buffer', () => {
     clearPreHandlerPtyState(RESCAN_PTY_ID)
     clearPreHandlerPtyState(TRIM_PTY_ID)
     clearPreHandlerPtyState(EXIT_PTY_ID)
+    clearPreHandlerPtyState(INCARNATION_EXIT_PTY_ID)
+    clearPreHandlerPtyState(INCARNATION_DATA_PTY_ID)
     for (const ptyId of CAPPED_EXIT_PTY_IDS) {
       clearPreHandlerPtyState(ptyId)
     }
@@ -115,6 +119,48 @@ describe('pre-handler PTY buffer', () => {
     const duplicateExit = vi.fn()
     drainPreHandlerPtyExit(EXIT_PTY_ID, duplicateExit)
     expect(duplicateExit).not.toHaveBeenCalled()
+  })
+
+  it('retains the incarnation token through exit buffering and consumption', () => {
+    const consumed: { code: number; incarnationId?: string }[] = []
+    bufferPreHandlerPtyExit(INCARNATION_EXIT_PTY_ID, 7, 'incarnation-a')
+
+    drainPreHandlerPtyExit(INCARNATION_EXIT_PTY_ID, (code, incarnationId) => {
+      consumed.push({ code, incarnationId })
+    })
+
+    expect(consumed).toEqual([{ code: 7, incarnationId: 'incarnation-a' }])
+  })
+
+  it('does not drain old-incarnation data after a replacement is buffered', () => {
+    bufferPreHandlerPtyData(INCARNATION_DATA_PTY_ID, 'old-a', {
+      incarnationId: 'incarnation-a'
+    })
+    bufferPreHandlerPtyData(INCARNATION_DATA_PTY_ID, 'active-b', {
+      incarnationId: 'incarnation-b'
+    })
+
+    const drained: string[] = []
+    drainPreHandlerPtyData(INCARNATION_DATA_PTY_ID, (data) => drained.push(data))
+
+    expect(drained).toEqual(['active-b'])
+  })
+
+  it('drops prior-incarnation data when the replacement exits before producing data', () => {
+    bufferPreHandlerPtyData(INCARNATION_DATA_PTY_ID, 'old-a', {
+      incarnationId: 'incarnation-a'
+    })
+    bufferPreHandlerPtyExit(INCARNATION_DATA_PTY_ID, 9, 'incarnation-b')
+
+    const drained: string[] = []
+    drainPreHandlerPtyData(INCARNATION_DATA_PTY_ID, (data) => drained.push(data))
+    const exit: Array<{ code: number; incarnationId?: string }> = []
+    drainPreHandlerPtyExit(INCARNATION_DATA_PTY_ID, (code, incarnationId) => {
+      exit.push({ code, incarnationId })
+    })
+
+    expect(drained).toEqual([])
+    expect(exit).toEqual([{ code: 9, incarnationId: 'incarnation-b' }])
   })
 
   it('reports whether an undelivered exit is waiting for admission', () => {

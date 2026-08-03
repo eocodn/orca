@@ -11,10 +11,16 @@ type BufferedPreHandlerPtyState = {
   chunks: BufferedPreHandlerPtyData[]
   head: number
   bytes: number
+  incarnationId?: string
+}
+
+type BufferedPreHandlerPtyExit = {
+  code: number
+  incarnationId?: string
 }
 
 const preHandlerPtyData = new Map<string, BufferedPreHandlerPtyState>()
-const preHandlerPtyExit = new Map<string, number>()
+const preHandlerPtyExit = new Map<string, BufferedPreHandlerPtyExit>()
 const consumedPreHandlerPtyExits = new Map<string, true>()
 const discardedPreHandlerPtyStates = new Map<string, ReturnType<typeof setTimeout>>()
 const DISCARDED_PRE_HANDLER_PTY_STATE_TTL_MS = 60_000
@@ -50,8 +56,30 @@ export function bufferPreHandlerPtyData(ptyId: string, data: string, meta?: PtyD
       ? { ...meta, rawLength: chunk.bytes }
       : meta
   let state = preHandlerPtyData.get(ptyId)
+  if (
+    state &&
+    meta?.incarnationId !== undefined &&
+    state.incarnationId !== undefined &&
+    state.incarnationId !== meta.incarnationId
+  ) {
+    state = undefined
+    preHandlerPtyData.delete(ptyId)
+    const bufferedExit = preHandlerPtyExit.get(ptyId)
+    if (bufferedExit?.incarnationId !== meta.incarnationId) {
+      preHandlerPtyExit.delete(ptyId)
+    }
+  }
+  const bufferedExit = preHandlerPtyExit.get(ptyId)
+  if (meta?.incarnationId !== undefined && bufferedExit?.incarnationId !== meta.incarnationId) {
+    preHandlerPtyExit.delete(ptyId)
+  }
   if (!state) {
-    state = { chunks: [], head: 0, bytes: 0 }
+    state = {
+      chunks: [],
+      head: 0,
+      bytes: 0,
+      ...(meta?.incarnationId ? { incarnationId: meta.incarnationId } : {})
+    }
     preHandlerPtyData.set(ptyId, state)
   }
   state.chunks.push({
@@ -96,9 +124,18 @@ export function drainPreHandlerPtyData(
   }
 }
 
-export function bufferPreHandlerPtyExit(ptyId: string, code: number): void {
+export function bufferPreHandlerPtyExit(ptyId: string, code: number, incarnationId?: string): void {
   if (consumedPreHandlerPtyExits.has(ptyId) || discardedPreHandlerPtyStates.has(ptyId)) {
     return
+  }
+  const bufferedData = preHandlerPtyData.get(ptyId)
+  if (
+    incarnationId !== undefined &&
+    bufferedData?.incarnationId !== undefined &&
+    bufferedData.incarnationId !== incarnationId
+  ) {
+    // The dispatcher has already fenced stale exits; a different token is a replacement boundary.
+    preHandlerPtyData.delete(ptyId)
   }
   if (!preHandlerPtyExit.has(ptyId) && preHandlerPtyExit.size >= PRE_HANDLER_PTY_EXIT_MAX_PTYS) {
     const oldestPtyId = preHandlerPtyExit.keys().next().value
@@ -106,7 +143,10 @@ export function bufferPreHandlerPtyExit(ptyId: string, code: number): void {
       preHandlerPtyExit.delete(oldestPtyId)
     }
   }
-  preHandlerPtyExit.set(ptyId, code)
+  preHandlerPtyExit.set(ptyId, {
+    code,
+    ...(incarnationId ? { incarnationId } : {})
+  })
 }
 
 // Why: primary handlers and pane-less parked owners have fully handled this
@@ -161,14 +201,21 @@ export function hasPreHandlerPtyExit(ptyId: string): boolean {
   return preHandlerPtyExit.has(ptyId)
 }
 
-export function drainPreHandlerPtyExit(ptyId: string, handler: (code: number) => void): void {
-  const code = preHandlerPtyExit.get(ptyId)
-  if (code === undefined) {
+export function drainPreHandlerPtyExit(
+  ptyId: string,
+  handler: (code: number, incarnationId?: string) => void
+): void {
+  const bufferedExit = preHandlerPtyExit.get(ptyId)
+  if (!bufferedExit) {
     return
   }
   preHandlerPtyExit.delete(ptyId)
   try {
-    handler(code)
+    if (bufferedExit.incarnationId === undefined) {
+      handler(bufferedExit.code)
+    } else {
+      handler(bufferedExit.code, bufferedExit.incarnationId)
+    }
   } finally {
     // Why: draining transfers ownership to this handler. Even when it throws,
     // a duplicate exit must not become a new pre-handler event.

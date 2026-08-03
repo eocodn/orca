@@ -68,7 +68,7 @@ const ptyExitSidecars = new Map<
 export const ptyWriteUnavailableHandlers = new Map<string, () => void>()
 let ptyDispatcherAttached = false
 const activePtyIncarnationById = new Map<string, string>()
-const retiredPtyIncarnationById = new Map<string, string>()
+const retiredPtyIncarnationById = new Map<string, Set<string>>()
 
 let pushListenerUnsubscribes: (() => void)[] = []
 
@@ -131,17 +131,16 @@ function handleDispatchedPtyData(payload: {
   droppedOutput?: boolean
 }): void {
   if (payload.incarnationId) {
-    const retiredIncarnation = retiredPtyIncarnationById.get(payload.id)
-    if (retiredIncarnation === payload.incarnationId) {
+    const retiredIncarnations = retiredPtyIncarnationById.get(payload.id)
+    if (retiredIncarnations?.has(payload.incarnationId)) {
       return
-    }
-    if (retiredIncarnation !== undefined) {
-      retiredPtyIncarnationById.delete(payload.id)
     }
     const activeIncarnation = activePtyIncarnationById.get(payload.id)
     if (activeIncarnation !== undefined && activeIncarnation !== payload.incarnationId) {
       // A lost exit leaves the old token active; the next authoritative frame is the replacement boundary.
-      retiredPtyIncarnationById.set(payload.id, activeIncarnation)
+      const retired = retiredIncarnations ?? new Set<string>()
+      retired.add(activeIncarnation)
+      retiredPtyIncarnationById.set(payload.id, retired)
       clearProcessedPtyCharTotal(payload.id)
       clearReceivedPtyCharTotal(payload.id)
     }
@@ -234,7 +233,9 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
       clearProcessedPtyCharTotal(payload.id)
       const retiredIncarnation = payload.incarnationId ?? activeIncarnation
       if (retiredIncarnation !== undefined) {
-        retiredPtyIncarnationById.set(payload.id, retiredIncarnation)
+        const retired = retiredPtyIncarnationById.get(payload.id) ?? new Set<string>()
+        retired.add(retiredIncarnation)
+        retiredPtyIncarnationById.set(payload.id, retired)
       }
       activePtyIncarnationById.delete(payload.id)
       clearReceivedPtyCharTotal(payload.id)
@@ -250,6 +251,7 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
       deliverPtyExitToHandlers({
         ptyId: payload.id,
         code: payload.code,
+        ...(payload.incarnationId ? { incarnationId: payload.incarnationId } : {}),
         ...(primary ? { primary } : {}),
         sidecars: sidecars ? Array.from(sidecars) : []
       })

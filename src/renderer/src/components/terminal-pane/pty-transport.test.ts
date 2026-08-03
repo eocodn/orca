@@ -598,6 +598,39 @@ describe('createIpcPtyTransport', () => {
     clearPreHandlerPtyState(sessionId)
   })
 
+  it('does not consume a retired pre-handler exit or data after a same-id replacement', async () => {
+    const { createIpcPtyTransport, ensurePtyDispatcher } = await import('./pty-transport')
+    const { clearPreHandlerPtyState } = await import('./pty-pre-handler-buffer')
+    const onDataCallback = vi.fn()
+    const onExitCallback = vi.fn()
+    const sessionId = 'same-id-incarnation-replacement'
+    ensurePtyDispatcher()
+
+    onData?.({
+      id: sessionId,
+      data: 'old-a',
+      incarnationId: 'incarnation-a'
+    } as never)
+    onExit?.({ id: sessionId, code: 17, incarnationId: 'incarnation-a' } as never)
+    onData?.({
+      id: sessionId,
+      data: 'active-b',
+      incarnationId: 'incarnation-b'
+    } as never)
+
+    const transport = createIpcPtyTransport({})
+    transport.attach({
+      existingPtyId: sessionId,
+      callbacks: { onData: onDataCallback, onExit: onExitCallback }
+    })
+
+    expect(onDataCallback).toHaveBeenCalledWith('active-b', expect.anything())
+    expect(onDataCallback).not.toHaveBeenCalledWith('old-a', expect.anything())
+    expect(onExitCallback).not.toHaveBeenCalled()
+    expect(transport.isConnected()).toBe(true)
+    clearPreHandlerPtyState(sessionId)
+  })
+
   it('returns startup cwd fallback metadata to the connection layer', async () => {
     const { createIpcPtyTransport } = await import('./pty-transport')
     const spawn = window.api.pty.spawn as unknown as ReturnType<typeof vi.fn>

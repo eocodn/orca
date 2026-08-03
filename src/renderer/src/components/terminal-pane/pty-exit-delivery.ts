@@ -7,6 +7,7 @@ import {
 type PtyExitDelivery = {
   ptyId: string
   code: number
+  incarnationId?: string
   primary?: (code: number) => void
   sidecars: readonly ((code: number, context: { hadPrimary: boolean }) => void)[]
 }
@@ -26,7 +27,7 @@ export function deliverPtyExitToHandlers(delivery: PtyExitDelivery): void {
         consumePreHandlerPtyState(delivery.ptyId)
       }
     } else {
-      bufferPreHandlerPtyExit(delivery.ptyId, delivery.code)
+      bufferPreHandlerPtyExit(delivery.ptyId, delivery.code, delivery.incarnationId)
     }
   } catch (error) {
     firstError = error
