@@ -354,7 +354,7 @@ export function PendingBrowserAnnotationCard({
   )
 }
 
-+export function browserPageExists(tabId: string): boolean {
+export function browserPageExists(tabId: string): boolean {
   return Object.values(useAppStore.getState().browserPagesByWorkspace).some((pages) =>
     pages.some((page) => page.id === tabId)
   )

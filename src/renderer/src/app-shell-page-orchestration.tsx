@@ -288,7 +288,6 @@ function App(): React.JSX.Element {
 
   const { beginOnboardingSettingsDetour } = useAppShellPageOnboardingEffects({ actions, activeModal, contextualToursAutoEligible, featureInteractions, featureTipCliInstalled, featureTipsPromptedThisSessionRef, featureTipsSeenIds, featureTipsSuppressedByOnboardingThisSessionRef, onboarding, onboardingLoaded, persistedUIReady, setFeatureTipCliInstalled, setOnboarding, setOnboardingSettingsDetour, setShouldMountAddRepoDialog, settings, shouldMountAddRepoDialog, unmountAddRepoDialogTimerRef, workspaceSessionReady })
   useAppShellPageStartupEffects({ actions, keybindings, onboarding, persistedUIReady, rightSidebarOpen, setOnboarding, setOnboardingLoaded, settings, sidebarOpen, workspaceSessionReady })
-  }, [actions])
 
   useAppShellPageSessionEffects({ acknowledgedAgentsByPaneKey, actions, activeView, combinedDiffFileTreeWidth, filterRepoIds, groupBy, hideAutomationGeneratedWorkspaces, hideCliCreatedWorkspaces, hideDefaultBranchWorkspace, hideDetachedHeadWorkspaces, markdownTocPanelWidth, persistedUIReady, projectOrderBy, rightSidebarExplorerView, rightSidebarOpen, rightSidebarTab, rightSidebarWidth, settings, showDotfilesByWorktree, showSleepingWorkspaces, sidebarWidth, sortBy, workspaceSessionReady })
 
@@ -357,7 +356,6 @@ function App(): React.JSX.Element {
   }
 
   useAppShellPageShortcutEffects({ actions, activeView, activeWorktreeId, creationLayoutActive, floatingTerminalEnabled, floatingTerminalOpen, floatingVisibleTabCount, globalShortcutStateRef, isFullScreen, keybindings, leftTitlebarChromeLayout, pluginCommands, setCollapsedSidebarHeaderWidth, setFloatingTerminalOpenWithFocus, settings, showSidebar, showSleepingWorkspaces, sidebarOpen, titlebarLeftControlsRef, workspaceChromeActive })
-  ])
 
   const resolvedMountedLazyModalIds = resolveMountedLazyModalIds(activeModal, mountedLazyModalIds)
   if (resolvedMountedLazyModalIds !== mountedLazyModalIds) {
