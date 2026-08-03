@@ -27,8 +27,8 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes reviewer metadata and reviewer mutations through the task source context', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
-    const section = sourceBetween(source, 'function PRReviewersPanel', 'function isPRFileViewed')
+    const source = componentSource('github-item-dialog-reviewers.tsx')
+    const section = source.slice(source.indexOf('export function PRReviewersPanel'))
 
     expect(section).toContain('getTaskSourceRuntimeSettings(sourceContext)')
     expect(section).toContain('useRepoAssigneesBySlug(')
@@ -48,13 +48,9 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes edit metadata through the same task source as issue mutations', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
-    const section = sourceBetween(source, 'function GHEditSection', 'const hasAttachedWorkspace')
-    const helperSection = sourceBetween(
-      source,
-      'function getGitHubMutationSettings',
-      'function GitHubLabelsSettingsLink'
-    )
+    const source = componentSource('github-item-dialog-edit.tsx')
+    const section = sourceBetween(source, 'export function GHEditSection', 'export function GHCommentComposer')
+    const helperSection = componentSource('github-item-dialog-mutations.ts')
 
     expect(section).toContain('getTaskSourceRuntimeSettings(sourceContext)')
     expect(section).toContain('useRepoLabels(')
@@ -80,7 +76,7 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('uses source-aware details routing and cache identity', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
+    const source = componentSource('github-item-dialog-cache.ts')
     const cacheKeySection = sourceBetween(
       source,
       'function getWorkItemDetailsCacheKey',
@@ -92,8 +88,8 @@ describe('GitHubItemDialog source host boundaries', () => {
       'function patchCachedPRFileViewedState'
     )
 
-    expect(source).toContain('lookupGitHubWorkItemDetailsForSource({')
-    expect(source).toContain('sourceContext,')
+    expect(componentSource('github-item-dialog-surface.tsx')).toContain('lookupGitHubWorkItemDetailsForSource({')
+    expect(componentSource('github-item-dialog-surface.tsx')).toContain('sourceContext,')
     expect(cacheKeySection).toContain('sourceCacheScope')
     expect(source).toContain('getTaskSourceCacheScope(sourceContext)')
     expect(matchInvalidationSection).toContain(
@@ -102,7 +98,7 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('treats null details as unavailable while preserving empty detail payloads', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
+    const source = componentSource('github-item-dialog-surface.tsx')
     const loadedSection = sourceBetween(
       source,
       'const loading = !!cachedEntry?.pending && !cachedEntry?.details',
@@ -118,17 +114,9 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes PR file viewed mutations through the task source context', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
-    const helperSection = sourceBetween(
-      source,
-      'function setPRFileViewedForRepo',
-      'function PRViewedCheckbox'
-    )
-    const changeSection = sourceBetween(
-      source,
-      'const handlePRFileViewedChange = useCallback',
-      'const isIssuePage = workItem?.type ==='
-    )
+    const source = componentSource('github-item-dialog-cache.ts')
+    const helperSection = source.slice(source.indexOf('export function setPRFileViewedForRepo'))
+    const changeSection = componentSource('github-item-dialog-surface.tsx')
 
     expect(helperSection).toContain('getGitHubSourceRuntimeHost(args.sourceContext)')
     expect(helperSection).toContain("'github.setPRFileViewed'")
@@ -141,7 +129,7 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes comment mutations through runtime source context when needed', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
+    const source = componentSource('github-item-dialog-cache.ts')
     const helperSection = sourceBetween(
       source,
       'function addIssueCommentForRepo',
@@ -159,7 +147,7 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes PR file contents and runtime viewed invalidations through the task source context', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
+    const source = componentSource('github-item-dialog-cache.ts')
     const fileContentsSection = sourceBetween(
       source,
       'function loadPRFileContents',
@@ -188,12 +176,8 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes merge actions through the repo owner host (#6957)', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
-    const actionsSection = sourceBetween(
-      source,
-      'function PRActionsPanel',
-      'function CommentReactions'
-    )
+    const source = componentSource('github-item-dialog-actions.tsx')
+    const actionsSection = source.slice(source.indexOf('export function PRActionsPanel'))
 
     expect(actionsSection).toContain(
       'getGitHubMutationRoutingSettings(s, item.repoId ?? repoId ?? null, sourceContext)'
@@ -215,12 +199,8 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('routes check actions through the task source context', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
-    const checksSection = sourceBetween(
-      source,
-      'function ChecksTab',
-      'function getGitHubMutationSettings'
-    )
+    const source = componentSource('github-item-dialog-checks.tsx')
+    const checksSection = source.slice(source.indexOf('export function ChecksTab'))
 
     expect(checksSection).toContain('sourceContext?: TaskSourceContext | null')
     expect(checksSection).toContain('sourceContext,')
@@ -236,7 +216,7 @@ describe('GitHubItemDialog source host boundaries', () => {
   })
 
   it('uses hydrated work item details for the page checks tab', () => {
-    const source = componentSource('GitHubItemDialog.tsx')
+    const source = componentSource('github-item-dialog-surface.tsx')
     const checksTab = sourceBetween(
       source,
       '<TabsContent value="checks"',
