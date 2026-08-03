@@ -30,6 +30,11 @@ const pendingViewportSettleRefreshByTerminal = new WeakMap<
   ForegroundTerminalOutputTarget,
   { kind: 'raf'; id: number } | { kind: 'timeout'; id: ReturnType<typeof setTimeout> }
 >()
+const foregroundRenderGenerationByTerminal = new WeakMap<ForegroundTerminalOutputTarget, number>()
+
+function captureForegroundRenderGeneration(terminal: ForegroundTerminalOutputTarget): number {
+  return foregroundRenderGenerationByTerminal.get(terminal) ?? 0
+}
 
 type ViewportSnapshot = {
   baseY: number | null
@@ -161,12 +166,13 @@ export function writeForegroundTerminalChunk(
   const beforeWriteViewport = options.forceViewportRefresh
     ? captureViewportSnapshot(terminal)
     : null
+  const renderGeneration = captureForegroundRenderGeneration(terminal)
   // Why guarded steps: this callback runs inside xterm's WriteBuffer loop,
   // where an escaping throw permanently wedges the terminal (see
   // xterm-write-callback-guard.ts). Guard settle and onParsed separately so a
   // renderer/WebGL failure during settle can't starve the replay-guard release.
   const runParsedSteps = (): void => {
-    if (beforeWriteViewport) {
+    if (beforeWriteViewport && captureForegroundRenderGeneration(terminal) === renderGeneration) {
       runGuardedWriteCompletionStep('foreground-render-settle', () =>
         settleForegroundRender(terminal, beforeWriteViewport, options)
       )
@@ -190,4 +196,6 @@ export function writeForegroundTerminalChunk(
 
 export function discardForegroundRenderSettle(terminal: ForegroundTerminalOutputTarget): void {
   cancelScheduledViewportSettleRefresh(terminal)
+  // Why: xterm can invoke an already-submitted parse callback after clear; fence its repaint.
+  foregroundRenderGenerationByTerminal.set(terminal, captureForegroundRenderGeneration(terminal) + 1)
 }
