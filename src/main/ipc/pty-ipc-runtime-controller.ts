@@ -6,10 +6,15 @@ import { parseAppSshPtyId } from '../providers/ssh-pty-id'
 import { delay, verifyPtyStopped } from './pty-ipc-runtime-shutdown-state'
 import { inspectPtyProviderProcess } from '../providers/pty-process-inspection'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
+import {
+  capturePtyProviderListingTargets,
+  hasOnlyAddedPtyProviderListingTargets,
+  isCurrentPtyProviderListingTargetSet
+} from './pty-ipc-runtime-provider-routing'
 
 export function createPtyController(state: PtyRendererDeliveryContext & Record<string, any>): RuntimePtyController {
   const {
-    mainWindow, runtime, store, sshProviders, ptyOwnership, ptyIncarnationById, ptySizes, pendingPtySizes,
+    mainWindow, runtime, store, ptyOwnership, ptyIncarnationById, ptySizes, pendingPtySizes,
     getLocalPtyProviderStartupPromise, getProviderForPty, getProvider, shutdownProviderAndDetectExit,
     finishPtyShutdown, rememberSyntheticKillExit, sendPtyExitToRenderer, reversibleStopOwnersByPtyId,
     isPtyAlreadyGoneError, capturePtyShutdownTarget, isPtyShutdownTargetCurrent,
@@ -291,11 +296,26 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
     if (connectionId !== undefined) {
       return getProvider(connectionId).listProcesses()
     }
-    const providerSessions = await Promise.all([
-      ptyRuntimeState.localProvider.listProcesses(),
-      ...Array.from((sshProviders as Map<string, IPtyProvider>).values(), (provider) => provider.listProcesses())
-    ])
-    return providerSessions.flat()
+    const listAggregate = async () => {
+      const targets = capturePtyProviderListingTargets()
+      const sessions = await Promise.all(
+        targets.map(({ provider }) => provider.listProcesses())
+      )
+      return { targets, sessions }
+    }
+    let aggregate = await listAggregate()
+    const targetsAfterListing = capturePtyProviderListingTargets()
+    // Why: an empty result from a provider set that changed during the await is incomplete.
+    if (!isCurrentPtyProviderListingTargetSet(aggregate.targets)) {
+      if (!hasOnlyAddedPtyProviderListingTargets(aggregate.targets, targetsAfterListing)) {
+        throw new Error('pty_process_list_incomplete')
+      }
+      aggregate = await listAggregate()
+      if (!isCurrentPtyProviderListingTargetSet(aggregate.targets)) {
+        throw new Error('pty_process_list_incomplete')
+      }
+    }
+    return aggregate.sessions.flat()
     },
     serializeBuffer: (ptyId, opts) => {
     // Why: mobile xterm must start from the desktop's exact screen state/dimensions before live TUI chunks render correctly.

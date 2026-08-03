@@ -190,6 +190,19 @@ describe('terminal create idempotency', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
+  it('fails closed when aggregate inventory is incomplete', async () => {
+    const listProcesses = vi.fn(async (): Promise<PtyProcessInfo[]> => {
+      throw new Error('pty_process_list_incomplete')
+    })
+    const { runtime } = createRuntimeForDedupe(listProcesses)
+    const create = vi.fn<CreateRun>()
+
+    await expect(
+      runtime.dedupeTerminalCreate('device-a', 'id:worktree-1', 'mutation-1', true, create)
+    ).rejects.toThrow('runtime_unavailable')
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it('fails safely when an older provider omits identity for a live same-worktree PTY', async () => {
     const { runtime } = createRuntimeForDedupe(
       vi.fn(async () => [

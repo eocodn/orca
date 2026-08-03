@@ -493,7 +493,9 @@ describe('registerPtyHandlers', () => {
       'ssh-runtime-env',
       'ssh-generation-replacement',
       'ssh-stale-inventory',
-      'ssh-list-sessions-error'
+      'ssh-list-sessions-error',
+      'ssh-added-during-list',
+      'ssh-replaced-during-list'
     ]) {
       unregisterSshPtyProvider(leakedConnectionId)
     }
@@ -6664,6 +6666,47 @@ describe('registerPtyHandlers', () => {
     expect(sshBList).not.toHaveBeenCalled()
 
     await expect(controller.listProcesses()).rejects.toThrow('ssh-b unavailable')
+  })
+
+  it('retries the aggregate inventory when an SSH provider is added during listing', async () => {
+    const localListing = makeDeferred<{ id: string; cwd: string; title: string }[]>()
+    vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockReturnValue(localListing.promise)
+    const runtime = { setPtyController: vi.fn() }
+    handlers.clear()
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      listProcesses(connectionId?: string | null): Promise<{ id: string }[]>
+    }
+
+    const pending = controller.listProcesses()
+    const sshList = vi.fn(async () => [{ id: 'ssh-added-pty' }])
+    registerSshPtyProvider('ssh-added-during-list', { listProcesses: sshList } as never)
+    localListing.resolve([])
+
+    await expect(pending).resolves.toEqual([{ id: 'ssh-added-pty' }])
+    expect(sshList).toHaveBeenCalledOnce()
+  })
+
+  it('rejects an aggregate inventory from a replaced provider', async () => {
+    const oldListing = makeDeferred<{ id: string; cwd: string; title: string }[]>()
+    const oldList = vi.fn(() => oldListing.promise)
+    registerSshPtyProvider('ssh-replaced-during-list', { listProcesses: oldList } as never)
+    const runtime = { setPtyController: vi.fn() }
+    handlers.clear()
+    registerPtyHandlers(mainWindow as never, runtime as never)
+    const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+      listProcesses(connectionId?: string | null): Promise<{ id: string }[]>
+    }
+
+    const pending = controller.listProcesses()
+    const replacementList = vi.fn(async () => [{ id: 'replacement-pty' }])
+    registerSshPtyProvider('ssh-replaced-during-list', {
+      listProcesses: replacementList
+    } as never)
+    oldListing.resolve([{ id: 'stale-pty', cwd: '/old', title: 'shell' }])
+
+    await expect(pending).rejects.toThrow('pty_process_list_incomplete')
+    expect(replacementList).not.toHaveBeenCalled()
   })
 
   it('returns unavailable runtime confirmation for unsupported or missing providers', async () => {
