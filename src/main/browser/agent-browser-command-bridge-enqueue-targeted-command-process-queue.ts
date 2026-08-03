@@ -1,67 +1,42 @@
-import { execFile, type ChildProcess } from 'node:child_process'
-import { existsSync, accessSync, chmodSync, readFileSync, constants } from 'node:fs'
-import { join } from 'node:path'
-import { platform, arch } from 'node:os'
-import { app, type WebContents } from 'electron'
-import { CdpWsProxy } from './cdp-ws-proxy'
-import { captureFullPageScreenshot } from './cdp-screenshot'
-import { acquireElectronDebugger } from './electron-debugger-lease'
-import type { BrowserManager } from './browser-manager'
-import { BrowserError } from './cdp-bridge'
-import type {
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserSnapshotResult,
-  BrowserClickResult,
-  BrowserGotoResult,
-  BrowserFillResult,
-  BrowserTypeResult,
-  BrowserSelectResult,
-  BrowserScrollResult,
-  BrowserBackResult,
-  BrowserReloadResult,
-  BrowserScreenshotResult,
-  BrowserEvalResult,
-  BrowserHoverResult,
-  BrowserDragResult,
-  BrowserUploadResult,
-  BrowserWaitResult,
-  BrowserCheckResult,
-  BrowserFocusResult,
-  BrowserClearResult,
-  BrowserSelectAllResult,
-  BrowserKeypressResult,
-  BrowserPdfResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserCookieDeleteResult,
-  BrowserViewportResult,
-  BrowserGeolocationResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptDisableResult,
-  BrowserConsoleResult,
-  BrowserNetworkLogResult,
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCookie
-} from '../../shared/runtime-types'
-import { assertClipboardTextWriteWithinLimitWithYield } from '../../shared/clipboard-text'
-import { normalizeBrowserNavigationUrl } from '../../shared/browser-url'
-import { iterateBrowserTextInsertionChunks } from './browser-text-insertion'
 
 // Why: must exceed agent-browser's internal timeouts (goto 30s, wait 60s) so the bridge never kills a command before its own timeout fires.
 import * as foundation from './agent-browser-command-bridge-foundation'
-const { AGENT_BROWSER_CLIPBOARD_WRITE_MAX_BYTES, AGENT_BROWSER_TEXT_ARGUMENT_MAX_BYTES, CONSECUTIVE_TIMEOUT_LIMIT, EMBEDDED_NAVIGATION_TIMEOUT_MS, EXEC_TIMEOUT_MS, STALE_SESSION_CLOSE_TIMEOUT_MS, WAIT_PROCESS_TIMEOUT_GRACE_MS, agentBrowserNativeName, cdpMouseButtonMask, cdpMouseModifierMask, classifyErrorCode, focusedRichTextEditExpression, focusedValueSetExpression, isAbortedNavigationError, isExplicitContentEditableResult, isTabClosedTransportError, isWebContentsLoading, mobileTouchClickExpression, normalizeCdpMouseButton, pageUnavailableMessageForSession, parseShellArgs, readClickPoint, resolveAgentBrowserBinary, resolveMobileTouchClickPoint, stripAgentBrowserTargetArgs, translateResult, waitForAbortedNavigationReplacement } = foundation
-type AgentBrowserBridgeOptions = foundation.AgentBrowserBridgeOptions
-type AgentBrowserExecOptions = foundation.AgentBrowserExecOptions
-type BrowserClickPoint = foundation.BrowserClickPoint
-type BrowserMouseModifier = foundation.BrowserMouseModifier
-type CdpMouseButton = foundation.CdpMouseButton
 type EnqueueTargetedCommandOptions = foundation.EnqueueTargetedCommandOptions
 type QueuedCommand = foundation.QueuedCommand
 type ResolvedBrowserCommandTarget = foundation.ResolvedBrowserCommandTarget
-type SessionState = foundation.SessionState
+
+type QueueProcessor = {
+  generation: number
+  queue: QueuedCommand[]
+  promise: Promise<void>
+}
+
+// Why: session destruction clears public queue state while the old command may still be awaiting its child.
+const sessionGenerations = new WeakMap<object, Map<string, number>>()
+const queueProcessors = new WeakMap<object, Map<string, QueueProcessor>>()
+
+function getSessionGeneration(bridge: object, sessionName: string): number {
+  let generations = sessionGenerations.get(bridge)
+  if (!generations) {
+    generations = new Map()
+    sessionGenerations.set(bridge, generations)
+  }
+  return generations.get(sessionName) ?? 0
+}
+
+export function advanceSessionGeneration(bridge: object, sessionName: string): void {
+  const nextGeneration = getSessionGeneration(bridge, sessionName) + 1
+  sessionGenerations.get(bridge)!.set(sessionName, nextGeneration)
+}
+
+function getQueueProcessors(bridge: object): Map<string, QueueProcessor> {
+  let processors = queueProcessors.get(bridge)
+  if (!processors) {
+    processors = new Map()
+    queueProcessors.set(bridge, processors)
+  }
+  return processors
+}
 
 export const AgentBrowserBridgeMethods21 = {
   async enqueueTargetedCommand<T>(this: any,
@@ -97,7 +72,7 @@ export const AgentBrowserBridgeMethods21 = {
       })
       this.processQueue(sessionName)
     })
-  }
+  },
   async executeWithVisibleTarget<T>(this: any,
     sessionName: string,
     worktreeId: string | undefined,
@@ -122,7 +97,7 @@ export const AgentBrowserBridgeMethods21 = {
     } finally {
       restore()
     }
-  }
+  },
   async refreshTargetAfterAutomationVisibility(this: any,
     sessionName: string,
     worktreeId: string | undefined,
@@ -150,28 +125,58 @@ export const AgentBrowserBridgeMethods21 = {
     )
 
     return visibleTarget
-  }
+  },
   async processQueue(this: any, sessionName: string): Promise<void> {
-    if (this.processingQueues.has(sessionName)) {
+    const queue = this.commandQueues.get(sessionName)
+    if (!queue) {
       return
     }
+
+    const generation = getSessionGeneration(this, sessionName)
+    const processors = getQueueProcessors(this)
+    const activeProcessor = processors.get(sessionName)
+    if (activeProcessor) {
+      if (activeProcessor.queue === queue && activeProcessor.generation === generation) {
+        return
+      }
+      await activeProcessor.promise
+      return this.processQueue(sessionName)
+    }
+
+    const promise = Promise.resolve().then(async () => {
+      while (
+        queue.length > 0 &&
+        this.commandQueues.get(sessionName) === queue &&
+        getSessionGeneration(this, sessionName) === generation
+      ) {
+        const cmd = queue.shift()!
+        try {
+          const result = await cmd.execute()
+          cmd.resolve(result)
+        } catch (error) {
+          cmd.reject(error)
+        }
+      }
+
+      if (queue.length === 0 && this.commandQueues.get(sessionName) === queue) {
+        this.commandQueues.delete(sessionName)
+      }
+    })
+    const processor: QueueProcessor = { generation, queue, promise }
+    processors.set(sessionName, processor)
     this.processingQueues.add(sessionName)
 
-    const queue = this.commandQueues.get(sessionName)
-    while (queue && queue.length > 0) {
-      const cmd = queue.shift()!
-      try {
-        const result = await cmd.execute()
-        cmd.resolve(result)
-      } catch (error) {
-        cmd.reject(error)
+    try {
+      await promise
+    } finally {
+      if (processors.get(sessionName) === processor) {
+        processors.delete(sessionName)
+        this.processingQueues.delete(sessionName)
+        if (queue.length > 0 && this.commandQueues.get(sessionName) === queue) {
+          void this.processQueue(sessionName)
+        }
       }
     }
-
-    if (queue && queue.length === 0 && this.commandQueues.get(sessionName) === queue) {
-      this.commandQueues.delete(sessionName)
-    }
-    this.processingQueues.delete(sessionName)
   }
 }
 export type AgentBrowserBridgeMethods21Surface = typeof AgentBrowserBridgeMethods21

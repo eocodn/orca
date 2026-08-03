@@ -1309,6 +1309,54 @@ describe('AgentBrowserBridge', () => {
     await destroyPromise
   })
 
+  it('does not run a recreated session command until the old queue processor exits', async () => {
+    succeedWith({ snapshot: 'initial' })
+    await bridge.snapshot()
+    execFileMock.mockClear()
+
+    const commandCalls: string[][] = []
+    const killedError = Object.assign(new Error('killed'), { killed: true })
+    let releaseRunningCommand: (() => void) | null = null
+    const activeChild = { kill: vi.fn() }
+    execFileMock.mockImplementation(
+      (_bin: string, args: string[], _opts: unknown, cb: ExecFileCallback) => {
+        commandCalls.push(args)
+        if (args.includes('snapshot') && !releaseRunningCommand) {
+          releaseRunningCommand = () => cb(killedError, '', '')
+          return activeChild
+        }
+        cb(null, JSON.stringify({ success: true, data: { snapshot: 'fresh' } }), '')
+        return { kill: vi.fn() }
+      }
+    )
+
+    const runningSnapshot = bridge.snapshot()
+    await vi.waitFor(() => {
+      expect(releaseRunningCommand).not.toBeNull()
+    })
+
+    const destroyPromise = (
+      bridge as unknown as { destroySession: (name: string) => Promise<void> }
+    ).destroySession('orca-tab-tab-1')
+    const recreatedSnapshot = bridge.snapshot()
+
+    await destroyPromise
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(commandCalls.filter((args) => args.includes('snapshot'))).toHaveLength(1)
+
+    releaseRunningCommand!()
+    await expect(runningSnapshot).rejects.toMatchObject({
+      code: 'browser_tab_closed',
+      message: 'Tab was closed while command was running'
+    })
+    await expect(recreatedSnapshot).resolves.toEqual({
+      browserPageId: 'tab-1',
+      snapshot: 'fresh'
+    })
+  })
+
   // ── Process swap ──
 
   it('destroys session on process swap and re-inits with --cdp', async () => {
