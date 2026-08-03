@@ -1,71 +1,41 @@
-import { ipcMain, powerMonitor, type BrowserWindow } from 'electron'
-import { appendFileSync } from 'node:fs'
-import type { Store } from '../persistence'
-import { SshConnectionStore } from '../ssh/ssh-connection-store'
 import type { SshConnectionCallbacks } from '../ssh/ssh-connection'
-import { SshConnectionManager } from '../ssh/ssh-connection-manager'
-import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
-import { SshRelaySession, type SshRelayAiVaultHostInfo } from '../ssh/ssh-relay-session'
-import { SshPortForwardManager } from '../ssh/ssh-port-forward'
 import type {
   DetectedPort,
-  EnrichedDetectedPort,
-  SavedPortForward,
-  SshRepoReadoption,
-  SshTarget,
-  SshConnectionStatus,
-  SshConnectionState,
-  DirectSshAuthority
+  SshConnectionState
 } from '../../shared/ssh-types'
-import { SSH_TERMINATE_RECONNECT_REQUIRED } from '../../shared/constants'
-import { isRuntimeOwnedSshTargetId } from '../../shared/execution-host'
-import { isAuthError } from '../ssh/ssh-connection-utils'
-import { forceStopRelayForTarget } from '../ssh/ssh-relay-reset'
-import { isSshPtyNotFoundError } from '../providers/ssh-pty-errors'
-import { toAppSshPtyId, toRelaySshPtyId } from '../providers/ssh-pty-id'
-import { registerSshBrowseHandler } from './ssh-browse'
+import type { SshRelaySession } from '../ssh/ssh-relay-session'
+import { requestCredential } from './ssh-passphrase'
 import {
-  getConnectionIdsForWorktree,
-  enrichSshDetectedPorts,
-  enrichSshForwardEntries,
-  getWorktreeIdsForConnection
-} from '../ports/ssh-advertised-url-enrichment'
-import { advertisedUrlWatcher } from '../ports/advertised-url-watcher'
-import { requestCredential, registerCredentialHandler } from './ssh-passphrase'
-import {
-  clearProviderPtyState,
-  deletePtyOwnership,
-  getPtyIdsForConnection,
-  getSshPtyProvider
-} from './pty'
-import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import {
-  initializeSshConnectionGenerationSession,
-  resetSshConnectionGenerations
-} from '../ssh/ssh-connection-generation'
-import {
-  getSshProviderAuthority,
-  isCurrentSshProviderAuthority,
-  resetSshProviderAuthorities,
-  rotateSshProviderAuthority
-} from '../ssh/ssh-provider-authority'
-
-import { publishRelayOverride,
+  activeSessions,
+  clearRelayLostBackoff,
   clearRelayStateOverride,
-  connectionSupportsFolderDownload,
-  getPublicSshState,
-  broadcastPortForwards,
+  connectInFlight,
+  connectionManager,
+  credentialRequestedForTarget,
+  currentRuntime,
+  getCurrentMainWindow,
+  pendingTransportReconnects,
+  persistedStore,
+  portForwardManager,
+  relayLostBackoff,
+  relayStateOverrides,
+  relayGracePeriodForTarget,
+  RELAY_LOST_BASE_DELAY_MS,
+  RELAY_LOST_MAX_ATTEMPTS,
+  RELAY_LOST_MAX_DELAY_MS,
+  RELAY_LOST_STABILIZED_MS,
+  sshStore,
+  testingTargets,
+  broadcastSshState
+} from './ssh-ipc-foundation'
+import { rotateSshProviderAuthority } from '../ssh/ssh-provider-authority'
+
+import {
   broadcastDetectedPorts,
-  listForwardsEnriched,
-  enrichDetected,
-  persistPortForwards,
-  persistPortForwardsWithUnrestored,
-  restorePortForwards,
-  registerAdvertisedUrlRefresh,
-  RESUME_PROBE_TIMEOUT_MS,
-  RESUME_PROBE_ATTEMPTS,
-  isRelayLinkAliveAfterResume,
-  registerPowerMonitorReconnect } from './ssh-ipc-connections'
+  connectionSupportsFolderDownload,
+  publishRelayOverride,
+  restorePortForwards
+} from './ssh-ipc-connections'
 export { publishRelayOverride,
   clearRelayStateOverride,
   connectionSupportsFolderDownload,
@@ -310,4 +280,3 @@ export function refreshActiveRelaySessions(): void {
     configureRelaySessionCallbacks(session)
   }
 }
-
