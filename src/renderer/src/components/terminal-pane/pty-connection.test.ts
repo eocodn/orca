@@ -11313,6 +11313,36 @@ describe('connectPanePty', () => {
       _resetTerminalPaneRecoveryForTests()
     })
 
+    it('retries certified-dead recovery when the first remount is unavailable', async () => {
+      enableMainAuthority()
+      const remountTerminalTabForRecovery = vi
+        .fn<(tabId: string) => boolean>()
+        .mockReturnValueOnce(false)
+        .mockReturnValue(true)
+      mockStoreState = { ...mockStoreState, remountTerminalTabForRecovery } as StoreState
+      const { _resetTerminalPaneRecoveryForTests } = await import('./terminal-pane-recovery')
+      _resetTerminalPaneRecoveryForTests()
+      const { pane, binding } = await connectHiddenPane(
+        createDeps({ isVisibleRef: { current: false } })
+      )
+      vi.useFakeTimers()
+
+      try {
+        const { notifyUndeliverableWrite } =
+          await import('@/lib/pane-manager/terminal-write-pipeline-health')
+        notifyUndeliverableWrite(pane.terminal, 'write-stalled')
+        await flushAsyncTicks(4)
+        expect(remountTerminalTabForRecovery).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(15_000)
+        expect(remountTerminalTabForRecovery).toHaveBeenCalledTimes(2)
+      } finally {
+        binding.dispose()
+        _resetTerminalPaneRecoveryForTests()
+        vi.useRealTimers()
+      }
+    })
+
     it('unregisters the certification handler when the pane is disposed', async () => {
       enableMainAuthority()
       const remountTerminalTabForRecovery = vi.fn<(tabId: string) => boolean>(() => true)
@@ -11354,7 +11384,7 @@ describe('connectPanePty', () => {
 
       dataCallback('hidden output\r\n', { seq: 16, rawLength: 16 })
 
-      // Pipeline dies while hidden; certification-time recovery finds no remountable tab (budget unconsumed, no retry timer).
+      // Pipeline dies while hidden; certification-time recovery finds no remountable tab but leaves a bounded retry.
       remountTerminalTabForRecovery.mockReturnValueOnce(false)
       const ackCredit = vi.fn()
       const { writeTerminalOutput } =

@@ -447,6 +447,7 @@ describe('requestTerminalPaneRecovery', () => {
     // Regression: recovery fires from stall-watch timers and write callbacks;
     // an environment with a partial store (mocked suites, teardown races) must
     // get a false return, not an unhandled TypeError.
+    vi.useFakeTimers()
     mocks.remountTerminalTabForRecovery.mockImplementation(() => {
       throw new TypeError('remountTerminalTabForRecovery is not a function')
     })
@@ -454,12 +455,92 @@ describe('requestTerminalPaneRecovery', () => {
     await expect(
       requestTerminalPaneRecovery({ tabId: 'tab-1', ptyId: 'pty-1', reason: 'write-stalled' })
     ).resolves.toBe(false)
-    // The failure must leave a trace — it is the only forensic signal for a
-    // production remount-failure loop (budget unconsumed → cooldown retries).
+    // The failure and its scheduled retry must remain observable for a
+    // production remount-failure loop.
     expect(mocks.recordRendererCrashBreadcrumb).toHaveBeenCalledWith(
       'terminal_pane_recovery_failed',
       { tabId: 'tab-1', reason: 'write-stalled' }
     )
+  })
+
+  it('retries a thrown remount and records the retry lifecycle', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const instance = registerTerminalPaneRecoveryInstance('tab-1')
+    mocks.remountTerminalTabForRecovery
+      .mockImplementationOnce(() => {
+        throw new TypeError('remount surface unavailable')
+      })
+      .mockReturnValue(true)
+
+    await expect(
+      requestTerminalPaneRecovery({
+        tabId: 'tab-1',
+        ptyId: 'pty-1',
+        reason: 'write-stalled',
+        terminalRecoveryGeneration: captureTerminalPaneRecoveryGeneration('tab-1'),
+        terminalRecoveryInstanceId: instance.id
+      })
+    ).resolves.toBe(false)
+
+    expect(mocks.recordRendererCrashBreadcrumb).toHaveBeenCalledWith(
+      'terminal_pane_recovery_retry_scheduled',
+      { tabId: 'tab-1', reason: 'write-stalled', attempt: 1 }
+    )
+    await vi.advanceTimersByTimeAsync(15_000)
+
+    expect(mocks.remountTerminalTabForRecovery).toHaveBeenCalledTimes(2)
+    expect(mocks.recordRendererCrashBreadcrumb).toHaveBeenCalledWith(
+      'terminal_pane_recovery_remount',
+      { tabId: 'tab-1', reason: 'write-stalled' }
+    )
+    instance.unregister()
+  })
+
+  it('retries a false remount result with a bounded observable budget', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const instance = registerTerminalPaneRecoveryInstance('tab-1')
+    mocks.remountTerminalTabForRecovery.mockReturnValue(false)
+
+    await requestTerminalPaneRecovery({
+      tabId: 'tab-1',
+      ptyId: 'pty-1',
+      reason: 'restore-blocked',
+      terminalRecoveryGeneration: captureTerminalPaneRecoveryGeneration('tab-1'),
+      terminalRecoveryInstanceId: instance.id
+    })
+    await vi.advanceTimersByTimeAsync(15_000 * 3)
+
+    expect(mocks.remountTerminalTabForRecovery).toHaveBeenCalledTimes(4)
+    expect(mocks.recordRendererCrashBreadcrumb).toHaveBeenCalledTimes(8)
+    expect(mocks.recordRendererCrashBreadcrumb).toHaveBeenLastCalledWith(
+      'terminal_pane_recovery_retry_exhausted',
+      { tabId: 'tab-1', reason: 'restore-blocked', attempt: 3 }
+    )
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(mocks.remountTerminalTabForRecovery).toHaveBeenCalledTimes(4)
+    instance.unregister()
+  })
+
+  it('cancels a failed recovery retry when its pane instance is disposed', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const instance = registerTerminalPaneRecoveryInstance('tab-1')
+    mocks.remountTerminalTabForRecovery.mockReturnValue(false)
+
+    await requestTerminalPaneRecovery({
+      tabId: 'tab-1',
+      ptyId: 'pty-1',
+      reason: 'write-stalled',
+      terminalRecoveryGeneration: captureTerminalPaneRecoveryGeneration('tab-1'),
+      terminalRecoveryInstanceId: instance.id
+    })
+    instance.unregister()
+    await vi.advanceTimersByTimeAsync(15_000 * 4)
+
+    expect(mocks.remountTerminalTabForRecovery).toHaveBeenCalledTimes(1)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('does not consume budget when the tab no longer exists', async () => {

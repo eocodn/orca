@@ -51,6 +51,9 @@ type RecoveryRequest = {
 // bumps would remount-storm. The window is generous because a legitimate
 // second recovery (new wedge minutes later) should still work.
 const MAX_RECOVERIES_PER_WINDOW = 3
+// Failed remounts need another chance, but a permanently unavailable store or
+// tab must not leave a timer alive forever.
+const MAX_RECOVERY_RETRIES_AFTER_FAILURE = 3
 const RECOVERY_WINDOW_MS = 5 * 60_000
 // Why a cooldown exists: one incident can trip several detectors (stall watch,
 // replay guard, input path) within seconds; the first remount fixes all of
@@ -60,6 +63,7 @@ const RECOVERY_COOLDOWN_MS = 15_000
 const recoveryTimestampsByTabId = new Map<string, number[]>()
 const recoveryGenerationByTabId = new Map<string, number>()
 const activeTerminalRecoveryInstanceIds = new Set<number>()
+const recoveryInstanceIdsByTabId = new Map<string, Set<number>>()
 const pendingRetryByTabId = new Map<
   string,
   {
@@ -67,6 +71,7 @@ const pendingRetryByTabId = new Map<
     requestsByInstanceId: Map<number | undefined, RecoveryRequest>
   }
 >()
+const failedRecoveryRetryAttemptsByTabId = new Map<string, number>()
 let nextTerminalRecoveryInstanceId = 0
 
 type RecoveryBudget =
@@ -108,14 +113,26 @@ export function registerTerminalPaneRecoveryInstance(tabId: string): {
 } {
   const id = ++nextTerminalRecoveryInstanceId
   activeTerminalRecoveryInstanceIds.add(id)
+  const instanceIds = recoveryInstanceIdsByTabId.get(tabId) ?? new Set<number>()
+  instanceIds.add(id)
+  recoveryInstanceIdsByTabId.set(tabId, instanceIds)
   return {
     id,
     unregister: () => {
       activeTerminalRecoveryInstanceIds.delete(id)
+      const instanceIds = recoveryInstanceIdsByTabId.get(tabId)
+      instanceIds?.delete(id)
+      if (instanceIds?.size === 0) {
+        recoveryInstanceIdsByTabId.delete(tabId)
+      }
       const pendingRetry = pendingRetryByTabId.get(tabId)
       pendingRetry?.requestsByInstanceId.delete(id)
-      if (pendingRetry?.requestsByInstanceId.size === 0) {
+      if (
+        (pendingRetry === undefined || pendingRetry.requestsByInstanceId.size === 0) &&
+        !recoveryInstanceIdsByTabId.has(tabId)
+      ) {
         cancelPendingRecoveryRetry(tabId)
+        failedRecoveryRetryAttemptsByTabId.delete(tabId)
       }
     }
   }
@@ -142,6 +159,22 @@ function scheduleRecoveryRetry(request: RecoveryRequest, delayMs: number): void 
     pendingRetry.requestsByInstanceId.set(request.terminalRecoveryInstanceId, request)
     return
   }
+  const previousAttempts = failedRecoveryRetryAttemptsByTabId.get(request.tabId) ?? 0
+  if (previousAttempts >= MAX_RECOVERY_RETRIES_AFTER_FAILURE) {
+    recordRendererCrashBreadcrumb('terminal_pane_recovery_retry_exhausted', {
+      tabId: request.tabId,
+      reason: request.reason,
+      attempt: previousAttempts
+    })
+    return
+  }
+  const attempt = previousAttempts + 1
+  failedRecoveryRetryAttemptsByTabId.set(request.tabId, attempt)
+  recordRendererCrashBreadcrumb('terminal_pane_recovery_retry_scheduled', {
+    tabId: request.tabId,
+    reason: request.reason,
+    attempt
+  })
   const requestsByInstanceId = new Map<number | undefined, RecoveryRequest>([
     [request.terminalRecoveryInstanceId, request]
   ])
@@ -152,6 +185,7 @@ function scheduleRecoveryRetry(request: RecoveryRequest, delayMs: number): void 
         isCurrentTerminalRecoveryRequest
       )
       if (currentRequests.length === 0) {
+        failedRecoveryRetryAttemptsByTabId.delete(request.tabId)
         return
       }
       // Why: one split's liveness probe may fail or never settle while a
@@ -242,23 +276,24 @@ export async function requestTerminalPaneRecovery(request: RecoveryRequest): Pro
     // Why: recovery fires from timer and write-callback contexts (stall watch,
     // replay guard, onData) — it is best-effort by contract and must never
     // surface a throw there (partial store surfaces in tests, teardown races).
-    // The breadcrumb is the only trace of a production failure loop here: the
-    // budget was not consumed, so the detector will retry each cooldown.
+    // The budget is not consumed until a remount succeeds, so the bounded
+    // retry below can recover after a transient store/teardown race.
     // recordRendererCrashBreadcrumb is itself guarded and cannot throw.
     recordRendererCrashBreadcrumb('terminal_pane_recovery_failed', {
       tabId: request.tabId,
       reason: request.reason
     })
+    scheduleRecoveryRetry(request, RECOVERY_COOLDOWN_MS)
     return false
   }
   if (!remounted) {
-    // Why: this was the one silent outcome — the tab is gone from the store
-    // (closed/orphaned), so retrying is pointless, but the trace must show
-    // that a certified-dead pane asked for recovery and none happened.
+    // Why: a false result can be a transient store/teardown race as well as a
+    // closed tab, so keep the outcome observable and give it bounded retries.
     recordRendererCrashBreadcrumb('terminal_pane_recovery_remount_unavailable', {
       tabId: request.tabId,
       reason: request.reason
     })
+    scheduleRecoveryRetry(request, RECOVERY_COOLDOWN_MS)
     return false
   }
   const timestamps = recoveryTimestampsByTabId.get(request.tabId) ?? []
@@ -268,6 +303,7 @@ export async function requestTerminalPaneRecovery(request: RecoveryRequest): Pro
     request.tabId,
     captureTerminalPaneRecoveryGeneration(request.tabId) + 1
   )
+  failedRecoveryRetryAttemptsByTabId.delete(request.tabId)
   // A remount replaces every pane xterm in the tab; a previously scheduled
   // retry would only re-remount the fresh, healthy panes.
   cancelPendingRecoveryRetry(request.tabId)
@@ -293,10 +329,12 @@ export function _resetTerminalPaneRecoveryForTests(): void {
   recoveryTimestampsByTabId.clear()
   recoveryGenerationByTabId.clear()
   activeTerminalRecoveryInstanceIds.clear()
+  recoveryInstanceIdsByTabId.clear()
   nextTerminalRecoveryInstanceId = 0
   for (const pendingRetry of pendingRetryByTabId.values()) {
     clearTimeout(pendingRetry.timer)
   }
   pendingRetryByTabId.clear()
+  failedRecoveryRetryAttemptsByTabId.clear()
   _resetTerminalInputQuarantineForTests()
 }
