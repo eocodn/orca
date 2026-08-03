@@ -15,12 +15,12 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
     ptyIncarnationById, snapshotPtyCleanupAuthority, assertPtyCleanupComplete, assertSpawnReplyWasLive,
     stagePtyIncarnation, tryGetProviderForAgentSessionOwner, isProviderAgentSessionOwnerLive,
     commitPtyIncarnation, ptyOwnership, registerPty,
-    ptySizes, pendingPtySizes, snapshotPtyPublication, getSettings, track,
+    ptySizes, pendingPtySizes, snapshotPtyPublication, restorePtyPublicationIfCurrent, getSettings, track,
     isNativeWindowsLocalPtySpawn, markNativeWindowsConptyPty, getRelayPtyId,
     toSshExecutionHostId, isValidTerminalTabId, isTerminalLeafId, recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty, pendingByPaneKey, rendererSerializerReadiness, pendingPtyIdBySerializerGeneration,
     resolvePaneSpawnReservation, cleanUpFailedFreshSpawn, rejectPaneSpawnReservation, rollbackPtyIncarnation,
-    clearProviderPtyState, deletePtyOwnership, restorePtyPublication, normalizeNodePtySpawnError,
+    clearProviderPtyState, deletePtyOwnership, normalizeNodePtySpawnError,
     isSshPtyIdentityMismatchError, store, markClaudePtySpawned,
     getCohortAtEmit, agentKindSchema, launchSourceSchema, requestKindSchema, createTerminalSessionStateSaveFailureMessage,
     sendPtySpawnedToRenderer,
@@ -46,6 +46,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
     let pendingRegistrationPtyId: string | null = null
     let preparedProvisionalExecutionContext = false
     let bindingRollbackReceipt: BindingRollbackReceipt | null = null
+    let failedPublicationStateToken: symbol | undefined
     let releaseWorktreeSpawn: (() => void) | undefined
     try {
       releaseWorktreeSpawn = await runtime?.acquireWorktreeTerminalSpawn?.(args.worktreeId)
@@ -177,6 +178,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
         )
         result.incarnationId ??= preparedIncarnation ?? undefined
         stagePtyIncarnation(result.id, result.incarnationId)
+        failedPublicationStateToken = snapshotPtyPublication(result.id).stateToken
         if (result.providerSequence) {
           runtime?.synchronizePtyOutputSequenceFromProvider?.(
             result.id,
@@ -246,7 +248,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
           clearProviderPtyState(sessionId)
         }
         if (!rawMessage.includes(SSH_SESSION_EXPIRED_ERROR) && publicationSnapshot) {
-          restorePtyPublication(publicationSnapshot)
+          restorePtyPublicationIfCurrent(publicationSnapshot, failedPublicationStateToken)
         }
         throw spawnError
       } finally {
@@ -446,7 +448,10 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
           if (rejectedRegistrationCandidate.isReattach) {
             pendingPtySizes.delete(rejectedRegistrationCandidate.id)
             if (publicationSnapshot) {
-              restorePtyPublication(publicationSnapshot)
+              restorePtyPublicationIfCurrent(
+                publicationSnapshot,
+                failedPublicationStateToken
+              )
             }
           } else {
             await cleanUpFailedFreshSpawn(

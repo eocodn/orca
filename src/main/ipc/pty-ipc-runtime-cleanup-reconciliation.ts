@@ -519,3 +519,18 @@ export function restorePtyPublication(snapshot: PtyPublicationSnapshot): void {
     ptyRuntimeState.ptySizes.delete(snapshot.id)
   }
 }
+
+export function restorePtyPublicationIfCurrent(
+  snapshot: PtyPublicationSnapshot,
+  expectedStateToken = snapshot.stateToken
+): boolean {
+  // Why: provider.spawn is awaited, so the lifecycle token fences stale restoration from same-id replacements.
+  if (
+    expectedStateToken !== undefined &&
+    ptyRuntimeState.ptyStateTokenById.get(snapshot.id) !== expectedStateToken
+  ) {
+    return false
+  }
+  restorePtyPublication(snapshot)
+  return true
+}

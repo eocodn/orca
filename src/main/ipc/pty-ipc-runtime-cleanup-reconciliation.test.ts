@@ -72,6 +72,25 @@ describe('pty publication cleanup reconciliation', () => {
     expect(ptyRuntimeState.paneKeyPtyId.get(OLD_PANE_KEY)).toBe(NEWER_PTY_ID)
   })
 
+  it('does not restore a pre-await snapshot over a same-id replacement', async () => {
+    const { restorePtyPublicationIfCurrent, snapshotPtyPublication } = await import(
+      './pty-ipc-runtime-cleanup-reconciliation'
+    )
+    rememberPaneKeyForPty(PTY_ID, OLD_PANE_KEY)
+    const snapshot = snapshotPtyPublication(PTY_ID)
+    const replacementToken = Symbol('replacement-state')
+
+    await Promise.resolve()
+    ptyRuntimeState.ptyIncarnationById.set(PTY_ID, 'replacement-incarnation')
+    ptyRuntimeState.ptyStateTokenById.set(PTY_ID, replacementToken)
+    ptyRuntimeState.ptyOwnership.set(PTY_ID, 'replacement-connection')
+
+    expect(restorePtyPublicationIfCurrent(snapshot)).toBe(false)
+    expect(ptyRuntimeState.ptyIncarnationById.get(PTY_ID)).toBe('replacement-incarnation')
+    expect(ptyRuntimeState.ptyStateTokenById.get(PTY_ID)).toBe(replacementToken)
+    expect(ptyRuntimeState.ptyOwnership.get(PTY_ID)).toBe('replacement-connection')
+  })
+
   it('preserves a newer state token when a failed snapshot shares the replacement incarnation', async () => {
     const { clearSupersededPtyLifecycle } = await import(
       './pty-ipc-runtime-cleanup-reconciliation'

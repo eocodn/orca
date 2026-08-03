@@ -19,7 +19,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
     getRelayPtyId,
     assertPtyCleanupComplete, assertSpawnReplyWasLive, stagePtyIncarnation,
     rollbackPtyIncarnation, commitPtyIncarnation, clearProviderPtyState, deletePtyOwnership,
-    snapshotPtyCleanupAuthority, snapshotPtyPublication, restorePtyPublication,
+    snapshotPtyCleanupAuthority, snapshotPtyPublication, restorePtyPublicationIfCurrent,
     registerPty, recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty, pendingByPaneKey, pendingPtyIdBySerializerGeneration,
     rendererSerializerReadiness, sendPtySpawnedToRenderer, resolvePaneSpawnReservation,
@@ -53,6 +53,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
     let pendingRegistrationPtyId: string | null = null
     let preparedProvisionalExecutionContext = false
     let bindingRollbackReceipt: BindingRollbackReceipt | null = null
+    let failedPublicationStateToken: symbol | undefined
     let releaseWorktreeSpawn: (() => void) | undefined
     try {
       releaseWorktreeSpawn = await runtime?.acquireWorktreeTerminalSpawn?.(args.worktreeId)
@@ -101,6 +102,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
         )
         result.incarnationId ??= preparedIncarnation ?? undefined
         stagePtyIncarnation(result.id, result.incarnationId)
+        failedPublicationStateToken = snapshotPtyPublication(result.id).stateToken
         if (result.providerSequence) {
           runtime?.synchronizePtyOutputSequenceFromProvider?.(
             result.id,
@@ -195,7 +197,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
           })
         }
         if (!rawMessage.includes(SSH_SESSION_EXPIRED_ERROR) && publicationSnapshot) {
-          restorePtyPublication(publicationSnapshot)
+          restorePtyPublicationIfCurrent(publicationSnapshot, failedPublicationStateToken)
         }
         throw spawnError
       } finally {
@@ -470,7 +472,10 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
           if (rejectedRegistrationCandidate.isReattach) {
             pendingPtySizes.delete(rejectedRegistrationCandidate.id)
             if (publicationSnapshot) {
-              restorePtyPublication(publicationSnapshot)
+              restorePtyPublicationIfCurrent(
+                publicationSnapshot,
+                failedPublicationStateToken
+              )
             }
           } else {
             await cleanUpFailedFreshSpawn(

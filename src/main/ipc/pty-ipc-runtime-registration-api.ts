@@ -50,6 +50,7 @@ import {
   snapshotPtyCleanupAuthority,
   snapshotPtyPublication,
   restorePtyPublication,
+  restorePtyPublicationIfCurrent,
   setPendingPtyCleanupForResult
 } from './pty-ipc-runtime-cleanup-reconciliation'
 import {
@@ -172,6 +173,7 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     snapshotPtyCleanupAuthority,
     snapshotPtyPublication,
     restorePtyPublication,
+    restorePtyPublicationIfCurrent,
     setPendingPtyCleanupForResult,
     deletePendingPtyCleanupExact,
     consumePendingPtyCleanupIfExact,
