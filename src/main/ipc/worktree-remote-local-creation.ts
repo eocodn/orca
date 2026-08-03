@@ -12,54 +12,22 @@ import type {
 } from '../../shared/types'
 import { getPRForBranch } from '../github/client'
 import { listWorktrees } from '../git/worktree'
-import {
-  getBranchConflictKind,
-  resolveDefaultBaseRefViaExec,
-  resolveDefaultBaseRefWithLocalGit
-} from '../git/repo'
-import { resolveLocalGitUsername, getSshGitUsername } from '../git/git-username'
-import { hasCommitObjectViaGitExec } from '../git/commit-object-ref'
-import { resolveWorktreeCreateBase } from '../worktree-create-base'
-import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-import { getHostedReviewForBranch } from '../source-control/hosted-review'
-import type { ForgeProviderId } from '../source-control/forge-provider'
-import { validateGitPushTarget } from '../git/push-target-validation'
-import { assertGitPushTargetShape } from '../../shared/git-push-target-validation'
-import { gitExecFileAsync } from '../git/runner'
-import { parseGitHubOwnerRepo } from '../github/gh-utils'
 import type {
-  OrcaRuntimeService,
-  RemoteFetchResult,
-  RemoteTrackingBase
+  OrcaRuntimeService
 } from '../runtime/orca-runtime'
 import { getProjectHostSetupWorktreeMeta } from '../../shared/project-host-setup-projection'
 import {
-  buildPosixRunnerScript,
-  buildWindowsRunnerScript,
   createSetupRunnerScript,
   getDefaultTabsLaunch,
-  getEffectiveHooks,
   getEffectiveHooksFromConfig,
-  getSetupRunnerEnvVars,
   loadHooks,
-  parseOrcaYaml,
   shouldRunSetupForCreate
 } from '../hooks'
-import { requireSshGitProvider } from '../providers/ssh-git-dispatch'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import type { SshGitProvider } from '../providers/ssh-git-provider'
-import { TUI_AGENT_CONFIG, isTuiAgent } from '../../shared/tui-agent-config'
-import { isWindowsAbsolutePathLike } from '../../shared/cross-platform-path'
-import { runWorktreeChangeInvalidators } from './worktree-change-invalidators'
-import {
-  registerOptionalSshWorktreeCreateRoots,
-  registerRequiredSshWorktreeCreateRoots
-} from './ssh-worktree-create-root-registration'
+import { isTuiAgent } from '../../shared/tui-agent-config'
 
 import { type CreateWorktreeArgsWithSystemProvenance } from './worktree-remote-context'
-import { type StagedStartupResult } from './worktree-remote-context'
 import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals, resolveCreateBranchName } from './worktree-remote-base'
-import { canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
+import { canCheckoutExistingLocalBranch, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
 import { prepareWorktreePushTarget, configureCreatedWorktreePushTarget } from './worktree-remote-push'
 import { notifyWorktreesChanged, emitCreateWorktreeProgress } from './worktree-remote-events'
 import { prepareLocalWorktreeCreation } from './worktree-remote-local-preparation'
@@ -67,7 +35,6 @@ import {
   computeWorktreePath,
   ensurePathWithinWorkspace,
   getWorktreeCreationLayout,
-  getWorktreePathSettings,
   mergeWorktree,
   shouldSetDisplayName
 } from './worktree-logic'
