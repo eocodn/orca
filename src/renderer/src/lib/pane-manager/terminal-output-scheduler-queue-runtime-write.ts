@@ -74,7 +74,11 @@ export function composeParsedCallback(
     } finally {
       ackCreditsParsed?.()
       pacer?.()
-      settleTerminalWriteStallWatch(terminal)
+      // Why: onParsed can clear and replace this terminal before the callback
+      // settles; never let that stale completion cancel the replacement watch.
+      if (isCurrentTerminalOutputClearGeneration(terminal, clearGeneration)) {
+        settleTerminalWriteStallWatch(terminal)
+      }
     }
   }
 }

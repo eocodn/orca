@@ -84,4 +84,63 @@ describe('terminal scrollback clear', () => {
     expect(onParsed).not.toHaveBeenCalled()
     expect(ackCredit).toHaveBeenCalledOnce()
   })
+
+  it('does not let a stale callback cancel a newer stall watch after clearing', async () => {
+    vi.useFakeTimers()
+    vi.resetModules()
+
+    const { writeTerminalOutput } = await import('./pane-terminal-output-scheduler')
+    const {
+      _resetWritePipelineHealthForTests,
+      registerUndeliverableWriteHandler,
+      WRITE_PIPELINE_STALL_CHECK_MS
+    } = await import('./terminal-write-pipeline-health')
+    const { clearTerminalScrollbackAndFollowOutput } = await import('./terminal-scrollback-clear')
+    const parseCallbacks: (() => void)[] = []
+    const oldOnParsed = vi.fn()
+    const oldAckCredit = vi.fn()
+    const newAckCredit = vi.fn()
+    const recovery = vi.fn()
+    const terminal = {
+      buffer: { active: { viewportY: 0, baseY: 0 } },
+      clear: vi.fn(),
+      scrollToBottom: vi.fn(),
+      write: vi.fn((_data: string, callback?: () => void) => {
+        if (callback) {
+          parseCallbacks.push(callback)
+        }
+      })
+    }
+    const unregister = registerUndeliverableWriteHandler(terminal, recovery)
+
+    try {
+      writeTerminalOutput(terminal, 'old output', {
+        foreground: true,
+        onParsed: oldOnParsed,
+        ackCredit: oldAckCredit
+      })
+      const staleParseCallback = parseCallbacks[0]
+
+      clearTerminalScrollbackAndFollowOutput(terminal)
+      expect(oldAckCredit).toHaveBeenCalledOnce()
+
+      writeTerminalOutput(terminal, 'new output', {
+        foreground: true,
+        ackCredit: newAckCredit
+      })
+      staleParseCallback?.()
+
+      expect(oldOnParsed).not.toHaveBeenCalled()
+      expect(oldAckCredit).toHaveBeenCalledOnce()
+      expect(newAckCredit).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(WRITE_PIPELINE_STALL_CHECK_MS * 2)
+
+      expect(recovery).toHaveBeenCalledWith('write-stalled')
+      expect(newAckCredit).toHaveBeenCalledOnce()
+    } finally {
+      unregister()
+      _resetWritePipelineHealthForTests(terminal)
+    }
+  })
 })
