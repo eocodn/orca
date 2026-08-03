@@ -27,6 +27,7 @@ describe('terminal delivery watchdog', () => {
   const reportMock = vi.fn<(args: unknown) => Promise<PtyRendererDeliveryHealthReply>>()
   const listenerCountMock = vi.fn(() => 1)
   const reattachMock = vi.fn()
+  let activePtyPresence: { id: string; incarnationId?: string }[]
   let warnSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
@@ -35,6 +36,7 @@ describe('terminal delivery watchdog', () => {
     reportMock.mockReset()
     listenerCountMock.mockClear()
     reattachMock.mockClear()
+    activePtyPresence = [{ id: 'pty-1' }]
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     ;(globalThis as { window: typeof window }).window = {
       ...originalWindow,
@@ -70,7 +72,8 @@ describe('terminal delivery watchdog', () => {
     const restoreChannel = await import('./pty-model-restore-channel')
     watchdog.startTerminalDeliveryWatchdog({
       reattachPushListeners: reattachMock,
-      hasAttachedPtys: () => true
+      hasAttachedPtys: () => true,
+      getActivePtyPresence: () => activePtyPresence
     })
     return {
       recordPtyDataReceived: watchdog.recordPtyDataReceived,
@@ -231,6 +234,53 @@ describe('terminal delivery watchdog', () => {
     expect(reattachMock).toHaveBeenCalledTimes(1)
   })
 
+  it('probes a newly registered quiet PTY while another PTY remains noisy', async () => {
+    activePtyPresence = [{ id: 'pty-noisy', incarnationId: 'inc-noisy' }]
+    reportMock.mockImplementation((args) =>
+      Promise.resolve(
+        (args as { heal?: boolean }).heal
+          ? { ...HEALTHY, writtenOff: [] }
+          : {
+              ...HEALTHY,
+              inFlightTotalChars: 128,
+              inFlightPtyCount: 1,
+              perPty: [
+                {
+                  id: 'pty-noisy',
+                  incarnationId: 'inc-noisy',
+                  inFlightChars: 0,
+                  msSinceLastAck: 100
+                },
+                {
+                  id: 'pty-new',
+                  incarnationId: 'inc-new',
+                  inFlightChars: 128,
+                  msSinceLastAck: 30_000
+                }
+              ]
+            }
+      ) as unknown as PtyRendererDeliveryHealthReply
+    )
+    const { recordPtyDataReceived } = await startWatchdog()
+
+    recordPtyDataReceived('pty-noisy', 64, 'inc-noisy')
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    expect(reportMock).not.toHaveBeenCalled()
+
+    activePtyPresence = [
+      { id: 'pty-noisy', incarnationId: 'inc-noisy' },
+      { id: 'pty-new', incarnationId: 'inc-new' }
+    ]
+    recordPtyDataReceived('pty-noisy', 64, 'inc-noisy')
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    expect(reportMock).toHaveBeenCalledTimes(1)
+    expect(reattachMock).not.toHaveBeenCalled()
+
+    recordPtyDataReceived('pty-noisy', 64, 'inc-noisy')
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    expect(reattachMock).toHaveBeenCalledTimes(1)
+  })
+
   it('reports received-byte health with the active PTY incarnation', async () => {
     reportMock.mockResolvedValue({
       ...STALLED,
@@ -318,7 +368,8 @@ describe('terminal delivery watchdog', () => {
     const watchdog = await import('./terminal-delivery-watchdog')
     watchdog.startTerminalDeliveryWatchdog({
       reattachPushListeners: reattachMock,
-      hasAttachedPtys: () => false
+      hasAttachedPtys: () => false,
+      getActivePtyPresence: () => []
     })
 
     await vi.advanceTimersByTimeAsync(INTERVAL_MS * 3)
@@ -332,7 +383,8 @@ describe('terminal delivery watchdog', () => {
     const watchdog = await import('./terminal-delivery-watchdog')
     watchdog.startTerminalDeliveryWatchdog({
       reattachPushListeners: reattachMock,
-      hasAttachedPtys: () => true
+      hasAttachedPtys: () => true,
+      getActivePtyPresence: () => []
     })
 
     await vi.advanceTimersByTimeAsync(INTERVAL_MS * 3)

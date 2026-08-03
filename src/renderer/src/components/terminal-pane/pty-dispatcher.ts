@@ -95,7 +95,14 @@ export function ensurePtyDispatcher(): void {
   attachPtyPushListeners()
   startTerminalDeliveryWatchdog({
     reattachPushListeners: reattachPtyDispatcherPushListeners,
-    hasAttachedPtys: () => ptyDataHandlers.size > 0 || eagerPtyHandles.size > 0
+    hasAttachedPtys: () => ptyDataHandlers.size > 0 || eagerPtyHandles.size > 0,
+    getActivePtyPresence: () => {
+      const activePtyIds = new Set([...ptyDataHandlers.keys(), ...eagerPtyHandles.keys()])
+      return Array.from(activePtyIds, (id) => {
+        const incarnationId = activePtyIncarnationById.get(id)
+        return incarnationId ? { id, incarnationId } : { id }
+      })
+    }
   })
 }
 

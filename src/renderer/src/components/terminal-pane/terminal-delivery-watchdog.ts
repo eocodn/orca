@@ -39,17 +39,25 @@ type TerminalDeliveryWatchdogConfig = {
   healCooldownMs: number
 }
 
+export type TerminalDeliveryPtyPresence = {
+  id: string
+  incarnationId?: string
+}
+
 type TerminalDeliveryWatchdogDeps = {
   /** Detach and re-subscribe the dispatcher's push-channel listeners. */
   reattachPushListeners: () => void
   /** True while any PTY handler or eager buffer expects push delivery. */
   hasAttachedPtys: () => boolean
+  /** Active PTYs are tracked from handler registration, not inferred from data frames. */
+  getActivePtyPresence: () => readonly TerminalDeliveryPtyPresence[]
 }
 
 const receivedPtyCharTotals = new Map<string, PtyRendererReceivedChars>()
 const receivedPtyIncarnationIds = new Map<string, string | undefined>()
 const receivedPtyDataEventCounts = new Map<string, number>()
 const receivedPtyDataEventCountsAtLastTick = new Map<string, number>()
+const activePtyPresenceByKey = new Map<string, TerminalDeliveryPtyPresence>()
 let receivedPtyDataEventCount = 0
 let blackholePtyPushDelivery = false
 
@@ -129,22 +137,42 @@ function deliveryHealthKey(id: string, incarnationId?: string): string {
   return `${id}\u0000${incarnationId ?? ''}`
 }
 
-function allKnownPtysReceivedDataSinceLastTick(): boolean {
-  if (receivedPtyIncarnationIds.size === 0) {
+function syncActivePtyPresence(
+  presence: readonly TerminalDeliveryPtyPresence[]
+): boolean {
+  const nextPresenceByKey = new Map(
+    presence.map((pty) => [deliveryHealthKey(pty.id, pty.incarnationId), pty] as const)
+  )
+  let changed = nextPresenceByKey.size !== activePtyPresenceByKey.size
+  for (const [key, pty] of nextPresenceByKey) {
+    if (!activePtyPresenceByKey.has(key)) {
+      changed = true
+    }
+    activePtyPresenceByKey.set(key, pty)
+  }
+  for (const key of activePtyPresenceByKey.keys()) {
+    if (!nextPresenceByKey.has(key)) {
+      changed = true
+      activePtyPresenceByKey.delete(key)
+      receivedPtyDataEventCountsAtLastTick.delete(key)
+    }
+  }
+  return changed
+}
+
+function allActivePtysReceivedDataSinceLastTick(): boolean {
+  if (activePtyPresenceByKey.size === 0) {
     return false
   }
-  let hasKnownPty = false
   let allReceived = true
-  for (const [id, incarnationId] of receivedPtyIncarnationIds) {
-    hasKnownPty = true
-    const key = deliveryHealthKey(id, incarnationId)
+  for (const key of activePtyPresenceByKey.keys()) {
     const receivedEvents = receivedPtyDataEventCounts.get(key) ?? 0
     if (receivedEvents === (receivedPtyDataEventCountsAtLastTick.get(key) ?? 0)) {
       allReceived = false
     }
     receivedPtyDataEventCountsAtLastTick.set(key, receivedEvents)
   }
-  return hasKnownPty && allReceived
+  return allReceived
 }
 
 function getStalledPtys(health: PtyRendererDeliveryHealthReply): string[] {
@@ -167,9 +195,13 @@ async function runWatchdogTick(): Promise<void> {
     stopTerminalDeliveryWatchdog()
     return
   }
-  if (receivedPtyDataEventCount !== eventCountAtLastTick) {
+  const activePtyPresenceChanged = syncActivePtyPresence(deps.getActivePtyPresence())
+  if (receivedPtyDataEventCount !== eventCountAtLastTick || activePtyPresenceChanged) {
     eventCountAtLastTick = receivedPtyDataEventCount
-    if (stallStreakByPty.size === 0 && allKnownPtysReceivedDataSinceLastTick()) {
+    if (
+      stallStreakByPty.size === 0 &&
+      allActivePtysReceivedDataSinceLastTick()
+    ) {
       stallStreakTicks = 0
       return
     }
