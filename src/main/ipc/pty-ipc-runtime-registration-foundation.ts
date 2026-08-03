@@ -38,7 +38,12 @@ export type PtyRegistrationFoundation = {
   getLocalPtyStartupPromise: (connectionId?: string | null) => Promise<void> | undefined
   getLocalPtyProviderStartupPromise: (connectionId?: string | null) => Promise<void> | undefined
   assertPtyCleanupComplete: (ptyId: string | undefined, authority?: PtyCleanupAuthoritySnapshot | null) => void
-  restorePublicationAfterExactCleanup: (result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null, notifyRuntimeExit?: boolean) => boolean
+  restorePublicationAfterExactCleanup: (
+    result: PtySpawnResult,
+    snapshot: PtyPublicationSnapshot | null,
+    notifyRuntimeExit?: boolean,
+    failedStateToken?: symbol
+  ) => boolean
   cleanUpFailedFreshSpawn: (provider: IPtyProvider, result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null, runtimeExitObservedBeforeQuarantine?: boolean) => Promise<void>
 }
 
@@ -94,13 +99,20 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
   const restorePublicationAfterExactCleanup = (
     result: PtySpawnResult,
     snapshot: PtyPublicationSnapshot | null,
-    notifyRuntimeExit = true
+    notifyRuntimeExit = true,
+    failedStateToken?: symbol
   ): boolean => {
     const current = ptyRuntimeState.ptyIncarnationById.get(result.id)
     const pending = ptyRuntimeState.pendingPtyIncarnationById.get(result.id)
+    const currentStateToken = ptyRuntimeState.ptyStateTokenById.get(result.id)
+    const isCurrentIdentityLessFailedLifecycle =
+      result.incarnationId === undefined &&
+      failedStateToken !== undefined &&
+      currentStateToken === failedStateToken
     if (
       snapshot?.stateToken !== undefined &&
-      ptyRuntimeState.ptyStateTokenById.get(result.id) !== snapshot.stateToken &&
+      currentStateToken !== snapshot.stateToken &&
+      !isCurrentIdentityLessFailedLifecycle &&
       (result.incarnationId === undefined || pending !== result.incarnationId)
     ) {
       return false
@@ -148,6 +160,7 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
       return
     }
     ptyRuntimeState.pendingPtySizes.delete(result.id)
+    const failedStateToken = ptyRuntimeState.ptyStateTokenById.get(result.id)
     // Why: reserve the failed incarnation before awaiting provider shutdown, so a same-id replacement cannot enter the provider while cleanup is still authoritative.
     setPendingPtyCleanupForResult(provider, result, snapshot)
     try {
@@ -160,7 +173,7 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
           runtime?.hasObservedExactPtyExit?.(result.id, result.incarnationId) === true)
       ) {
         deletePendingPtyCleanupExact(result.id, result.incarnationId)
-        restorePublicationAfterExactCleanup(result, snapshot, false)
+        restorePublicationAfterExactCleanup(result, snapshot, false, failedStateToken)
         return
       }
       setPendingPtyCleanupForResult(provider, result, snapshot)
@@ -198,7 +211,7 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
       return
     }
     deletePendingPtyCleanupExact(result.id, result.incarnationId)
-    restorePublicationAfterExactCleanup(result, snapshot, !runtimeExitObserved)
+    restorePublicationAfterExactCleanup(result, snapshot, !runtimeExitObserved, failedStateToken)
   }
 
   // Remove prior handlers so re-registration (e.g. macOS re-activate creating a new window) doesn't double-register.

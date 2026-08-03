@@ -96,6 +96,7 @@ export function setPendingPtyCleanupForResult(
         ? parseAppSshPtyId(result.id)?.connectionId
         : registeredConnectionId,
     providerGeneration: providerGeneration(provider),
+    failedStateToken: ptyRuntimeState.ptyStateTokenById.get(result.id),
     // Why: retain id-only authority for legacy providers; reconciliation must prove no same-id process exists before clearing it.
     incarnationId: result.incarnationId,
     publicationSnapshot: snapshot
@@ -163,7 +164,8 @@ function finalizePendingPtyCleanupEntry(id: string, pending: CleanupPendingPty):
   if (
     !ptyRuntimeState.pendingPtyCleanupFinalizer(
       { id, incarnationId: pending.incarnationId },
-      pending.publicationSnapshot
+      pending.publicationSnapshot,
+      pending.failedStateToken
     )
   ) {
     return false
@@ -470,17 +472,27 @@ export function snapshotPtyPublication(id: string): PtyPublicationSnapshot {
 
 export function restorePtyPublication(snapshot: PtyPublicationSnapshot): void {
   ptyRuntimeState.pendingPtyIncarnationById.delete(snapshot.id)
+  const currentSnapshotPaneOwner = snapshot.paneKey
+    ? ptyRuntimeState.paneKeyPtyId.get(snapshot.paneKey)
+    : undefined
+  const newerPaneOwner =
+    snapshot.paneKey !== undefined &&
+    currentSnapshotPaneOwner !== undefined &&
+    currentSnapshotPaneOwner !== snapshot.id
   // Why: failed publication cleanup can leave reverse edges from the transient pane binding.
   for (const [paneKey, ptyId] of ptyRuntimeState.paneKeyPtyId) {
     if (ptyId === snapshot.id) {
       ptyRuntimeState.paneKeyPtyId.delete(paneKey)
     }
   }
-  if (snapshot.paneKey) {
+  if (snapshot.paneKey && !newerPaneOwner) {
     ptyRuntimeState.ptyPaneKey.set(snapshot.id, snapshot.paneKey)
     if (snapshot.paneKeyReverseOwner) {
       ptyRuntimeState.paneKeyPtyId.set(snapshot.paneKey, snapshot.paneKeyReverseOwner)
     }
+  } else if (newerPaneOwner && ptyRuntimeState.ptyPaneKey.get(snapshot.id) === snapshot.paneKey) {
+    // Why: a newer PTY claiming the pane is authoritative over this stale snapshot.
+    ptyRuntimeState.ptyPaneKey.delete(snapshot.id)
   } else {
     ptyRuntimeState.ptyPaneKey.delete(snapshot.id)
   }

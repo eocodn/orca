@@ -25,6 +25,7 @@ export type CleanupPendingPty = Readonly<{
   providerConnectionId: string | null | undefined
   providerGeneration: number | undefined
   incarnationId: string | undefined
+  failedStateToken: symbol | undefined
   publicationSnapshot: PtyPublicationSnapshot | null
 }>
 
@@ -59,7 +60,11 @@ export type PtyRuntimeState = {
     { provider: IPtyProvider; timer: ReturnType<typeof setTimeout> }
   >
   pendingPtyCleanupFinalizer:
-    | ((result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null) => boolean)
+    | ((
+        result: PtySpawnResult,
+        snapshot: PtyPublicationSnapshot | null,
+        failedStateToken?: symbol
+      ) => boolean)
     | null
   lastInputAtByPty: Map<string, number>
   interactiveOutputCharsByPty: Map<string, number>

@@ -8,6 +8,7 @@ vi.mock('./pty-ipc-runtime-provider-lifecycle-state', () => ({
 }))
 
 const PTY_ID = 'pty-publication-restore'
+const NEWER_PTY_ID = 'pty-publication-newer-owner'
 const OLD_PANE_KEY = makePaneKey('tab-old', '11111111-1111-4111-8111-111111111111')
 const NEW_PANE_KEY = makePaneKey('tab-new', '22222222-2222-4222-8222-222222222222')
 
@@ -46,5 +47,21 @@ describe('pty publication cleanup reconciliation', () => {
     expect(ptyRuntimeState.ptyPaneKey.get(PTY_ID)).toBe(OLD_PANE_KEY)
     expect(ptyRuntimeState.paneKeyPtyId.get(OLD_PANE_KEY)).toBe(PTY_ID)
     expect(ptyRuntimeState.paneKeyPtyId.get(NEW_PANE_KEY)).toBeUndefined()
+  })
+
+  it('does not resurrect a stale PTY over a newer pane owner', async () => {
+    const { restorePtyPublication, snapshotPtyPublication } = await import(
+      './pty-ipc-runtime-cleanup-reconciliation'
+    )
+
+    rememberPaneKeyForPty(PTY_ID, OLD_PANE_KEY)
+    const snapshot = snapshotPtyPublication(PTY_ID)
+    rememberPaneKeyForPty(NEWER_PTY_ID, OLD_PANE_KEY)
+
+    restorePtyPublication(snapshot)
+
+    expect(ptyRuntimeState.ptyPaneKey.get(PTY_ID)).toBeUndefined()
+    expect(ptyRuntimeState.ptyPaneKey.get(NEWER_PTY_ID)).toBe(OLD_PANE_KEY)
+    expect(ptyRuntimeState.paneKeyPtyId.get(OLD_PANE_KEY)).toBe(NEWER_PTY_ID)
   })
 })

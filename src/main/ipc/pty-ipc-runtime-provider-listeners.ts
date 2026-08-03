@@ -316,7 +316,9 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
           try {
             restored = state.foundation.restorePublicationAfterExactCleanup(
               { id: payload.id, incarnationId: payload.incarnationId },
-              cleanupPending.publicationSnapshot ?? null
+              cleanupPending.publicationSnapshot ?? null,
+              true,
+              cleanupPending.failedStateToken
             )
           } catch (error) {
             // Why: the provider exit is authoritative, but a projection failure must leave the exact tombstone retryable.

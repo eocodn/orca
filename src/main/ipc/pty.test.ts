@@ -236,6 +236,7 @@ import {
   getLocalPtyProvider,
   isCurrentPtyExit,
   getPtyStateToken,
+  getPtyIncarnation,
   getOrCreatePtyStateToken,
   restorePtyIncarnation,
   getPendingPtyCleanupIncarnation,
@@ -1068,6 +1069,43 @@ describe('registerPtyHandlers', () => {
     ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
 
     expect(shutdown).toHaveBeenCalledWith(ptyId, { immediate: true })
+  })
+
+  it('restores the prior lifecycle after an identity-less post-publication failure', async () => {
+    const ptyId = 'pty-fresh-without-incarnation-restoration'
+    const provider = createAgentClaimProvider({
+      spawn: vi.fn(async () => ({ id: ptyId })),
+      shutdown: vi.fn(async () => undefined),
+      listProcesses: vi.fn(async () => [])
+    })
+    setLocalPtyProvider(provider as never)
+    restorePtyIncarnation(ptyId, 'prior-incarnation')
+    const store = {
+      persistPtyBinding: vi.fn(() => {
+        throw new Error('disk full')
+      })
+    }
+    registerPtyHandlers(
+      mainWindow as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      store as never
+    )
+
+    await expect(
+      handlers.get('pty:spawn')!(null, {
+        cols: 80,
+        rows: 24,
+        cwd: '/tmp/worktree',
+        worktreeId: 'repo::/tmp/worktree',
+        tabId: 'tab-fresh-without-incarnation-restoration',
+        leafId: '66666666-6666-4666-8666-666666666666'
+      })
+    ).rejects.toThrow(/ORCA_TERMINAL_SESSION_STATE_SAVE_FAILED/)
+
+    expect(getPtyIncarnation(ptyId)).toBe('prior-incarnation')
   })
 
   it('rejects a same-id spawn that was in flight when failed cleanup became authoritative', async () => {
