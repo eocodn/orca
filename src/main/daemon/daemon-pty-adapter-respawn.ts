@@ -1,101 +1,12 @@
-import { basename } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { DaemonClient } from './client'
-import { parseDaemonResizeIfCurrentResponse } from './daemon-pty-resize-response'
-import type { PtyDataEvent } from '../providers/pty-provider-events'
-import {
-  getMacDaemonSystemResolverHealth,
-  parseDaemonPidFile,
-  type ParsedDaemonPid
-} from './daemon-health'
-import {
-  HistoryManager,
-  type HistoryCheckpointResult,
-  type HistoryRecoveryFreeze
-} from './history-manager'
-import { HistoryReader, type ColdRestoreInfo } from './history-reader'
-import { getRecoveredHistorySeedSegments } from './terminal-history-seed-segments'
-import { mintPtySessionId, parsePtySessionId } from './pty-session-id'
-import { supportsPtyStartupBarrier } from './shell-ready'
-import { CODEX_SHELL_READY_TIMEOUT_MS } from './session'
-import {
-  CLEAN_DISCONNECT_PROTOCOL_VERSION,
-  COMPLETION_PROCESS_INSPECTION_PROTOCOL_VERSION,
-  GET_FOREGROUND_PROCESS_PROTOCOL_VERSION,
-  AGENT_SESSION_CLAIM_DAEMON_PROTOCOL_VERSION,
-  AGENT_SESSION_CREATE_OPERATION_DAEMON_PROTOCOL_VERSION,
-  GIT_CREDENTIAL_GUARD_HOST_PROTOCOL_VERSION,
-  PROTOCOL_VERSION,
-  supportsMode2031UnsubscribeFact,
-  supportsPtyStartupIngress,
-  type CreateOrAttachResult,
-  type DaemonEvent,
-  type GetSnapshotResult,
-  type ListSessionsResult,
-  type SessionInfo,
-  type TakePendingOutputResult
-} from './types'
-import { HISTORY_SEED_TRANSFER_PROTOCOL_VERSION } from './daemon-protocol-version'
-import {
-  isAgentSessionClaimedSpawnResult,
-  isAgentSessionOwnerBinding,
-  type AgentSessionOwnerBinding
-} from '../../shared/agent-session-host-authority'
-import { MAX_CLAIMED_AGENT_PTY_OWNER_ENTRIES } from '../../shared/claimed-agent-pty-owner'
-import { cloneAgentSessionOwnerBinding } from '../../shared/claimed-agent-pty-owner-snapshot'
-import type {
-  IPtyProvider,
-  PtyBackgroundStreamEvent,
-  PtyProviderBufferSnapshot,
-  PtyProcessInfo,
-  PtySpawnOptions,
-  PtySpawnResult
-} from '../providers/types'
-import type { PtyProcessInspection } from '../providers/pty-process-inspection'
-import { isShellProcess } from '../../shared/agent-detection'
-import { resolveWslSessionContext } from './wsl-session-context'
-import { normalizeWslColdRestoreCwd } from './wsl-cold-restore-cwd'
-import { recognizeAgentProcessFromCommandLine } from '../../shared/agent-process-recognition'
-import { shouldUseShellReadyStartupDelivery } from '../../shared/codex-startup-delivery'
-import type { PtyIncarnationId } from '../../shared/pty-incarnation'
-import { resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
-import { PtyWriteUnavailableError } from '../providers/pty-write-unavailable-error'
-import { areValidTerminalDimensions } from '../../shared/terminal-dimensions'
-import { ColdRestorePayloadCache, type ColdRestorePayload } from './cold-restore-payload-cache'
-import { PtyProcessListAdmission } from '../providers/pty-process-list-admission'
-import {
-  iterateTerminalHistorySeedChunks,
-  measureTerminalHistorySeed,
-  TERMINAL_HISTORY_INLINE_SEED_CODE_UNITS
-} from './terminal-history-seed-chunks'
-import { NdjsonLineTooLongError } from './ndjson'
-import type { DaemonEndpointIdentity } from './daemon-hello-protocol'
-import {
-  classifyDaemonAuditFailure,
-  recordAuthenticatedInventory,
-  type DaemonAuditContext,
-  type DaemonAuditObservation,
-  type DaemonAuditTrigger
-} from './daemon-audit-classifier'
-import type { DaemonEvidenceSource, ExactDaemonIncarnation } from './daemon-incarnation-evidence'
-import { createDaemonAuditEligibilityTracker } from './daemon-audit-eligibility-event'
+import { getMacDaemonSystemResolverHealth } from './daemon-health'
+import { supportsMode2031UnsubscribeFact, type DaemonEvent, type ListSessionsResult } from './types'
+import type { IPtyProvider, PtyBackgroundStreamEvent } from '../providers/types'
 
 
-import { type PendingDaemonSpawnOperation,
-  type HistoryRecoveryContext,
-  takeRecoveryFreeze,
-  providerSequenceForSpawn,
-  type DaemonPtyAdapterOptions,
-  type DaemonRespawnReason,
-  type DaemonIdentityChangeEvent,
-  MAX_TOMBSTONES,
-  MAX_CONCURRENT_CHECKPOINTS,
-  remainingRequestTimeoutMs,
-  TerminalKilledError } from './daemon-pty-adapter-foundation'
+import { type DaemonRespawnReason } from './daemon-pty-adapter-foundation'
 import { DaemonPtyAdapterPhase5 } from './daemon-pty-adapter-events'
 
-export class DaemonPtyAdapterPhase6 extends DaemonPtyAdapterPhase5 {
+export class DaemonPtyAdapterPhase6 extends DaemonPtyAdapterPhase5 implements IPtyProvider {
   protected reconnectAfterWriteFailure(): void {
     if (
       this.writeRecoveryPromise ||

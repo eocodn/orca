@@ -1,7 +1,6 @@
 import * as pty from 'node-pty'
 import { win32 as pathWin32 } from 'node:path'
 import type { SubprocessHandle } from './session'
-import { DaemonProtocolError } from './types'
 import {
   getAttributionShellLaunchConfig,
   getShellReadyLaunchConfig,
@@ -45,7 +44,6 @@ import { ORCA_HERMES_STARTUP_QUERY_ENV } from '../../shared/hermes-startup-query
 import { createDaemonPtySubprocessHandle } from './daemon-pty-subprocess-handle'
 import type { PtySubprocessOptions } from './daemon-pty-spawn-support'
 import {
-  checkPtySpawnHealth,
   composeGuardedDaemonGitConfigEnv,
   deleteRequestedDaemonEnvKeys,
   formatPtySpawnError,

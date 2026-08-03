@@ -14,26 +14,6 @@ const PBKDF2_ITERATIONS = 1003
 const PBKDF2_KEY_LENGTH = 16
 const PBKDF2_SALT = 'saltysalt'
 
-const CHROMIUM_EPOCH_OFFSET = 11644473600n
-
-function chromiumTimestampToUnix(chromiumTs: bigint | number | string): number {
-  if (!chromiumTs || chromiumTs === 0n || chromiumTs === 0 || chromiumTs === '0') {
-    return 0
-  }
-  try {
-    const ts =
-      typeof chromiumTs === 'bigint'
-        ? chromiumTs
-        : BigInt(typeof chromiumTs === 'number' ? Math.round(chromiumTs) : chromiumTs)
-    if (ts === 0n) {
-      return 0
-    }
-    return Math.max(Number(ts / 1000000n - CHROMIUM_EPOCH_OFFSET), 0)
-  } catch {
-    return 0
-  }
-}
-
 // Why: each platform protects the Chromium key differently: macOS/Linux PBKDF2→AES-128-CBC, Windows DPAPI→AES-256-GCM.
 
 export type EncryptionKeyResult = {

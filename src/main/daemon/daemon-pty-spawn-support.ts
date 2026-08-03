@@ -9,17 +9,13 @@ import {
 } from '../providers/local-pty-utils'
 import { wrapShellSpawnForMacosTccAttribution } from '../providers/macos-tcc-login-shell'
 import type { WindowsShellSpawnAttempt } from '../providers/windows-shell-fallback-chain'
-import {
-  gitCredentialPromptGuardEnv,
-  mergeGitConfigEnvProtocol
-} from '../../shared/git-credential-prompt-env'
+import { gitCredentialPromptGuardEnv } from '../../shared/git-credential-prompt-env'
 import { TERMINAL_GIT_CREDENTIAL_GUARD_POLICY_ENV } from '../../shared/terminal-git-credential-guard'
 import { recognizeAgentProcess } from '../../shared/agent-process-recognition'
 import { shouldInspectOuterWrapperForegroundProcess } from '../../shared/foreground-wrapper-agent'
 import type { StartupCommandDelivery } from '../../shared/codex-startup-delivery'
 import { resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
 import type { TuiAgent } from '../../shared/types'
-import { buildWindowsPowerShellSpawnAttempts } from '../providers/windows-shell-fallback-chain'
 
 const PANE_IDENTITY_ENV_KEYS = [
   'ORCA_PANE_KEY',
