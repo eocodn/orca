@@ -124,6 +124,41 @@ describe('subscribeSshPtyNotifications', () => {
     })
   })
 
+  it('preserves incarnation identity on replay notifications', () => {
+    const { handler, replayListeners } = createSubscription()
+    const onReplay = vi.fn()
+    replayListeners.add(onReplay)
+
+    handler('pty.replay', {
+      id: 'pty-1',
+      data: 'replayed',
+      incarnationId: 'incarnation-1'
+    })
+
+    expect(onReplay).toHaveBeenCalledWith({
+      id: 'ssh:conn@@pty-1',
+      data: 'replayed',
+      incarnationId: 'incarnation-1'
+    })
+  })
+
+  it('does not fan out a stale exit after the provider rejects its identity', () => {
+    const { handler, exitListeners, livePtyIds, recordExit } = createSubscription()
+    const onExit = vi.fn()
+    exitListeners.add(onExit)
+    livePtyIds.add('ssh:conn@@pty-1')
+    recordExit.mockReturnValue(false)
+
+    handler('pty.exit', {
+      id: 'pty-1',
+      code: 0,
+      incarnationId: 'incarnation-old'
+    })
+
+    expect(livePtyIds).toContain('ssh:conn@@pty-1')
+    expect(onExit).not.toHaveBeenCalled()
+  })
+
   it('derives exact immutable source ranges and cancels malformed frames without side effects', () => {
     const {
       handler,

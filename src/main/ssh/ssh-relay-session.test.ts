@@ -446,7 +446,10 @@ describe('SshRelaySession', () => {
     mockDeploySuccess()
 
     const { getSshPtyProvider } = await import('../ipc/pty')
-    const mockAttach = vi.fn().mockResolvedValue({ replay: 'restored-output' })
+    const mockAttach = vi.fn().mockResolvedValue({
+      replay: 'restored-output',
+      incarnationId: 'incarnation-reconnected'
+    })
     vi.mocked(getSshPtyProvider).mockReturnValue({
       attachForReconnect: mockAttach,
       dispose: vi.fn()
@@ -457,7 +460,8 @@ describe('SshRelaySession', () => {
 
     expect(mockWindow.webContents.send).toHaveBeenCalledWith('pty:replay', {
       id: 'ssh:target-1@@pty-1',
-      data: 'restored-output'
+      data: 'restored-output',
+      incarnationId: 'incarnation-reconnected'
     })
   })
 

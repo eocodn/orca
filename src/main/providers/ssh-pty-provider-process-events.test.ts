@@ -130,27 +130,39 @@ describe('SshPtyProvider process listings and events', () => {
     provider.onExit(exitHandler)
     const notify = mux.onNotification.mock.calls[0][0]
 
-    notify('pty.data', { id: 'pty-1', data: 'output' })
+    notify('pty.data', {
+      id: 'pty-1',
+      data: 'output',
+      incarnationId: 'incarnation-1'
+    })
     notify('pty.data', { id: 'pty-1', data: '', rawLength: 9, seq: 9, transformed: true })
-    notify('pty.replay', { id: 'pty-1', data: 'buffered output' })
+    notify('pty.replay', {
+      id: 'pty-1',
+      data: 'buffered output',
+      incarnationId: 'incarnation-1'
+    })
     notify('pty.exit', { id: 'pty-1', code: 0, incarnationId: 'incarnation-1' })
 
     expect(dataHandler).toHaveBeenNthCalledWith(1, {
       id: scopedPty1,
       data: 'output',
       providerGeneration: 1,
-      ptyIncarnation: 'legacy:1:1:pty-1'
+      ptyIncarnation: 'incarnation-1'
     })
     expect(dataHandler).toHaveBeenNthCalledWith(2, {
       id: scopedPty1,
       data: '',
       providerGeneration: 1,
-      ptyIncarnation: 'legacy:1:1:pty-1',
+      ptyIncarnation: 'incarnation-1',
       sequenceChars: 9,
       seq: 9,
       transformed: true
     })
-    expect(replayHandler).toHaveBeenCalledWith({ id: scopedPty1, data: 'buffered output' })
+    expect(replayHandler).toHaveBeenCalledWith({
+      id: scopedPty1,
+      data: 'buffered output',
+      incarnationId: 'incarnation-1'
+    })
     expect(exitHandler).toHaveBeenCalledWith({
       id: scopedPty1,
       code: 0,

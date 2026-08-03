@@ -86,8 +86,11 @@ export class SshPtySourceDeliveryLedger {
     return true
   }
 
-  recordExit(relayPtyId: string): void {
+  recordExit(relayPtyId: string, ptyIncarnation?: string): void {
     const current = this.deliveryByPty.get(relayPtyId)
+    if (!current || ptyIncarnation !== current.activation.ptyIncarnation) {
+      return
+    }
     if (current?.lease.phase === 'committed') {
       this.deliveryByPty.delete(relayPtyId)
     } else if (current) {

@@ -14,6 +14,20 @@ import { PTY_BATCH_INTERVAL_MS } from './pty-ipc-runtime-renderer-delivery-const
 
 const SYNTHETIC_KILL_EXIT_DUPLICATE_WINDOW_MS = 30_000
 
+export function isRendererPtyExitCurrent(
+  incarnationId: string | undefined,
+  currentIncarnation: string | undefined,
+  pendingIncarnation: string | undefined
+): boolean {
+  if (incarnationId === undefined) {
+    return currentIncarnation === undefined && pendingIncarnation === undefined
+  }
+  return (
+    (currentIncarnation === undefined || incarnationId === currentIncarnation) &&
+    (pendingIncarnation === undefined || incarnationId === pendingIncarnation)
+  )
+}
+
 export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
   const state = getPtyRegistrationSharedState() as PtyRendererDeliveryContext
   const { mainWindow, getSettings } = state
@@ -104,11 +118,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     const currentIncarnation = ptyRuntimeState.ptyIncarnationById.get(payload.id)
     const pendingIncarnation = ptyRuntimeState.pendingPtyIncarnationById.get(payload.id)
     if (
-      (payload.incarnationId === undefined &&
-        (currentIncarnation !== undefined || pendingIncarnation !== undefined)) ||
-      (payload.incarnationId !== undefined &&
-        ((currentIncarnation !== undefined && payload.incarnationId !== currentIncarnation) ||
-          (pendingIncarnation !== undefined && payload.incarnationId !== pendingIncarnation)))
+      !isRendererPtyExitCurrent(payload.incarnationId, currentIncarnation, pendingIncarnation)
     ) {
       return null
     }
@@ -174,6 +184,15 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
   }): void {
     if (mainWindow.isDestroyed()) {
       state.rendererCreditBeforeExitByPty.delete(payload.id)
+      return
+    }
+    if (
+      !isRendererPtyExitCurrent(
+        payload.incarnationId,
+        ptyRuntimeState.ptyIncarnationById.get(payload.id),
+        ptyRuntimeState.pendingPtyIncarnationById.get(payload.id)
+      )
+    ) {
       return
     }
     const hadReleasableRendererCredit =

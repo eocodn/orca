@@ -42,6 +42,13 @@ export function canCoalescePtyData(
   return existing.incarnationId === incarnationId
 }
 
+export function preservePtyIncarnationId<T extends object>(
+  value: T,
+  incarnationId: string | undefined
+): T & Pick<PendingPtyData, 'incarnationId'> {
+  return incarnationId === undefined ? value : { ...value, incarnationId }
+}
+
 export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
   const state = getPtyRegistrationSharedState() as PtyRendererDeliveryContext
   const { mainWindow, runtime, getSettings } = state
@@ -257,12 +264,15 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     }
     const mode2031 = scanDroppedMode2031Data(pending.data, INITIAL_MODE_2031_REPLY_SCAN_STATE)
     // Why no trimmed content tail: a mid-stream gap would corrupt the pane; the droppedOutput sentinel repaints from the snapshot and realigns by sequence (only query bytes ride along).
-    return {
-      data: extractDroppedPtyQueryBytes(pending.data).slice(0, DROPPED_QUERY_SALVAGE_MAX_CHARS),
-      droppedOutput: true,
-      droppedMode2031Data: mode2031.data,
-      droppedMode2031ScanState: mode2031.state
-    }
+    return preservePtyIncarnationId(
+      {
+        data: extractDroppedPtyQueryBytes(pending.data).slice(0, DROPPED_QUERY_SALVAGE_MAX_CHARS),
+        droppedOutput: true,
+        droppedMode2031Data: mode2031.data,
+        droppedMode2031ScanState: mode2031.state
+      },
+      pending.incarnationId
+    )
   }
 
   function updatePendingProjectionAdmissions(
@@ -335,25 +345,30 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     const nextContainsBackgroundOutput =
       existing?.containsBackgroundOutput === true || containsBackgroundOutput
     if (!existing) {
-      const pending: PendingPtyData = {
-        data,
-        ...(incarnationId ? { incarnationId } : {}),
-        ...(typeof startSeq === 'number' ? { startSeq } : {}),
-        ...(rawLength !== data.length ? { rawLength } : {}),
-        ...(transformed ? { transformed: true } : {}),
-        ...(nextContainsBackgroundOutput ? { containsBackgroundOutput: true } : {})
-      }
+      const pending = preservePtyIncarnationId(
+        {
+          data,
+          ...(typeof startSeq === 'number' ? { startSeq } : {}),
+          ...(rawLength !== data.length ? { rawLength } : {}),
+          ...(transformed ? { transformed: true } : {}),
+          ...(nextContainsBackgroundOutput ? { containsBackgroundOutput: true } : {})
+        },
+        incarnationId
+      )
       updatePendingProjectionAdmissions(pending, projectionState)
       return dropOversizedPendingPtyData(id, pending)
     }
     const existingRawLength = existing.rawLength ?? existing.data.length
-    const next: PendingPtyData = {
-      data: existing.data + data,
-      ...(!preservesSeq || existing.transformed || transformed
-        ? { rawLength: existingRawLength + rawLength, transformed: true as const }
-        : {}),
-      ...(nextContainsBackgroundOutput ? { containsBackgroundOutput: true } : {})
-    }
+    const next = preservePtyIncarnationId(
+      {
+        data: existing.data + data,
+        ...(!preservesSeq || existing.transformed || transformed
+          ? { rawLength: existingRawLength + rawLength, transformed: true as const }
+          : {}),
+        ...(nextContainsBackgroundOutput ? { containsBackgroundOutput: true } : {})
+      },
+      existing.incarnationId
+    )
     updatePendingProjectionAdmissions(next, projectionState)
     if (typeof existing.startSeq === 'number') {
       next.startSeq = existing.startSeq
@@ -487,7 +502,7 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
         const remaining = indivisible ? '' : data.slice(PTY_BATCH_FLUSH_CHUNK_CHARS)
         let nextPending: PendingPtyData | undefined
         if (remaining) {
-          nextPending = { data: remaining }
+          nextPending = preservePtyIncarnationId({ data: remaining }, pending.incarnationId)
           if (typeof pending.startSeq === 'number') {
             nextPending.startSeq = pending.startSeq + chunk.length
           }

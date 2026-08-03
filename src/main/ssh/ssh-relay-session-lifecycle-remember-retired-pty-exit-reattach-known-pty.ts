@@ -147,13 +147,22 @@ export const SshRelaySessionMethods13 = {
     this.retiredPtyExitIncarnations.set(id, retired)
     this.retiredPtyExitOrder.set(sequence, { id, ptyIncarnation })
   },
-  forwardReattachReplay(this: any, appPtyId: string, data: string): void {
+  forwardReattachReplay(
+    this: any,
+    appPtyId: string,
+    data: string,
+    incarnationId?: string
+  ): void {
     if (!data) {
       return
     }
     const win = this.getMainWindow()
     if (win && !win.isDestroyed()) {
-      win.webContents.send('pty:replay', { id: appPtyId, data })
+      win.webContents.send('pty:replay', {
+        id: appPtyId,
+        data,
+        ...(incarnationId ? { incarnationId } : {})
+      })
     }
   },
   async reattachKnownPtys(this: any,
@@ -363,7 +372,11 @@ export const SshRelaySessionMethods13 = {
         return
       }
       if (!recoveryRequest) {
-        this.forwardReattachReplay(appPtyId, attachResult.replay ?? '')
+        this.forwardReattachReplay(
+          appPtyId,
+          attachResult.replay ?? '',
+          attachResult.incarnationId
+        )
       }
       sourceActivationLease?.commit()
       sourceActivationLease = undefined

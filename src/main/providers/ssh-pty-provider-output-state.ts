@@ -40,9 +40,17 @@ export class SshPtyProviderOutputState {
       resolvePtyIncarnation: (relayPtyId, incarnationId) =>
         this.resolvePtyIncarnation(relayPtyId, incarnationId),
       recordExit: (relayPtyId, incarnationId) => {
+        const currentIncarnation = this.incarnationByRelayPtyId.get(relayPtyId)
+        if (
+          currentIncarnation !== undefined &&
+          (typeof incarnationId !== 'string' || incarnationId !== currentIncarnation)
+        ) {
+          return false
+        }
         args.recordExit(relayPtyId, incarnationId)
         this.incarnationByRelayPtyId.delete(relayPtyId)
         this.pausedRelayPtyIds.delete(relayPtyId)
+        return true
       }
     })
   }

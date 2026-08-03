@@ -38,7 +38,7 @@ export function subscribeSshPtyNotifications(args: {
   replayListeners: Set<SshPtyReplayCallback>
   exitListeners: Set<SshPtyExitCallback>
   livePtyIds: Set<string>
-  recordExit: (relayPtyId: string, incarnationId: unknown) => void
+  recordExit: (relayPtyId: string, incarnationId: unknown) => boolean | void
   providerGeneration: number
   resolvePtyIncarnation: (relayPtyId: string, incarnationId?: unknown) => string
 }): SshPtyNotificationSubscription {
@@ -81,10 +81,15 @@ export function subscribeSshPtyNotifications(args: {
     const relayPtyId = params.id
     if (method === 'pty.exit') {
       const id = args.toAppPtyId(relayPtyId)
+      const exactIncarnation = isPtyIncarnationId(params.incarnationId)
+        ? params.incarnationId
+        : undefined
       const ptyIncarnation = args.resolvePtyIncarnation(relayPtyId, params.incarnationId)
-      args.recordExit(relayPtyId, params.incarnationId)
+      if (args.recordExit(relayPtyId, params.incarnationId) === false) {
+        return
+      }
       args.livePtyIds.delete(id)
-      sourceDeliveries.recordExit(relayPtyId)
+      sourceDeliveries.recordExit(relayPtyId, exactIncarnation)
       for (const listener of args.exitListeners) {
         listener({
           id,
@@ -100,14 +105,15 @@ export function subscribeSshPtyNotifications(args: {
     }
     if (method === 'pty.replay') {
       const id = args.toAppPtyId(relayPtyId)
+      const incarnationId = isPtyIncarnationId(params.incarnationId)
+        ? params.incarnationId
+        : args.resolvePtyIncarnation(relayPtyId, params.incarnationId)
       args.livePtyIds.add(id)
       for (const listener of args.replayListeners) {
         listener({
           id,
           data: params.data as string,
-          ...(isPtyIncarnationId(params.incarnationId)
-            ? { incarnationId: params.incarnationId }
-            : {})
+          ...(incarnationId ? { incarnationId } : {})
         })
       }
       return
