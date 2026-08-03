@@ -10,7 +10,14 @@ import {
   resolveInitialWorkspaceRunSeed
 } from './useComposerState'
 
-const HOOK_SOURCE = readFileSync(join(__dirname, 'useComposerState.ts'), 'utf8')
+const HOOK_SOURCE = [
+  'composer-state-pending-github-submit.ts',
+  'composer-state-controller.ts',
+  'composer-state-attachment-actions.ts',
+  'composer-state-contracts.ts'
+]
+  .map((fileName) => readFileSync(join(__dirname, fileName), 'utf8'))
+  .join('\n')
 const RECIPE_OPTIONS_SOURCE = readFileSync(
   join(__dirname, 'useEphemeralVmRecipeOptions.ts'),
   'utf8'
@@ -299,6 +306,7 @@ describe('useComposerState host-context boundaries', () => {
   })
 
   it('uses submit-time GitHub PR start points for the create payload', () => {
+    expect(HOOK_SOURCE).toContain('usePendingSmartGitHubSubmitResolver')
     const submitLookup = sourceBetween(
       HOOK_SOURCE,
       'const resolvePendingSmartGitHubSubmit',
