@@ -153,6 +153,42 @@ export function createRuntimeApi(): NonNullable<Partial<PreloadApi>['runtime']> 
     onBrowserDriverChanged: () => noopUnsubscribe
   }
 }
+
+const WEB_RUNTIME_PAIRING_CHANGED_ERROR =
+  'Runtime environment pairing changed; refresh and try again'
+
+function assertExpectedEnvironmentPairingRevision(
+  environment: StoredWebRuntimeEnvironment,
+  expectedEnvironmentPairingRevision: number | undefined
+): void {
+  if (expectedEnvironmentPairingRevision === undefined) {
+    return
+  }
+  const currentEnvironment = requireActiveEnvironmentOrNull()
+  const currentRevision = currentEnvironment?.pairingRevision ?? currentEnvironment?.createdAt
+  if (
+    currentEnvironment?.id !== environment.id ||
+    currentRevision !== expectedEnvironmentPairingRevision
+  ) {
+    throw new Error(WEB_RUNTIME_PAIRING_CHANGED_ERROR)
+  }
+}
+
+function isExpectedEnvironmentPairingCurrent(
+  environment: StoredWebRuntimeEnvironment,
+  expectedEnvironmentPairingRevision: number | undefined
+): boolean {
+  if (expectedEnvironmentPairingRevision === undefined) {
+    return true
+  }
+  const currentEnvironment = requireActiveEnvironmentOrNull()
+  return (
+    currentEnvironment?.id === environment.id &&
+    (currentEnvironment.pairingRevision ?? currentEnvironment.createdAt) ===
+      expectedEnvironmentPairingRevision
+  )
+}
+
 export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>['runtimeEnvironments']> {
   return {
     list: async () => {
@@ -301,12 +337,73 @@ export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>[
     },
     getStatus: ({ selector, timeoutMs }) =>
       callEnvironmentEnvelope<RuntimeStatus>(selector, 'status.get', undefined, timeoutMs),
-    call: ({ selector, method, params, timeoutMs }) =>
-      callEnvironmentEnvelope(selector, method, params, timeoutMs),
-    subscribe: async ({ selector, method, params, timeoutMs }, callbacks) => {
+    call: async ({ selector, method, params, timeoutMs, expectedEnvironmentPairingRevision }) => {
       const environment = resolveEnvironment(selector)
+      assertExpectedEnvironmentPairingRevision(environment, expectedEnvironmentPairingRevision)
+      const response = await callEnvironmentEnvelope(selector, method, params, timeoutMs)
+      assertExpectedEnvironmentPairingRevision(environment, expectedEnvironmentPairingRevision)
+      return response
+    },
+    subscribe: async (
+      { selector, method, params, timeoutMs, expectedEnvironmentPairingRevision },
+      callbacks
+    ) => {
+      const environment = resolveEnvironment(selector)
+      assertExpectedEnvironmentPairingRevision(environment, expectedEnvironmentPairingRevision)
       const client = getClientForEnvironment(environment)
-      const subscription = await client.subscribe(method, params, callbacks, { timeoutMs })
+      const guardedCallbacks =
+        expectedEnvironmentPairingRevision === undefined
+          ? callbacks
+          : {
+              ...callbacks,
+              onResponse: (response: RuntimeRpcResponse<unknown>) => {
+                if (
+                  isExpectedEnvironmentPairingCurrent(
+                    environment,
+                    expectedEnvironmentPairingRevision
+                  )
+                ) {
+                  callbacks.onResponse(response)
+                }
+              },
+              onBinary: (bytes: Uint8Array<ArrayBufferLike>) => {
+                if (
+                  isExpectedEnvironmentPairingCurrent(
+                    environment,
+                    expectedEnvironmentPairingRevision
+                  )
+                ) {
+                  callbacks.onBinary?.(bytes)
+                }
+              },
+              onError: (error: { code: string; message: string }) => {
+                if (
+                  isExpectedEnvironmentPairingCurrent(
+                    environment,
+                    expectedEnvironmentPairingRevision
+                  )
+                ) {
+                  callbacks.onError?.(error)
+                }
+              },
+              onClose: () => {
+                if (
+                  isExpectedEnvironmentPairingCurrent(
+                    environment,
+                    expectedEnvironmentPairingRevision
+                  )
+                ) {
+                  callbacks.onClose?.()
+                }
+              }
+            }
+      const subscription = await client.subscribe(method, params, guardedCallbacks, { timeoutMs })
+      try {
+        assertExpectedEnvironmentPairingRevision(environment, expectedEnvironmentPairingRevision)
+      } catch (error) {
+        subscription.unsubscribe()
+        throw error
+      }
       if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
         subscription.unsubscribe()
         throw new Error('runtime_manually_disconnected')

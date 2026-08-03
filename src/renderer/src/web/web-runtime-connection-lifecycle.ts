@@ -166,7 +166,7 @@ export class WebRuntimeConnectionLifecycle {
 
     ws.onclose = () => this.handleSocketClosed(ws)
     ws.onerror = () => {
-      if (this.state === 'connecting') {
+      if (this.ws === ws && this.state === 'connecting') {
         this.rejectAllWaiters(
           new Error(
             withRemoteRuntimeTailscaleHint(

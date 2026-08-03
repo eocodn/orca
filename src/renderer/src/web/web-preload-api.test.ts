@@ -6,6 +6,7 @@ import type { FeatureInteractionState } from '../../../shared/feature-interactio
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
 import { MIN_COMPATIBLE_RUNTIME_SERVER_VERSION } from '../../../shared/protocol-version'
+import type { StoredWebRuntimeEnvironment } from './web-runtime-environment'
 
 const TEST_COMMIT_OID = '0123456789abcdef0123456789abcdef01234567'
 
@@ -238,6 +239,7 @@ describe('web runtime environment identity', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.doUnmock('./web-runtime-client')
+    vi.doUnmock('./web-preload-runtime-bridge')
   })
 
   it('does not resolve an old server selector through a differently keyed server', async () => {
@@ -466,6 +468,102 @@ describe('web runtime environment identity', () => {
       ok: false,
       error: { code: 'runtime_manually_disconnected' }
     })
+  })
+
+  it('does not resolve a web runtime call after the pairing revision changes', async () => {
+    const oldEnvironment = { id: 'web-server-a', createdAt: 1 } as StoredWebRuntimeEnvironment
+    let currentEnvironment = oldEnvironment
+    let resolveCall!: (response: RuntimeRpcResponse<unknown>) => void
+    const pendingCall = new Promise<RuntimeRpcResponse<unknown>>((resolve) => {
+      resolveCall = resolve
+    })
+    const call = vi.fn(() => pendingCall)
+    vi.doMock('./web-preload-runtime-bridge', () => ({
+      callEnvironmentEnvelope: call,
+      requireActiveEnvironmentOrNull: () => currentEnvironment,
+      resolveEnvironment: () => currentEnvironment
+    }))
+    vi.doMock('./web-runtime-client', () => ({
+      WebRuntimeClient: class {
+        call = call
+        close(): void {}
+      }
+    }))
+    installBrowserGlobals('Linux')
+    const { createRuntimeEnvironmentsApi } = await import('./web-preload-runtime-apis')
+    const runtimeEnvironments = createRuntimeEnvironmentsApi() as NonNullable<
+      PreloadApi['runtimeEnvironments']
+    >
+
+    const status = runtimeEnvironments.call({
+      selector: 'web-server-a',
+      method: 'status.get',
+      expectedEnvironmentPairingRevision: 1
+    })
+    await vi.waitFor(() => expect(call).toHaveBeenCalledOnce())
+    currentEnvironment = { ...oldEnvironment, id: 'web-server-b', createdAt: 2 }
+    resolveCall({
+      id: 'status.get',
+      ok: true,
+      result: { runtimeId: 'stale-runtime' },
+      _meta: { runtimeId: 'stale-runtime' }
+    })
+
+    await expect(status).rejects.toThrow(
+      'Runtime environment pairing changed; refresh and try again'
+    )
+  })
+
+  it('does not retain a web runtime subscription after the pairing revision changes', async () => {
+    const oldEnvironment = { id: 'web-server-a', createdAt: 1 } as StoredWebRuntimeEnvironment
+    let currentEnvironment = oldEnvironment
+    let resolveSubscribe!: (handle: {
+      unsubscribe: () => void
+      sendBinary: (bytes: Uint8Array<ArrayBufferLike>) => void
+    }) => void
+    const unsubscribe = vi.fn()
+    const subscribe = vi.fn(
+      () =>
+        new Promise<{
+          unsubscribe: () => void
+          sendBinary: (bytes: Uint8Array<ArrayBufferLike>) => void
+        }>((resolve) => {
+          resolveSubscribe = resolve
+        })
+    )
+    vi.doMock('./web-preload-runtime-bridge', () => ({
+      getClientForEnvironment: () => ({ subscribe }),
+      requireActiveEnvironmentOrNull: () => currentEnvironment,
+      resolveEnvironment: () => currentEnvironment
+    }))
+    vi.doMock('./web-runtime-client', () => ({
+      WebRuntimeClient: class {
+        subscribe = subscribe
+        close(): void {}
+      }
+    }))
+    installBrowserGlobals('Linux')
+    const { createRuntimeEnvironmentsApi } = await import('./web-preload-runtime-apis')
+    const runtimeEnvironments = createRuntimeEnvironmentsApi() as NonNullable<
+      PreloadApi['runtimeEnvironments']
+    >
+
+    const subscription = runtimeEnvironments.subscribe(
+      {
+        selector: 'web-server-a',
+        method: 'terminal.subscribe',
+        expectedEnvironmentPairingRevision: 1
+      },
+      { onResponse: vi.fn() }
+    )
+    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledOnce())
+    currentEnvironment = { ...oldEnvironment, id: 'web-server-b', createdAt: 2 }
+    resolveSubscribe({ unsubscribe, sendBinary: vi.fn() })
+
+    await expect(subscription).rejects.toThrow(
+      'Runtime environment pairing changed; refresh and try again'
+    )
+    expect(unsubscribe).toHaveBeenCalledOnce()
   })
 
   it.each(['active runtime', 'selected environment'] as const)(

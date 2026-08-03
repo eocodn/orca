@@ -239,6 +239,47 @@ describe('WebRuntimeClient', () => {
     }
   })
 
+  it('ignores errors from a stale socket after reconnect creates a replacement', async () => {
+    vi.useFakeTimers()
+    const timerWindow = window as unknown as {
+      setTimeout: typeof setTimeout
+      clearTimeout: typeof clearTimeout
+    }
+    timerWindow.setTimeout = setTimeout
+    timerWindow.clearTimeout = clearTimeout
+    const client = new WebRuntimeClient({
+      v: 2,
+      endpoint: 'ws://127.0.0.1:6768',
+      deviceToken: 'token',
+      publicKeyB64: Buffer.alloc(32).toString('base64')
+    })
+    let settled = false
+    try {
+      const staleSocket = fakeSockets[0]!
+
+      await vi.advanceTimersByTimeAsync(12_000)
+      await vi.advanceTimersByTimeAsync(500)
+
+      const replacementSocket = fakeSockets[1]!
+      const connection = client.call('status.get', {}, { timeoutMs: 5_000 }).then(
+        () => undefined,
+        () => undefined
+      )
+      void connection.then(() => {
+        settled = true
+      })
+
+      staleSocket.onerror?.()
+      await vi.waitFor(() => expect(settled).toBe(false))
+
+      replacementSocket.onerror?.()
+      await vi.waitFor(() => expect(settled).toBe(true))
+    } finally {
+      client.close()
+      vi.useRealTimers()
+    }
+  })
+
   it('delivers plain unary responses to their subscription instead of dropping them', async () => {
     const client = new WebRuntimeClient({
       v: 2,
