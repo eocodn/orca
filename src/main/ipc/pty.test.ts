@@ -7474,6 +7474,33 @@ describe('registerPtyHandlers', () => {
     await pendingInventory
   })
 
+  it('retries the inventory when a provider is added during listing', async () => {
+    const localInventory = makeDeferred<{ id: string; cwd: string; title: string }[]>()
+    vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockReturnValue(localInventory.promise)
+    registerPtyHandlers(mainWindow as never)
+
+    const addedProvider = {
+      listProcesses: vi.fn(async () => [
+        { id: 'added-remote-pty', cwd: '/added', title: 'added-shell' }
+      ])
+    }
+
+    const pendingInventory = handlers.get('pty:listSessions')!(null, undefined)
+    registerSshPtyProvider('ssh-list-sessions-added', addedProvider as never)
+    localInventory.resolve([])
+
+    try {
+      await expect(pendingInventory).resolves.toEqual([
+        expect.objectContaining({ id: 'added-remote-pty', cwd: '/added', title: 'added-shell' })
+      ])
+      expect(addedProvider.listProcesses).toHaveBeenCalledOnce()
+      expect(ptyRuntimeState.ptyOwnership.get('added-remote-pty')).toBe('ssh-list-sessions-added')
+    } finally {
+      unregisterSshPtyProvider('ssh-list-sessions-added')
+      ptyRuntimeState.ptyOwnership.delete('added-remote-pty')
+    }
+  })
+
   it('does not publish local ownership when an SSH inventory fails', async () => {
     const localId = 'pty-list-sessions-local-before-error'
     const previousId = 'pty-list-sessions-existing-owner'

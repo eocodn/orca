@@ -6,7 +6,9 @@ import { collectPtyProcessListingsBySource } from '../providers/pty-process-list
 import { routesFreshSpawnsToLocalProvider } from './pty-ipc-runtime-spawn-routing'
 import {
   capturePtyLifecycleTarget,
-  getProviderGeneration,
+  capturePtyProviderListingTargets,
+  hasOnlyAddedPtyProviderListingTargets,
+  isCurrentPtyProviderListingTargetSet,
   isCurrentPtyListing,
   isCurrentPtyLifecycleTarget,
   isCurrentProvider,
@@ -19,21 +21,7 @@ export function installPtyIpcQueryHandlers(): void {
   const state = getPtyRegistrationSharedState() as Record<string, any>
 
   ipcMain.handle('pty:listSessions', async (): Promise<PtyListedSession[]> => {
-    const providers = [
-      {
-        provider: ptyRuntimeState.localProvider,
-        connectionId: null as string | null,
-        generation: getProviderGeneration(ptyRuntimeState.localProvider)
-      },
-      ...Array.from(
-        ptyRuntimeState.sshProviders,
-        ([connectionId, provider]: [string, any]) => ({
-          provider,
-          connectionId,
-          generation: getProviderGeneration(provider)
-        })
-      )
-    ]
+    let providers = capturePtyProviderListingTargets()
     const lifecycleTargets = new Map(
       [
         ...ptyRuntimeState.ptyOwnership.keys(),
@@ -44,10 +32,24 @@ export function installPtyIpcQueryHandlers(): void {
       ].map((id) => [id, capturePtyLifecycleTarget(id)] as const)
     )
     const emptyLifecycleTarget = capturePtyLifecycleTarget('')
-    const listings = await collectPtyProcessListingsBySource(
+    let listings = await collectPtyProcessListingsBySource(
       providers,
       ({ provider }) => provider.listProcesses()
     )
+    const providersAfterListing = capturePtyProviderListingTargets()
+    if (!isCurrentPtyProviderListingTargetSet(providers)) {
+      if (!hasOnlyAddedPtyProviderListingTargets(providers, providersAfterListing)) {
+        throw new Error('pty_process_list_incomplete')
+      }
+      providers = providersAfterListing
+      listings = await collectPtyProcessListingsBySource(
+        providers,
+        ({ provider }) => provider.listProcesses()
+      )
+      if (!isCurrentPtyProviderListingTargetSet(providers)) {
+        throw new Error('pty_process_list_incomplete')
+      }
+    }
     if (
       listings.some(
         ({ source: { provider, connectionId, generation } }) =>
