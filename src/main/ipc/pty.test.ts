@@ -644,6 +644,8 @@ describe('registerPtyHandlers', () => {
     const write = vi.fn()
     const pauseProducer = vi.fn()
     const resumeProducer = vi.fn()
+    const setPtyBackgrounded = vi.fn()
+    const clearBuffer = vi.fn()
     const shutdown = vi.fn()
     let dataHandler:
       | ((payload: { id: string; incarnationId: string; data: string }) => void)
@@ -661,12 +663,13 @@ describe('registerPtyHandlers', () => {
       resize: vi.fn(),
       pauseProducer,
       resumeProducer,
+      setPtyBackgrounded,
       kill: vi.fn(),
       shutdown,
       sendSignal: vi.fn(),
       getCwd: vi.fn(),
       getInitialCwd: vi.fn(),
-      clearBuffer: vi.fn(),
+      clearBuffer,
       acknowledgeDataEvent: vi.fn(),
       hasChildProcesses: vi.fn(),
       getForegroundProcess: vi.fn(),
@@ -702,6 +705,8 @@ describe('registerPtyHandlers', () => {
       write,
       pauseProducer,
       resumeProducer,
+      setPtyBackgrounded,
+      clearBuffer,
       shutdown,
       getBufferSnapshot,
       emitData: (id: string, data: string) => {
@@ -2468,6 +2473,19 @@ describe('registerPtyHandlers', () => {
       throw new Error('missing pty:setPtyDeliveryInterest listener')
     }
     return interestCall[1] as (event: unknown, args: { id: string; interested: boolean }) => void
+  }
+
+  function getPtyClearBufferListener(): (
+    event: unknown,
+    args: { id: string }
+  ) => void {
+    const clearBufferCall = onMock.mock.calls.find(
+      (call: unknown[]) => call[0] === 'pty:clearBuffer'
+    )
+    if (!clearBufferCall) {
+      throw new Error('missing pty:clearBuffer listener')
+    }
+    return clearBufferCall[1] as (event: unknown, args: { id: string }) => void
   }
 
   /** Helper: trigger pty:spawn and return the env passed to node-pty. */
@@ -7760,6 +7778,43 @@ describe('registerPtyHandlers', () => {
     expect(provider.hasChildProcesses).not.toHaveBeenCalled()
     expect(provider.getForegroundProcess).not.toHaveBeenCalled()
     expect(provider.confirmForegroundProcess).not.toHaveBeenCalled()
+  })
+
+  it('routes and then returns unavailable inspection replies for an encoded SSH PTY', async () => {
+    const connectionId = 'ssh+encoded'
+    const ptyId = `ssh:${encodeURIComponent(connectionId)}@@remote-pty`
+    const provider = {
+      hasChildProcesses: vi.fn(),
+      getForegroundProcess: vi.fn(),
+      confirmForegroundProcess: vi.fn(),
+      inspectProcess: vi.fn(async () => ({
+        foregroundProcess: 'bash',
+        hasChildProcesses: false
+      }))
+    }
+    registerSshPtyProvider(connectionId, provider as never)
+    registerPtyHandlers(mainWindow as never)
+
+    await expect(handlers.get('pty:inspectProcess')!(null, { id: ptyId })).resolves.toEqual({
+      foregroundProcess: 'bash',
+      hasChildProcesses: false
+    })
+    expect(provider.inspectProcess).toHaveBeenCalledExactlyOnceWith(ptyId)
+    vi.clearAllMocks()
+    unregisterSshPtyProvider(connectionId)
+
+    await expect(handlers.get('pty:hasChildProcesses')!(null, { id: ptyId })).resolves.toBe(false)
+    await expect(handlers.get('pty:getForegroundProcess')!(null, { id: ptyId })).resolves.toBeNull()
+    await expect(handlers.get('pty:inspectProcess')!(null, { id: ptyId })).resolves.toEqual({
+      foregroundProcess: null,
+      hasChildProcesses: false,
+      unavailable: true
+    })
+    await expect(handlers.get('pty:confirmForegroundProcess')!(null, { id: ptyId })).resolves.toBeNull()
+    expect(provider.hasChildProcesses).not.toHaveBeenCalled()
+    expect(provider.getForegroundProcess).not.toHaveBeenCalled()
+    expect(provider.confirmForegroundProcess).not.toHaveBeenCalled()
+    expect(provider.inspectProcess).not.toHaveBeenCalled()
   })
 
   it('preserves unavailable process inspection results from the provider', async () => {
@@ -16681,6 +16736,68 @@ describe('registerPtyHandlers', () => {
   })
 
   describe('hidden renderer delivery gate', () => {
+    it('resynchronizes provider backgrounding when delivery interest changes', async () => {
+      const runtime = {
+        setPtyController: vi.fn(),
+        registerPty: vi.fn(),
+        noteTerminalSpawnCommand: vi.fn(),
+        onPtySpawned: vi.fn(),
+        onPtyExit: vi.fn(),
+        onPtyData: vi.fn(() => 42),
+        getPtyOutputSequence: vi.fn(() => 42),
+        hasRemoteTerminalViewSubscriber: vi.fn(() => false),
+        createPreAllocatedTerminalHandle: vi.fn(() => 'terminal-handle-1'),
+        registerPreAllocatedHandleForPty: vi.fn()
+      }
+      const daemon = installObservableDaemonTestProvider()
+      try {
+        registerPtyHandlers(mainWindow as never, runtime as never)
+        const result = (await handlers.get('pty:spawn')!(null, {
+          cols: 80,
+          rows: 24,
+          sessionId: 'daemon-session'
+        })) as { id: string }
+        const setVisible = getPtySetRendererPtyVisibleListener()
+        const setInterest = getPtySetDeliveryInterestListener()
+
+        setVisible(null, { id: result.id, visible: false })
+        expect(daemon.setPtyBackgrounded).toHaveBeenLastCalledWith(result.id, true)
+
+        setInterest(null, { id: result.id, interested: true })
+        expect(daemon.setPtyBackgrounded).toHaveBeenLastCalledWith(result.id, false)
+
+        setInterest(null, { id: result.id, interested: false })
+        expect(daemon.setPtyBackgrounded).toHaveBeenLastCalledWith(result.id, true)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('notifies the renderer when clearBuffer is requested over IPC', async () => {
+      const daemon = installObservableDaemonTestProvider()
+      try {
+        registerPtyHandlers(mainWindow as never)
+        const result = (await handlers.get('pty:spawn')!(null, {
+          cols: 80,
+          rows: 24,
+          sessionId: 'daemon-session'
+        })) as { id: string }
+        const clearBuffer = getPtyClearBufferListener()
+        mainWindow.webContents.send.mockClear()
+
+        clearBuffer(null, { id: result.id })
+        await Promise.resolve()
+
+        expect(daemon.clearBuffer).toHaveBeenCalledWith(result.id)
+        expect(mainWindow.webContents.send).toHaveBeenCalledWith(
+          'pty:clearBuffer:request',
+          { ptyId: result.id }
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('drops hidden PTY data after model ingestion and emits one out-of-band restore marker', async () => {
       vi.useFakeTimers()
       const runtime = {

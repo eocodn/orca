@@ -112,8 +112,12 @@ export function getProviderForPty(ptyId: string): IPtyProvider {
 }
 
 export function hasPtyProviderForInspection(ptyId: string): boolean {
-  const connectionId = ptyRuntimeState.ptyOwnership.get(ptyId)
-  return connectionId == null || ptyRuntimeState.sshProviders.has(connectionId)
+  const ownedConnectionId = ptyRuntimeState.ptyOwnership.get(ptyId)
+  if (ownedConnectionId !== undefined) {
+    return ownedConnectionId === null || ptyRuntimeState.sshProviders.has(ownedConnectionId)
+  }
+  const parsedSshId = parseAppSshPtyId(ptyId)
+  return parsedSshId ? ptyRuntimeState.sshProviders.has(parsedSshId.connectionId) : true
 }
 
 export function getAppPtyId(connectionId: string | null | undefined, ptyId: string): string {
