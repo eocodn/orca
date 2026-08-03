@@ -11296,6 +11296,43 @@ describe('connectPanePty', () => {
       )
     })
 
+    it('routes certification through the pane recovery handler', async () => {
+      enableMainAuthority()
+      const remountTerminalTabForRecovery = vi.fn<(tabId: string) => boolean>(() => true)
+      mockStoreState = { ...mockStoreState, remountTerminalTabForRecovery } as StoreState
+      const { _resetTerminalPaneRecoveryForTests } = await import('./terminal-pane-recovery')
+      _resetTerminalPaneRecoveryForTests()
+      const { pane } = await connectHiddenPane(createDeps({ isVisibleRef: { current: false } }))
+
+      const { notifyUndeliverableWrite } =
+        await import('@/lib/pane-manager/terminal-write-pipeline-health')
+      notifyUndeliverableWrite(pane.terminal, 'write-stalled')
+      await flushAsyncTicks(4)
+
+      expect(remountTerminalTabForRecovery).toHaveBeenCalledWith('tab-1')
+      _resetTerminalPaneRecoveryForTests()
+    })
+
+    it('unregisters the certification handler when the pane is disposed', async () => {
+      enableMainAuthority()
+      const remountTerminalTabForRecovery = vi.fn<(tabId: string) => boolean>(() => true)
+      mockStoreState = { ...mockStoreState, remountTerminalTabForRecovery } as StoreState
+      const { _resetTerminalPaneRecoveryForTests } = await import('./terminal-pane-recovery')
+      _resetTerminalPaneRecoveryForTests()
+      const { pane, binding } = await connectHiddenPane(
+        createDeps({ isVisibleRef: { current: false } })
+      )
+
+      binding.dispose()
+      const { notifyUndeliverableWrite } =
+        await import('@/lib/pane-manager/terminal-write-pipeline-health')
+      notifyUndeliverableWrite(pane.terminal, 'write-stalled')
+      await flushAsyncTicks(4)
+
+      expect(remountTerminalTabForRecovery).not.toHaveBeenCalled()
+      _resetTerminalPaneRecoveryForTests()
+    })
+
     it('kicks pane recovery when reveal finds the write pipeline certified dead', async () => {
       // 2026-07-13 fossil-pane incident: bytes drop while hidden, pipeline certified dead, cert recovery empty — reveal must re-kick it.
       enableMainAuthority()
