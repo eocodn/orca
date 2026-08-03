@@ -1,4 +1,3 @@
-import type { Repo } from "../../shared/types"
 import type { ClaudeUsageDailyAggregate, ClaudeUsageParsedTurn, ClaudeUsagePersistedFile, ClaudeUsageSession } from "./types"
 import { FILE_SCAN_BATCH_SIZE, getProcessedFileStat, listClaudeTranscriptFiles, readClaudeUsageScanFile, stripClaudeSourceMetadata, yieldToClaudeUsageEventLoop } from "./scanner-io"
 import { attributeClaudeUsageTurns, buildWorktreeLookup, createWorktreeRefs, type ClaudeUsageWorktreeRef } from "./scanner-attribution"

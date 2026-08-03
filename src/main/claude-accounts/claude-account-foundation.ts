@@ -1,44 +1,20 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, relative, resolve, sep } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import type {
   ClaudeManagedAccount,
-  ClaudeManagedAccountSummary,
   ClaudeRateLimitAccountsState
 } from '../../shared/types'
 import type { Store } from '../persistence'
 import type { RateLimitService } from '../rate-limits/service'
-import { resolveClaudeCommand } from '../codex-cli/command'
 import type { ClaudeRuntimeAuthService } from './runtime-auth-service'
-import {
-  getClaudeManagedAccountsRoot,
-  readClaudeManagedAuthFile,
-  resolveOwnedClaudeManagedAuthPath,
-  writeClaudeManagedAuthFile
-} from './managed-auth-path'
-import {
-  deleteActiveClaudeKeychainCredentialsStrict,
-  deleteManagedClaudeKeychainCredentials,
-  readActiveClaudeKeychainCredentials,
-  readActiveClaudeKeychainCredentialsStrict,
-  readManagedClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentials,
-  writeManagedClaudeKeychainCredentials
-} from './keychain'
-import { beginClaudeAuthSwitch, endClaudeAuthSwitch } from './live-pty-gate'
+import { readActiveClaudeKeychainCredentialsStrict } from './keychain'
 import { findDuplicateClaudeAccount } from './claude-duplicate-account'
-import { parseWslUncPath } from '../../shared/wsl-paths'
-import { toWindowsWslPath } from '../wsl'
-import { buildEncodedWslBashCommand } from '../wsl-bash-command'
-import { buildWindowsCommandInvocation } from './windows-command-invocation'
 import {
   getClaudeSelectionTargetForAccount,
   getSelectedClaudeAccountIdForTarget,
   normalizeClaudeAccountSelectionTarget,
   normalizeClaudeRuntimeSelection,
-  pruneInvalidClaudeRuntimeSelection,
   removeClaudeAccountIdFromSelection,
   setSelectedClaudeAccountIdForTarget,
   type ClaudeAccountSelectionTarget

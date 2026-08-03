@@ -1,32 +1,11 @@
-import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { app } from 'electron'
+import { existsSync, readFileSync } from 'node:fs'
 import type { ClaudeManagedAccount } from '../../shared/types'
 import type { Store } from '../persistence'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
 import type { ClaudeEnvPatch } from './environment'
-import {
-  readClaudeManagedAuthFile,
-  resolveOwnedClaudeManagedAuthPath,
-  writeClaudeManagedAuthFile
-} from './managed-auth-path'
-import { parseWslUncPath } from '../../shared/wsl-paths'
-import { resolveLocalAccountRuntimeTarget } from '../../shared/local-account-runtime'
-import { getDefaultWslDistro, getWslHome, toWindowsWslPath } from '../wsl'
-import { buildEncodedWslBashCommand } from '../wsl-bash-command'
 import { hasLiveClaudePtys } from './live-pty-gate'
-import { isOauthTokenExpiring, refreshClaudeOauthCredentials } from './oauth-refresh'
+import { isOauthTokenExpiring } from './oauth-refresh'
 import { ClaudeRuntimePathResolver } from './runtime-paths'
-import {
-  deleteActiveClaudeKeychainCredentialsStrict,
-  readActiveClaudeKeychainCredentials,
-  readActiveClaudeKeychainCredentialsStrict,
-  readManagedClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentialsForRuntime,
-  writeManagedClaudeKeychainCredentials
-} from './keychain'
+import { writeActiveClaudeKeychainCredentialsForRuntime } from './keychain'
 import {
   getSelectedClaudeAccountIdForTarget,
   normalizeClaudeAccountSelectionTarget,

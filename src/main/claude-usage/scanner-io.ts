@@ -3,7 +3,7 @@ import { join, basename } from "node:path"
 import { readdir, stat } from "node:fs/promises"
 import { createReadStream } from "node:fs"
 import { createInterface } from "node:readline"
-import type { ClaudeUsageParsedTurn, ClaudeUsagePersistedFile, ClaudeUsageProcessedFile } from "./types"
+import type { ClaudeUsageParsedTurn, ClaudeUsageProcessedFile } from "./types"
 
 type ClaudeUsageSourceRecord = {
   type?: string
