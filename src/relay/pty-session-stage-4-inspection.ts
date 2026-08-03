@@ -73,6 +73,11 @@ export abstract class PtyHandlerStage4Inspection extends PtyHandlerStage4Termina
     for (const [id, managed] of this.ptys) {
       const title =
         (await getForegroundProcessName(managed.pty.pid, managed.pty.process || null)) || 'shell'
+      // Why: foreground inspection is awaited; omit a row if the relay reused
+      // this id before the old inspection completed.
+      if (this.ptys.get(id) !== managed || managed.disposed) {
+        continue
+      }
       results.push({
         id,
         incarnationId: managed.incarnationId,

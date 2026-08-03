@@ -25,6 +25,49 @@ export function isCurrentProvider(
   return currentProvider === provider && getProviderGeneration(currentProvider) === generation
 }
 
+export type PtyLifecycleTarget = Readonly<{
+  ownershipPresent: boolean
+  ownership: string | null | undefined
+  incarnationId: string | undefined
+  pendingIncarnationId: string | undefined
+  stateToken: symbol | undefined
+  cleared: boolean
+}>
+
+export function capturePtyLifecycleTarget(id: string): PtyLifecycleTarget {
+  return Object.freeze({
+    ownershipPresent: ptyRuntimeState.ptyOwnership.has(id),
+    ownership: ptyRuntimeState.ptyOwnership.get(id),
+    incarnationId: ptyRuntimeState.ptyIncarnationById.get(id),
+    pendingIncarnationId: ptyRuntimeState.pendingPtyIncarnationById.get(id),
+    stateToken: ptyRuntimeState.ptyStateTokenById.get(id),
+    cleared: ptyRuntimeState.clearedPtyLifecycleIds.has(id)
+  })
+}
+
+export function isCurrentPtyLifecycleTarget(id: string, target: PtyLifecycleTarget): boolean {
+  return (
+    ptyRuntimeState.ptyOwnership.has(id) === target.ownershipPresent &&
+    ptyRuntimeState.ptyOwnership.get(id) === target.ownership &&
+    ptyRuntimeState.ptyIncarnationById.get(id) === target.incarnationId &&
+    ptyRuntimeState.pendingPtyIncarnationById.get(id) === target.pendingIncarnationId &&
+    ptyRuntimeState.ptyStateTokenById.get(id) === target.stateToken &&
+    ptyRuntimeState.clearedPtyLifecycleIds.has(id) === target.cleared
+  )
+}
+
+export function isCurrentPtyListing(
+  id: string,
+  incarnationId: string | undefined,
+  target: PtyLifecycleTarget
+): boolean {
+  if (!isCurrentPtyLifecycleTarget(id, target)) {
+    return false
+  }
+  const expectedIncarnationId = target.incarnationId ?? target.pendingIncarnationId
+  return expectedIncarnationId === undefined || incarnationId === expectedIncarnationId
+}
+
 const PTY_EXIT_EVIDENCE_MAX_PER_ID = 128
 
 export function rememberSshPtyExitFinalization(id: string, ptyIncarnation: string): void {

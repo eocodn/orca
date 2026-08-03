@@ -35,7 +35,9 @@ describe('pty pane state', () => {
     ptyRuntimeState.sshProvidersByGeneration.clear()
     ptyRuntimeState.ptyOwnership.clear()
     ptyRuntimeState.ptyIncarnationById.clear()
+    ptyRuntimeState.pendingPtyIncarnationById.clear()
     ptyRuntimeState.ptyStateTokenById.clear()
+    ptyRuntimeState.clearedPtyLifecycleIds.clear()
     ptyRuntimeState.agentSessionOwnerReconciliation = null
     ptyRuntimeState.agentSessionOwners = new ClaimedAgentPtyOwnerRegistry()
   })
@@ -44,10 +46,13 @@ describe('pty pane state', () => {
     ptyRuntimeState.ptyPaneKey.clear()
     ptyRuntimeState.paneKeyPtyId.clear()
     unregisterSshPtyProvider('ssh-pane-state-race')
+    unregisterSshPtyProvider('ssh-pane-state-same-generation')
     ptyRuntimeState.sshProvidersByGeneration.clear()
     ptyRuntimeState.ptyOwnership.clear()
     ptyRuntimeState.ptyIncarnationById.clear()
+    ptyRuntimeState.pendingPtyIncarnationById.clear()
     ptyRuntimeState.ptyStateTokenById.clear()
+    ptyRuntimeState.clearedPtyLifecycleIds.clear()
     ptyRuntimeState.agentSessionOwnerReconciliation = null
     ptyRuntimeState.agentSessionOwners = new ClaimedAgentPtyOwnerRegistry()
   })
@@ -132,6 +137,69 @@ describe('pty pane state', () => {
 
     expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBeNull()
     expect(ptyRuntimeState.ptyIncarnationById.get(ptyId)).toBe('incarnation-current')
+    expect(ptyRuntimeState.ptyStateTokenById.get(ptyId)).toBe(currentToken)
+  })
+
+  it('does not let a same-generation listing overwrite a newer PTY incarnation', async () => {
+    const connectionId = 'ssh-pane-state-same-generation'
+    const ptyId = `ssh:${connectionId}@@pty-current`
+    const inventory = makeDeferred<
+      Array<{
+        id: string
+        incarnationId?: string
+        cwd: string
+        title: string
+        agentSessionOwners?: AgentSessionOwnerBinding[]
+      }>
+    >()
+    const owner = {
+      claim: {
+        digestVersion: 1,
+        keyId: 'same-generation-key',
+        identityDigest: 'same-generation-digest',
+        worktreeScopeDigest: 'same-generation-worktree',
+        agent: 'codex'
+      },
+      generation: 'same-generation-owner',
+      phase: 'live',
+      ptyId,
+      surface: {
+        worktreeId: 'worktree',
+        tabId: 'tab-same-generation',
+        leafId: '44444444-4444-4444-8444-444444444444',
+        terminalHandle: 'term_same_generation'
+      }
+    } as AgentSessionOwnerBinding
+    const provider = {
+      providerGeneration: 7,
+      providesAgentSessionOwnerListings: () => true,
+      listProcesses: vi.fn(() => inventory.promise)
+    }
+    const oldToken = Symbol(ptyId)
+    const currentToken = Symbol(ptyId)
+
+    registerSshPtyProvider(connectionId, provider as never)
+    ptyRuntimeState.ptyOwnership.set(ptyId, null)
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-old')
+    ptyRuntimeState.ptyStateTokenById.set(ptyId, oldToken)
+
+    const reconciliation = reconcileAgentSessionOwnerListings()
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-new')
+    ptyRuntimeState.ptyStateTokenById.set(ptyId, currentToken)
+    inventory.resolve([
+      {
+        id: ptyId,
+        incarnationId: 'incarnation-old',
+        cwd: '/old',
+        title: 'old',
+        agentSessionOwners: [owner]
+      }
+    ])
+
+    await reconciliation
+
+    expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBeNull()
+    expect(ptyRuntimeState.ptyIncarnationById.get(ptyId)).toBe('incarnation-new')
     expect(ptyRuntimeState.ptyStateTokenById.get(ptyId)).toBe(currentToken)
   })
 })

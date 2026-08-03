@@ -5,7 +5,9 @@ import type { WebContents } from 'electron'
 import type { SleepingAgentLaunchConfig } from '../../shared/agent-session-resume'
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import {
+  capturePtyLifecycleTarget,
   getProviderGeneration,
+  isCurrentPtyListing,
   isCurrentProvider,
   tryGetProviderForAgentSessionOwner
 } from './pty-ipc-runtime-provider-routing'
@@ -59,6 +61,16 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
         generation: getProviderGeneration(provider)
       }))
     ]
+    const lifecycleTargets = new Map(
+      [
+        ...ptyRuntimeState.ptyOwnership.keys(),
+        ...ptyRuntimeState.ptyIncarnationById.keys(),
+        ...ptyRuntimeState.pendingPtyIncarnationById.keys(),
+        ...ptyRuntimeState.ptyStateTokenById.keys(),
+        ...ptyRuntimeState.clearedPtyLifecycleIds
+      ].map((id) => [id, capturePtyLifecycleTarget(id)] as const)
+    )
+    const emptyLifecycleTarget = capturePtyLifecycleTarget('')
     const listings = await Promise.all(
       providers.map(async ({ provider, connectionId, generation }) => ({
         provider,
@@ -85,6 +97,12 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
     }[] = []
     for (const { connectionId, sessions } of listings) {
       for (const session of sessions) {
+        // Why: a relay listing can describe an earlier incarnation even when
+        // its provider object and connection generation are still current.
+        const lifecycleTarget = lifecycleTargets.get(session.id) ?? emptyLifecycleTarget
+        if (!isCurrentPtyListing(session.id, session.incarnationId, lifecycleTarget)) {
+          continue
+        }
         const incarnationId = session.incarnationId
         let hasAdvertisedOwner = false
         for (const owner of session.agentSessionOwners ?? []) {

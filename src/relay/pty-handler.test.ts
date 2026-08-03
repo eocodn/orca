@@ -171,6 +171,32 @@ describe('PtyHandler', () => {
     expect(notifMethods).toContain('pty.ackData')
   })
 
+  it('does not return a relay listing row after its PTY slot is replaced during inspection', async () => {
+    let resolveInspection!: (value: string | null) => void
+    const inspection = new Promise<string | null>((resolve) => {
+      resolveInspection = resolve
+    })
+    const foregroundSpy = vi
+      .spyOn(ptyShellUtils, 'getForegroundProcessName')
+      .mockReturnValue(inspection)
+
+    try {
+      const spawned = await spawnPty()
+      const ptys = (handler as unknown as { ptys: Map<string, Record<string, unknown>> }).ptys
+      const managed = ptys.get(spawned.id)
+      expect(managed).toBeDefined()
+
+      const listing = dispatcher.callRequest('pty.listProcesses')
+      await vi.waitFor(() => expect(foregroundSpy).toHaveBeenCalledOnce())
+      ptys.set(spawned.id, { ...managed!, incarnationId: 'replacement-incarnation' })
+      resolveInspection('shell')
+
+      await expect(listing).resolves.toEqual([])
+    } finally {
+      foregroundSpy.mockRestore()
+    }
+  })
+
   it('pauses native output at the producer hard water and resumes after retained writes settle', async () => {
     let onData: ((data: string) => void) | undefined
     const pause = vi.fn()

@@ -16,7 +16,9 @@ import {
   schedulePendingPtyCleanupReconciliation
 } from './pty-ipc-runtime-cleanup-reconciliation'
 import {
-  isCurrentPtyExit
+  capturePtyLifecycleTarget,
+  isCurrentPtyExit,
+  isCurrentPtyLifecycleTarget
 } from './pty-ipc-runtime-provider-routing'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
@@ -451,9 +453,14 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
       const stateToken = ptyRuntimeState.ptyStateTokenById.get(payload.id)
       if (incarnationId === undefined && stateToken !== undefined) {
         // Why: legacy providers omit incarnation ids, so an old exit must not retire an id-reused PTY without an authoritative absence check.
+        const lifecycleTarget = capturePtyLifecycleTarget(payload.id)
         void providerProvesPtyIncarnationAbsent(boundProvider, payload.id, undefined)
           .then((absenceProof) => {
-            if (absenceProof.absent && ptyRuntimeState.ptyStateTokenById.get(payload.id) === stateToken) {
+            if (
+              absenceProof.absent &&
+              isCurrentPtyLifecycleTarget(payload.id, lifecycleTarget) &&
+              ptyRuntimeState.ptyStateTokenById.get(payload.id) === stateToken
+            ) {
               handleProviderExit(
                 payload,
                 {
