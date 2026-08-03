@@ -27,6 +27,8 @@ describe('source line count gate', () => {
     expect(isSourcePath('config/build.cjs')).toBe(true)
     expect(isSourcePath('config/build.js')).toBe(true)
     expect(isSourcePath('config/build.test.cjs')).toBe(false)
+    expect(isSourcePath('src/test.ts')).toBe(false)
+    expect(isSourcePath('src/spec.ts')).toBe(false)
     expect(isSourcePath('src/main/service.test.jsx')).toBe(false)
     expect(isSourcePath('src/main/service.spec.mts')).toBe(false)
     expect(isSourcePath('src/main/service.spec.cts')).toBe(false)

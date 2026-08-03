@@ -25,7 +25,7 @@ export function isSourcePath(relativePath) {
   ) {
     return false
   }
-  if (/(?:\.test|\.spec)\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(basename)) {
+  if (/(?:^|\.)(?:test|spec)\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(basename)) {
     return false
   }
   return !normalized.split('/').some((part) => EXCLUDED_DIRECTORY_NAMES.has(part))
