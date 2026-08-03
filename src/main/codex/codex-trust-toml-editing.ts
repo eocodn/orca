@@ -8,30 +8,9 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs'
-import { basename, dirname, join, posix as pathPosix, win32 as pathWin32 } from 'node:path'
-import { createHash, randomUUID } from 'node:crypto'
+import { dirname, join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
-import { foldWslUncPathCaseInsensitiveParts } from '../../shared/wsl-paths'
-import { writeRollingFileBackup } from '../rolling-file-backup'
-import {
-  createTomlLineScanState,
-  isTomlStructuralLine,
-  updateTomlLineScanState
-} from './config-toml-line-scan'
-export import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  statSync,
-  unlinkSync,
-  writeFileSync
-} from 'node:fs'
-import { basename, dirname, join, posix as pathPosix, win32 as pathWin32 } from 'node:path'
-import { createHash, randomUUID } from 'node:crypto'
-import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
-import { foldWslUncPathCaseInsensitiveParts } from '../../shared/wsl-paths'
 import { writeRollingFileBackup } from '../rolling-file-backup'
 import {
   createTomlLineScanState,
@@ -39,108 +18,23 @@ import {
   updateTomlLineScanState
 } from './config-toml-line-scan'
 
-// Why: Codex 0.129+ gates each hook on a `trusted_hash` in config.toml under [hooks.state."<key>"]; without it the hook never fires (agent-status goes blank).
-// Hash algorithm reverse-engineered from codex-rs/hooks/src/engine/discovery.rs (command_hook_hash) + config/src/fingerprint.rs (version_for_toml).
-
-import { upsertProjectTrustLevelInContent,
-  buildTrustBlock,
-  formatHookStateTableKey,
-  getTrustKeyWriteVariants,
-  escapeTomlString,
-  upsertTrustBlocks,
-  buildTrustBlocks,
-  ensureHooksStateParentTable,
-  type TrustBlockRange,
+import {
+  type CodexHookTrustState,
+  type CodexProjectTrustLevel,
+  HookTrustEntryMap,
+  type CodexTrustEntry,
   normalizeHookTrustKeyForLookup,
-  findTrustBlockRanges,
+  upsertHookTrustEntriesInContent
+} from './codex-trust-toml-foundation'
+import {
   findTrustBlockRangesForNormalizedKeys,
-  type ParsedTomlString,
+  upsertProjectTrustLevelInContent
+} from './codex-trust-toml-normalization'
+import {
+  findNextTableHeader,
   parseHookStateHeaderKey,
-  parseCodexProjectHeaderPath,
-  findProjectHeaderLineEnd,
-  parseTomlSingleLineString,
-  parseTomlBasicSingleLineString,
-  parseTomlLiteralSingleLineString,
-  skipTomlInlineWhitespace } from './codex-trust-toml-normalization'
-
-export function findNextTableHeader(text: string): number {
-  let cursor = 0
-  let scanState = createTomlLineScanState()
-  while (cursor < text.length) {
-    const newlineIdx = text.indexOf('\n', cursor)
-    const lineEnd = newlineIdx === -1 ? text.length : newlineIdx
-    const rawLine = text.slice(cursor, lineEnd)
-    const line = rawLine.replace(/\r$/, '')
-    if (isTomlStructuralLine(scanState)) {
-      const trimmed = line.trimStart()
-      // Why: stop at both `[table]` and `[[array.of.tables]]`; skipping `[[ ]]` would let the slice consume unrelated content.
-      if (trimmed.startsWith('[') && isCompleteTableHeader(trimmed)) {
-        return cursor
-      }
-    }
-    scanState = updateTomlLineScanState(scanState, line)
-    if (newlineIdx === -1) {
-      return -1
-    }
-    cursor = newlineIdx + 1
-  }
-  return -1
-}
-
-// Why: walk byte-by-byte so a `]` inside a quoted key segment doesn't terminate the header early.
-export function isCompleteTableHeader(line: string): boolean {
-  if (!line.startsWith('[')) {
-    return false
-  }
-  const isArrayHeader = line.startsWith('[[')
-  let i = isArrayHeader ? 2 : 1
-  let inBasicQuote = false
-  let inLiteralQuote = false
-  while (i < line.length) {
-    const ch = line[i]
-    if (inBasicQuote) {
-      if (ch === '\\' && i + 1 < line.length) {
-        i += 2
-        continue
-      }
-      if (ch === '"') {
-        inBasicQuote = false
-      }
-      i++
-      continue
-    }
-    if (inLiteralQuote) {
-      if (ch === "'") {
-        inLiteralQuote = false
-      }
-      i++
-      continue
-    }
-    if (ch === '"') {
-      inBasicQuote = true
-      i++
-      continue
-    }
-    if (ch === "'") {
-      inLiteralQuote = true
-      i++
-      continue
-    }
-    if (ch === ']') {
-      if (isArrayHeader) {
-        if (line[i + 1] !== ']') {
-          return false
-        }
-        const tail = line.slice(i + 2)
-        return /^\s*(#.*)?$/.test(tail)
-      }
-      const tail = line.slice(i + 1)
-      return /^\s*(#.*)?$/.test(tail)
-    }
-    i++
-  }
-  return false
-}
+  unescapeTomlBasicStringEscape
+} from './codex-trust-toml-structure'
 
 // Why: a half-written config.toml can brick Codex, so write to a random-suffix tmp then rename (.bak rotation), avoiding cross-process races.
 export function writeConfigAtomically(configPath: string, contents: string): void {
@@ -311,45 +205,49 @@ export function readHookTrustEntriesFromContent(content: string): Map<string, Co
   return result
 }
 
-export function unescapeTomlBasicStringEscape(next: string): string {
-  if (next === 'n') {
-    return '\n'
+// Why: strip a leading BOM so header scanners see the first TOML table.
+export function readTomlFile(configPath: string): string {
+  const raw = readFileSync(configPath, 'utf-8')
+  return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
+}
+
+// Why: keep file I/O here; normalization remains pure and byte-preserving.
+export function upsertHookTrustEntries(
+  configPath: string,
+  entries: readonly CodexTrustEntry[]
+): void {
+  const existing = existsSync(configPath) ? readTomlFile(configPath) : ''
+  const updated = upsertHookTrustEntriesInContent(existing, entries)
+  if (updated !== existing) {
+    writeConfigAtomically(configPath, updated)
   }
-  if (next === 'r') {
-    return '\r'
+}
+
+export function upsertProjectTrustLevel(
+  configPath: string,
+  projectPath: string,
+  trustLevel: CodexProjectTrustLevel
+): void {
+  const existing = existsSync(configPath) ? readTomlFile(configPath) : ''
+  const updated = upsertProjectTrustLevelInContent(existing, projectPath, trustLevel)
+  if (updated !== existing) {
+    writeConfigAtomically(configPath, updated)
   }
-  if (next === 't') {
-    return '\t'
-  }
-  if (next === 'b') {
-    return '\b'
-  }
-  if (next === 'f') {
-    return '\f'
-  }
-  if (next === '"') {
-    return '"'
-  }
-  if (next === '\\') {
-    return '\\'
-  }
-  // Why: unknown escapes round-trip — preserve the backslash so info isn't dropped.
-  return `\\${next}`
 }
 
 export function unescapeTomlString(escaped: string): string {
   let result = ''
-  let i = 0
-  while (i < escaped.length) {
-    const ch = escaped[i]
-    if (ch === '\\' && i + 1 < escaped.length) {
-      result += unescapeTomlBasicStringEscape(escaped[i + 1])
-      i += 2
+  let index = 0
+  while (index < escaped.length) {
+    const char = escaped[index]
+    if (char === '\\' && index + 1 < escaped.length) {
+      const next = escaped[index + 1]
+      result += unescapeTomlBasicStringEscape(next)
+      index += 2
     } else {
-      result += ch
-      i++
+      result += char
+      index += 1
     }
   }
   return result
 }
-

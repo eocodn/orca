@@ -1,23 +1,12 @@
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  statSync,
-  unlinkSync,
-  writeFileSync
-} from 'node:fs'
+import { realpathSync } from 'node:fs'
 import { basename, dirname, join, posix as pathPosix, win32 as pathWin32 } from 'node:path'
-import { createHash, randomUUID } from 'node:crypto'
-import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
+import { createHash } from 'node:crypto'
 import { foldWslUncPathCaseInsensitiveParts } from '../../shared/wsl-paths'
-import { writeRollingFileBackup } from '../rolling-file-backup'
 import {
-  createTomlLineScanState,
-  isTomlStructuralLine,
-  updateTomlLineScanState
-} from './config-toml-line-scan'
+  ensureHooksStateParentTable,
+  getTrustKeyWriteVariants,
+  upsertTrustBlocks
+} from './codex-trust-toml-normalization'
 
 // Why: Codex 0.129+ gates each hook on a `trusted_hash` in config.toml under [hooks.state."<key>"]; without it the hook never fires (agent-status goes blank).
 // Hash algorithm reverse-engineered from codex-rs/hooks/src/engine/discovery.rs (command_hook_hash) + config/src/fingerprint.rs (version_for_toml).
@@ -83,6 +72,21 @@ export class HookTrustEntryMap extends Map<string, CodexHookTrustState> {
   override set(key: string, value: CodexHookTrustState): this {
     return super.set(normalizeHookTrustKeyForLookup(key), value)
   }
+}
+
+// Why: normalize at the Map edge so Codex-written separator/casing variants match lookups.
+export function normalizeHookTrustKeyForLookup(key: string): string {
+  const parsed = parseTrustKey(key)
+  const foldedPath = normalizeCodexProjectPathForLookup(
+    parsed
+      ? parsed.sourcePath.startsWith('//')
+        ? parsed.sourcePath
+        : normalizeCodexHookSourcePath(parsed.sourcePath)
+      : key
+  )
+  return parsed
+    ? `${foldedPath}:${parsed.eventLabel}:${parsed.groupIndex}:${parsed.handlerIndex}`
+    : foldedPath
 }
 
 // Why: matches Codex's canonical_json — recursively sorts object keys before hashing; arrays keep order.
@@ -185,7 +189,11 @@ export function normalizeCodexHookSourcePath(sourcePath: string): string {
   return trimNonRootTrailingSeparators(normalized, pathPosix.parse(normalized).root, /\//)
 }
 
-export function trimNonRootTrailingSeparators(path: string, root: string, separators: RegExp): string {
+export function trimNonRootTrailingSeparators(
+  path: string,
+  root: string,
+  separators: RegExp
+): string {
   let end = path.length
   while (end > root.length && separators.test(path[end - 1]!)) {
     end -= 1
@@ -324,26 +332,6 @@ export function isCodexEventLabel(value: string): value is CodexEventLabel {
   )
 }
 
-// Why: strip a leading BOM (some Windows editors write one) so header regexes anchored at `^[ \t]*\[` still match.
-export function readTomlFile(configPath: string): string {
-  const raw = readFileSync(configPath, 'utf-8')
-  return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
-}
-
-// Why: regex-edit config.toml (not parse+reserialize) to byte-preserve user comments, key ordering, and inline-table style.
-// Why: this read-modify-write has no lock and races Codex's /hooks writer, but idempotent install() repairs any lost update.
-export function upsertHookTrustEntries(
-  configPath: string,
-  entries: readonly CodexTrustEntry[]
-): void {
-  const existing = existsSync(configPath) ? readTomlFile(configPath) : ''
-  const updated = upsertHookTrustEntriesInContent(existing, entries)
-  if (updated === existing) {
-    return
-  }
-  writeConfigAtomically(configPath, updated)
-}
-
 export function upsertHookTrustEntriesInContent(
   existingContent: string,
   entries: readonly CodexTrustEntry[]
@@ -365,17 +353,3 @@ export function upsertHookTrustEntriesInContent(
   }
   return updated
 }
-
-export function upsertProjectTrustLevel(
-  configPath: string,
-  projectPath: string,
-  trustLevel: CodexProjectTrustLevel
-): void {
-  const existing = existsSync(configPath) ? readTomlFile(configPath) : ''
-  const updated = upsertProjectTrustLevelInContent(existing, projectPath, trustLevel)
-  if (updated === existing) {
-    return
-  }
-  writeConfigAtomically(configPath, updated)
-}
-

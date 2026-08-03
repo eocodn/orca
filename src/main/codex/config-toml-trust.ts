@@ -1,1 +1,1 @@
-export * from './codex-trust-toml-engine.ts'
+export * from './codex-trust-toml-engine'

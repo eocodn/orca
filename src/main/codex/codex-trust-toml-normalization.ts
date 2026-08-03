@@ -1,75 +1,20 @@
 import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  statSync,
-  unlinkSync,
-  writeFileSync
-} from 'node:fs'
-import { basename, dirname, join, posix as pathPosix, win32 as pathWin32 } from 'node:path'
-import { createHash, randomUUID } from 'node:crypto'
-import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
-import { foldWslUncPathCaseInsensitiveParts } from '../../shared/wsl-paths'
-import { writeRollingFileBackup } from '../rolling-file-backup'
-import {
   createTomlLineScanState,
   isTomlStructuralLine,
   updateTomlLineScanState
 } from './config-toml-line-scan'
-export import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  statSync,
-  unlinkSync,
-  writeFileSync
-} from 'node:fs'
-import { basename, dirname, join, posix as pathPosix, win32 as pathWin32 } from 'node:path'
-import { createHash, randomUUID } from 'node:crypto'
-import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
-import { foldWslUncPathCaseInsensitiveParts } from '../../shared/wsl-paths'
-import { writeRollingFileBackup } from '../rolling-file-backup'
 import {
-  createTomlLineScanState,
-  isTomlStructuralLine,
-  updateTomlLineScanState
-} from './config-toml-line-scan'
-
-// Why: Codex 0.129+ gates each hook on a `trusted_hash` in config.toml under [hooks.state."<key>"]; without it the hook never fires (agent-status goes blank).
-// Hash algorithm reverse-engineered from codex-rs/hooks/src/engine/discovery.rs (command_hook_hash) + config/src/fingerprint.rs (version_for_toml).
-
-import { type CodexEventLabel,
-  type CodexTrustEntry,
-  type CodexHookTrustState,
   type CodexProjectTrustLevel,
-  HookTrustEntryMap,
-  canonicalize,
-  matcherPatternForEvent,
-  computeTrustedHash,
-  computeTrustKey,
-  getCodexExplicitHomeHookSourcePath,
-  normalizeCodexHookSourcePath,
-  trimNonRootTrailingSeparators,
-  stripWindowsDevicePrefix,
   getCodexCanonicalProjectPath,
-  normalizeWindowsPathSeparators,
-  usesWindowsPathSeparators,
-  isUnambiguousWindowsPath,
-  isWindowsPathForTrustSource,
-  normalizeCodexProjectPathForLookup,
-  codexHookSourcePathsEqual,
-  normalizeCodexProjectPathForRevocationLookup,
+  normalizeHookTrustKeyForLookup,
   parseTrustKey,
-  isCanonicalNonNegativeInt,
-  isCodexEventLabel,
-  readTomlFile,
-  upsertHookTrustEntries,
-  upsertHookTrustEntriesInContent,
-  upsertProjectTrustLevel } from './codex-trust-toml-foundation'
+  usesWindowsPathSeparators
+} from './codex-trust-toml-foundation'
+import {
+  findNextTableHeader,
+  parseHookStateHeaderKey,
+  findProjectHeaderLineEnd
+} from './codex-trust-toml-structure'
 
 export function upsertProjectTrustLevelInContent(
   existingContent: string,
@@ -233,23 +178,6 @@ export type TrustBlockRange = {
   end: number
 }
 
-// Why: separator/casing drift between Codex-written and Orca-built keys must not stop findTrustBlockRanges from matching.
-export function normalizeHookTrustKeyForLookup(key: string): string {
-  const parsed = parseTrustKey(key)
-  // Why: fold by path shape, not host platform — hook sources on WSL and SSH
-  // Windows remotes need the same folding when Orca runs on macOS or Linux.
-  const foldedPath = normalizeCodexProjectPathForLookup(
-    parsed
-      ? parsed.sourcePath.startsWith('//')
-        ? parsed.sourcePath
-        : normalizeCodexHookSourcePath(parsed.sourcePath)
-      : key
-  )
-  return parsed
-    ? `${foldedPath}:${parsed.eventLabel}:${parsed.groupIndex}:${parsed.handlerIndex}`
-    : foldedPath
-}
-
 export function findTrustBlockRanges(content: string, key: string): TrustBlockRange[] {
   return findTrustBlockRangesForNormalizedKeys(
     content,
@@ -292,118 +220,3 @@ export function findTrustBlockRangesForNormalizedKeys(
   }
   return ranges
 }
-
-export type ParsedTomlString = {
-  value: string
-  endIndex: number
-}
-
-// Why: hook-state keys appear as both TOML basic strings and equivalent literal-string keys.
-export function parseHookStateHeaderKey(line: string): string | null {
-  const trimmed = line.trimStart()
-  const prefixMatch = /^\[[ \t]*hooks[ \t]*\.[ \t]*state[ \t]*\.[ \t]*/.exec(trimmed)
-  if (!prefixMatch) {
-    return null
-  }
-  const parsedKey = parseTomlSingleLineString(trimmed, prefixMatch[0].length)
-  if (!parsedKey) {
-    return null
-  }
-  let index = skipTomlInlineWhitespace(trimmed, parsedKey.endIndex)
-  if (trimmed[index] !== ']') {
-    return null
-  }
-  index = skipTomlInlineWhitespace(trimmed, index + 1)
-  return index === trimmed.length || trimmed[index] === '#' ? parsedKey.value : null
-}
-
-export function parseCodexProjectHeaderPath(line: string): string | null {
-  // Why: mirror section headers retain a terminal CR (split CRLF files) while direct upserts scan CR-stripped lines.
-  const trimmed = line.replace(/\r$/, '').trimStart()
-  const prefixMatch = /^\[[ \t]*projects[ \t]*\.[ \t]*/.exec(trimmed)
-  if (!prefixMatch) {
-    return null
-  }
-  const parsedPath = parseTomlSingleLineString(trimmed, prefixMatch[0].length)
-  if (!parsedPath) {
-    return null
-  }
-  let index = skipTomlInlineWhitespace(trimmed, parsedPath.endIndex)
-  if (trimmed[index] !== ']') {
-    return null
-  }
-  index = skipTomlInlineWhitespace(trimmed, index + 1)
-  return index === trimmed.length || trimmed[index] === '#' ? parsedPath.value : null
-}
-
-export function findProjectHeaderLineEnd(content: string, projectPath: string): number | null {
-  const lookupPath = normalizeCodexProjectPathForLookup(projectPath)
-  let cursor = 0
-  let scanState = createTomlLineScanState()
-  while (cursor < content.length) {
-    const newlineIndex = content.indexOf('\n', cursor)
-    const lineEnd = newlineIndex === -1 ? content.length : newlineIndex
-    const rawLine = content.slice(cursor, lineEnd)
-    const line = rawLine.replace(/\r$/, '')
-    const existingPath = isTomlStructuralLine(scanState) ? parseCodexProjectHeaderPath(line) : null
-    if (existingPath !== null && normalizeCodexProjectPathForLookup(existingPath) === lookupPath) {
-      return rawLine.endsWith('\r') ? lineEnd - 1 : lineEnd
-    }
-    scanState = updateTomlLineScanState(scanState, line)
-    if (newlineIndex === -1) {
-      return null
-    }
-    cursor = newlineIndex + 1
-  }
-  return null
-}
-
-export function parseTomlSingleLineString(line: string, startIndex: number): ParsedTomlString | null {
-  if (line[startIndex] === '"') {
-    return parseTomlBasicSingleLineString(line, startIndex + 1)
-  }
-  if (line[startIndex] === "'") {
-    return parseTomlLiteralSingleLineString(line, startIndex + 1)
-  }
-  return null
-}
-
-export function parseTomlBasicSingleLineString(line: string, startIndex: number): ParsedTomlString | null {
-  let value = ''
-  let index = startIndex
-  while (index < line.length) {
-    const char = line[index]
-    if (char === '"') {
-      return { value, endIndex: index + 1 }
-    }
-    if (char === '\\' && index + 1 < line.length) {
-      const next = line[index + 1]
-      value += unescapeTomlBasicStringEscape(next)
-      index += 2
-      continue
-    }
-    value += char
-    index++
-  }
-  return null
-}
-
-export function parseTomlLiteralSingleLineString(
-  line: string,
-  startIndex: number
-): ParsedTomlString | null {
-  const endIndex = line.indexOf("'", startIndex)
-  if (endIndex === -1) {
-    return null
-  }
-  return { value: line.slice(startIndex, endIndex), endIndex: endIndex + 1 }
-}
-
-export function skipTomlInlineWhitespace(line: string, startIndex: number): number {
-  let index = startIndex
-  while (line[index] === ' ' || line[index] === '\t') {
-    index++
-  }
-  return index
-}
-// Why: quoted keys can contain `]` and `[` lines inside multi-line strings aren't headers, so a flat regex misclassifies both — need a stateful scan.
