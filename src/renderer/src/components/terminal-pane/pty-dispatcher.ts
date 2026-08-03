@@ -70,6 +70,10 @@ let ptyDispatcherAttached = false
 const activePtyIncarnationById = new Map<string, string>()
 const retiredPtyIncarnationById = new Map<string, Set<string>>()
 
+export function getActivePtyIncarnation(ptyId: string): string | undefined {
+  return activePtyIncarnationById.get(ptyId)
+}
+
 let pushListenerUnsubscribes: (() => void)[] = []
 
 /** Detach and re-subscribe every push-channel listener; called by the delivery watchdog on a confirmed wedge. */
@@ -223,19 +227,22 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
       } else if (activeIncarnation !== undefined || retiredPtyIncarnationById.has(payload.id)) {
         return
       }
-      if (bufferPtyShutdownReplayData(payload.id, payload.data)) {
+      if (bufferPtyShutdownReplayData(payload.id, payload.data, payload.incarnationId)) {
         return
       }
-      ptyReplayHandlers.get(payload.id)?.(payload.data)
+      ptyReplayHandlers.get(payload.id)?.(payload.data, payload.incarnationId)
     })
   )
   unsubscribes.push(
     window.api.pty.onExit((payload) => {
       const activeIncarnation = activePtyIncarnationById.get(payload.id)
       if (
-        payload.incarnationId !== undefined &&
-        activeIncarnation !== undefined &&
-        activeIncarnation !== payload.incarnationId
+        (payload.incarnationId !== undefined &&
+          activeIncarnation !== undefined &&
+          activeIncarnation !== payload.incarnationId) ||
+        (payload.incarnationId === undefined &&
+          activeIncarnation !== undefined &&
+          retiredPtyIncarnationById.has(payload.id))
       ) {
         return
       }

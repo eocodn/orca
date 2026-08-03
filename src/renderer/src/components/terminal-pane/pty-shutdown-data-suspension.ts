@@ -5,7 +5,7 @@ import type { PtyDataMeta } from './pty-dispatcher'
 
 export const ptyDataHandlers = new Map<string, (data: string, meta?: PtyDataMeta) => void>()
 export const ptyDataSidecars = new Map<string, Set<(data: string) => void>>()
-export const ptyReplayHandlers = new Map<string, (data: string) => void>()
+export const ptyReplayHandlers = new Map<string, (data: string, incarnationId?: string) => void>()
 export const ptyExitHandlers = new Map<string, (code: number) => void>()
 export const ptyTeardownHandlers = new Map<string, () => void>()
 export const ptyShutdownLifecycleHandlers = new Map<
@@ -16,7 +16,7 @@ export const ptyShutdownLifecycleHandlers = new Map<
 export type PtyDataHandlerShutdownSnapshot = {
   ptyId: string
   dataHandler?: (data: string, meta?: PtyDataMeta) => void
-  replayHandler?: (data: string) => void
+  replayHandler?: (data: string, incarnationId?: string) => void
   teardownHandler?: () => void
   commit: () => void
   rollback: () => void
@@ -36,7 +36,7 @@ type PendingPtyHandlerShutdown = {
 const pendingPtyHandlerShutdowns = new Map<string, PendingPtyHandlerShutdown>()
 type PtyShutdownOutputEvent =
   | { kind: 'data'; data: string; meta?: PtyDataMeta }
-  | { kind: 'replay'; data: string }
+  | { kind: 'replay'; data: string; incarnationId?: string }
 
 const rolledBackShutdownEvents = new Map<string, PtyShutdownOutputEvent[]>()
 const ROLLED_BACK_SHUTDOWN_REPLAY_MAX_PTYS = 64
@@ -100,8 +100,16 @@ export function isPtyDataHandlerShutdownPending(ptyId: string): boolean {
   return pendingPtyHandlerShutdowns.has(ptyId)
 }
 
-export function bufferPtyShutdownReplayData(ptyId: string, data: string): boolean {
-  return bufferPtyShutdownOutput(ptyId, { kind: 'replay', data })
+export function bufferPtyShutdownReplayData(
+  ptyId: string,
+  data: string,
+  incarnationId?: string
+): boolean {
+  return bufferPtyShutdownOutput(ptyId, {
+    kind: 'replay',
+    data,
+    ...(incarnationId !== undefined ? { incarnationId } : {})
+  })
 }
 
 export function bufferPtyShutdownData(ptyId: string, data: string, meta?: PtyDataMeta): boolean {
@@ -201,11 +209,11 @@ function deliverShutdownEvents(
   ptyId: string,
   events: readonly PtyShutdownOutputEvent[],
   dataHandler: (data: string, meta?: PtyDataMeta) => void,
-  replayHandler: (data: string) => void
+  replayHandler: (data: string, incarnationId?: string) => void
 ): void {
   for (const event of events) {
     if (event.kind === 'replay') {
-      replayHandler(event.data)
+      replayHandler(event.data, event.incarnationId)
       continue
     }
     dataHandler(event.data, event.meta)

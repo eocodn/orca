@@ -631,6 +631,33 @@ describe('createIpcPtyTransport', () => {
     clearPreHandlerPtyState(sessionId)
   })
 
+  it('does not drain a queued old exit into a same-id replacement transport', async () => {
+    const { createIpcPtyTransport, ensurePtyDispatcher, ptyDataHandlers } =
+      await import('./pty-transport')
+    const { clearPreHandlerPtyState } = await import('./pty-pre-handler-buffer')
+    const sessionId = 'queued-old-exit-same-id-replacement'
+    ensurePtyDispatcher()
+
+    ptyDataHandlers.set(sessionId, vi.fn())
+    onData?.({ id: sessionId, data: 'old output', incarnationId: 'incarnation-old' } as never)
+    ptyDataHandlers.delete(sessionId)
+
+    onExit?.({ id: sessionId, code: 17, incarnationId: 'incarnation-old' } as never)
+
+    ptyDataHandlers.set(sessionId, vi.fn())
+    onData?.({ id: sessionId, data: 'replacement output', incarnationId: 'incarnation-new' } as never)
+    ptyDataHandlers.delete(sessionId)
+
+    const onExitCallback = vi.fn()
+    const replacement = createIpcPtyTransport({})
+    replacement.attach({ existingPtyId: sessionId, callbacks: { onExit: onExitCallback } })
+
+    expect(onExitCallback).not.toHaveBeenCalled()
+    expect(replacement.isConnected()).toBe(true)
+    clearPreHandlerPtyState(sessionId)
+    replacement.destroy?.()
+  })
+
   it('returns startup cwd fallback metadata to the connection layer', async () => {
     const { createIpcPtyTransport } = await import('./pty-transport')
     const spawn = window.api.pty.spawn as unknown as ReturnType<typeof vi.fn>

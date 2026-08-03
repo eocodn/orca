@@ -46,6 +46,21 @@ it('replays rollback output in its original replay and live arrival order', () =
   ptyReplayHandlers.delete(ptyId)
 })
 
+it('preserves the replay incarnation through rollback', () => {
+  const ptyId = 'pty-shutdown-replay-incarnation'
+  const replay = vi.fn()
+  ptyReplayHandlers.set(ptyId, replay)
+  ptyDataHandlers.set(ptyId, vi.fn())
+
+  const [snapshot] = unregisterPtyDataHandlers([ptyId])
+  bufferPtyShutdownReplayData(ptyId, 'replay-from-old-incarnation', 'incarnation-old')
+  snapshot.rollback()
+
+  expect(replay).toHaveBeenCalledWith('replay-from-old-incarnation', 'incarnation-old')
+  ptyDataHandlers.delete(ptyId)
+  ptyReplayHandlers.delete(ptyId)
+})
+
 it('retains ordered rollback output across detach and another pending shutdown', () => {
   const ptyId = 'pty-shutdown-detached-overlap'
   const originalData = vi.fn()

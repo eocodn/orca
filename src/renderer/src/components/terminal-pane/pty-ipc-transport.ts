@@ -9,6 +9,7 @@ import {
   ptyShutdownLifecycleHandlers,
   ptyWriteUnavailableHandlers,
   ensurePtyDispatcher,
+  getActivePtyIncarnation,
   getEagerPtyBufferHandle,
   isPtyDataHandlerShutdownPending
 } from './pty-dispatcher'
@@ -156,8 +157,14 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
   }
 
   function registerPtyDataHandler(id: string): void {
+    const registeredIncarnationId = getActivePtyIncarnation(id)
+    const acceptsIncarnation = (incarnationId?: string): boolean =>
+      registeredIncarnationId === undefined || registeredIncarnationId === incarnationId
     // Why: route relay replay data through onReplayData so the replay guard stops xterm auto-replies from leaking into the shell.
-    const replayHandler = (data: string): void => {
+    const replayHandler = (data: string, incarnationId?: string): void => {
+      if (!acceptsIncarnation(incarnationId)) {
+        return
+      }
       if (ptyId !== id) {
         return
       }
@@ -169,6 +176,9 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
     }
     ptyReplayHandlers.set(id, replayHandler)
     const dataHandler = (data: string, meta?: PtyDataMeta): void => {
+      if (!acceptsIncarnation(meta?.incarnationId)) {
+        return
+      }
       if (ptyId !== id) {
         return
       }
@@ -214,7 +224,16 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
 
   function registerPtyExitHandler(id: string): boolean {
     const hadBufferedExit = hasPreHandlerPtyExit(id)
-    const exitHandler = (code: number, _incarnationId?: string): void => {
+    const registeredIncarnationId = getActivePtyIncarnation(id)
+    let deliveredBufferedExit = false
+    const exitHandler = (code: number, incarnationId?: string): void => {
+      if (
+        registeredIncarnationId !== undefined &&
+        registeredIncarnationId !== incarnationId
+      ) {
+        return
+      }
+      deliveredBufferedExit = true
       if (ptyId !== null && ptyId !== id) {
         // Why: a preserved sleep/reconnect session can report its old exit after this transport already rebound to a replacement PTY.
         unregisterPtyHandlers(id)
@@ -242,7 +261,7 @@ export function createIpcPtyTransport(opts: IpcPtyTransportOptions = {}): PtyTra
       // Why: a cleanup failure must not turn an already-delivered pre-attach exit into a connect rejection and fallback spawn.
       console.error('[pty] buffered pre-attach exit cleanup failed', error)
     }
-    return hadBufferedExit
+    return hadBufferedExit && deliveredBufferedExit
   }
 
   return {

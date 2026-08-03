@@ -207,4 +207,34 @@ describe('pty dispatcher incarnation fencing', () => {
     expect(ackDataMock).toHaveBeenNthCalledWith(2, 'pty-legacy-exit', 5, 5, 'incarnation-new')
     expect(ackDataMock).toHaveBeenCalledTimes(2)
   })
+
+  it('fences a queued tokenless old exit after a same-id replacement is active', async () => {
+    const { ensurePtyDispatcher, ptyDataHandlers, ptyExitHandlers } =
+      await import('./pty-dispatcher')
+    const received: string[] = []
+    const exitHandler = vi.fn()
+    ptyDataHandlers.set('pty-queued-tokenless-exit', (data) => received.push(data))
+    ptyExitHandlers.set('pty-queued-tokenless-exit', exitHandler)
+    ensurePtyDispatcher()
+
+    dataCallback?.({
+      id: 'pty-queued-tokenless-exit',
+      incarnationId: 'incarnation-old',
+      data: 'old'
+    })
+    dataCallback?.({
+      id: 'pty-queued-tokenless-exit',
+      incarnationId: 'incarnation-new',
+      data: 'new'
+    })
+    exitCallback?.({ id: 'pty-queued-tokenless-exit', code: 17 })
+    dataCallback?.({
+      id: 'pty-queued-tokenless-exit',
+      incarnationId: 'incarnation-new',
+      data: 'still-new'
+    })
+
+    expect(exitHandler).not.toHaveBeenCalled()
+    expect(received).toEqual(['old', 'new', 'still-new'])
+  })
 })
