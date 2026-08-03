@@ -1,17 +1,16 @@
-import { terminalOutputBacklogCapChars } from '../../shared/terminal-scrollback-policy'
+import { app } from 'electron'
 import {
-  EMPTY_PTY_MAIN_DELIVERY_DIAGNOSTICS,
   type PtyMainDeliveryDiagnostics,
   type PtyPerPtyDeliveryDiagnostics
 } from '../../shared/pty-delivery-diagnostics'
 import {
   getHiddenRendererPtyDeliveryDebug,
+  getHiddenRendererPtyIds,
   isHiddenPtyDeliveryGateEnabled,
   isHiddenRendererPty,
-  markHiddenRendererPty,
+  redactPtyIdForDiagnostics,
   resetHiddenRendererPtyDeliveryDebugCounters,
-  shouldDropHiddenRendererPtyData,
-  unmarkHiddenRendererPty
+  shouldDropHiddenRendererPtyData
 } from './pty-hidden-delivery-gate'
 import { tryGetProviderForPty } from './pty-ipc-runtime-provider-routing'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
@@ -24,11 +23,15 @@ import { PtyProducerFlowController } from './pty-producer-flow-control'
 import type { PtyRendererDeliveryContext, PtyDataPayload } from './pty-ipc-runtime-renderer-delivery-context'
 import type { PtyDeliveryWriteOff, PtyRendererDeliveryStateReport } from '../../shared/pty-renderer-delivery-health'
 import { recordDaemonStreamBacklogEvent } from '../daemon/daemon-stream-backlog-probe'
+import { createPtyRendererHiddenDeliveryTransitions } from './pty-ipc-runtime-renderer-hidden-delivery-state'
 import {
   PTY_DELIVERY_RESYNC_TIMEOUT_MS,
   PTY_BATCH_FLUSH_CHUNK_CHARS,
   PTY_RENDERER_ACTIVE_PTY_IN_FLIGHT_RESERVE_CHARS,
   PTY_RENDERER_IN_FLIGHT_HIGH_WATER_CHARS,
+  INTERACTIVE_OUTPUT_BUDGET_CHARS,
+  INTERACTIVE_OUTPUT_MAX_CHARS,
+  INTERACTIVE_OUTPUT_WINDOW_MS,
   PTY_RENDERER_INTERACTIVE_RESERVE_CHARS,
   PTY_RENDERER_TOTAL_IN_FLIGHT_HIGH_WATER_CHARS
 } from './pty-ipc-runtime-renderer-delivery-constants'
@@ -41,6 +44,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
   const state = getPtyRegistrationSharedState() as PtyRendererDeliveryContext
   const getSettings = state.getSettings
   const runtime = state.runtime
+  const mainWindow = state.mainWindow
   const mainDeliveryBreadcrumbs = ptyRuntimeState.mainDeliveryBreadcrumbs
   state.sshOutputIntake = null
   state.rendererExitingPtyIds = new Set()
@@ -88,6 +92,14 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       return runnableLane
     },
     () => isHiddenPtyDeliveryGateEnabled(getSettings?.())
+  )
+
+  const {
+    transitionHiddenRendererPtyDeliveryState,
+    transitionSpawnHiddenRendererPtyDeliveryState
+  } = createPtyRendererHiddenDeliveryTransitions(
+    getSettings,
+    (id) => state.invalidatePendingPtyDrainPolicy(id)
   )
 
   function updateProducerFlowControl(id: string): void {
@@ -235,18 +247,16 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       rendererDispatcherReadyForcedCount: state.rendererDispatcherReadyForcedCount
     }
   }
-
-
   // Built only when the debug snapshot is read (never on the data path): the per-pty table + breadcrumb history says WHICH pty is wedged and WHEN, unlike aggregate counters.
   function buildMainDeliveryDiagnostics(): PtyMainDeliveryDiagnostics {
     const now = Date.now()
     // Include hidden/visible/active members even without an accounting entry: a pty gated before its first byte is exactly the wedge case to surface.
     const ids = new Set([
-      ...rendererDeliveryAccountingByPty.keys(),
-      ...pendingData.keys(),
+      ...state.rendererDeliveryAccountingByPty.keys(),
+      ...state.pendingData.keys(),
       ...getHiddenRendererPtyIds(),
-      ...visibleRendererPtys,
-      ...activeRendererPtys
+      ...ptyRuntimeState.visibleRendererPtys,
+      ...ptyRuntimeState.activeRendererPtys
     ])
     const perPty: PtyPerPtyDeliveryDiagnostics[] = []
     for (const id of ids) {
@@ -272,8 +282,14 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       windowFocused: windowAlive ? mainWindow.isFocused() : null,
       windowVisible: windowAlive ? mainWindow.isVisible() : null,
       windowMinimized: windowAlive ? mainWindow.isMinimized() : null,
-      msSinceLastPowerSuspend: lastPowerSuspendAtMs === null ? null : now - lastPowerSuspendAtMs,
-      msSinceLastPowerResume: lastPowerResumeAtMs === null ? null : now - lastPowerResumeAtMs,
+      msSinceLastPowerSuspend:
+        ptyRuntimeState.lastPowerSuspendAtMs === null
+          ? null
+          : now - ptyRuntimeState.lastPowerSuspendAtMs,
+      msSinceLastPowerResume:
+        ptyRuntimeState.lastPowerResumeAtMs === null
+          ? null
+          : now - ptyRuntimeState.lastPowerResumeAtMs,
       perPty: perPty.slice(0, DELIVERY_DIAGNOSTICS_MAX_PTYS),
       breadcrumbs: mainDeliveryBreadcrumbs.snapshot()
     }
@@ -555,8 +571,6 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     }
     return writtenOff
   }
-
-
   Object.assign(state, {
     transitionHiddenRendererPtyDeliveryState,
     transitionSpawnHiddenRendererPtyDeliveryState,
