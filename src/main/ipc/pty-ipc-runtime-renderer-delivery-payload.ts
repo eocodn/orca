@@ -1,5 +1,4 @@
 import type { PtyDataPayload } from './pty-ipc-runtime-renderer-delivery-context'
-import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
 export function makePtyDataPayload(
   id: string,
@@ -10,10 +9,9 @@ export function makePtyDataPayload(
   transformed = false,
   incarnationId?: string
 ): PtyDataPayload {
-  const resolvedIncarnationId = incarnationId ?? ptyRuntimeState.ptyIncarnationById.get(id)
   const payload: PtyDataPayload = {
     id,
-    ...(resolvedIncarnationId ? { incarnationId: resolvedIncarnationId } : {}),
+    ...(incarnationId ? { incarnationId } : {}),
     data
   }
   if (typeof startSeq === 'number') {

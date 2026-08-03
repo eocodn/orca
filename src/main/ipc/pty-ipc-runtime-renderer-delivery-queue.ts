@@ -10,14 +10,21 @@ import {
   propagatePendingProjectionRemainder
 } from './pty-pending-projection-admissions'
 import { recordCrashBreadcrumb } from '../crash-reporting/crash-breadcrumb-store'
-import { recordHiddenRendererPtyDataDrop, shouldDropHiddenRendererPtyData, isHiddenPtyDeliveryGateEnabled } from './pty-hidden-delivery-gate'
+import {
+  recordHiddenRendererPtyDataDrop,
+  shouldDropHiddenRendererPtyData,
+  isHiddenPtyDeliveryGateEnabled
+} from './pty-hidden-delivery-gate'
 import { terminalOutputBacklogCapChars } from '../../shared/terminal-scrollback-policy'
 import type { PtyModelRestoreReason } from '../../shared/pty-model-restore-marker'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import type { PendingPtyData } from './pty-pending-data-drain-queue'
 import type { PendingProjectionAdmissions } from './pty-pending-projection-admissions'
-import type { PtyRendererDeliveryContext, PtyDataPayload } from './pty-ipc-runtime-renderer-delivery-context'
+import type {
+  PtyRendererDeliveryContext,
+  PtyDataPayload
+} from './pty-ipc-runtime-renderer-delivery-context'
 import { redactPtyIdForDiagnostics } from '../../shared/pty-delivery-diagnostics'
 import {
   PTY_BATCH_DRAIN_CONTINUE_MS,
@@ -28,11 +35,19 @@ import {
 
 const DROPPED_QUERY_SALVAGE_MAX_CHARS = 4096
 
+export function canCoalescePtyData(
+  existing: Pick<PendingPtyData, 'incarnationId'>,
+  incarnationId?: string
+): boolean {
+  return existing.incarnationId === incarnationId
+}
+
 export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
   const state = getPtyRegistrationSharedState() as PtyRendererDeliveryContext
   const { mainWindow, runtime, getSettings } = state
   const mainDeliveryBreadcrumbs = ptyRuntimeState.mainDeliveryBreadcrumbs
-  const pendingDataCapChars = (): number => terminalOutputBacklogCapChars(getSettings?.().terminalScrollbackRows)
+  const pendingDataCapChars = (): number =>
+    terminalOutputBacklogCapChars(getSettings?.().terminalScrollbackRows)
 
   function sendPtyDataToRenderer(
     id: string,
@@ -40,7 +55,17 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     projectionAdmissionIds?: readonly string[]
   ): { sent: boolean; projectionsTransferred: boolean } {
     const charCount = state.getPtyPayloadCharCount(payload)
-    const incarnationId = payload.incarnationId ?? ptyRuntimeState.ptyIncarnationById.get(id)
+    const incarnationId = payload.incarnationId
+    if (
+      incarnationId === undefined &&
+      (ptyRuntimeState.ptyIncarnationById.has(id) ||
+        ptyRuntimeState.pendingPtyIncarnationById.has(id))
+    ) {
+      if (projectionAdmissionIds) {
+        state.sshOutputIntake?.transferProjections(projectionAdmissionIds, 'identity-less-stale')
+      }
+      return { sent: false, projectionsTransferred: projectionAdmissionIds !== undefined }
+    }
     const accounting = state.rendererDeliveryAccountingByPty.get(id)
     if (accounting && accounting.incarnationId !== incarnationId) {
       // A delayed frame from an older incarnation must not enter the replacement's accounting.
@@ -105,7 +130,10 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
           charCount
         )
       } catch {
-        state.sshOutputIntake?.transferProjections(projectionAdmissionIds, 'projection-publish-failed')
+        state.sshOutputIntake?.transferProjections(
+          projectionAdmissionIds,
+          'projection-publish-failed'
+        )
         projectionsTransferred = true
       }
     }
@@ -124,7 +152,10 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
   }
 
   function rendererPtyIsKnownHidden(id: string): boolean {
-    return ptyRuntimeState.rendererVisibilityKnownPtys.has(id) && !ptyRuntimeState.visibleRendererPtys.has(id)
+    return (
+      ptyRuntimeState.rendererVisibilityKnownPtys.has(id) &&
+      !ptyRuntimeState.visibleRendererPtys.has(id)
+    )
   }
 
   function ptyHasHiddenRendererResizeOutput(id: string): boolean {
@@ -214,7 +245,10 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
         capChars
       })
     }
-    if (isHiddenPtyDeliveryGateEnabled(getSettings?.()) && !state.pendingOverflowMarkedPtys.has(id)) {
+    if (
+      isHiddenPtyDeliveryGateEnabled(getSettings?.()) &&
+      !state.pendingOverflowMarkedPtys.has(id)
+    ) {
       state.pendingOverflowMarkedPtys.add(id)
     }
     state.pendingDroppedChars += pending.data.length
@@ -406,7 +440,10 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
           state.updateProducerFlowControl(id)
           const drop = recordHiddenRendererPtyDataDrop(id, pending.data.length)
           if (pending.projectionAdmissionIds) {
-            state.sshOutputIntake?.transferProjections(pending.projectionAdmissionIds, 'hidden-drop')
+            state.sshOutputIntake?.transferProjections(
+              pending.projectionAdmissionIds,
+              'hidden-drop'
+            )
           }
           state.warnIfDroppingHiddenBytesForVisiblePty(id, pending.data.length)
           if (drop.shouldEmitRestoreMarker) {
@@ -414,7 +451,11 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
           }
           continue
         }
-        if (!state.canSendPtyDataToRenderer(id, { interactive: ptyRuntimeState.activeRendererPtys.has(id) })) {
+        if (
+          !state.canSendPtyDataToRenderer(id, {
+            interactive: ptyRuntimeState.activeRendererPtys.has(id)
+          })
+        ) {
           state.pendingData.block(selection)
           continue
         }
@@ -500,7 +541,12 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
       state.pendingDataCreditReleasedDuringFlush = false
       state.pendingData.endRound(round)
     }
-    if (state.rendererPtyDispatcherReady && state.pendingData.size > 0 && writes === 0 && !sendFailed) {
+    if (
+      state.rendererPtyDispatcherReady &&
+      state.pendingData.size > 0 &&
+      writes === 0 &&
+      !sendFailed
+    ) {
       state.ackGatedFlushSkipCount++
     }
     if (sendFailed && state.pendingData.size > 0) {
@@ -524,7 +570,6 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
     clearTimeout(state.flushTimer)
     state.flushTimer = null
   }
-
 
   Object.assign(state, {
     sendPtyDataToRenderer,

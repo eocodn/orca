@@ -102,7 +102,13 @@ export function subscribeSshPtyNotifications(args: {
       const id = args.toAppPtyId(relayPtyId)
       args.livePtyIds.add(id)
       for (const listener of args.replayListeners) {
-        listener({ id, data: params.data as string })
+        listener({
+          id,
+          data: params.data as string,
+          ...(isPtyIncarnationId(params.incarnationId)
+            ? { incarnationId: params.incarnationId }
+            : {})
+        })
       }
       return
     }

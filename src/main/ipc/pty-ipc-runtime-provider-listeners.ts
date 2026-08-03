@@ -1,7 +1,11 @@
 import { LocalPtyProvider } from '../providers/local-pty-provider'
 import type { IPtyProvider } from '../providers/types'
 import { SshPtyOutputIntake } from './ssh-pty-output-intake'
-import { installSshPtyOutputIntake, publishSshPtySourceAck, cancelSshPtySourceDelivery } from './ssh-pty-output-intake-registry'
+import {
+  installSshPtyOutputIntake,
+  publishSshPtySourceAck,
+  cancelSshPtySourceDelivery
+} from './ssh-pty-output-intake-registry'
 import {
   clearSupersededPtyLifecycle,
   consumeProviderClearedPtyExit,
@@ -242,6 +246,13 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
       if (hasPendingPtyCleanupExact(payload.id, payload.incarnationId)) {
         return
       }
+      if (
+        payload.incarnationId === undefined &&
+        (ptyRuntimeState.ptyIncarnationById.has(payload.id) ||
+          ptyRuntimeState.pendingPtyIncarnationById.has(payload.id))
+      ) {
+        return
+      }
       if (payload.incarnationId !== undefined) {
         const currentIncarnation = ptyRuntimeState.ptyIncarnationById.get(payload.id)
         const pendingIncarnation = ptyRuntimeState.pendingPtyIncarnationById.get(payload.id)
@@ -306,7 +317,9 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
         return
       }
       if (hasPendingPtyCleanupExact(payload.id, payload.incarnationId)) {
-        const cleanupPending = ptyRuntimeState.cleanupPendingPtyById.get(payload.id)?.get(payload.incarnationId)
+        const cleanupPending = ptyRuntimeState.cleanupPendingPtyById
+          .get(payload.id)
+          ?.get(payload.incarnationId)
         if (!cleanupPending) {
           return
         }
@@ -486,7 +499,6 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
   bindProviderListeners()
   schedulePendingPtyCleanupReconciliation(ptyRuntimeState.localProvider)
   ptyRuntimeState.rebindProviderListeners = bindProviderListeners
-
 
   Object.assign(state, {
     shutdownProviderAndDetectExit

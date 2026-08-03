@@ -158,7 +158,7 @@ import type { ProjectExecutionRuntimeResolution, StartupCommandDelivery, AgentPr
         droppedOutput?: boolean
       }) => void
     ) => () => void
-    onReplay: (callback: (data: { id: string; data: string }) => void) => () => void
+    onReplay: (callback: (data: { id: string; data: string; incarnationId?: string }) => void) => () => void
     /** Out-of-band main→renderer signal that renderer-bound bytes were
      *  dropped (hidden-delivery gate / pending cap); the pane restores from
      *  the model snapshot. Never delivered in-band on pty:data. */

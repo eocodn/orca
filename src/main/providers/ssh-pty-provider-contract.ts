@@ -28,7 +28,11 @@ export type SshPtyDataCallback = (payload: {
   }>
   sourceMalformed?: boolean
 }) => void
-export type SshPtyReplayCallback = (payload: { id: string; data: string }) => void
+export type SshPtyReplayCallback = (payload: {
+  id: string
+  data: string
+  incarnationId?: PtyIncarnationId
+}) => void
 export type SshPtyExitCallback = (payload: {
   id: string
   code: number

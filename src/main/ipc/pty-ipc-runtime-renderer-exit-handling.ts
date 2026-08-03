@@ -5,10 +5,12 @@ import {
 } from './pty-hidden-delivery-gate'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
-import type { PtyRendererDeliveryContext, PtyShutdownTarget } from './pty-ipc-runtime-renderer-delivery-context'
-import {
-  PTY_BATCH_INTERVAL_MS
-} from './pty-ipc-runtime-renderer-delivery-constants'
+import type {
+  PtyRendererDeliveryContext,
+  PtyShutdownTarget
+} from './pty-ipc-runtime-renderer-delivery-context'
+import { canCoalescePtyData } from './pty-ipc-runtime-renderer-delivery-queue'
+import { PTY_BATCH_INTERVAL_MS } from './pty-ipc-runtime-renderer-delivery-constants'
 
 const SYNTHETIC_KILL_EXIT_DUPLICATE_WINDOW_MS = 30_000
 
@@ -51,7 +53,8 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     const matches =
       marker.incarnationId !== undefined
         ? incarnationId === marker.incarnationId
-        : incarnationId === undefined && ptyRuntimeState.ptyStateTokenById.get(payload.id) === marker.stateToken
+        : incarnationId === undefined &&
+          ptyRuntimeState.ptyStateTokenById.get(payload.id) === marker.stateToken
     if (!matches) {
       return false
     }
@@ -86,12 +89,27 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     return true
   }
 
-  function preparePtyExitForRenderer(payload: { id: string; code: number; incarnationId?: string }): (() => void) | null {
+  function preparePtyExitForRenderer(payload: {
+    id: string
+    code: number
+    incarnationId?: string
+  }): (() => void) | null {
     if (mainWindow.isDestroyed()) {
       state.sshOutputIntake?.transferPtyProjections(payload.id, 'renderer-destroyed')
       return () => {}
     }
     if (state.rendererExitingPtyIds.has(payload.id)) {
+      return null
+    }
+    const currentIncarnation = ptyRuntimeState.ptyIncarnationById.get(payload.id)
+    const pendingIncarnation = ptyRuntimeState.pendingPtyIncarnationById.get(payload.id)
+    if (
+      (payload.incarnationId === undefined &&
+        (currentIncarnation !== undefined || pendingIncarnation !== undefined)) ||
+      (payload.incarnationId !== undefined &&
+        ((currentIncarnation !== undefined && payload.incarnationId !== currentIncarnation) ||
+          (pendingIncarnation !== undefined && payload.incarnationId !== pendingIncarnation)))
+    ) {
       return null
     }
     state.rendererExitingPtyIds.add(payload.id)
@@ -149,7 +167,11 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     }
   }
 
-  function finalizePtyExitForRenderer(payload: { id: string; code: number; incarnationId?: string }): void {
+  function finalizePtyExitForRenderer(payload: {
+    id: string
+    code: number
+    incarnationId?: string
+  }): void {
     if (mainWindow.isDestroyed()) {
       state.rendererCreditBeforeExitByPty.delete(payload.id)
       return
@@ -166,7 +188,10 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     ptyRuntimeState.lastInputAtByPty.delete(payload.id)
     ptyRuntimeState.interactiveOutputCharsByPty.delete(payload.id)
     const releasedRendererCredit = state.getRendererInFlightCharsForPty(payload.id)
-    state.rendererInFlightTotalChars = Math.max(0, state.rendererInFlightTotalChars - releasedRendererCredit)
+    state.rendererInFlightTotalChars = Math.max(
+      0,
+      state.rendererInFlightTotalChars - releasedRendererCredit
+    )
     // Why: the renderer also drops its cumulative total on pty:exit, so a reused id restarts aligned at zero on both sides.
     state.rendererDeliveryAccountingByPty.delete(payload.id)
     if (hadReleasableRendererCredit) {
@@ -180,11 +205,17 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     }
     mainWindow.webContents.send('pty:exit', {
       ...payload,
-      ...(state.reversibleStopOwnersByPtyId.has(payload.id) ? { preserveRendererBinding: true } : {})
+      ...(state.reversibleStopOwnersByPtyId.has(payload.id)
+        ? { preserveRendererBinding: true }
+        : {})
     })
   }
 
-  function sendPtyExitToRenderer(payload: { id: string; code: number; incarnationId?: string }): void {
+  function sendPtyExitToRenderer(payload: {
+    id: string
+    code: number
+    incarnationId?: string
+  }): void {
     const release = preparePtyExitForRenderer(payload)
     if (!release) {
       return
@@ -241,6 +272,16 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
       }
       return
     }
+    if (
+      payload.incarnationId === undefined &&
+      (ptyRuntimeState.ptyIncarnationById.has(payload.id) ||
+        ptyRuntimeState.pendingPtyIncarnationById.has(payload.id))
+    ) {
+      if (projectionId) {
+        state.sshOutputIntake?.transferProjections([projectionId], 'identity-less-stale')
+      }
+      return
+    }
     if (shouldDropHiddenRendererPtyData(payload.id, getSettings?.())) {
       if (projectionId) {
         state.sshOutputIntake?.transferProjections([projectionId], 'hidden-drop')
@@ -260,7 +301,8 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
       return
     }
     const containsBackgroundOutput =
-      state.rendererPtyIsKnownHidden(payload.id) || state.ptyHasHiddenRendererResizeOutput(payload.id)
+      state.rendererPtyIsKnownHidden(payload.id) ||
+      state.ptyHasHiddenRendererResizeOutput(payload.id)
     if (containsBackgroundOutput) {
       state.markHiddenRendererResizeOutputDelivered(payload.id)
     }
@@ -268,9 +310,16 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     if (projection?.desktopSpan) {
       state.sourceCreditPendingPtys.add(payload.id)
     }
+    const existingPending = state.pendingData.get(payload.id)
+    if (existingPending && !canCoalescePtyData(existingPending, payload.incarnationId)) {
+      if (projectionId) {
+        state.sshOutputIntake?.transferProjections([projectionId], 'mixed-incarnation')
+      }
+      return
+    }
     const pending = state.appendPendingPtyData(
       payload.id,
-      state.pendingData.get(payload.id),
+      existingPending,
       payload.data,
       startSeq,
       preservesSeq,
@@ -336,7 +385,9 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     }
     state.updateProducerFlowControl(payload.id)
     if (
-      !state.canSendPtyDataToRenderer(payload.id, { interactive: ptyRuntimeState.activeRendererPtys.has(payload.id) })
+      !state.canSendPtyDataToRenderer(payload.id, {
+        interactive: ptyRuntimeState.activeRendererPtys.has(payload.id)
+      })
     ) {
       state.requestDeliveryResyncForGatedPty()
     }

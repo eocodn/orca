@@ -137,6 +137,9 @@ export function createPtyRendererDeliveryRecovery({
       const received = report.receivedCharsByPty?.[id]
       let receivedChars = 0
       if (typeof received === 'number' && Number.isFinite(received)) {
+        if (accounting.incarnationId !== undefined) {
+          continue
+        }
         receivedChars = Math.max(0, received)
       } else if (isReceivedCharsForIncarnation(received, accounting.incarnationId)) {
         receivedChars = Math.max(0, received.receivedChars)

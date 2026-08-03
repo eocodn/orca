@@ -147,6 +147,8 @@ function handleDispatchedPtyData(payload: {
     activePtyIncarnationById.set(payload.id, payload.incarnationId)
   } else if (retiredPtyIncarnationById.has(payload.id)) {
     return
+  } else if (activePtyIncarnationById.has(payload.id)) {
+    return
   }
   let meta: PtyDataMeta | undefined
   if (payload.incarnationId) {
@@ -209,6 +211,18 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
   }
   unsubscribes.push(
     window.api.pty.onReplay((payload) => {
+      const activeIncarnation = activePtyIncarnationById.get(payload.id)
+      if (payload.incarnationId !== undefined) {
+        if (retiredPtyIncarnationById.get(payload.id)?.has(payload.incarnationId)) {
+          return
+        }
+        if (activeIncarnation !== undefined && activeIncarnation !== payload.incarnationId) {
+          return
+        }
+        activePtyIncarnationById.set(payload.id, payload.incarnationId)
+      } else if (activeIncarnation !== undefined || retiredPtyIncarnationById.has(payload.id)) {
+        return
+      }
       if (bufferPtyShutdownReplayData(payload.id, payload.data)) {
         return
       }
