@@ -4,7 +4,7 @@ import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
 const SOURCE_EXTENSIONS = new Set(['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'])
-const EXCLUDED_DIRECTORY_NAMES = new Set([
+const EXCLUDED_BUILD_DIRECTORY_NAMES = new Set([
   '.git',
   '.next',
   'build',
@@ -14,6 +14,11 @@ const EXCLUDED_DIRECTORY_NAMES = new Set([
   'node_modules',
   'out'
 ])
+const EXCLUDED_TEST_DIRECTORY_NAMES = new Set(['test', 'tests', '__tests__'])
+
+function isExcludedDirectoryName(name) {
+  return EXCLUDED_BUILD_DIRECTORY_NAMES.has(name) || EXCLUDED_TEST_DIRECTORY_NAMES.has(name)
+}
 
 export function isSourcePath(relativePath) {
   const normalized = relativePath.split(path.sep).join('/')
@@ -28,7 +33,10 @@ export function isSourcePath(relativePath) {
   if (/(?:^|\.)(?:test|spec)\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/.test(basename)) {
     return false
   }
-  return !normalized.split('/').some((part) => EXCLUDED_DIRECTORY_NAMES.has(part))
+  if (normalized.split('/').some((part) => isExcludedDirectoryName(part))) {
+    return false
+  }
+  return !basename.slice(0, -extension.length).endsWith('.generated')
 }
 
 export function countSourceLines(sourceText) {
@@ -42,7 +50,7 @@ function collectSourcePaths(root, current = root) {
   const entries = fs.readdirSync(current, { withFileTypes: true })
   const paths = []
   for (const entry of entries) {
-    if (entry.isDirectory() && EXCLUDED_DIRECTORY_NAMES.has(entry.name)) {
+    if (entry.isDirectory() && isExcludedDirectoryName(entry.name)) {
       continue
     }
     const absolutePath = path.join(current, entry.name)

@@ -39,6 +39,19 @@ describe('source line count gate', () => {
     expect(isSourcePath('src/main/generated/service.ts')).toBe(false)
   })
 
+  it('excludes source files below test directories without excluding production neighbors', () => {
+    expect(isSourcePath('test/fixtures/large.ts')).toBe(false)
+    expect(isSourcePath('tests/fixtures/large.ts')).toBe(false)
+    expect(isSourcePath('src/main/__tests__/large.ts')).toBe(false)
+    expect(isSourcePath('src/main/testing/large.ts')).toBe(true)
+  })
+
+  it('excludes generated source files by filename', () => {
+    expect(isSourcePath('src/main/service.generated.ts')).toBe(false)
+    expect(isSourcePath('src/main/service.generated.tsx')).toBe(false)
+    expect(isSourcePath('src/main/generated-service.ts')).toBe(true)
+  })
+
   it('counts physical lines without treating a trailing newline as an extra line', () => {
     expect(countSourceLines('one\ntwo\n')).toBe(2)
     expect(countSourceLines('one\ntwo')).toBe(2)
