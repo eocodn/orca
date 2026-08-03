@@ -85,6 +85,7 @@ import {
   CODEX_EVENTS,
   CODEX_MANAGED_EVENT_LABELS,
   collectManagedTrustEntries,
+  getCodexConfigTomlPath,
   getConfigPath,
   getLegacyCodexProfileTomlPath,
   getManagedCommand,
@@ -100,7 +101,10 @@ import {
 const LEGACY_ORCA_PROFILE_BLOCK_START = '# BEGIN ORCA AGENT STATUS HOOKS'
 const LEGACY_ORCA_PROFILE_BLOCK_END = '# END ORCA AGENT STATUS HOOKS'
 
-export function removeSystemManagedHookTrustEntries(systemHomePath: string, hooksJsonPath: string): void {
+export function removeSystemManagedHookTrustEntries(
+  systemHomePath: string,
+  hooksJsonPath: string
+): void {
   removeCodexManagedHookTrustEntries({
     tomlPath: getSystemCodexConfigTomlPath(),
     runtimeHomePath: systemHomePath,
@@ -261,7 +265,9 @@ export function removeRuntimeManagedHookTrustEntries(configPath: string): void {
   }
 }
 
-export function removeWslRuntimeManagedHookTrustEntries(plan: CodexWslRuntimeHookInstallPlan): void {
+export function removeWslRuntimeManagedHookTrustEntries(
+  plan: CodexWslRuntimeHookInstallPlan
+): void {
   try {
     removeCodexManagedHookTrustEntries({
       tomlPath: plan.tomlPath,
@@ -474,7 +480,9 @@ export function installManagedHooksIntoWslRuntime(
   }
 }
 
-export function refreshWslRuntimeUserHooks(plan: CodexWslRuntimeHookInstallPlan): AgentHookInstallStatus {
+export function refreshWslRuntimeUserHooks(
+  plan: CodexWslRuntimeHookInstallPlan
+): AgentHookInstallStatus {
   const config = readHooksJson(plan.configPath)
   if (!config) {
     return {
