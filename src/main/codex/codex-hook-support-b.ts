@@ -1,19 +1,15 @@
 import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { join, win32 as pathWin32 } from 'node:path'
-import type { SFTPWrapper } from 'ssh2'
-import type { AgentHookInstallState, AgentHookInstallStatus } from '../../shared/agent-hook-types'
+import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
 import {
   buildManagedCommandHook,
   createManagedCommandMatcher,
   buildWindowsAgentHookCurlPostCommand,
-  getSharedManagedScriptPath,
   hookDefinitionHasManagedCommand,
   MANAGED_HOOK_TIMEOUT_SECONDS,
   readHooksJson,
   readHooksJsonWithRaw,
   removeManagedCommands,
-  wrapPosixHookCommand,
-  wrapWindowsCmdHookCommand,
   writeHooksJson,
   writeManagedScript,
   type HookDefinition
@@ -21,59 +17,25 @@ import {
 import { resolveHooksJsonWritePath } from '../agent-hooks/hook-config-write-path'
 import { writeFileAtomically } from '../codex-accounts/fs-utils'
 import {
-  readHooksJsonRemote,
-  readTextFileRemote,
-  writeHooksJsonRemote,
-  writeManagedScriptRemote,
-  writeTextFileRemoteAtomic
-} from '../agent-hooks/installer-utils-remote'
-import {
   buildPosixHookPayloadCapture,
   buildWindowsHookEnvironmentGuardLines,
   buildWindowsHookStdinDrainEpilogue,
-  POSIX_HOOK_STDIN_DRAIN_COMMAND
 } from '../agent-hooks/hook-stdin-contract'
 import {
-  codexHookSourcePathsEqual,
-  computeTrustKey,
-  computeTrustedHash,
-  escapeTomlString,
-  getCodexExplicitHomeHookSourcePath,
-  normalizeCodexHookSourcePath,
-  normalizeCodexProjectPathForLookup,
-  normalizeHookTrustKeyForLookup,
-  parseTrustKey,
-  readHookTrustEntries,
-  removeHookTrustEntries,
-  upsertHookTrustEntriesInContent,
   upsertHookTrustEntries,
   writeConfigAtomically,
-  type CodexEventLabel,
-  type CodexHookTrustState,
   type CodexTrustEntry
 } from './config-toml-trust'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
-import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
 import {
-  createCodexWslRuntimeHookInstallPlan,
   type CodexWslRuntimeHookInstallPlan,
-  type CodexWslRuntimeHookTarget,
   type WslCanonicalPathSettlement
 } from './codex-wsl-hook-install-plan'
 import {
-  CODEX_HOOK_EVENT_LABEL,
-  createCodexHookTrustEntry,
-  getCodexHookTrustSignature,
   getCodexManagedScriptFileName
 } from './codex-hook-identity'
-import {
-  promoteCodexRuntimeHookApprovalsToSystem,
-  snapshotCodexRuntimeHookTrustProvenance
-} from './hook-trust-promotion'
 import { grantManagedCodexHookTrust } from './codex-hook-trust-grant'
-import { readCurrentCodexTrustGrantLedgerHome } from './codex-trust-grant-host'
 import {
-  getCodexLedgerTrustedHash,
   readCodexTrustGrantLedgerHomeForReconciliation,
   removeCodexManagedHookTrustEntries,
   removeStaleWslCodexManagedHookTrustEntries
