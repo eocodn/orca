@@ -94,7 +94,11 @@ export type { PtyProcessInfo, PtySpawnResult }
 
 type PtyProbeOptions = { signal?: AbortSignal }
 
+export type PtyProviderGeneration = number
+
 export type IPtyProvider = {
+  /** Monotonic identity for an SSH provider connection incarnation. */
+  providerGeneration?: PtyProviderGeneration
   spawn(opts: PtySpawnOptions): Promise<PtySpawnResult>
   /** Whether this spawn target can append the Git guard after its final env merge. */
   supportsGitCredentialGuardHost?: (sessionId?: string) => boolean

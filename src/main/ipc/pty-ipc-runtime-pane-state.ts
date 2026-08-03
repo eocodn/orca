@@ -4,7 +4,11 @@ import type { IPtyProvider, PtySpawnResult } from '../providers/types'
 import type { WebContents } from 'electron'
 import type { SleepingAgentLaunchConfig } from '../../shared/agent-session-resume'
 import { parsePaneKey } from '../../shared/stable-pane-id'
-import { tryGetProviderForAgentSessionOwner } from './pty-ipc-runtime-provider-routing'
+import {
+  getProviderGeneration,
+  isCurrentProvider,
+  tryGetProviderForAgentSessionOwner
+} from './pty-ipc-runtime-provider-routing'
 import { ptyRuntimeState, type PaneSpawnReservation, type PaneSpawnReservationResult } from './pty-ipc-runtime-state'
 
 export function getPtyIdForPaneKey(paneKey: string): string | undefined {
@@ -39,16 +43,40 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
     return await ptyRuntimeState.agentSessionOwnerReconciliation
   }
   const reconciliation = (async () => {
-    const providers: { provider: IPtyProvider; connectionId: string | null }[] = [
-      { provider: ptyRuntimeState.localProvider, connectionId: null },
-      ...Array.from(ptyRuntimeState.sshProviders, ([connectionId, provider]) => ({ provider, connectionId }))
+    const providers: {
+      provider: IPtyProvider
+      connectionId: string | null
+      generation: ReturnType<typeof getProviderGeneration>
+    }[] = [
+      {
+        provider: ptyRuntimeState.localProvider,
+        connectionId: null,
+        generation: getProviderGeneration(ptyRuntimeState.localProvider)
+      },
+      ...Array.from(ptyRuntimeState.sshProviders, ([connectionId, provider]) => ({
+        provider,
+        connectionId,
+        generation: getProviderGeneration(provider)
+      }))
     ]
     const listings = await Promise.all(
-      providers.map(async ({ provider, connectionId }) => ({
+      providers.map(async ({ provider, connectionId, generation }) => ({
+        provider,
         connectionId,
+        generation,
         sessions: await provider.listProcesses()
       }))
     )
+    // Why: provider listings are awaited across reconnects; an old generation's
+    // inventory cannot be authoritative for the replacement connection.
+    if (
+      listings.some(
+        ({ provider, connectionId, generation }) =>
+          !isCurrentProvider(provider, connectionId, generation)
+      )
+    ) {
+      return
+    }
     const advertisedOwners: AgentSessionOwnerBinding[] = []
     const advertisedOwnerSessions: {
       id: string

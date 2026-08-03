@@ -12,6 +12,7 @@ export type {
   PtyBackgroundStreamEvent,
   PtyDataEvent,
   PtyProcessInfo,
+  PtyProviderGeneration,
   PtyProviderBufferSnapshot,
   PtySpawnOptions,
   PtySpawnResult,

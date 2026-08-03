@@ -1,7 +1,29 @@
 import { toAppSshPtyId, toRelaySshPtyId, parseAppSshPtyId } from '../providers/ssh-pty-id'
 import { resolvePtyIncarnationState } from '../runtime/pty-runtime-lifecycle'
-import type { IPtyProvider } from '../providers/types'
+import type { IPtyProvider, PtyProviderGeneration } from '../providers/types'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
+
+export function getProviderGeneration(
+  provider: IPtyProvider | undefined
+): PtyProviderGeneration | undefined {
+  if (!provider) {
+    return undefined
+  }
+  const generation = provider.providerGeneration
+  return Number.isSafeInteger(generation) && generation > 0 ? generation : undefined
+}
+
+export function isCurrentProvider(
+  provider: IPtyProvider,
+  connectionId: string | null,
+  generation: PtyProviderGeneration | undefined
+): boolean {
+  const currentProvider =
+    connectionId === null
+      ? ptyRuntimeState.localProvider
+      : ptyRuntimeState.sshProviders.get(connectionId)
+  return currentProvider === provider && getProviderGeneration(currentProvider) === generation
+}
 
 const PTY_EXIT_EVIDENCE_MAX_PER_ID = 128
 
