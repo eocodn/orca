@@ -3,10 +3,8 @@ import WebSocket from 'ws'
 import type { PairingOffer } from './pairing'
 import {
   decrypt,
-  decryptBytes,
   deriveSharedKey,
   encrypt,
-  encryptBytes,
   generateKeyPair,
   publicKeyFromBase64,
   publicKeyToBase64
@@ -23,10 +21,8 @@ import { SESSION_TAB_CLOSE_INTENT_RUNTIME_CAPABILITY } from './protocol-version'
 // (and mobile's typecheck) don't compile this file's Node-only deps.
 import { RemoteRuntimeClientError } from './remote-runtime-client-error'
 import {
-  isRemoteRuntimeBinaryFrameWithinLimit,
   REMOTE_RUNTIME_MAX_WEBSOCKET_FRAME_BYTES,
-  serializeRemoteRuntimePayload,
-  serializeRemoteRuntimeRpcRequest
+  serializeRemoteRuntimePayload
 } from './remote-runtime-memory-limits'
 import {
   prepareRemoteRuntimeRequest,
@@ -34,12 +30,6 @@ import {
   takeRemoteRuntimePreparedRequest
 } from './remote-runtime-prepared-request-admission'
 import { parseRemoteRuntimeJsonText } from './remote-runtime-request-frames'
-import {
-  startRemoteRuntimeSocketLiveness,
-  type RemoteRuntimeSocketLivenessMonitor,
-  type RemoteRuntimeSocketLivenessOptions
-} from './remote-runtime-socket-liveness'
-import { createWsOutboundBackpressureQueue } from './ws-outbound-backpressure-queue'
 import { MAX_TIMER_DELAY_MS, isSafeTimerDelayMs } from './timer-delay'
 
 export { RemoteRuntimeClientError } from './remote-runtime-client-error'

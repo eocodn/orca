@@ -1,6 +1,6 @@
 import type { KeybindingActionId, KeybindingDefinition, KeybindingInput, KeybindingMatchOptions, KeybindingOverrides, KeybindingValidationResult, ModifierToken, NormalizeKeybindingOptions, PhysicalModifierToken, TerminalShortcutPolicy } from "./keybinding-contract"
-import { DEFINITIONS_BY_ID, DIGIT_INDEX_KEY_PATTERN, getKeybindingPlatform, isDigitIndexActionId } from "./keybinding-registry"
-import { canonicalizeDigitIndexBinding, canonicalizeParsedKeybinding, hasModifier, normalizeKeyToken, normalizeKeybindingWithOptions, normalizeOptionsForAction, parseKeybinding } from "./keybinding-parser"
+import { DEFINITIONS_BY_ID, getKeybindingPlatform, isDigitIndexActionId } from "./keybinding-registry"
+import { canonicalizeDigitIndexBinding, hasModifier, normalizeKeyToken, normalizeKeybindingWithOptions, normalizeOptionsForAction } from "./keybinding-parser"
 
 const MODIFIER_KEYS = new Set([
   'Alt',
