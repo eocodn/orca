@@ -1,7 +1,5 @@
 // Browser IPC handlers and tab lifecycle implementation.
-import { BrowserWindow, ipcMain, webContents } from 'electron'
-import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
-import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
+import { BrowserWindow, ipcMain } from 'electron'
 import { browserSessionRegistry } from '../browser/browser-session-registry'
 import {
   pickCookieFile,
@@ -11,30 +9,12 @@ import {
   importCookiesFromBrowser
 } from '../browser/browser-cookie-import'
 import type {
-  BrowserSetGrabModeArgs,
-  BrowserSetGrabModeResult,
-  BrowserAwaitGrabSelectionArgs,
-  BrowserGrabResult,
-  BrowserCancelGrabArgs,
-  BrowserCaptureSelectionScreenshotArgs,
-  BrowserCaptureSelectionScreenshotResult,
-  BrowserExtractHoverArgs,
-  BrowserExtractHoverResult
-} from '../../shared/browser-grab-types'
-import type {
   BrowserCookieImportResult,
-  BrowserCertificateProceedResult,
   BrowserSessionProfile,
-  BrowserSessionProfileScope,
-  BrowserViewportOverride
+  BrowserSessionProfileScope
 } from '../../shared/types'
-import {
-  isValidBrowserAnnotationViewportBridgeMarkers,
-  isValidBrowserAnnotationViewportBridgeToken,
-  type BrowserSetAnnotationViewportBridgeArgs
-} from '../../shared/browser-annotation-viewport-bridge'
 
-import { trustedBrowserRendererWebContentsId, agentBrowserBridgeRef, pendingTabRegistrations, pendingWorktreeTabRegistrations, pendingAnyTabRegistrations, grabModeIntentByPageId, grabModeOperationByPageId, GRAB_REGISTRATION_WAIT_MS, waitForRegistrationSet, resolvePendingRegistrations, isLiveBrowserWebContentsId, hasRegisteredTabForWorktree, waitForTabRegistration, waitForNextTabRegistration, queueGrabModeOperation, waitForWorktreeTabRegistration, waitForAnyTabRegistration, setTrustedBrowserRendererWebContentsId, setAgentBrowserBridgeRef, isTrustedBrowserRenderer } from './browser-ipc-foundation'
+import { isTrustedBrowserRenderer } from './browser-ipc-foundation'
 
 export function registerBrowserSessionHandlers(): void {
   ipcMain.removeHandler('browser:session:listProfiles')

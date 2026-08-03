@@ -1,15 +1,6 @@
 // Browser IPC handlers and tab lifecycle implementation.
-import { BrowserWindow, ipcMain, webContents } from 'electron'
-import { browserCertificateTrustController, browserManager } from '../browser/browser-manager'
-import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
-import { browserSessionRegistry } from '../browser/browser-session-registry'
-import {
-  pickCookieFile,
-  importCookiesFromFile,
-  detectInstalledBrowsers,
-  selectBrowserProfile,
-  importCookiesFromBrowser
-} from '../browser/browser-cookie-import'
+import { ipcMain } from 'electron'
+import { browserManager } from '../browser/browser-manager'
 import type {
   BrowserSetGrabModeArgs,
   BrowserSetGrabModeResult,
@@ -21,20 +12,14 @@ import type {
   BrowserExtractHoverArgs,
   BrowserExtractHoverResult
 } from '../../shared/browser-grab-types'
-import type {
-  BrowserCookieImportResult,
-  BrowserCertificateProceedResult,
-  BrowserSessionProfile,
-  BrowserSessionProfileScope,
-  BrowserViewportOverride
-} from '../../shared/types'
-import {
-  isValidBrowserAnnotationViewportBridgeMarkers,
-  isValidBrowserAnnotationViewportBridgeToken,
-  type BrowserSetAnnotationViewportBridgeArgs
-} from '../../shared/browser-annotation-viewport-bridge'
 
-import { trustedBrowserRendererWebContentsId, agentBrowserBridgeRef, pendingTabRegistrations, pendingWorktreeTabRegistrations, pendingAnyTabRegistrations, grabModeIntentByPageId, grabModeOperationByPageId, GRAB_REGISTRATION_WAIT_MS, waitForRegistrationSet, resolvePendingRegistrations, isLiveBrowserWebContentsId, hasRegisteredTabForWorktree, waitForTabRegistration, waitForNextTabRegistration, queueGrabModeOperation, waitForWorktreeTabRegistration, waitForAnyTabRegistration, setTrustedBrowserRendererWebContentsId, setAgentBrowserBridgeRef, isTrustedBrowserRenderer } from './browser-ipc-foundation'
+import {
+  grabModeIntentByPageId,
+  GRAB_REGISTRATION_WAIT_MS,
+  waitForNextTabRegistration,
+  queueGrabModeOperation,
+  isTrustedBrowserRenderer
+} from './browser-ipc-foundation'
 
 export function registerBrowserGrabHandlers(): void {
   ipcMain.removeHandler('browser:setGrabMode')
