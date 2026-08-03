@@ -1,7 +1,4 @@
-import { ipcRenderer, browserFindSubscriptions } from './preload-api-runtime-context'
-import type { PreloadApi } from './preload-api-runtime-context'
-
-export function createPreloadApiUiBrowser(): { ui: Partial<PreloadApi['ui']> } {
+import { ipcRenderer, browserFindSubscriptions } from './preload-api-runtime-context';import type { PreloadApi } from './preload-api-runtime-context';export function createPreloadApiUiBrowser(): { ui: Partial<PreloadApi['ui']> } {
   return {
     ui: {
     onRequestTabCreate: (

@@ -1,1 +1,1 @@
-export * from './electron-preload-entry.ts'
+export * from './electron-preload-entry'

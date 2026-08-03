@@ -1,32 +1,24 @@
 // Notification permission, delivery, and sound IPC handlers.
-import { app, BrowserWindow, Notification, ipcMain, shell } from 'electron'
-import { readFile, stat } from 'node:fs/promises'
-import { extname, isAbsolute, normalize } from 'node:path'
+import { Notification, ipcMain } from 'electron'
 import type { Store } from '../persistence'
 import type {
   NotificationDeliveryProbeResult,
-  NotificationDispatchRequest,
-  NotificationDispatchResult,
-  NotificationDismissResult,
-  NotificationPermissionStatusResult,
-  NotificationSettings,
-  NotificationSoundDataResult
+  NotificationPermissionStatusResult
 } from '../../shared/types'
-import { getRepoIdFromWorktreeId } from '../../shared/worktree-id'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import { buildNotificationOptions } from './notification-options'
 import { readNotificationAuthorizationStatus } from './notification-authorization-status'
-import { parsePaneKey } from '../../shared/stable-pane-id'
-import { setTrayAttention } from '../tray/system-tray'
-import { isMainWindowVisible } from '../window/main-window-visibility'
 import {
-  BUILT_IN_NOTIFICATION_SOUNDS,
-  NOTIFICATION_SOUND_MIME_BY_EXTENSION
-} from './notification-sound-assets'
+  lastObservedDeliveryOutcome,
+  openNotificationSystemSettings,
+  permissionDialogTriggeredThisSession,
+  probeNotificationDelivery,
+  setLastObservedDeliveryOutcome
+} from './notifications-ipc-foundation'
 
-import { NOTIFICATION_COOLDOWN_MS, MAX_RECENT_NOTIFICATION_KEYS, NOTIFICATION_DISPLAY_CONFIRMATION_TIMEOUT_MS, NOTIFICATION_RELEASE_FALLBACK_MS, MAX_NOTIFICATION_SOUND_BYTES, MACOS_PACKAGED_BUNDLE_ID, MACOS_NOTIFICATION_SETTINGS_URL, NotificationSoundId, activeNotifications, activeNotificationsById, retainNotificationUntilRelease, NOTIFICATION_PROBE_RESULT_TIMEOUT_MS, NOTIFICATION_PROBE_BANNER_CLOSE_DELAY_MS, lastObservedDeliveryOutcome, deliveryProbeInFlight, permissionDialogTriggeredThisSession, probeNotificationDelivery, getMacNotificationSettingsUrl, openNotificationSystemSettings, getEffectiveNotificationSoundId, getSelectedNotificationSoundPath, waitForNotificationDisplay, logNativeNotificationFailure, pruneRecentNotifications, reserveNotificationCooldown } from './notifications-ipc-foundation'
-
-export function registerNotificationDeliveryHandlers(store: Store, runtime?: OrcaRuntimeService): void {
+export function registerNotificationDeliveryHandlers(
+  store: Store,
+  _runtime?: OrcaRuntimeService
+): void {
   ipcMain.removeHandler('notifications:openSystemSettings')
 
   ipcMain.removeHandler('notifications:getPermissionStatus')
@@ -61,11 +53,11 @@ export function registerNotificationDeliveryHandlers(store: Store, runtime?: Orc
         // Preferred source: the bundled helper reads real auth silently, so polling tracks System Settings changes without banners.
         const authorization = await readNotificationAuthorizationStatus()
         if (authorization === 'authorized') {
-          lastObservedDeliveryOutcome = 'delivered'
+          setLastObservedDeliveryOutcome('delivered')
           return { state: 'delivered', authoritative: true }
         }
         if (authorization === 'denied') {
-          lastObservedDeliveryOutcome = 'failed'
+          setLastObservedDeliveryOutcome('failed')
           return { state: 'blocked', authoritative: true }
         }
         if (authorization === 'not-determined') {

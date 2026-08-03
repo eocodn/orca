@@ -1,12 +1,4 @@
-import { ipcRenderer, webFrame, richMarkdownContextMenuCommandChannel, subscribeNativeFileDrop } from './preload-api-runtime-context'
-import type {
-  NativeFileDropPayload,
-  PreloadApi,
-  ReadClipboardTextOptions,
-  RichMarkdownContextMenuCommandPayload
-} from './preload-api-runtime-context'
-
-export function createPreloadApiUiWindow(): { ui: Partial<PreloadApi['ui']> } {
+import { ipcRenderer, webFrame, richMarkdownContextMenuCommandChannel, subscribeNativeFileDrop } from './preload-api-runtime-context';import type { NativeFileDropPayload, PreloadApi, ReadClipboardTextOptions, RichMarkdownContextMenuCommandPayload } from './preload-api-runtime-context';export function createPreloadApiUiWindow(): { ui: Partial<PreloadApi['ui']> } {
   return {
     ui: {
     readClipboardText: (options?: ReadClipboardTextOptions): Promise<string> =>

@@ -1,16 +1,10 @@
 // Notification permission, delivery, and sound IPC handlers.
-import { app, BrowserWindow, Notification, ipcMain, shell } from 'electron'
-import { readFile, stat } from 'node:fs/promises'
-import { extname, isAbsolute, normalize } from 'node:path'
+import { app, BrowserWindow, Notification, ipcMain } from 'electron'
 import type { Store } from '../persistence'
 import type {
-  NotificationDeliveryProbeResult,
   NotificationDispatchRequest,
   NotificationDispatchResult,
-  NotificationDismissResult,
-  NotificationPermissionStatusResult,
-  NotificationSettings,
-  NotificationSoundDataResult
+  NotificationDismissResult
 } from '../../shared/types'
 import { getRepoIdFromWorktreeId } from '../../shared/worktree-id'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
@@ -20,20 +14,22 @@ import { parsePaneKey } from '../../shared/stable-pane-id'
 import { setTrayAttention } from '../tray/system-tray'
 import { isMainWindowVisible } from '../window/main-window-visibility'
 import {
-  BUILT_IN_NOTIFICATION_SOUNDS,
-  NOTIFICATION_SOUND_MIME_BY_EXTENSION
-} from './notification-sound-assets'
-
-import { NOTIFICATION_COOLDOWN_MS, MAX_RECENT_NOTIFICATION_KEYS, NOTIFICATION_DISPLAY_CONFIRMATION_TIMEOUT_MS, NOTIFICATION_RELEASE_FALLBACK_MS, MAX_NOTIFICATION_SOUND_BYTES, MACOS_PACKAGED_BUNDLE_ID, MACOS_NOTIFICATION_SETTINGS_URL, NotificationSoundId, activeNotifications, activeNotificationsById, retainNotificationUntilRelease, NOTIFICATION_PROBE_RESULT_TIMEOUT_MS, NOTIFICATION_PROBE_BANNER_CLOSE_DELAY_MS, lastObservedDeliveryOutcome, deliveryProbeInFlight, permissionDialogTriggeredThisSession, probeNotificationDelivery, getMacNotificationSettingsUrl, openNotificationSystemSettings, getEffectiveNotificationSoundId, getSelectedNotificationSoundPath, waitForNotificationDisplay, logNativeNotificationFailure, pruneRecentNotifications, reserveNotificationCooldown } from './notifications-ipc-foundation'
+  activeNotificationsById,
+  getEffectiveNotificationSoundId,
+  logNativeNotificationFailure,
+  resetNotificationDeliveryState,
+  reserveNotificationCooldown,
+  retainNotificationUntilRelease,
+  setLastObservedDeliveryOutcome,
+  waitForNotificationDisplay
+} from './notifications-ipc-foundation'
 
 export function registerNotificationDispatchHandlers(store: Store, runtime?: OrcaRuntimeService): void {
   const recentDesktopNotifications = new Map<string, number>()
 
   const recentMobileNotifications = new Map<string, number>()
-    // Why: handler registration marks a fresh session; permission evidence from a previous one must not leak in.
-    lastObservedDeliveryOutcome = null
-    deliveryProbeInFlight = null
-    permissionDialogTriggeredThisSession = false
+  // Why: handler registration marks a fresh session; permission evidence from a previous one must not leak in.
+  resetNotificationDeliveryState()
 
   ipcMain.removeHandler('notifications:dismiss')
 
@@ -171,7 +167,7 @@ export function registerNotificationDispatchHandlers(store: Store, runtime?: Orc
             // Why: Electron 42's macOS backend reports unsigned/delivery failures here; release now, not after the fallback timer.
             logNativeNotificationFailure(args.source, error)
             // Why: feeds the permission card's evidence.
-            lastObservedDeliveryOutcome = 'failed'
+            setLastObservedDeliveryOutcome('failed')
             release()
           }
           notification.on('failed', failedHandler)
@@ -223,7 +219,7 @@ export function registerNotificationDispatchHandlers(store: Store, runtime?: Orc
                 release()
                 return { delivered: false, reason: 'not-displayed' }
               }
-              lastObservedDeliveryOutcome = 'delivered'
+              setLastObservedDeliveryOutcome('delivered')
               return { delivered: true }
             })
           }
@@ -237,7 +233,7 @@ export function registerNotificationDispatchHandlers(store: Store, runtime?: Orc
         // Why: macOS silently swallows notifications while permission is denied/undecided (verified macOS 26); skip so the renderer can show a fallback.
         return readNotificationAuthorizationStatus().then((authorization) => {
           if (authorization === 'denied' || authorization === 'not-determined') {
-            lastObservedDeliveryOutcome = 'failed'
+            setLastObservedDeliveryOutcome('failed')
             return { delivered: false, reason: 'blocked-by-system' }
           }
           return deliverNativeNotification()

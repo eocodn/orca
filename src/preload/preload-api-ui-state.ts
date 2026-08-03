@@ -1,7 +1,4 @@
-import { ipcRenderer } from './preload-api-runtime-context'
-import type { PreloadApi, PersistedUIState, KeybindingActionId } from './preload-api-runtime-context'
-
-export function createPreloadApiUiState(): { ui: Partial<PreloadApi['ui']> } {
+import { ipcRenderer } from './preload-api-runtime-context';import type { PreloadApi, PersistedUIState, KeybindingActionId } from './preload-api-runtime-context';export function createPreloadApiUiState(): { ui: Partial<PreloadApi['ui']> } {
   return {
     ui: {
     get: () => ipcRenderer.invoke('ui:get'),

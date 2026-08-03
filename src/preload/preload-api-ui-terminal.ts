@@ -1,7 +1,4 @@
-import { ipcRenderer } from './preload-api-runtime-context'
-import type { PreloadApi, TerminalPaneSplitSource, TerminalTabCreateReply, AgentProviderSessionMetadata, SleepingAgentLaunchConfig, TuiAgent, WorktreeDefaultTabsLaunch, RuntimeMobileSessionTabMove, RuntimeTerminalCreateRequestPayload, RuntimeTerminalPresentation, RuntimeMobileMarkdownRequest, RuntimeMobileMarkdownResponse } from './preload-api-runtime-context'
-
-export function createPreloadApiUiTerminal(): { ui: Partial<PreloadApi['ui']> } {
+import { ipcRenderer } from './preload-api-runtime-context';import type { PreloadApi, TerminalPaneSplitSource, TerminalTabCreateReply, AgentProviderSessionMetadata, SleepingAgentLaunchConfig, TuiAgent, WorktreeDefaultTabsLaunch, RuntimeMobileSessionTabMove, RuntimeTerminalCreateRequestPayload, RuntimeTerminalPresentation, RuntimeMobileMarkdownRequest, RuntimeMobileMarkdownResponse } from './preload-api-runtime-context';export function createPreloadApiUiTerminal(): { ui: Partial<PreloadApi['ui']> } {
   return {
     ui: {
     onCloseActiveTab: (callback: () => void): (() => void) => {

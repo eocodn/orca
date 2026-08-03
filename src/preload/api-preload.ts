@@ -1,1 +1,1 @@
-export * from './api-preload-surface.ts'
+export * from './api-preload-surface'

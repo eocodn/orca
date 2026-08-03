@@ -1,24 +1,7 @@
 // Notification permission, delivery, and sound IPC handlers.
-import { app, BrowserWindow, Notification, ipcMain, shell } from 'electron'
-import { readFile, stat } from 'node:fs/promises'
+import { Notification, shell } from 'electron'
 import { extname, isAbsolute, normalize } from 'node:path'
-import type { Store } from '../persistence'
-import type {
-  NotificationDeliveryProbeResult,
-  NotificationDispatchRequest,
-  NotificationDispatchResult,
-  NotificationDismissResult,
-  NotificationPermissionStatusResult,
-  NotificationSettings,
-  NotificationSoundDataResult
-} from '../../shared/types'
-import { getRepoIdFromWorktreeId } from '../../shared/worktree-id'
-import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import { buildNotificationOptions } from './notification-options'
-import { readNotificationAuthorizationStatus } from './notification-authorization-status'
-import { parsePaneKey } from '../../shared/stable-pane-id'
-import { setTrayAttention } from '../tray/system-tray'
-import { isMainWindowVisible } from '../window/main-window-visibility'
+import type { NotificationDeliveryProbeResult, NotificationSettings } from '../../shared/types'
 import {
   BUILT_IN_NOTIFICATION_SOUNDS,
   NOTIFICATION_SOUND_MIME_BY_EXTENSION
@@ -80,6 +63,17 @@ export let lastObservedDeliveryOutcome: 'delivered' | 'failed' | null = null
 export let deliveryProbeInFlight: Promise<NotificationDeliveryProbeResult> | null = null
 // Why: firing one probe instantiates Electron's presenter and pops the macOS permission dialog; once per session is enough.
 export let permissionDialogTriggeredThisSession = false
+
+export function setLastObservedDeliveryOutcome(outcome: 'delivered' | 'failed' | null): void {
+  lastObservedDeliveryOutcome = outcome
+}
+
+// Why: registration starts a new session, so stale probe evidence must not leak across registrations.
+export function resetNotificationDeliveryState(): void {
+  lastObservedDeliveryOutcome = null
+  deliveryProbeInFlight = null
+  permissionDialogTriggeredThisSession = false
+}
 
 /**
  * Fallback for hosts without the native helper: schedules a silent probe and reports whether macOS accepted it.
@@ -281,4 +275,3 @@ export function reserveNotificationCooldown(
   pruneRecentNotifications(recentNotifications, now)
   return true
 }
-
