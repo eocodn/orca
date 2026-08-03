@@ -6,22 +6,18 @@ import type {
   GitHubCreateIssueFields,
   GitHubIssueUpdate,
   GitHubOwnerRepo,
-  GitHubPullRequestStateUpdate,
   GitHubPRRefreshCandidate,
   GitHubPRRefreshEnqueueResult,
   GitHubPRRefreshReason,
   PRRefreshOutcome,
   GitHubPRFile
 } from '../../shared/types'
-import { getRepoExecutionHostId } from '../../shared/execution-host'
 import type { TaskSourceContext } from '../../shared/task-source-context'
 import type { Store } from '../persistence'
 import type { StatsCollector } from '../stats/collector'
 import {
   getPRForBranch,
   getIssue,
-  getRepoSlug,
-  getRepoUpstream,
   listIssues,
   listWorkItems,
   countWorkItems,
@@ -31,24 +27,7 @@ import {
   updateIssue,
   addIssueComment,
   listLabels,
-  listAssignableUsers,
-  getAuthenticatedViewer,
-  getPRChecks,
-  getPRCheckDetails,
-  getPRComments,
-  resolveReviewThread,
-  setPRFileViewed,
-  addPRReviewComment,
-  addPRReviewCommentReply,
-  updatePRTitle,
-  mergePR,
-  setPRAutoMerge,
-  updatePRState,
-  rerunPRChecks,
-  requestPRReviewers,
-  removePRReviewers,
-  checkOrcaStarred,
-  starOrca
+  listAssignableUsers
 } from '../github/client'
 import type { GitHubPRBranchLookupOptions } from '../github/client'
 import {
@@ -59,56 +38,8 @@ import {
   setPRRefreshOutcomeObserver
 } from '../github/pr-refresh-coordinator'
 import { getWorkItemDetails, getPRFileContents } from '../github/work-item-details'
-import { getRateLimit } from '../github/rate-limit'
-import { diagnoseGhAuth } from '../github/auth-diagnose'
-import {
-  notePRRefreshValidationDenial,
-  type PRRefreshValidationDenialReason
-} from '../github/pr-refresh-validation-backoff'
-import { getLocalProjectWorktreeGitOptions } from '../project-runtime-git-options'
 import { dispatchWorkItem, type WorkItemArgs } from './github-work-item-args'
-import {
-  getProjectViewTable,
-  listAccessibleProjects,
-  resolveProjectRef,
-  listProjectViews,
-  getWorkItemDetailsBySlug,
-  updateProjectItemFieldValue,
-  clearProjectItemFieldValue,
-  updateIssueBySlug,
-  updatePullRequestBySlug,
-  addIssueCommentBySlug,
-  updateIssueCommentBySlug,
-  deleteIssueCommentBySlug,
-  listLabelsBySlug,
-  listAssignableUsersBySlug,
-  listIssueTypesBySlug,
-  updateIssueTypeBySlug
-} from '../github/project-view'
-import type {
-  AddIssueCommentBySlugArgs,
-  ClearProjectItemFieldArgs,
-  DeleteIssueCommentBySlugArgs,
-  GetProjectViewTableArgs,
-  ListAccessibleProjectsArgs,
-  ListAssignableUsersBySlugArgs,
-  ListIssueTypesBySlugArgs,
-  ListLabelsBySlugArgs,
-  ListProjectViewsArgs,
-  ProjectWorkItemDetailsBySlugArgs,
-  ResolveProjectRefArgs,
-  UpdateIssueBySlugArgs,
-  UpdateIssueCommentBySlugArgs,
-  UpdateIssueTypeBySlugArgs,
-  UpdateProjectItemFieldArgs,
-  UpdatePullRequestBySlugArgs
-} from '../../shared/github-project-types'
-import { appStarSourceSchema } from '../../shared/gh-star-source'
-import { track } from '../telemetry/client'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
-import { sendToTrustedUIRenderer } from './ui'
-
-import { prRefreshVisibilityCleanupRegistered, broadcastWorkItemMutated, RepoScopedArgs, RegisteredRepoValidationResult, validateRegisteredRepo, assertRegisteredRepo, repoConnectionId, localGitOptionArgs, applyRepoToPRRefreshCandidate, validateAutomaticPRRefreshCandidate } from './github-ipc-foundation'
+import { prRefreshVisibilityCleanupRegistered, broadcastWorkItemMutated, assertRegisteredRepo, repoConnectionId, localGitOptionArgs, applyRepoToPRRefreshCandidate, validateAutomaticPRRefreshCandidate, type RepoScopedArgs } from './github-ipc-foundation'
 
 export function registerGitHubWorkItemHandlers(store: Store, stats: StatsCollector): void {
   function recordPRIfNeeded(repo: Repo, outcome: PRRefreshOutcome): void {
