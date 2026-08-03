@@ -1,12 +1,9 @@
-import type { AgentHookSource } from './agent-hook-relay'
-import type { HookListenerState } from './agent-hook-state'
-import type { ExtractedPromptText, ToolSnapshot } from './agent-hook-prompt-tools'
+import type { ToolSnapshot } from './agent-hook-prompt-tools'
 
 import * as prompt from './agent-hook-prompt-tools'
 import * as transcript from './agent-hook-transcript'
-import { capOpenCodeHookText } from './agent-hook-request-body'
-const { contentBlockArrayText, extractPromptText, stripGrokUserQueryWrapper, resolvePrompt, resolveToolState, TOOL_INPUT_KEYS_BY_TOOL, FALLBACK_TOOL_INPUT_KEYS, deriveToolInputPreview, deriveFallbackToolInputPreview, readString, hasOwnField, hasAnyOwnField, toolUpdate, clearActiveToolFieldsUpdate, stripHookEnvelopeKeys, summarizeApprovalInput, deriveInteractivePrompt, readFirstString, parseJsonObjectString, extractToolResponseText } = prompt
-const { TRANSCRIPT_CHUNK_BYTES, TRANSCRIPT_MAX_SCAN_BYTES, EMPTY_TRANSCRIPT_REGION, AMP_THREAD_ID_MAX_LENGTH, AMP_MAX_SCOPED_THREAD_CACHE_KEYS, GROK_SESSION_CWD_MAX_LENGTH, GROK_HOME_ENVELOPE_MAX_LENGTH, extractAssistantTextFromLine, extractAssistantContentText, extractAntigravityUserRequest, extractUserPromptTextFromLine, readLastAssistantFromTranscript, readLastUserPromptFromTranscript, extractCommandCodeUserPromptFromLine, hashInteractionKeyPart, findLastCommandCodePromptInRegion, readLastCommandCodeUserPromptEntryFromTranscript, extractCommandCodeAssistantTextFromLine, readLastCommandCodeAssistantFromTranscript, parseHookBodyPayloadRecord, readBoundedString, readGrokHomeEnvelope, hasControlCharacter, readGrokSessionMetadata, getGrokChatHistoryPath, readLastAssistantFromGrokChatHistory, hasPendingAgentResultText, hasNonEmptyString, hasExplicitLastAssistantResult, preparePendingGrokResultDiscovery, readLastAssistantFromTranscriptOnce, readLastTextFromTranscriptOnce, findLastExtractedTranscriptLineText } = transcript
+const { deriveToolInputPreview, deriveFallbackToolInputPreview, readString, hasOwnField, hasAnyOwnField, toolUpdate, clearActiveToolFieldsUpdate, deriveInteractivePrompt, readFirstString, extractToolResponseText } = prompt
+const { readLastAssistantFromTranscript, readLastCommandCodeAssistantFromTranscript, readLastAssistantFromGrokChatHistory } = transcript
 
 export function isAskUserTool(toolName: string | undefined): boolean {
   return toolName?.replaceAll(/[^a-z0-9]/gi, '').toLowerCase() === 'askuser'
