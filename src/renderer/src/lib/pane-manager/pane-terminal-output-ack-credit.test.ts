@@ -37,4 +37,26 @@ describe('pane terminal output ACK credit aggregation', () => {
     expect(firstCredit).toHaveBeenCalledOnce()
     expect(secondCredit).toHaveBeenCalledOnce()
   })
+
+  it('keeps later credits alive across independent terminal write contexts', () => {
+    const firstTerminal = {}
+    const secondTerminal = {}
+    const failingCredit = vi.fn(() => {
+      throw new Error('synthetic repeated credit failure')
+    })
+
+    for (let i = 0; i < 5; i++) {
+      registerTerminalOutputAckCredits(firstTerminal, [failingCredit])?.()
+    }
+    registerTerminalOutputAckCredits(firstTerminal, [failingCredit])?.()
+
+    const laterFirstTerminalCredit = vi.fn()
+    const laterSecondTerminalCredit = vi.fn()
+    registerTerminalOutputAckCredits(firstTerminal, [laterFirstTerminalCredit])?.()
+    registerTerminalOutputAckCredits(secondTerminal, [laterSecondTerminalCredit])?.()
+
+    expect(failingCredit).toHaveBeenCalledTimes(5)
+    expect(laterFirstTerminalCredit).toHaveBeenCalledOnce()
+    expect(laterSecondTerminalCredit).toHaveBeenCalledOnce()
+  })
 })

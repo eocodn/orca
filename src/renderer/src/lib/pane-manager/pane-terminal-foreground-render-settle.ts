@@ -174,11 +174,12 @@ export function writeForegroundTerminalChunk(
   const runParsedSteps = (): void => {
     if (beforeWriteViewport && captureForegroundRenderGeneration(terminal) === renderGeneration) {
       runGuardedWriteCompletionStep('foreground-render-settle', () =>
-        settleForegroundRender(terminal, beforeWriteViewport, options)
+        settleForegroundRender(terminal, beforeWriteViewport, options),
+        terminal
       )
     }
     if (options.onParsed) {
-      runGuardedWriteCompletionStep('foreground-on-parsed', options.onParsed)
+      runGuardedWriteCompletionStep('foreground-on-parsed', options.onParsed, terminal)
     }
   }
   try {
@@ -188,7 +189,7 @@ export function writeForegroundTerminalChunk(
     // Why separate from parse completion: cleanup/recovery must run, but a
     // synchronous write failure is not parser liveness evidence.
     if (options.onWriteFailure) {
-      runGuardedWriteCompletionStep('foreground-on-write-failure', options.onWriteFailure)
+      runGuardedWriteCompletionStep('foreground-on-write-failure', options.onWriteFailure, terminal)
     }
     return false
   }

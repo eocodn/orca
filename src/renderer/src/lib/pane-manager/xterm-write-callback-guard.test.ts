@@ -62,6 +62,29 @@ describe('runGuardedWriteCompletionStep', () => {
     }
   })
 
+  it('quarantines only the failing write scope after repeated failures', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const firstTerminal = {}
+      const secondTerminal = {}
+      const firstStep = vi.fn(() => {
+        throw new Error('persistent first-terminal failure')
+      })
+      const secondStep = vi.fn()
+
+      for (let i = 0; i < 5; i++) {
+        runGuardedWriteCompletionStep('ack-credit', firstStep, firstTerminal)
+      }
+      runGuardedWriteCompletionStep('ack-credit', firstStep, firstTerminal)
+      runGuardedWriteCompletionStep('ack-credit', secondStep, secondTerminal)
+
+      expect(firstStep).toHaveBeenCalledTimes(5)
+      expect(secondStep).toHaveBeenCalledOnce()
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('runs non-throwing steps transparently', () => {
     const step = vi.fn()
     runGuardedWriteCompletionStep('ok-step', step)

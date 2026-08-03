@@ -40,10 +40,11 @@ export function writeBackgroundTerminalChunk(
   onWriteFailure?: () => void
 ): boolean {
   const runOnParsed = onParsed
-    ? (): void => runGuardedWriteCompletionStep('background-on-parsed', onParsed)
+    ? (): void => runGuardedWriteCompletionStep('background-on-parsed', onParsed, terminal)
     : undefined
   const runOnWriteFailure = onWriteFailure
-    ? (): void => runGuardedWriteCompletionStep('background-on-write-failure', onWriteFailure)
+    ? (): void =>
+        runGuardedWriteCompletionStep('background-on-write-failure', onWriteFailure, terminal)
     : undefined
   try {
     if (!runOnParsed || terminal.write.length < 2) {
@@ -71,16 +72,16 @@ export function composeParsedCallback(
       if (isCurrentTerminalOutputClearGeneration(terminal, clearGeneration)) {
         onParsed?.()
       }
-    })
-    runGuardedWriteCompletionStep('queued-ack-credit', () => ackCreditsParsed?.())
-    runGuardedWriteCompletionStep('queued-pacer', () => pacer?.())
+    }, terminal)
+    runGuardedWriteCompletionStep('queued-ack-credit', () => ackCreditsParsed?.(), terminal)
+    runGuardedWriteCompletionStep('queued-pacer', () => pacer?.(), terminal)
     runGuardedWriteCompletionStep('queued-stall-settlement', () => {
       // Why: onParsed can clear and replace this terminal before the callback
       // settles; never let that stale completion cancel the replacement watch.
       if (isCurrentTerminalOutputClearGeneration(terminal, clearGeneration)) {
         settleTerminalWriteStallWatch(terminal)
       }
-    })
+    }, terminal)
   }
 }
 
@@ -89,8 +90,12 @@ export function composeWriteFailureCallback(
   ackCreditsParsed: (() => void) | undefined
 ): () => void {
   return () => {
-    runGuardedWriteCompletionStep('queued-ack-credit-failure', () => ackCreditsParsed?.())
-    runGuardedWriteCompletionStep('queued-stall-failure', () => failTerminalWriteStallWatch(terminal))
+    runGuardedWriteCompletionStep('queued-ack-credit-failure', () => ackCreditsParsed?.(), terminal)
+    runGuardedWriteCompletionStep(
+      'queued-stall-failure',
+      () => failTerminalWriteStallWatch(terminal),
+      terminal
+    )
   }
 }
 

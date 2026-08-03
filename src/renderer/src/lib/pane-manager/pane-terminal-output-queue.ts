@@ -290,7 +290,7 @@ export function fireQueuedAckCredits(entry: QueueEntry): void {
   for (let index = entry.chunkIndex; index < entry.chunks.length; index += 1) {
     const ackCredit = entry.chunks[index].ackCredit
     if (ackCredit) {
-      attemptTerminalOutputAckCredit(ackCredit)
+      attemptTerminalOutputAckCredit(entry.terminal, ackCredit)
     }
   }
 }

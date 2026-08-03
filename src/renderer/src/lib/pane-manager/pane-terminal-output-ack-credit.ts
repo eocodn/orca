@@ -1,11 +1,41 @@
 import { runGuardedWriteCompletionStep } from './xterm-write-callback-guard'
 
 type TerminalOutputAckTarget = object
+type TerminalOutputAckCredit = () => void
 
 const inFlightAckCompletions = new WeakMap<TerminalOutputAckTarget, Set<() => void>>()
+// A shared ACK scope would quarantine every credit after five failures.
+const ackCreditScopesByTerminal = new WeakMap<
+  TerminalOutputAckTarget,
+  WeakMap<TerminalOutputAckCredit, object>
+>()
 
-export function attemptTerminalOutputAckCredit(credit: () => void): void {
-  runGuardedWriteCompletionStep('terminal-output-ack-credit', credit)
+function getAckCreditScope(
+  terminal: TerminalOutputAckTarget,
+  credit: TerminalOutputAckCredit
+): object {
+  let scopes = ackCreditScopesByTerminal.get(terminal)
+  if (!scopes) {
+    scopes = new WeakMap()
+    ackCreditScopesByTerminal.set(terminal, scopes)
+  }
+  let scope = scopes.get(credit)
+  if (!scope) {
+    scope = {}
+    scopes.set(credit, scope)
+  }
+  return scope
+}
+
+export function attemptTerminalOutputAckCredit(
+  terminal: TerminalOutputAckTarget,
+  credit: TerminalOutputAckCredit
+): void {
+  runGuardedWriteCompletionStep(
+    'terminal-output-ack-credit',
+    credit,
+    getAckCreditScope(terminal, credit)
+  )
 }
 
 /** Tracks credits after submission to xterm so pane disposal can treat its
@@ -33,7 +63,7 @@ export function registerTerminalOutputAckCredits(
       inFlightAckCompletions.delete(terminal)
     }
     for (const credit of credits) {
-      attemptTerminalOutputAckCredit(credit)
+      attemptTerminalOutputAckCredit(terminal, credit)
     }
   }
   completions.add(complete)
