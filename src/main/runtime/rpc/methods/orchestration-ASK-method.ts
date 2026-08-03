@@ -1,7 +1,6 @@
 import { defineMethod, type RpcMethod } from '../core'
 import { isGroupAddress } from '../../orchestration/groups'
 import { clampOrchestrationAskTimeoutMs } from '../../../../shared/orchestration-ask-timeout'
-import { ORCHESTRATION_GATE_METHODS } from './orchestration-gates'
 import { OrchestrationError } from '../../orchestration/orchestration-error'
 
 import {
@@ -168,8 +167,5 @@ export const ORCHESTRATION_ASK_METHODS: RpcMethod[] = [
         })
       }
     }
-  }),
-
-  ...ORCHESTRATION_GATE_METHODS,
-
+  })
 ]

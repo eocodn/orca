@@ -107,6 +107,11 @@ vi.mock('electron', () => ({
     getPath: getPathMock,
     getVersion: () => '0.0.0-test'
   },
+  safeStorage: {
+    isEncryptionAvailable: () => false,
+    encryptString: (plaintext: string) => Buffer.from(plaintext, 'utf8'),
+    decryptString: (ciphertext: Buffer) => ciphertext.toString('utf8')
+  },
   powerMonitor: {
     on: vi.fn()
   },
