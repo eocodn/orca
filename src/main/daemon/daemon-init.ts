@@ -1,1 +1,1 @@
-export * from './daemon-lifecycle-manager.ts'
+export * from './daemon-lifecycle-manager'

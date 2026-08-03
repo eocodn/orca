@@ -1,1 +1,1 @@
-export * from './external-automations-provider.ts'
+export * from './external-automations-provider'

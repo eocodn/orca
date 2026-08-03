@@ -17,9 +17,9 @@ import { readWindowsConptyProcessIds } from '../providers/windows-conpty-process
 import {
   isAgentForegroundWrapperProcess,
   recognizeAgentProcess,
-  recognizeAgentProcessFromCommandLine,
-  shouldInspectOuterWrapperForegroundProcess
+  recognizeAgentProcessFromCommandLine
 } from '../../shared/agent-process-recognition'
+import { shouldInspectOuterWrapperForegroundProcess } from '../../shared/foreground-wrapper-agent'
 import { isShellProcess } from '../../shared/shell-process-detection'
 import { parsePtySessionId } from './pty-session-id'
 import { getAgentForegroundContextPaths } from '../providers/agent-foreground-context-paths'
@@ -32,7 +32,8 @@ export function createDaemonPtySubprocessHandle(args: {
   opts: PtySubprocessOptions
   startupAgentRecognition: ReturnType<typeof recognizeAgentProcessFromCommandLine>
 }): SubprocessHandle {
-  const { proc, opts, shellPath, startupCommandDeliveredInShellArgs, startupAgentRecognition } = args
+  const { proc, opts, shellPath, startupCommandDeliveredInShellArgs, startupAgentRecognition } =
+    args
   let onDataCb: ((data: string) => void) | null = null
   let onExitCb: ((code: number) => void) | null = null
   let pendingPreListenerData: string[] = []

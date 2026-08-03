@@ -1,1 +1,1 @@
-export * from './dispatcher-routing.ts'
+export * from './dispatcher-routing'

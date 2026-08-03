@@ -70,10 +70,14 @@ import {
   terminateLaunchedDaemonChild,
   isNoSuchProcessError,
   shouldPreserveDaemonWithLiveSessions,
-  WEDGED_DAEMON_GRACE_RETRIES,
+  WEDGED_DAEMON_GRACE_RETRIES
 } from './daemon-lifecycle-adoption-process'
 
 let attributedReplaceReason: DaemonReplaceReason | null = null
+
+export function setAttributedReplaceReason(reason: DaemonReplaceReason): void {
+  attributedReplaceReason = reason
+}
 
 export function createOutOfProcessLauncher(
   runtimeDir: string,

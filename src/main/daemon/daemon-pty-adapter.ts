@@ -1,1 +1,1 @@
-export * from './daemon-pty-adapter-lifecycle.ts'
+export * from './daemon-pty-adapter-lifecycle'

@@ -1,1 +1,1 @@
-export * from './pty-session-handler.ts'
+export * from './pty-session-handler'

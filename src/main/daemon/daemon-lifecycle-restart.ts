@@ -66,6 +66,7 @@ import {
 } from './daemon-lifecycle-init'
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 import type { IPtyProvider } from '../providers/types'
+import { setAttributedReplaceReason } from './daemon-lifecycle-launcher-process'
 
 export type RestartDaemonResult = {
   killedCount: number
@@ -168,7 +169,7 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
         }
       } else if (reason === 'unhealthy_resolver') {
         // Must reach the launcher below without an await in between; see the consume site.
-        attributedReplaceReason = 'unhealthy_resolver'
+        setAttributedReplaceReason('unhealthy_resolver')
       }
       currentSpawner.resetHandle()
       await currentSpawner.ensureRunning()

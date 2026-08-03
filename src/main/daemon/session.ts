@@ -1,1 +1,1 @@
-export * from './daemon-session-lifecycle.ts'
+export * from './daemon-session-lifecycle'

@@ -56,6 +56,7 @@ import { parseDaemonReadyIdentity } from './daemon-ready-identity'
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'
 import { createLegacyDaemonAdapters } from './daemon-lifecycle-cleanup'
+import { setAttributedReplaceReason } from './daemon-lifecycle-launcher-process'
 
 export async function initDaemonPtyProvider(
   signal?: AbortSignal,
@@ -117,7 +118,7 @@ export async function initDaemonPtyProvider(
         }
       } else if (reason === 'unhealthy_resolver') {
         // Must reach the launcher below without an await in between; see the consume site.
-        attributedReplaceReason = 'unhealthy_resolver'
+        setAttributedReplaceReason('unhealthy_resolver')
       }
       newSpawner.resetHandle()
       await newSpawner.ensureRunning()

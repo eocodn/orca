@@ -1,1 +1,1 @@
-export * from './daemon-server-protocol.ts'
+export * from './daemon-server-protocol'

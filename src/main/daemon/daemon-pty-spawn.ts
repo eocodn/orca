@@ -8,7 +8,10 @@ import {
   resolvePtyShellPath
 } from './shell-ready'
 import { normalizePtySize } from './daemon-pty-size'
-import { ensureNodePtySpawnHelperExecutable } from '../providers/local-pty-utils'
+import {
+  ensureNodePtySpawnHelperExecutable,
+  resolveUnixShellPath
+} from '../providers/local-pty-utils'
 import { resolveWindowsShellLaunchArgs } from '../providers/windows-shell-args'
 import {
   resolveEffectiveWindowsPowerShell,

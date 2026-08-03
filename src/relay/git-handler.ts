@@ -1,1 +1,1 @@
-export * from './git-handler-operations.ts'
+export * from './git-handler-operations'

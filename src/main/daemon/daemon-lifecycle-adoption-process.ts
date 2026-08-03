@@ -62,7 +62,7 @@ export function logDaemonMilestone(event: string, details: Record<string, unknow
 
 // Why: extra hello+listSessions probes (~5s each) giving a wedged-but-connectable daemon ~60s grace to answer and keep its live sessions before a permanent wedge (#8689) is replaced; raise only alongside the fail-open cap.
 export const WEDGED_DAEMON_GRACE_RETRIES = 11
-const DAEMON_SELF_SHUTDOWN_WAIT_MS = 5_000
+export const DAEMON_SELF_SHUTDOWN_WAIT_MS = 5_000
 const DAEMON_CHILD_TERMINATION_GRACE_MS = 5_000
 const DAEMON_CHILD_FORCE_EXIT_WAIT_MS = 1_000
 

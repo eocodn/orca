@@ -1,1 +1,1 @@
-export * from './relay-startup.ts'
+export * from './relay-startup'

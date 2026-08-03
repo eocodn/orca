@@ -155,7 +155,7 @@ export async function cleanupDaemonForProtocol(
 }
 
 async function waitForDaemonEndpointExit(socketPath: string): Promise<boolean> {
-  const deadline = Date.now() + DAEMON_SELF_SHUTDOWN_WAIT_MS
+  const deadline = Date.now() + daemonLifecycleSupport.DAEMON_SELF_SHUTDOWN_WAIT_MS
   while (Date.now() < deadline) {
     if (!(await daemonLifecycleSupport.probeSocket(socketPath))) {
       return true
