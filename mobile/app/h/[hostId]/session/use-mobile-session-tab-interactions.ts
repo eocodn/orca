@@ -46,7 +46,7 @@ export function useMobileSessionTabInteractions(context: SessionTabInteractionCo
     subscribeToTerminal,
     client,
     activateMobileSessionTab,
-    worktreeId,
+    worktreeId, activeHandle,
     readFileTab,
     markdownDocs,
     readMarkdownTab,
@@ -101,7 +101,7 @@ export function useMobileSessionTabInteractions(context: SessionTabInteractionCo
     activeSessionTabIdRef,
     activateOpenedSourceControlDiffTab,
     terminalLinkOpenMode,
-    isFloatingWorkspaceRoute
+    isFloatingWorkspaceRoute, sendLiveTerminalInputRef, sessionTabActionSheetRequestSeqRef
   } = context
 
   const switchTab = useCallback(
@@ -597,4 +597,3 @@ export function useMobileSessionTabInteractions(context: SessionTabInteractionCo
     sendLiveTerminalInputRef
   }
 }
-

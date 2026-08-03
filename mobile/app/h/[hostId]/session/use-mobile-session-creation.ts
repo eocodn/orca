@@ -51,6 +51,7 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     setCreating,
     setCreateError,
     activeSessionTab,
+    activeSessionTabId,
     unsubscribeTerminal,
     initializedHandlesRef,
     pendingActiveSessionTabIdRef,

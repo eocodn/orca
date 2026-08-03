@@ -77,8 +77,7 @@ export function useMobileSessionTerminalInput(context: SessionTerminalInputConte
     triggerSelection,
     triggerSuccess,
     triggerError,
-    triggerEdgeBump,
-    setMobileSessionRootRef
+    triggerEdgeBump
   } = context
 
   const toggleLiveInput = useCallback(() => {

@@ -35,6 +35,7 @@ export function HostScreenOverlays(props: OverlayProps) {
     pinnedIds,
     togglePin,
     confirmRemoveHost,
+    setConfirmRemoveHost,
     hostName,
     handleRemoveHost,
     newWorktreeModalRef,

@@ -164,7 +164,9 @@ export function createRpcConnectionLifecycle(deps: Dependencies) {
     )
     session.reconnectTimer = setTimeout(() => {
       session.reconnectTimer = null
-
+      if (!session.intentionallyClosed && session.state === 'reconnecting') {
+        openConnection()
+      }
     }, delay)
   }
 

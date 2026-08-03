@@ -41,7 +41,6 @@ export function useMobileSessionDocumentActions(context: SessionDocumentContext)
     diffCommentsRef,
     diffCommentBusy,
     setDiffCommentBusy,
-    persistDiffComments,
     showToast,
     setPendingDiffNotesDelivery,
     markdownDocs,

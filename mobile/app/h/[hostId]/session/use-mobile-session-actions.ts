@@ -5,6 +5,7 @@ import { captureMobileFileMutationOwnership } from '../../../../src/files/mobile
 import { isFileExistsErrorMessage } from '../../../../src/session/mobile-session-route-helpers'
 import { normalizeBrowserUrl } from '../../../../src/browser/browser-url'
 import type { MobileNewTabAgentOption } from '../../../../src/session/mobile-new-tab-agent-options'
+import type { TerminalQuickCommand } from '../../../../../src/shared/types'
 import type { MobileSessionTab, Terminal, TerminalCreateResult } from './mobile-session-route-types'
 
 type SessionActionContext = Record<string, any>
@@ -326,4 +327,3 @@ export function useMobileSessionActions(context: SessionActionContext) {
     handleCloseSessionTab
   }
 }
-
