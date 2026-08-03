@@ -3,7 +3,7 @@ import { splitWorktreeId } from '../shared/worktree-id'
 import type { PtyProcessSummary, SerializedPtyEntry } from './pty-session-stage-contracts'
 import { PtyHandlerStage4Termination } from './pty-session-stage-4-termination'
 
-export class PtyHandlerStage4Inspection extends PtyHandlerStage4Termination {
+export abstract class PtyHandlerStage4Inspection extends PtyHandlerStage4Termination {
   protected async getCwd(params: Record<string, unknown>): Promise<string> {
     const id = params.id as string
     const managed = this.ptys.get(id)
@@ -144,4 +144,3 @@ export class PtyHandlerStage4Inspection extends PtyHandlerStage4Termination {
     }
   }
 }
-

@@ -8,7 +8,7 @@ import {
 } from './pty-session-stage-contracts'
 import { PtyHandlerStage4Controls } from './pty-session-stage-4-controls'
 
-export class PtyHandlerStage4Termination extends PtyHandlerStage4Controls {
+export abstract class PtyHandlerStage4Termination extends PtyHandlerStage4Controls {
   protected async shutdown(params: Record<string, unknown>): Promise<void> {
     const id = params.id as string
     const immediate = params.immediate as boolean
@@ -124,4 +124,3 @@ export class PtyHandlerStage4Termination extends PtyHandlerStage4Controls {
     }
   }
 }
-

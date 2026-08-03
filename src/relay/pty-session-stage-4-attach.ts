@@ -3,13 +3,13 @@ import { PtyHandlerStage3 } from './pty-session-stage-3'
 import {
   attachIdentityMismatches,
   disposeManagedPty,
-  isProcessAlive,
   parseSourceRecoveryRequest
 } from './pty-session-stage-contracts'
+import { isProcessAlive } from './pty-shell-utils'
 import type { PtySourceRecoveryResult } from '../shared/pty-source-recovery-contract'
 import type { PtySourceReceivingActivation } from '../shared/pty-source-receiving-activation'
 
-export class PtyHandlerStage4Attach extends PtyHandlerStage3 {
+export abstract class PtyHandlerStage4Attach extends PtyHandlerStage3 {
   protected async attach(
     params: Record<string, unknown>,
     context?: RequestContext
@@ -105,4 +105,3 @@ export class PtyHandlerStage4Attach extends PtyHandlerStage3 {
     }
   }
 }
-

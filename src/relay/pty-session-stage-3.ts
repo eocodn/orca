@@ -14,4 +14,3 @@ export type {
   PtyExitListener,
   RelayPtyWorktreeRemovalCoordinator
 } from './pty-session-stage-contracts'
-

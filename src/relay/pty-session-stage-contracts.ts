@@ -2,17 +2,24 @@ import type { IPty } from 'node-pty'
 import { resolveWindowsGitBashShellPath } from '../main/git-bash'
 import { WINDOWS_GIT_BASH_SHELL } from '../shared/windows-terminal-shell'
 import { DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS } from '../shared/ssh-types'
-import { PhysicalExitTracker } from '../shared/physical-exit-tracker'
+import type { PhysicalExitTracker } from '../shared/physical-exit-tracker'
 import type { ShellReadyScanState } from '../main/shell-ready-marker-scanner'
 import type { TuiAgent } from '../shared/types'
 import { forceKillPosixPtyProcessGroups } from '../main/pty/posix-pty-process-groups'
-import { PtyStartupIngress, parsePtyStartupIngressIntent } from '../shared/pty-startup-ingress'
-import { resolvePtyOwnerBackend, type PtyOwnerBackend } from '../shared/pty-owner-backend'
-import { RecentPtyOutputBuffer } from '../main/runtime/recent-pty-output-buffer'
+import type { PtyStartupIngress } from '../shared/pty-startup-ingress'
+import type { parsePtyStartupIngressIntent } from '../shared/pty-startup-ingress'
+import type { PtyOwnerBackend } from '../shared/pty-owner-backend'
+import type { RecentPtyOutputBuffer } from '../main/runtime/recent-pty-output-buffer'
 import type { RelayPtySourceOutput } from './relay-pty-source-output'
 import type { PtySourceRecoveryRequest } from '../shared/pty-source-recovery-contract'
 import type { PtySourceReceivingActivation } from '../shared/pty-source-receiving-activation'
 import type { AgentSessionOwnerBinding } from '../shared/agent-session-host-authority'
+
+export {
+  AGENT_SESSION_CREATE_OPERATION_PROTOCOL_VERSION,
+  AGENT_SESSION_EXECUTION_OWNER_PROTOCOL_VERSION
+} from '../shared/agent-session-host-authority'
+export { PTY_STARTUP_INGRESS_VERSION } from '../shared/pty-startup-ingress'
 
 // Why: only Linux compiles node-pty (no prebuilt), so the build-tools remedy is a closable setup gap
 // there and wrong advice anywhere node-pty ships one. The relay only sees an unloadable binding, never

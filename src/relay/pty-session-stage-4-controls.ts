@@ -1,7 +1,7 @@
 import { areValidTerminalDimensions } from '../shared/terminal-dimensions'
 import { PtyHandlerStage4Attach } from './pty-session-stage-4-attach'
 
-export class PtyHandlerStage4Controls extends PtyHandlerStage4Attach {
+export abstract class PtyHandlerStage4Controls extends PtyHandlerStage4Attach {
   protected writeData(params: Record<string, unknown>): void {
     const id = params.id as string
     const data = params.data as string
@@ -26,9 +26,7 @@ export class PtyHandlerStage4Controls extends PtyHandlerStage4Attach {
     }
   }
 
-  protected async resizeIfCurrent(
-    params: Record<string, unknown>
-  ): Promise<{ applied: boolean }> {
+  protected async resizeIfCurrent(params: Record<string, unknown>): Promise<{ applied: boolean }> {
     const id = params.id as string
     const expectedIncarnationId = params.expectedIncarnationId
     const cols = Number(params.cols)
@@ -57,4 +55,3 @@ export class PtyHandlerStage4Controls extends PtyHandlerStage4Attach {
     return { cols: managed.pty.cols, rows: managed.pty.rows }
   }
 }
-

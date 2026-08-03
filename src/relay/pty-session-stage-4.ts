@@ -1,6 +1,6 @@
 import { PtyHandlerStage4Inspection } from './pty-session-stage-4-inspection'
 
-export class PtyHandlerStage4 extends PtyHandlerStage4Inspection {}
+export abstract class PtyHandlerStage4 extends PtyHandlerStage4Inspection {}
 
 export {
   IMMEDIATE_PTY_EXIT_TIMEOUT_MS,
@@ -14,4 +14,3 @@ export type {
   PtyExitListener,
   RelayPtyWorktreeRemovalCoordinator
 } from './pty-session-stage-contracts'
-
