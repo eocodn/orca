@@ -1,22 +1,8 @@
 import { app } from 'electron'
-import { execFile } from 'node:child_process'
-import { constants, existsSync } from 'node:fs'
-import {
-  access,
-  lstat,
-  mkdir,
-  readFile,
-  readlink,
-  stat,
-  symlink,
-  unlink,
-  writeFile
-} from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { promisify } from 'node:util'
+import { dirname, join } from 'node:path'
 import type { CliInstallMethod, CliInstallStatus } from '../../shared/cli-install-types'
-import { buildAppImageCliWrapper } from './appimage-cli-wrapper'
 import {
   invalidateWindowsUserPathRegistryCache,
   readFreshWindowsUserPathRegistry,
@@ -24,13 +10,9 @@ import {
   type WindowsUserPathReadResult
 } from './windows-user-path-registry'
 
-const execFileAsync = promisify(execFile)
 const DEFAULT_MAC_COMMAND_PATH = '/usr/local/bin/orca'
 const DEV_COMMAND_NAME = 'orca-dev'
 const LINUX_COMMAND_NAME = 'orca-ide'
-const LEGACY_LINUX_COMMAND_NAME = 'orca'
-const DEV_LAUNCHER_DIR = ['cli', 'bin']
-const WINDOWS_PATH_WRITE_TIMEOUT_MS = 5_000
 
 type CliInstallerOptions = {
   platform?: NodeJS.Platform
