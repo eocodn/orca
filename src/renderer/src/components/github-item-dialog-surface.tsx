@@ -579,6 +579,9 @@ export default function GitHubItemDialog({
         filesUnavailable={filesUnavailable}
         pendingViewedPaths={pendingViewedPaths}
         detailsCacheKey={detailsCacheKey}
+        error={error}
+        tab={tab}
+        setTab={setTab}
         setLinkCopyButtonRef={setLinkCopyButtonRef}
         handleCopyWorkItemLink={handleCopyWorkItemLink}
         handleOpenOrUseIssueWorkspace={handleOpenOrUseIssueWorkspace}
