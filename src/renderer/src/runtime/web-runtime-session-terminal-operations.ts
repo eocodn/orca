@@ -1,8 +1,5 @@
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
-import type {
-  RuntimeTerminalClose,
-  RuntimeTerminalSplit
-} from '../../../shared/runtime-types'
+import type { RuntimeTerminalClose, RuntimeTerminalSplit } from '../../../shared/runtime-types'
 import type { TerminalPaneSplitSource } from '../../../shared/feature-education-telemetry'
 import type { TerminalPaneLayoutNode } from '../../../shared/types'
 import { getRuntimeEnvironmentIdForWorktree } from '../lib/worktree-runtime-owner'
@@ -10,13 +7,8 @@ import { useAppStore } from '../store'
 import { unwrapRuntimeRpcResult } from './runtime-rpc-client'
 import { parseRemoteRuntimePtyId } from './runtime-terminal-stream'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
-import {
-  isWebTerminalSurfaceTabId,
-  toHostSessionTabId
-} from './web-terminal-surface-id'
-import {
-  captureRuntimeEnvironmentCall
-} from './web-runtime-session-terminal-creation'
+import { isWebTerminalSurfaceTabId, toHostSessionTabId } from './web-terminal-surface-id'
+import { captureRuntimeEnvironmentCall } from './web-runtime-session-terminal-creation'
 import { isWebRuntimeSessionActive } from './web-runtime-session-transport'
 
 const pendingWebRuntimeSplitMirrorTelemetry = new Map<string, Set<string>>()
@@ -285,3 +277,7 @@ export function clearWebRuntimeTerminalBuffer(ptyId: string | null | undefined):
       console.warn(
         '[web-runtime-session] failed to clear terminal buffer:',
         error instanceof Error ? error.message : String(error)
+      )
+    })
+  return true
+}

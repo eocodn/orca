@@ -1,40 +1,30 @@
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type {
-  RuntimeMobileSessionCreateTerminalResult,
   RuntimeMobileSessionTabCloseResult,
   RuntimeMobileSessionTabMove,
   RuntimeMobileSessionTabMoveResult,
   RuntimeMobileSessionTabsResult,
-  RuntimeSessionTabCloseReason,
+  RuntimeSessionTabCloseReason
 } from '../../../shared/runtime-types'
 import type { AppState } from '../store/types'
-import { getRuntimeEnvironmentIdForWorktree } from '../lib/worktree-runtime-owner'
 import { useAppStore } from '../store'
 import { unwrapRuntimeRpcResult } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
-import { recordWebSessionFocusIntent } from './web-session-focus-intent'
 import { clearWebSessionCloseIntent, recordWebSessionCloseIntent } from './web-session-close-intent'
 import {
   clearWebSessionReorderIntent,
   recordWebSessionReorderIntent
 } from './web-session-reorder-intent'
-import type { WebSessionIntentOwner } from './web-session-intent-owner'
-import {
-  isWebTerminalSurfaceTabId,
-  toHostSessionTabId,
-  toWebTerminalSurfaceTabId
-} from './web-terminal-surface-id'
+import { isWebTerminalSurfaceTabId, toHostSessionTabId } from './web-terminal-surface-id'
 import {
   listRemoteRuntimeSessionTabsAfterCurrentInFlight,
   listRemoteRuntimeSessionTabsDeduped
 } from './remote-runtime-session-tabs-inflight'
-import { translate } from '../i18n/i18n'
 import { getRuntimeEnvironmentRevision } from './runtime-environment-revision'
 import { toRuntimeExecutionHostId } from '../../../shared/execution-host'
 import {
   captureRuntimeEnvironmentCall,
   captureWebSessionIntentOwner,
-  matchesWebSessionIntentOwner,
   pendingRuntimeWorktreeRecoveryRefreshes,
   RUNTIME_WORKTREE_RECOVERY_REFRESH_DELAYS_MS
 } from './web-runtime-session-terminal-creation'
@@ -60,11 +50,7 @@ export {
   createWebRuntimeSessionTerminal
 } from './web-runtime-session-terminal-creation'
 
-
-
 export { createWebRuntimeSessionBrowserTab } from './web-runtime-session-browser-creation'
-
-
 
 export function stageWebRuntimeBrowserTab(args: {
   environmentId: string
@@ -549,9 +535,3 @@ export {
   splitWebRuntimeTerminal,
   updateWebRuntimePaneLayout
 } from './web-runtime-session-terminal-operations'
-
-
-      )
-    })
-  return true
-}
