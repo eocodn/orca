@@ -1,6 +1,5 @@
 
 
-import Database from '../../sqlite/sync-database'
 import type {
   MessageType,
   MessageRow,
