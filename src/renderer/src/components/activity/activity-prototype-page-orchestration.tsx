@@ -391,19 +391,19 @@ export default function ActivityPrototypePage(): React.JSX.Element {
     }
   }, [])
 
-  useEffect(() => {
-    const focusActivityFilter = (event: KeyboardEvent): void => {
-      handleActivityFilterFocusShortcut({
-        activeElement: document.activeElement,
-        event,
-        input: activityFilterInputRef.current,
-        terminalPortalTargets: [activePortalTargetEl, inactivePortalTargetEl]
-      })
-    }
+  const focusActivityFilter = useCallback((event: KeyboardEvent): void => {
+    handleActivityFilterFocusShortcut({
+      activeElement: document.activeElement,
+      event,
+      input: activityFilterInputRef.current,
+      terminalPortalTargets: [activePortalTargetEl, inactivePortalTargetEl]
+    })
+  }, [activePortalTargetEl, inactivePortalTargetEl])
 
+  useEffect(() => {
     window.addEventListener('keydown', focusActivityFilter, { capture: true })
     return () => window.removeEventListener('keydown', focusActivityFilter, { capture: true })
-  }, [activePortalTargetEl, inactivePortalTargetEl])
+  }, [focusActivityFilter])
 
   return <ActivityPrototypePageRenderer {...{ ActivityPrototypePage, activePortalSlotId, activePortalTargetEl, activityFilterInputRef, allThreads, compactMode, effectiveSelectedPaneKey, focusActivityFilter, groupBy, inactivePortalTargetEl, isThreadListResizing, onResizeStart, query, readFilter, selectedHasLiveTab, selectedThread, setActivityPageRef, setCompactMode, setGroupBy, setPrimaryPortalTarget, setQuery, setReadFilter, setSecondaryPortalTarget, setSelectedPaneKey, showTerminalLoadingLabel, stagedThread, storeData, threadListRef, threadListWidth, visiblePortalReady, visiblePortalUnavailable, visibleThread, visibleThreadGroups, visibleThreads }} />
 }

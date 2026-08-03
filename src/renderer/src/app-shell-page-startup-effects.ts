@@ -352,4 +352,5 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
       cancelled = true
       abortController.abort()
     }
-})
+  }, [actions, setOnboarding, setOnboardingLoaded])
+}

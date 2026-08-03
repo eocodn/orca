@@ -25,8 +25,9 @@ import { matchesSettingsSearch } from './settings-search'
 import { translate } from '@/i18n/i18n'
 import { getRepositoryHookScriptTextareaRows } from '@/lib/script-textarea-rows'
 import { getRepoExecutionHostId, parseExecutionHostId } from '../../../../shared/execution-host'
-import { getParseErrorFixes, PolicyOptionGrid, SegmentedPolicyToggle, ExampleTemplateCard, YamlScriptBlock, EnvVarChips, SaveIndicator, LocalCommandSourceNotice, ScriptEditor } from './repository-hooks-model'
-import type { SaveStatus, ScriptEditorProps } from './repository-hooks-model'
+import { getParseErrorFixes, PolicyOptionGrid, SegmentedPolicyToggle, ExampleTemplateCard, YamlScriptBlock, EnvVarChips, SaveIndicator, LocalCommandSourceNotice } from './repository-hooks-model-get-parse-error-fixes'
+import { ScriptEditor } from './repository-hooks-model-script-editor'
+import type { SaveStatus, ScriptEditorProps } from './repository-hooks-model-get-parse-error-fixes'
 export type RepositoryHooksSectionProps = {
   repo: Repo
   yamlHooks: OrcaHooks | null
