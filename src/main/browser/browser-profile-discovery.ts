@@ -227,8 +227,6 @@ function detectFirefox(): DetectedBrowser | null {
 // Safari detection
 // ---------------------------------------------------------------------------
 
-const MAC_EPOCH_DELTA = 978_307_200
-
 function detectSafari(): DetectedBrowser | null {
   if (process.platform !== 'darwin') {
     return null

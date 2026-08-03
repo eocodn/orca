@@ -13,13 +13,10 @@ import {
   positiveInteger,
   positiveNumber,
   readFrameMetadata,
-  scaleToFit,
   sendDebuggerCommand,
-  type BrowserScreencastEvent,
   type BrowserScreencastOptions,
   type BrowserScreencastSession,
-  type PendingScreencastFrame,
-  type ScreencastImageSize
+  type PendingScreencastFrame
 } from './browser-screencast-frame'
 
 const BACKPRESSURE_RETRY_MS = 50
@@ -454,4 +451,3 @@ export async function startBrowserScreencast(
     done
   }
 }
-

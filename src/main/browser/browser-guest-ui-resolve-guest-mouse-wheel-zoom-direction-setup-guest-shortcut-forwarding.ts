@@ -1,4 +1,4 @@
-import { screen, webContents } from 'electron'
+import { screen } from 'electron'
 import {
   normalizeBrowserNavigationUrl,
   normalizeExternalBrowserUrl,
@@ -21,10 +21,21 @@ import {
 } from '../../shared/modifier-double-tap-detector'
 import type { BrowserFindSource } from '../../shared/browser-find-source'
 
-import { type ResolveRenderer, type ShouldForwardDictationShortcut, type IsMobileEmulatorEnabled, CONTROL_MODIFIERS } from './browser-guest-ui-resolve-renderer-control-modifiers'
-import { type GuestWheelZoomDirection, MAC_COMMAND_MODIFIERS, WHEEL_ZOOM_BLOCKING_MODIFIERS, GUEST_WHEEL_ZOOM_DEDUPE_MS } from './browser-guest-ui-mac-command-modifiers-guest-wheel-zoom-direction'
-import { recentGuestWheelZoomByGuest, markGuestWheelZoom, consumeRecentGuestWheelZoom, hasModifier } from './browser-guest-ui-recent-guest-wheel-zoom-by-guest-has-modifier'
-import { setupGuestMouseWheelZoomForwarding, resolveRendererWebContents } from './browser-guest-ui-setup-guest-mouse-wheel-zoom-forwarding-resolve-renderer-web-contents'
+import {
+  type ResolveRenderer,
+  type ShouldForwardDictationShortcut,
+  type IsMobileEmulatorEnabled,
+  CONTROL_MODIFIERS
+} from './browser-guest-ui-resolve-renderer-control-modifiers'
+import {
+  type GuestWheelZoomDirection,
+  MAC_COMMAND_MODIFIERS,
+  WHEEL_ZOOM_BLOCKING_MODIFIERS
+} from './browser-guest-ui-mac-command-modifiers-guest-wheel-zoom-direction'
+import {
+  consumeRecentGuestWheelZoom,
+  hasModifier
+} from './browser-guest-ui-recent-guest-wheel-zoom-by-guest-has-modifier'
 
 export function resolveGuestMouseWheelZoomDirection(
   mouse: Electron.MouseInputEvent,
@@ -48,7 +59,6 @@ export function resolveGuestMouseWheelZoomDirection(
   }
   return deltaY < 0 ? 'in' : 'out'
 }
-
 
 export function setupGuestContextMenu(args: {
   browserTabId: string
