@@ -9,8 +9,18 @@ export type AutomationRunTargetResult =
   | { ok: true; cwd: string; repo: Repo; setup?: ProjectHostSetup }
   | { ok: false; error: string }
 
-type AutomationRunTargetOptions = {
+export type AutomationRunTargetOptions = {
   allowRemoteHostScheduling?: boolean
+}
+
+export function isAutomationScheduleOwnedByService(
+  automation: Automation,
+  options: AutomationRunTargetOptions = {}
+): boolean {
+  return (
+    automation.schedulerOwner !== 'remote_host_service' ||
+    options.allowRemoteHostScheduling === true
+  )
 }
 
 function getLegacyPrecheckCwd(store: Store, automation: Automation): string | null {
@@ -28,6 +38,13 @@ export function resolveAutomationRunTarget(
   automation: Automation,
   options: AutomationRunTargetOptions = {}
 ): AutomationRunTargetResult {
+  if (!isAutomationScheduleOwnedByService(automation, options)) {
+    return {
+      ok: false,
+      error:
+        'Remote-server automation scheduling is not available from this Orca client yet. Run this automation on the remote server or update Orca when durable remote scheduling is available.'
+    }
+  }
   const context = automation.runContext ?? null
   if (!context) {
     const repo = store.getRepo(getAutomationLegacyRepoId(automation))

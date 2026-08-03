@@ -6,12 +6,18 @@ import {
   type AutomationDispatchRequest,
   type AutomationDispatchResult,
   type AutomationPrecheckResult,
-  type AutomationRun
+  type AutomationRun,
+  AUTOMATION_RESTART_INTERRUPTED_ERROR,
+  isAutomationRunInFlightStatus
 } from '../../shared/automations-types'
 import type { ClaudeUsageStore } from '../claude-usage/store'
 import type { CodexUsageStore } from '../codex-usage/store'
 import { runAutomationPrecheck } from './precheck-runner'
-import { resolveAutomationRunTarget, type AutomationRunTargetResult } from './run-target-resolution'
+import {
+  isAutomationScheduleOwnedByService,
+  resolveAutomationRunTarget,
+  type AutomationRunTargetResult
+} from './run-target-resolution'
 import { collectAutomationRunUsage } from './run-usage-collection'
 import type { HeadlessAutomationDispatcher } from './headless-dispatch'
 import { clearAutomationDispatchTokens, createAutomationDispatchToken } from './dispatch-tokens'
@@ -34,6 +40,8 @@ export class AutomationService {
   private readonly codexUsage: CodexUsageStore | null
   private readonly allowRemoteHostScheduling: boolean
   private readonly headlessDispatcher: HeadlessAutomationDispatcher | null
+  private restartReconciliation: Promise<boolean> | null = null
+  private restartReconciliationNeeded = true
 
   constructor(
     store: Store,
@@ -60,6 +68,7 @@ export class AutomationService {
 
   setRendererReady(): void {
     this.rendererReady = true
+    this.beginRestartReconciliation()
     void this.evaluateDueRuns()
   }
 
@@ -67,6 +76,7 @@ export class AutomationService {
     if (this.timer) {
       return
     }
+    this.beginRestartReconciliation()
     this.timer = setInterval(() => {
       void this.evaluateDueRuns()
     }, this.tickMs)
@@ -77,6 +87,21 @@ export class AutomationService {
     }
   }
 
+  private beginRestartReconciliation(): void {
+    if (!this.restartReconciliationNeeded || this.restartReconciliation) {
+      return
+    }
+    const reconciliation = this.reconcilePersistedRuns()
+    this.restartReconciliation = reconciliation
+    void reconciliation.then((deferred) => {
+      if (this.restartReconciliation === reconciliation) {
+        this.restartReconciliation = null
+      }
+      this.restartReconciliationNeeded = deferred
+      void this.evaluateDueRuns()
+    })
+  }
+
   stop(): void {
     if (this.timer) {
       clearInterval(this.timer)
@@ -85,6 +110,7 @@ export class AutomationService {
     // A stopped service no longer owns renderer work; a later start must
     // reconcile persisted dispatching runs instead of treating them as live.
     this.inFlightDispatches.clear()
+    this.restartReconciliationNeeded = true
   }
 
   async runNow(automationId: string): Promise<AutomationRun> {
@@ -171,6 +197,9 @@ export class AutomationService {
   }
 
   private async evaluateDueRuns(): Promise<void> {
+    if (this.restartReconciliation) {
+      await this.restartReconciliation
+    }
     if (this.evaluating) {
       return
     }
@@ -189,6 +218,13 @@ export class AutomationService {
   }
 
   private async evaluateAutomation(automation: Automation, now: number): Promise<void> {
+    if (
+      !isAutomationScheduleOwnedByService(automation, {
+        allowRemoteHostScheduling: this.allowRemoteHostScheduling
+      })
+    ) {
+      return
+    }
     const scheduledFor = this.store.getLatestAutomationOccurrence(automation, now)
     if (scheduledFor === null) {
       this.store.advanceAutomationNextRun(automation.id, now)
@@ -197,6 +233,9 @@ export class AutomationService {
     const run = this.store.createAutomationRun(automation, scheduledFor)
     if (run.status === 'dispatching' && this.inFlightDispatches.has(run.id)) {
       this.store.advanceAutomationNextRun(automation.id, now)
+      return
+    }
+    if (run.status === 'dispatching' && !this.hasDispatchChannel()) {
       return
     }
     if (run.status !== 'pending' && run.status !== 'dispatching') {
@@ -217,6 +256,49 @@ export class AutomationService {
 
     await this.requestDispatch(automation, run)
     this.store.advanceAutomationNextRun(automation.id, now)
+  }
+
+  private hasDispatchChannel(): boolean {
+    return Boolean(
+      this.headlessDispatcher ||
+        (this.webContents && !this.webContents.isDestroyed() && this.rendererReady)
+    )
+  }
+
+  private async reconcilePersistedRuns(): Promise<boolean> {
+    let deferred = false
+    for (const automation of this.store.listAutomations()) {
+      if (
+        !isAutomationScheduleOwnedByService(automation, {
+          allowRemoteHostScheduling: this.allowRemoteHostScheduling
+        })
+      ) {
+        continue
+      }
+      for (const run of this.store.listAutomationRuns(automation.id)) {
+        if (!isAutomationRunInFlightStatus(run.status)) {
+          continue
+        }
+        if (run.status === 'dispatched') {
+          this.store.updateAutomationRun({
+            runId: run.id,
+            status: 'dispatch_failed',
+            workspaceId: run.workspaceId,
+            terminalSessionId: run.terminalSessionId,
+            terminalPaneKey: run.terminalPaneKey,
+            terminalPtyId: run.terminalPtyId,
+            error: AUTOMATION_RESTART_INTERRUPTED_ERROR
+          })
+          continue
+        }
+        if (this.hasDispatchChannel()) {
+          await this.requestDispatch(automation, run)
+        } else {
+          deferred = true
+        }
+      }
+    }
+    return deferred
   }
 
   private async requestDispatch(

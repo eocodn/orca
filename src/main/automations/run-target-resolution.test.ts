@@ -80,6 +80,19 @@ function makeStore(setups: ProjectHostSetup[], repos: Repo[]): Store {
 }
 
 describe('resolveAutomationRunTarget projectId drift', () => {
+  it('rejects remote-owned schedules when the desktop service is not their owner', () => {
+    const store = makeStore([makeSetup()], [makeRepo()])
+    const automation = makeAutomation(makeRunContext())
+    automation.schedulerOwner = 'remote_host_service'
+
+    const result = resolveAutomationRunTarget(store, automation)
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('Remote-server automation scheduling is not available')
+    })
+  })
+
   it('resolves when only the derived projectId tier differs (repo: snapshot vs github: setup)', () => {
     const store = makeStore([makeSetup()], [makeRepo()])
     const automation = makeAutomation(makeRunContext({ projectId: 'repo:repo-1' }))

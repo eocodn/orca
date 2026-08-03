@@ -17,6 +17,13 @@ export type AutomationRunStatus =
   | 'dispatch_failed'
 export type AutomationRunTrigger = 'scheduled' | 'manual'
 
+export const AUTOMATION_RESTART_INTERRUPTED_ERROR =
+  'Automation run was interrupted by an Orca restart.'
+
+export function isAutomationRunInFlightStatus(status: AutomationRunStatus): boolean {
+  return status === 'dispatching' || status === 'dispatched'
+}
+
 /** Statuses a run can never leave; only these are safe to evict from history. */
 export function isFinalAutomationRunStatus(status: AutomationRunStatus): boolean {
   return (
