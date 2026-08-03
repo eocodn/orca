@@ -352,4 +352,4 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
       cancelled = true
       abortController.abort()
     }
-}
+})
