@@ -55,6 +55,7 @@ import { parseDaemonReadyIdentity } from './daemon-ready-identity'
 
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'
+import { createLegacyDaemonAdapters } from './daemon-lifecycle-cleanup'
 
 export async function initDaemonPtyProvider(
   signal?: AbortSignal,
@@ -70,7 +71,10 @@ export async function initDaemonPtyProvider(
 
   const newSpawner = new DaemonSpawner({
     runtimeDir,
-    launcher: daemonLifecycleSupport.createOutOfProcessLauncher(runtimeDir, options.macosLoginSessionWatch ?? false)
+    launcher: daemonLifecycleSupport.createOutOfProcessLauncher(
+      runtimeDir,
+      options.macosLoginSessionWatch ?? false
+    )
   })
 
   // Why: assign the module-level daemonLifecycleState.spawner/daemonLifecycleState.adapter only after both succeed, so a failed ensureRunning() leaves no stale daemonLifecycleState.spawner.
@@ -154,7 +158,11 @@ export async function initDaemonPtyProvider(
     }
   } catch (error) {
     try {
-      await daemonLifecycleSupport.cleanupFailedDaemonAdoption(newSpawner, newAdapter, legacyAdapters)
+      await daemonLifecycleSupport.cleanupFailedDaemonAdoption(
+        newSpawner,
+        newAdapter,
+        legacyAdapters
+      )
     } catch (cleanupError) {
       throw new AggregateError([error, cleanupError], 'Daemon adoption and cleanup both failed')
     }
@@ -165,7 +173,9 @@ export async function initDaemonPtyProvider(
   setLocalPtyProvider(routedAdapter)
   // Why: the first window may register PTY listeners before daemon init finishes; rebind so daemon PTYs still fan out events.
   rebindLocalProviderListeners()
-  daemonLifecycleSupport.logDaemonMilestone('daemon-init-done', { legacyAdapters: legacyAdapters.length })
+  daemonLifecycleSupport.logDaemonMilestone('daemon-init-done', {
+    legacyAdapters: legacyAdapters.length
+  })
   await reconcileSeededClaudeLivePtys(routedAdapter)
 }
 

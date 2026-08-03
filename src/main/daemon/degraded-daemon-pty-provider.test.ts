@@ -492,6 +492,26 @@ describe('DegradedDaemonPtyProvider', () => {
     })
   })
 
+  it('does not borrow a fallback incarnation for an identity-less stale daemon row', async () => {
+    const current = createDaemonAdapter('daemon')
+    const fallback = createProvider('fallback')
+    const provider = new DegradedDaemonPtyProvider({ current, legacy: [], fallback })
+    const exitSpy = vi.fn()
+    provider.onExit(exitSpy)
+
+    await provider.spawn({ sessionId: 'reused-session', cols: 80, rows: 24 })
+    fallback.emitData('reused-session', 'replacement', undefined, 'fallback-incarnation')
+    vi.mocked(current.listProcesses).mockResolvedValue([
+      { id: 'reused-session', cwd: '', title: 'stale daemon row' }
+    ])
+
+    await provider.collectCurrentDaemonSessionIds()
+    provider.fanoutCurrentDaemonSyntheticExits(-1)
+
+    expect(exitSpy).toHaveBeenCalledWith({ id: 'reused-session', code: -1 })
+    expect(exitSpy.mock.calls[0][0]).not.toHaveProperty('incarnationId')
+  })
+
   it('keeps an exited legacy daemon poisoning listProcesses after construction', async () => {
     const current = createDaemonAdapter('daemon', ['current-session'])
     const legacy = createDaemonAdapter('legacy', ['legacy-session'])

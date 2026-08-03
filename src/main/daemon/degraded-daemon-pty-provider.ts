@@ -14,6 +14,10 @@ import type {
 import { findDaemonAdapter, listProviderSessionIds } from './degraded-daemon-session-routing'
 import { probePtyOwners } from './daemon-pty-liveness-probe'
 
+export type CurrentDaemonInventoryState =
+  | { status: 'complete' }
+  | { status: 'failed'; error: string }
+
 export class DegradedDaemonPtyProvider implements IPtyProvider {
   readonly routesFreshSpawnsToLocalProvider = true
   // Why: surface that fresh PTYs lack daemon persistence until restart.
@@ -32,6 +36,7 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   }) => void)[] = []
   private sessionIncarnations = new Map<string, string>()
   private currentDaemonInventory = new Map<string, string | undefined>()
+  private currentDaemonInventoryState: CurrentDaemonInventoryState = { status: 'complete' }
 
   constructor(opts: {
     current: DaemonPtyAdapter
@@ -384,7 +389,17 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   }
 
   async collectCurrentDaemonSessionIds(): Promise<string[]> {
-    const sessions = await this.current.listProcesses()
+    let sessions: PtyProcessInfo[]
+    try {
+      sessions = await this.current.listProcesses()
+    } catch (error) {
+      this.currentDaemonInventoryState = {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error)
+      }
+      throw error
+    }
+    this.currentDaemonInventoryState = { status: 'complete' }
     for (const session of sessions) {
       this.currentDaemonInventory.set(session.id, session.incarnationId)
       const mappedProvider = this.sessionProviders.get(session.id)
@@ -400,10 +415,16 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     return this.getCurrentDaemonSessionIds()
   }
 
+  getCurrentDaemonInventoryState(): CurrentDaemonInventoryState {
+    return { ...this.currentDaemonInventoryState }
+  }
+
   fanoutCurrentDaemonSyntheticExits(code: number): void {
     for (const id of this.getCurrentDaemonSessionIds()) {
       const mappedProvider = this.sessionProviders.get(id)
-      const incarnationId = this.currentDaemonInventory.get(id) ?? this.sessionIncarnations.get(id)
+      const incarnationId = this.currentDaemonInventory.has(id)
+        ? this.currentDaemonInventory.get(id)
+        : this.sessionIncarnations.get(id)
       // Why: restart kills listed sessions even when the adapter did not track them active.
       // oxlint-disable-next-line unicorn/no-useless-spread -- copy-safe: listeners may unsubscribe during iteration
       for (const listener of [...this.exitListeners]) {

@@ -36,7 +36,10 @@ import {
   materializeRelocatedDaemonHost,
   pruneOldDaemonHosts
 } from './daemon-host-relocation'
-import { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
+import {
+  DegradedDaemonPtyProvider,
+  type CurrentDaemonInventoryState
+} from './degraded-daemon-pty-provider'
 import { trackDaemonReplaced, trackDaemonRetired } from './daemon-lifecycle-event'
 import type { DaemonReplaceReason } from '../../shared/daemon-lifecycle-telemetry'
 import {
@@ -65,6 +68,7 @@ import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 
 export type RestartDaemonResult = {
   killedCount: number
+  inventory: CurrentDaemonInventoryState
 }
 
 // Why: the 7-step restart sequence from docs/daemon-staleness-ux.md §Phase 1; current-protocol only (legacy adapters preserved).
@@ -94,10 +98,21 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
     currentAdapter instanceof DegradedDaemonPtyProvider
       ? await currentAdapter.shutdownFallbackSessions()
       : 0
-  const currentDaemonSessionIds =
-    currentAdapter instanceof DegradedDaemonPtyProvider
-      ? await currentAdapter.collectCurrentDaemonSessionIds()
-      : []
+  let inventory: CurrentDaemonInventoryState = { status: 'complete' }
+  let currentDaemonSessionIds: string[] = []
+  if (currentAdapter instanceof DegradedDaemonPtyProvider) {
+    try {
+      currentDaemonSessionIds = await currentAdapter.collectCurrentDaemonSessionIds()
+    } catch (error) {
+      // Why: inventory is diagnostic evidence, not permission to skip the authoritative shutdown/replacement below.
+      inventory = currentAdapter.getCurrentDaemonInventoryState()
+      console.warn(
+        '[daemon] Failed to collect degraded restart inventory; continuing restart',
+        error
+      )
+      currentDaemonSessionIds = currentAdapter.getCurrentDaemonSessionIds()
+    }
+  }
   const killedCount =
     new Set([...currentOnly.getActiveSessionIds(), ...currentDaemonSessionIds]).size +
     fallbackKilledCount
@@ -192,7 +207,7 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
   // Step 7: rebind renderer listeners against the new provider.
   rebindLocalProviderListeners()
 
-  return { killedCount }
+  return { killedCount, inventory }
 }
 
 // Disconnect without killing: the daemon survives app quit so sessions stay warm for reattach.
