@@ -114,6 +114,33 @@ describe('MobileRelayRpcStreams failure parity', () => {
     expect(sendFrame).not.toHaveBeenCalled()
   })
 
+  it('keeps a pre-ready cancellation as a tombstone without sending unsubscribe', async () => {
+    const listener = vi.fn()
+    const sendFrame = vi.fn(() => true)
+    const connection = Promise.withResolvers<void>()
+    const streams = new MobileRelayRpcStreams({
+      nextId: () => 'stream-1',
+      sendFrame,
+      waitForConnected: () => connection.promise
+    })
+    const cancel = streams.subscribe(
+      'session.tabs.subscribe',
+      { worktree: 'id:worktree-1' },
+      listener
+    )
+
+    cancel()
+    expect(streams.handleResponse(rpcFailure('stream-1'))).toBe(true)
+    expect(listener).not.toHaveBeenCalled()
+    expect(sendFrame).not.toHaveBeenCalled()
+
+    connection.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(streams.handleResponse(rpcFailure('stream-1'))).toBe(false)
+  })
+
   it('can dispose an old terminal registration without sending its unsubscribe', async () => {
     const sendFrame = vi.fn(() => true)
     const streams = new MobileRelayRpcStreams({

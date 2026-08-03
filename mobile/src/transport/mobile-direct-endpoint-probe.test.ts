@@ -73,4 +73,25 @@ describe('mobile direct endpoint probe', () => {
     expect(clients.get(host.endpoint)?.close).toHaveBeenCalledOnce()
     expect(result?.client.close).not.toHaveBeenCalled()
   })
+
+  it('closes a losing candidate that fails after another candidate wins', async () => {
+    const clients = new Map<string, FakeClient>()
+    const openDirect = vi.fn((endpoint: string) => {
+      const client = new FakeClient('connecting')
+      clients.set(endpoint, client)
+      if (endpoint.includes('100.64.0.2')) {
+        setTimeout(() => client.publishState('connected'), 100)
+      } else {
+        setTimeout(() => client.publishState('disconnected'), 200)
+      }
+      return client
+    })
+
+    const probing = openAuthenticatedDirectEndpoint(host, openDirect, 12_000)
+    await vi.advanceTimersByTimeAsync(100)
+    await probing
+    await vi.advanceTimersByTimeAsync(100)
+
+    expect(clients.get(host.endpoint)?.close).toHaveBeenCalledOnce()
+  })
 })

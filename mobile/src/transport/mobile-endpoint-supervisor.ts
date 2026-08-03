@@ -1,5 +1,9 @@
 import { openAuthenticatedDirectEndpoint } from './mobile-direct-endpoint-probe'
 import type { MobileEndpointSupervisorDependencies } from './mobile-endpoint-supervisor-contract'
+import {
+  beginHostResolution,
+  MobileRelayUpgradeHostRemovedError
+} from './host-store'
 import { RelayReconnectController } from './mobile-relay-reconnect-controller'
 import { RelayLeaseRotationTimer } from './mobile-relay-lease-rotation-timer'
 import { MobileEndpointHysteresis } from './mobile-endpoint-hysteresis'
@@ -171,18 +175,31 @@ export class MobileEndpointSupervisor {
     if (first.ok) {
       return first
     }
+    if (first.error instanceof MobileRelayUpgradeHostRemovedError) {
+      return first
+    }
     if (!isDirectorResolutionFailure(first.error) || !this.host.relay) {
       return first
     }
+    const resolution = beginHostResolution(this.host.id)
     try {
       const resolved = await this.dependencies.resolveRelay({
         relay: this.host.relay,
         resumeToken: credential.token
       })
-      this.host = await persistRelayHost(this.host, resolved, this.dependencies.saveHost)
+      if (!resolution.isCurrent()) {
+        return { ok: false, error: new MobileRelayUpgradeHostRemovedError() }
+      }
+      const updatedHost = await persistRelayHost(this.host, resolved, this.dependencies.saveHost)
+      if (!resolution.isCurrent()) {
+        return { ok: false, error: new MobileRelayUpgradeHostRemovedError() }
+      }
+      this.host = updatedHost
       return await this.openAndMigrateRelay(credential)
     } catch (error) {
       return { ok: false, error: toError(error) }
+    } finally {
+      resolution.release()
     }
   }
 

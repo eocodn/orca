@@ -2,7 +2,7 @@ import {
   clearWatermark,
   forgetHostNotificationSession
 } from '../notifications/notification-reconnect-catchup'
-import { removeHost } from './host-store'
+import { fenceHostRemoval, removeHost } from './host-store'
 
 export async function removeHostAndCloseClient(
   hostId: string,
@@ -10,6 +10,7 @@ export async function removeHostAndCloseClient(
 ): Promise<void> {
   // Why: closing before the metadata commit can strand a still-paired host on
   // storage failure; closing immediately after success prevents socket leaks.
+  fenceHostRemoval(hostId)
   await removeHost(hostId)
   closeHostClient(hostId)
   // Why: the notification session outlives the socket by design (it must survive

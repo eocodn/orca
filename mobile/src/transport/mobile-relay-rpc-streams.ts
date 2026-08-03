@@ -24,6 +24,7 @@ type StreamRecord = {
   streamIds: Set<number>
   subscriptionId?: string
   cancelled: boolean
+  sent: boolean
 }
 
 type StreamManagerOptions = {
@@ -53,19 +54,30 @@ export class MobileRelayRpcStreams {
       listener,
       onBinaryFrame: subscribeOptions?.onBinaryFrame,
       streamIds: new Set(),
-      cancelled: false
+      cancelled: false,
+      sent: false
     }
     this.streams.set(id, stream)
     void this.options
       .waitForConnected()
       .then(() => {
-        if (!stream.cancelled && !this.options.sendFrame({ id, method, params: stream.params })) {
-          this.fail(id, stream, 'Connection interrupted')
+        if (stream.cancelled) {
+          return
         }
+        if (!this.options.sendFrame({ id, method, params: stream.params })) {
+          this.fail(id, stream, 'Connection interrupted')
+          return
+        }
+        stream.sent = true
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : 'Connection interrupted'
         this.fail(id, stream, message, error)
+      })
+      .finally(() => {
+        if (stream.cancelled && !stream.sent && this.streams.get(id) === stream) {
+          this.remove(id)
+        }
       })
     return (options?: SubscriptionDisposeOptions) => this.cancel(id, options)
   }
@@ -78,6 +90,9 @@ export class MobileRelayRpcStreams {
     const stream = this.streams.get(response.id)
     if (!stream) {
       return false
+    }
+    if (stream.cancelled) {
+      return true
     }
     if (!response.ok) {
       this.fail(response.id, stream, response.error.message, response.error)
@@ -137,6 +152,10 @@ export class MobileRelayRpcStreams {
       return
     }
     stream.cancelled = true
+    if (!stream.sent) {
+      // Why: a queued subscription never reached the relay; retain its tombstone until the connection wait settles.
+      return
+    }
     if (stream.method === 'terminal.subscribe') {
       const params = buildTerminalUnsubscribeParams(stream.params)
       if (params && !options?.suppressServerUnsubscribe) {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const removeHostMock = vi.hoisted(() => vi.fn())
+const fenceHostRemovalMock = vi.hoisted(() => vi.fn())
 const asyncStorage = vi.hoisted(() => ({
   getItem: vi.fn(async () => null),
   setItem: vi.fn(async () => undefined),
@@ -13,6 +14,7 @@ const asyncStorage = vi.hoisted(() => ({
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: asyncStorage }))
 
 vi.mock('./host-store', () => ({
+  fenceHostRemoval: (hostId: string) => fenceHostRemovalMock(hostId),
   removeHost: (hostId: string) => removeHostMock(hostId)
 }))
 
@@ -25,6 +27,7 @@ import {
 describe('host removal lifecycle', () => {
   beforeEach(() => {
     removeHostMock.mockReset()
+    fenceHostRemovalMock.mockReset()
     asyncStorage.removeItem.mockClear()
     resetHostNotificationSessionsForTests()
   })
@@ -44,6 +47,24 @@ describe('host removal lifecycle', () => {
     await removal
 
     expect(closeHostClient).toHaveBeenCalledWith('host-1')
+  })
+
+  it('fences in-flight host resolution before starting metadata removal', async () => {
+    let commitRemoval: (() => void) | null = null
+    removeHostMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        commitRemoval = resolve
+      })
+    )
+
+    const removal = removeHostAndCloseClient('host-1', vi.fn())
+    expect(fenceHostRemovalMock).toHaveBeenCalledWith('host-1')
+    expect(fenceHostRemovalMock.mock.invocationCallOrder[0]!).toBeLessThan(
+      removeHostMock.mock.invocationCallOrder[0]!
+    )
+
+    commitRemoval?.()
+    await removal
   })
 
   it('keeps the client open when metadata removal fails', async () => {

@@ -61,8 +61,16 @@ export async function openAuthenticatedDirectEndpoint(
   const endpoints = directEndpointUrls(host)
   return await new Promise((resolve) => {
     const clients = new Set<RpcClient>()
+    const closedClients = new Set<RpcClient>()
     let remaining = endpoints.length
     let settled = false
+    const closeClient = (client: RpcClient): void => {
+      if (closedClients.has(client)) {
+        return
+      }
+      closedClients.add(client)
+      client.close()
+    }
     const rejectCandidate = (): void => {
       remaining--
       if (!settled && remaining === 0) {
@@ -82,22 +90,23 @@ export async function openAuthenticatedDirectEndpoint(
       void waitForAuthenticatedSession(client, timeoutMs).then(
         () => {
           if (settled) {
-            client.close()
+            closeClient(client)
             return
           }
           settled = true
           for (const candidate of clients) {
             if (candidate !== client) {
-              candidate.close()
+              closeClient(candidate)
             }
           }
           resolve({ client, path: directPathForEndpoint(host, endpoint) })
         },
         () => {
           if (settled) {
+            closeClient(client)
             return
           }
-          client.close()
+          closeClient(client)
           rejectCandidate()
         }
       )

@@ -35,6 +35,7 @@ vi.mock('./host-credential-cleanup', () => ({
 }))
 
 import {
+  beginHostResolution,
   loadHosts,
   MobileRelayUpgradeHostRemovedError,
   removeHost,
@@ -252,6 +253,34 @@ describe('host-store list mutations', () => {
 
     expect(JSON.parse(storedHostsRaw)).toEqual([HOST_TWO])
     expect(secureStoreMock.setItemAsync).not.toHaveBeenCalled()
+  })
+
+  it('fences a relay resolution save that races host removal', async () => {
+    const resolution = beginHostResolution(HOST_ONE.id)
+
+    await removeHost(HOST_ONE.id)
+    await expect(
+      saveHost({
+        ...HOST_ONE,
+        deviceToken: 'late-token',
+        endpoints: [
+          { id: 'direct-primary', kind: 'lan', url: HOST_ONE.endpoint },
+          { id: 'relay-primary', kind: 'relay', url: 'wss://relay.invalid/host-1' }
+        ],
+        relayHostId: 'relay-host-1',
+        relay: {
+          v: 1,
+          directorUrl: 'https://director.invalid',
+          cellUrl: 'https://cell.invalid',
+          assignmentEpoch: 1,
+          relayHostId: 'relay-host-1',
+          e2eeFraming: 2
+        }
+      })
+    ).rejects.toBeInstanceOf(MobileRelayUpgradeHostRemovedError)
+
+    resolution.release()
+    await expect(saveHost({ ...HOST_ONE, deviceToken: 're-paired-token' })).resolves.toBeUndefined()
   })
 
   it('awaits cleanup scheduling after metadata commit', async () => {

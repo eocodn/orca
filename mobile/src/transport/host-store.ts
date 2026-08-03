@@ -75,6 +75,40 @@ const tokenCache = new Map<string, string>()
 let inflightLoad: Promise<HostProfile[]> | null = null
 // Why: serialize RMW of the shared hosts JSON; without a queue concurrent writers drop writes (resurrect a removed host, drop a rename).
 let hostListMutation: Promise<void> = Promise.resolve()
+type HostResolutionState = { invalidated: boolean }
+const hostResolutionStates = new Map<string, Set<HostResolutionState>>()
+const removedHostIds = new Set<string>()
+
+export type HostResolutionFence = {
+  isCurrent: () => boolean
+  release: () => void
+}
+
+export function beginHostResolution(hostId: string): HostResolutionFence {
+  const state: HostResolutionState = { invalidated: removedHostIds.has(hostId) }
+  let states = hostResolutionStates.get(hostId)
+  if (!states) {
+    states = new Set()
+    hostResolutionStates.set(hostId, states)
+  }
+  states.add(state)
+  return {
+    isCurrent: () => !state.invalidated,
+    release: () => {
+      states.delete(state)
+      if (states.size === 0) {
+        hostResolutionStates.delete(hostId)
+      }
+    }
+  }
+}
+
+export function fenceHostRemoval(hostId: string): void {
+  removedHostIds.add(hostId)
+  for (const state of hostResolutionStates.get(hostId) ?? []) {
+    state.invalidated = true
+  }
+}
 
 function parseStoredHosts(raw: string | null): StoredHostProfile[] | null {
   if (!raw) {
@@ -227,6 +261,12 @@ async function persistHost(host: HostProfile, requireExisting: boolean): Promise
   const duplicateHostIds = new Set<string>()
   let updatedExistingHost = false
   await mutateStoredHosts((hosts) => {
+    const resolutionWasInvalidated = [...(hostResolutionStates.get(stored.id) ?? [])].some(
+      ({ invalidated }) => invalidated
+    )
+    if (resolutionWasInvalidated) {
+      throw new MobileRelayUpgradeHostRemovedError('mobile relay upgrade host was removed')
+    }
     const index = hosts.findIndex((h) => h.id === stored.id)
     for (const candidate of hosts) {
       if (candidate.id !== stored.id && candidate.publicKeyB64 === stored.publicKeyB64) {
@@ -246,6 +286,7 @@ async function persistHost(host: HostProfile, requireExisting: boolean): Promise
     }
     return [...hosts.filter(({ id }) => !duplicateHostIds.has(id)), stored]
   })
+  removedHostIds.delete(stored.id)
   // Why: write metadata before the keychain token so a crash leaves recoverable orphaned metadata, not an orphaned token that persists forever.
   await writeDeviceToken(stored.id, validated.deviceToken)
   tokenCache.set(stored.id, validated.deviceToken)
@@ -277,6 +318,7 @@ async function persistHost(host: HostProfile, requireExisting: boolean): Promise
 }
 
 export async function removeHost(hostId: string): Promise<void> {
+  fenceHostRemoval(hostId)
   await mutateStoredHosts((hosts) => hosts.filter((h) => h.id !== hostId))
   tokenCache.delete(hostId)
   try {
@@ -341,5 +383,7 @@ export function resetHostStoreForTests(): void {
   hostListMutation = Promise.resolve()
   tokenCache.clear()
   inflightLoad = null
+  hostResolutionStates.clear()
+  removedHostIds.clear()
   resetPairingKeychainForTests()
 }
