@@ -198,6 +198,19 @@ describe('mobile endpoint supervisor', () => {
     supervisor.stop()
   })
 
+  it('closes a relay session when logical migration rejects it', async () => {
+    const logical = new FakeLogicalClient('disconnected', 'lan')
+    const relaySession = new FakeRelaySession('connected')
+    logical.migrateTo.mockRejectedValueOnce(new Error('migration failed'))
+    const deps = dependencies({ openRelay: vi.fn(() => relaySession) })
+    const supervisor = new MobileEndpointSupervisor(logical, host, deps)
+
+    await supervisor.start()
+
+    expect(relaySession.close).toHaveBeenCalledOnce()
+    supervisor.stop()
+  })
+
   it('fails over when the direct retry loop publishes reconnecting', async () => {
     const logical = new FakeLogicalClient('connecting', 'lan')
     const deps = dependencies()

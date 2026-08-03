@@ -130,6 +130,31 @@ describe('MobileRelayRpcStreams failure parity', () => {
     expect(sendFrame).not.toHaveBeenCalled()
   })
 
+  it('uses the request identity and session-tabs method when cancelling a relay stream', async () => {
+    let nextId = 0
+    const sendFrame = vi.fn(() => true)
+    const streams = new MobileRelayRpcStreams({
+      nextId: () => `stream-${++nextId}`,
+      sendFrame,
+      waitForConnected: async () => {}
+    })
+    const cancel = streams.subscribe(
+      'session.tabs.subscribe',
+      { worktree: 'id:worktree-1' },
+      vi.fn()
+    )
+    await Promise.resolve()
+    sendFrame.mockClear()
+
+    cancel()
+
+    expect(sendFrame).toHaveBeenCalledWith({
+      id: 'stream-2',
+      method: 'session.tabs.unsubscribe',
+      params: { worktree: 'id:worktree-1', subscriptionId: 'stream-1' }
+    })
+  })
+
   it('does not send or emit after session clear settles a connection wait', async () => {
     const listener = vi.fn()
     const sendFrame = vi.fn(() => true)

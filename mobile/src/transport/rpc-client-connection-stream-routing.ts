@@ -2,7 +2,11 @@ import type { BrowserScreencastFrame } from './browser-screencast-protocol'
 import { decodeBrowserScreencastFrame } from './browser-screencast-protocol'
 import { handleTerminalBinaryFrame, type TerminalSnapshotState } from './rpc-client-terminal-binary-frame'
 import { markRpcDeliveryUnknown } from './rpc-delivery-ambiguity'
-import type { PendingRequest, StreamRequest } from './rpc-client-connection-contracts'
+import type {
+  PendingRequest,
+  StreamRequest,
+  SubscriptionDisposeOptions
+} from './rpc-client-connection-contracts'
 
 type StreamState = {
   activeBrowserScreencastRequestId: string | null
@@ -66,6 +70,7 @@ export function createRpcStreamRouting(deps: Dependencies) {
   function markStreamsForReplay(): void {
     for (const [id, stream] of streamListeners) {
       stream.sent = false
+      stream.subscriptionId = undefined
       resetTerminalStreamRoutingForRequest(id)
     }
   }
@@ -89,7 +94,10 @@ export function createRpcStreamRouting(deps: Dependencies) {
     stream.listener({ type: 'error', message, error })
   }
 
-  function disposeBrowserScreencastStream(id: string): void {
+  function disposeBrowserScreencastStream(
+    id: string,
+    options?: SubscriptionDisposeOptions
+  ): void {
     const stream = streamListeners.get(id)
     if (!stream || stream.method !== 'browser.screencast') {
       return
@@ -101,19 +109,30 @@ export function createRpcStreamRouting(deps: Dependencies) {
     if (streamState.pendingBrowserScreencastRequestId === id) {
       streamState.pendingBrowserScreencastRequestId = null
     }
-    disposeServerSubscriptionStream(id, stream)
+    disposeServerSubscriptionStream(id, stream, options)
   }
 
-  function disposeRuntimeClientEventsStream(id: string): void {
+  function disposeRuntimeClientEventsStream(
+    id: string,
+    options?: SubscriptionDisposeOptions
+  ): void {
     const stream = streamListeners.get(id)
     if (!stream || stream.method !== 'runtime.clientEvents.subscribe') {
       return
     }
-    disposeServerSubscriptionStream(id, stream)
+    disposeServerSubscriptionStream(id, stream, options)
   }
 
-  function disposeServerSubscriptionStream(id: string, stream: StreamRequest): void {
+  function disposeServerSubscriptionStream(
+    id: string,
+    stream: StreamRequest,
+    options?: SubscriptionDisposeOptions
+  ): void {
     stream.cancelled = true
+    if (options?.suppressServerUnsubscribe) {
+      removeStreamListener(id)
+      return
+    }
     if (stream.subscriptionId) {
       sendServerSubscriptionUnsubscribe(stream)
       removeStreamListener(id)

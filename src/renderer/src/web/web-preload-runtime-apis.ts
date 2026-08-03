@@ -5,6 +5,7 @@ import type {
   NativeChatApi,
   NativeChatAppendedMessages
 } from '../../../preload/api-types'
+import type { RuntimeEnvironmentSubscriptionHandle } from '../../../preload/api-base'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { parseHostAccessLink } from '../../../shared/remote-pairing-address'
 import { verifyRemotePairingRuntimeStatus } from '../../../shared/remote-pairing-verification'
@@ -189,6 +190,35 @@ function isExpectedEnvironmentPairingCurrent(
   )
 }
 
+// Why: client closure rejects pending work but does not explicitly tear down established streams.
+const establishedRuntimeSubscriptions = new Set<RuntimeEnvironmentSubscriptionHandle>()
+
+function trackRuntimeSubscription(
+  subscription: RuntimeEnvironmentSubscriptionHandle
+): RuntimeEnvironmentSubscriptionHandle {
+  let closed = false
+  const trackedSubscription: RuntimeEnvironmentSubscriptionHandle = {
+    sendBinary: subscription.sendBinary,
+    unsubscribe: () => {
+      if (closed) {
+        return
+      }
+      closed = true
+      establishedRuntimeSubscriptions.delete(trackedSubscription)
+      subscription.unsubscribe()
+    }
+  }
+  establishedRuntimeSubscriptions.add(trackedSubscription)
+  return trackedSubscription
+}
+
+function closeEstablishedRuntimeSubscriptions(): void {
+  for (const subscription of establishedRuntimeSubscriptions) {
+    subscription.unsubscribe()
+  }
+  establishedRuntimeSubscriptions.clear()
+}
+
 export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>['runtimeEnvironments']> {
   return {
     list: async () => {
@@ -201,6 +231,7 @@ export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>[
         throw new Error('Invalid Orca pairing code.')
       }
       const previousEnvironment = activeEnvironment
+      closeEstablishedRuntimeSubscriptions()
       closeActiveRuntimeClients()
       activeEnvironment = createStoredWebRuntimeEnvironment({ name, offer, previousEnvironment })
       manuallyDisconnectedEnvironmentIds.clear()
@@ -299,6 +330,7 @@ export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>[
         }
       }
       manuallyDisconnectedEnvironmentIds.clear()
+      closeEstablishedRuntimeSubscriptions()
       closeActiveRuntimeClients()
       activeEnvironment = nextEnvironment
       return {
@@ -312,6 +344,7 @@ export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>[
     remove: async ({ selector }) => {
       const environment = resolveEnvironment(selector)
       if (activeEnvironment?.id === environment.id) {
+        closeEstablishedRuntimeSubscriptions()
         removeActiveRuntimeEnvironment()
       }
       manuallyDisconnectedEnvironmentIds.delete(environment.id)
@@ -319,6 +352,7 @@ export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>[
     },
     disconnect: async ({ selector }) => {
       const environment = resolveEnvironment(selector)
+      closeEstablishedRuntimeSubscriptions()
       if (activeEnvironment?.id === environment.id) {
         manuallyDisconnectedEnvironmentIds.add(environment.id)
         disconnectActiveRuntimeEnvironment()
@@ -408,7 +442,7 @@ export function createRuntimeEnvironmentsApi(): NonNullable<Partial<PreloadApi>[
         subscription.unsubscribe()
         throw new Error('runtime_manually_disconnected')
       }
-      return subscription
+      return trackRuntimeSubscription(subscription)
     }
   }
 }

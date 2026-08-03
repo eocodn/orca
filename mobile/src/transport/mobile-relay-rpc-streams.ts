@@ -5,6 +5,7 @@ import {
 } from './rpc-client-terminal-binary-frame'
 import {
   buildTerminalUnsubscribeParams,
+  buildStreamUnsubscribe,
   updateTerminalSubscriptionViewport
 } from './rpc-client-terminal-subscription'
 import type { RpcClient } from './rpc-client'
@@ -145,12 +146,14 @@ export class MobileRelayRpcStreams {
           params
         })
       }
-    } else if (stream.subscriptionId) {
-      this.options.sendFrame({
-        id: this.options.nextId(),
-        method: stream.method.replace(/\.subscribe$/, '.unsubscribe'),
-        params: { subscriptionId: stream.subscriptionId }
+    } else if (!options?.suppressServerUnsubscribe) {
+      const unsubscribe = buildStreamUnsubscribe(stream.method, stream.params, {
+        requestId: id,
+        subscriptionId: stream.subscriptionId
       })
+      if (unsubscribe) {
+        this.options.sendFrame({ id: this.options.nextId(), ...unsubscribe })
+      }
     }
     this.remove(id)
   }

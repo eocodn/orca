@@ -66,6 +66,14 @@ function sentRequests(socket: RuntimeEventTestSocket, method: string): SentReque
     .filter((request) => request.method === method)
 }
 
+function unauthorizedResponsePayload(id: string): string {
+  return `encrypted:${JSON.stringify({
+    id,
+    ok: false,
+    error: { code: 'unauthorized', message: 'Unauthorized' }
+  })}`
+}
+
 function connectReadyClient(): { client: RpcClient; socket: RuntimeEventTestSocket } {
   const client = connect('ws://desktop.invalid', 'token', 'server-key')
   const socket = sockets[0]!
@@ -130,6 +138,42 @@ describe('runtime client-event stream disposal', () => {
     expect(sentRequests(socket, 'runtime.clientEvents.unsubscribe')).toEqual([
       expect.objectContaining({ params: { subscriptionId: 'runtime-events:late' } })
     ])
+    client.close()
+  })
+
+  it('uses the replayed subscription identity when disposed during auth recovery', async () => {
+    const { client, socket } = connectReadyClient()
+    const unsubscribe = client.subscribe('runtime.clientEvents.subscribe', null, () => {})
+    const initialRequest = sentRequests(socket, 'runtime.clientEvents.subscribe')[0]!
+    emitReady(socket, initialRequest.id, 'runtime-events:old')
+    await vi.waitFor(() => expect(sentRequests(socket, 'runtime.clientEvents.subscribe')).toHaveLength(1))
+
+    const statusRequest = client.sendRequest('status.get').catch(() => undefined)
+    await vi.waitFor(() => expect(sentRequests(socket, 'status.get')).toHaveLength(1))
+    socket.receive(unauthorizedResponsePayload(sentRequests(socket, 'status.get')[0]!.id))
+    await statusRequest
+    await vi.waitFor(() => expect(client.getState()).toBe('reconnecting'))
+
+    await vi.advanceTimersByTimeAsync(500)
+    const replacement = sockets.at(-1)!
+    replacement.open()
+    replacement.receive(JSON.stringify({ type: 'e2ee_ready' }))
+    replacement.receive('encrypted:{"type":"e2ee_authenticated"}')
+    const replayRequest = await vi.waitFor(() => {
+      const request = sentRequests(replacement, 'runtime.clientEvents.subscribe')[0]
+      expect(request).toBeDefined()
+      return request!
+    })
+
+    unsubscribe()
+    expect(sentRequests(replacement, 'runtime.clientEvents.unsubscribe')).toHaveLength(0)
+
+    emitReady(replacement, replayRequest.id, 'runtime-events:new')
+    await vi.waitFor(() =>
+      expect(sentRequests(replacement, 'runtime.clientEvents.unsubscribe')).toEqual([
+        expect.objectContaining({ params: { subscriptionId: 'runtime-events:new' } })
+      ])
+    )
     client.close()
   })
 })

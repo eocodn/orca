@@ -9,6 +9,11 @@ type MutableStreamRequest = {
   params: unknown
 }
 
+type StreamCleanupIdentity = {
+  requestId: string
+  subscriptionId?: string
+}
+
 export function updateTerminalSubscriptionViewport(
   streams: Iterable<MutableStreamRequest>,
   terminal: string,
@@ -38,16 +43,26 @@ export function updateTerminalSubscriptionViewport(
  *  the per-method echo logic out of the rpc-client teardown closure. */
 export function buildStreamUnsubscribe(
   method: string | undefined,
-  params: unknown
+  params: unknown,
+  identity: StreamCleanupIdentity
 ): { method: string; params: Record<string, unknown> } | null {
-  if (!params || typeof params !== 'object') {
-    return null
-  }
   if (method === 'session.tabs.subscribe') {
+    if (!params || typeof params !== 'object') {
+      return null
+    }
     const worktree = (params as { worktree?: unknown }).worktree
     return typeof worktree === 'string'
-      ? { method: 'session.tabs.unsubscribe', params: { worktree } }
+      ? {
+          method: 'session.tabs.unsubscribe',
+          params: { worktree, subscriptionId: identity.requestId }
+        }
       : null
+  }
+  if (method === 'session.tabs.subscribeAll') {
+    return { method: 'session.tabs.unsubscribeAll', params: { subscriptionId: identity.requestId } }
+  }
+  if (!params || typeof params !== 'object') {
+    return null
   }
   if (method === 'nativeChat.subscribe') {
     const subscriptionId = (params as { subscriptionId?: unknown }).subscriptionId
@@ -60,6 +75,14 @@ export function buildStreamUnsubscribe(
     return typeof agent === 'string' && typeof sessionId === 'string'
       ? buildNativeChatUnsubscribe(agent, sessionId)
       : null
+  }
+  const subscriptionId =
+    identity.subscriptionId ?? (params as { subscriptionId?: unknown }).subscriptionId
+  if (typeof subscriptionId === 'string' && method?.endsWith('.subscribe')) {
+    return {
+      method: method.replace(/\.subscribe$/, '.unsubscribe'),
+      params: { subscriptionId }
+    }
   }
   return null
 }

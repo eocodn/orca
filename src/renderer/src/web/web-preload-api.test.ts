@@ -566,6 +566,62 @@ describe('web runtime environment identity', () => {
     expect(unsubscribe).toHaveBeenCalledOnce()
   })
 
+  it('tears down an established terminal subscription when pairing changes', async () => {
+    const oldEnvironment = {
+      id: 'web-server-a',
+      createdAt: 1,
+      endpoints: []
+    } as unknown as StoredWebRuntimeEnvironment
+    let currentEnvironment = oldEnvironment
+    const unsubscribe = vi.fn()
+    const sendBinary = vi.fn()
+    const subscribe = vi.fn().mockResolvedValue({ unsubscribe, sendBinary })
+    const disconnectActiveRuntimeEnvironment = vi.fn()
+    const onResponse = vi.fn()
+    vi.doMock('./web-preload-runtime-bridge', () => ({
+      disconnectActiveRuntimeEnvironment,
+      getClientForEnvironment: () => ({ subscribe }),
+      requireActiveEnvironmentOrNull: () => currentEnvironment,
+      resolveEnvironment: () => oldEnvironment
+    }))
+    vi.doMock('./web-runtime-client', () => ({
+      WebRuntimeClient: class {
+        subscribe = subscribe
+        close(): void {}
+      }
+    }))
+    installBrowserGlobals('Linux')
+    const { createRuntimeEnvironmentsApi } = await import('./web-preload-runtime-apis')
+    const runtimeEnvironments = createRuntimeEnvironmentsApi() as NonNullable<
+      PreloadApi['runtimeEnvironments']
+    >
+
+    const subscription = await runtimeEnvironments.subscribe(
+      {
+        selector: 'web-server-a',
+        method: 'terminal.multiplex',
+        expectedEnvironmentPairingRevision: 1
+      },
+      { onResponse }
+    )
+
+    currentEnvironment = { ...oldEnvironment, id: 'web-server-b', createdAt: 2 }
+    await runtimeEnvironments.disconnect({ selector: 'web-server-a' })
+
+    expect(unsubscribe).toHaveBeenCalledOnce()
+    const guardedCallbacks = subscribe.mock.calls[0]?.[1] as {
+      onResponse: (response: RuntimeRpcResponse<unknown>) => void
+    }
+    guardedCallbacks.onResponse({
+      id: 'terminal.multiplex',
+      ok: true,
+      result: { type: 'ready' },
+      _meta: { runtimeId: 'stale-runtime' }
+    })
+    expect(onResponse).not.toHaveBeenCalled()
+    expect(subscription.sendBinary).toBe(sendBinary)
+  })
+
   it.each(['active runtime', 'selected environment'] as const)(
     'returns a disconnect envelope when a queued %s call disconnects',
     async (route) => {

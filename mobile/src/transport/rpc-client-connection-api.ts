@@ -46,8 +46,8 @@ type ApiDependencies = {
   rejectAllPending: (reason: string, options?: { deliveryUnknown?: boolean }) => void
   removeStreamListener: (id: string) => void
   emitStreamError: (stream: StreamRequest, message: string, error?: unknown) => void
-  disposeBrowserScreencastStream: (id: string) => void
-  disposeRuntimeClientEventsStream: (id: string) => void
+  disposeBrowserScreencastStream: (id: string, options?: SubscriptionDisposeOptions) => void
+  disposeRuntimeClientEventsStream: (id: string, options?: SubscriptionDisposeOptions) => void
   sendServerSubscriptionUnsubscribe: (stream: StreamRequest) => void
   getActiveBrowserScreencastRequestId: () => string | null
   getPendingBrowserScreencastRequestId: () => string | null
@@ -179,11 +179,11 @@ export function createRpcClientApi(deps: ApiDependencies): RpcClient {
       return (disposeOptions?: SubscriptionDisposeOptions) => {
         const stream = streamListeners.get(id)
         if (stream?.method === 'browser.screencast') {
-          disposeBrowserScreencastStream(id)
+          disposeBrowserScreencastStream(id, disposeOptions)
           return
         }
         if (stream?.method === 'runtime.clientEvents.subscribe') {
-          disposeRuntimeClientEventsStream(id)
+          disposeRuntimeClientEventsStream(id, disposeOptions)
           return
         }
         if (stream?.method === 'terminal.subscribe') {
@@ -198,7 +198,10 @@ export function createRpcClientApi(deps: ApiDependencies): RpcClient {
             })
           }
         } else {
-          const unsub = buildStreamUnsubscribe(stream?.method, stream?.params)
+          const unsub = buildStreamUnsubscribe(stream?.method, stream?.params, {
+            requestId: id,
+            subscriptionId: stream?.subscriptionId
+          })
           if (unsub) {
             sendEncrypted({ id: nextId(), deviceToken, method: unsub.method, params: unsub.params })
           }

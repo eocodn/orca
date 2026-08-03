@@ -221,7 +221,9 @@ export class MobileEndpointSupervisor {
       this.scheduleDirectProbe()
       return { ok: true }
     } catch (error) {
-      return { ok: false, error: session.getFailure() ?? toError(error) }
+      const failure = session.getFailure() ?? toError(error)
+      session.close()
+      return { ok: false, error: failure }
     }
   }
 

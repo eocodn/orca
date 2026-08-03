@@ -207,12 +207,14 @@ describe('mobile rpc-client connection timeout', () => {
       { worktree: 'id:wt-1' },
       () => {}
     )
+    const subscribeRequest = sentRequest(socket, 'session.tabs.subscribe')
     unsubscribe()
 
-    expect(
-      socket.sent.some((payload) => payload.includes('"method":"session.tabs.unsubscribe"'))
-    ).toBe(true)
-    expect(socket.sent.some((payload) => payload.includes('"worktree":"id:wt-1"'))).toBe(true)
+    expect(sentRequests(socket, 'session.tabs.unsubscribe')).toEqual([
+      expect.objectContaining({
+        params: { worktree: 'id:wt-1', subscriptionId: subscribeRequest.id }
+      })
+    ])
 
     client.close()
   })
