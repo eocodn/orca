@@ -216,7 +216,7 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
       return false
     }
     if (observation.providerExitObserved && !isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
-      return true
+      return false
     }
     const finished = finishPtyShutdown(ptyId, connectionId, store, expectedTarget)
     if (!finished) {

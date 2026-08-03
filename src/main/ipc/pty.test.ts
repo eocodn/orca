@@ -5801,6 +5801,39 @@ describe('registerPtyHandlers', () => {
         ).toEqual([['pty:exit', { id: 'local-pty', code: 0 }]])
       })
 
+      it('controller stopAndWait fails when the provider replaces the shutdown target after its exit', async () => {
+        let emitOldProviderExit: ((payload: { id: string; code: number }) => void) | undefined
+        const replacementProvider = createAgentClaimProvider({
+          listProcesses: vi.fn(async () => [
+            { id: 'local-pty', cwd: '/tmp/replacement', title: 'shell' }
+          ])
+        })
+        const oldProvider = createAgentClaimProvider({
+          shutdown: vi.fn(async () => {
+            setLocalPtyProvider(replacementProvider as never)
+            emitOldProviderExit?.({ id: 'local-pty', code: 0 })
+          }),
+          onExit: vi.fn((handler: (payload: { id: string; code: number }) => void) => {
+            emitOldProviderExit = handler
+            return () => {}
+          }),
+          listProcesses: vi.fn(async () => [])
+        })
+        setLocalPtyProvider(oldProvider as never)
+        const runtime = {
+          setPtyController: vi.fn(),
+          onPtyExit: vi.fn()
+        }
+        registerPtyHandlers(mainWindow as never, runtime as never)
+        const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+          stopAndWait: (ptyId: string) => Promise<boolean>
+        }
+
+        await expect(controller.stopAndWait('local-pty')).resolves.toBe(false)
+        expect(runtime.onPtyExit).not.toHaveBeenCalled()
+        expect(replacementProvider.listProcesses).not.toHaveBeenCalled()
+      })
+
       it('classifies host reversible-stop exits for the attached renderer', async () => {
         vi.useFakeTimers()
         const exitListeners = new Set<(payload: { id: string; code: number }) => void>()
