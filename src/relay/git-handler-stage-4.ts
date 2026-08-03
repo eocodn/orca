@@ -1,94 +1,10 @@
-import { execFile, spawn, type ExecFileOptions } from 'node:child_process'
+import { execFile, type ExecFileOptions } from 'node:child_process'
 import { promisify } from 'node:util'
 import * as path from 'node:path'
-import type { RelayDispatcher, RequestContext } from './dispatcher'
-import type { RelayContext } from './context'
 import { expandTilde } from './context'
-import {
-  isUnsupportedWorktreeListZError,
-  parseBranchDiff,
-  parseWorktreeList
-} from './git-handler-utils'
-import { parseNumstat } from '../shared/git-uncommitted-line-stats'
-import {
-  computeDiff,
-  branchCompare as branchCompareOp,
-  branchDiffEntries,
-  validateGitExecArgs,
-  type GitExec
-} from './git-handler-ops'
-import {
-  buildSubmoduleInnerCommitRangeDiff,
-  computeSubmodulePointerDiff,
-  computeSubmoduleRangeEntries,
-  clearSubmodulePathsCache,
-  createSubmodulePathsCache,
-  findContainingSubmodule,
-  listSubmodulePathsCached,
-  resolveSubmoduleWorktreePath,
-  resolveSubmoduleCommitRange,
-  type SubmodulePathsCache
-} from './git-handler-submodule-ops'
-import { commitCompare as commitCompareOp, commitDiffEntry } from './git-handler-commit-diff-ops'
-import {
-  areRelayWorktreePathsEqual,
-  commitChangesRelay,
-  addWorktreeOp,
-  removeWorktreeOp,
-  worktreeIsCleanOp
-} from './git-handler-worktree-ops'
-import { annotatePrunableWorktreesByExistence } from './git-handler-worktree-list'
-import { forceDeletePreservedRelayBranch } from './git-handler-branch-cleanup'
+import { addWorktreeOp, removeWorktreeOp, worktreeIsCleanOp } from './git-handler-worktree-ops'
 import { refreshLocalBaseRefForWorktreeCreateOp } from './git-handler-local-base-ref-refresh'
-import { gitExecMutatesRepository } from '../shared/git-exec-mutation'
-import { detectConflictOperation, getStatusOp } from './git-handler-status-ops'
-import { capGitStatusEntries, resolveGitStatusLimit } from '../shared/git-status-limit'
-import { checkIgnoredPathsOp } from './git-handler-check-ignore'
-import { resolveRelayPushTarget } from './git-handler-push-target'
-import {
-  isExecKilledError,
-  isNoUpstreamError,
-  normalizeGitErrorMessage,
-  runPullWithDivergenceFallback
-} from '../shared/git-remote-error'
-import { upstreamOnlyCommitsArePatchEquivalent } from '../shared/git-upstream-status'
-import { assertGitPushTargetShape } from '../shared/git-push-target-validation'
-import { getPublishTargetStatus, type GitCommandRunner } from '../shared/git-publish-target-status'
-import { resolveGitRemoteRebaseSource } from '../shared/git-rebase-source'
-import type { GitPushTarget } from '../shared/types'
-import {
-  getEffectiveGitUpstreamStatus,
-  resolveEffectiveGitUpstream
-} from '../shared/git-effective-upstream'
-import { loadGitHistoryFromExecutor } from '../shared/git-history'
-import { buildRelayGitEnv, buildRelayUnattendedGitEnv } from './relay-command-env'
-import {
-  removeSafeUntrackedDiscardTarget,
-  removeSafeUntrackedDiscardTargets
-} from '../shared/git-discard-path-safety'
-import { getGitCloneFailureMessage } from '../shared/git-clone-failure-message'
-import { syncForkDefaultBranch, validateGitForkSyncExpectedUpstream } from '../shared/git-fork-sync'
-import { InFlightPromiseDedupe, stableInFlightKey } from '../shared/in-flight-promise-dedupe'
-import { GIT_FETCH_SKIP_AUTO_MAINTENANCE_CONFIG_ARGS } from '../shared/git-fetch-auto-maintenance'
-import { GitCapabilityCache } from '../shared/git-capability-cache'
-import {
-  githubPullRequestHeadLocalRef,
-  gitlabMergeRequestHeadLocalRef,
-  isSafeReviewHeadFetchRemote,
-  isValidReviewHeadNumber,
-  reviewHeadRemoteRefComponent,
-  REVIEW_HEAD_FETCH_TIMEOUT_MS
-} from '../shared/review-head-tracking-ref'
-import type { RelayFilesystemWatchRegistry } from './relay-filesystem-watch-registry'
-import {
-  hasUnsupportedRevParsePathFormatEcho,
-  isUnsupportedRevParsePathFormatError
-} from '../shared/git-worktree-command-capabilities'
-import { GitResponseStreamRegistry } from './git-response-stream'
-import { GIT_RESPONSE_STREAM_THRESHOLD } from './protocol'
 import { endSubprocessStdin } from '../shared/subprocess-stdin-write'
-import { clearGitStatusLineStatsCache } from '../shared/git-status-line-stats-cache'
-import { streamRelayGitStdout } from './git-stdout-stream'
 
 const execFileAsync = promisify(execFile)
 const MAX_GIT_BUFFER = 10 * 1024 * 1024
