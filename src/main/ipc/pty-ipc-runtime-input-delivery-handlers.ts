@@ -303,9 +303,9 @@ export function installPtyInputDeliveryHandlers(state: PtyRendererDeliveryContex
   // Why: renderer ACKs bound main→renderer delivery without stopping PTY ingestion — agent/status consumers still see every chunk via the provider/runtime path.
   ipcMain.on(
     'pty:ackData',
-    (_event, args: { id: string; charCount?: number; processedChars?: number; incarnationId?: string }) => {
+    (_event, args: { id: string; charCount?: number; processedChars?: number; incarnationId: string }) => {
       const accounting = rendererDeliveryAccountingByPty.get(args.id)
-      if (!accounting || (args.incarnationId !== undefined && accounting.incarnationId !== args.incarnationId)) {
+      if (!accounting || accounting.incarnationId !== args.incarnationId) {
         return
       }
       accounting.lastAckAtMs = Date.now()

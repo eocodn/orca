@@ -68,6 +68,7 @@ const ptyExitSidecars = new Map<
 export const ptyWriteUnavailableHandlers = new Map<string, () => void>()
 let ptyDispatcherAttached = false
 const activePtyIncarnationById = new Map<string, string>()
+const retiredPtyIncarnationById = new Map<string, string>()
 
 let pushListenerUnsubscribes: (() => void)[] = []
 
@@ -123,11 +124,20 @@ function handleDispatchedPtyData(payload: {
   droppedOutput?: boolean
 }): void {
   if (payload.incarnationId) {
+    const retiredIncarnation = retiredPtyIncarnationById.get(payload.id)
+    if (retiredIncarnation === payload.incarnationId) {
+      return
+    }
+    if (retiredIncarnation !== undefined) {
+      retiredPtyIncarnationById.delete(payload.id)
+    }
     const activeIncarnation = activePtyIncarnationById.get(payload.id)
     if (activeIncarnation !== undefined && activeIncarnation !== payload.incarnationId) {
       return
     }
     activePtyIncarnationById.set(payload.id, payload.incarnationId)
+  } else if (retiredPtyIncarnationById.has(payload.id)) {
+    return
   }
   let meta: PtyDataMeta | undefined
   if (payload.incarnationId) {
@@ -198,12 +208,23 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
   )
   unsubscribes.push(
     window.api.pty.onExit((payload) => {
+      const activeIncarnation = activePtyIncarnationById.get(payload.id)
+      if (
+        payload.incarnationId !== undefined &&
+        activeIncarnation !== undefined &&
+        activeIncarnation !== payload.incarnationId
+      ) {
+        return
+      }
       if (payload.preserveRendererBinding === true) {
         // Why: host-initiated remote sleep has no requester transaction in this renderer; classify its ordered exit before pane cleanup runs.
         markCommittedPtyShutdowns([payload.id])
       }
       // Why: main drops its accounting on exit; drop totals too so a reused id restarts at zero on both sides.
       clearProcessedPtyCharTotal(payload.id)
+      if (payload.incarnationId) {
+        retiredPtyIncarnationById.set(payload.id, payload.incarnationId)
+      }
       activePtyIncarnationById.delete(payload.id)
       clearReceivedPtyCharTotal(payload.id)
       const sidecars = ptyExitSidecars.get(payload.id)

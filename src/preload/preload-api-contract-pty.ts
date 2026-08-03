@@ -54,7 +54,7 @@ export type PreloadApiPty = {
     clearBuffer: (id: string) => void
     kill: (id: string, opts?: { keepHistory?: boolean }) => Promise<void>
     ackColdRestore: (id: string) => void
-    ackData: (id: string, charCount: number, processedChars?: number, incarnationId?: string) => void
+    ackData: (id: string, charCount: number, processedChars: number, incarnationId: string) => void
     onDeliveryResyncRequest: (callback: (payload: { requestId: number }) => void) => () => void
     respondDeliveryResync: (payload: {
       requestId: number
@@ -149,7 +149,7 @@ export type PreloadApiPty = {
     onData: (
       callback: (data: {
         id: string
-        incarnationId?: string
+        incarnationId: string
         data: string
         seq?: number
         rawLength?: number
@@ -169,7 +169,7 @@ export type PreloadApiPty = {
     /** Title-only replay snapshot for (re)attach; attention facts never replay. */
     getSideEffectSnapshot: (id: string) => Promise<TerminalSideEffectBatch | null>
     onExit: (
-      callback: (data: { id: string; code: number; preserveRendererBinding?: boolean }) => void
+      callback: (data: { id: string; code: number; incarnationId?: string; preserveRendererBinding?: boolean }) => void
     ) => () => void
     onSpawned: (callback: (data: { id: string }) => void) => () => void
     onSerializeBufferRequest: (

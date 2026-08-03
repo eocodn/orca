@@ -21,10 +21,7 @@ type E2eTerminalPtyAckGateWindow = Window & {
 }
 
 const e2eTerminalAckGatePtyIds = new Set<string>()
-const e2eTerminalAckGateHeldChars = new Map<
-  string,
-  { chars: number; incarnationId?: string }
->()
+const e2eTerminalAckGateHeldChars = new Map<string, { chars: number; incarnationId?: string }>()
 // Why: monotonic totals are scoped to the PTY incarnation; a reused id must
 // not let an old renderer ACK repay a new process's delivery debt.
 const processedPtyCharTotals = new Map<string, { incarnationId?: string; chars: number }>()
@@ -34,10 +31,12 @@ function sendPtyAck(ptyId: string, chars: number, incarnationId?: string): void 
   const processedChars =
     previous && previous.incarnationId === incarnationId ? previous.chars + chars : chars
   processedPtyCharTotals.set(ptyId, { incarnationId, chars: processedChars })
-  // Why: keep the legacy per-chunk delta alongside the cumulative total so an
-  // older main (dev hot-reload mix) still credits deltas.
   if (incarnationId === undefined) {
-    window.api.pty.ackData?.(ptyId, chars, processedChars)
+    // Why: unincarnated legacy providers cannot attach the isolation token.
+    const legacyAckData = window.api.pty.ackData as unknown as
+      | ((id: string, chars: number, processed: number) => void)
+      | undefined
+    legacyAckData?.(ptyId, chars, processedChars)
   } else {
     window.api.pty.ackData?.(ptyId, chars, processedChars, incarnationId)
   }

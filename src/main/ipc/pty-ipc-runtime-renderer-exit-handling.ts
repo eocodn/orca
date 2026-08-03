@@ -86,7 +86,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     return true
   }
 
-  function preparePtyExitForRenderer(payload: { id: string; code: number }): (() => void) | null {
+  function preparePtyExitForRenderer(payload: { id: string; code: number; incarnationId?: string }): (() => void) | null {
     if (mainWindow.isDestroyed()) {
       state.sshOutputIntake?.transferPtyProjections(payload.id, 'renderer-destroyed')
       return () => {}
@@ -149,7 +149,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     }
   }
 
-  function finalizePtyExitForRenderer(payload: { id: string; code: number }): void {
+  function finalizePtyExitForRenderer(payload: { id: string; code: number; incarnationId?: string }): void {
     if (mainWindow.isDestroyed()) {
       state.rendererCreditBeforeExitByPty.delete(payload.id)
       return
@@ -184,7 +184,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     })
   }
 
-  function sendPtyExitToRenderer(payload: { id: string; code: number }): void {
+  function sendPtyExitToRenderer(payload: { id: string; code: number; incarnationId?: string }): void {
     const release = preparePtyExitForRenderer(payload)
     if (!release) {
       return

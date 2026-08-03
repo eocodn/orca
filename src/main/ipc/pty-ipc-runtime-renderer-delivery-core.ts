@@ -473,7 +473,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
   // Why max-merge cumulative totals: idempotent and reorder-tolerant — replayed/out-of-order ACKs can't double-credit and a lost ACK self-heals. Returns the newly acknowledged delta.
   function applyCumulativeAck(id: string, processedChars: number, incarnationId?: string): number {
     const accounting = state.rendererDeliveryAccountingByPty.get(id)
-    if (!accounting || (incarnationId !== undefined && accounting.incarnationId !== incarnationId)) {
+    if (!accounting || accounting.incarnationId !== incarnationId) {
       return 0
     }
     // Clamped to sentChars so a corrupt payload cannot drive in-flight negative.

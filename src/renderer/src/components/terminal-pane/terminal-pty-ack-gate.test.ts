@@ -25,27 +25,30 @@ describe('terminal-pty-ack-gate cumulative totals', () => {
   it('sends monotonic cumulative totals alongside per-chunk deltas', async () => {
     const { ackPtyData, getProcessedPtyCharTotals } = await loadAckGate()
 
-    ackPtyData('pty-a', 5)
-    ackPtyData('pty-a', 7)
-    ackPtyData('pty-b', 3)
+    ackPtyData('pty-a', 5, 'incarnation-a')
+    ackPtyData('pty-a', 7, 'incarnation-a')
+    ackPtyData('pty-b', 3, 'incarnation-b')
 
-    expect(ackDataMock).toHaveBeenNthCalledWith(1, 'pty-a', 5, 5)
-    expect(ackDataMock).toHaveBeenNthCalledWith(2, 'pty-a', 7, 12)
-    expect(ackDataMock).toHaveBeenNthCalledWith(3, 'pty-b', 3, 3)
-    expect(getProcessedPtyCharTotals()).toEqual({ 'pty-a': 12, 'pty-b': 3 })
+    expect(ackDataMock).toHaveBeenNthCalledWith(1, 'pty-a', 5, 5, 'incarnation-a')
+    expect(ackDataMock).toHaveBeenNthCalledWith(2, 'pty-a', 7, 12, 'incarnation-a')
+    expect(ackDataMock).toHaveBeenNthCalledWith(3, 'pty-b', 3, 3, 'incarnation-b')
+    expect(getProcessedPtyCharTotals()).toEqual({
+      'pty-a': { incarnationId: 'incarnation-a', processedChars: 12 },
+      'pty-b': { incarnationId: 'incarnation-b', processedChars: 3 }
+    })
   })
 
   it('clears a PTY total so a reused id restarts from zero on both sides', async () => {
     const { ackPtyData, clearProcessedPtyCharTotal, getProcessedPtyCharTotals } =
       await loadAckGate()
 
-    ackPtyData('pty-a', 9)
+    ackPtyData('pty-a', 9, 'incarnation-old')
     clearProcessedPtyCharTotal('pty-a')
 
     expect(getProcessedPtyCharTotals()).toEqual({})
 
-    ackPtyData('pty-a', 4)
-    expect(ackDataMock).toHaveBeenLastCalledWith('pty-a', 4, 4)
+    ackPtyData('pty-a', 4, 'incarnation-new')
+    expect(ackDataMock).toHaveBeenLastCalledWith('pty-a', 4, 4, 'incarnation-new')
   })
 })
 
@@ -69,9 +72,9 @@ describe('terminal-pty-ack-gate parse-deferred crediting', () => {
   it('settles an unclaimed delivery credit at return', async () => {
     const { deliverPtyDataWithDeferredAck } = await loadAckGate()
 
-    deliverPtyDataWithDeferredAck('pty-a', 42, () => {})
+    deliverPtyDataWithDeferredAck('pty-a', 42, () => {}, 'incarnation-a')
 
-    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 42, 42)
+    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 42, 42, 'incarnation-a')
   })
 
   it('defers a claimed credit to the scheduler callback and fires once', async () => {
@@ -80,12 +83,12 @@ describe('terminal-pty-ack-gate parse-deferred crediting', () => {
 
     deliverPtyDataWithDeferredAck('pty-a', 10, () => {
       credit = takeCurrentPtyDeliveryAckCredit()
-    })
+    }, 'incarnation-a')
 
     // Claimed: nothing credited at delivery return.
     expect(ackDataMock).not.toHaveBeenCalled()
     credit!()
-    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 10, 10)
+    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 10, 10, 'incarnation-a')
     // Fire-once: split slices / discard paths may re-invoke harmlessly.
     credit!()
     expect(ackDataMock).toHaveBeenCalledTimes(1)
@@ -99,14 +102,14 @@ describe('terminal-pty-ack-gate parse-deferred crediting', () => {
     deliverPtyDataWithDeferredAck('pty-a', 5, () => {
       first = takeCurrentPtyDeliveryAckCredit()
       second = takeCurrentPtyDeliveryAckCredit()
-    })
+    }, 'incarnation-a')
 
     expect(first).not.toBeNull()
     expect(second).not.toBeNull()
     first!()
     expect(ackDataMock).not.toHaveBeenCalled()
     second!()
-    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 5, 5)
+    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 5, 5, 'incarnation-a')
   })
 
   it('returns null outside a delivery', async () => {
@@ -120,8 +123,8 @@ describe('terminal-pty-ack-gate parse-deferred crediting', () => {
     expect(() =>
       deliverPtyDataWithDeferredAck('pty-a', 7, () => {
         throw new Error('bad sidecar')
-      })
+      }, 'incarnation-a')
     ).toThrow('bad sidecar')
-    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 7, 7)
+    expect(ackDataMock).toHaveBeenCalledWith('pty-a', 7, 7, 'incarnation-a')
   })
 })

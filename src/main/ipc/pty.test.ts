@@ -2427,10 +2427,24 @@ describe('registerPtyHandlers', () => {
     if (!ackCall) {
       throw new Error('missing pty:ackData listener')
     }
-    return ackCall[1] as (
+    const listener = ackCall[1] as (
       event: unknown,
-      args: { id: string; charCount?: number; processedChars?: number; incarnationId?: string }
+      args: { id: string; charCount?: number; processedChars?: number; incarnationId: string }
     ) => void
+    return (event, args) => {
+      const incarnationId = args.incarnationId ?? ptyRuntimeState.ptyIncarnationById.get(args.id)
+      listener(
+        event,
+        incarnationId === undefined
+          ? (args as unknown as {
+              id: string
+              charCount?: number
+              processedChars?: number
+              incarnationId: string
+            })
+          : { ...args, incarnationId }
+      )
+    }
   }
 
   function getPtySetActiveRendererPtyListener(): (
@@ -7244,6 +7258,7 @@ describe('registerPtyHandlers', () => {
       expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:data', {
         id: result.id,
         data: 'daemon output',
+        incarnationId: `test-incarnation:${result.id}`,
         seq: 13,
         rawLength: 'daemon output'.length
       })

@@ -15,7 +15,7 @@ describe('pty dispatcher delivery resync', () => {
         background?: boolean
       }) => void)
     | null = null
-  let exitCallback: ((payload: { id: string; code: number }) => void) | null = null
+  let exitCallback: ((payload: { id: string; code: number; incarnationId?: string }) => void) | null = null
   let resyncRequestCallback: ((payload: { requestId: number }) => void) | null = null
   const ackDataMock = vi.fn()
   const respondDeliveryResyncMock = vi.fn()
@@ -49,7 +49,7 @@ describe('pty dispatcher delivery resync', () => {
             }
           ),
           onReplay: vi.fn(() => () => {}),
-          onExit: vi.fn((cb: (payload: { id: string; code: number }) => void) => {
+          onExit: vi.fn((cb: (payload: { id: string; code: number; incarnationId?: string }) => void) => {
             exitCallback ??= cb
             return () => {}
           }),
@@ -97,7 +97,7 @@ describe('pty dispatcher delivery resync', () => {
       }
     })
 
-    exitCallback?.({ id: 'pty-1', code: 0 })
+    exitCallback?.({ id: 'pty-1', code: 0, incarnationId: 'incarnation-1' })
     resyncRequestCallback?.({ requestId: 8 })
     expect(respondDeliveryResyncMock).toHaveBeenLastCalledWith({
       requestId: 8,
@@ -112,7 +112,9 @@ describe('pty dispatcher delivery resync', () => {
     ensurePtyDispatcher()
 
     dataCallback?.({ id: 'pty-reused', incarnationId: 'incarnation-old', data: 'old' })
-    exitCallback?.({ id: 'pty-reused', code: 0 })
+    exitCallback?.({ id: 'pty-reused', code: 0, incarnationId: 'incarnation-old' })
+    dataCallback?.({ id: 'pty-reused', incarnationId: 'incarnation-old', data: 'delayed-old' })
+    expect(ackDataMock).toHaveBeenCalledTimes(1)
     dataCallback?.({ id: 'pty-reused', incarnationId: 'incarnation-new', data: 'fresh' })
 
     expect(ackDataMock).toHaveBeenNthCalledWith(1, 'pty-reused', 3, 3, 'incarnation-old')

@@ -82,12 +82,12 @@ export function createPreloadApiPty(): Record<string, unknown> {
       ipcRenderer.send('pty:ackColdRestore', { id })
     },
     /** charCount is the legacy per-chunk delta; processedChars is the cumulative per-pty total (self-heals under lost ACKs). */
-    ackData: (id: string, charCount: number, processedChars?: number, incarnationId?: string): void => {
+    ackData: (id: string, charCount: number, processedChars: number, incarnationId: string): void => {
       ipcRenderer.send('pty:ackData', {
         id,
         charCount,
         ...(typeof processedChars === 'number' ? { processedChars } : {}),
-        ...(incarnationId ? { incarnationId } : {})
+        incarnationId
       })
     },
     /** Main requests the renderer's cumulative processed totals when delivery looks stuck on lost ACKs. */
@@ -216,7 +216,7 @@ export function createPreloadApiPty(): Record<string, unknown> {
     onData: (
       callback: (data: {
         id: string
-        incarnationId?: string
+        incarnationId: string
         data: string
         seq?: number
         rawLength?: number
@@ -229,7 +229,7 @@ export function createPreloadApiPty(): Record<string, unknown> {
         _event: Electron.IpcRendererEvent,
         data: {
           id: string
-          incarnationId?: string
+          incarnationId: string
           data: string
           seq?: number
           rawLength?: number
@@ -272,15 +272,16 @@ export function createPreloadApiPty(): Record<string, unknown> {
       ipcRenderer.invoke('pty:sideEffectSnapshot', { id }),
 
     onExit: (
-      callback: (data: { id: string; code: number; preserveRendererBinding?: boolean }) => void
+      callback: (data: { id: string; code: number; incarnationId?: string; preserveRendererBinding?: boolean }) => void
     ): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
-        data: { id: string; code: number; preserveRendererBinding?: boolean }
+        data: { id: string; code: number; incarnationId?: string; preserveRendererBinding?: boolean }
       ) =>
         callback({
           id: data.id,
           code: data.code,
+          ...(data.incarnationId === undefined ? {} : { incarnationId: data.incarnationId }),
           ...(data.preserveRendererBinding === undefined
             ? {}
             : { preserveRendererBinding: data.preserveRendererBinding })

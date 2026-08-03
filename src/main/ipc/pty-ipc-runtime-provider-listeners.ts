@@ -351,7 +351,7 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
             return
           }
           deletePendingPtyCleanupExact(payload.id, payload.incarnationId)
-          // Why: preload pty:exit has no incarnation field, so stale cleanup must not fan out to a replacement renderer pane.
+          // Why: preserve the provider incarnation so the renderer can retire delayed data for this id.
           const currentAfterCleanup = ptyRuntimeState.ptyIncarnationById.get(payload.id)
           const pendingAfterCleanup = ptyRuntimeState.pendingPtyIncarnationById.get(payload.id)
           if (
