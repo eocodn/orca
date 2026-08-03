@@ -124,6 +124,22 @@ describe('persistence split integrity', () => {
     expect(sessionMigrationImports).toMatch(/\bnormalizePersistedPaneIdentityState\b/)
   })
 
+  it('keeps pane identity normalization in its concrete module', () => {
+    const sessionMigration = readSource('./persistence-state-session-migration.ts')
+    const paneIdentityRecords = readSource('./persistence-pane-identity-records.ts')
+
+    expect(sessionMigration).toMatch(
+      /from '\.\/persistence-pane-identity-records'/
+    )
+    expect(sessionMigration).not.toMatch(/\bparseLegacyNumericPaneKey\b/)
+    expect(paneIdentityRecords).toMatch(
+      /export function normalizeMigrationUnsupportedPtyEntries/
+    )
+    expect(paneIdentityRecords).toMatch(
+      /export function normalizeLegacyPaneKeyAliasEntries/
+    )
+  })
+
   it('does not bind a phase superclass twice after the split', () => {
     const phaseFiles = [
       'persistence-store-automation-state.ts',

@@ -286,6 +286,16 @@ import { normalizeWorkspaceSessionPaneIdentities,
   normalizeClaudeLivePtySessionIds,
   normalizeMigrationUnsupportedPtyEntries,
   normalizeLegacyPaneKeyAliasEntries } from './persistence-state-session-migration'
+import {
+  legacyPaneKeyAliasEntriesEqual,
+  mergeLegacyPaneKeyAliasEntries,
+  migrationUnsupportedEntriesEqual
+} from './persistence-pane-identity-records'
+export {
+  legacyPaneKeyAliasEntriesEqual,
+  mergeLegacyPaneKeyAliasEntries,
+  migrationUnsupportedEntriesEqual
+} from './persistence-pane-identity-records'
 export { normalizeWorkspaceSessionPaneIdentities,
   remapSshRemotePtyLeaseLeafIds,
   normalizePersistedPaneIdentityState,
@@ -317,46 +327,6 @@ export function registerPersistedPaneKeyAlias(entry: LegacyPaneKeyAliasEntry): v
   )
 }
 
-export function mergeLegacyPaneKeyAliasEntries(
-  entries: LegacyPaneKeyAliasEntry[]
-): LegacyPaneKeyAliasEntry[] {
-  const byLegacyPaneKey = new Map<string, LegacyPaneKeyAliasEntry>()
-  for (const entry of normalizeLegacyPaneKeyAliasEntries(entries)) {
-    const existing = byLegacyPaneKey.get(entry.legacyPaneKey)
-    if (!existing || existing.updatedAt <= entry.updatedAt) {
-      byLegacyPaneKey.set(entry.legacyPaneKey, entry)
-    }
-  }
-  return [...byLegacyPaneKey.values()]
-}
-
-export function legacyPaneKeyAliasEntriesEqual(
-  left: LegacyPaneKeyAliasEntry[],
-  right: LegacyPaneKeyAliasEntry[]
-): boolean {
-  if (left.length !== right.length) {
-    return false
-  }
-  const rightByLegacyPaneKey = new Map(right.map((entry) => [entry.legacyPaneKey, entry]))
-  return left.every((entry) => {
-    const other = rightByLegacyPaneKey.get(entry.legacyPaneKey)
-    return other ? JSON.stringify(entry) === JSON.stringify(other) : false
-  })
-}
-
-export function migrationUnsupportedEntriesEqual(
-  left: MigrationUnsupportedPtyEntry[],
-  right: MigrationUnsupportedPtyEntry[]
-): boolean {
-  if (left.length !== right.length) {
-    return false
-  }
-  const rightByPtyId = new Map(right.map((entry) => [entry.ptyId, entry]))
-  return left.every((entry) => {
-    const other = rightByPtyId.get(entry.ptyId)
-    return other ? JSON.stringify(entry) === JSON.stringify(other) : false
-  })
-}
 
 export function projectHostSetupCompatibilityStateEqual(
   state: Pick<PersistedState, 'projects' | 'projectHostSetups'>,
@@ -581,4 +551,3 @@ export function deleteScannedSessionFieldsForOwners(
     (worktreeId) => !isRemovedOwner(worktreeId)
   )
 }
-

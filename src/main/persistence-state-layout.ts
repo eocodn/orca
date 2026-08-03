@@ -288,6 +288,7 @@ import { sanitizeGitRemoteIdentity,
   normalizeSshRemotePtyLease,
   type LayoutLeafNormalization,
   type PaneIdentityMigrationEntries } from './persistence-state-automation'
+import { normalizeMigrationUnsupportedPtyEntries } from './persistence-pane-identity-records'
 export { sanitizeGitRemoteIdentity,
   sanitizeRepoProjectHostSetupMethod,
   sanitizeForkSyncMode,
@@ -548,4 +549,3 @@ export function normalizeTerminalLayoutSnapshotForPersistence(
     leafIdByInputLeafId
   }
 }
-

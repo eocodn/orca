@@ -140,7 +140,6 @@ import { isWslUncPath } from '../shared/wsl-paths'
 import {
   isTerminalLeafId,
   makePaneKey,
-  parseLegacyNumericPaneKey,
   parsePaneKey
 } from '../shared/stable-pane-id'
 import {
@@ -280,7 +279,17 @@ import {
 import { collectMigrationUnsupportedPtyEntries,
   legacyMigrationUnsupportedRowsToAliasEntries,
   normalizeTerminalLayoutSnapshotForPersistence } from './persistence-state-layout'
-import { mergeLegacyPaneKeyAliasEntries } from './persistence-state-ssh'
+import {
+  legacyPaneKeyAliasEntriesEqual,
+  mergeLegacyPaneKeyAliasEntries,
+  migrationUnsupportedEntriesEqual,
+  normalizeLegacyPaneKeyAliasEntries,
+  normalizeMigrationUnsupportedPtyEntries
+} from './persistence-pane-identity-records'
+export {
+  normalizeLegacyPaneKeyAliasEntries,
+  normalizeMigrationUnsupportedPtyEntries
+} from './persistence-pane-identity-records'
 export { collectMigrationUnsupportedPtyEntries,
   legacyMigrationUnsupportedRowsToAliasEntries,
   normalizeTerminalLayoutSnapshotForPersistence } from './persistence-state-layout'
@@ -516,52 +525,4 @@ export function normalizeClaudeLivePtySessionIds(value: unknown): string[] {
     }
   }
   return ids.toReversed()
-}
-
-export function normalizeMigrationUnsupportedPtyEntries(value: unknown): MigrationUnsupportedPtyEntry[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-  return value.filter((entry): entry is MigrationUnsupportedPtyEntry => {
-    if (!entry || typeof entry !== 'object') {
-      return false
-    }
-    const candidate = entry as Partial<MigrationUnsupportedPtyEntry>
-    return (
-      typeof candidate.ptyId === 'string' &&
-      candidate.ptyId.length > 0 &&
-      (candidate.worktreeId === undefined || typeof candidate.worktreeId === 'string') &&
-      (candidate.tabId === undefined || typeof candidate.tabId === 'string') &&
-      (candidate.leafId === undefined || isTerminalLeafId(candidate.leafId)) &&
-      (candidate.paneKey === undefined || typeof candidate.paneKey === 'string') &&
-      candidate.reason === 'legacy-numeric-pane-key' &&
-      (candidate.source === 'local' || candidate.source === 'ssh') &&
-      Number.isFinite(candidate.updatedAt)
-    )
-  })
-}
-
-export function normalizeLegacyPaneKeyAliasEntries(value: unknown): LegacyPaneKeyAliasEntry[] {
-  if (!Array.isArray(value)) {
-    return []
-  }
-  return value.filter((entry): entry is LegacyPaneKeyAliasEntry => {
-    if (!entry || typeof entry !== 'object') {
-      return false
-    }
-    const candidate = entry as Partial<LegacyPaneKeyAliasEntry>
-    if (
-      typeof candidate.ptyId !== 'string' ||
-      candidate.ptyId.trim().length === 0 ||
-      typeof candidate.legacyPaneKey !== 'string' ||
-      typeof candidate.stablePaneKey !== 'string' ||
-      !Number.isFinite(candidate.updatedAt)
-    ) {
-      return false
-    }
-    const legacy = parseLegacyNumericPaneKey(candidate.legacyPaneKey)
-    const relocatedSource = parsePaneKey(candidate.legacyPaneKey)
-    const stable = parsePaneKey(candidate.stablePaneKey)
-    return Boolean(stable && ((legacy && legacy.tabId === stable.tabId) || relocatedSource))
-  })
 }

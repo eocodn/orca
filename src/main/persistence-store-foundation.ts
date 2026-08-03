@@ -292,6 +292,7 @@ import {
 } from './persistence-state-foundation'
 import { backupPath } from './persistence-state-paths-foundation'
 import { normalizePersistedPaneIdentityState } from './persistence-state-session-migration'
+import { mergeLegacyPaneKeyAliasEntries } from './persistence-pane-identity-records'
 
 export class StoreFoundation {
   [key: string]: any

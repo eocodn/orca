@@ -510,10 +510,7 @@ export type LayoutLeafNormalization = {
   leafIdByInputLeafId: Map<string, string>
 }
 
-}
-
 export type PaneIdentityMigrationEntries = {
   migrationUnsupportedEntries: MigrationUnsupportedPtyEntry[]
   legacyPaneKeyAliasEntries: LegacyPaneKeyAliasEntry[]
 }
-

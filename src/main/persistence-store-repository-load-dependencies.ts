@@ -300,6 +300,7 @@ import {
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,
   stripLegacyTerminalScrollbackBytes,
+  stripMainOwnedTelemetryMarkerFromUI,
   backupPath
 } from './persistence-state-paths-foundation'
 import {
@@ -354,6 +355,7 @@ export const persistenceLoadDependencies = {
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,
   stripLegacyTerminalScrollbackBytes,
+  stripMainOwnedTelemetryMarkerFromUI,
   backupPath,
   backfillLegacyAutomationContexts,
   normalizeRightSidebarTab,

@@ -71,6 +71,7 @@ export const {
   migrateTerminalTuiScrollSensitivityDefault,
   normalizeSortBy,
   stripLegacyTerminalScrollbackBytes,
+  stripMainOwnedTelemetryMarkerFromUI,
   backupPath,
   backfillLegacyAutomationContexts,
   normalizeRightSidebarTab,
