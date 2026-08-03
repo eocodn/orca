@@ -12,6 +12,7 @@ import {
   glabHostnameArgs,
   glabRepoExecOptions,
   glabExecFileAsync,
+  getProjectRefForRemote,
   release,
   type LocalGitExecOptions,
   type ProjectRef
