@@ -16798,6 +16798,92 @@ describe('registerPtyHandlers', () => {
       }
     })
 
+    it('does not flush PTY output queued before an IPC clear notification', async () => {
+      vi.useFakeTimers()
+      const daemon = installObservableDaemonTestProvider()
+      try {
+        registerPtyHandlers(mainWindow as never)
+        const result = (await handlers.get('pty:spawn')!(null, {
+          cols: 80,
+          rows: 24,
+          sessionId: 'daemon-session'
+        })) as { id: string }
+        const clearBuffer = getPtyClearBufferListener()
+        mainWindow.webContents.send.mockClear()
+
+        daemon.emitData(result.id, 'x'.repeat(768 * 1024))
+        vi.advanceTimersByTime(2)
+        for (let index = 0; index < 31; index++) {
+          vi.advanceTimersByTime(1)
+        }
+        expect(
+          mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:data')
+        ).toHaveLength(32)
+
+        mainWindow.webContents.send.mockClear()
+        clearBuffer(null, { id: result.id })
+        vi.advanceTimersByTime(100)
+
+        expect(
+          mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:data')
+        ).toHaveLength(0)
+        expect(mainWindow.webContents.send).toHaveBeenCalledWith(
+          'pty:clearBuffer:request',
+          { ptyId: result.id }
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('does not flush PTY output queued before a controller clear notification', async () => {
+      vi.useFakeTimers()
+      const daemon = installObservableDaemonTestProvider()
+      const runtime = {
+        setPtyController: vi.fn(),
+        registerPty: vi.fn(),
+        noteTerminalSpawnCommand: vi.fn(),
+        onPtySpawned: vi.fn(),
+        onPtyExit: vi.fn(),
+        onPtyData: vi.fn(() => 42),
+        getPtyOutputSequence: vi.fn(() => 42),
+        hasRemoteTerminalViewSubscriber: vi.fn(() => false),
+        createPreAllocatedTerminalHandle: vi.fn(() => 'terminal-handle-1'),
+        registerPreAllocatedHandleForPty: vi.fn()
+      }
+      try {
+        registerPtyHandlers(mainWindow as never, runtime as never)
+        const controller = runtime.setPtyController.mock.calls[0]?.[0] as {
+          clearBuffer: (ptyId: string) => Promise<void>
+        }
+        const ptyId = 'daemon-session'
+        mainWindow.webContents.send.mockClear()
+
+        daemon.emitData(ptyId, 'x'.repeat(768 * 1024))
+        vi.advanceTimersByTime(2)
+        for (let index = 0; index < 31; index++) {
+          vi.advanceTimersByTime(1)
+        }
+        expect(
+          mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:data')
+        ).toHaveLength(32)
+
+        mainWindow.webContents.send.mockClear()
+        await controller.clearBuffer(ptyId)
+        vi.advanceTimersByTime(100)
+
+        expect(
+          mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:data')
+        ).toHaveLength(0)
+        expect(mainWindow.webContents.send).toHaveBeenCalledWith(
+          'pty:clearBuffer:request',
+          { ptyId }
+        )
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('drops hidden PTY data after model ingestion and emits one out-of-band restore marker', async () => {
       vi.useFakeTimers()
       const runtime = {

@@ -265,6 +265,7 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
     },
     clearBuffer: async (ptyId) => {
     // Why: desktop xterm and daemon/SSH providers hold separate buffers; clear both so mobile resubscribe can't resurrect cleared history.
+    state.clearPendingPtyDataForPty(ptyId)
     mainWindow.webContents.send('pty:clearBuffer:request', { ptyId })
     try {
       await getProviderForPty(ptyId).clearBuffer(ptyId)

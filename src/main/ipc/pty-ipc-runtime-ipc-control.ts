@@ -50,6 +50,7 @@ export function installPtyIpcControlHandlers(): void {
 
   ipcMain.removeAllListeners('pty:clearBuffer')
   ipcMain.on('pty:clearBuffer', (_event, args: { id: string }) => {
+    state.clearPendingPtyDataForPty(args.id)
     mainWindow.webContents.send('pty:clearBuffer:request', { ptyId: args.id })
     tryGetProviderForPty(args.id)
       ?.clearBuffer(args.id)

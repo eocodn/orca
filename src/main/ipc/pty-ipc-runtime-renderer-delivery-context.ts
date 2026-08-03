@@ -100,6 +100,7 @@ export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   schedulePendingDataFlush: (delayMs: number) => void
   appendPendingPtyData: (id: string, existing: PendingPtyData | undefined, data: string, startSeq: number | undefined, preservesSeq: boolean, containsBackgroundOutput: boolean, rawLength?: number, transformed?: boolean, projectionSemanticsId?: string) => PendingPtyData
   clearPendingPtyData: () => void
+  clearPendingPtyDataForPty: (id: string) => void
   updateProducerFlowControl: (id: string) => void
   syncPtyBackgroundedDelivery: (id: string, caller: string) => void
   resyncBackgroundedDeliveriesAfterGateReset: () => void

@@ -24,6 +24,7 @@ import type { PtyRendererDeliveryContext, PtyDataPayload } from './pty-ipc-runti
 import type { PtyDeliveryWriteOff, PtyRendererDeliveryStateReport } from '../../shared/pty-renderer-delivery-health'
 import { recordDaemonStreamBacklogEvent } from '../daemon/daemon-stream-backlog-probe'
 import { createPtyRendererHiddenDeliveryTransitions } from './pty-ipc-runtime-renderer-hidden-delivery-state'
+import { clearPendingPtyDataForPty } from './pty-ipc-runtime-clear-buffer-fence'
 import {
   PTY_DELIVERY_RESYNC_TIMEOUT_MS,
   PTY_BATCH_FLUSH_CHUNK_CHARS,
@@ -589,6 +590,7 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     getRendererInFlightCharsForPty,
     setPendingPtyData,
     deletePendingPtyData,
+    clearPendingPtyDataForPty: (id: string) => clearPendingPtyDataForPty(state, id),
     schedulePendingDataAfterCreditReport,
     clearDeliveryResyncProbe,
     warnIfDroppingHiddenBytesForVisiblePty,
