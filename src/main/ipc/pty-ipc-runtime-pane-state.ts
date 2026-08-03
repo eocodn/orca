@@ -1,12 +1,14 @@
 import { isPtyIncarnationId } from '../../shared/pty-incarnation'
 import type { AgentSessionOwnerBinding } from '../../shared/agent-session-host-authority'
-import type { IPtyProvider, PtySpawnResult } from '../providers/types'
+import type { PtySpawnResult } from '../providers/types'
 import type { WebContents } from 'electron'
 import type { SleepingAgentLaunchConfig } from '../../shared/agent-session-resume'
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import {
+  capturePtyProviderListingTargets,
   capturePtyLifecycleTarget,
-  getProviderGeneration,
+  hasOnlyAddedPtyProviderListingTargets,
+  isCurrentPtyProviderListingTargetSet,
   isCurrentPtyListing,
   isCurrentProvider,
   tryGetProviderForAgentSessionOwner
@@ -45,22 +47,7 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
     return await ptyRuntimeState.agentSessionOwnerReconciliation
   }
   const reconciliation = (async () => {
-    const providers: {
-      provider: IPtyProvider
-      connectionId: string | null
-      generation: ReturnType<typeof getProviderGeneration>
-    }[] = [
-      {
-        provider: ptyRuntimeState.localProvider,
-        connectionId: null,
-        generation: getProviderGeneration(ptyRuntimeState.localProvider)
-      },
-      ...Array.from(ptyRuntimeState.sshProviders, ([connectionId, provider]) => ({
-        provider,
-        connectionId,
-        generation: getProviderGeneration(provider)
-      }))
-    ]
+    let providers = capturePtyProviderListingTargets()
     const lifecycleTargets = new Map(
       [
         ...ptyRuntimeState.ptyOwnership.keys(),
@@ -71,7 +58,7 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
       ].map((id) => [id, capturePtyLifecycleTarget(id)] as const)
     )
     const emptyLifecycleTarget = capturePtyLifecycleTarget('')
-    const listings = await Promise.all(
+    let listings = await Promise.all(
       providers.map(async ({ provider, connectionId, generation }) => ({
         provider,
         connectionId,
@@ -79,6 +66,26 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
         sessions: await provider.listProcesses()
       }))
     )
+    const providersAfterListing = capturePtyProviderListingTargets()
+    if (!isCurrentPtyProviderListingTargetSet(providers)) {
+      // Why: a provider added during the await was absent from the aggregate;
+      // retry additions, but preserve replacement fencing semantics.
+      if (!hasOnlyAddedPtyProviderListingTargets(providers, providersAfterListing)) {
+        return
+      }
+      providers = providersAfterListing
+      listings = await Promise.all(
+        providers.map(async ({ provider, connectionId, generation }) => ({
+          provider,
+          connectionId,
+          generation,
+          sessions: await provider.listProcesses()
+        }))
+      )
+      if (!isCurrentPtyProviderListingTargetSet(providers)) {
+        return
+      }
+    }
     // Why: provider listings are awaited across reconnects; an old generation's
     // inventory cannot be authoritative for the replacement connection.
     if (

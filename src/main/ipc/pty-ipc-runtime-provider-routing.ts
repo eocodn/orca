@@ -25,6 +25,51 @@ export function isCurrentProvider(
   return currentProvider === provider && getProviderGeneration(currentProvider) === generation
 }
 
+export type PtyProviderListingTarget = Readonly<{
+  provider: IPtyProvider
+  connectionId: string | null
+  generation: PtyProviderGeneration | undefined
+}>
+
+export function capturePtyProviderListingTargets(): PtyProviderListingTarget[] {
+  return [
+    {
+      provider: ptyRuntimeState.localProvider,
+      connectionId: null,
+      generation: getProviderGeneration(ptyRuntimeState.localProvider)
+    },
+    ...Array.from(ptyRuntimeState.sshProviders, ([connectionId, provider]) => ({
+      provider,
+      connectionId,
+      generation: getProviderGeneration(provider)
+    }))
+  ]
+}
+
+export function isCurrentPtyProviderListingTargetSet(
+  targets: readonly PtyProviderListingTarget[]
+): boolean {
+  const currentTargets = capturePtyProviderListingTargets()
+  return (
+    currentTargets.length === targets.length &&
+    targets.every(({ provider, connectionId, generation }) =>
+      isCurrentProvider(provider, connectionId, generation)
+    )
+  )
+}
+
+export function hasOnlyAddedPtyProviderListingTargets(
+  previousTargets: readonly PtyProviderListingTarget[],
+  currentTargets: readonly PtyProviderListingTarget[]
+): boolean {
+  return (
+    currentTargets.length > previousTargets.length &&
+    previousTargets.every(({ provider, connectionId, generation }) =>
+      isCurrentProvider(provider, connectionId, generation)
+    )
+  )
+}
+
 export type PtyLifecycleTarget = Readonly<{
   ownershipPresent: boolean
   ownership: string | null | undefined

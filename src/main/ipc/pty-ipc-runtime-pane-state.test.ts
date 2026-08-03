@@ -49,6 +49,8 @@ describe('pty pane state', () => {
     unregisterSshPtyProvider('ssh-pane-state-same-generation')
     unregisterSshPtyProvider('ssh-pane-state-partial-listing')
     unregisterSshPtyProvider('ssh-pane-state-listing-error')
+    unregisterSshPtyProvider('ssh-pane-state-addition-anchor')
+    unregisterSshPtyProvider('ssh-pane-state-added-during-reconcile')
     ptyRuntimeState.sshProvidersByGeneration.clear()
     ptyRuntimeState.ptyOwnership.clear()
     ptyRuntimeState.ptyIncarnationById.clear()
@@ -260,6 +262,62 @@ describe('pty pane state', () => {
     await reconciliation
 
     expect(ptyRuntimeState.agentSessionOwners.listForPty(ptyId)).toEqual([owner])
+  })
+
+  it('keeps an owner for a provider registered while reconciliation is awaiting listings', async () => {
+    const anchorConnectionId = 'ssh-pane-state-addition-anchor'
+    const addedConnectionId = 'ssh-pane-state-added-during-reconcile'
+    const addedPtyId = `ssh:${addedConnectionId}@@pty-added`
+    const anchorInventory = makeDeferred<never[]>()
+    const owner = {
+      claim: {
+        digestVersion: 1,
+        keyId: 'provider-addition-key',
+        identityDigest: 'provider-addition-digest',
+        worktreeScopeDigest: 'provider-addition-worktree',
+        agent: 'codex'
+      },
+      generation: 'provider-addition-owner-generation',
+      phase: 'live',
+      ptyId: addedPtyId,
+      surface: {
+        worktreeId: 'worktree',
+        tabId: 'tab-provider-addition',
+        leafId: '77777777-7777-4777-8777-777777777777',
+        terminalHandle: 'term_provider_addition'
+      }
+    } as AgentSessionOwnerBinding
+    const anchorProvider = {
+      providerGeneration: 10,
+      providesAgentSessionOwnerListings: () => true,
+      listProcesses: vi.fn(() => anchorInventory.promise)
+    }
+    const addedProvider = {
+      providerGeneration: 11,
+      providesAgentSessionOwnerListings: () => true,
+      listProcesses: vi.fn().mockResolvedValue([
+        {
+          id: addedPtyId,
+          incarnationId: 'incarnation-added',
+          cwd: '/added',
+          title: 'added',
+          agentSessionOwners: [owner]
+        }
+      ])
+    }
+
+    registerSshPtyProvider(anchorConnectionId, anchorProvider as never)
+    ptyRuntimeState.ptyOwnership.set(addedPtyId, addedConnectionId)
+    ptyRuntimeState.agentSessionOwners.register(owner)
+
+    const reconciliation = reconcileAgentSessionOwnerListings()
+    registerSshPtyProvider(addedConnectionId, addedProvider as never)
+    anchorInventory.resolve([])
+
+    await reconciliation
+
+    expect(addedProvider.listProcesses).toHaveBeenCalled()
+    expect(ptyRuntimeState.agentSessionOwners.listForPty(addedPtyId)).toEqual([owner])
   })
 
   it('keeps a live owner when an authoritative provider listing fails', async () => {
