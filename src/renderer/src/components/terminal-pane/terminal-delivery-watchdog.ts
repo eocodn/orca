@@ -15,7 +15,10 @@
  * output flows or while no PTY delivery is expected).
  */
 import { e2eConfig } from '@/lib/e2e-config'
-import type { PtyRendererDeliveryHealthReply } from '../../../../shared/pty-renderer-delivery-health'
+import type {
+  PtyRendererDeliveryHealthReply,
+  PtyRendererReceivedChars
+} from '../../../../shared/pty-renderer-delivery-health'
 import { redactPtyIdForDiagnostics } from '../../../../shared/pty-delivery-diagnostics'
 import { deliverPulledPtyModelRestoreMarkers } from './pty-model-restore-channel'
 import { getProcessedPtyCharTotals } from './terminal-pty-ack-gate'
@@ -43,8 +46,10 @@ type TerminalDeliveryWatchdogDeps = {
   hasAttachedPtys: () => boolean
 }
 
-const receivedPtyCharTotals = new Map<string, number>()
+const receivedPtyCharTotals = new Map<string, PtyRendererReceivedChars>()
 const receivedPtyIncarnationIds = new Map<string, string | undefined>()
+const receivedPtyDataEventCounts = new Map<string, number>()
+const receivedPtyDataEventCountsAtLastTick = new Map<string, number>()
 let receivedPtyDataEventCount = 0
 let blackholePtyPushDelivery = false
 
@@ -67,17 +72,35 @@ let tickInFlight = false
  *  Counted at dispatcher enqueue, BEFORE parse-deferred ACK crediting, so
  *  main can tell "lost in the channel" from "received, parse-pending". */
 export function recordPtyDataReceived(ptyId: string, chars: number, incarnationId?: string): void {
-  if (receivedPtyIncarnationIds.get(ptyId) !== incarnationId) {
-    receivedPtyCharTotals.set(ptyId, 0)
+  const hasPreviousIncarnation = receivedPtyIncarnationIds.has(ptyId)
+  const previousIncarnationId = receivedPtyIncarnationIds.get(ptyId)
+  if (!hasPreviousIncarnation || previousIncarnationId !== incarnationId) {
+    const previousKey = deliveryHealthKey(ptyId, previousIncarnationId)
+    receivedPtyDataEventCounts.delete(previousKey)
+    receivedPtyDataEventCountsAtLastTick.delete(previousKey)
+    receivedPtyCharTotals.set(ptyId, {
+      ...(incarnationId ? { incarnationId } : {}),
+      receivedChars: 0
+    })
     receivedPtyIncarnationIds.set(ptyId, incarnationId)
   }
+  const key = deliveryHealthKey(ptyId, incarnationId)
   receivedPtyDataEventCount += 1
-  receivedPtyCharTotals.set(ptyId, (receivedPtyCharTotals.get(ptyId) ?? 0) + chars)
+  receivedPtyDataEventCounts.set(key, (receivedPtyDataEventCounts.get(key) ?? 0) + 1)
+  const current = receivedPtyCharTotals.get(ptyId)
+  receivedPtyCharTotals.set(ptyId, {
+    ...(incarnationId ? { incarnationId } : {}),
+    receivedChars: (current?.receivedChars ?? 0) + chars
+  })
 }
 
 export function clearReceivedPtyCharTotal(ptyId: string): void {
+  const incarnationId = receivedPtyIncarnationIds.get(ptyId)
+  const key = deliveryHealthKey(ptyId, incarnationId)
   receivedPtyCharTotals.delete(ptyId)
   receivedPtyIncarnationIds.delete(ptyId)
+  receivedPtyDataEventCounts.delete(key)
+  receivedPtyDataEventCountsAtLastTick.delete(key)
 }
 
 /** E2e blackhole: simulates the field wedge (push events vanish before the
@@ -106,6 +129,24 @@ function deliveryHealthKey(id: string, incarnationId?: string): string {
   return `${id}\u0000${incarnationId ?? ''}`
 }
 
+function allKnownPtysReceivedDataSinceLastTick(): boolean {
+  if (receivedPtyIncarnationIds.size === 0) {
+    return false
+  }
+  let hasKnownPty = false
+  let allReceived = true
+  for (const [id, incarnationId] of receivedPtyIncarnationIds) {
+    hasKnownPty = true
+    const key = deliveryHealthKey(id, incarnationId)
+    const receivedEvents = receivedPtyDataEventCounts.get(key) ?? 0
+    if (receivedEvents === (receivedPtyDataEventCountsAtLastTick.get(key) ?? 0)) {
+      allReceived = false
+    }
+    receivedPtyDataEventCountsAtLastTick.set(key, receivedEvents)
+  }
+  return hasKnownPty && allReceived
+}
+
 function getStalledPtys(health: PtyRendererDeliveryHealthReply): string[] {
   if (!health.perPty) {
     return isMainDeliveryStalled(health) ? ['__aggregate__'] : []
@@ -128,7 +169,7 @@ async function runWatchdogTick(): Promise<void> {
   }
   if (receivedPtyDataEventCount !== eventCountAtLastTick) {
     eventCountAtLastTick = receivedPtyDataEventCount
-    if (stallStreakByPty.size === 0) {
+    if (stallStreakByPty.size === 0 && allKnownPtysReceivedDataSinceLastTick()) {
       stallStreakTicks = 0
       return
     }
@@ -291,7 +332,7 @@ export function getTerminalDeliveryWatchdogDiagnostics(): {
 } {
   const receivedCharsByPty: Record<string, number> = {}
   for (const [id, chars] of receivedPtyCharTotals) {
-    receivedCharsByPty[redactPtyIdForDiagnostics(id)] = chars
+    receivedCharsByPty[redactPtyIdForDiagnostics(id)] = chars.receivedChars
   }
   return {
     running: watchdogTimer !== null,

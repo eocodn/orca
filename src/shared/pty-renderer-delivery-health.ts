@@ -10,11 +10,9 @@
  * direction proven alive.
  */
 export type PtyRendererDeliveryStateReport = {
-  /** Cumulative chars received per PTY, counted at dispatcher enqueue —
-   *  BEFORE parse-deferred ACK crediting. The gap between main's sentChars
-   *  and this total is bytes provably lost in the push channel, distinct
-   *  from bytes received but still queued for parsing. */
-  receivedCharsByPty: Record<string, number>
+  /** Cumulative chars received per PTY incarnation, counted at dispatcher
+   *  enqueue — BEFORE parse-deferred ACK crediting. */
+  receivedCharsByPty: Record<string, number | PtyRendererReceivedChars>
   /** Cumulative processed (ACK-credited) chars per PTY — same totals the
    *  ACK path and resync response carry; merging them here is a free extra
    *  repair lane for the lost-ACK variant. */
@@ -30,6 +28,11 @@ export type PtyRendererDeliveryStateReport = {
 export type PtyRendererProcessedChars = {
   incarnationId: string
   processedChars: number
+}
+
+export type PtyRendererReceivedChars = {
+  incarnationId?: string
+  receivedChars: number
 }
 
 export type PtyDeliveryWriteOff = {

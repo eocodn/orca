@@ -60,7 +60,7 @@ describe('terminal delivery watchdog', () => {
   })
 
   async function startWatchdog(): Promise<{
-    recordPtyDataReceived: (ptyId: string, chars: number) => void
+    recordPtyDataReceived: (ptyId: string, chars: number, incarnationId?: string) => void
     registerRestoreHandler: (
       ptyId: string,
       handler: (event: { id: string; reason: string; markerSeq?: number }) => void
@@ -143,7 +143,7 @@ describe('terminal delivery watchdog', () => {
     expect(healCalls[0]![0]).toMatchObject({
       heal: true,
       rendererPtyDataListenerCount: 1,
-      receivedCharsByPty: { 'pty-1': 128 }
+      receivedCharsByPty: { 'pty-1': { receivedChars: 128 } }
     })
     expect(restoreEvents).toEqual([{ id: 'pty-1', reason: 'delivery-heal', markerSeq: 42 }])
   })
@@ -192,6 +192,102 @@ describe('terminal delivery watchdog', () => {
       (call) => (call[0] as { heal?: boolean }).heal === true
     )
     expect(healCall?.[0]).toMatchObject({ heal: true })
+  })
+
+  it('does not let continuous output from one PTY suppress another stalled PTY', async () => {
+    reportMock.mockImplementation((args) =>
+      Promise.resolve(
+        (args as { heal?: boolean }).heal
+          ? { ...HEALTHY, writtenOff: [] }
+          : {
+              ...HEALTHY,
+              inFlightTotalChars: 128,
+              inFlightPtyCount: 1,
+              perPty: [
+                {
+                  id: 'pty-noisy',
+                  incarnationId: 'inc-noisy',
+                  inFlightChars: 0,
+                  msSinceLastAck: 100
+                },
+                {
+                  id: 'pty-stalled',
+                  incarnationId: 'inc-stalled',
+                  inFlightChars: 128,
+                  msSinceLastAck: 30_000
+                }
+              ]
+            }
+      ) as unknown as PtyRendererDeliveryHealthReply
+    )
+    const { recordPtyDataReceived } = await startWatchdog()
+
+    recordPtyDataReceived('pty-stalled', 128, 'inc-stalled')
+    for (let tick = 0; tick < 3; tick++) {
+      recordPtyDataReceived('pty-noisy', 64, 'inc-noisy')
+      await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    }
+
+    expect(reattachMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports received-byte health with the active PTY incarnation', async () => {
+    reportMock.mockResolvedValue({
+      ...STALLED,
+      perPty: [
+        {
+          id: 'pty-reused',
+          incarnationId: 'inc-new',
+          inFlightChars: STALLED.inFlightTotalChars,
+          msSinceLastAck: STALLED.msSinceLastAck
+        }
+      ]
+    })
+    const { recordPtyDataReceived } = await startWatchdog()
+
+    recordPtyDataReceived('pty-reused', 100, 'inc-old')
+    recordPtyDataReceived('pty-reused', 7, 'inc-new')
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+
+    expect(reportMock.mock.calls[0]?.[0]).toMatchObject({
+      receivedCharsByPty: {
+        'pty-reused': { incarnationId: 'inc-new', receivedChars: 7 }
+      }
+    })
+  })
+
+  it('does not carry a stall streak across PTY incarnations', async () => {
+    let activeIncarnationId = 'inc-old'
+    reportMock.mockImplementation((args) =>
+      Promise.resolve(
+        (args as { heal?: boolean }).heal
+          ? { ...HEALTHY, writtenOff: [] }
+          : {
+              ...HEALTHY,
+              inFlightTotalChars: 128,
+              inFlightPtyCount: 1,
+              perPty: [
+                {
+                  id: 'pty-reused',
+                  incarnationId: activeIncarnationId,
+                  inFlightChars: 128,
+                  msSinceLastAck: 30_000
+                }
+              ]
+            }
+      ) as unknown as PtyRendererDeliveryHealthReply
+    )
+    const { recordPtyDataReceived } = await startWatchdog()
+
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    activeIncarnationId = 'inc-new'
+    recordPtyDataReceived('pty-reused', 1, activeIncarnationId)
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    expect(reattachMock).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(INTERVAL_MS)
+    expect(reattachMock).toHaveBeenCalledTimes(1)
   })
 
   it('rate-limits heals to the cooldown while the wedge persists', async () => {

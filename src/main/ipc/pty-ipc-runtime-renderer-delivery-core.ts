@@ -21,7 +21,11 @@ import type { PendingPtyData } from './pty-pending-data-drain-queue'
 import { PtyPendingDataDrainQueue } from './pty-pending-data-drain-queue'
 import { PtyProducerFlowController } from './pty-producer-flow-control'
 import type { PtyRendererDeliveryContext, PtyDataPayload } from './pty-ipc-runtime-renderer-delivery-context'
-import type { PtyDeliveryWriteOff, PtyRendererDeliveryStateReport } from '../../shared/pty-renderer-delivery-health'
+import type {
+  PtyDeliveryWriteOff,
+  PtyRendererDeliveryStateReport,
+  PtyRendererReceivedChars
+} from '../../shared/pty-renderer-delivery-health'
 import { recordDaemonStreamBacklogEvent } from '../daemon/daemon-stream-backlog-probe'
 import { createPtyRendererHiddenDeliveryTransitions } from './pty-ipc-runtime-renderer-hidden-delivery-state'
 import { clearPendingPtyDataForPty } from './pty-ipc-runtime-clear-buffer-fence'
@@ -537,6 +541,17 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     mainWindow.webContents.send('pty:requestDeliveryResync', { requestId })
   }
 
+  function isReceivedCharsForIncarnation(
+    received: number | PtyRendererReceivedChars | undefined,
+    incarnationId: string | undefined
+  ): received is PtyRendererReceivedChars {
+    return (
+      typeof received !== 'number' &&
+      received !== undefined &&
+      received.incarnationId === incarnationId
+    )
+  }
+
   // Why write off: bytes sent but never received after a confirmed wedge are gone (no ACK can repay them); hand back restore markers so panes repaint from the snapshot.
   function writeOffLostRendererDelivery(
     report: PtyRendererDeliveryStateReport
@@ -553,8 +568,12 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
         continue
       }
       const received = report.receivedCharsByPty?.[id]
-      const receivedChars =
-        typeof received === 'number' && Number.isFinite(received) ? Math.max(0, received) : 0
+      let receivedChars = 0
+      if (typeof received === 'number' && Number.isFinite(received)) {
+        receivedChars = Math.max(0, received)
+      } else if (isReceivedCharsForIncarnation(received, accounting.incarnationId)) {
+        receivedChars = Math.max(0, received.receivedChars)
+      }
       // Why skip: received-but-unparsed bytes are alive in the renderer write queue; their deferred ACK still repays this debt.
       if (receivedChars > accounting.ackedChars) {
         continue
