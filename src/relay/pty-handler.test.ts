@@ -191,7 +191,22 @@ describe('PtyHandler', () => {
       ptys.set(spawned.id, { ...managed!, incarnationId: 'replacement-incarnation' })
       resolveInspection('shell')
 
-      await expect(listing).resolves.toEqual([])
+      await expect(listing).rejects.toThrow('pty_process_list_incomplete')
+    } finally {
+      foregroundSpy.mockRestore()
+    }
+  })
+
+  it('rejects the relay listing when foreground inspection fails', async () => {
+    const foregroundSpy = vi
+      .spyOn(ptyShellUtils, 'getForegroundProcessName')
+      .mockRejectedValue(new Error('inspection failed'))
+
+    try {
+      await spawnPty()
+      await expect(dispatcher.callRequest('pty.listProcesses')).rejects.toThrow(
+        'pty_process_list_incomplete'
+      )
     } finally {
       foregroundSpy.mockRestore()
     }

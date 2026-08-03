@@ -47,6 +47,7 @@ describe('pty pane state', () => {
     ptyRuntimeState.paneKeyPtyId.clear()
     unregisterSshPtyProvider('ssh-pane-state-race')
     unregisterSshPtyProvider('ssh-pane-state-same-generation')
+    unregisterSshPtyProvider('ssh-pane-state-partial-listing')
     ptyRuntimeState.sshProvidersByGeneration.clear()
     ptyRuntimeState.ptyOwnership.clear()
     ptyRuntimeState.ptyIncarnationById.clear()
@@ -201,5 +202,62 @@ describe('pty pane state', () => {
     expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBeNull()
     expect(ptyRuntimeState.ptyIncarnationById.get(ptyId)).toBe('incarnation-new')
     expect(ptyRuntimeState.ptyStateTokenById.get(ptyId)).toBe(currentToken)
+  })
+
+  it('keeps a newer live owner when a stale listing row is skipped', async () => {
+    const connectionId = 'ssh-pane-state-partial-listing'
+    const ptyId = `ssh:${connectionId}@@pty-current`
+    const inventory = makeDeferred<
+      Array<{
+        id: string
+        incarnationId?: string
+        cwd: string
+        title: string
+        agentSessionOwners?: AgentSessionOwnerBinding[]
+      }>
+    >()
+    const owner = {
+      claim: {
+        digestVersion: 1,
+        keyId: 'partial-listing-key',
+        identityDigest: 'partial-listing-digest',
+        worktreeScopeDigest: 'partial-listing-worktree',
+        agent: 'codex'
+      },
+      generation: 'new-owner-generation',
+      phase: 'live',
+      ptyId,
+      surface: {
+        worktreeId: 'worktree',
+        tabId: 'tab-partial-listing',
+        leafId: '55555555-5555-4555-8555-555555555555',
+        terminalHandle: 'term_partial_listing'
+      }
+    } as AgentSessionOwnerBinding
+    const provider = {
+      providerGeneration: 8,
+      providesAgentSessionOwnerListings: () => true,
+      listProcesses: vi.fn(() => inventory.promise)
+    }
+
+    registerSshPtyProvider(connectionId, provider as never)
+    ptyRuntimeState.ptyOwnership.set(ptyId, connectionId)
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-old')
+    ptyRuntimeState.agentSessionOwners.register(owner)
+
+    const reconciliation = reconcileAgentSessionOwnerListings()
+    ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-new')
+    inventory.resolve([
+      {
+        id: ptyId,
+        incarnationId: 'incarnation-old',
+        cwd: '/old',
+        title: 'old'
+      }
+    ])
+
+    await reconciliation
+
+    expect(ptyRuntimeState.agentSessionOwners.listForPty(ptyId)).toEqual([owner])
   })
 })

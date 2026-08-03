@@ -71,18 +71,23 @@ export abstract class PtyHandlerStage4Inspection extends PtyHandlerStage4Termina
   protected async listProcesses(): Promise<PtyProcessSummary[]> {
     const results: PtyProcessSummary[] = []
     for (const [id, managed] of this.ptys) {
-      const title =
-        (await getForegroundProcessName(managed.pty.pid, managed.pty.process || null)) || 'shell'
+      let title: string | null
+      try {
+        title = await getForegroundProcessName(managed.pty.pid, managed.pty.process || null)
+      } catch {
+        throw new Error('pty_process_list_incomplete')
+      }
       // Why: foreground inspection is awaited; omit a row if the relay reused
-      // this id before the old inspection completed.
+      // this id before the old inspection completed. Reject the aggregate so
+      // its absence cannot be used to reap a claimed owner.
       if (this.ptys.get(id) !== managed || managed.disposed) {
-        continue
+        throw new Error('pty_process_list_incomplete')
       }
       results.push({
         id,
         incarnationId: managed.incarnationId,
         cwd: managed.initialCwd,
-        title,
+        title: title || 'shell',
         ...(managed.worktreeId ? { worktreeId: managed.worktreeId } : {}),
         ...(managed.terminalHandle ? { terminalHandle: managed.terminalHandle } : {}),
         ...(this.agentSessionOwners.listForPty(id).length

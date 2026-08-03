@@ -101,7 +101,9 @@ export async function reconcileAgentSessionOwnerListings(): Promise<void> {
         // its provider object and connection generation are still current.
         const lifecycleTarget = lifecycleTargets.get(session.id) ?? emptyLifecycleTarget
         if (!isCurrentPtyListing(session.id, session.incarnationId, lifecycleTarget)) {
-          continue
+          // Why: skipping a stale row makes the aggregate incomplete; absence
+          // is not authoritative until every provider row was inspected.
+          return
         }
         const incarnationId = session.incarnationId
         let hasAdvertisedOwner = false
