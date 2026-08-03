@@ -12,6 +12,7 @@ import { triggerError } from '../../../../src/platform/haptics'
 import { useTerminalLiveInputModePreference } from '../../../../src/session/use-terminal-live-input-mode-preference'
 import { useTerminalLiveInputCommit } from '../../../../src/terminal/use-terminal-live-input-commit'
 import { resolveMobileTerminalInputGate } from '../../../../src/terminal/terminal-input-connection-gate'
+import { HOST_DOCK_MIN_WIDTH, type MobileTerminalLinkOpenMode, saveTerminalTextScale } from '../../../../src/storage/preferences'
 import { getDefaultTerminalAccessoryBuiltInIds, getVisibleTerminalAccessoryKeys } from '../../../../src/terminal/terminal-accessory-layout'
 import { useWorktreeSessionTabsLoaded } from '../../../../src/session/use-initial-session-terminal-autocreate'
 import { useMobileNativeChatController } from '../../../../src/session/use-mobile-native-chat-controller'
@@ -19,17 +20,23 @@ import { useMobileNativeChatInputLease } from '../../../../src/session/use-mobil
 import { useMobileNativeChatReadability } from '../../../../src/session/use-mobile-native-chat-readability'
 import { useMobileNativeChatSendError } from '../../../../src/session/use-mobile-native-chat-send-error'
 import { mobileNativeChatScopeKey } from '../../../../src/session/mobile-native-chat-scope-key'
+import { canDockSessionPanel } from '../../../../src/session/session-panel-host'
+import type { AppliedSnapshotMarker } from '../../../../src/session/session-tab-snapshot-gate'
+import { MobileTerminalDiagnostics } from '../../../../src/session/mobile-terminal-diagnostics'
+import { useLiveWorktreeName } from '../../../../src/session/use-live-worktree-name'
 import { appendBufferedDictation, routeDictationTranscript } from '../../../../src/terminal/terminal-live-dictation-routing'
 import { fetchDictationSetup, isDictationSetupRequiredError } from '../../../../src/dictation/mobile-dictation-setup'
-import type { ConnectionState, RpcClient } from '../../../../src/transport/types'
+import type { ConnectionState } from '../../../../src/transport/types'
+import type { RpcClient } from '../../../../src/transport/rpc-client'
 import type { TerminalWebViewHandle, TerminalKeyboardAvoidanceMetrics, TerminalModes } from '../../../../src/terminal/terminal-webview-contract'
 import type { TerminalLiveInputSender } from '../../../../src/terminal/terminal-live-input-sender'
 import type { CustomKey } from '../../../../src/components/CustomKeyModal'
-import type { DiffComment, DiffNotesDelivery, DirtyMarkdownDraft, FileDocState, MarkdownDocState, MobileDisplayMode, MobileNewTabAgentLoadState, MobileNewTabAgentOption, MobileSessionTab, MobileSessionTabType, Terminal, TerminalGestureInputBucket, TerminalGestureInputQueue } from './mobile-session-route-types'
+import type { DiffNotesDelivery, DirtyMarkdownDraft, FileDocState, MarkdownDocState, MobileDisplayMode, MobileNewTabAgentLoadState, MobileSessionTab, MobileSessionTabType, Terminal, TerminalGestureInputBucket, TerminalGestureInputQueue } from './mobile-session-route-types'
+import type { DiffComment } from '../../../../../src/shared/types'
+import type { MobileNewTabAgentOption } from '../../../../src/session/mobile-new-tab-agent-options'
 import type { ActivePanel } from '../../../../src/session/session-panel-host'
 import { createInitialSessionAutoCreateState } from '../../../../src/session/use-initial-session-terminal-autocreate'
 import { createMobileSessionCreateWarningState, reconcileMobileSessionCreateWarningState } from '../../../../src/session/mobile-session-create-warning-state'
-import type { RpcClient as ClientType } from '../../../../src/transport/rpc-client'
 
 export function useMobileSessionWorkspaceSetup() {
     const {
@@ -426,7 +433,7 @@ export function useMobileSessionWorkspaceSetup() {
           if (!flushedPendingInput) {
             return
           }
-          const sent = await sendLiveTerminalInput(insertHandle, route.text)
+          const sent = await sendLiveTerminalInputRef.current(insertHandle, route.text)
           if (sent) {
             showToast('Dictation inserted')
           }
@@ -560,6 +567,7 @@ export function useMobileSessionWorkspaceSetup() {
     subscribeSeqRef, delayedActionTimersRef, layoutSeqRef, sendingRef, terminalFrameHeightRef,
     terminalFrameWidth, setTerminalFrameWidth, activeSessionTab, clearPendingLiveInputCommit,
     flushPendingLiveInputBeforeExternalSend, handleLiveInputAccessoryBytes, handleLiveInputChange,
+    saveTerminalTextScale,
     handleLiveInputKeyPress, handleLiveInputSubmit, canCompose, canSend, liveInputEnabled,
     browserScreencastSupported, setBrowserScreencastSupported, agentSessionHistorySupported,
     setAgentSessionHistorySupported, quickCommandsSupported, setQuickCommandsSupported,

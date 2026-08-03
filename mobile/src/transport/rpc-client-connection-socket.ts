@@ -1,6 +1,7 @@
 import type { RpcResponse, RpcSuccess, ConnectionState } from './types'
+import type { StreamRequest } from './rpc-client-connection-contracts'
+import { CONNECT_TIMEOUT_MS, HANDSHAKE_TIMEOUT_MS, WEBSOCKET_CONNECTING_STATE } from './rpc-client-connection-policy'
 import { generateKeyPair, deriveSharedKey, publicKeyToBase64, decrypt, decryptBytes } from './e2ee'
-import type { BrowserScreencastFrame } from './browser-screencast-protocol'
 import { websocketPayloadToUint8 } from './websocket-payload-bytes'
 import { describeSocketEvent, redactSocketEndpoint } from './socket-event-debug'
 import { logRpcSocketClose } from './rpc-socket-close-evidence'
@@ -35,7 +36,7 @@ type SocketOpenDependencies = {
   synthesizedCloses: { remember: (socket: WebSocket, generation: number) => void }
   handleSocketClosed: (socket: WebSocket, opts?: { timedOut?: boolean; closeCode?: number }) => void
   isStaleRpcSocketEvent: (current: WebSocket | null, opening: WebSocket, event: string, state: ConnectionState, attempt: number) => boolean
-  streamListeners: Map<string, { cancelled?: boolean; sent?: boolean; method: string; params: unknown; listener: (result: unknown) => void }>
+  streamListeners: Map<string, StreamRequest>
   pending: Map<string, { resolve: (response: RpcResponse) => void; reject: (error: Error) => void }>
   removeStreamListener: (id: string) => void
   resetTerminalStreamRoutingForRequest: (id: string) => void
@@ -44,9 +45,12 @@ type SocketOpenDependencies = {
   startActivityProbe: () => void
   handleAuthRejection: (reason: string) => void
   handleBinaryFrame: (bytes: Uint8Array) => void
-  isTerminalSubscribedResult: (value: unknown) => boolean
-  isStreamingSubscriptionReadyResult: (value: unknown) => boolean
-  emitStreamError: (stream: unknown, message: string, error?: unknown) => void
+  isTerminalSubscribedResult: (value: unknown) => value is { type: 'subscribed'; streamId: number }
+  isStreamingSubscriptionReadyResult: (value: unknown) => value is { type: 'ready'; subscriptionId: string }
+  emitStreamError: (stream: StreamRequest, message: string, error?: unknown) => void
+  terminalStreamListeners: Map<number, (result: unknown) => void>
+  terminalStreamIdsByRequest: Map<string, Set<number>>
+  sendServerSubscriptionUnsubscribe: (stream: StreamRequest) => void
   recordValidatedInboundTraffic: () => void
   sendBrowserScreencastUnsubscribe: (subscriptionId: string) => void
   activeBrowserScreencastRequestId: { get value(): string | null; set value(value: string | null) }
@@ -72,6 +76,9 @@ export function openRpcSocket(deps: SocketOpenDependencies): void {
     isTerminalSubscribedResult,
     isStreamingSubscriptionReadyResult,
     emitStreamError,
+    terminalStreamListeners,
+    terminalStreamIdsByRequest,
+    sendServerSubscriptionUnsubscribe,
     recordValidatedInboundTraffic,
     sendBrowserScreencastUnsubscribe
   } = deps

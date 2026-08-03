@@ -2,7 +2,6 @@ import { useCallback } from 'react'
 import { createBulkCloseSheetActions, createCloseWithBulkActions } from '../../../../src/session/mobile-bulk-close-sheet-actions'
 import { classifyConnection } from '../../../../src/transport/connection-health'
 import { shouldShowSessionHeaderChecksAction, resolvePanelAction } from '../../../../src/session/session-panel-host'
-import { isTerminalPhoneDisplayMode } from '../../../../src/session/mobile-session-route-helpers'
 import type { MobileSessionTab, Terminal } from './mobile-session-route-types'
 
 type WorkspaceContext = Record<string, any>
@@ -27,13 +26,13 @@ export function useMobileSessionWorkspaceSurface(context: WorkspaceContext) {
     discardMarkdownTarget, confirmDiscardMarkdown, markdownActionTarget, setMarkdownActionTarget,
     fileActionTarget, setFileActionTarget, browserActionTarget, setBrowserActionTarget, leaveDrafts,
     renameTarget, handleCreateBrowser, createWarning, setCreateWarningState, dismissMobileSessionCreateWarningState,
-    createTabBusy, showHeaderMoreButton, showAgentSessionHistoryAction, showChecksAction,
+    createTabBusy,
     launchQuickCommand, handleCreateTerminal, handleCreateMarkdownNote, handleBrowserNavigationCommand,
     handleFileOpenStart, handleOpenedFileDiff, getRepoIdFromMobileWorktreeId, handleTerminalWebReady,
     handleSelectionMode, handleSelectionCopy, handleSelectionEvicted, handleModesChanged,
     handleKeyboardAvoidanceMetrics, handleHaptic, handleTerminalInput, handleTerminalQueryReply,
     handleTerminalTap, handleFileTap, handleTerminalOpenUrl, handleDictationToggle, handleDictationPressIn,
-    handleDictationPressOut, dictation, dictationMode, isAttaching, activeTerminalKeyboardLift,
+    handleDictationPressOut, dictation, dictationMode, isAttaching,
     keyboardLift, toastOpacityRef } = context
 
   const bulkCloseActions = existingBulkCloseActions ?? createBulkCloseSheetActions({

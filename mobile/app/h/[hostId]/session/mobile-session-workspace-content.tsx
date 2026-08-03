@@ -1,9 +1,9 @@
 import {
-  ActivityIndicator, Animated, Keyboard as NativeKeyboard, Platform, Pressable, ScrollView,
+  ActivityIndicator, Animated, Platform, Pressable, ScrollView,
   Text, TextInput, View
 } from 'react-native'
 import {
-  AlertTriangle, ArrowUp, ChevronDown, ChevronsRight, File, Keyboard as KeyboardIcon, X,
+  AlertTriangle, ArrowUp, ChevronDown, ChevronsRight, Keyboard as KeyboardIcon, X,
   Monitor, Plus, Smartphone
 } from 'lucide-react-native'
 import { MobileBrowserPane } from '../../../../src/browser/MobileBrowserPane'
@@ -18,6 +18,8 @@ import { colors } from '../../../../src/theme/mobile-theme'
 import { FileReader, MarkdownReader } from './mobile-session-file-readers'
 import { styles } from './mobile-session-styles'
 import { dismissMobileSessionCreateWarningState } from '../../../../src/session/mobile-session-create-warning-state'
+import { isTerminalPhoneDisplayMode } from '../../../../src/session/mobile-session-route-helpers'
+import { triggerMediumImpact } from '../../../../src/platform/haptics'
 
 type WorkspaceContext = Record<string, any>
 
@@ -25,6 +27,7 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
   const { client, worktreeId, hostId, worktreeName, connState, activePanel, sessionContentRowWidth, canDockPanel, setActivePanel,
     handleSessionContentRowLayout, createWarning, setCreateWarningState,
     showLoadingState, showEmptyState, createError, createTabBusy, setCreateError, setShowCreateTabDrawer,
+    toastMessage, toastAnimatedStyle, terminalModes, toggleLiveInput, canPaste, handlePaste,
     activeMarkdownTab, markdownDocs, readMarkdownTab, updateMarkdownLocalContent, saveMarkdownTab,
     copyMarkdownLocalContent, discardMarkdownLocalContent, keyboardLift, activeFileTab, fileDocs,
     addDiffCommentForFile, deleteDiffCommentForFile, copyDiffCommentsToClipboard, sendDiffCommentsToAgent,
@@ -41,12 +44,8 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
     setShowCustomKeyModal, liveInputEnabled, focusLiveInput, isAttaching, liveInputRef,
     liveInputCapture, handleLiveInputChange, handleLiveInputKeyPress, handleLiveInputSubmit,
     commandInputRef, autocompleteEnabled, input, setInput, canCompose, handleSend,
-    handleFileOpenStart, handleOpenedFileDiff,
-    getTerminalCommandKeyboardType: resolveCommandKeyboardType = getTerminalCommandKeyboardType,
-    getTerminalLiveInputKeyboardType: resolveLiveKeyboardType = getTerminalLiveInputKeyboardType,
-    createTerminalLiveAccessoryInput: makeAccessoryInput = createTerminalLiveAccessoryInput
+    handleFileOpenStart, handleOpenedFileDiff, attachImage, cancelDictation
   } = context
-  const Keyboard = NativeKeyboard
   return (
         <View style={styles.sessionContentRow} onLayout={handleSessionContentRowLayout}>
           <View style={styles.sessionContentMain}>

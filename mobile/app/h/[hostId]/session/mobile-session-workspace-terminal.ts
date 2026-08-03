@@ -7,7 +7,7 @@ import { updateTerminalCwdFromStreamEvent } from '../../../../src/session/mobile
 import { mergeTerminalListWithKnownRecords, terminalRecordsEqual } from '../../../../src/session/mobile-terminal-records'
 import { createTerminalPrunePredicate, pruneTerminalKeyboardMetrics, resolveRetainedTerminalHandles } from '../../../../src/session/mobile-terminal-prune-decision'
 import type { RpcSuccess } from '../../../../src/transport/types'
-import type { MobileDisplayMode, MobileSessionTab, SessionTabsResult, Terminal, TerminalGestureInputBucket, TerminalGestureInputQueue } from './mobile-session-route-types'
+import type { MobileDisplayMode, Terminal } from './mobile-session-route-types'
 
 type WorkspaceContext = Record<string, any>
 
@@ -15,13 +15,12 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
   const { terminalRefs, terminalUnsubsRef, subscribingHandlesRef, terminalDiagnosticsRef, subscribeSeqRef,
     layoutSeqRef, clearNativeChatInputLease, nativeChatInputLeaseReadyRef, showNativeChatRef,
     activeHandleRef, setCoveredStreamRevision, initializedHandlesRef, webReadyHandlesRef,
-    setTerminalKeyboardMetrics, client, deviceTokenRef, viewportRef, markNativeChatInputLeaseReady,
+    setTerminalKeyboardMetrics, client, deviceTokenRef, viewportRef, viewportMeasuredRef, markNativeChatInputLeaseReady,
     scheduleDelayedAction, terminalFrameHeightRef, activeSessionTab, showNativeChat, activeHandle,
     nativeChatInputLeaseReady, coveredStreamRevision, terminalModes, setTerminalModes, setTerminals,
     terminalsRef, sessionTabsRef, worktreeId, clearTerminalLiveInputDefault, defaultTerminalHandlesToLiveInput,
     pruneTerminalHandlesFromLiveInput, nativeChatStream: _nativeChatStream, setTerminalKeyboardMetrics: _setMetrics,
-    terminalCwdRef, sessionTabs, unsubscribeTerminal: _unsubscribeTerminal, liveInputTerminalHandles,
-    liveInputTerminalHandlesRef, terminalGestureInputInFlightRef, terminalGestureInputQueuesRef } = context
+    terminalCwdRef } = context
   const getTerminalRef = useCallback((handle: string | null) => {
     return handle ? terminalRefs.current.get(handle) : undefined
   }, [])

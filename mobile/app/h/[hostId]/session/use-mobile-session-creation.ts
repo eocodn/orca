@@ -2,22 +2,16 @@ import { useCallback, useEffect } from 'react'
 import { AppState, type AppStateStatus } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import type { RpcFailure, RpcSuccess } from '../../../../src/transport/types'
-import { triggerError, triggerSelection, triggerSuccess } from '../../../../src/platform/haptics'
+import { triggerSuccess } from '../../../../src/platform/haptics'
 import { useMobileTerminalPaste } from '../../../../src/session/use-mobile-terminal-paste'
 import { useMobileAttachmentInputLeaseGate } from '../../../../src/session/use-mobile-attachment-input-lease-gate'
 import { useMobileSessionImageAttachments } from '../../../../src/session/use-mobile-session-image-attachments'
-import { loadMobileNewTabAgentOptions } from '../../../../src/session/mobile-new-tab-agent-loader'
-import { captureMobileFileMutationOwnership } from '../../../../src/files/mobile-file-mutation-ownership'
-import { normalizeBrowserUrl } from '../../../../src/browser/browser-url'
-import { getRepoIdFromMobileWorktreeId } from '../../../../src/session/mobile-session-route-helpers'
 import {
-  buildTerminalSendParams,
-  TERMINAL_INPUT_SEND_OPTIONS
+  buildTerminalSendParams
 } from '../../../../src/terminal/terminal-send-request'
 import type { MobileQuickCommandLaunch } from '../../../../src/terminal/quick-commands'
 import type { MobileNewTabAgentOption } from '../../../../src/session/mobile-new-tab-agent-options'
 import type { RuntimeRepoSummary, Terminal, TerminalCreateResult } from './mobile-session-route-types'
-import type { MobileSessionTab } from './mobile-session-route-types'
 
 type SessionCreationContext = Record<string, any>
 
@@ -43,7 +37,6 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     nativeChatController,
     nativeChatSendError,
     ptyModesRef,
-    refreshCanPaste,
     showToast,
     triggerError,
     triggerSelection,
@@ -70,7 +63,6 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     terminalsRef,
     terminalRecordsEqual,
     subscribeToTerminal,
-    options,
     scheduleDelayedAction,
     fetchSessionTabs,
     creatingMarkdown,
@@ -393,4 +385,3 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     handleCreateTerminal
   }
 }
-

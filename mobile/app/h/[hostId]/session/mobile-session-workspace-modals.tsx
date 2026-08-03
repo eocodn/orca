@@ -9,7 +9,8 @@ import { MobileBrowserTabActionSheet } from '../../../../src/session/MobileBrows
 import { MobileSessionHeaderMoreActionsSheet } from '../../../../src/session/MobileSessionHeaderMoreActionsSheet'
 import { QuickCommandsSheet } from '../../../../src/session/QuickCommandsSheet'
 import { TextInputModal } from '../../../../src/components/TextInputModal'
-import { colors } from '../../../../src/theme/mobile-theme'
+import { getRepoIdFromMobileWorktreeId, isTerminalPhoneDisplayMode } from '../../../../src/session/mobile-session-route-helpers'
+import { getMobileTerminalActionSheetActions } from '../../../../src/session/mobile-terminal-action-sheet-actions'
 
 type WorkspaceContext = Record<string, any>
 
@@ -21,6 +22,7 @@ export function renderMobileSessionModals(context: WorkspaceContext) {
     browserScreencastSupported, showToast, setShowCreateBrowserModal, handleCreateMarkdownNote,
     pendingDiffNotesDelivery, sendDiffNotesAgentActions, setPendingDiffNotesDelivery, triggerSuccess,
     triggerError, actionTarget, sessionTabs, nativeChatController, nativeChatTranscriptIsLocalReadable,
+    quickCommandsSupported, toggleDisplayMode, setBrowserActionTarget, setDiscardMarkdownTarget, setDeleteKeyTarget,
     toggleTabChatView, terminalModes, handleCloseTerminal, handleClearTerminal, handleRenameTerminal,
     handleCloseSessionTab, bulkCloseActions, setActionTarget, markdownActionTarget,
     discardMarkdownLocalContent, setMarkdownActionTarget, closeWithBulkActions, fileActionTarget,

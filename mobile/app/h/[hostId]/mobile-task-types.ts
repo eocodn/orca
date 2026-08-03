@@ -1,8 +1,10 @@
 import type { RpcClient } from '../../../src/transport/rpc-client'
 import type { WorkspaceAgentChoice } from '../../../src/tasks/workspace-agent-selection'
-import type { GitHubProjectRef, GitHubProjectSettings, GitHubProjectSortDirection } from '../../../src/tasks/github-project-reference'
+import type { GitHubProjectRef, GitHubProjectSettings } from '../../../src/tasks/github-project-reference'
+import type { GitHubProjectSortDirection } from '../../../src/tasks/mobile-github-project-group-sort'
 import type { LinearMobileIssue } from '../../../src/tasks/linear-mobile-issue-read'
-import type { GitHubOwnerRepo, HostedReviewDecision, ProviderCheckSummary, TaskProvider, TuiAgent } from '../../../../src/shared/types'
+import type { GitHubOwnerRepo, ProviderCheckSummary, TaskProvider, TuiAgent } from '../../../../src/shared/types'
+import type { HostedReviewDecision } from '../../../../src/shared/hosted-review'
 
 export type RepoSummary = {
   id: string

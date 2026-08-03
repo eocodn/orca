@@ -2,11 +2,7 @@ import type { ConnectionState, ConnectionLogLevel } from './types'
 import { publicKeyFromBase64, encrypt } from './e2ee'
 import type { TerminalSnapshotState } from './rpc-client-terminal-binary-frame'
 import { redactSocketEndpoint } from './socket-event-debug'
-import {
-  isStaleRpcSocketEvent,
-  logRpcSocketClose,
-  RpcSynthesizedCloseIndex
-} from './rpc-socket-close-evidence'
+import { isStaleRpcSocketEvent, RpcSynthesizedCloseIndex } from './rpc-socket-close-evidence'
 import { createRpcClientApi } from './rpc-client-connection-api'
 import { openRpcSocket } from './rpc-client-connection-socket'
 import { createRpcStreamRouting } from './rpc-client-connection-stream-routing'
@@ -21,22 +17,12 @@ import type {
   ConnectWaiter,
   PendingRequest,
   RpcClient,
-  SendRequestOptions,
   StreamRequest,
-  StreamingListener,
-  SubscribeOptions
+  StreamingListener
 } from './rpc-client-connection-contracts'
 import {
   ACTIVITY_PROBE_INTERVAL_MS,
-  AUTH_RETRY_BUDGET,
-  CONNECT_TIMEOUT_MS,
-  GIVE_UP_AFTER_ATTEMPTS,
-  HANDSHAKE_TIMEOUT_MS,
-  RECONNECT_DELAYS,
-  REQUEST_TIMEOUT_MS,
-  TRICKLE_RECONNECT_DELAY_MS,
-  UNAUTHORIZED_CLOSE_CODE,
-  WEBSOCKET_CONNECTING_STATE
+  GIVE_UP_AFTER_ATTEMPTS
 } from './rpc-client-connection-policy'
 export type { ConnectOptions, RpcClient, SendRequestOptions } from './rpc-client-connection-contracts'
 export function connect(
@@ -282,6 +268,9 @@ export function connect(
       isTerminalSubscribedResult,
       isStreamingSubscriptionReadyResult,
       emitStreamError,
+      terminalStreamListeners,
+      terminalStreamIdsByRequest,
+      sendServerSubscriptionUnsubscribe,
       recordValidatedInboundTraffic,
       sendBrowserScreencastUnsubscribe: (subscriptionId) =>
         sendBrowserScreencastUnsubscribe({ nextId, deviceToken, sendEncrypted }, subscriptionId),
@@ -404,37 +393,6 @@ export function connect(
     sendEncrypted
   })
 
-  const lifecycle = createRpcConnectionLifecycle({
-    endpoint,
-    session: socketSession,
-    emitLog,
-    setState,
-    rejectConnectWaiters,
-    rejectAllPending,
-    markStreamsForReplay,
-    clearConnectTimer,
-    stopActivityProbe,
-    openConnection,
-    pending,
-    streamListeners,
-    streamState: {
-      get activeBrowserScreencastRequestId() {
-        return activeBrowserScreencastRequestId
-      },
-      set activeBrowserScreencastRequestId(value: string | null) {
-        activeBrowserScreencastRequestId = value
-      },
-      get pendingBrowserScreencastRequestId() {
-        return pendingBrowserScreencastRequestId
-      },
-      set pendingBrowserScreencastRequestId(value: string | null) {
-        pendingBrowserScreencastRequestId = value
-      }
-    },
-    synthesizedCloses
-  })
-  const { handleSocketClosed, handleAuthRejection, scheduleReconnect } = lifecycle
-
   const streamRouting = createRpcStreamRouting({
     pending,
     streamListeners,
@@ -468,11 +426,40 @@ export function connect(
     emitStreamError,
     disposeBrowserScreencastStream,
     disposeRuntimeClientEventsStream,
-    disposeServerSubscriptionStream,
     recordValidatedInboundTraffic,
-    handleBinaryFrame,
-    handleBrowserBinaryFrame
+    handleBinaryFrame
   } = streamRouting
+
+  const lifecycle = createRpcConnectionLifecycle({
+    endpoint,
+    session: socketSession,
+    emitLog,
+    setState,
+    rejectConnectWaiters,
+    rejectAllPending,
+    markStreamsForReplay,
+    clearConnectTimer,
+    stopActivityProbe,
+    openConnection,
+    pending,
+    streamListeners,
+    streamState: {
+      get activeBrowserScreencastRequestId() {
+        return activeBrowserScreencastRequestId
+      },
+      set activeBrowserScreencastRequestId(value: string | null) {
+        activeBrowserScreencastRequestId = value
+      },
+      get pendingBrowserScreencastRequestId() {
+        return pendingBrowserScreencastRequestId
+      },
+      set pendingBrowserScreencastRequestId(value: string | null) {
+        pendingBrowserScreencastRequestId = value
+      }
+    },
+    synthesizedCloses
+  })
+  const { handleSocketClosed, handleAuthRejection } = lifecycle
 
   openConnection()
 
@@ -517,13 +504,7 @@ export function connect(
     stateListeners,
     nextId,
     deviceToken,
-    getState: () => state,
-    getReconnectAttempt: () => reconnectAttempt,
     getLastConnectedAt: () => lastConnectedAt,
-    getIntentionallyClosed: () => intentionallyClosed,
-    setIntentionallyClosed: (value) => {
-      intentionallyClosed = value
-    },
     connectionState,
     waitForConnected,
     sendEncrypted,
