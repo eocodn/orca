@@ -7,7 +7,6 @@ import { classifyError } from '../telemetry/classify-error'
 import { track } from '../telemetry/client'
 import { toSshExecutionHostId } from '../../shared/execution-host'
 import { isValidTerminalTabId } from '../../shared/terminal-tab-id'
-import { isTerminalLeafId } from '../../shared/stable-pane-id'
 import { shouldSkipCodexHomeEnvForWindowsShell } from './pty-ipc-runtime-host-env-foundation'
 import { agentHookServer } from '../agent-hooks/server'
 
@@ -18,18 +17,15 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
   const {
     runtime, store, trustedTerminalHandleEnv, ptySizes, pendingPtySizes, ptyOwnership,
     getRelayPtyId,
-    assertPtyCleanupComplete, assertPtyRegistrationAllowed, assertSpawnReplyWasLive, stagePtyIncarnation,
+    assertPtyCleanupComplete, assertSpawnReplyWasLive, stagePtyIncarnation,
     rollbackPtyIncarnation, commitPtyIncarnation, clearProviderPtyState, deletePtyOwnership,
     snapshotPtyCleanupAuthority, snapshotPtyPublication, restorePtyPublication,
-    preparePtyRegistrationIncarnation, getPtyOutputSequence, synchronizePtyOutputSequenceFromProvider,
-    preparePtyExecutionContext, cancelPendingPtyRegistration, releaseRejectedPtyRegistrationFence,
-    quarantinePtyAfterPublicationFailure, hasObservedExactPtyExit, registerPreAllocatedHandleForPty,
-    registerPty, admitHeadlessPtyLifecycle, noteTerminalSpawnCommand, recordCodexPaneAccountForSpawn,
+    registerPty, recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty, pendingByPaneKey, pendingPtyIdBySerializerGeneration,
     rendererSerializerReadiness, sendPtySpawnedToRenderer, resolvePaneSpawnReservation,
     rejectPaneSpawnReservation, cleanUpFailedFreshSpawn, transitionSpawnHiddenRendererPtyDeliveryState,
     clearMigrationUnsupportedPtysForPaneKey, closeStartupQueryAuthorityForPty,
-    seedHeadlessTerminal, getSettings,
+    syncPtyBackgroundedDelivery, getSettings,
     getCohortAtEmit, agentKindSchema, launchSourceSchema, requestKindSchema, createTerminalSessionStateSaveFailureMessage,
     normalizeNodePtySpawnError, isSshPtyIdentityMismatchError, markClaudePtySpawned,
     markNativeWindowsConptyPty
@@ -38,16 +34,14 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
   return async (args: Record<string, any>) => {
     const prepared = await prepare(args)
     let {
-      spawnTiming, startupCwdFallback, provider, isClaudeLaunch, isDaemonHostSpawn, isMintedSessionId,
-      effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro, claudeAuth,
-      startupTerminalColorQueryReplyColors, sshSourceEnv, parsedSpawnPaneKey, verifiedPaneKey, verifiedLeafId,
-      metadataLeafId, metadataPaneKey, legacySpawnPaneKey, migrationUnsupportedPaneKey, stablePaneKey,
-      effectiveLaunchConfig, shouldPreAllocateTerminalHandle, preAllocatedHandle, requestedAgentTeamsPath,
-      agentTeamsEnvToDelete, validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride,
+      spawnTiming, startupCwdFallback, cwd, provider, isClaudeLaunch, isDaemonHostSpawn, isMintedSessionId,
+      effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro,
+      metadataLeafId, legacySpawnPaneKey, migrationUnsupportedPaneKey,
+      effectiveLaunchConfig, preAllocatedHandle,
+      validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride,
       nativeWindowsConptySpawn, codexSelectionTarget, codexResumeLaunch, codexResumeHome, launchCommand,
-      env, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, spawnEnv,
-      envToDelete, combinedEnvToDelete, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach,
-      sessionSizeBeforeAttach, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation,
+      selectedCodexHomePath, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach,
+      sessionSizeBeforeAttach, finishTerminalInstall, paneSpawnReservation,
       initiallyHidden, preSpawnHiddenMarkId
     } = prepared
     let result: PtySpawnResult

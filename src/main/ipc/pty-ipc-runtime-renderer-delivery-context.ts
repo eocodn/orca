@@ -1,5 +1,5 @@
 import type { WebContents } from 'electron'
-import type { GlobalSettings } from '../../shared/types'
+import type { GlobalSettings, TuiAgent } from '../../shared/types'
 import type { PtyDeliveryWriteOff, PtyRendererDeliveryHealthReply, PtyRendererDeliveryStateReport } from '../../shared/pty-renderer-delivery-health'
 import type { PtyMainDeliveryDiagnostics } from '../../shared/pty-delivery-diagnostics'
 import type { PtyModelRestoreReason } from '../../shared/pty-model-restore-marker'
@@ -11,6 +11,12 @@ import type { IPtyProvider, PtySpawnResult } from '../providers/types'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { PtyRegistrationFoundation } from './pty-ipc-runtime-registration-foundation'
 import type { PtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
+import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
+import type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
+import type { CodexSessionResumePreparation } from '../codex/codex-session-resume-home'
+import type { PtyShutdownObservation, PtyShutdownTarget } from './pty-ipc-runtime-shutdown-state'
+
+export type { PtyShutdownObservation, PtyShutdownTarget } from './pty-ipc-runtime-shutdown-state'
 
 export type PtyDataPayload = {
   id: string
@@ -29,16 +35,6 @@ export type RendererPtyDeliveryAccounting = {
   lastAckAtMs: number | null
 }
 
-export type PtyShutdownTarget = Readonly<{
-  stateToken: symbol
-  incarnationId: string | undefined
-}>
-
-export type PtyShutdownObservation = Readonly<{
-  providerExitObserved: boolean
-  identityLessExitPayload?: { id: string; code: number; incarnationId?: string }
-}>
-
 export type SerializeResult = {
   data: string
   cols: number
@@ -46,6 +42,11 @@ export type SerializeResult = {
   seq?: number
   lastTitle?: string
 } | null
+
+export type PtyCodexResumePreparation = {
+  providerSession: AgentProviderSessionMetadata
+  preparation: Promise<CodexSessionResumePreparation | null>
+}
 
 export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   [key: string]: any
@@ -127,7 +128,14 @@ export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   clearFlushTimerIfIdle: () => void
   resetRendererPtyDeliveryGateState: () => void
   localStartupCwdDirectoryExists: (path: string) => boolean
-  prepareCodexResumeHome: (...args: never[]) => unknown
+  prepareCodexResumeHome: (args: {
+    connectionId?: string | null
+    launchAgent?: TuiAgent
+    providerSession?: AgentProviderSessionMetadata
+    target: CodexAccountSelectionTarget
+    launchEnv?: NodeJS.ProcessEnv
+    workspacePath?: string
+  }) => PtyCodexResumePreparation | null
   _unusedHealthReply?: PtyRendererDeliveryHealthReply
   _unusedStateReport?: PtyRendererDeliveryStateReport
   _unusedSpawnResult?: PtySpawnResult
