@@ -128,6 +128,34 @@ describe('pty dispatcher delivery resync', () => {
     })
   })
 
+  it('accepts a new incarnation frame when the prior exit was lost', async () => {
+    const { ensurePtyDispatcher, ptyDataHandlers } = await import('./pty-dispatcher')
+    const received: string[] = []
+    ptyDataHandlers.set('pty-lost-exit', (data) => received.push(data))
+    ensurePtyDispatcher()
+
+    dataCallback?.({ id: 'pty-lost-exit', incarnationId: 'incarnation-old', data: 'old' })
+    dataCallback?.({ id: 'pty-lost-exit', incarnationId: 'incarnation-new', data: 'fresh' })
+    dataCallback?.({
+      id: 'pty-lost-exit',
+      incarnationId: 'incarnation-old',
+      data: 'delayed-old'
+    })
+
+    expect(received).toEqual(['old', 'fresh'])
+    expect(ackDataMock).toHaveBeenNthCalledWith(1, 'pty-lost-exit', 3, 3, 'incarnation-old')
+    expect(ackDataMock).toHaveBeenNthCalledWith(2, 'pty-lost-exit', 5, 5, 'incarnation-new')
+    expect(ackDataMock).toHaveBeenCalledTimes(2)
+
+    resyncRequestCallback?.({ requestId: 10 })
+    expect(respondDeliveryResyncMock).toHaveBeenLastCalledWith({
+      requestId: 10,
+      processedCharsByPty: {
+        'pty-lost-exit': { incarnationId: 'incarnation-new', processedChars: 5 }
+      }
+    })
+  })
+
   it('uses the active incarnation to fence delayed data from a tokenless legacy exit', async () => {
     const { ensurePtyDispatcher } = await import('./pty-dispatcher')
     ensurePtyDispatcher()

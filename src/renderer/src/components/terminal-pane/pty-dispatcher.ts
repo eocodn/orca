@@ -140,7 +140,10 @@ function handleDispatchedPtyData(payload: {
     }
     const activeIncarnation = activePtyIncarnationById.get(payload.id)
     if (activeIncarnation !== undefined && activeIncarnation !== payload.incarnationId) {
-      return
+      // A lost exit leaves the old token active; the next authoritative frame is the replacement boundary.
+      retiredPtyIncarnationById.set(payload.id, activeIncarnation)
+      clearProcessedPtyCharTotal(payload.id)
+      clearReceivedPtyCharTotal(payload.id)
     }
     activePtyIncarnationById.set(payload.id, payload.incarnationId)
   } else if (retiredPtyIncarnationById.has(payload.id)) {
