@@ -25,7 +25,12 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   private sessionProviders = new Map<string, IPtyProvider>()
   private unsubscribers: (() => void)[] = []
   private dataListeners: ((payload: PtyDataEvent) => void)[] = []
-  private exitListeners: ((payload: { id: string; code: number }) => void)[] = []
+  private exitListeners: ((payload: {
+    id: string
+    code: number
+    incarnationId?: string
+  }) => void)[] = []
+  private sessionIncarnations = new Map<string, string>()
 
   constructor(opts: {
     current: DaemonPtyAdapter
@@ -39,15 +44,22 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     for (const provider of this.allProviders()) {
       this.unsubscribers.push(
         provider.onData((payload) => {
+          this.sessionIncarnations.set(payload.id, payload.incarnationId)
           for (const listener of this.dataListeners) {
             listener(payload)
           }
         }),
         provider.onExit((payload) => {
           this.sessionProviders.delete(payload.id)
-          for (const listener of this.exitListeners) {
-            listener(payload)
+          const incarnationId = payload.incarnationId ?? this.sessionIncarnations.get(payload.id)
+          const exitPayload = {
+            ...payload,
+            ...(incarnationId ? { incarnationId } : {})
           }
+          for (const listener of this.exitListeners) {
+            listener(exitPayload)
+          }
+          this.sessionIncarnations.delete(payload.id)
         })
       )
     }
@@ -59,6 +71,11 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
         const sessions = await adapter.listProcesses()
         for (const session of sessions) {
           this.sessionProviders.set(session.id, adapter)
+          if (session.incarnationId) {
+            this.sessionIncarnations.set(session.id, session.incarnationId)
+          } else {
+            this.sessionIncarnations.delete(session.id)
+          }
         }
       } catch (error) {
         console.warn('[daemon] Failed to discover degraded daemon sessions', error)
@@ -71,6 +88,11 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     const target = mapped ?? this.fallback
     const result = await target.spawn(opts)
     this.sessionProviders.set(result.id, target)
+    if (result.incarnationId) {
+      this.sessionIncarnations.set(result.id, result.incarnationId)
+    } else {
+      this.sessionIncarnations.delete(result.id)
+    }
     return result
   }
 
@@ -253,7 +275,9 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
     return trackedUnsubscribe
   }
 
-  onExit(callback: (payload: { id: string; code: number }) => void): () => void {
+  onExit(
+    callback: (payload: { id: string; code: number; incarnationId?: string }) => void
+  ): () => void {
     this.exitListeners.push(callback)
     return () => {
       const idx = this.exitListeners.indexOf(callback)
@@ -304,6 +328,7 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
 
   disposeProviderOnly(): void {
     combineUnsubscribes(this.unsubscribers.splice(0))()
+    this.sessionIncarnations.clear()
   }
 
   async shutdownFallbackSessions(): Promise<number> {
@@ -317,11 +342,13 @@ export class DegradedDaemonPtyProvider implements IPtyProvider {
   fanoutCurrentDaemonSyntheticExits(code: number): void {
     for (const id of this.getCurrentDaemonSessionIds()) {
       this.sessionProviders.delete(id)
+      const incarnationId = this.sessionIncarnations.get(id)
       // Why: restart kills listed sessions even when the adapter did not track them active.
       // oxlint-disable-next-line unicorn/no-useless-spread -- copy-safe: listeners may unsubscribe during iteration
       for (const listener of [...this.exitListeners]) {
-        listener({ id, code })
+        listener({ id, code, ...(incarnationId ? { incarnationId } : {}) })
       }
+      this.sessionIncarnations.delete(id)
     }
   }
 

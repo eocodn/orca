@@ -396,12 +396,24 @@ describe('DegradedDaemonPtyProvider', () => {
     const provider = new DegradedDaemonPtyProvider({ current, legacy: [legacy], fallback })
     const exitSpy = vi.fn()
     provider.onExit(exitSpy)
+    vi.mocked(current.listProcesses).mockResolvedValue([
+      {
+        id: 'current-session',
+        incarnationId: 'current-incarnation',
+        cwd: '',
+        title: 'daemon'
+      }
+    ])
 
     await provider.discoverDaemonSessions()
     provider.fanoutCurrentDaemonSyntheticExits(-1)
 
     expect(exitSpy).toHaveBeenCalledOnce()
-    expect(exitSpy).toHaveBeenCalledWith({ id: 'current-session', code: -1 })
+    expect(exitSpy).toHaveBeenCalledWith({
+      id: 'current-session',
+      code: -1,
+      incarnationId: 'current-incarnation'
+    })
     expect(provider.getCurrentDaemonSessionIds()).toEqual([])
     expect(provider.hasPty('legacy-session')).toBe(true)
   })

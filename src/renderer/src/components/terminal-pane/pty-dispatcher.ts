@@ -222,8 +222,9 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
       }
       // Why: main drops its accounting on exit; drop totals too so a reused id restarts at zero on both sides.
       clearProcessedPtyCharTotal(payload.id)
-      if (payload.incarnationId) {
-        retiredPtyIncarnationById.set(payload.id, payload.incarnationId)
+      const retiredIncarnation = payload.incarnationId ?? activeIncarnation
+      if (retiredIncarnation !== undefined) {
+        retiredPtyIncarnationById.set(payload.id, retiredIncarnation)
       }
       activePtyIncarnationById.delete(payload.id)
       clearReceivedPtyCharTotal(payload.id)

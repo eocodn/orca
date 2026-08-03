@@ -5751,6 +5751,7 @@ describe('registerPtyHandlers', () => {
           kill: (ptyId: string) => boolean
         }
 
+        restorePtyIncarnation('local-pty', 'known-incarnation')
         expect(controller.kill('local-pty')).toBe(true)
         await Promise.resolve()
         await Promise.resolve()
@@ -5761,7 +5762,9 @@ describe('registerPtyHandlers', () => {
         })
         expect(
           mainWindow.webContents.send.mock.calls.filter((call) => call[0] === 'pty:exit')
-        ).toEqual([['pty:exit', { id: 'local-pty', code: 0 }]])
+        ).toEqual([
+          ['pty:exit', { id: 'local-pty', code: 0, incarnationId: 'known-incarnation' }]
+        ])
       })
 
       it('controller stopAndWait skips the synthetic exit when the provider emitted one', async () => {
@@ -6786,6 +6789,7 @@ describe('registerPtyHandlers', () => {
   })
 
   it('synthesizes runtime exit after ordinary daemon-backed pty kill', async () => {
+    const incarnationId = 'known-incarnation'
     const shutdown = vi.fn(async () => undefined)
     const runtime = {
       setPtyController: vi.fn(),
@@ -6821,6 +6825,7 @@ describe('registerPtyHandlers', () => {
       getDefaultShell: vi.fn(),
       getProfiles: vi.fn()
     } as never)
+    restorePtyIncarnation('local-pty', incarnationId)
     handlers.clear()
     registerPtyHandlers(mainWindow as never, runtime as never)
 
@@ -6830,11 +6835,13 @@ describe('registerPtyHandlers', () => {
       immediate: true,
       keepHistory: true
     })
-    expect(runtime.onPtyExit).toHaveBeenCalledWith('local-pty', -1, undefined)
+    expect(runtime.onPtyExit).toHaveBeenCalledWith('local-pty', -1, incarnationId)
     expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:exit', {
       id: 'local-pty',
-      code: -1
+      code: -1,
+      incarnationId
     })
+    clearProviderPtyState('local-pty')
   })
 
   it('does not let an earlier async kill completion clear a replacement incarnation', async () => {
@@ -7008,6 +7015,7 @@ describe('registerPtyHandlers', () => {
     handlers.clear()
     registerPtyHandlers(mainWindow as never, runtime as never)
 
+    restorePtyIncarnation('local-pty', 'known-incarnation')
     await handlers.get('pty:kill')!(null, { id: 'local-pty' })
 
     expect(runtime.onPtyExit).toHaveBeenCalledTimes(1)
@@ -7015,7 +7023,7 @@ describe('registerPtyHandlers', () => {
       authoritativeIdentityLess: true
     })
     expect(mainWindow.webContents.send.mock.calls.filter((call) => call[0] === 'pty:exit')).toEqual(
-      [['pty:exit', { id: 'local-pty', code: 0 }]]
+      [['pty:exit', { id: 'local-pty', code: 0, incarnationId: 'known-incarnation' }]]
     )
   })
 

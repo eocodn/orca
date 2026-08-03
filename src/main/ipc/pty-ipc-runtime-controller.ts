@@ -55,7 +55,11 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
           }
           runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
           rememberSyntheticKillExit(ptyId, target)
-          sendPtyExitToRenderer({ id: ptyId, code: -1 })
+          sendPtyExitToRenderer({
+            id: ptyId,
+            code: -1,
+            ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+          })
           return true
         }
         return false
@@ -73,11 +77,18 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
               authoritativeIdentityLess: true,
               ...(finished.incarnationId ? { expectedIncarnationId: finished.incarnationId } : {})
             })
-            sendPtyExitToRenderer(observation.identityLessExitPayload)
+            sendPtyExitToRenderer({
+              ...observation.identityLessExitPayload,
+              ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+            })
           } else if (!observation.providerExitObserved) {
             runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
             rememberSyntheticKillExit(ptyId, expectedTarget)
-            sendPtyExitToRenderer({ id: ptyId, code: -1 })
+            sendPtyExitToRenderer({
+              id: ptyId,
+              code: -1,
+              ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+            })
           }
         })
         .catch((err) => {
@@ -88,7 +99,11 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
             }
             runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
             rememberSyntheticKillExit(ptyId, expectedTarget)
-            sendPtyExitToRenderer({ id: ptyId, code: -1 })
+            sendPtyExitToRenderer({
+              id: ptyId,
+              code: -1,
+              ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+            })
             return
           }
           if (!isPtyShutdownTargetCurrent(ptyId, expectedTarget)) {
@@ -184,7 +199,11 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
         }
         runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
         rememberSyntheticKillExit(ptyId, target)
-        sendPtyExitToRenderer({ id: ptyId, code: -1 })
+        sendPtyExitToRenderer({
+          id: ptyId,
+          code: -1,
+          ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+        })
         return true
       }
       return false
@@ -232,11 +251,18 @@ export function createPtyController(state: PtyRendererDeliveryContext & Record<s
         authoritativeIdentityLess: true,
         ...(finished.incarnationId ? { expectedIncarnationId: finished.incarnationId } : {})
       })
-      sendPtyExitToRenderer(observation.identityLessExitPayload)
+      sendPtyExitToRenderer({
+        ...observation.identityLessExitPayload,
+        ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+      })
     } else if (!observation.providerExitObserved) {
       runtime?.onPtyExit(ptyId, -1, finished.incarnationId)
       rememberSyntheticKillExit(ptyId, expectedTarget)
-      sendPtyExitToRenderer({ id: ptyId, code: -1 })
+      sendPtyExitToRenderer({
+        id: ptyId,
+        code: -1,
+        ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+      })
     }
     return true
     },

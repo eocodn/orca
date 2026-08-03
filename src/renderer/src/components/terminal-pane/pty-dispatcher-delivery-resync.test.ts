@@ -127,4 +127,34 @@ describe('pty dispatcher delivery resync', () => {
       }
     })
   })
+
+  it('uses the active incarnation to fence delayed data from a tokenless legacy exit', async () => {
+    const { ensurePtyDispatcher } = await import('./pty-dispatcher')
+    ensurePtyDispatcher()
+
+    dataCallback?.({ id: 'pty-legacy-exit', incarnationId: 'incarnation-old', data: 'old' })
+    exitCallback?.({ id: 'pty-legacy-exit', code: 0 })
+    dataCallback?.({
+      id: 'pty-legacy-exit',
+      incarnationId: 'incarnation-old',
+      data: 'delayed-old'
+    })
+    dataCallback?.({ id: 'pty-legacy-exit', incarnationId: 'incarnation-new', data: 'fresh' })
+
+    expect(ackDataMock).toHaveBeenNthCalledWith(
+      1,
+      'pty-legacy-exit',
+      3,
+      3,
+      'incarnation-old'
+    )
+    expect(ackDataMock).toHaveBeenNthCalledWith(
+      2,
+      'pty-legacy-exit',
+      5,
+      5,
+      'incarnation-new'
+    )
+    expect(ackDataMock).toHaveBeenCalledTimes(2)
+  })
 })

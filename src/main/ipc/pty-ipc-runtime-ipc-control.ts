@@ -89,7 +89,11 @@ export function installPtyIpcControlHandlers(): void {
       }
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)
       state.rememberSyntheticKillExit(args.id, target)
-      state.sendPtyExitToRenderer({ id: args.id, code: -1 })
+      state.sendPtyExitToRenderer({
+        id: args.id,
+        code: -1,
+        ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+      })
       return
     }
     const shutdownProvider = provider ?? state.getProviderForPty(args.id)
@@ -114,11 +118,18 @@ export function installPtyIpcControlHandlers(): void {
         authoritativeIdentityLess: true,
         ...(finished.incarnationId ? { expectedIncarnationId: finished.incarnationId } : {})
       })
-      state.sendPtyExitToRenderer(observation.identityLessExitPayload)
+      state.sendPtyExitToRenderer({
+        ...observation.identityLessExitPayload,
+        ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+      })
     } else if (!observation.providerExitObserved) {
       runtime?.onPtyExit(args.id, -1, finished.incarnationId)
       state.rememberSyntheticKillExit(args.id, expectedTarget)
-      state.sendPtyExitToRenderer({ id: args.id, code: -1 })
+      state.sendPtyExitToRenderer({
+        id: args.id,
+        code: -1,
+        ...(finished.incarnationId ? { incarnationId: finished.incarnationId } : {})
+      })
     }
   })
 
