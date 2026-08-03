@@ -1,16 +1,6 @@
 
 import { z } from 'zod'
 import { FEATURE_WALL_MAX_DWELL_MS } from './feature-wall-telemetry'
-import { FEATURE_WALL_EXIT_ACTIONS, FEATURE_WALL_TOUR_DEPTH_STEPS } from './feature-wall-tour-depth'
-import {
-  CONTEXTUAL_TOUR_OUTCOMES,
-  FEATURE_EDUCATION_CONTEXTUAL_TOUR_IDS,
-  FEATURE_EDUCATION_SOURCES,
-  SETUP_GUIDE_CLOSE_OUTCOMES,
-  SETUP_GUIDE_SOURCES,
-  TERMINAL_PANE_SPLIT_SOURCES
-} from './feature-education-telemetry'
-import { FEATURE_WALL_SETUP_STEP_IDS } from './feature-wall-setup-steps'
 import {
   FEATURE_INTERACTION_CATEGORIES,
   FEATURE_INTERACTION_IDS,
@@ -30,8 +20,6 @@ import {
   DAEMON_AUDIT_TRIGGER_VALUES,
   DAEMON_EVIDENCE_SOURCE_VALUES
 } from './daemon-audit-eligibility'
-import { SETUP_SCRIPT_IMPORT_PROVIDERS } from './setup-script-import-providers'
-import { WORKSPACE_SOURCE_VALUES, type WorkspaceSource } from './workspace-source'
 import { appStarSourceSchema } from './gh-star-source'
 import {
   starNagAgentBucketSchema,
@@ -39,27 +27,22 @@ import {
   starNagPromptModeSchema,
   starNagPromptSourceSchema
 } from './star-nag-telemetry'
-import {
-  NESTED_REPO_COUNT_BUCKETS,
-  NESTED_REPO_IMPORT_ACTIONS,
-  NESTED_REPO_IMPORT_OUTCOMES,
-  NESTED_REPO_SCAN_RESULTS,
-  NESTED_REPO_TELEMETRY_MAX_REPO_COUNT,
-  NESTED_REPO_TELEMETRY_RUNTIME_KINDS,
-  NESTED_REPO_TELEMETRY_SURFACES,
-  bucketNestedRepoTelemetryCount
-} from './nested-repo-telemetry'
-
-import { AGENT_HOOK_TARGETS } from './agent-hook-types'
-import type {
-  DiscoveryStatusEmitted,
-  GlobalSettings,
-  OnboardingChecklistState,
-  PathSource,
-  ShellHydrationFailureReason
-} from './types'
 import * as shared from './telemetry-event-shared-enums'
-const { AGENT_KIND_VALUES, agentKindSchema, errorClassSchema, repoMethodSchema, addRepoSetupStepActionSchema, addRepoExistingWorkspaceSourceSchema, addRepoDefaultCheckoutHandoffSourceSchema, addRepoDefaultCheckoutHandoffResultSchema, addRepoDefaultCheckoutHandoffReasonSchema, setupScriptImportProviderSchema, workspaceCreateErrorClassSchema, workspaceSourceSchema, launchSourceSchema, requestKindSchema, featureWallTileIdSchema, featureWallOpenSourceSchema, featureWallWorkflowIdSchema, featureWallTourDepthStepSchema, featureWallExitActionSchema, optInViaSchema, SETTINGS_CHANGED_WHITELIST, settingsChangedKeySchema } = shared
+const {
+  agentKindSchema,
+  errorClassSchema,
+  repoMethodSchema,
+  workspaceSourceSchema,
+  launchSourceSchema,
+  requestKindSchema,
+  featureWallTileIdSchema,
+  featureWallOpenSourceSchema,
+  featureWallWorkflowIdSchema,
+  featureWallTourDepthStepSchema,
+  featureWallExitActionSchema,
+  optInViaSchema,
+  settingsChangedKeySchema
+} = shared
 
 export const nthRepoAddedSchema = z.number().int().nonnegative().optional()
 

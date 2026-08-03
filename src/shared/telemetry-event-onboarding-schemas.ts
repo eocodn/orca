@@ -1,44 +1,5 @@
 
 import { z } from 'zod'
-import { FEATURE_WALL_MAX_DWELL_MS } from './feature-wall-telemetry'
-import { FEATURE_WALL_EXIT_ACTIONS, FEATURE_WALL_TOUR_DEPTH_STEPS } from './feature-wall-tour-depth'
-import {
-  CONTEXTUAL_TOUR_OUTCOMES,
-  FEATURE_EDUCATION_CONTEXTUAL_TOUR_IDS,
-  FEATURE_EDUCATION_SOURCES,
-  SETUP_GUIDE_CLOSE_OUTCOMES,
-  SETUP_GUIDE_SOURCES,
-  TERMINAL_PANE_SPLIT_SOURCES
-} from './feature-education-telemetry'
-import { FEATURE_WALL_SETUP_STEP_IDS } from './feature-wall-setup-steps'
-import {
-  FEATURE_INTERACTION_CATEGORIES,
-  FEATURE_INTERACTION_IDS,
-  FEATURE_INTERACTION_USAGE_BUCKETS,
-  getFeatureInteractionCategory
-} from './feature-interactions'
-import {
-  DAEMON_LIFECYCLE_SESSION_BUCKETS,
-  DAEMON_LIFECYCLE_TRANSITIONS,
-  DAEMON_REPLACE_REASONS,
-  DAEMON_RETIRE_REASONS
-} from './daemon-lifecycle-telemetry'
-import {
-  DAEMON_AUDIT_PROCESS_REASON_VALUES,
-  DAEMON_AUDIT_REASON_VALUES,
-  DAEMON_AUDIT_STATE_VALUES,
-  DAEMON_AUDIT_TRIGGER_VALUES,
-  DAEMON_EVIDENCE_SOURCE_VALUES
-} from './daemon-audit-eligibility'
-import { SETUP_SCRIPT_IMPORT_PROVIDERS } from './setup-script-import-providers'
-import { WORKSPACE_SOURCE_VALUES, type WorkspaceSource } from './workspace-source'
-import { appStarSourceSchema } from './gh-star-source'
-import {
-  starNagAgentBucketSchema,
-  starNagOutcomeSchema,
-  starNagPromptModeSchema,
-  starNagPromptSourceSchema
-} from './star-nag-telemetry'
 import {
   NESTED_REPO_COUNT_BUCKETS,
   NESTED_REPO_IMPORT_ACTIONS,
@@ -51,17 +12,20 @@ import {
 } from './nested-repo-telemetry'
 
 import { AGENT_HOOK_TARGETS } from './agent-hook-types'
-import type {
-  DiscoveryStatusEmitted,
-  GlobalSettings,
-  OnboardingChecklistState,
-  PathSource,
-  ShellHydrationFailureReason
-} from './types'
+import type { OnboardingChecklistState } from './types'
 import * as shared from './telemetry-event-shared-enums'
 import * as core from './telemetry-event-core-schemas'
-const { AGENT_KIND_VALUES, agentKindSchema, errorClassSchema, repoMethodSchema, addRepoSetupStepActionSchema, addRepoExistingWorkspaceSourceSchema, addRepoDefaultCheckoutHandoffSourceSchema, addRepoDefaultCheckoutHandoffResultSchema, addRepoDefaultCheckoutHandoffReasonSchema, setupScriptImportProviderSchema, workspaceCreateErrorClassSchema, workspaceSourceSchema, launchSourceSchema, requestKindSchema, featureWallTileIdSchema, featureWallOpenSourceSchema, featureWallWorkflowIdSchema, featureWallTourDepthStepSchema, featureWallExitActionSchema, optInViaSchema, SETTINGS_CHANGED_WHITELIST, settingsChangedKeySchema } = shared
-const { nthRepoAddedSchema, appOpenedSchema, featureInteractionIdSchema, featureInteractionCategorySchema, featureInteractionUsageBucketSchema, featureInteractionUsageBucketSourceSchema, featureInteractionUsageBucketReachedSchema, repoAddedSchema, appStarredOrcaSchema, starNagOutcomeEventSchema, workspaceCreatedSchema, agentStartedSchema, agentPromptSentSchema, agentErrorSchema, daemonStartFailedSchema, runtimeRpcStartErrorClassSchema, runtimeRpcStartFailedSchema, mainThreadHangDetectedSchema, daemonLifecycleSchema, daemonAuditEligibilitySchema, codexTrustGrantSchema, settingsChangedSchema, nativeChatViewModeSchema, nativeChatToggledSchema, nativeChatRuntimeSchema, nativeChatMessageSentSchema, nativeChatPickerOpenedSchema, nativeChatPickerItemAcceptedSchema, nativeChatSendClassifiedSchema, nativeChatSkillDiscoverySchema, telemetryOptedInSchema, telemetryOptedOutSchema, orcaCliFeatureTipSourceSchema, orcaCliFeatureTipShownSchema, orcaCliFeatureTipSetupClickedSchema, orcaCliFeatureTipSetupResultSchema, cmdJPaletteFeatureTipShownSchema, cmdJPaletteFeatureTipAcknowledgedSchema, featureWallOpenedSchema, featureWallClosedSchema, featureWallTileFocusedSchema, featureWallTileClickedSchema, featureWallGroupSelectedSchema, featureWallFeatureSelectedSchema, featureWallDocsClickedSchema } = core
+const {
+  addRepoSetupStepActionSchema,
+  addRepoExistingWorkspaceSourceSchema,
+  addRepoDefaultCheckoutHandoffSourceSchema,
+  addRepoDefaultCheckoutHandoffResultSchema,
+  addRepoDefaultCheckoutHandoffReasonSchema,
+  setupScriptImportProviderSchema,
+  workspaceCreateErrorClassSchema,
+  workspaceSourceSchema
+} = shared
+const { nthRepoAddedSchema } = core
 
 export const existingWorkspaceCountSchema = z.number().int().min(1).max(50)
 export const addRepoExistingWorkspaceContextSchema = {

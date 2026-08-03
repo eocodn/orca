@@ -1,13 +1,94 @@
 import { z } from 'zod'
-import * as shared from './telemetry-event-shared-enums'
 import * as core from './telemetry-event-core-schemas'
 import * as onboarding from './telemetry-event-onboarding-schemas'
 import * as education from './telemetry-event-education-schemas'
 
-const { AGENT_KIND_VALUES, agentKindSchema, errorClassSchema, repoMethodSchema, addRepoSetupStepActionSchema, addRepoExistingWorkspaceSourceSchema, addRepoDefaultCheckoutHandoffSourceSchema, addRepoDefaultCheckoutHandoffResultSchema, addRepoDefaultCheckoutHandoffReasonSchema, setupScriptImportProviderSchema, workspaceCreateErrorClassSchema, workspaceSourceSchema, launchSourceSchema, requestKindSchema, featureWallTileIdSchema, featureWallOpenSourceSchema, featureWallWorkflowIdSchema, featureWallTourDepthStepSchema, featureWallExitActionSchema, optInViaSchema, SETTINGS_CHANGED_WHITELIST, settingsChangedKeySchema } = shared
-const { nthRepoAddedSchema, appOpenedSchema, featureInteractionIdSchema, featureInteractionCategorySchema, featureInteractionUsageBucketSchema, featureInteractionUsageBucketSourceSchema, featureInteractionUsageBucketReachedSchema, repoAddedSchema, appStarredOrcaSchema, starNagOutcomeEventSchema, workspaceCreatedSchema, agentStartedSchema, agentPromptSentSchema, agentErrorSchema, daemonStartFailedSchema, runtimeRpcStartErrorClassSchema, runtimeRpcStartFailedSchema, mainThreadHangDetectedSchema, daemonLifecycleSchema, daemonAuditEligibilitySchema, codexTrustGrantSchema, settingsChangedSchema, nativeChatViewModeSchema, nativeChatToggledSchema, nativeChatRuntimeSchema, nativeChatMessageSentSchema, nativeChatPickerOpenedSchema, nativeChatPickerItemAcceptedSchema, nativeChatSendClassifiedSchema, nativeChatSkillDiscoverySchema, telemetryOptedInSchema, telemetryOptedOutSchema, orcaCliFeatureTipSourceSchema, orcaCliFeatureTipShownSchema, orcaCliFeatureTipSetupClickedSchema, orcaCliFeatureTipSetupResultSchema, cmdJPaletteFeatureTipShownSchema, cmdJPaletteFeatureTipAcknowledgedSchema, featureWallOpenedSchema, featureWallClosedSchema, featureWallTileFocusedSchema, featureWallTileClickedSchema, featureWallGroupSelectedSchema, featureWallFeatureSelectedSchema, featureWallDocsClickedSchema } = core
-const { existingWorkspaceCountSchema, addRepoExistingWorkspaceContextSchema, addRepoSetupStepActionEventSchema, addRepoExistingWorkspacesDetectedSchema, addRepoDefaultCheckoutHandoffSchema, workspaceCreateFailedSchema, setupScriptPromptModeSchema, setupScriptCountBucketSchema, setupScriptPromptContextSchema, validateSetupScriptPromptProvider, setupScriptPromptShownSchema, setupScriptDetectedSaveActions, isSetupScriptDetectedSaveAction, validateSetupScriptPromptAction, setupScriptPromptActionSchema, hookInstallAgentSchema, agentHookInstallFailedSchema, agentHookUnattributedSchema, ONBOARDING_TELEMETRY_LEGACY_MAX_STEP, onboardingStepSchema, onboardingPathSchema, onboardingFailureReasonSchema, onboardingValueKindSchema, onboardingTourOutcomeSchema, onboardingTaskSourcesGithubStatusSchema, onboardingTaskSourcesLinearStatusSchema, onboardingTaskSourcesExitActionSchema, onboardingWindowsTerminalShellSchema, onboardingWindowsTerminalRightClickSchema, onboardingWindowsTerminalExitActionSchema, onboardingChecklistItemSchema, onboardingFeatureSetupFeatureSchema, onboardingFeatureSetupSelectionSchema, onboardingFeatureSetupSelectedCountRefinement, hasMatchingOnboardingFeatureSetupSelectedCount, _onboardingChecklistItemSyncCheck, cohortSchema, nestedRepoTelemetrySurfaceSchema, nestedRepoTelemetryRuntimeKindSchema, nestedRepoCountSchema, nestedRepoCountBucketSchema, nestedRepoScanResultSchema, nestedRepoImportActionSchema, nestedRepoImportOutcomeSchema, nestedRepoScanPathKindSchema, nestedRepoImportModeSchema, nestedRepoAttemptIdSchema, validateNestedRepoCountBucket, validateNestedRepoCountBuckets, nestedRepoTelemetryBaseSchema, addRepoNestedScanResultSchema, addRepoNestedImportActionSchema, addRepoNestedImportResultSchema, advancedViaSchema } = onboarding
-const { onboardingStartedSchema, onboardingStepViewedSchema, onboardingStepCompletedSchema, onboardingStepSkippedSchema, validateOnboardingTourOutcome, onboardingTourOutcomeEventSchema, onboardingStep4PathClickedSchema, onboardingStep4PathFailedSchema, onboardingTaskSourcesSnapshotSchema, onboardingWindowsTerminalSnapshotSchema, onboardingCompletedSchema, onboardingDismissedSchema, activationChecklistItemCompletedSchema, pathSourceSchema, pathFailureReasonSchema, _pathFailureReasonSyncCheck, _pathSourceSyncCheck, onboardingAgentPickedSchema, ghosttyDiscoveryStateSchema, _ghosttyDiscoveryStateSyncCheck, onboardingGhosttyDiscoveredSchema, onboardingGhosttyImportClickedSchema, smartSortClassDistributionSchema, smartSortClass1PromotionSchema, smartToRecentSwitchSchema, onboardingGhosttyImportFailedSchema, onboardingFeatureSetupToggledSchema, onboardingFeatureSetupRunSchema, onboardingFeatureSetupTerminalOpenedSchema, onboardingFeatureSetupTerminalInteractedSchema, featureEducationSourceSchema, featureEducationContextualTourIdSchema, setupGuideSourceSchema, setupGuideCloseOutcomeSchema, setupGuideStepIdSchema, setupGuideStepIdOrNoneSchema, terminalPaneSplitSourceSchema, contextualTourShownSchema, contextualTourOutcomeSchema, setupGuideOpenedSchema, setupGuideClosedSchema, setupGuideStepCompletedSchema, terminalPaneSplitSchema, editorExternalChangeConflictShownSchema, editorExternalChangeConflictActionSchema, directSshReconnectCountSchema, directSshReconnectDurationSchema, directSshReconnectOperationSchema } = education
+const {
+  appOpenedSchema,
+  featureInteractionUsageBucketReachedSchema,
+  repoAddedSchema,
+  appStarredOrcaSchema,
+  starNagOutcomeEventSchema,
+  workspaceCreatedSchema,
+  agentStartedSchema,
+  agentPromptSentSchema,
+  agentErrorSchema,
+  daemonStartFailedSchema,
+  runtimeRpcStartFailedSchema,
+  mainThreadHangDetectedSchema,
+  daemonLifecycleSchema,
+  daemonAuditEligibilitySchema,
+  codexTrustGrantSchema,
+  settingsChangedSchema,
+  nativeChatToggledSchema,
+  nativeChatMessageSentSchema,
+  nativeChatPickerOpenedSchema,
+  nativeChatPickerItemAcceptedSchema,
+  nativeChatSendClassifiedSchema,
+  nativeChatSkillDiscoverySchema,
+  telemetryOptedInSchema,
+  telemetryOptedOutSchema,
+  orcaCliFeatureTipShownSchema,
+  orcaCliFeatureTipSetupClickedSchema,
+  orcaCliFeatureTipSetupResultSchema,
+  cmdJPaletteFeatureTipShownSchema,
+  cmdJPaletteFeatureTipAcknowledgedSchema,
+  featureWallOpenedSchema,
+  featureWallClosedSchema,
+  featureWallTileFocusedSchema,
+  featureWallTileClickedSchema,
+  featureWallGroupSelectedSchema,
+  featureWallFeatureSelectedSchema,
+  featureWallDocsClickedSchema
+} = core
+const {
+  addRepoSetupStepActionEventSchema,
+  addRepoExistingWorkspacesDetectedSchema,
+  addRepoDefaultCheckoutHandoffSchema,
+  workspaceCreateFailedSchema,
+  setupScriptPromptShownSchema,
+  setupScriptPromptActionSchema,
+  agentHookInstallFailedSchema,
+  agentHookUnattributedSchema,
+  addRepoNestedScanResultSchema,
+  addRepoNestedImportActionSchema,
+  addRepoNestedImportResultSchema,
+  cohortSchema
+} = onboarding
+const {
+  onboardingStartedSchema,
+  onboardingStepViewedSchema,
+  onboardingStepCompletedSchema,
+  onboardingStepSkippedSchema,
+  onboardingTourOutcomeEventSchema,
+  onboardingStep4PathClickedSchema,
+  onboardingStep4PathFailedSchema,
+  onboardingTaskSourcesSnapshotSchema,
+  onboardingWindowsTerminalSnapshotSchema,
+  onboardingCompletedSchema,
+  onboardingDismissedSchema,
+  activationChecklistItemCompletedSchema,
+  onboardingAgentPickedSchema,
+  onboardingGhosttyDiscoveredSchema,
+  onboardingGhosttyImportClickedSchema,
+  smartSortClassDistributionSchema,
+  smartSortClass1PromotionSchema,
+  smartToRecentSwitchSchema,
+  onboardingGhosttyImportFailedSchema,
+  onboardingFeatureSetupToggledSchema,
+  onboardingFeatureSetupRunSchema,
+  onboardingFeatureSetupTerminalOpenedSchema,
+  onboardingFeatureSetupTerminalInteractedSchema,
+  contextualTourShownSchema,
+  contextualTourOutcomeSchema,
+  setupGuideOpenedSchema,
+  setupGuideClosedSchema,
+  setupGuideStepCompletedSchema,
+  terminalPaneSplitSchema,
+  editorExternalChangeConflictShownSchema,
+  editorExternalChangeConflictActionSchema,
+  directSshReconnectOperationSchema
+} = education
 
 export const eventSchemas = {
   app_opened: appOpenedSchema,
