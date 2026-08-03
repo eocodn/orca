@@ -14,4 +14,4 @@ export {
   getPtyIncarnation,
   getPtyStateToken,
   getOrCreatePtyStateToken
-} from './pty-ipc-runtime-registration-implementation'
+} from './pty-ipc-runtime-registration-facade'

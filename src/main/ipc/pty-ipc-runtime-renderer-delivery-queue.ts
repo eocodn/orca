@@ -23,8 +23,7 @@ import {
   PTY_BATCH_DRAIN_CONTINUE_MS,
   PTY_BATCH_FLUSH_CHUNK_CHARS,
   PTY_BATCH_FLUSH_MAX_WRITES,
-  PTY_DISPATCHER_READY_WATCHDOG_MS,
-  PTY_DELIVERY_RESYNC_TIMEOUT_MS
+  PTY_DISPATCHER_READY_WATCHDOG_MS
 } from './pty-ipc-runtime-renderer-delivery-constants'
 
 const DROPPED_QUERY_SALVAGE_MAX_CHARS = 4096
@@ -409,7 +408,7 @@ export function installPtyRendererDeliveryQueue(): PtyRendererDeliveryContext {
           if (pending.projectionAdmissionIds) {
             state.sshOutputIntake?.transferProjections(pending.projectionAdmissionIds, 'hidden-drop')
           }
-          warnIfDroppingHiddenBytesForVisiblePty(id, pending.data.length)
+          state.warnIfDroppingHiddenBytesForVisiblePty(id, pending.data.length)
           if (drop.shouldEmitRestoreMarker) {
             sendModelRestoreNeededMarker(id, 'hidden-drop', runtime?.getPtyOutputSequence(id))
           }

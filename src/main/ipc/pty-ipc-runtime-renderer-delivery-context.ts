@@ -1,4 +1,4 @@
-import type { WebContents } from 'electron'
+import type { BrowserWindow } from 'electron'
 import type { GlobalSettings, TuiAgent } from '../../shared/types'
 import type { PtyDeliveryWriteOff, PtyRendererDeliveryHealthReply, PtyRendererDeliveryStateReport } from '../../shared/pty-renderer-delivery-health'
 import type { PtyMainDeliveryDiagnostics } from '../../shared/pty-delivery-diagnostics'
@@ -54,7 +54,7 @@ export type PtyRendererDeliveryContext = PtyRegistrationSharedState & {
   [key: string]: any
   foundation: PtyRegistrationFoundation
   getSettings?: () => GlobalSettings
-  mainWindow: { isDestroyed: () => boolean; webContents: WebContents }
+  mainWindow: BrowserWindow
   runtime?: OrcaRuntimeService
   pendingData: PtyPendingDataDrainQueue
   sshOutputIntake: SshPtyOutputIntake | null

@@ -1,26 +1,18 @@
-import { app } from 'electron'
 import {
-  type PtyMainDeliveryDiagnostics,
-  type PtyPerPtyDeliveryDiagnostics
-} from '../../shared/pty-delivery-diagnostics'
-import {
-  getHiddenRendererPtyDeliveryDebug,
-  getHiddenRendererPtyIds,
   isHiddenPtyDeliveryGateEnabled,
-  isHiddenRendererPty,
-  redactPtyIdForDiagnostics,
-  resetHiddenRendererPtyDeliveryDebugCounters,
   shouldDropHiddenRendererPtyData
 } from './pty-hidden-delivery-gate'
 import { tryGetProviderForPty } from './pty-ipc-runtime-provider-routing'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import { setPtyRendererDeliveryDebugBridges } from './pty-ipc-runtime-renderer-lifecycle-state'
-import type { PtyRendererDeliveryDebugSnapshot } from './pty-ipc-runtime-renderer-lifecycle-state'
 import type { PendingPtyData } from './pty-pending-data-drain-queue'
 import { PtyPendingDataDrainQueue } from './pty-pending-data-drain-queue'
 import { PtyProducerFlowController } from './pty-producer-flow-control'
-import type { PtyRendererDeliveryContext, PtyDataPayload } from './pty-ipc-runtime-renderer-delivery-context'
+import type {
+  PtyRendererDeliveryContext,
+  PtyDataPayload
+} from './pty-ipc-runtime-renderer-delivery-context'
 import type {
   PtyDeliveryWriteOff,
   PtyRendererDeliveryStateReport,
@@ -29,6 +21,7 @@ import type {
 import { recordDaemonStreamBacklogEvent } from '../daemon/daemon-stream-backlog-probe'
 import { createPtyRendererHiddenDeliveryTransitions } from './pty-ipc-runtime-renderer-hidden-delivery-state'
 import { clearPendingPtyDataForPty } from './pty-ipc-runtime-clear-buffer-fence'
+import { createPtyRendererDeliveryDiagnostics } from './pty-ipc-runtime-renderer-delivery-diagnostics'
 import {
   PTY_DELIVERY_RESYNC_TIMEOUT_MS,
   PTY_BATCH_FLUSH_CHUNK_CHARS,
@@ -43,7 +36,6 @@ import {
 } from './pty-ipc-runtime-renderer-delivery-constants'
 
 const PRODUCER_FLOW_CONTROL_ENABLED = true
-const DELIVERY_DIAGNOSTICS_MAX_PTYS = 30
 const INTERACTIVE_REDRAW_MAX_CHARS = PTY_BATCH_FLUSH_CHUNK_CHARS
 
 export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
@@ -93,7 +85,12 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       if (shouldDropHiddenRendererPtyData(id, getSettings?.())) {
         return runnableLane
       }
-      if (!state.rendererPtyDispatcherReady || !state.canSendPtyDataToRenderer(id, { interactive: ptyRuntimeState.activeRendererPtys.has(id) })) {
+      if (
+        !state.rendererPtyDispatcherReady ||
+        !state.canSendPtyDataToRenderer(id, {
+          interactive: ptyRuntimeState.activeRendererPtys.has(id)
+        })
+      ) {
         return 'blocked'
       }
       return runnableLane
@@ -104,10 +101,22 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
   const {
     transitionHiddenRendererPtyDeliveryState,
     transitionSpawnHiddenRendererPtyDeliveryState
-  } = createPtyRendererHiddenDeliveryTransitions(
-    getSettings,
-    (id) => state.invalidatePendingPtyDrainPolicy(id)
+  } = createPtyRendererHiddenDeliveryTransitions(getSettings, (id) =>
+    state.invalidatePendingPtyDrainPolicy(id)
   )
+  const rendererDeliveryDiagnostics = createPtyRendererDeliveryDiagnostics({
+    state,
+    mainWindow,
+    mainDeliveryBreadcrumbs,
+    getRendererInFlightCharsForPty
+  })
+  const {
+    readCurrentPtyRendererDeliveryDebugSnapshot,
+    buildMainDeliveryDiagnostics,
+    recordPtyRendererDeliveryPressure,
+    resetPtyRendererDeliveryDebugSnapshot,
+    warnIfDroppingHiddenBytesForVisiblePty
+  } = rendererDeliveryDiagnostics
 
   function updateProducerFlowControl(id: string): void {
     if (!PRODUCER_FLOW_CONTROL_ENABLED) {
@@ -128,7 +137,10 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
       if (caller.endsWith(':on')) rendererDeliveryInterestPtys.add(id)
       else rendererDeliveryInterestPtys.delete(id)
     }
-    const background = state.rendererPtyIsKnownHidden(id) && !rendererDeliveryInterestPtys.has(id) && !(runtime?.hasRawTerminalViewSubscriber?.(id) ?? false)
+    const background =
+      state.rendererPtyIsKnownHidden(id) &&
+      !rendererDeliveryInterestPtys.has(id) &&
+      !(runtime?.hasRawTerminalViewSubscriber?.(id) ?? false)
     if ((state.backgroundedDeliverySyncByPty.get(id) ?? false) === background) {
       return
     }
@@ -146,14 +158,19 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     state.backgroundedDeliverySyncByPty.set(id, background)
     provider.setPtyBackgrounded(id, background)
   }
-  ptyRuntimeState.clearBackgroundedDeliverySyncForPty = (id: string) => { state.backgroundedDeliverySyncByPty.delete(id); rendererDeliveryInterestPtys.delete(id) }
+  ptyRuntimeState.clearBackgroundedDeliverySyncForPty = (id: string) => {
+    state.backgroundedDeliverySyncByPty.delete(id)
+    rendererDeliveryInterestPtys.delete(id)
+  }
   if (runtime) {
     runtime.onRemoteTerminalViewPresenceChanged = (id) =>
       syncPtyBackgroundedDelivery(id, 'remote-view')
   }
   function resyncBackgroundedDeliveriesAfterGateReset(): void {
     rendererDeliveryInterestPtys.clear()
-    state.backgroundedDeliverySyncByPty.forEach((_background, id) => syncPtyBackgroundedDelivery(id, 'gate-reset'))
+    state.backgroundedDeliverySyncByPty.forEach((_background, id) =>
+      syncPtyBackgroundedDelivery(id, 'gate-reset')
+    )
   }
 
   function getRendererInFlightCharsForPty(id: string): number {
@@ -161,23 +178,9 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     return accounting ? accounting.sentChars - accounting.ackedChars : 0
   }
 
-  // Why touched PTY only: pressure peaks are monotonic between explicit resets.
-  function recordPtyRendererDeliveryPressure(id: string): void {
-    state.peakPendingChars = Math.max(state.peakPendingChars, state.pendingData.totalPendingChars)
-    state.peakMaxPendingCharsByPty = Math.max(
-      state.peakMaxPendingCharsByPty,
-      state.pendingData.get(id)?.data.length ?? 0
-    )
-    state.peakRendererInFlightChars = Math.max(state.peakRendererInFlightChars, state.rendererInFlightTotalChars)
-    state.peakMaxRendererInFlightCharsByPty = Math.max(
-      state.peakMaxRendererInFlightCharsByPty,
-      getRendererInFlightCharsForPty(id)
-    )
-  }
-
   function setPendingPtyData(id: string, pending: PendingPtyData): void {
     state.pendingData.set(id, pending)
-    recordPtyRendererDeliveryPressure(id)
+    rendererDeliveryDiagnostics.recordPtyRendererDeliveryPressure(id)
   }
 
   function deletePendingPtyData(id: string): void {
@@ -197,167 +200,6 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     state.sourceCreditPendingPtys.clear()
   }
 
-  function readCurrentPtyRendererDeliveryDebugSnapshot(): PtyRendererDeliveryDebugSnapshot {
-    let pendingChars = 0
-    let maxPendingCharsByPty = 0
-    for (const pending of state.pendingData.values()) {
-      const chars = pending.data.length
-      pendingChars += chars
-      maxPendingCharsByPty = Math.max(maxPendingCharsByPty, chars)
-    }
-    const hiddenDeliveryDebug = getHiddenRendererPtyDeliveryDebug()
-    let rendererInFlightPtyCount = 0
-    let maxRendererInFlightCharsByPty = 0
-    for (const accounting of state.rendererDeliveryAccountingByPty.values()) {
-      const inFlight = accounting.sentChars - accounting.ackedChars
-      if (inFlight > 0) {
-        rendererInFlightPtyCount++
-      }
-      maxRendererInFlightCharsByPty = Math.max(maxRendererInFlightCharsByPty, inFlight)
-    }
-    // Why: a pty both hidden-gated and reported visible means main is starving a visible pane (v1.4.124-rc.2.perf field lead).
-    let hiddenDeliveryGatedVisiblePtyCount = 0
-    for (const id of ptyRuntimeState.visibleRendererPtys) {
-      if (isHiddenRendererPty(id)) {
-        hiddenDeliveryGatedVisiblePtyCount++
-      }
-    }
-    let hiddenDeliveryGatedActivePtyCount = 0
-    for (const id of ptyRuntimeState.activeRendererPtys) {
-      if (isHiddenRendererPty(id)) {
-        hiddenDeliveryGatedActivePtyCount++
-      }
-    }
-    return {
-      pendingPtyCount: state.pendingData.size,
-      pendingChars,
-      maxPendingCharsByPty,
-      rendererInFlightPtyCount,
-      rendererInFlightChars: state.rendererInFlightTotalChars,
-      maxRendererInFlightCharsByPty,
-      activeRendererPtyCount: ptyRuntimeState.activeRendererPtys.size,
-      flushScheduled: state.flushTimer !== null,
-      peakPendingChars: state.peakPendingChars,
-      peakMaxPendingCharsByPty: state.peakMaxPendingCharsByPty,
-      peakRendererInFlightChars: state.peakRendererInFlightChars,
-      peakMaxRendererInFlightCharsByPty: state.peakMaxRendererInFlightCharsByPty,
-      ackGatedFlushSkipCount: state.ackGatedFlushSkipCount,
-      ...hiddenDeliveryDebug,
-      hiddenDeliveryGatedVisiblePtyCount,
-      hiddenDeliveryGatedActivePtyCount,
-      pendingDroppedChars: state.pendingDroppedChars,
-      diagnostics: buildMainDeliveryDiagnostics(),
-      rendererLifecycleResetCount: state.rendererLifecycleResetCount,
-      lastLifecycleResetClearedChars: state.lastLifecycleResetClearedChars,
-      rendererPtyDispatcherReady: state.rendererPtyDispatcherReady,
-      rendererDispatcherReadyForcedCount: state.rendererDispatcherReadyForcedCount,
-      rendererDispatcherReadyTimeoutCount: state.rendererDispatcherReadyTimeoutCount
-    }
-  }
-  // Built only when the debug snapshot is read (never on the data path): the per-pty table + breadcrumb history says WHICH pty is wedged and WHEN, unlike aggregate counters.
-  function buildMainDeliveryDiagnostics(): PtyMainDeliveryDiagnostics {
-    const now = Date.now()
-    // Include hidden/visible/active members even without an accounting entry: a pty gated before its first byte is exactly the wedge case to surface.
-    const ids = new Set([
-      ...state.rendererDeliveryAccountingByPty.keys(),
-      ...state.pendingData.keys(),
-      ...getHiddenRendererPtyIds(),
-      ...ptyRuntimeState.visibleRendererPtys,
-      ...ptyRuntimeState.activeRendererPtys
-    ])
-    const perPty: PtyPerPtyDeliveryDiagnostics[] = []
-    for (const id of ids) {
-      const accounting = state.rendererDeliveryAccountingByPty.get(id)
-      perPty.push({
-        id: redactPtyIdForDiagnostics(id),
-        ...(accounting?.incarnationId ? { incarnationId: accounting.incarnationId } : {}),
-        sentChars: accounting?.sentChars ?? 0,
-        ackedChars: accounting?.ackedChars ?? 0,
-        inFlightChars: accounting ? accounting.sentChars - accounting.ackedChars : 0,
-        pendingChars: state.pendingData.get(id)?.data.length ?? 0,
-        hidden: isHiddenRendererPty(id),
-        visible: ptyRuntimeState.visibleRendererPtys.has(id),
-        active: ptyRuntimeState.activeRendererPtys.has(id),
-        msSinceLastSend: accounting ? now - accounting.lastSendAtMs : null,
-        msSinceLastAck: accounting?.lastAckAtMs == null ? null : now - accounting.lastAckAtMs
-      })
-    }
-    perPty.sort((a, b) => b.inFlightChars + b.pendingChars - (a.inFlightChars + a.pendingChars))
-    const windowAlive = !mainWindow.isDestroyed()
-    return {
-      appVersion: app.getVersion(),
-      mainUptimeMs: Math.round(process.uptime() * 1000),
-      windowFocused: windowAlive ? mainWindow.isFocused() : null,
-      windowVisible: windowAlive ? mainWindow.isVisible() : null,
-      windowMinimized: windowAlive ? mainWindow.isMinimized() : null,
-      msSinceLastPowerSuspend:
-        ptyRuntimeState.lastPowerSuspendAtMs === null
-          ? null
-          : now - ptyRuntimeState.lastPowerSuspendAtMs,
-      msSinceLastPowerResume:
-        ptyRuntimeState.lastPowerResumeAtMs === null
-          ? null
-          : now - ptyRuntimeState.lastPowerResumeAtMs,
-      perPty: perPty.slice(0, DELIVERY_DIAGNOSTICS_MAX_PTYS),
-      breadcrumbs: mainDeliveryBreadcrumbs.snapshot()
-    }
-  }
-
-  // Why rate-limited: the contradiction persists chunk after chunk while latched; one line per minute keeps field logs readable but present.
-  function warnIfDroppingHiddenBytesForVisiblePty(id: string, droppedChars: number): void {
-    if (!ptyRuntimeState.visibleRendererPtys.has(id) && !ptyRuntimeState.activeRendererPtys.has(id)) {
-      return
-    }
-    // Recorded before the warn rate limit: the ring coalesces repeats, and the contradiction must appear in the freeze report either way.
-    mainDeliveryBreadcrumbs.record('hidden-drop-visible', {
-      id: redactPtyIdForDiagnostics(id),
-      droppedChars
-    })
-    const now = Date.now()
-    if (now - state.lastHiddenDropContradictionWarnAtMs < 60_000) {
-      return
-    }
-    state.lastHiddenDropContradictionWarnAtMs = now
-    console.warn('[pty] hidden-delivery gate is dropping bytes for a visible/active pty', {
-      id,
-      droppedChars,
-      visible: ptyRuntimeState.visibleRendererPtys.has(id),
-      active: ptyRuntimeState.activeRendererPtys.has(id),
-      ...readCurrentPtyRendererDeliveryDebugSnapshot()
-    })
-  }
-
-  function seedPtyRendererDeliveryPeaksFromCurrentState(): void {
-    let pendingChars = 0
-    let maxPendingCharsByPty = 0
-    for (const pending of state.pendingData.values()) {
-      const chars = pending.data.length
-      pendingChars += chars
-      maxPendingCharsByPty = Math.max(maxPendingCharsByPty, chars)
-    }
-    state.peakPendingChars = pendingChars
-    state.peakMaxPendingCharsByPty = maxPendingCharsByPty
-    state.peakRendererInFlightChars = state.rendererInFlightTotalChars
-    let maxRendererInFlightCharsByPty = 0
-    for (const accounting of state.rendererDeliveryAccountingByPty.values()) {
-      maxRendererInFlightCharsByPty = Math.max(
-        maxRendererInFlightCharsByPty,
-        accounting.sentChars - accounting.ackedChars
-      )
-    }
-    state.peakMaxRendererInFlightCharsByPty = maxRendererInFlightCharsByPty
-  }
-
-  const resetPtyRendererDeliveryDebugSnapshot = (): void => {
-    state.peakPendingChars = 0
-    state.peakMaxPendingCharsByPty = 0
-    state.peakRendererInFlightChars = 0
-    state.peakMaxRendererInFlightCharsByPty = 0
-    state.ackGatedFlushSkipCount = 0
-    state.pendingDroppedChars = 0
-    resetHiddenRendererPtyDeliveryDebugCounters()
-    seedPtyRendererDeliveryPeaksFromCurrentState()
-  }
   const resetRendererDeliveryAccountingForLifecycleReset = (): void => {
     // Why lossless: state.pendingData bytes were bound for the dead page; the replacement repaints from main's authoritative sources, which superset it.
     state.lastLifecycleResetClearedChars = state.rendererInFlightTotalChars
@@ -457,7 +299,9 @@ export function initializePtyRendererDelivery(): PtyRendererDeliveryContext {
     const ptyLimit =
       PTY_RENDERER_IN_FLIGHT_HIGH_WATER_CHARS +
       (options.interactive === true ? PTY_RENDERER_ACTIVE_PTY_IN_FLIGHT_RESERVE_CHARS : 0)
-    return getRendererInFlightCharsForPty(id) < ptyLimit && state.rendererInFlightTotalChars < totalLimit
+    return (
+      getRendererInFlightCharsForPty(id) < ptyLimit && state.rendererInFlightTotalChars < totalLimit
+    )
   }
 
   function getOldestInFlightAckSilenceMs(): number | null {

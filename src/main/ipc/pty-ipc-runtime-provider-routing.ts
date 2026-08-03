@@ -10,7 +10,9 @@ export function getProviderGeneration(
     return undefined
   }
   const generation = provider.providerGeneration
-  return Number.isSafeInteger(generation) && generation > 0 ? generation : undefined
+  return typeof generation === 'number' && Number.isSafeInteger(generation) && generation > 0
+    ? generation
+    : undefined
 }
 
 export function isCurrentProvider(

@@ -33,7 +33,7 @@ export function installPtyRendererExitHandling(): PtyRendererDeliveryContext {
     cleanupTimer.unref?.()
     state.syntheticKillExitPtyIds.set(id, {
       stateToken: target.stateToken,
-      ...(target.incarnationId ? { incarnationId: target.incarnationId } : {}),
+      incarnationId: target.incarnationId,
       cleanupTimer
     })
   }

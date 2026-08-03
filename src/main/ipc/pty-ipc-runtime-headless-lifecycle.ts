@@ -1,4 +1,4 @@
 export {
   registerHeadlessPtyRuntime,
   killAllPty
-} from './pty-ipc-runtime-registration-implementation'
+} from './pty-ipc-runtime-registration-facade'

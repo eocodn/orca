@@ -120,7 +120,7 @@ describe('PTY spawn result provider fence', () => {
 
     const handler = createPtyIpcSpawnHandler(state as never)
 
-    await expect(handler({})).rejects.toThrow(
+    await expect(handler({} as never)).rejects.toThrow(
       'pty_provider_changed_during_spawn_preparation'
     )
     expect(state.assertPtyProviderIdentityCurrent).toHaveBeenCalledTimes(2)

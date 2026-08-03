@@ -148,7 +148,9 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
     return true
   }
 
-  ptyRuntimeState.pendingPtyCleanupFinalizer = restorePublicationAfterExactCleanup
+  // Cleanup reconciliation supplies only the failed state token; runtime-exit notification belongs to the provider exit path.
+  ptyRuntimeState.pendingPtyCleanupFinalizer = (result, snapshot, failedStateToken) =>
+    restorePublicationAfterExactCleanup(result, snapshot, false, failedStateToken)
 
   const cleanUpFailedFreshSpawn = async (
     provider: IPtyProvider,
