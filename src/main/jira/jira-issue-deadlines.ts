@@ -1,51 +1,19 @@
 import type {
-  JiraComment,
   JiraCreateField,
   JiraCreateFieldAllowedValue,
-  JiraCreateIssueArgs,
-  JiraCreateIssueResult,
-  JiraIssue,
-  JiraIssueFilter,
   JiraIssueType,
-  JiraIssueUpdate,
-  JiraMutationResult,
   JiraPriority,
   JiraProject,
-  JiraProjectStatusOrder,
   JiraSite,
   JiraSiteSelection,
   JiraStatus,
-  JiraTransition,
   JiraUser
 } from '../../shared/types'
 import {
-  acquire,
-  apiBasePath,
-  clearToken,
-  getClients,
-  isAuthError,
   jiraRequest,
-  release,
   type JiraClientForSite
 } from './client'
-import {
-  adfToMarkdownText,
-  collectAdfMediaAttrs,
-  textToAdf,
-  type AdfToMarkdownOptions,
-  type JiraAdfMediaAttrs
-} from './adf-markdown'
-import {
-  extractAttachmentContentIdsFromHtml,
-  selectPreferredAttachmentIds,
-  warnIfMediaResolutionIncomplete
-} from './attachment-discovery'
-import {
-  createMediaMarkdownResolver,
-  loadIssueImageAttachments,
-  type MediaResolutionStats
-} from './attachment-images'
-import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
+import { textToAdf } from './adf-markdown'
 import { type JiraRecord, type JiraPagedResponse, type JiraPageItemKey } from './jira-issue-primitives'
 async function withJiraDeadline<T>(
   signal: AbortSignal | undefined,
@@ -331,4 +299,3 @@ function toBodyText(site: JiraSite, text: string): unknown {
 }
 
 export { withJiraDeadline, settleJiraSummaryRead, getErrorStatus, toIssueSearchFailureError, shouldSurfaceSiteFailure, asRecord, asString, asIdentifier, asStringArray, asFiniteNumber, getPageItems, shouldFetchNextPage, fetchPagedRecords, avatarUrl, mapUser, mapProject, mapIssueType, mapCreateFieldAllowedValue, mapCreateField, getCreateFieldRecords, mapPriority, mapStatus, issueUrl, toBodyText }
-

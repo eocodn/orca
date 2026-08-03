@@ -11,8 +11,7 @@ import type {
   LinearWorkspaceSelection
 } from '../../shared/types'
 import {
-  LINEAR_ISSUE_API_PAGE_SIZE_MAX,
-  clampLinearIssueListLimit
+  LINEAR_ISSUE_API_PAGE_SIZE_MAX
 } from '../../shared/linear-issue-read-limits'
 import {
   acquire,
@@ -22,18 +21,6 @@ import {
   release,
   type LinearClientForWorkspace
 } from './client'
-import {
-  CREATE_PROJECT_MUTATION,
-  CUSTOM_VIEWS_QUERY,
-  CUSTOM_VIEW_ISSUES_QUERY,
-  CUSTOM_VIEW_PROJECTS_QUERY,
-  CUSTOM_VIEW_QUERY,
-  PROJECTS_QUERY,
-  PROJECT_ISSUES_QUERY,
-  PROJECT_QUERY,
-  PROJECT_TEAMS_QUERY,
-  SEARCH_PROJECTS_QUERY
-} from './linear-project-queries'
 type LinearRawVariables = Record<string, unknown>
 
 type PageInfoNode = {
@@ -546,4 +533,3 @@ async function readConcreteCollection<T>(
 
 export { inFlight, LINEAR_PROJECT_API_PAGE_SIZE_MAX, clampLimit, coalesce, normalizeConcreteWorkspaceId, workspaceError, shouldFailWholeRequest, lastNumericValue, mapUser, mapProjectForWorkspace, mapProjectDetailForWorkspace, mapIssueForWorkspace, mapCustomViewModel, mapCustomViewForWorkspace, readIssueConnectionPages, readCollection, readConcreteCollection }
 export { type LinearRawVariables, type PageInfoNode, type LinearConnection, type LinearUserNode, type LinearProjectNode, type LinearIssueNode, type LinearCustomViewNode, type ProjectConnectionResponse, type ProjectIssueConnectionResponse, type ProjectTeamsResponse, type CustomViewConnectionResponse, type ProjectMutationResponse, type LinearProjectCreateInput }
-

@@ -1,20 +1,11 @@
 import type {
   JiraComment,
   JiraCreateField,
-  JiraCreateFieldAllowedValue,
-  JiraCreateIssueArgs,
-  JiraCreateIssueResult,
-  JiraIssue,
-  JiraIssueFilter,
   JiraIssueType,
-  JiraIssueUpdate,
-  JiraMutationResult,
   JiraPriority,
   JiraProject,
   JiraProjectStatusOrder,
-  JiraSite,
   JiraSiteSelection,
-  JiraStatus,
   JiraTransition,
   JiraUser
 } from '../../shared/types'
@@ -31,21 +22,13 @@ import {
 import {
   adfToMarkdownText,
   collectAdfMediaAttrs,
-  textToAdf,
   type AdfToMarkdownOptions,
   type JiraAdfMediaAttrs
 } from './adf-markdown'
 import {
   extractAttachmentContentIdsFromHtml,
-  selectPreferredAttachmentIds,
-  warnIfMediaResolutionIncomplete
+  selectPreferredAttachmentIds
 } from './attachment-discovery'
-import {
-  createMediaMarkdownResolver,
-  loadIssueImageAttachments,
-  type MediaResolutionStats
-} from './attachment-images'
-import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
 import { type JiraRecord, type JiraPagedResponse } from './jira-issue-primitives'
 import { shouldSurfaceSiteFailure, asRecord, asString, asIdentifier, asFiniteNumber, shouldFetchNextPage, fetchPagedRecords, mapUser, mapProject, mapIssueType, mapCreateField, getCreateFieldRecords, mapPriority, mapStatus } from './jira-issue-deadlines'
 import { type MediaRequest, prepareMediaResolver, flushMediaResolutionWarn } from './jira-issue-mappers'
@@ -457,4 +440,3 @@ async function getProjectStatusOrder(
 }
 
 export { mapComment, collectCommentMediaRequest, getIssueComments, listProjects, listIssueTypes, listCreateFields, listPriorities, listAssignableUsers, listTransitions, getProjectStatusOrder }
-

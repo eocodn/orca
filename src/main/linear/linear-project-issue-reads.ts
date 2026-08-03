@@ -1,38 +1,20 @@
 import type {
   LinearCollectionResult,
   LinearConcreteWorkspaceId,
-  LinearCustomViewModel,
-  LinearCustomViewSummary,
   LinearIssue,
-  LinearProjectDetail,
-  LinearProjectMemberSummary,
-  LinearProjectSummary,
-  LinearWorkspaceError,
-  LinearWorkspaceSelection
+  LinearProjectSummary
 } from '../../shared/types'
-import {
-  LINEAR_ISSUE_API_PAGE_SIZE_MAX,
-  clampLinearIssueListLimit
-} from '../../shared/linear-issue-read-limits'
+import { clampLinearIssueListLimit } from '../../shared/linear-issue-read-limits'
 import {
   acquire,
   clearToken,
   getClients,
   isAuthError,
-  release,
-  type LinearClientForWorkspace
+  release
 } from './client'
 import {
-  CREATE_PROJECT_MUTATION,
-  CUSTOM_VIEWS_QUERY,
-  CUSTOM_VIEW_ISSUES_QUERY,
-  CUSTOM_VIEW_PROJECTS_QUERY,
-  CUSTOM_VIEW_QUERY,
-  PROJECTS_QUERY,
-  PROJECT_ISSUES_QUERY,
-  PROJECT_QUERY,
   PROJECT_TEAMS_QUERY,
-  SEARCH_PROJECTS_QUERY
+  PROJECT_ISSUES_QUERY
 } from './linear-project-queries'
 import { type LinearRawVariables, type ProjectIssueConnectionResponse, type ProjectTeamsResponse, coalesce, normalizeConcreteWorkspaceId, readIssueConnectionPages, readConcreteCollection } from './linear-project-primitives'
 async function listProjectIssues(
@@ -137,4 +119,3 @@ async function listProjectTeams(
 }
 
 export { listProjectIssues, listProjectTeams }
-
