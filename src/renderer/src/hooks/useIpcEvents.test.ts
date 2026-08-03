@@ -739,6 +739,23 @@ describe('resolveBrowserSessionTabTarget', () => {
       workspaceId: 'browser-workspace'
     })
   })
+
+  it('does not fall through to a stale fallback workspace when the requested tab is unknown', () => {
+    expect(
+      resolveBrowserSessionTabTarget(
+        {
+          unifiedTabsByWorktree: {
+            'wt-1': [{ id: 'different-tab', contentType: 'terminal' }]
+          },
+          browserTabsByWorktree: {
+            'wt-1': [{ id: 'different-workspace' }]
+          }
+        } as never,
+        'wt-1',
+        'missing-tab'
+      )
+    ).toBeNull()
+  })
 })
 
 describe('buildNewWorkspaceShortcutModalData', () => {
