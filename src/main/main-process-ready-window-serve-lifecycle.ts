@@ -6,6 +6,13 @@ import { startTerminalRuntimeStartupServices, prepareCodexRuntimeHomeForLaunch, 
 import { recordProcessGoneCrash, handleGpuChildCrash } from './main-process-crash-lifecycle'
 
 export async function initializeReadyWindowAndServe(): Promise<void> {
+  const store = startupState.store
+  const runtime = startupState.runtime
+  const automations = startupState.automations
+  if (!store || !runtime || !automations) {
+    throw new Error('Main process services must be initialized before the ready lifecycle')
+  }
+
   startupDeps.app.on('child-process-gone', (_event, details) => {
     recordProcessGoneCrash('child', details.type, details.reason, details.exitCode ?? null, {
       name: details.name,
@@ -25,7 +32,7 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
 
   startupDeps.logStartupMilestone('services-initialized')
   await startupDeps.ensureMainI18n()
-  await startupDeps.setMainUiLanguage(startupState.store.getSettings().uiLanguage)
+  await startupDeps.setMainUiLanguage(store.getSettings().uiLanguage)
   startupDeps.logStartupMilestone('i18n-ready')
 
   startupDeps.registerAppMenu({
@@ -78,18 +85,15 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
       startupState.mainWindow?.webContents.send('ui:toggleRightSidebar')
     },
     onToggleAppearance: (key) => {
-      if (!startupState.store) {
-        return
-      }
       if (key === 'statusBarVisible') {
         // Why: status bar visibility lives in persisted UI state (not settings) and the renderer owns the toggle — forward the event, let it flip + store.
         startupState.mainWindow?.webContents.send('ui:toggleStatusBar')
         return
       }
-      const current = startupState.store.getSettings()
+      const current = store.getSettings()
       // Why: these appearance settings are default-on, so a missing persisted value must toggle from visible -> hidden.
       const next = startupDeps.getNextDefaultOnAppearanceSettingValue(current[key])
-      startupState.store.updateSettings({ [key]: next }, { notifyListeners: true })
+      store.updateSettings({ [key]: next }, { notifyListeners: true })
       startupDeps.rebuildAppMenu()
     },
     getAppearanceState: () => {
@@ -124,8 +128,8 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
   }
   // Why: existing installs may have pairing creds under the late app.getPath('userData'); copy them forward before switching to the canonical path.
   startupDeps.migrateMobilePairingDataToCanonicalUserDataPath(startupDeps.app.getPath('userData'))
-  startupState.runtimeRpc = new startupDeps.OrcaRuntimeRpcServer({
-    runtime: startupState.runtime,
+  const runtimeRpc = new startupDeps.OrcaRuntimeRpcServer({
+    runtime,
     // Why: mobile pairing needs the stable pre-setName() path (getCanonicalUserDataPath), not a late app.getPath('userData') that drops paired devices across restarts.
     userDataPath: startupDeps.getCanonicalUserDataPath(),
     enableWebSocket: true,
@@ -140,7 +144,8 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
       : {}),
     webClientRoot: startupDeps.getBundledWebClientRoot()
   })
-  startupDeps.registerMobileHandlers(startupState.runtimeRpc, {
+  startupState.runtimeRpc = runtimeRpc
+  startupDeps.registerMobileHandlers(runtimeRpc, {
     getRelayStatus: () => startupState.desktopRelayStatus,
     consumePendingUnpairedDeviceAuthFailure: (webContentsId) => {
       if (
@@ -156,7 +161,7 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
     }
   })
   // Why: repeated direct auth failures otherwise look like a client that never connects; point users to re-pairing.
-  startupState.runtimeRpc.setOnUnpairedDeviceAuthFailure(() => {
+  runtimeRpc.setOnUnpairedDeviceAuthFailure(() => {
     // Why: runtime startup races renderer mount; retain the one-shot until the listener consumes it.
     startupState.pendingUnpairedDeviceAuthFailure = true
     if (startupState.mainWindow && !startupState.mainWindow.isDestroyed()) {
@@ -177,22 +182,22 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
     // Why: headless PTYs must not start on the fallback provider, then get swept when an activated renderer registers desktop lifecycle handlers.
     await startupState.localPtyStartupReady
     startupDeps.registerHeadlessPtyRuntime(
-      startupState.runtime,
+      runtime,
       prepareCodexRuntimeHomeForLaunch,
-      () => startupState.store!.getSettings(),
+      () => store.getSettings(),
       (target) => startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target),
-      startupState.store,
+      store,
       prepareCodexSessionResumeForLaunch
     )
-    await startupState.runtime.refreshRestoredOrchestrationAuthority()
-    await startupState.runtime.reconcileLegacyWorkerTerminals()
+    await runtime.refreshRestoredOrchestrationAuthority()
+    await runtime.reconcileLegacyWorkerTerminals()
     // Why: headless servers can't mount <webview> panes; use offscreen WebContents, gated on a real display so browser.headless.v1 stays honest.
     if (startupState.headlessBrowserDisplayAvailable) {
-      startupState.runtime.setOffscreenBrowserBackend(new startupDeps.OffscreenBrowserBackend(startupDeps.browserManager))
+      runtime.setOffscreenBrowserBackend(new startupDeps.OffscreenBrowserBackend(startupDeps.browserManager))
     }
     // Why: headless servers have no renderer graph publisher; publish an explicit empty graph so status clients see a ready server.
-    startupState.runtime.syncWindowGraph(startupDeps.HEADLESS_RUNTIME_WINDOW_ID, { tabs: [], leaves: [] })
-    await startupState.runtimeRpc.start().catch((error) => {
+    runtime.syncWindowGraph(startupDeps.HEADLESS_RUNTIME_WINDOW_ID, { tabs: [], leaves: [] })
+    await runtimeRpc.start().catch((error) => {
       console.error('[runtime] Failed to start headless RPC transport:', error)
       throw error
     })
@@ -235,15 +240,15 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
       }
     }
     // Why: headless serve never opens a renderer, so arm scheduled automation dispatch here.
-    startupState.automations.start()
+    automations.start()
     // Why: serve deletes worktrees too, and the history GC that normally drains delete tombstones is
     // armed from the main window — without this, a quit mid-removal leaks the tree until a desktop launch.
     startupDeps.scheduleAllPendingHistoryTreeRemovals()
     await startupDeps.printServeReady(serveOptions, {
-      startupState.runtime,
-      startupState.runtimeRpc,
+      runtime,
+      runtimeRpc,
       readinessPublisher: startupState.serveReadinessPublisher,
-      startupState.managedWslCliReconciliationStatus
+      managedWslCliReconciliationStatus: startupState.managedWslCliReconciliationStatus
     })
     return
   }
@@ -251,7 +256,7 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
   // Why: window and RPC startup run in parallel; registerPtyHandlers gates PTY spawns so RPC binds without racing the daemon provider swap.
   const [win, runtimeRpcStartResult] = await Promise.all([
     Promise.resolve(openMainWindow()),
-    startupState.runtimeRpc.start().then(
+    runtimeRpc.start().then(
       () => ({ ok: true as const }),
       (error: unknown) => {
         startupDeps.recordRuntimeRpcStartFailure(error)
@@ -270,14 +275,14 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
         authConfig: cloudAuth.config,
         userDataPath: startupDeps.getProfileUserDataPath(),
         appVersion: startupDeps.app.getVersion(),
-        startupState.runtimeRpc,
+        runtimeRpc,
         onStatus: (status) => {
           startupState.desktopRelayStatus = status
           startupState.mainWindow?.webContents.send('mobile:relayStatusChanged', status)
         }
       })
       startupState.desktopRelayService = relayService
-      startupState.runtimeRpc.setMobileRelayPairingProvider({
+      runtimeRpc.setMobileRelayPairingProvider({
         createPairingRelay: (relayDeviceId) => relayService.createPairingRelay(relayDeviceId),
         onDeviceRevokeQueued: (item) => relayService.onDeviceRevokeQueued(item),
         onDemandStateChanged: () => relayService.demandStateChanged(),
