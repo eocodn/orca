@@ -6,42 +6,13 @@
  * `wsl.exe -d <distro>` with translated Linux paths.
  */
 import {
-  execFile,
-  execFileSync,
   spawn,
   type ChildProcess,
-  type ExecFileOptions,
   type SpawnOptions
 } from 'node:child_process'
-import { StringDecoder } from 'node:string_decoder'
-import { withGitSpan } from '../observability/instrumentation'
 import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
-import {
-  classifyGhRateLimitBucket,
-  createGhRateLimitBlockedError,
-  getGhRateLimitBlockedUntilMs,
-  ghRateLimitScopeKey,
-  isGhPrimaryRateLimitStderr,
-  isGhRateLimitProbe,
-  notifyGhPrimaryRateLimit,
-  type GhRateLimitBucket
-} from './gh-rate-limit-breaker'
-import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
-import { addWslEnvKeys } from '../wsl-env'
-import {
-  appendGitConfigEnv,
-  gitCredentialPromptGuardEnv
-} from '../../shared/git-credential-prompt-env'
-import { getSpawnArgsForWindows, isWindowsBatchScript, resolveWindowsCommand } from '../win32-utils'
-import {
-  buildWslLoginShellCommand,
-  escapeWslShCommandForWindows,
-  quotePosixShell
-} from '../../shared/wsl-login-shell-command'
+import { parseWslPath, toWindowsWslPath } from '../wsl'
 import { UNTRANSLATED_GIT_OUTPUT_ENV } from '../../shared/git-output-locale'
-import { endSubprocessStdin } from '../../shared/subprocess-stdin-write'
-// Re-exported for existing importers; lightweight consumers should import from './exec-error' to avoid this heavy module.
-import { extractExecError, parseRetryAfterMs } from './exec-error'
 // ─── Core resolution ────────────────────────────────────────────────
 
 // Env-assignment prefix for WSL-routed git, where spawn env can't cross the wsl.exe boundary; values are shell-safe unquoted.
@@ -94,4 +65,3 @@ function translateWslOutputPaths(
 export { parseWslPath, toLinuxPath, toWindowsWslPath, isWslPath } from '../wsl'
 
 export { wslAwareSpawn, translateWslOutputPaths }
-
