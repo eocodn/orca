@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
   Tab,
@@ -44,7 +44,8 @@ import {
   collectPersistedWorktreeIdsForSessionHydration
 } from './degraded-repo-worktree-validity'
 
-import { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, mirrorTabViewModeToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType } type { TabSplitDirection, TabsSlice } from './tabs-state-tab-split-direction-support'
+import { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, mirrorTabViewModeToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType } from './tabs-state-tab-split-direction-support'
+import type { TabSplitDirection, TabsSlice } from './tabs-state-tab-split-direction-support'
 import { findSiblingGroupId, removeLeaf, collapseGroupLayout, toVisibleTabType, deriveActiveSurfaceForWorktree, buildActiveSurfacePatch, activeSurfacePatchMatchesState } from './tabs-state-find-sibling-group-id-support'
 export { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, mirrorTabViewModeToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType, findSiblingGroupId, removeLeaf, collapseGroupLayout, toVisibleTabType, deriveActiveSurfaceForWorktree, buildActiveSurfacePatch, activeSurfacePatchMatchesState }
 export type { TabSplitDirection, TabsSlice }

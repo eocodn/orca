@@ -1,4 +1,4 @@
-/* import type { StateCreator, StoreApi } from 'zustand'
+ import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
   DetectedWorktreeListResult,

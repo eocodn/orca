@@ -24,11 +24,19 @@ import { mapWithConcurrency } from '../../../../shared/map-with-concurrency'
 import { classifyTitleActivity, isExplicitAgentStatusFresh } from '@/lib/pane-agent-evidence'
 import { translate } from '@/i18n/i18n'
 
-import { RECENT_VISIBLE_CONTEXT_MS, VIEWED_FROM_CLEANUP_MS, WORKSPACE_CLEANUP_PREFLIGHT_CONCURRENCY, WORKSPACE_CLEANUP_CONCRETE_RISK_BLOCKERS, SHELL_PROCESS_NAMES, AGENT_PROCESS_NAMES } type { WorkspaceCleanupFailure, WorkspaceCleanupRemoveResult, WorkspaceCleanupRemoveOptions, WorkspaceCleanupViewedCandidate, WorkspaceCleanupSlice, EnrichOptions, WorkspaceCleanupEnrichmentCacheEntry } from './workspace-cleanup-state-workspace-cleanup-failure-support'
+import { RECENT_VISIBLE_CONTEXT_MS, VIEWED_FROM_CLEANUP_MS, WORKSPACE_CLEANUP_PREFLIGHT_CONCURRENCY, WORKSPACE_CLEANUP_CONCRETE_RISK_BLOCKERS, SHELL_PROCESS_NAMES, AGENT_PROCESS_NAMES } from './workspace-cleanup-state-workspace-cleanup-failure-support'
+import type { WorkspaceCleanupFailure, WorkspaceCleanupRemoveResult, WorkspaceCleanupRemoveOptions, WorkspaceCleanupViewedCandidate, WorkspaceCleanupSlice, EnrichOptions, WorkspaceCleanupEnrichmentCacheEntry } from './workspace-cleanup-state-workspace-cleanup-failure-support'
 export { RECENT_VISIBLE_CONTEXT_MS, VIEWED_FROM_CLEANUP_MS, WORKSPACE_CLEANUP_PREFLIGHT_CONCURRENCY, WORKSPACE_CLEANUP_CONCRETE_RISK_BLOCKERS, SHELL_PROCESS_NAMES, AGENT_PROCESS_NAMES }
 export type { WorkspaceCleanupFailure, WorkspaceCleanupRemoveResult, WorkspaceCleanupRemoveOptions, WorkspaceCleanupViewedCandidate, WorkspaceCleanupSlice, EnrichOptions, WorkspaceCleanupEnrichmentCacheEntry }
 import { createWorkspaceCleanupSliceWorkspaceCleanupScanActions } from './workspace-cleanup-state-workspace-cleanup-scan-actions'
 import { createWorkspaceCleanupSliceSetStateActions2 } from './workspace-cleanup-state-set-state-actions'
+
+let workspaceCleanupProgressCandidateIndex: {
+  scanToken: number
+  scanId: string
+  candidates: WorkspaceCleanupCandidate[]
+  indexesByWorktreeId: Map<string, number>
+} | null = null
 
 export const createWorkspaceCleanupSlice: StateCreator<AppState, [], [], WorkspaceCleanupSlice> = (
   set,
@@ -36,6 +44,18 @@ export const createWorkspaceCleanupSlice: StateCreator<AppState, [], [], Workspa
 ) => ({
   ...createWorkspaceCleanupSliceWorkspaceCleanupScanActions(set, get),
   ...createWorkspaceCleanupSliceSetStateActions2(set, get),
+})
+
+export function mergeWorkspaceCleanupProgressCandidates({
+  previousCandidates,
+  nextCandidates,
+  progress,
+  scanToken
+}: {
+  previousCandidates: readonly WorkspaceCleanupCandidate[]
+  nextCandidates: readonly WorkspaceCleanupCandidate[]
+  progress: WorkspaceCleanupScanProgress
+  scanToken: number
 }): WorkspaceCleanupCandidate[] {
   if (progress.candidateMode !== 'append') {
     workspaceCleanupProgressCandidateIndex = null
@@ -94,7 +114,7 @@ function getWorkspaceCleanupProgressCandidateIndex(
   }
 }
 
-function getInitialWorkspaceCleanupGitDeferrals(state: AppState): string[] {
+export function getInitialWorkspaceCleanupGitDeferrals(state: AppState): string[] {
   const ids = new Set<string>()
   if (state.activeWorktreeId) {
     ids.add(state.activeWorktreeId)
@@ -149,7 +169,7 @@ export async function enrichWorkspaceCleanupCandidates(
   )
 }
 
-async function enrichWorkspaceCleanupCandidatesWithCache(
+export async function enrichWorkspaceCleanupCandidatesWithCache(
   candidates: readonly WorkspaceCleanupCandidate[],
   state: AppState,
   cache: Map<string, WorkspaceCleanupEnrichmentCacheEntry>,
@@ -329,7 +349,7 @@ function shouldPreserveCleanupInspection(
   return Date.now() - viewed.viewedAt <= VIEWED_FROM_CLEANUP_MS
 }
 
-function applyDismissal(
+export function applyDismissal(
   candidate: WorkspaceCleanupCandidate,
   dismissals: Record<string, WorkspaceCleanupDismissal>
 ): WorkspaceCleanupCandidate {
@@ -342,7 +362,7 @@ function applyDismissal(
   })
 }
 
-async function preflightWorkspaceCleanupCandidate(
+export async function preflightWorkspaceCleanupCandidate(
   worktreeId: string,
   getState: () => AppState,
   approvedCandidate?: WorkspaceCleanupCandidate

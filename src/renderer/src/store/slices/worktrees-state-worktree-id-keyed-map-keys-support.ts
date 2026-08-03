@@ -1,4 +1,4 @@
-/* import type { StateCreator, StoreApi } from 'zustand'
+ import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
   DetectedWorktreeListResult,
@@ -167,6 +167,7 @@ export const WORKTREE_ID_KEYED_MAP_KEYS = [
  * rename. Tab-id/file-id-keyed maps and active/renaming pointers stay put since tabs/files keep their ids.
  * Main-process counterpart: `Store.migrateWorktreeIdentity` in persistence.ts.
  */
+
 export function buildWorktreeRenameState(
   s: AppState,
   oldWorktreeId: string,

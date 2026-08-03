@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
 import { githubRepoIdentityKey } from '../../../../shared/github-repository-identity-key'
@@ -273,12 +273,12 @@ export function parseSlugAndNumber(
   return { owner: parts[0], repo: parts[1], number: row.content.number }
 }
 export type WorkItemsCacheSources = {
-  issues: GitHubOwnerRepo | null
-  prs: GitHubOwnerRepo | null
+  issues: GitHubOwnerRepo | null;
+  prs: GitHubOwnerRepo | null;
   /** Raw origin remote (if any); required-nullable so the selector can distinguish it from the effective PR source. */
-  originCandidate: GitHubOwnerRepo | null
+  originCandidate: GitHubOwnerRepo | null;
   /** Raw upstream remote (if any); required-nullable (like `issues`/`prs`) so consumers branch on null-vs-value, not a three-state. */
-  upstreamCandidate: GitHubOwnerRepo | null
+  upstreamCandidate: GitHubOwnerRepo | null;
 }
 
 // Why: stamp the slug on the error so banner copy stays correct even when the error outlives the entry's `sources` field.
@@ -295,29 +295,29 @@ export type CacheEntry<T> = {
   issueSourceFellBack?: true
 }
 export type FetchOptions = {
-  force?: boolean
-  noCache?: boolean
-  sourceContext?: TaskSourceContext | null
+  force?: boolean;
+  noCache?: boolean;
+  sourceContext?: TaskSourceContext | null;
 }
 export type RepoScopedFetchOptions = FetchOptions & {
   repoId?: string
 }
 export type PRRefreshState = {
-  status: 'queued' | 'in-flight' | 'paused' | 'skipped' | 'error'
-  reason: GitHubPRRefreshReason
-  updatedAt: number
-  pausedUntil?: number
-  message?: string
+  status: 'queued' | 'in-flight' | 'paused' | 'skipped' | 'error';
+  reason: GitHubPRRefreshReason;
+  updatedAt: number;
+  pausedUntil?: number;
+  message?: string;
   // Why: classified errors drive stable copy without exposing raw upstream messages.
-  errorType?: PRRefreshErrorType
-  skippedReason?: GitHubPRRefreshSkippedReason
-  nextAutoRetryAt?: number
-  retryDisabledUntil?: number
+  errorType?: PRRefreshErrorType;
+  skippedReason?: GitHubPRRefreshSkippedReason;
+  nextAutoRetryAt?: number;
+  retryDisabledUntil?: number;
 }
 export type PRRefreshStateClearToken = {
-  sequence: number
-  status: PRRefreshState['status']
-  updatedAt: number
+  sequence: number;
+  status: PRRefreshState['status'];
+  updatedAt: number;
 }
 export const PR_REFRESH_ACTIVE_STALE_MS = 120_000
 export const PR_REFRESH_PAUSED_GRACE_MS = 5_000
@@ -337,16 +337,16 @@ export const inflightPRRequests = new Map<
 >()
 export const inflightIssueRequests = new Map<string, Promise<IssueInfo | null>>()
 export type InflightChecks = {
-  promise: Promise<PRCheckDetail[]>
-  force: boolean
-  noCache: boolean
+  promise: Promise<PRCheckDetail[]>;
+  force: boolean;
+  noCache: boolean;
 }
 export const inflightChecksRequests = new Map<string, InflightChecks>()
 export const inflightCommentsRequests = new Map<string, Promise<PRComment[]>>()
 export type InflightWorkItems = {
-  promise: Promise<GitHubWorkItem[]>
-  force: boolean
-  noCache: boolean
+  promise: Promise<GitHubWorkItem[]>;
+  force: boolean;
+  noCache: boolean;
 }
 export const inflightWorkItemsRequests = new Map<string, InflightWorkItems>()
 export const prRequestGenerations = new Map<string, number>()

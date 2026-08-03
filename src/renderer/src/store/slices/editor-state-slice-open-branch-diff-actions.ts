@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import { pushRecentlyClosedTabKind } from './recently-closed-tabs'
 import { joinPath } from '@/lib/path'

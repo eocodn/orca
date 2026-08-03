@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
   Repo,
@@ -144,9 +144,11 @@ import {
 } from './terminal-tab-retirement'
 
 import { getNextTerminalOrdinal, isRemoteRuntimePtyId, isCurrentDirectSshAuthority, resolveDirectSshTerminalKeys, getPendingActivationSpawnCount, consumePendingActivationSpawn, getFallbackTabTitle, getPathDisplayName, buildRuntimeSessionPlaceholders, getTerminalTabOwnerWorktreeId, updateUnifiedTerminalLabel, updateUnifiedTerminalGeneratedLabel, getTabIdFromPaneKey, isWindowsRendererRuntime, isAllowedRemoteWindowsTerminalShell, resolveCreatedTabShellOverride, worktreeUsesWslPath, worktreeUsesRemoteConnection, getRemoteConnectionIdForWorktree, resolveTerminalStopRuntimeEnvironmentId } from './terminals-state-get-next-terminal-ordinal-support'
-import { sortedUniquePtyIds, equalStringSets, uniquePtyIds, resolvePrimaryLayoutPtyId, withTerminalTabPtyId } type { AutomaticAgentResumeClaim, CodexRestartNotice } from './terminals-state-sorted-unique-pty-ids-support'
+import { sortedUniquePtyIds, equalStringSets, uniquePtyIds, resolvePrimaryLayoutPtyId, withTerminalTabPtyId } from './terminals-state-sorted-unique-pty-ids-support'
+import type { AutomaticAgentResumeClaim, CodexRestartNotice } from './terminals-state-sorted-unique-pty-ids-support'
 import type { TerminalSlice, HydrateWorkspaceSessionOptions } from './terminals-state-terminal-slice-support'
-import { replaceHydratedRecordKeys, targetScopedWorkspaceHydrationPatch } type { ReconnectPersistedTerminalsOptions, WorkspaceHydrationPatch } from './terminals-state-reconnect-persisted-terminals-options-support'
+import { replaceHydratedRecordKeys, targetScopedWorkspaceHydrationPatch } from './terminals-state-reconnect-persisted-terminals-options-support'
+import type { ReconnectPersistedTerminalsOptions, WorkspaceHydrationPatch } from './terminals-state-reconnect-persisted-terminals-options-support'
 export { getNextTerminalOrdinal, isRemoteRuntimePtyId, isCurrentDirectSshAuthority, resolveDirectSshTerminalKeys, getPendingActivationSpawnCount, consumePendingActivationSpawn, getFallbackTabTitle, getPathDisplayName, buildRuntimeSessionPlaceholders, getTerminalTabOwnerWorktreeId, updateUnifiedTerminalLabel, updateUnifiedTerminalGeneratedLabel, getTabIdFromPaneKey, isWindowsRendererRuntime, isAllowedRemoteWindowsTerminalShell, resolveCreatedTabShellOverride, worktreeUsesWslPath, worktreeUsesRemoteConnection, getRemoteConnectionIdForWorktree, resolveTerminalStopRuntimeEnvironmentId, sortedUniquePtyIds, equalStringSets, uniquePtyIds, resolvePrimaryLayoutPtyId, withTerminalTabPtyId, replaceHydratedRecordKeys, targetScopedWorkspaceHydrationPatch }
 export type { AutomaticAgentResumeClaim, CodexRestartNotice, TerminalSlice, HydrateWorkspaceSessionOptions, ReconnectPersistedTerminalsOptions, WorkspaceHydrationPatch }
 import { createTerminalSliceTabsByWorktreeActions } from './terminals-state-tabs-by-worktree-actions'

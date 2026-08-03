@@ -1,4 +1,4 @@
-   caches, and optimistic patch propagation as one store boundary so active
+/* caches, and optimistic patch propagation as one store boundary so active
    site changes invalidate every related query coherently. */
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'

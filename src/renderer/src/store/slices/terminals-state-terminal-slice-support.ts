@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
   Repo,
@@ -145,51 +145,51 @@ import {
 import { getNextTerminalOrdinal, isRemoteRuntimePtyId, isCurrentDirectSshAuthority, resolveDirectSshTerminalKeys, getPendingActivationSpawnCount, consumePendingActivationSpawn, getFallbackTabTitle, getPathDisplayName, buildRuntimeSessionPlaceholders, getTerminalTabOwnerWorktreeId, updateUnifiedTerminalLabel, updateUnifiedTerminalGeneratedLabel, getTabIdFromPaneKey, isWindowsRendererRuntime, isAllowedRemoteWindowsTerminalShell, resolveCreatedTabShellOverride, worktreeUsesWslPath, worktreeUsesRemoteConnection, getRemoteConnectionIdForWorktree, resolveTerminalStopRuntimeEnvironmentId, sortedUniquePtyIds, equalStringSets, uniquePtyIds, resolvePrimaryLayoutPtyId, withTerminalTabPtyId, replaceHydratedRecordKeys, targetScopedWorkspaceHydrationPatch } from './terminals-state'
 import type { AutomaticAgentResumeClaim, CodexRestartNotice, ReconnectPersistedTerminalsOptions, WorkspaceHydrationPatch } from './terminals-state'
 export type TerminalSlice = {
-  tabsByWorktree: Record<string, TerminalTab[]>
-  activeTabId: string | null
+  tabsByWorktree: Record<string, TerminalTab[]>;
+  activeTabId: string | null;
   /** Per-worktree last-active tab, restored on worktree switch so the user returns to where they left, not tabs[0]. */
-  activeTabIdByWorktree: Record<string, string | null>
-  ptyIdsByTabId: Record<string, string[]>
+  activeTabIdByWorktree: Record<string, string | null>;
+  ptyIdsByTabId: Record<string, string[]>;
   /** Live pane titles by tabId then paneId; preserves per-pane agent status (unlike the legacy tab title) while TerminalPane is mounted. */
-  runtimePaneTitlesByTabId: Record<string, Record<number, string>>
+  runtimePaneTitlesByTabId: Record<string, Record<number, string>>;
   /** Per-tab unread flags (BEL or agent-complete); ephemeral UI state, not persisted. Cleared when the user activates/interacts with the tab. */
-  unreadTerminalTabs: Record<string, true>
+  unreadTerminalTabs: Record<string, true>;
   /** Pane-keyed attention marker (narrower than unreadTerminalTabs); clears when the user interacts with the exact pane that raised it. */
-  unreadTerminalPanes: Record<string, true>
+  unreadTerminalPanes: Record<string, true>;
   /** Agent-completion marker for focus-return auto-ack; separate from unreadTerminalPanes so generic bells still show until interact. */
-  unreadAgentCompletionPanes: Record<string, true>
+  unreadAgentCompletionPanes: Record<string, true>;
   // Remote guard keys must use renderer-visible, environment-scoped PTY ids; raw runtime handles are only valid at the RPC boundary.
-  suppressedPtyExitIds: Record<string, true>
+  suppressedPtyExitIds: Record<string, true>;
   /** Reference-counted so overlapping shutdowns retain renderer PTY bindings until every owner settles. */
-  pendingPtyShutdownIds: Record<string, number>
-  pendingCodexPaneRestartIds: Record<string, true>
-  codexRestartNoticeByPtyId: Record<string, CodexRestartNotice>
-  directSshPaneRetryByTabId: Record<string, DirectSshPaneRetryAttempt>
-  directSshLivePtyBindingByTabId: Record<string, DirectSshLivePtyBinding>
-  directSshPaneRetryHistoryByTabId: Record<string, DirectSshPaneRetryHistory>
-  expandedPaneByTabId: Record<string, boolean>
-  canExpandPaneByTabId: Record<string, boolean>
-  terminalLayoutsByTabId: Record<string, TerminalLayoutSnapshot>
+  pendingPtyShutdownIds: Record<string, number>;
+  pendingCodexPaneRestartIds: Record<string, true>;
+  codexRestartNoticeByPtyId: Record<string, CodexRestartNotice>;
+  directSshPaneRetryByTabId: Record<string, DirectSshPaneRetryAttempt>;
+  directSshLivePtyBindingByTabId: Record<string, DirectSshLivePtyBinding>;
+  directSshPaneRetryHistoryByTabId: Record<string, DirectSshPaneRetryHistory>;
+  expandedPaneByTabId: Record<string, boolean>;
+  canExpandPaneByTabId: Record<string, boolean>;
+  terminalLayoutsByTabId: Record<string, TerminalLayoutSnapshot>;
   /** Most recent quick-command id per group; in-memory only so a deleted command's stale id can't surface as the split-button label. */
-  recentQuickCommandIdByGroup: Record<string, string>
-  setRecentQuickCommandForGroup: (groupId: string, quickCommandId: string) => void
+  recentQuickCommandIdByGroup: Record<string, string>;
+  setRecentQuickCommandForGroup: (groupId: string, quickCommandId: string) => void;
   /** Runtime-only claim for auto sleeping-session recovery tabs; bridges the gap between startup payload consumption and hooks going live. */
-  automaticAgentResumeClaimsByTabId: Record<string, AutomaticAgentResumeClaim>
-  claimAutomaticAgentResume: (tabId: string, claim: AutomaticAgentResumeClaim) => void
+  automaticAgentResumeClaimsByTabId: Record<string, AutomaticAgentResumeClaim>;
+  claimAutomaticAgentResume: (tabId: string, claim: AutomaticAgentResumeClaim) => void;
   /** Launch-time native-chat prompt echo, keyed by terminal tab. In-memory only. */
-  nativeChatLaunchPromptByTabId: Record<string, NativeChatLaunchPrompt>
-  seedNativeChatLaunchPrompt: (prompt: NativeChatLaunchPrompt) => void
-  markNativeChatLaunchPromptFailed: (tabId: string) => void
-  clearNativeChatLaunchPrompt: (tabId: string) => void
+  nativeChatLaunchPromptByTabId: Record<string, NativeChatLaunchPrompt>;
+  seedNativeChatLaunchPrompt: (prompt: NativeChatLaunchPrompt) => void;
+  markNativeChatLaunchPromptFailed: (tabId: string) => void;
+  clearNativeChatLaunchPrompt: (tabId: string) => void;
   /** Launch context prefilled into the TUI input as an unsent draft; the chat composer adopts it. In-memory only. */
-  nativeChatLaunchDraftByTabId: Record<string, NativeChatLaunchDraft>
-  seedNativeChatLaunchDraft: (draft: NativeChatLaunchDraft) => void
-  markNativeChatLaunchDraftAdopted: (tabId: string) => void
+  nativeChatLaunchDraftByTabId: Record<string, NativeChatLaunchDraft>;
+  seedNativeChatLaunchDraft: (draft: NativeChatLaunchDraft) => void;
+  markNativeChatLaunchDraftAdopted: (tabId: string) => void;
   resolveNativeChatLaunchDraft: (
     tabId: string,
     resolution: Pick<NativeChatLaunchDraft, 'createdAt' | 'text'>
-  ) => void
-  clearNativeChatLaunchDraft: (tabId: string) => void
+  ) => void;
+  clearNativeChatLaunchDraft: (tabId: string) => void;
   pendingStartupByTabId: Record<
     string,
     {
@@ -214,40 +214,40 @@ export type TerminalSlice = {
       /** Telemetry for the `agent_started` event; threaded to the pty:spawn handler so it fires only after spawn confirms, not on click-intent. */
       telemetry?: AgentStartedTelemetry
     }
-  >
-  pendingInitialCwdByTabId: Record<string, string>
+  >;
+  pendingInitialCwdByTabId: Record<string, string>;
   /** Queued setup-split requests; TerminalPane splits and runs the command in a new pane so the main terminal stays immediately interactive. */
   pendingSetupSplitByTabId: Record<
     string,
     { command: string; env?: Record<string, string>; direction: SetupSplitDirection }
-  >
+  >;
   /** Queued issue-command-split requests, triggered when an issue is linked at worktree creation and the repo's issue automation is enabled. */
-  pendingIssueCommandSplitByTabId: Record<string, { command: string; env?: Record<string, string> }>
-  tabBarOrderByWorktree: Record<string, string[]>
-  workspaceSessionReady: boolean
-  restoredRuntimeHostIdByWorkspaceSessionKey: Record<string, ExecutionHostId>
-  defaultTerminalTabsAppliedByWorktreeId: Record<string, true>
-  markDefaultTerminalTabsApplied: (worktreeId: string) => void
+  pendingIssueCommandSplitByTabId: Record<string, { command: string; env?: Record<string, string> }>;
+  tabBarOrderByWorktree: Record<string, string[]>;
+  workspaceSessionReady: boolean;
+  restoredRuntimeHostIdByWorkspaceSessionKey: Record<string, ExecutionHostId>;
+  defaultTerminalTabsAppliedByWorktreeId: Record<string, true>;
+  markDefaultTerminalTabsApplied: (worktreeId: string) => void;
   /** True only after hydrateWorkspaceSession loaded real orca-data.json; guards the session writer so an early-startup crash can't overwrite good data on disk. */
-  hydrationSucceeded: boolean
-  setHydrationSucceeded: (value: boolean) => void
-  pendingReconnectWorktreeIds: string[]
-  pendingReconnectTabByWorktree: Record<string, string[]>
+  hydrationSucceeded: boolean;
+  setHydrationSucceeded: (value: boolean) => void;
+  pendingReconnectWorktreeIds: string[];
+  pendingReconnectTabByWorktree: Record<string, string[]>;
   /** tabId → previous session's ptyId; for daemon backends it doubles as the sessionId, so spawn createOrAttach returns the surviving terminal. */
-  pendingReconnectPtyIdByTabId: Record<string, string>
+  pendingReconnectPtyIdByTabId: Record<string, string>;
   // Why: clearTabPtyId nulls tab.ptyId on disconnect; keep the last relay ID here so session save can still capture it for reattach after restart.
-  lastKnownRelayPtyIdByTabId: Record<string, string>
+  lastKnownRelayPtyIdByTabId: Record<string, string>;
   /** ANSI snapshots from daemon reattach, keyed by new ptyId; TerminalPane writes them to xterm.js to restore visual state. */
   pendingSnapshotByPtyId: Record<
     string,
     { snapshot: string; cols?: number; rows?: number; isAlternateScreen?: boolean }
-  >
+  >;
   consumePendingSnapshot: (
     ptyId: string
-  ) => { snapshot: string; cols?: number; rows?: number; isAlternateScreen?: boolean } | null
+  ) => { snapshot: string; cols?: number; rows?: number; isAlternateScreen?: boolean } | null;
   /** Cold-restore data (read-only scrollback shown above the fresh prompt) from disk history after a daemon crash, keyed by the new ptyId. */
-  pendingColdRestoreByPtyId: Record<string, { scrollback: string; cwd: string }>
-  consumePendingColdRestore: (ptyId: string) => { scrollback: string; cwd: string } | null
+  pendingColdRestoreByPtyId: Record<string, { scrollback: string; cwd: string }>;
+  consumePendingColdRestore: (ptyId: string) => { scrollback: string; cwd: string } | null;
   createTab: (
     worktreeId: string,
     targetGroupId?: string,
@@ -266,8 +266,8 @@ export type TerminalSlice = {
       viewMode?: Tab['viewMode']
       startupCwd?: string
     }
-  ) => TerminalTab
-  openNewTerminalTabInActiveWorkspace: (groupId: string) => Promise<void>
+  ) => TerminalTab;
+  openNewTerminalTabInActiveWorkspace: (groupId: string) => Promise<void>;
   closeTab: (
     tabId: string,
     opts?: {
@@ -278,44 +278,44 @@ export type TerminalSlice = {
       localPtyTeardownOwnedExternally?: boolean
       precomputedRetirementPlan?: TerminalTabRetirementPlan
     }
-  ) => void
-  reorderTabs: (worktreeId: string, tabIds: string[]) => void
-  setTabBarOrder: (worktreeId: string, order: string[]) => void
-  setActiveTab: (tabId: string) => void
-  setActiveTabForWorktree: (worktreeId: string, tabId: string) => void
-  updateTabTitle: (tabId: string, title: string) => void
+  ) => void;
+  reorderTabs: (worktreeId: string, tabIds: string[]) => void;
+  setTabBarOrder: (worktreeId: string, order: string[]) => void;
+  setActiveTab: (tabId: string) => void;
+  setActiveTabForWorktree: (worktreeId: string, tabId: string) => void;
+  updateTabTitle: (tabId: string, title: string) => void;
   setGeneratedTabTitleFromAgentPrompt: (
     paneKey: string,
     prompt: string,
     options?: { replaceExistingGeneratedTitle?: boolean }
-  ) => void
-  clearTabLaunchAgent: (tabId: string) => void
-  setRuntimePaneTitle: (tabId: string, paneId: number, title: string) => void
-  clearRuntimePaneTitle: (tabId: string, paneId: number) => void
+  ) => void;
+  clearTabLaunchAgent: (tabId: string) => void;
+  setRuntimePaneTitle: (tabId: string, paneId: number, title: string) => void;
+  clearRuntimePaneTitle: (tabId: string, paneId: number) => void;
   /** Mark a tab unread (agent working→idle); skipped when the tab is visible, since a "seen" flag would never clear. */
-  markTerminalTabUnread: (tabId: string) => void
-  markTerminalPaneUnread: (paneKey: string) => void
-  markAgentCompletionPaneUnread: (paneKey: string) => void
+  markTerminalTabUnread: (tabId: string) => void;
+  markTerminalPaneUnread: (paneKey: string) => void;
+  markAgentCompletionPaneUnread: (paneKey: string) => void;
   /** Clear a tab's unread indicator on user interaction (ghostty "show until interact" model). */
-  clearTerminalTabUnread: (tabId: string) => void
-  clearTerminalPaneUnread: (paneKey: string) => void
+  clearTerminalTabUnread: (tabId: string) => void;
+  clearTerminalPaneUnread: (paneKey: string) => void;
   setTabCustomTitle: (
     tabId: string,
     title: string | null,
     opts?: { recordInteraction?: boolean }
-  ) => void
-  setTabColor: (tabId: string, color: string | null) => void
+  ) => void;
+  setTabColor: (tabId: string, color: string | null) => void;
   updateTabPtyId: (
     tabId: string,
     ptyId: string,
     replacedPtyId?: string,
     directSshRetryAttemptId?: DirectSshPaneRetryAttemptId
-  ) => void
-  clearTabPtyId: (tabId: string, ptyId?: string) => void
-  clearDirectSshTargetPtyBindings: (targetId: string) => number
-  invalidateStaleDirectSshTargetPtyBindings: (authority: DirectSshAuthority) => number
-  retryDirectSshTargetPanes: (authority: DirectSshAuthority, now?: number) => number
-  settleDirectSshPaneRetry: (result: DirectSshPaneRetryResult, now?: number) => void
+  ) => void;
+  clearTabPtyId: (tabId: string, ptyId?: string) => void;
+  clearDirectSshTargetPtyBindings: (targetId: string) => number;
+  invalidateStaleDirectSshTargetPtyBindings: (authority: DirectSshAuthority) => number;
+  retryDirectSshTargetPanes: (authority: DirectSshAuthority, now?: number) => number;
+  settleDirectSshPaneRetry: (result: DirectSshPaneRetryResult, now?: number) => void;
   shutdownWorktreeTerminals: (
     worktreeId: string,
     opts?: {
@@ -324,7 +324,7 @@ export type TerminalSlice = {
       sleepingPaneKeys?: string[]
       expectedRuntimePtyIds?: string[]
     }
-  ) => Promise<void>
+  ) => Promise<void>;
   shutdownCompletedAgentPaneForHibernation: (
     worktreeId: string,
     opts: {
@@ -334,12 +334,12 @@ export type TerminalSlice = {
       ptyId: string
       expectedRuntimePtyId?: string
     }
-  ) => Promise<void>
-  suppressPtyExit: (ptyId: string) => void
-  consumeSuppressedPtyExit: (ptyId: string) => boolean
-  isPtyShutdownPending: (ptyId: string) => boolean
-  queueCodexPaneRestarts: (ptyIds: string[]) => void
-  consumePendingCodexPaneRestart: (ptyId: string) => boolean
+  ) => Promise<void>;
+  suppressPtyExit: (ptyId: string) => void;
+  consumeSuppressedPtyExit: (ptyId: string) => boolean;
+  isPtyShutdownPending: (ptyId: string) => boolean;
+  queueCodexPaneRestarts: (ptyIds: string[]) => void;
+  consumePendingCodexPaneRestart: (ptyId: string) => boolean;
   /** Returns the ptyIds left holding a notice, so callers can tell a raised
    *  prompt from one the A -> B -> A collapse dropped. */
   markCodexRestartNotices: (
@@ -347,19 +347,19 @@ export type TerminalSlice = {
       Partial<Pick<CodexRestartNotice, 'previousAccountId' | 'nextAccountId'>> & {
         ptyId: string
       })[]
-  ) => string[]
-  clearCodexRestartNotice: (ptyId: string) => void
-  dismissCodexRestartNotices: (ptyIds: string[]) => void
-  setTabPaneExpanded: (tabId: string, expanded: boolean) => void
-  setTabCanExpandPane: (tabId: string, canExpand: boolean) => void
-  setTabLayout: (tabId: string, layout: TerminalLayoutSnapshot | null) => void
+  ) => string[];
+  clearCodexRestartNotice: (ptyId: string) => void;
+  dismissCodexRestartNotices: (ptyIds: string[]) => void;
+  setTabPaneExpanded: (tabId: string, expanded: boolean) => void;
+  setTabCanExpandPane: (tabId: string, canExpand: boolean) => void;
+  setTabLayout: (tabId: string, layout: TerminalLayoutSnapshot | null) => void;
   syncPaneDetachPtyOwnership: (args: {
     detachedLeafId: string
     detachedPtyId: string | null
     sourceLayout: TerminalLayoutSnapshot
     sourceTabId: string
     targetTabId: string
-  }) => void
+  }) => void;
   queueTabStartupCommand: (
     tabId: string,
     startup: {
@@ -379,9 +379,9 @@ export type TerminalSlice = {
       showSessionRestoredBanner?: boolean
       telemetry?: AgentStartedTelemetry
     }
-  ) => void
-  queueTabInitialCwd: (tabId: string, cwd: string) => void
-  consumeTabInitialCwd: (tabId: string) => string | null
+  ) => void;
+  queueTabInitialCwd: (tabId: string, cwd: string) => void;
+  consumeTabInitialCwd: (tabId: string) => string | null;
   consumeTabStartupCommand: (tabId: string) => {
     command: string
     delivery?: 'terminal-paste'
@@ -398,46 +398,46 @@ export type TerminalSlice = {
     initialAgentStatus?: { agent: TuiAgent; prompt: string }
     showSessionRestoredBanner?: boolean
     telemetry?: AgentStartedTelemetry
-  } | null
+  } | null;
   queueTabSetupSplit: (
     tabId: string,
     startup: { command: string; env?: Record<string, string>; direction: SetupSplitDirection }
-  ) => void
+  ) => void;
   consumeTabSetupSplit: (
     tabId: string
-  ) => { command: string; env?: Record<string, string>; direction: SetupSplitDirection } | null
+  ) => { command: string; env?: Record<string, string>; direction: SetupSplitDirection } | null;
   queueTabIssueCommandSplit: (
     tabId: string,
     issueCommand: { command: string; env?: Record<string, string> }
-  ) => void
+  ) => void;
   consumeTabIssueCommandSplit: (
     tabId: string
-  ) => { command: string; env?: Record<string, string> } | null
+  ) => { command: string; env?: Record<string, string> } | null;
   /** `${tabId}:${leafId}` → ms when the prompt-cache countdown started (agent idle); null means no active timer for that pane. */
-  cacheTimerByKey: Record<string, number | null>
-  setCacheTimerStartedAt: (key: string, ts: number | null) => void
+  cacheTimerByKey: Record<string, number | null>;
+  setCacheTimerStartedAt: (key: string, ts: number | null) => void;
   /** paneKey → wall-clock user input time; hibernation uses it to avoid sleeping a completed agent pane the user turned into a shell. */
-  lastTerminalInputAtByPaneKey: Record<string, number>
-  recordTerminalInput: (paneKey: string, timestamp?: number) => void
+  lastTerminalInputAtByPaneKey: Record<string, number>;
+  recordTerminalInput: (paneKey: string, timestamp?: number) => void;
   /** Seed cache timers for idle Claude sessions missing one; called when the feature is enabled mid-session. */
-  seedCacheTimersForIdleTabs: () => void
+  seedCacheTimersForIdleTabs: () => void;
   /** SSH target IDs needing a passphrase; reconnect is deferred until the user focuses an affected terminal tab. */
-  deferredSshReconnectTargets: string[]
+  deferredSshReconnectTargets: string[];
   /** tabId → remote PTY session ID for deferred (passphrase) SSH tabs; survives the startup clear because reconnect runs later, on focus. */
-  deferredSshSessionIdsByTabId: Record<string, string>
-  setDeferredSshReconnectTargets: (targetIds: string[]) => void
-  removeDeferredSshReconnectTarget: (targetId: string) => void
-  removeDeferredSshSessionId: (tabId: string) => void
+  deferredSshSessionIdsByTabId: Record<string, string>;
+  setDeferredSshReconnectTargets: (targetIds: string[]) => void;
+  removeDeferredSshReconnectTarget: (targetId: string) => void;
+  removeDeferredSshSessionId: (tabId: string) => void;
   hydrateWorkspaceSession: (
     session: WorkspaceSessionState,
     options?: HydrateWorkspaceSessionOptions
-  ) => void
+  ) => void;
   reconnectPersistedTerminals: (
     signal?: AbortSignal,
     options?: ReconnectPersistedTerminalsOptions
-  ) => Promise<void>
+  ) => Promise<void>;
 }
 export type HydrateWorkspaceSessionOptions = {
-  directSshAuthority?: DirectSshAuthority
-  runtimeHostIdByWorkspaceSessionKey?: Record<string, ExecutionHostId>
+  directSshAuthority?: DirectSshAuthority;
+  runtimeHostIdByWorkspaceSessionKey?: Record<string, ExecutionHostId>;
 } & WorkspaceSessionHydrationOptions

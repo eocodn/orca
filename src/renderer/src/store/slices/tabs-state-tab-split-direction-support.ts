@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
   Tab,
@@ -56,12 +56,12 @@ export function replaceWorkspaceRecordKeys<T>(
   }
 }
 export type TabsSlice = {
-  unifiedTabsByWorktree: Record<string, Tab[]>
+  unifiedTabsByWorktree: Record<string, Tab[]>;
   // Why: id of the tab whose inline title editor should open; shortcut (tab.rename) sets it, the tab clears it on consume.
-  renamingTabId: string | null
-  groupsByWorktree: Record<string, TabGroup[]>
-  activeGroupIdByWorktree: Record<string, string>
-  layoutByWorktree: Record<string, TabGroupLayoutNode>
+  renamingTabId: string | null;
+  groupsByWorktree: Record<string, TabGroup[]>;
+  activeGroupIdByWorktree: Record<string, string>;
+  layoutByWorktree: Record<string, TabGroupLayoutNode>;
   createUnifiedTab: (
     worktreeId: string,
     contentType: TabContentType,
@@ -83,7 +83,7 @@ export type TabsSlice = {
         recordInteraction: boolean
       }
     >
-  ) => Tab
+  ) => Tab;
   createUnifiedTabInSplit: (
     worktreeId: string,
     contentType: TabContentType,
@@ -108,55 +108,55 @@ export type TabsSlice = {
         recordInteraction: boolean
       }
     >
-  ) => Tab | null
-  getTab: (tabId: string) => Tab | null
-  getActiveTab: (worktreeId: string) => Tab | null
+  ) => Tab | null;
+  getTab: (tabId: string) => Tab | null;
+  getActiveTab: (worktreeId: string) => Tab | null;
   findTabForEntityInGroup: (
     worktreeId: string,
     groupId: string,
     entityId: string,
     contentType?: TabContentType
-  ) => Tab | null
-  activateTab: (tabId: string, opts?: { preservePreview?: boolean }) => void
+  ) => Tab | null;
+  activateTab: (tabId: string, opts?: { preservePreview?: boolean }) => void;
   closeUnifiedTab: (
     tabId: string,
     opts?: { recordInteraction?: boolean; terminalRetirementHandled?: boolean }
-  ) => { closedTabId: string; wasLastTab: boolean; worktreeId: string } | null
+  ) => { closedTabId: string; wasLastTab: boolean; worktreeId: string } | null;
   reorderUnifiedTabs: (
     groupId: string,
     tabIds: string[],
     opts?: { recordInteraction?: boolean }
-  ) => void
-  setTabLabel: (tabId: string, label: string) => void
+  ) => void;
+  setTabLabel: (tabId: string, label: string) => void;
   /** Set a tab's view mode (terminal vs native chat). Patches only that tab. */
-  setTabViewMode: (tabId: string, mode: 'terminal' | 'chat') => void
+  setTabViewMode: (tabId: string, mode: 'terminal' | 'chat') => void;
   /** Flip a tab between terminal and native-chat renderings; the live TerminalPane stays mounted. */
-  toggleTabViewMode: (tabId: string) => void
+  toggleTabViewMode: (tabId: string) => void;
   setTabCustomLabel: (
     tabId: string,
     label: string | null,
     opts?: { recordInteraction?: boolean }
-  ) => void
-  setUnifiedTabColor: (tabId: string, color: string | null) => void
-  setRenamingTabId: (tabId: string | null) => void
-  pinTab: (tabId: string) => void
-  unpinTab: (tabId: string) => void
-  closeOtherTabs: (tabId: string) => string[]
-  closeTabsToRight: (tabId: string) => string[]
-  closeTabsToLeft: (tabId: string) => string[]
-  ensureWorktreeRootGroup: (worktreeId: string) => string
-  focusGroup: (worktreeId: string, groupId: string) => void
-  closeEmptyGroup: (worktreeId: string, groupId: string) => boolean
+  ) => void;
+  setUnifiedTabColor: (tabId: string, color: string | null) => void;
+  setRenamingTabId: (tabId: string | null) => void;
+  pinTab: (tabId: string) => void;
+  unpinTab: (tabId: string) => void;
+  closeOtherTabs: (tabId: string) => string[];
+  closeTabsToRight: (tabId: string) => string[];
+  closeTabsToLeft: (tabId: string) => string[];
+  ensureWorktreeRootGroup: (worktreeId: string) => string;
+  focusGroup: (worktreeId: string, groupId: string) => void;
+  closeEmptyGroup: (worktreeId: string, groupId: string) => boolean;
   createEmptySplitGroup: (
     worktreeId: string,
     sourceGroupId: string,
     direction: TabSplitDirection
-  ) => string | null
+  ) => string | null;
   moveUnifiedTabToGroup: (
     tabId: string,
     targetGroupId: string,
     opts?: { index?: number; activate?: boolean; recordInteraction?: boolean }
-  ) => boolean
+  ) => boolean;
   dropUnifiedTab: (
     tabId: string,
     target: {
@@ -164,7 +164,7 @@ export type TabsSlice = {
       index?: number
       splitDirection?: TabSplitDirection
     }
-  ) => boolean
+  ) => boolean;
   copyUnifiedTabToGroup: (
     tabId: string,
     targetGroupId: string,
@@ -181,17 +181,17 @@ export type TabsSlice = {
         | 'isPinned'
       >
     >
-  ) => Tab | null
-  mergeGroupIntoSibling: (worktreeId: string, groupId: string) => string | null
-  setTabGroupSplitRatio: (worktreeId: string, nodePath: string, ratio: number) => void
+  ) => Tab | null;
+  mergeGroupIntoSibling: (worktreeId: string, groupId: string) => string | null;
+  setTabGroupSplitRatio: (worktreeId: string, nodePath: string, ratio: number) => void;
   reconcileWorktreeTabModel: (worktreeId: string) => {
     renderableTabCount: number
     activeRenderableTabId: string | null
-  }
+  };
   hydrateTabsSession: (
     session: WorkspaceSessionState,
     options?: WorkspaceSessionHydrationOptions
-  ) => void
+  ) => void;
 }
 
 // Why: keep the TerminalTab pin in sync with the unified pin so reconcile's existing.isPinned fallback stays authoritative locally.

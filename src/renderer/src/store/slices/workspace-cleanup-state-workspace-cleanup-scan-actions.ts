@@ -23,8 +23,46 @@ import {
 import { mapWithConcurrency } from '../../../../shared/map-with-concurrency'
 import { classifyTitleActivity, isExplicitAgentStatusFresh } from '@/lib/pane-agent-evidence'
 import { translate } from '@/i18n/i18n'
-import { RECENT_VISIBLE_CONTEXT_MS, VIEWED_FROM_CLEANUP_MS, WORKSPACE_CLEANUP_PREFLIGHT_CONCURRENCY, WORKSPACE_CLEANUP_CONCRETE_RISK_BLOCKERS, SHELL_PROCESS_NAMES, AGENT_PROCESS_NAMES } from './workspace-cleanup-state'
-import type { WorkspaceCleanupFailure, WorkspaceCleanupRemoveResult, WorkspaceCleanupRemoveOptions, WorkspaceCleanupViewedCandidate, WorkspaceCleanupSlice, EnrichOptions, WorkspaceCleanupEnrichmentCacheEntry } from './workspace-cleanup-state'
+import {
+  applyDismissal,
+  enrichWorkspaceCleanupCandidates,
+  enrichWorkspaceCleanupCandidatesWithCache,
+  getInitialWorkspaceCleanupGitDeferrals,
+  preflightWorkspaceCleanupCandidate
+} from './workspace-cleanup-state'
+import {
+  AGENT_PROCESS_NAMES,
+  RECENT_VISIBLE_CONTEXT_MS,
+  SHELL_PROCESS_NAMES,
+  VIEWED_FROM_CLEANUP_MS,
+  WORKSPACE_CLEANUP_CONCRETE_RISK_BLOCKERS,
+  WORKSPACE_CLEANUP_PREFLIGHT_CONCURRENCY,
+  type WorkspaceCleanupEnrichmentCacheEntry,
+  type WorkspaceCleanupFailure,
+  type WorkspaceCleanupRemoveOptions,
+  type WorkspaceCleanupSlice
+} from './workspace-cleanup-state-workspace-cleanup-failure-support'
+
+let inFlightWorkspaceCleanupScan: {
+  key: string
+  promise: Promise<WorkspaceCleanupScanResult>
+} | null = null
+let latestWorkspaceCleanupScanToken = 0
+let finalizedWorkspaceCleanupScanToken = 0
+let workspaceCleanupProgressQueue: {
+  scanToken: number
+  promise: Promise<void>
+} | null = null
+let workspaceCleanupEnrichmentCache: {
+  scanToken: number
+  entries: Map<string, WorkspaceCleanupEnrichmentCacheEntry>
+} | null = null
+let workspaceCleanupProgressCandidateIndex: {
+  scanToken: number
+  scanId: string
+  candidates: WorkspaceCleanupCandidate[]
+  indexesByWorktreeId: Map<string, number>
+} | null = null
 type SliceSet = Parameters<StateCreator<AppState>>[0]
 type SliceGet = Parameters<StateCreator<AppState>>[1]
 export function createWorkspaceCleanupSliceWorkspaceCleanupScanActions(set: SliceSet, get: SliceGet) {
@@ -246,8 +284,8 @@ export function createWorkspaceCleanupSliceWorkspaceCleanupScanActions(set: Slic
 
     return { removedIds, failures }
   }
-})
-
+  }
+}
 function getWorkspaceCleanupScanKey(args: WorkspaceCleanupScanArgs): string {
   return JSON.stringify({
     skipGitWorktreeIds: [...new Set(args.skipGitWorktreeIds ?? [])].sort()
@@ -295,5 +333,144 @@ async function applyWorkspaceCleanupProgress(
   progress: WorkspaceCleanupScanProgress,
   scanToken: number,
   getState: () => AppState,
+  setState: (
+    partial: Partial<AppState> | ((state: AppState) => Partial<AppState>),
+    replace?: false
+  ) => void
+): Promise<void> {
+  if (
+    scanToken !== latestWorkspaceCleanupScanToken ||
+    scanToken === finalizedWorkspaceCleanupScanToken
+  ) {
+    return
+  }
+  const state = getState()
+  const previousCandidates =
+    progress.candidateMode === 'append' &&
+    state.workspaceCleanupProgress?.scanId === progress.scanId
+      ? state.workspaceCleanupProgress.candidates
+      : []
+  const enrichedProgressCandidates = await enrichWorkspaceCleanupCandidatesForScan(
+    progress.candidates,
+    state,
+    scanToken
+  )
+  if (
+    scanToken !== latestWorkspaceCleanupScanToken ||
+    scanToken === finalizedWorkspaceCleanupScanToken
+  ) {
+    return
+  }
+  const candidates = mergeWorkspaceCleanupProgressCandidates({
+    previousCandidates,
+    nextCandidates: enrichedProgressCandidates,
+    progress,
+    scanToken
+  })
+  if (
+    scanToken !== latestWorkspaceCleanupScanToken ||
+    scanToken === finalizedWorkspaceCleanupScanToken
+  ) {
+    workspaceCleanupProgressCandidateIndex = null
+    return
+  }
+  setState((state) => {
+    if (
+      state.workspaceCleanupProgress?.scanId === progress.scanId &&
+      state.workspaceCleanupProgress.scannedWorktreeCount > progress.scannedWorktreeCount
+    ) {
+      return {}
+    }
+    return {
+      workspaceCleanupScan: {
+        scannedAt: progress.scannedAt,
+        candidates,
+        errors: progress.errors
+      },
+      workspaceCleanupProgress: { ...progress, candidates }
+    }
+  })
+}
+
+async function enrichWorkspaceCleanupCandidatesForScan(
+  candidates: readonly WorkspaceCleanupCandidate[],
+  state: AppState,
+  scanToken: number
+): Promise<WorkspaceCleanupCandidate[]> {
+  if (workspaceCleanupEnrichmentCache?.scanToken !== scanToken) {
+    workspaceCleanupEnrichmentCache = { scanToken, entries: new Map() }
+  }
+  return enrichWorkspaceCleanupCandidatesWithCache(
+    candidates,
+    state,
+    workspaceCleanupEnrichmentCache.entries
+  )
+}
+
+function mergeWorkspaceCleanupProgressCandidates({
+  previousCandidates,
+  nextCandidates,
+  progress,
+  scanToken
+}: {
+  previousCandidates: readonly WorkspaceCleanupCandidate[]
+  nextCandidates: readonly WorkspaceCleanupCandidate[]
+  progress: WorkspaceCleanupScanProgress
+  scanToken: number
+}): WorkspaceCleanupCandidate[] {
+  if (progress.candidateMode !== 'append') {
+    workspaceCleanupProgressCandidateIndex = null
+    return [...nextCandidates]
+  }
+
+  if (nextCandidates.length === 0) {
+    return previousCandidates as WorkspaceCleanupCandidate[]
+  }
+
+  const indexCache = getWorkspaceCleanupProgressCandidateIndex(
+    previousCandidates,
+    progress.scanId,
+    scanToken
+  )
+  const merged = [...indexCache.candidates]
+  for (const candidate of nextCandidates) {
+    const existingIndex = indexCache.indexesByWorktreeId.get(candidate.worktreeId)
+    if (existingIndex === undefined) {
+      indexCache.indexesByWorktreeId.set(candidate.worktreeId, merged.length)
+      merged.push(candidate)
+      continue
+    }
+    merged[existingIndex] = candidate
+  }
+  workspaceCleanupProgressCandidateIndex = {
+    scanToken,
+    scanId: progress.scanId,
+    candidates: merged,
+    indexesByWorktreeId: indexCache.indexesByWorktreeId
+  }
+  return merged
+}
+
+function getWorkspaceCleanupProgressCandidateIndex(
+  candidates: readonly WorkspaceCleanupCandidate[],
+  scanId: string,
+  scanToken: number
+): {
+  candidates: WorkspaceCleanupCandidate[]
+  indexesByWorktreeId: Map<string, number>
+} {
+  if (
+    workspaceCleanupProgressCandidateIndex?.scanToken === scanToken &&
+    workspaceCleanupProgressCandidateIndex.scanId === scanId &&
+    workspaceCleanupProgressCandidateIndex.candidates === candidates
+  ) {
+    return workspaceCleanupProgressCandidateIndex
+  }
+
+  return {
+    candidates: [...candidates],
+    indexesByWorktreeId: new Map(
+      candidates.map((candidate, index) => [candidate.worktreeId, index])
+    )
   }
 }

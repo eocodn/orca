@@ -1,4 +1,4 @@
-/* import type { StateCreator } from 'zustand'
+ import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
   Repo,
@@ -182,24 +182,24 @@ export function withTerminalTabPtyId(
   return tabsByWorktree
 }
 export type AutomaticAgentResumeClaim = {
-  worktreeId: string
-  launchAgent: TuiAgent
-  providerSession: AgentProviderSessionMetadata
+  worktreeId: string;
+  launchAgent: TuiAgent;
+  providerSession: AgentProviderSessionMetadata;
 }
 export type CodexRestartNotice = {
-  previousAccountLabel: string
-  nextAccountLabel: string
+  previousAccountLabel: string;
+  nextAccountLabel: string;
   /** Ids behind the two labels, when the caller knows them (`null` is the system
    *  default). Two accounts can share a label, so only these can decide whether
    *  a re-mark actually points back at the account the pane launched under. */
-  previousAccountId?: string | null
-  nextAccountId?: string | null
+  previousAccountId?: string | null;
+  nextAccountId?: string | null;
   /** Set once the user asks for the restart. The record outlives the prompt
    *  because the previous-account fields are the only memory of the account this
    *  pane actually launched under, which drives the A -> B -> A collapse. */
-  restartRequested?: true
+  restartRequested?: true;
   /** Set when the user answers "Keep old account". Same reason the record has to
    *  survive: deleting it erased the launch account, so re-selecting it looked
    *  like a fresh switch and raised an inverted prompt that killed pane input. */
-  dismissed?: true
+  dismissed?: true;
 }
