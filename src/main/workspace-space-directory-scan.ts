@@ -1,14 +1,13 @@
-import type { DirEntry, GitWorktreeInfo, Repo, Worktree } from "../shared/types"
+import type { DirEntry, Repo, Worktree } from "../shared/types"
 import type { IFilesystemProvider } from "./providers/types"
-import type { WorkspaceSpaceDirectoryScanResult, WorkspaceSpaceWorktree } from "../shared/workspace-space-types"
+import type { WorkspaceSpaceWorktree } from "../shared/workspace-space-types"
 import { compactWorkspaceSpaceItems } from "../shared/workspace-space-compaction"
 import { mapWithConcurrency } from "../shared/map-with-concurrency"
-import { scanWorkspaceSpaceEntryTree, type WorkspaceSpaceEntryScan } from "../shared/workspace-space-entry-traversal"
+import { scanWorkspaceSpaceEntryTree } from "../shared/workspace-space-entry-traversal"
 import { collectWorkspaceSpaceDirectoryEntries, createWorkspaceSpaceScanBudget, WorkspaceSpaceScanCapacityError } from "../shared/workspace-space-scan-budget"
 import { lstat, opendir } from "node:fs/promises"
-import { execFile } from "node:child_process"
 import { platform } from "node:process"
-import { basenameFilesystemPath, joinFilesystemPath, normalizeLocalDuPath, parseDuDepthOneOutput, readLocalDuDepthOne, toWorkspaceSpaceItem, createBaseWorktreeRow, createUnavailableWorktreeRow, createScannedWorktreeRow, throwIfAborted, classifyError, WorkspaceSpaceScanCancelledError, isAbortError, isRelayMethodNotFoundError, LOCAL_FS_CONCURRENCY, REMOTE_FS_CONCURRENCY, type ScanStats } from "./workspace-space-scan-support"
+import { basenameFilesystemPath, joinFilesystemPath, normalizeLocalDuPath, readLocalDuDepthOne, toWorkspaceSpaceItem, createBaseWorktreeRow, createUnavailableWorktreeRow, createScannedWorktreeRow, throwIfAborted, classifyError, WorkspaceSpaceScanCancelledError, isAbortError, isRelayMethodNotFoundError, LOCAL_FS_CONCURRENCY, REMOTE_FS_CONCURRENCY, type ScanStats } from "./workspace-space-scan-support"
 
 export async function scanLocalEntry(
   entryPath: string,
