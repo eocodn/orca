@@ -1,29 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  Pencil,
-  X
-} from 'lucide-react'
+import { LoaderCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useShallow } from 'zustand/react/shallow'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
-import { useRepoAssignees, useImmediateMutation } from '@/hooks/useIssueMetadata'
+import { useRepoAssignees } from '@/hooks/useIssueMetadata'
 import { useRepoAssigneesBySlug } from '@/hooks/useGitHubSlugMetadata'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import { getTaskSourceRuntimeSettings, type TaskSourceContext } from '../../../shared/task-source-context'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { getGitHubRuntimeRepoId } from '@/lib/github-source-runtime-context'
 import { translate } from '@/i18n/i18n'
-import { parseOwnerRepoFromItemUrl } from '@/components/github-work-item-display'
 import {
   getGitHubPRReviewerRows,
   normalizeGitHubReviewerLogins,
@@ -33,7 +21,6 @@ import {
   filterGitHubPRReviewerCandidates,
   getGitHubPRReviewerQueryState
 } from '@/components/github/github-pr-reviewer-candidate-filter'
-import { GitHubUserAvatar } from '@/components/github/github-user-avatar'
 import {
   buildRequestedReviewUsers,
   mergeReviewerSuggestions,
@@ -41,250 +28,11 @@ import {
   type GitHubItemDialogProjectOrigin
 } from './github-item-dialog-model'
 import { notifyWorkItemDetailsMutation } from './github-item-dialog-cache'
-import { runIssueUpdate } from './github-item-dialog-mutations'
+import { ReviewerAvatar } from './github-item-dialog-assignees'
+import { ReviewerPicker } from './github-item-dialog-reviewer-picker'
 import type { GitHubAssignableUser, GitHubWorkItem } from '../../../shared/types'
 
-export function ReviewerAvatar({
-  login,
-  avatarUrl
-}: {
-  login: string
-  avatarUrl: string
-}): React.JSX.Element {
-  return <GitHubUserAvatar login={login} avatarUrl={avatarUrl} title={login} className="size-6" />
-}
-export function PRAssigneesPanel({
-  item,
-  repoPath,
-  projectOrigin,
-  sourceContext,
-  onMutated
-}: {
-  item: GitHubWorkItem
-  repoPath: string | null
-  projectOrigin: GitHubItemDialogProjectOrigin | undefined
-  sourceContext?: TaskSourceContext | null
-  onMutated: () => void
-}): React.JSX.Element {
-  const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false)
-  const [localAssignees, setLocalAssignees] = useState<GitHubAssignableUser[]>(
-    () => item.assignees ?? []
-  )
-  const [assigneesSource, setAssigneesSource] = useState(() => ({
-    itemId: item.id,
-    repoId: item.repoId,
-    assignees: item.assignees
-  }))
-  const patchWorkItem = useAppStore((s) => s.patchWorkItem)
-  const patchProjectRowContent = useAppStore((s) => s.patchProjectRowContent)
-  const repoOwnerSettings = useAppStore(
-    useShallow((s) => getSettingsForRepoRuntimeOwner(s, item.repoId ?? null))
-  )
-  const sourceSettings = useMemo(
-    () =>
-      sourceContext?.provider === 'github'
-        ? ({
-            ...repoOwnerSettings,
-            ...getTaskSourceRuntimeSettings(sourceContext)
-          } as typeof repoOwnerSettings)
-        : repoOwnerSettings,
-    [repoOwnerSettings, sourceContext]
-  )
-  const { isPending, run } = useImmediateMutation()
-
-  // Why: a background refetch can change PR assignees; sync before paint so the right rail never shows a stale reviewer/assignee split.
-  if (
-    assigneesSource.itemId !== item.id ||
-    assigneesSource.repoId !== item.repoId ||
-    assigneesSource.assignees !== item.assignees
-  ) {
-    setAssigneesSource({ itemId: item.id, repoId: item.repoId, assignees: item.assignees })
-    setLocalAssignees(item.assignees ?? [])
-  }
-
-  const patchProjectRowIfNeeded = useCallback(
-    (assignees: string[]) => {
-      if (!projectOrigin) {
-        return
-      }
-      patchProjectRowContent(projectOrigin.cacheKey, projectOrigin.projectItemId, { assignees })
-    },
-    [patchProjectRowContent, projectOrigin]
-  )
-  const assigneeLogins = useMemo(() => localAssignees.map((user) => user.login), [localAssignees])
-  const assigneeSlug = useMemo(() => parseOwnerRepoFromItemUrl(item.url), [item.url])
-  const slugOwner = projectOrigin?.owner ?? assigneeSlug?.owner ?? null
-  const slugRepo = projectOrigin?.repo ?? assigneeSlug?.repo ?? null
-  const repoAssigneesBySlug = useRepoAssigneesBySlug(
-    slugOwner,
-    slugRepo,
-    assigneeLogins,
-    sourceSettings,
-    projectOrigin?.host ?? assigneeSlug?.host
-  )
-  const repoAssigneesByPath = useRepoAssignees(repoPath, item.repoId, sourceSettings)
-  const repoAssignees = slugOwner && slugRepo ? repoAssigneesBySlug : repoAssigneesByPath
-  const canEditAssignees = Boolean(projectOrigin || repoPath)
-  const assigneesByLogin = useMemo(
-    () => new Map(repoAssignees.data.map((user) => [user.login.toLowerCase(), user])),
-    [repoAssignees.data]
-  )
-
-  const handleAssigneeToggle = useCallback(
-    (login: string) => {
-      const lowerLogin = login.toLowerCase()
-      const isAssigned = localAssignees.some((user) => user.login.toLowerCase() === lowerLogin)
-      const prevAssignees = localAssignees
-      const candidate = assigneesByLogin.get(lowerLogin) ?? { login, name: null, avatarUrl: '' }
-      const nextAssignees = isAssigned
-        ? prevAssignees.filter((user) => user.login.toLowerCase() !== lowerLogin)
-        : [...prevAssignees, candidate]
-      const nextLogins = nextAssignees.map((user) => user.login)
-      const prevLogins = prevAssignees.map((user) => user.login)
-
-      run('assignees', {
-        mutate: () =>
-          runIssueUpdate({
-            repoId: item.repoId,
-            repoPath,
-            sourceContext,
-            projectOrigin,
-            number: item.number,
-            updates: isAssigned ? { removeAssignees: [login] } : { addAssignees: [login] }
-          }),
-        onOptimistic: () => {
-          setLocalAssignees(nextAssignees)
-          patchWorkItem(item.id, { assignees: nextAssignees }, item.repoId, { sourceContext })
-          patchProjectRowIfNeeded(nextLogins)
-        },
-        onRevert: () => {
-          setLocalAssignees(prevAssignees)
-          patchWorkItem(item.id, { assignees: prevAssignees }, item.repoId, { sourceContext })
-          patchProjectRowIfNeeded(prevLogins)
-        },
-        onSuccess: () => {
-          useAppStore.getState().recordFeatureInteraction('github-tasks')
-          onMutated()
-        },
-        onError: (err) => toast.error(err)
-      })
-    },
-    [
-      assigneesByLogin,
-      item.id,
-      item.number,
-      item.repoId,
-      localAssignees,
-      onMutated,
-      patchProjectRowIfNeeded,
-      patchWorkItem,
-      projectOrigin,
-      repoPath,
-      run,
-      sourceContext
-    ]
-  )
-
-  const checkIcon = (
-    <svg className="size-2.5" viewBox="0 0 12 12" fill="none">
-      <path
-        d="M2 6l3 3 5-5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-
-  return (
-    <section>
-      <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-        <span>{translate('auto.components.GitHubItemDialog.83ac703dda', 'Assignees')}</span>
-        <Popover open={assigneePopoverOpen} onOpenChange={setAssigneePopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              disabled={!canEditAssignees || isPending('assignees') || repoAssignees.loading}
-              aria-label={translate(
-                'auto.components.GitHubItemDialog.76adcf5fe2',
-                'Edit assignees'
-              )}
-              className="rounded p-0.5 text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
-            >
-              {isPending('assignees') ? (
-                <LoaderCircle className="size-3 animate-spin" />
-              ) : (
-                <Pencil className="size-3" />
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="popover-scroll-content scrollbar-sleek w-60 p-1" align="end">
-            {repoAssignees.error ? (
-              <div className="px-2 py-3 text-center text-[12px] text-destructive">
-                {repoAssignees.error}
-              </div>
-            ) : (
-              <div>
-                {repoAssignees.data.map((user) => {
-                  const selected = localAssignees.some(
-                    (assignee) => assignee.login.toLowerCase() === user.login.toLowerCase()
-                  )
-                  return (
-                    <button
-                      key={user.login}
-                      type="button"
-                      onClick={() => handleAssigneeToggle(user.login)}
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[12px] hover:bg-accent"
-                    >
-                      <span
-                        className={cn(
-                          'flex size-3.5 items-center justify-center rounded-sm border',
-                          selected
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-input'
-                        )}
-                      >
-                        {selected && checkIcon}
-                      </span>
-                      {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt="" className="size-5 rounded-full" />
-                      ) : null}
-                      <span className="min-w-0 flex-1 text-left">
-                        <span className="block truncate">{user.login}</span>
-                        {user.name ? (
-                          <span className="block truncate text-[11px] text-muted-foreground">
-                            {user.name}
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
-      </div>
-      {localAssignees.length === 0 ? (
-        <div className="text-[12px] text-muted-foreground">
-          {translate('auto.components.GitHubItemDialog.c67de9e2fe', 'No one assigned')}
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {localAssignees.map((assignee) => (
-            <li key={assignee.login} className="flex min-w-0 items-center gap-2">
-              <ReviewerAvatar login={assignee.login} avatarUrl={assignee.avatarUrl} />
-              <span className="min-w-0 truncate text-[13px] font-medium text-foreground">
-                {assignee.login}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
+export { PRAssigneesPanel, ReviewerAvatar } from './github-item-dialog-assignees'
 
 export function PRReviewersPanel({
   item,
@@ -724,206 +472,60 @@ export function PRReviewersPanel({
     setReviewerInput('')
   }
 
-  const renderReviewerPickerRow = (
-    reviewer: GitHubAssignableUser,
-    options: { suggested: boolean; activeIndex: number }
-  ): React.JSX.Element => {
-    const selected = selectedReviewerLogins.has(reviewer.login.toLowerCase())
-    const active = actionableReviewerRows[activeReviewerIndex]?.login === reviewer.login
-    return (
-      <button
-        key={`${options.suggested ? 'suggested' : 'reviewer'}:${reviewer.login}`}
-        type="button"
-        aria-label={
-          selected
-            ? translate(
-                'auto.components.GitHubItemDialog.fedc09eeb9',
-                'Unrequest reviewer {{value0}}',
-                { value0: reviewer.login }
-              )
-            : translate(
-                'auto.components.GitHubItemDialog.8c45901789',
-                'Request reviewer {{value0}}',
-                { value0: reviewer.login }
-              )
-        }
-        aria-pressed={selected}
-        className={cn(
-          'flex min-h-10 w-full items-center gap-2 border-b border-border/70 px-3 py-2 text-left text-[13px] outline-none last:border-b-0 hover:bg-accent/70 focus-visible:bg-accent focus-visible:text-accent-foreground',
-          active && 'bg-accent text-accent-foreground',
-          selected && 'font-medium'
-        )}
-        onMouseEnter={() => setActiveReviewerIndex(options.activeIndex)}
-        onMouseDown={(event) => {
-          event.preventDefault()
-        }}
-        onFocus={() => setActiveReviewerIndex(options.activeIndex)}
-        onClick={() => {
-          void requestReviewer(reviewer)
-        }}
-      >
-        <span className="flex size-4 shrink-0 items-center justify-center text-foreground">
-          {selected ? <Check className="size-3.5" /> : null}
-        </span>
-        {reviewer.avatarUrl ? (
-          <img src={reviewer.avatarUrl} alt="" className="size-5 shrink-0 rounded-full" />
-        ) : (
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
-            {reviewer.login.slice(0, 1).toUpperCase()}
-          </span>
-        )}
-        <span className="min-w-0 flex-1">
-          <span className="block truncate">
-            <span className="font-semibold text-foreground">{reviewer.login}</span>
-            {reviewer.name ? (
-              <span className="ml-1 font-normal text-muted-foreground">{reviewer.name}</span>
-            ) : null}
-          </span>
-          {options.suggested ? (
-            <span className="block truncate text-[12px] leading-4 text-muted-foreground">
-              {translate(
-                'auto.components.GitHubItemDialog.e3243d9376',
-                'Recently edited these files'
-              )}
-            </span>
-          ) : null}
-        </span>
-      </button>
-    )
+  const handleReviewerInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'ArrowDown' && actionableReviewerRows.length > 0) {
+      event.preventDefault()
+      setActiveReviewerIndex((current) => (current + 1) % actionableReviewerRows.length)
+      return
+    }
+    if (event.key === 'ArrowUp' && actionableReviewerRows.length > 0) {
+      event.preventDefault()
+      setActiveReviewerIndex(
+        (current) => (current - 1 + actionableReviewerRows.length) % actionableReviewerRows.length
+      )
+      return
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      const activeReviewer = actionableReviewerRows[activeReviewerIndex]
+      if (activeReviewer) {
+        void requestReviewer(activeReviewer)
+        return
+      }
+      void handleRequestReview()
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      handleReviewerPickerOpenChange(false)
+    }
   }
 
   return (
     <section>
       <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
         <span>{translate('auto.components.GitHubItemDialog.dc8a092c57', 'Reviewers')}</span>
-        <Popover open={open} onOpenChange={handleReviewerPickerOpenChange}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              disabled={submitting || !canRequestReview}
-              aria-label={translate('auto.components.GitHubItemDialog.934add88b6', 'Reviewer')}
-              className="rounded p-0.5 text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
-            >
-              {submitting ? (
-                <LoaderCircle className="size-3 animate-spin" />
-              ) : (
-                <Pencil className="size-3" />
-              )}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="flex max-h-[420px] w-[330px] flex-col overflow-hidden rounded-md border-border/70 p-0"
-            align="end"
-            side="bottom"
-            sideOffset={6}
-            onOpenAutoFocus={(event) => {
-              event.preventDefault()
-            }}
-          >
-            <div className="border-b border-border/70 p-2">
-              <Input
-                ref={reviewerInputRef}
-                value={reviewerInput}
-                onChange={(event) => setReviewerInput(event.target.value)}
-                disabled={submitting || !canRequestReview}
-                placeholder={translate(
-                  'auto.components.GitHubItemDialog.bb42774171',
-                  'Type or choose a user'
-                )}
-                aria-label={translate('auto.components.GitHubItemDialog.934add88b6', 'Reviewer')}
-                aria-expanded={open}
-                aria-haspopup="listbox"
-                className="h-8 min-w-0 cursor-text rounded-md border-border/50 bg-background text-xs"
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown' && actionableReviewerRows.length > 0) {
-                    event.preventDefault()
-                    setActiveReviewerIndex(
-                      (current) => (current + 1) % actionableReviewerRows.length
-                    )
-                    return
-                  }
-                  if (event.key === 'ArrowUp' && actionableReviewerRows.length > 0) {
-                    event.preventDefault()
-                    setActiveReviewerIndex(
-                      (current) =>
-                        (current - 1 + actionableReviewerRows.length) %
-                        actionableReviewerRows.length
-                    )
-                    return
-                  }
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    const activeReviewer = actionableReviewerRows[activeReviewerIndex]
-                    if (activeReviewer) {
-                      void requestReviewer(activeReviewer)
-                      return
-                    }
-                    void handleRequestReview()
-                    return
-                  }
-                  if (event.key === 'Escape') {
-                    event.preventDefault()
-                    handleReviewerPickerOpenChange(false)
-                  }
-                }}
-              />
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-sleek">
-              {reviewerMetadata.loading ? (
-                <div className="px-3 py-2 text-[13px] text-muted-foreground">
-                  {translate('auto.components.GitHubItemDialog.a98433e73d', 'Loading...')}
-                </div>
-              ) : filteredReviewerCandidates.length > 0 ? (
-                <>
-                  {suggestedReviewerRows.length > 0 ? (
-                    <>
-                      <div className="border-b border-border/70 bg-muted/50 px-3 py-1.5 text-[12px] font-semibold text-foreground">
-                        {translate('auto.components.GitHubItemDialog.c2b21818e1', 'Suggestions')}
-                      </div>
-                      {suggestedReviewerRows.map((reviewer, index) =>
-                        renderReviewerPickerRow(reviewer, {
-                          suggested: true,
-                          activeIndex: index
-                        })
-                      )}
-                    </>
-                  ) : null}
-                  <div className="border-b border-border/70 bg-muted/50 px-3 py-1.5 text-[12px] font-semibold text-foreground">
-                    {translate('auto.components.GitHubItemDialog.1ffce94a8b', 'Everyone else')}
-                  </div>
-                  {everyoneElseReviewerRows.length > 0 ? (
-                    everyoneElseReviewerRows.map((reviewer, index) =>
-                      renderReviewerPickerRow(reviewer, {
-                        suggested: false,
-                        activeIndex: suggestedReviewerRows.length + index
-                      })
-                    )
-                  ) : (
-                    <div className="px-3 py-2 text-[13px] text-muted-foreground">
-                      {translate(
-                        'auto.components.GitHubItemDialog.70e84e3d0b',
-                        'No matching reviewers.'
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="px-3 py-2 text-[13px] text-muted-foreground">
-                  {reviewerMetadata.error ??
-                    (hasReviewerMetadata
-                      ? translate(
-                          'auto.components.GitHubItemDialog.70e84e3d0b',
-                          'No matching reviewers.'
-                        )
-                      : translate(
-                          'auto.components.GitHubItemDialog.3f79ffc8b7',
-                          'Open the PR details to view current reviewers.'
-                        ))}
-                </div>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
+        <ReviewerPicker
+          open={open}
+          submitting={submitting}
+          canRequestReview={canRequestReview}
+          reviewerInputRef={reviewerInputRef}
+          reviewerInput={reviewerInput}
+          actionableReviewerRows={actionableReviewerRows}
+          activeReviewerIndex={activeReviewerIndex}
+          selectedReviewerLogins={selectedReviewerLogins}
+          suggestedReviewerRows={suggestedReviewerRows}
+          everyoneElseReviewerRows={everyoneElseReviewerRows}
+          hasReviewerCandidates={filteredReviewerCandidates.length > 0}
+          loading={reviewerMetadata.loading}
+          error={reviewerMetadata.error}
+          hasReviewerMetadata={hasReviewerMetadata}
+          onOpenChange={handleReviewerPickerOpenChange}
+          onInputChange={setReviewerInput}
+          onInputKeyDown={handleReviewerInputKeyDown}
+          onSetActiveReviewerIndex={setActiveReviewerIndex}
+          onRequestReviewer={(reviewer) => void requestReviewer(reviewer)}
+        />
       </div>
       {loading && !hasReviewerMetadata ? (
         <div className="flex items-center gap-2 py-1 text-[12px] text-muted-foreground">
