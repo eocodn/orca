@@ -238,6 +238,7 @@ services:
       - config/scripts/orchestration-settings-removal-contract.test.mjs
       - config/scripts/orchestration-skill-install-removal-contract.test.mjs
       - config/scripts/orchestration-onboarding-removal-contract.test.mjs
+      - config/scripts/feature-wall-completion-orchestration-removal-contract.test.mjs
     init: true
     network_mode: host
 

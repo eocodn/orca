@@ -123,7 +123,6 @@ export function FeatureWallTourSurface({
     isOpen,
     taskSourcePresentation.hasConnectedTaskSource,
     taskSourcePresentation.isCheckingTaskSources,
-    orchestrationSkill.installed,
     browserUseSkill.installed,
     { onTourDepthSummaryChange }
   )

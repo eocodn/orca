@@ -34,7 +34,6 @@ export type FeatureWallCompletionProgressInput = {
   hasConnectedTaskSource: boolean
   isCheckingTaskSources: boolean
   hasUsageAccount: boolean
-  orchestrationSkillInstalled: boolean
   browserUseSkillInstalled: boolean
   githubConfigured: boolean
   aiCommitPrConfigured: boolean
@@ -58,7 +57,7 @@ export function getFeatureWallCompletionProgress(
     (input.visitedAgentSteps.has('usage') && input.hasUsageAccount)
   const orchestrationDone =
     input.completedAgentSteps?.has('orchestration') === true ||
-    (input.visitedAgentSteps.has('orchestration') && input.orchestrationSkillInstalled)
+    input.visitedAgentSteps.has('orchestration')
   // Why: the keep-awake setting surfaced on Visibility is optional; viewing
   // the step should complete the tour item even when the setting stays off.
   const statusesDone =

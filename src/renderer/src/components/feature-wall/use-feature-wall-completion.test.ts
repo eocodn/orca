@@ -22,7 +22,6 @@ function completionInput(overrides: Partial<CompletionInput> = {}): CompletionIn
     hasConnectedTaskSource: false,
     isCheckingTaskSources: false,
     hasUsageAccount: false,
-    orchestrationSkillInstalled: false,
     browserUseSkillInstalled: false,
     githubConfigured: false,
     aiCommitPrConfigured: false,
@@ -36,7 +35,6 @@ describe('getFeatureWallCompletionProgress', () => {
       completionInput({
         hasConnectedTaskSource: true,
         hasUsageAccount: true,
-        orchestrationSkillInstalled: true,
         browserUseSkillInstalled: true,
         githubConfigured: true,
         aiCommitPrConfigured: true
@@ -72,28 +70,15 @@ describe('getFeatureWallCompletionProgress', () => {
     ).toBe(true)
   })
 
-  it('requires both visiting orchestration and detecting the skill before completing the step', () => {
+  it('completes the orchestration step after it is visited without skill detection', () => {
+    expect(
+      getFeatureWallCompletionProgress(completionInput()).agentStepDone.orchestration
+    ).toBe(false)
+
     expect(
       getFeatureWallCompletionProgress(
         completionInput({
           visitedAgentSteps: new Set<AgentsStepId>(['orchestration'])
-        })
-      ).agentStepDone.orchestration
-    ).toBe(false)
-
-    expect(
-      getFeatureWallCompletionProgress(
-        completionInput({
-          orchestrationSkillInstalled: true
-        })
-      ).agentStepDone.orchestration
-    ).toBe(false)
-
-    expect(
-      getFeatureWallCompletionProgress(
-        completionInput({
-          visitedAgentSteps: new Set<AgentsStepId>(['orchestration']),
-          orchestrationSkillInstalled: true
         })
       ).agentStepDone.orchestration
     ).toBe(true)
@@ -122,22 +107,16 @@ describe('getFeatureWallCompletionProgress', () => {
     expect(progress.workflowDone.workbench).toBe(true)
   })
 
-  it('keeps the agents workflow incomplete until the orchestration skill is detected', () => {
+  it('keeps the agents workflow complete after retained agent steps are visited', () => {
     const otherwiseComplete = completionInput({
       visitedWorkflows: new Set<FeatureWallWorkflowId>(['agents-orchestration']),
       visitedAgentSteps: new Set<AgentsStepId>(['statuses', 'usage', 'orchestration']),
       hasUsageAccount: true
     })
 
-    expect(
-      getFeatureWallCompletionProgress(otherwiseComplete).workflowDone['agents-orchestration']
-    ).toBe(false)
-    expect(
-      getFeatureWallCompletionProgress({
-        ...otherwiseComplete,
-        orchestrationSkillInstalled: true
-      }).workflowDone['agents-orchestration']
-    ).toBe(true)
+    expect(getFeatureWallCompletionProgress(otherwiseComplete).workflowDone['agents-orchestration']).toBe(
+      true
+    )
   })
 
   it('keeps the agents workflow complete after sub-step visits are restored', () => {
@@ -146,8 +125,7 @@ describe('getFeatureWallCompletionProgress', () => {
         completionInput({
           visitedWorkflows: new Set<FeatureWallWorkflowId>(['agents-orchestration']),
           visitedAgentSteps: new Set<AgentsStepId>(['statuses', 'usage', 'orchestration']),
-          hasUsageAccount: true,
-          orchestrationSkillInstalled: true
+          hasUsageAccount: true
         })
       ).workflowDone['agents-orchestration']
     ).toBe(true)
@@ -215,13 +193,11 @@ describe('normalizeFeatureWallVisitedAgentSteps', () => {
     expect(
       normalizeFeatureWallVisitedAgentSteps([
         'statuses',
-        'orchestration',
         'usage',
-        'orchestration',
         'notifications',
         'bogus'
       ])
-    ).toEqual(['statuses', 'orchestration', 'usage'])
+    ).toEqual(['statuses', 'usage'])
   })
 })
 

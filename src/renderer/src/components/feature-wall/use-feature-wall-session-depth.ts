@@ -12,7 +12,6 @@ type FeatureWallSessionDepthInput = {
   hasConnectedTaskSource: boolean
   isCheckingTaskSources: boolean
   hasUsageAccount: boolean
-  orchestrationSkillInstalled: boolean
   browserUseSkillInstalled: boolean
   githubConfigured: boolean
   aiCommitPrConfigured: boolean
@@ -35,7 +34,6 @@ export function useFeatureWallSessionDepth(
     hasConnectedTaskSource,
     isCheckingTaskSources,
     hasUsageAccount,
-    orchestrationSkillInstalled,
     browserUseSkillInstalled,
     githubConfigured,
     aiCommitPrConfigured,
@@ -65,7 +63,6 @@ export function useFeatureWallSessionDepth(
       hasConnectedTaskSource,
       isCheckingTaskSources,
       hasUsageAccount,
-      orchestrationSkillInstalled,
       browserUseSkillInstalled,
       githubConfigured,
       aiCommitPrConfigured
@@ -85,7 +82,6 @@ export function useFeatureWallSessionDepth(
     hasConnectedTaskSource,
     hasUsageAccount,
     isCheckingTaskSources,
-    orchestrationSkillInstalled
   ])
 
   const publishTourDepthSummary = useCallback((): void => {
