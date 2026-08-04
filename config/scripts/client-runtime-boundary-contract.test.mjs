@@ -12,7 +12,13 @@ const runtimeFiles = [
   'src/renderer/src/runtime/runtime-client-events.ts',
   'src/renderer/src/runtime/runtime-rpc-client.ts',
   'src/renderer/src/runtime/runtime-rpc-environment-call.ts',
-  'src/renderer/src/runtime/runtime-terminal-inspection.ts'
+  'src/renderer/src/runtime/runtime-terminal-inspection.ts',
+  'src/renderer/src/runtime/runtime-git-ai-client.ts',
+  'src/renderer/src/runtime/runtime-git-read-client.ts',
+  'src/renderer/src/runtime/runtime-git-remote-links.ts',
+  'src/renderer/src/runtime/runtime-git-staging-client.ts',
+  'src/renderer/src/runtime/runtime-git-sync-client.ts',
+  'src/renderer/src/components/right-sidebar/SourceControl.tsx'
 ]
 
 async function readRuntimeFile(relativePath) {
@@ -24,8 +30,8 @@ describe('ClientRuntime renderer boundary', () => {
     const sources = await Promise.all(runtimeFiles.map(readRuntimeFile))
 
     for (const source of sources) {
-      expect(source).toContain("from './client-runtime'")
-      expect(source).not.toMatch(/window\.api\.(?:runtime(?:Environments)?|fs|pty)/)
+      expect(source).toMatch(/from ['"](?:\.\/client-runtime|@\/runtime\/client-runtime)['"]/)
+      expect(source).not.toMatch(/window\.api\.(?:runtime(?:Environments)?|fs|pty|git)/)
     }
   })
 

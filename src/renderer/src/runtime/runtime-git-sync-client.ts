@@ -6,6 +6,7 @@ import type {
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-context'
+import { getClientRuntime } from './client-runtime'
 
 export async function fetchRuntimeGit(
   context: RuntimeGitContext,
@@ -13,7 +14,7 @@ export async function fetchRuntimeGit(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.fetch({
+    await getClientRuntime().git.fetch({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       ...(pushTarget ? { pushTarget } : {})
@@ -37,7 +38,7 @@ export async function syncRuntimeGitForkDefaultBranch(
 ): Promise<GitForkSyncResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.syncFork({
+    return getClientRuntime().git.syncFork({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       expectedUpstream
@@ -60,7 +61,7 @@ export async function pullRuntimeGit(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.pull({
+    await getClientRuntime().git.pull({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       ...(pushTarget ? { pushTarget } : {})
@@ -84,7 +85,7 @@ export async function fastForwardRuntimeGit(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.fastForward({
+    await getClientRuntime().git.fastForward({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       ...(pushTarget ? { pushTarget } : {})
@@ -108,7 +109,7 @@ export async function rebaseRuntimeGitFromBase(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.rebaseFromBase({
+    await getClientRuntime().git.rebaseFromBase({
       worktreePath: resolveLocalWorktreePath(context),
       baseRef,
       connectionId: context.connectionId
@@ -129,7 +130,7 @@ export async function pushRuntimeGit(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.push({
+    await getClientRuntime().git.push({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       ...(args.publish !== undefined ? { publish: args.publish } : {}),
@@ -161,7 +162,7 @@ export async function getRuntimeGitBranchDiff(
 ): Promise<GitDiffResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.branchDiff({
+    return getClientRuntime().git.branchDiff({
       worktreePath: resolveLocalWorktreePath(context),
       compare: args.compare,
       filePath: args.filePath,
@@ -188,7 +189,7 @@ export async function getRuntimeGitCommitDiff(
 ): Promise<GitDiffResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.commitDiff({
+    return getClientRuntime().git.commitDiff({
       worktreePath: resolveLocalWorktreePath(context),
       commitOid: args.commitOid,
       parentOid: args.parentOid,
@@ -211,7 +212,7 @@ export async function commitRuntimeGit(
 ): Promise<{ success: boolean; error?: string }> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.commit({
+    return getClientRuntime().git.commit({
       worktreePath: resolveLocalWorktreePath(context),
       message,
       connectionId: context.connectionId
@@ -224,4 +225,3 @@ export async function commitRuntimeGit(
     { timeoutMs: 30_000 }
   )
 }
-

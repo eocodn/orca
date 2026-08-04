@@ -6,6 +6,7 @@ export type ClientRuntimeRemoteHostService = Pick<
   'call' | 'subscribe'
 >
 export type ClientRuntimeFileService = PreloadApi['fs']
+export type ClientRuntimeGitService = PreloadApi['git']
 export type ClientRuntimeTerminalService = Pick<
   PreloadApi['pty'],
   'inspectProcess' | 'confirmForegroundProcess' | 'write' | 'writeAccepted'
@@ -15,6 +16,7 @@ export type ClientRuntime = {
   runtime: ClientRuntimeRuntimeService
   remoteHost: ClientRuntimeRemoteHostService
   file: ClientRuntimeFileService
+  git: ClientRuntimeGitService
   terminal: ClientRuntimeTerminalService
 }
 
@@ -22,6 +24,7 @@ type ClientRuntimeHostAdapter = {
   runtime: ClientRuntimeRuntimeService
   runtimeEnvironments: ClientRuntimeRemoteHostService
   fs: ClientRuntimeFileService
+  git: ClientRuntimeGitService
   pty: ClientRuntimeTerminalService
 }
 
@@ -32,6 +35,7 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
     runtime: adapter.runtime,
     remoteHost: adapter.runtimeEnvironments,
     file: adapter.fs,
+    git: adapter.git,
     terminal: adapter.pty
   }
 }

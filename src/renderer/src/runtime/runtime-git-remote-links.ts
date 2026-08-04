@@ -2,6 +2,7 @@ import type { GitDiffResult } from '../../../shared/types'
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-context'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
+import { getClientRuntime } from './client-runtime'
 
 export async function getRuntimeGitRemoteFileUrl(
   context: RuntimeGitContext,
@@ -9,7 +10,7 @@ export async function getRuntimeGitRemoteFileUrl(
 ): Promise<string | null> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.remoteFileUrl({
+    return getClientRuntime().git.remoteFileUrl({
       worktreePath: resolveLocalWorktreePath(context),
       relativePath: args.relativePath,
       line: args.line,
@@ -34,7 +35,7 @@ export async function getRuntimeGitRemoteCommitUrl(
 ): Promise<string | null> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.remoteCommitUrl({
+    return getClientRuntime().git.remoteCommitUrl({
       worktreePath: resolveLocalWorktreePath(context),
       sha: args.sha,
       connectionId: context.connectionId
@@ -50,4 +51,3 @@ export async function getRuntimeGitRemoteCommitUrl(
     { timeoutMs: 15_000 }
   )
 }
-

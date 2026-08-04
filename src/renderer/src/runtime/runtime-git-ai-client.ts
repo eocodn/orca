@@ -11,6 +11,7 @@ import type {
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { resolveLocalWorktreePath, getRuntimeCommitMessageSettings } from './runtime-git-context'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
+import { getClientRuntime } from './client-runtime'
 
 export async function generateRuntimeCommitMessage(
   context: RuntimeGitContext,
@@ -18,7 +19,7 @@ export async function generateRuntimeCommitMessage(
 ): Promise<RuntimeGenerateCommitMessageResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.generateCommitMessage({
+    return getClientRuntime().git.generateCommitMessage({
       worktreePath: resolveLocalWorktreePath(context),
       // Why: raw id — the `::workspace:<uuid>` suffix is part of the worktree meta key.
       ...(context.worktreeId ? { worktreeId: context.worktreeId } : {}),
@@ -53,7 +54,7 @@ export async function discoverRuntimeCommitMessageModels(
 ): Promise<RuntimeDiscoverCommitMessageModelsResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.discoverCommitMessageModels({
+    return getClientRuntime().git.discoverCommitMessageModels({
       agentId,
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
@@ -78,7 +79,7 @@ export async function cancelRuntimeGenerateCommitMessage(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.cancelGenerateCommitMessage({
+    await getClientRuntime().git.cancelGenerateCommitMessage({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
     })
@@ -99,7 +100,7 @@ export async function generateRuntimePullRequestFields(
 ): Promise<RuntimeGeneratePullRequestFieldsResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.generatePullRequestFields({
+    return getClientRuntime().git.generatePullRequestFields({
       worktreePath: resolveLocalWorktreePath(context),
       // Why: raw id — the `::workspace:<uuid>` suffix is part of the worktree meta key.
       ...(context.worktreeId ? { worktreeId: context.worktreeId } : {}),
@@ -135,7 +136,7 @@ export async function cancelRuntimeGeneratePullRequestFields(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.cancelGeneratePullRequestFields({
+    await getClientRuntime().git.cancelGeneratePullRequestFields({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
     })

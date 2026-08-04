@@ -191,6 +191,7 @@ import {
   type RuntimeGeneratePullRequestFieldsOverrides
 } from '@/runtime/runtime-git-client'
 import { getRuntimeRepoBaseRefDefault } from '@/runtime/runtime-repo-client'
+import { getClientRuntime } from '@/runtime/client-runtime'
 
 import { stripBaseRef, useCreatePullRequestDialogFields } from './useCreatePullRequestDialogFields'
 import { resolveCreateReviewDraftTitle } from './create-review-draft-title'
@@ -1307,8 +1308,8 @@ function SourceControlInner(): React.JSX.Element {
       return
     }
     let cancelled = false
-    void window.api.git
-      .findHugeFoldersToIgnore({ worktreePath })
+    void getClientRuntime()
+      .git.findHugeFoldersToIgnore({ worktreePath })
       .then((folders) => {
         if (cancelled || folders.length === 0 || hasDismissedHugeRepoWarning(warningProbe)) {
           return
@@ -1334,8 +1335,8 @@ function SourceControlInner(): React.JSX.Element {
                 if (!hasDismissedHugeRepoWarning(warningProbe)) {
                   return
                 }
-                void window.api.git
-                  .appendGitignore({ worktreePath, folderName })
+                void getClientRuntime()
+                  .git.appendGitignore({ worktreePath, folderName })
                   .then(() => refreshActiveGitStatus())
                   .catch((error) => console.warn('[SourceControl] add to .gitignore failed', error))
               }

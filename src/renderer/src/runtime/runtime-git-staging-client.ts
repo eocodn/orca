@@ -1,6 +1,7 @@
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-context'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
+import { getClientRuntime } from './client-runtime'
 
 export async function stageRuntimeGitPath(
   context: RuntimeGitContext,
@@ -8,7 +9,7 @@ export async function stageRuntimeGitPath(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.stage({
+    await getClientRuntime().git.stage({
       worktreePath: resolveLocalWorktreePath(context),
       filePath,
       connectionId: context.connectionId
@@ -29,7 +30,7 @@ export async function bulkStageRuntimeGitPaths(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.bulkStage({
+    await getClientRuntime().git.bulkStage({
       worktreePath: resolveLocalWorktreePath(context),
       filePaths,
       connectionId: context.connectionId
@@ -50,7 +51,7 @@ export async function unstageRuntimeGitPath(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.unstage({
+    await getClientRuntime().git.unstage({
       worktreePath: resolveLocalWorktreePath(context),
       filePath,
       connectionId: context.connectionId
@@ -71,7 +72,7 @@ export async function bulkUnstageRuntimeGitPaths(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.bulkUnstage({
+    await getClientRuntime().git.bulkUnstage({
       worktreePath: resolveLocalWorktreePath(context),
       filePaths,
       connectionId: context.connectionId
@@ -92,7 +93,7 @@ export async function bulkDiscardRuntimeGitPaths(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.bulkDiscard({
+    await getClientRuntime().git.bulkDiscard({
       worktreePath: resolveLocalWorktreePath(context),
       filePaths,
       connectionId: context.connectionId
@@ -113,7 +114,7 @@ export async function discardRuntimeGitPath(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.discard({
+    await getClientRuntime().git.discard({
       worktreePath: resolveLocalWorktreePath(context),
       filePath,
       connectionId: context.connectionId
@@ -127,4 +128,3 @@ export async function discardRuntimeGitPath(
     { timeoutMs: 15_000 }
   )
 }
-

@@ -11,10 +11,8 @@ import type {
 import type { GitHistoryOptions, GitHistoryResult } from '../../../shared/git-history'
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
-import {
-  resolveLocalWorktreePath,
-  type RuntimeGitContext
-} from './runtime-git-context'
+import { resolveLocalWorktreePath, type RuntimeGitContext } from './runtime-git-context'
+import { getClientRuntime } from './client-runtime'
 
 let nextGitStatusRequestToken = 0
 
@@ -29,18 +27,20 @@ async function callLocalGitStatus(
   signal?: AbortSignal
 ): Promise<GitStatusResult> {
   if (!signal) {
-    return window.api.git.status(args)
+    return getClientRuntime().git.status(args)
   }
   if (signal.aborted) {
     throw createGitStatusAbortError()
   }
   const requestToken = `git-status-${Date.now()}-${++nextGitStatusRequestToken}`
   const cancel = (): void => {
-    void window.api.git.cancelStatus({ requestToken }).catch(() => {})
+    void getClientRuntime()
+      .git.cancelStatus({ requestToken })
+      .catch(() => {})
   }
   signal.addEventListener('abort', cancel, { once: true })
   try {
-    const status = await window.api.git.status({ ...args, requestToken })
+    const status = await getClientRuntime().git.status({ ...args, requestToken })
     // Why: cancel is best-effort; a scan that finished after abort must still
     // reject so callers never treat a cancelled request as a fresh result.
     if (signal.aborted) {
@@ -59,7 +59,7 @@ export async function getRuntimeGitSubmoduleStatus(
 ): Promise<GitStatusResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.submoduleStatus({
+    return getClientRuntime().git.submoduleStatus({
       worktreePath: resolveLocalWorktreePath(context),
       submodulePath,
       connectionId: context.connectionId,
@@ -87,7 +87,7 @@ export async function getRuntimeGitIgnoredPaths(
     return []
   }
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.checkIgnored({
+    return getClientRuntime().git.checkIgnored({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       paths
@@ -107,7 +107,7 @@ export async function getRuntimeGitHistory(
 ): Promise<GitHistoryResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.history({
+    return getClientRuntime().git.history({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       ...options
@@ -126,7 +126,7 @@ export async function getRuntimeGitConflictOperation(
 ): Promise<GitConflictOperation> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.conflictOperation({
+    return getClientRuntime().git.conflictOperation({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
     })
@@ -142,7 +142,7 @@ export async function getRuntimeGitConflictOperation(
 export async function abortRuntimeGitMerge(context: RuntimeGitContext): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.abortMerge({
+    await getClientRuntime().git.abortMerge({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
     })
@@ -159,7 +159,7 @@ export async function abortRuntimeGitMerge(context: RuntimeGitContext): Promise<
 export async function abortRuntimeGitRebase(context: RuntimeGitContext): Promise<void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    await window.api.git.abortRebase({
+    await getClientRuntime().git.abortRebase({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId
     })
@@ -179,7 +179,7 @@ export async function getRuntimeGitDiff(
 ): Promise<GitDiffResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.diff({
+    return getClientRuntime().git.diff({
       worktreePath: resolveLocalWorktreePath(context),
       filePath: args.filePath,
       staged: args.staged,
@@ -201,7 +201,7 @@ export async function getRuntimeGitBranchCompare(
 ): Promise<GitBranchCompareResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.branchCompare({
+    return getClientRuntime().git.branchCompare({
       worktreePath: resolveLocalWorktreePath(context),
       baseRef,
       connectionId: context.connectionId
@@ -221,7 +221,7 @@ export async function getRuntimeGitCommitCompare(
 ): Promise<GitCommitCompareResult> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.commitCompare({
+    return getClientRuntime().git.commitCompare({
       worktreePath: resolveLocalWorktreePath(context),
       commitId,
       connectionId: context.connectionId
@@ -241,7 +241,7 @@ export async function getRuntimeGitUpstreamStatus(
 ): Promise<GitUpstreamStatus> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind === 'local' || !context.worktreeId) {
-    return window.api.git.upstreamStatus({
+    return getClientRuntime().git.upstreamStatus({
       worktreePath: resolveLocalWorktreePath(context),
       connectionId: context.connectionId,
       ...(pushTarget ? { pushTarget } : {})
@@ -257,4 +257,3 @@ export async function getRuntimeGitUpstreamStatus(
     { timeoutMs: 15_000 }
   )
 }
-
