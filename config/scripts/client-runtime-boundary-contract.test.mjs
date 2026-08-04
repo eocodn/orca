@@ -34,6 +34,8 @@ const runtimeFiles = [
   'src/renderer/src/components/terminal-pane/terminal-pane-recovery.ts',
   'src/renderer/src/components/terminal-pane/use-terminal-pane-global-effects.ts',
   'src/renderer/src/components/terminal-pane/terminal-pane-context-menu-actions-hook.ts',
+  'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts',
+  'src/renderer/src/components/terminal-pane/terminal-pane-view-surface-layout.ts',
   'src/renderer/src/components/right-sidebar/SourceControl.tsx',
   'src/renderer/src/app-shell-page-session-effects.ts',
   'src/renderer/src/app-shell-page-startup-effects.ts',

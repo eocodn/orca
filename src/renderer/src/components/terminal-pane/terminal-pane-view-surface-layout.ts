@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { getClientRuntime } from '../../runtime/client-runtime'; import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { createPortal } from 'react-dom'
 import type { CSSProperties } from 'react'
@@ -237,7 +237,7 @@ export function useTerminalPaneSurfaceLayout(context: TerminalPaneSurfaceContext
       const clearedRemoteHostBuffer = clearWebRuntimeTerminalBuffer(ptyId)
       if (!clearedRemoteHostBuffer && ptyId) {
         // Why: local/daemon/SSH PTYs keep their own screen state (ConPTY on Windows); clear it too or the next prompt repaints below a blank gap.
-        window.api.pty.clearBuffer(ptyId)
+        getClientRuntime().terminal.clearBuffer(ptyId)
       }
       persistLayoutSnapshot()
     },
