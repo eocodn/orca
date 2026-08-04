@@ -10,13 +10,8 @@ import { useSettingsSetupGuideFullProgress } from './settings-setup-guide-progre
 export function SettingsSetupGuidePane(): React.JSX.Element {
   const setupSteps = useMemo(() => getFeatureWallSetupSteps(), [])
   const [userSelectedStep, setUserSelectedStep] = useState(false)
-  const [orchestrationSkillInstalled, setOrchestrationSkillInstalled] = useState(false)
   const [browserUseSkillInstalled, setBrowserUseSkillInstalled] = useState(false)
-  const progress = useSettingsSetupGuideFullProgress(
-    true,
-    orchestrationSkillInstalled,
-    browserUseSkillInstalled
-  )
+  const progress = useSettingsSetupGuideFullProgress(true, browserUseSkillInstalled)
   const [activeStepId, setActiveStepId] = useState<FeatureWallSetupStepId>(() =>
     getFirstIncompleteFeatureWallSetupStepId(progress.stepDone)
   )
@@ -51,7 +46,6 @@ export function SettingsSetupGuidePane(): React.JSX.Element {
         activeStep={activeStep}
         progress={progress}
         onSelectStep={handleSelectStep}
-        onOrchestrationSkillInstalledChange={setOrchestrationSkillInstalled}
         onBrowserUseSkillInstalledChange={setBrowserUseSkillInstalled}
       />
     </div>

@@ -8,9 +8,7 @@ const READY_INPUT = {
   computerUseSkillLoading: false,
   computerUseReady: true,
   computerUseChecking: false,
-  computerUseUnavailable: false,
-  orchestrationSkillInstalled: true,
-  orchestrationSkillLoading: false
+  computerUseUnavailable: false
 }
 
 describe('getDefaultAgentCapabilitySetupSelection', () => {
@@ -18,7 +16,6 @@ describe('getDefaultAgentCapabilitySetupSelection', () => {
     expect(getDefaultAgentCapabilitySetupSelection(READY_INPUT)).toEqual({
       browserUse: false,
       computerUse: false,
-      orchestration: false,
       linearTickets: false
     })
   })
@@ -27,13 +24,11 @@ describe('getDefaultAgentCapabilitySetupSelection', () => {
     expect(
       getDefaultAgentCapabilitySetupSelection({
         ...READY_INPUT,
-        browserUseSkillInstalled: false,
-        orchestrationSkillInstalled: false
+        browserUseSkillInstalled: false
       })
     ).toEqual({
       browserUse: true,
       computerUse: false,
-      orchestration: true,
       linearTickets: false
     })
   })
@@ -47,7 +42,6 @@ describe('getDefaultAgentCapabilitySetupSelection', () => {
     ).toEqual({
       browserUse: false,
       computerUse: true,
-      orchestration: false,
       linearTickets: false
     })
   })
@@ -62,7 +56,6 @@ describe('getDefaultAgentCapabilitySetupSelection', () => {
     ).toEqual({
       browserUse: false,
       computerUse: false,
-      orchestration: false,
       linearTickets: false
     })
   })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, Globe2, Loader2, MonitorCog, Terminal, Workflow } from 'lucide-react'
+import { Check, Globe2, Loader2, MonitorCog, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -23,10 +23,9 @@ import { FullDiskAccessSetupPrompt } from './FullDiskAccessSetupPrompt'
 import { translate } from '@/i18n/i18n'
 
 export function AgentCapabilitiesSetupAction(props: {
-  onOrchestrationSkillInstalledChange: (installed: boolean) => void
   onBrowserUseSkillInstalledChange: (installed: boolean) => void
 }): React.JSX.Element {
-  const { onBrowserUseSkillInstalledChange, onOrchestrationSkillInstalledChange } = props
+  const { onBrowserUseSkillInstalledChange } = props
   const capabilitySetupStatus = useAgentCapabilitySetupStatus()
   const { readiness } = capabilitySetupStatus
   const featureSetupDefaultsAppliedRef = useRef(false)
@@ -42,9 +41,6 @@ export function AgentCapabilitiesSetupAction(props: {
   useEffect(() => {
     onBrowserUseSkillInstalledChange(readiness.browserUseSkillInstalled)
   }, [onBrowserUseSkillInstalledChange, readiness.browserUseSkillInstalled])
-  useEffect(() => {
-    onOrchestrationSkillInstalledChange(readiness.orchestrationSkillInstalled)
-  }, [onOrchestrationSkillInstalledChange, readiness.orchestrationSkillInstalled])
   useEffect(() => {
     if (featureSetupDefaultsAppliedRef.current || featureSetupChangedByUserRef.current) {
       return
@@ -71,9 +67,6 @@ export function AgentCapabilitiesSetupAction(props: {
       }
       if (featureSetup.computerUse) {
         recordFeatureInteraction('computer-use-setup')
-      }
-      if (featureSetup.orchestration) {
-        recordFeatureInteraction('agent-orchestration-setup')
       }
       const firstWarning = result.warnings[0]
       if (firstWarning) {
@@ -141,22 +134,6 @@ type AgentCapabilitySetupRow = {
 }
 
 const AGENT_CAPABILITY_SETUP_ROWS: readonly AgentCapabilitySetupRow[] = [
-  {
-    id: 'orchestration',
-    get title() {
-      return translate(
-        'auto.components.feature.wall.AgentCapabilitiesSetupAction.ac07f8887f',
-        'Agent Orchestration'
-      )
-    },
-    get description() {
-      return translate(
-        'auto.components.feature.wall.AgentCapabilitiesSetupAction.c61c91e642',
-        'Let agents coordinate through Orca to keep large, multi-step tasks moving to completion.'
-      )
-    },
-    icon: <Workflow className="size-4" />
-  },
   {
     id: 'browserUse',
     get title() {

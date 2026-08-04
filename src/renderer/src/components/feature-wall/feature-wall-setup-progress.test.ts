@@ -20,7 +20,6 @@ function makeInput(
     browserUseSkillInstalled: false,
     computerUseSkillInstalled: false,
     computerUsePermissionsReady: false,
-    orchestrationSkillInstalled: false,
     gitRepoCount: 0,
     worktreesByRepo: {},
     hasSetupScript: false,
@@ -105,8 +104,7 @@ describe('getFeatureWallSetupProgress', () => {
         gitRepoCount: 2,
         browserUseSkillInstalled: true,
         computerUseSkillInstalled: true,
-        computerUsePermissionsReady: true,
-        orchestrationSkillInstalled: true
+        computerUsePermissionsReady: true
       })
     )
 
@@ -144,8 +142,7 @@ describe('getFeatureWallSetupProgress', () => {
         gitRepoCount: 2,
         browserUseSkillInstalled: true,
         computerUseSkillInstalled: true,
-        computerUsePermissionsReady: true,
-        orchestrationSkillInstalled: true
+        computerUsePermissionsReady: true
       })
     )
 
@@ -236,11 +233,7 @@ describe('getFeatureWallSetupProgress', () => {
       makeInput({
         featureInteractions: {
           'agent-browser-setup': { firstInteractedAt: 1_700_000_000_000, interactionCount: 1 },
-          'computer-use-setup': { firstInteractedAt: 1_700_000_000_001, interactionCount: 1 },
-          'agent-orchestration-setup': {
-            firstInteractedAt: 1_700_000_000_002,
-            interactionCount: 1
-          }
+          'computer-use-setup': { firstInteractedAt: 1_700_000_000_001, interactionCount: 1 }
         }
       })
     )
@@ -254,8 +247,7 @@ describe('getFeatureWallSetupProgress', () => {
         makeInput({
           browserUseSkillInstalled: true,
           computerUseSkillInstalled: true,
-          computerUsePermissionsReady: false,
-          orchestrationSkillInstalled: true
+          computerUsePermissionsReady: false
         })
       ).stepDone['agent-capabilities']
     ).toBe(false)
@@ -264,8 +256,7 @@ describe('getFeatureWallSetupProgress', () => {
       makeInput({
         browserUseSkillInstalled: true,
         computerUseSkillInstalled: true,
-        computerUsePermissionsReady: true,
-        orchestrationSkillInstalled: true
+        computerUsePermissionsReady: true
       })
     )
 
@@ -278,8 +269,7 @@ describe('getFeatureWallSetupProgress', () => {
         browserUseSkillInstalled: true,
         computerUseSkillInstalled: true,
         computerUsePermissionsReady: false,
-        computerUseUnavailable: true,
-        orchestrationSkillInstalled: true
+        computerUseUnavailable: true
       })
     )
 
@@ -292,8 +282,7 @@ describe('getFeatureWallSetupProgress', () => {
         browserUseSkillInstalled: true,
         computerUseSkillInstalled: true,
         computerUsePermissionsReady: false,
-        computerUseUnavailable: true,
-        orchestrationSkillInstalled: true
+        computerUseUnavailable: true
       })
     )
 

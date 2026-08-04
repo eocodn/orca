@@ -152,13 +152,12 @@ describe('getSetupGuideProgressReady', () => {
     jiraStatusChecked: true,
     browserUseSkillDiscoveryLoading: false,
     computerUseSkillDiscoveryLoading: false,
-    orchestrationSkillDiscoveryLoading: false,
     setupScriptProbeReady: true,
     computerUseSkillInstalled: false,
     computerUsePermissionStatusChecked: false
   }
 
-  it('waits for every setup-guide skill discovery scan to settle', () => {
+  it('waits for every retained setup-guide skill discovery scan to settle', () => {
     expect(
       getSetupGuideProgressReady({
         ...readyInput,
@@ -169,12 +168,6 @@ describe('getSetupGuideProgressReady', () => {
       getSetupGuideProgressReady({
         ...readyInput,
         computerUseSkillDiscoveryLoading: true
-      })
-    ).toBe(false)
-    expect(
-      getSetupGuideProgressReady({
-        ...readyInput,
-        orchestrationSkillDiscoveryLoading: true
       })
     ).toBe(false)
   })

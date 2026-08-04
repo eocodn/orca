@@ -8,14 +8,9 @@ import {
   buildAgentFeatureSkillInstallCommand,
   COMPUTER_USE_SKILL_NAME,
   ORCA_CLI_SKILL_NAME,
-  ORCA_LINEAR_SKILL_NAME,
-  ORCHESTRATION_SKILL_NAME
+  ORCA_LINEAR_SKILL_NAME
 } from '@/lib/agent-feature-install-commands'
 import { BROWSER_USE_ENABLED_STORAGE_KEY } from '@/lib/browser-use-setup-state'
-import {
-  ORCHESTRATION_ENABLED_STORAGE_KEY,
-  ORCHESTRATION_SETUP_DISMISSED_STORAGE_KEY
-} from '@/lib/orchestration-setup-state'
 import {
   DEFAULT_ONBOARDING_FEATURE_SETUP_SELECTION,
   buildOnboardingFeatureSetupClipboardText,
@@ -30,11 +25,7 @@ import {
 const ALL_SKILL_INSTALL_COMMAND = buildAgentFeatureSkillInstallCommand([
   ORCA_CLI_SKILL_NAME,
   COMPUTER_USE_SKILL_NAME,
-  ORCHESTRATION_SKILL_NAME,
   ORCA_LINEAR_SKILL_NAME
-])
-const ORCHESTRATION_ONLY_SKILL_INSTALL_COMMAND = buildAgentFeatureSkillInstallCommand([
-  ORCHESTRATION_SKILL_NAME
 ])
 
 const INSTALLED_CLI_STATUS: CliInstallStatus = {
@@ -91,10 +82,6 @@ function createDeps(
     setStorageItem: vi.fn((key: string, value: string) => {
       storage.set(key, value)
     }),
-    removeStorageItem: vi.fn((key: string) => {
-      storage.delete(key)
-    }),
-    notifyOrchestrationStateChanged: vi.fn(),
     ...overrides
   }
 }
@@ -104,7 +91,6 @@ describe('onboarding feature setup runner', () => {
     expect(DEFAULT_ONBOARDING_FEATURE_SETUP_SELECTION).toEqual({
       browserUse: true,
       computerUse: true,
-      orchestration: true,
       linearTickets: false
     })
   })
@@ -113,13 +99,12 @@ describe('onboarding feature setup runner', () => {
     const text = buildOnboardingFeatureSetupClipboardText({
       browserUse: true,
       computerUse: true,
-      orchestration: true,
       linearTickets: true
     })
 
     expect(text).toBe(ALL_SKILL_INSTALL_COMMAND)
     expect(text).toBe(
-      'npx skills add https://github.com/stablyai/orca --skill orca-cli --skill computer-use --skill orchestration --skill orca-linear --global'
+      'npx skills add https://github.com/stablyai/orca --skill orca-cli --skill computer-use --skill orca-linear --global'
     )
   })
 
@@ -127,7 +112,6 @@ describe('onboarding feature setup runner', () => {
     const selection: OnboardingFeatureSetupSelection = {
       browserUse: true,
       computerUse: false,
-      orchestration: true,
       linearTickets: true
     }
 
@@ -136,15 +120,14 @@ describe('onboarding feature setup runner', () => {
       browser_use: true,
       computer_use: false,
       linear_tickets: true,
-      orchestration: true,
-      selected_count: 2
+      selected_count: 1
     })
     expect(
       onboardingFeatureSetupRunTelemetry(selection, {
-        selectedIds: ['browserUse', 'orchestration', 'linearTickets'],
+        selectedIds: ['browserUse', 'linearTickets'],
         cliTouched: true,
         skillCommandsCopied: false,
-        skillInstallCommand: ORCHESTRATION_ONLY_SKILL_INSTALL_COMMAND,
+        skillInstallCommand: ALL_SKILL_INSTALL_COMMAND,
         computerUsePermissionsOpened: false,
         warnings: [{ featureId: 'skills', message: 'Clipboard unavailable' }]
       })
@@ -152,8 +135,7 @@ describe('onboarding feature setup runner', () => {
       browser_use: true,
       computer_use: false,
       linear_tickets: true,
-      orchestration: true,
-      selected_count: 2,
+      selected_count: 1,
       cli_touched: true,
       skill_commands_copied: false,
       skill_install_command_prepared: true,
@@ -178,12 +160,12 @@ describe('onboarding feature setup runner', () => {
     })
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: true, orchestration: true, linearTickets: true },
+      { browserUse: true, computerUse: true, linearTickets: true },
       deps
     )
 
     expect(result).toEqual({
-      selectedIds: ['browserUse', 'computerUse', 'orchestration', 'linearTickets'],
+      selectedIds: ['browserUse', 'computerUse', 'linearTickets'],
       cliTouched: false,
       skillCommandsCopied: true,
       skillInstallCommand: ALL_SKILL_INSTALL_COMMAND,
@@ -196,42 +178,14 @@ describe('onboarding feature setup runner', () => {
     expect(deps.getComputerUsePermissionStatus).toHaveBeenCalledTimes(1)
     expect(deps.openComputerUsePermissionSetup).toHaveBeenCalledTimes(1)
     expect(deps.storage.get(BROWSER_USE_ENABLED_STORAGE_KEY)).toBe('1')
-    expect(deps.storage.get(ORCHESTRATION_ENABLED_STORAGE_KEY)).toBe('1')
-    expect(deps.removeStorageItem).toHaveBeenCalledWith(ORCHESTRATION_SETUP_DISMISSED_STORAGE_KEY)
-    expect(deps.notifyOrchestrationStateChanged).toHaveBeenCalledTimes(1)
     expect(deps.clipboardWrites).toEqual([ALL_SKILL_INSTALL_COMMAND])
-  })
-
-  it('keeps invasive Browser Use and Computer Use setup untouched when only Orchestration is selected', async () => {
-    const deps = createDeps()
-    const selection: OnboardingFeatureSetupSelection = {
-      browserUse: false,
-      computerUse: false,
-      orchestration: true,
-      linearTickets: false
-    }
-
-    const result = await runOnboardingFeatureSetup(selection, deps)
-
-    expect(result.selectedIds).toEqual(['orchestration'])
-    expect(result.skillCommandsCopied).toBe(true)
-    expect(result.skillInstallCommand).toBe(ORCHESTRATION_ONLY_SKILL_INSTALL_COMMAND)
-    expect(result.computerUsePermissionsOpened).toBe(false)
-    expect(deps.getCliStatus).toHaveBeenCalledTimes(1)
-    expect(deps.showCliRegistrationPrompt).not.toHaveBeenCalled()
-    expect(deps.installCli).not.toHaveBeenCalled()
-    expect(deps.getComputerUsePermissionStatus).not.toHaveBeenCalled()
-    expect(deps.openComputerUsePermissionSetup).not.toHaveBeenCalled()
-    expect(deps.storage.get(BROWSER_USE_ENABLED_STORAGE_KEY)).toBe('0')
-    expect(deps.storage.get(ORCHESTRATION_ENABLED_STORAGE_KEY)).toBe('1')
-    expect(deps.clipboardWrites).toEqual([ORCHESTRATION_ONLY_SKILL_INSTALL_COMMAND])
   })
 
   it('clears feature markers when no setup items are selected', async () => {
     const deps = createDeps()
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: false, computerUse: false, orchestration: false, linearTickets: false },
+      { browserUse: false, computerUse: false, linearTickets: false },
       deps
     )
 
@@ -244,7 +198,6 @@ describe('onboarding feature setup runner', () => {
       warnings: []
     })
     expect(deps.storage.get(BROWSER_USE_ENABLED_STORAGE_KEY)).toBe('0')
-    expect(deps.storage.get(ORCHESTRATION_ENABLED_STORAGE_KEY)).toBe('0')
     expect(deps.getCliStatus).not.toHaveBeenCalled()
     expect(deps.showCliRegistrationPrompt).not.toHaveBeenCalled()
     expect(deps.getComputerUsePermissionStatus).not.toHaveBeenCalled()
@@ -259,12 +212,14 @@ describe('onboarding feature setup runner', () => {
     })
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: false, computerUse: false, orchestration: true, linearTickets: false },
+      { browserUse: true, computerUse: false, linearTickets: false },
       deps
     )
 
     expect(result.skillCommandsCopied).toBe(false)
-    expect(result.skillInstallCommand).toBe(ORCHESTRATION_ONLY_SKILL_INSTALL_COMMAND)
+    expect(result.skillInstallCommand).toBe(
+      buildAgentFeatureSkillInstallCommand([ORCA_CLI_SKILL_NAME])
+    )
     expect(result.warnings).toEqual([
       {
         featureId: 'skills',
@@ -295,7 +250,7 @@ describe('onboarding feature setup runner', () => {
     })
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: true, orchestration: true, linearTickets: true },
+      { browserUse: true, computerUse: true, linearTickets: true },
       deps
     )
 
@@ -323,7 +278,7 @@ describe('onboarding feature setup runner', () => {
     })
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: false, orchestration: false, linearTickets: false },
+      { browserUse: true, computerUse: false, linearTickets: false },
       deps
     )
 
@@ -345,7 +300,7 @@ describe('onboarding feature setup runner', () => {
     const deps = createDeps({ getCliStatus: vi.fn(async () => unknownStatus) })
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: false, orchestration: false, linearTickets: false },
+      { browserUse: true, computerUse: false, linearTickets: false },
       deps
     )
 

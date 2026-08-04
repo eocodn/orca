@@ -9,8 +9,7 @@ import { hasEffectiveSetupCommand } from '@/lib/setup-script-status'
 import { getProviderRuntimeContextKey } from '@/lib/provider-runtime-context'
 import {
   COMPUTER_USE_SKILL_NAME,
-  ORCA_CLI_SKILL_NAME,
-  ORCHESTRATION_SKILL_NAME
+  ORCA_CLI_SKILL_NAME
 } from '@/lib/agent-feature-install-commands'
 import {
   GLOBAL_AGENT_SKILL_SOURCE_KINDS,
@@ -39,7 +38,6 @@ const SETUP_SCRIPT_PROBE_SETTLE_TIMEOUT_MS = 15_000
 
 export function useSetupGuideProgress(
   shouldRefreshCoreState: boolean,
-  orchestrationSkillInstalled: boolean,
   browserUseSkillInstalled: boolean
 ): FeatureWallSetupProgress {
   const settings = useAppStore((s) => s.settings)
@@ -86,14 +84,6 @@ export function useSetupGuideProgress(
       discoveryTarget: activeSkillRuntime.discoveryTarget,
       sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
     })
-  const {
-    installed: detectedOrchestrationSkillInstalled,
-    loading: detectedOrchestrationSkillLoading
-  } = useInstalledAgentSkill(ORCHESTRATION_SKILL_NAME, {
-    enabled: shouldRefreshCoreState,
-    discoveryTarget: activeSkillRuntime.discoveryTarget,
-    sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
-  })
   const providerRuntimeContextKey = getProviderRuntimeContextKey(settings)
   const linearStatusCurrent = linearStatusContextKey === providerRuntimeContextKey
   const jiraStatusCurrent = jiraStatusContextKey === providerRuntimeContextKey
@@ -272,7 +262,6 @@ export function useSetupGuideProgress(
     jiraStatusChecked: true,
     browserUseSkillDiscoveryLoading: detectedBrowserUseSkillLoading,
     computerUseSkillDiscoveryLoading: computerUseSkillLoading,
-    orchestrationSkillDiscoveryLoading: detectedOrchestrationSkillLoading,
     setupScriptProbeReady: currentSetupScriptProbe.ready,
     computerUseSkillInstalled,
     computerUsePermissionStatusChecked: currentComputerUsePermissionStatusChecked
@@ -289,8 +278,6 @@ export function useSetupGuideProgress(
         computerUseSkillInstalled,
         computerUsePermissionsReady: currentComputerUsePermissionsReady,
         computerUseUnavailable: currentComputerUseUnavailable,
-        orchestrationSkillInstalled:
-          orchestrationSkillInstalled || detectedOrchestrationSkillInstalled,
         gitRepoCount,
         worktreesByRepo,
         hasSetupScript: currentSetupScriptProbe.hasSetupScript
@@ -302,12 +289,10 @@ export function useSetupGuideProgress(
       currentComputerUsePermissionsReady,
       computerUseSkillInstalled,
       detectedBrowserUseSkillInstalled,
-      detectedOrchestrationSkillInstalled,
       featureInteractions,
       gitRepoCount,
       hasConnectedTaskSource,
       currentSetupScriptProbe.hasSetupScript,
-      orchestrationSkillInstalled,
       settings,
       worktreesByRepo
     ]

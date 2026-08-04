@@ -5,8 +5,7 @@ import type {
 } from '../onboarding/onboarding-feature-setup'
 import {
   COMPUTER_USE_SKILL_NAME,
-  ORCA_CLI_SKILL_NAME,
-  ORCHESTRATION_SKILL_NAME
+  ORCA_CLI_SKILL_NAME
 } from '@/lib/agent-feature-install-commands'
 import {
   GLOBAL_AGENT_SKILL_SOURCE_KINDS,
@@ -31,8 +30,6 @@ export type AgentCapabilityReadiness = {
   computerUseReady: boolean
   computerUseChecking: boolean
   computerUseUnavailable: boolean
-  orchestrationSkillInstalled: boolean
-  orchestrationSkillLoading: boolean
 }
 
 export type AgentCapabilitySetupStatus = {
@@ -50,10 +47,6 @@ export function useAgentCapabilitySetupStatus(): AgentCapabilitySetupStatus {
     discoveryTarget: activeSkillRuntime.discoveryTarget,
     sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
   })
-  const orchestrationSkill = useInstalledAgentSkill(ORCHESTRATION_SKILL_NAME, {
-    discoveryTarget: activeSkillRuntime.discoveryTarget,
-    sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
-  })
   const computerUsePermissionStatus = useComputerUsePermissionStatus(computerUseSkill.installed)
   const readiness: AgentCapabilityReadiness = useMemo(
     () => ({
@@ -63,9 +56,7 @@ export function useAgentCapabilitySetupStatus(): AgentCapabilitySetupStatus {
       computerUseSkillLoading: computerUseSkill.loading,
       computerUseReady: computerUsePermissionStatus.ready,
       computerUseChecking: computerUsePermissionStatus.checking,
-      computerUseUnavailable: computerUsePermissionStatus.unavailableReason !== null,
-      orchestrationSkillInstalled: orchestrationSkill.installed,
-      orchestrationSkillLoading: orchestrationSkill.loading
+      computerUseUnavailable: computerUsePermissionStatus.unavailableReason !== null
     }),
     [
       browserUseSkill.installed,
@@ -74,9 +65,7 @@ export function useAgentCapabilitySetupStatus(): AgentCapabilitySetupStatus {
       computerUsePermissionStatus.ready,
       computerUsePermissionStatus.unavailableReason,
       computerUseSkill.installed,
-      computerUseSkill.loading,
-      orchestrationSkill.installed,
-      orchestrationSkill.loading
+      computerUseSkill.loading
     ]
   )
 
@@ -84,12 +73,11 @@ export function useAgentCapabilitySetupStatus(): AgentCapabilitySetupStatus {
     () => ({
       browserUse: getSkillInstallStatus(browserUseSkill),
       computerUse: getComputerUseInstallStatus(computerUseSkill, computerUsePermissionStatus),
-      orchestration: getSkillInstallStatus(orchestrationSkill),
       // Why: linearTickets remains in the onboarding selection shape, but the
       // generic feature wall must not become a Linear skill install surface.
       linearTickets: getFeatureWallExcludedLinearTicketsStatus()
     }),
-    [browserUseSkill, computerUsePermissionStatus, computerUseSkill, orchestrationSkill]
+    [browserUseSkill, computerUsePermissionStatus, computerUseSkill]
   )
 
   return { readiness, installStatus }
@@ -105,7 +93,6 @@ export function getDefaultAgentCapabilitySetupSelection(
     computerUse:
       !readiness.computerUseSkillInstalled ||
       (!readiness.computerUseReady && !readiness.computerUseUnavailable),
-    orchestration: !readiness.orchestrationSkillInstalled,
     linearTickets: false
   }
 }
@@ -114,8 +101,7 @@ export function isAgentCapabilityReadinessChecking(readiness: AgentCapabilityRea
   return (
     readiness.browserUseSkillLoading ||
     readiness.computerUseSkillLoading ||
-    (readiness.computerUseSkillInstalled && readiness.computerUseChecking) ||
-    readiness.orchestrationSkillLoading
+    readiness.computerUseSkillInstalled && readiness.computerUseChecking
   )
 }
 

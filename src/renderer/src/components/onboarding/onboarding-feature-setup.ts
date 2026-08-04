@@ -7,23 +7,16 @@ import {
   COMPUTER_USE_SKILL_NAME,
   ORCA_LINEAR_SKILL_NAME,
   ORCA_CLI_SKILL_NAME,
-  ORCHESTRATION_SKILL_NAME,
   buildAgentFeatureSkillInstallCommand
 } from '@/lib/agent-feature-install-commands'
 import { BROWSER_USE_ENABLED_STORAGE_KEY } from '@/lib/browser-use-setup-state'
 import { e2eConfig } from '@/lib/e2e-config'
 import { showOrcaCliRegistrationPromptToast } from '@/lib/agent-skill-cli-prerequisite'
-import {
-  ORCHESTRATION_ENABLED_STORAGE_KEY,
-  ORCHESTRATION_SETUP_DISMISSED_STORAGE_KEY,
-  notifyOrchestrationSetupStateChanged
-} from '@/lib/orchestration-setup-state'
 import type { EventProps } from '../../../../shared/telemetry-events'
 
 export type OnboardingFeatureSetupId =
   | 'browserUse'
   | 'computerUse'
-  | 'orchestration'
   | 'linearTickets'
 
 export type OnboardingFeatureSetupSelection = Record<OnboardingFeatureSetupId, boolean>
@@ -31,27 +24,23 @@ export type OnboardingFeatureSetupSelection = Record<OnboardingFeatureSetupId, b
 export const DEFAULT_ONBOARDING_FEATURE_SETUP_SELECTION: OnboardingFeatureSetupSelection = {
   browserUse: true,
   computerUse: true,
-  orchestration: true,
   linearTickets: false
 }
 
 export const ONBOARDING_FEATURE_SETUP_IDS: readonly OnboardingFeatureSetupId[] = [
   'browserUse',
   'computerUse',
-  'orchestration',
   'linearTickets'
 ]
 
 const ONBOARDING_PROGRESS_FEATURE_SETUP_IDS: readonly OnboardingFeatureSetupId[] = [
   'browserUse',
-  'computerUse',
-  'orchestration'
+  'computerUse'
 ]
 
 const FEATURE_SKILL_NAMES: Record<OnboardingFeatureSetupId, string> = {
   browserUse: ORCA_CLI_SKILL_NAME,
   computerUse: COMPUTER_USE_SKILL_NAME,
-  orchestration: ORCHESTRATION_SKILL_NAME,
   linearTickets: ORCA_LINEAR_SKILL_NAME
 }
 
@@ -61,7 +50,6 @@ const FEATURE_TELEMETRY_IDS: Record<
 > = {
   browserUse: 'browser_use',
   computerUse: 'computer_use',
-  orchestration: 'orchestration',
   linearTickets: 'linear_tickets'
 }
 
@@ -87,8 +75,6 @@ export type OnboardingFeatureSetupDeps = {
   getComputerUsePermissionStatus: () => Promise<ComputerUsePermissionStatusResult>
   openComputerUsePermissionSetup: () => Promise<ComputerUsePermissionSetupResult>
   setStorageItem: (key: string, value: string) => void
-  removeStorageItem: (key: string) => void
-  notifyOrchestrationStateChanged: () => void
 }
 
 export function hasSelectedOnboardingFeatureSetup(
@@ -134,7 +120,6 @@ export function onboardingFeatureSetupTelemetrySelection(
     browser_use: selection.browserUse,
     computer_use: selection.computerUse,
     linear_tickets: selection.linearTickets,
-    orchestration: selection.orchestration,
     // Why: Linear skill setup is a recommended add-on, not onboarding progress.
     selected_count: selectedOnboardingProgressFeatureSetupIds(selection).length
   }
@@ -174,8 +159,6 @@ export function createOnboardingFeatureSetupDeps(): OnboardingFeatureSetupDeps {
     getComputerUsePermissionStatus: () => window.api.computerUsePermissions.getStatus(),
     openComputerUsePermissionSetup: () => window.api.computerUsePermissions.openSetup(),
     setStorageItem: (key, value) => localStorage.setItem(key, value),
-    removeStorageItem: (key) => localStorage.removeItem(key),
-    notifyOrchestrationStateChanged: notifyOrchestrationSetupStateChanged
   }
 }
 
@@ -201,11 +184,6 @@ export async function runOnboardingFeatureSetup(
   let computerUsePermissionsOpened = false
 
   deps.setStorageItem(BROWSER_USE_ENABLED_STORAGE_KEY, selection.browserUse ? '1' : '0')
-  deps.setStorageItem(ORCHESTRATION_ENABLED_STORAGE_KEY, selection.orchestration ? '1' : '0')
-  if (selection.orchestration) {
-    deps.removeStorageItem(ORCHESTRATION_SETUP_DISMISSED_STORAGE_KEY)
-  }
-  deps.notifyOrchestrationStateChanged()
 
   if (selectedIds.length === 0) {
     return {

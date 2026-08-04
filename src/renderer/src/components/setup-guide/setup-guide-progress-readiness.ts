@@ -16,7 +16,6 @@ export type SetupGuideProgressReadinessInput = {
   jiraStatusChecked: boolean
   browserUseSkillDiscoveryLoading: boolean
   computerUseSkillDiscoveryLoading: boolean
-  orchestrationSkillDiscoveryLoading: boolean
   setupScriptProbeReady: boolean
   computerUseSkillInstalled: boolean
   computerUsePermissionStatusChecked: boolean
@@ -86,7 +85,6 @@ export function getSetupGuideProgressReady(input: SetupGuideProgressReadinessInp
     input.jiraStatusChecked &&
     !input.browserUseSkillDiscoveryLoading &&
     !input.computerUseSkillDiscoveryLoading &&
-    !input.orchestrationSkillDiscoveryLoading &&
     input.setupScriptProbeReady &&
     (!input.computerUseSkillInstalled || input.computerUsePermissionStatusChecked)
   )

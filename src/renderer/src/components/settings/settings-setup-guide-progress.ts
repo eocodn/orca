@@ -35,19 +35,14 @@ export function getSettingsSetupGuideProgress(progress: {
 export function useSettingsSetupGuideProgress(
   shouldRefreshCoreState: boolean
 ): SettingsSetupGuideProgress {
-  const fullProgress = useSettingsSetupGuideFullProgress(shouldRefreshCoreState, false, false)
+  const fullProgress = useSettingsSetupGuideFullProgress(shouldRefreshCoreState, false)
 
   return useMemo(() => getSettingsSetupGuideProgress(fullProgress), [fullProgress])
 }
 
 export function useSettingsSetupGuideFullProgress(
   shouldRefreshCoreState: boolean,
-  orchestrationSkillInstalled: boolean,
   browserUseSkillInstalled: boolean
 ): FeatureWallSetupProgress {
-  return useSetupGuideProgress(
-    shouldRefreshCoreState,
-    orchestrationSkillInstalled,
-    browserUseSkillInstalled
-  )
+  return useSetupGuideProgress(shouldRefreshCoreState, browserUseSkillInstalled)
 }

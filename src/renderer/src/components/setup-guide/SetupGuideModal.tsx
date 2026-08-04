@@ -30,13 +30,8 @@ export default function SetupGuideModal(): JSX.Element | null {
   const isOpen = activeModal === 'setup-guide'
   const setupSteps = useMemo(() => getFeatureWallSetupSteps(), [])
   const [userSelectedStep, setUserSelectedStep] = useState(false)
-  const [orchestrationSkillInstalled, setOrchestrationSkillInstalled] = useState(false)
   const [browserUseSkillInstalled, setBrowserUseSkillInstalled] = useState(false)
-  const progress = useSetupGuideProgress(
-    isOpen,
-    orchestrationSkillInstalled,
-    browserUseSkillInstalled
-  )
+  const progress = useSetupGuideProgress(isOpen, browserUseSkillInstalled)
   const [activeStepId, setActiveStepId] = useState<FeatureWallSetupStepId>(() =>
     getFirstIncompleteFeatureWallSetupStepId(progress.stepDone)
   )
@@ -168,7 +163,6 @@ export default function SetupGuideModal(): JSX.Element | null {
             activeStep={activeStep}
             progress={progress}
             onSelectStep={handleSelectStep}
-            onOrchestrationSkillInstalledChange={setOrchestrationSkillInstalled}
             onBrowserUseSkillInstalledChange={setBrowserUseSkillInstalled}
           />
         </div>
