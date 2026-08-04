@@ -1,6 +1,7 @@
 import type { PtyIpcTransportContext } from './pty-ipc-transport-context'
 import type { PtyIpcTransportHandlers } from './pty-ipc-transport-handlers'
 import type { PtyTransport } from './pty-transport-types'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export function createPtyIpcTransportLifecycle(
   context: PtyIpcTransportContext,
@@ -12,7 +13,7 @@ export function createPtyIpcTransportLifecycle(
     inputWriteQueue.clear()
     if (state.ptyId) {
       const id = state.ptyId
-      window.api.pty.kill(id)
+      getClientRuntime().terminal.kill(id)
       state.connected = false
       state.ptyId = null
       handlers.unregisterPtyHandlers(id)

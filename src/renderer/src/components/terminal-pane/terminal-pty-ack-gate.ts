@@ -3,6 +3,7 @@ import {
   deliverTerminalDataWithDeferredCredit,
   takeCurrentTerminalDeliveryCredit
 } from '@/lib/pane-manager/terminal-delivery-credit'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 type E2eTerminalPtyAckGateSnapshot = {
   gatedPtyCount: number
@@ -33,12 +34,12 @@ function sendPtyAck(ptyId: string, chars: number, incarnationId?: string): void 
   processedPtyCharTotals.set(ptyId, { incarnationId, chars: processedChars })
   if (incarnationId === undefined) {
     // Why: unincarnated legacy providers cannot attach the isolation token.
-    const legacyAckData = window.api.pty.ackData as unknown as
+    const legacyAckData = getClientRuntime().terminal.ackData as unknown as
       | ((id: string, chars: number, processed: number) => void)
       | undefined
     legacyAckData?.(ptyId, chars, processedChars)
   } else {
-    window.api.pty.ackData?.(ptyId, chars, processedChars, incarnationId)
+    getClientRuntime().terminal.ackData?.(ptyId, chars, processedChars, incarnationId)
   }
 }
 

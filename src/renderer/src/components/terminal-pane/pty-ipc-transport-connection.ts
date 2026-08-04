@@ -1,8 +1,5 @@
 import { isRuntimeOwnedSshTargetId } from '../../../../shared/execution-host'
-import {
-  ensurePtyDispatcher,
-  getEagerPtyBufferHandle
-} from './pty-dispatcher'
+import { ensurePtyDispatcher, getEagerPtyBufferHandle } from './pty-dispatcher'
 import {
   clearConsumedPreHandlerPtyExit,
   hasPreHandlerPtyExit,
@@ -11,9 +8,13 @@ import {
 import type { PtyIpcTransportContext } from './pty-ipc-transport-context'
 import type { PtyIpcTransportHandlers } from './pty-ipc-transport-handlers'
 import type { PtyConnectResult, PtyTransport } from './pty-transport-types'
-import { hasTerminalDisplayContent, trimIncompleteTerminalControlTail } from './terminal-output-visibility'
+import {
+  hasTerminalDisplayContent,
+  trimIncompleteTerminalControlTail
+} from './terminal-output-visibility'
 import { extractIpcErrorMessage } from '@/lib/ipc-error'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 const SSH_SESSION_EXPIRED_ERROR = 'SSH_SESSION_EXPIRED'
 const SSH_PTY_CONNECTION_MISMATCH_MARKER = 'belongs to SSH connection'
@@ -27,9 +28,9 @@ export function createPtyIpcTransportConnection(
   const { state, options, outputProcessor } = context
   const { registerPtyDataHandler, registerPtyExitHandler } = handlers
 
-  async function connect(connectOptions: PtyConnectOptions): Promise<
-    void | string | PtyConnectResult
-  > {
+  async function connect(
+    connectOptions: PtyConnectOptions
+  ): Promise<void | string | PtyConnectResult> {
     state.callbacks = connectOptions.callbacks
     ensurePtyDispatcher()
     if (state.destroyed) return
@@ -54,7 +55,7 @@ export function createPtyIpcTransportConnection(
     try {
       const shouldSendLocalCwdFallback =
         options.cwdFallback === 'worktree' && !options.connectionId && !admittedSessionId
-      const result = await window.api.pty.spawn({
+      const result = await getClientRuntime().terminal.spawn({
         cols: connectOptions.cols ?? 80,
         rows: connectOptions.rows ?? 24,
         cwd: options.cwd,
@@ -68,7 +69,10 @@ export function createPtyIpcTransportConnection(
           ? { launchConfig: connectOptions.launchConfig ?? options.launchConfig }
           : {}),
         ...((connectOptions.resumeProviderSession ?? options.resumeProviderSession)
-          ? { resumeProviderSession: connectOptions.resumeProviderSession ?? options.resumeProviderSession }
+          ? {
+              resumeProviderSession:
+                connectOptions.resumeProviderSession ?? options.resumeProviderSession
+            }
           : {}),
         ...((connectOptions.launchToken ?? options.launchToken)
           ? { launchToken: connectOptions.launchToken ?? options.launchToken }
@@ -77,7 +81,10 @@ export function createPtyIpcTransportConnection(
           ? { launchAgent: connectOptions.launchAgent ?? options.launchAgent }
           : {}),
         ...((connectOptions.startupCommandDelivery ?? options.startupCommandDelivery)
-          ? { startupCommandDelivery: connectOptions.startupCommandDelivery ?? options.startupCommandDelivery }
+          ? {
+              startupCommandDelivery:
+                connectOptions.startupCommandDelivery ?? options.startupCommandDelivery
+            }
           : {}),
         ...(options.connectionId ? { connectionId: options.connectionId } : {}),
         ...(admittedSessionId ? { sessionId: admittedSessionId } : {}),
@@ -98,7 +105,7 @@ export function createPtyIpcTransportConnection(
         : undefined
       const retireFreshSpawn = async (): Promise<void> => {
         if (!spawnResult.isReattach && !spawnResult.coldRestore) {
-          await window.api.pty.kill(spawnResult.id)
+          await getClientRuntime().terminal.kill(spawnResult.id)
         }
       }
       if (state.destroyed) {
@@ -150,7 +157,9 @@ export function createPtyIpcTransportConnection(
           id: spawnResult.id,
           ...(resultLaunchAgent ? { launchAgent: resultLaunchAgent } : {}),
           ...(spawnResult.launchConfig ? { launchConfig: spawnResult.launchConfig } : {}),
-          ...(spawnResult.startupCwdFallback ? { startupCwdFallback: spawnResult.startupCwdFallback } : {}),
+          ...(spawnResult.startupCwdFallback
+            ? { startupCwdFallback: spawnResult.startupCwdFallback }
+            : {}),
           ...(spawnResult.agentResumeUnavailable ? { agentResumeUnavailable: true as const } : {})
         } satisfies PtyConnectResult
       }
@@ -219,7 +228,7 @@ export function createPtyIpcTransportConnection(
       bufferHandle.dispose()
     }
     if (attachOptions.cols && attachOptions.rows) {
-      window.api.pty.resize(id, attachOptions.cols, attachOptions.rows)
+      getClientRuntime().terminal.resize(id, attachOptions.cols, attachOptions.rows)
     }
     state.callbacks.onConnect?.()
     state.callbacks.onStatus?.('shell')

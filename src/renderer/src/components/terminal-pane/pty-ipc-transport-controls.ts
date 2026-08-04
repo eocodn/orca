@@ -1,5 +1,6 @@
 import type { PtyIpcTransportContext } from './pty-ipc-transport-context'
 import type { PtyTransport } from './pty-transport-types'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export function createPtyIpcTransportControls(
   context: PtyIpcTransportContext
@@ -25,13 +26,13 @@ export function createPtyIpcTransportControls(
     },
     claimViewport(cols: number, rows: number): boolean {
       if (!state.connected || !state.ptyId) return false
-      window.api.pty.claimViewport(state.ptyId, cols, rows)
+      getClientRuntime().terminal.claimViewport(state.ptyId, cols, rows)
       return true
     },
     resize(cols: number, rows: number, meta): boolean {
       if (!state.connected || !state.ptyId) return false
-      window.api.pty.resize(state.ptyId, cols, rows)
-      if (meta?.claim) window.api.pty.claimViewport(state.ptyId, cols, rows)
+      getClientRuntime().terminal.resize(state.ptyId, cols, rows)
+      if (meta?.claim) getClientRuntime().terminal.claimViewport(state.ptyId, cols, rows)
       return true
     },
     isConnected() {

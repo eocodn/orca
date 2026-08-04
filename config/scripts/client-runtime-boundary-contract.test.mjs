@@ -42,9 +42,14 @@ const sessionFiles = [
 
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
+  'src/renderer/src/components/terminal-pane/pty-ipc-transport-connection.ts',
+  'src/renderer/src/components/terminal-pane/pty-ipc-transport-controls.ts',
+  'src/renderer/src/components/terminal-pane/pty-ipc-transport-lifecycle.ts',
   'src/renderer/src/components/terminal-pane/resolve-split-cwd.ts',
   'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-effects.ts',
-  'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-policies.ts'
+  'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-policies.ts',
+  'src/renderer/src/components/terminal-pane/terminal-pty-ack-gate.ts',
+  'src/renderer/src/components/terminal-pane/terminal-view-attributes-publisher.ts'
 ]
 
 async function readRuntimeFile(relativePath) {

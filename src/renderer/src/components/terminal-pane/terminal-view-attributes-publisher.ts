@@ -15,6 +15,7 @@ import type {
   TerminalViewAttributes,
   TerminalViewRgb
 } from '../../../../shared/terminal-view-attributes'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 type ParsedCssColor = {
   rgb: TerminalViewRgb
@@ -219,7 +220,7 @@ function sendViaPreload(attributes: TerminalViewAttributes): boolean {
   if (typeof window === 'undefined' || !window.api?.pty?.publishTerminalViewAttributes) {
     return false
   }
-  window.api.pty.publishTerminalViewAttributes(attributes)
+  getClientRuntime().terminal.publishTerminalViewAttributes(attributes)
   return true
 }
 
