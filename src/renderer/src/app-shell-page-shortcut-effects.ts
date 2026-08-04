@@ -452,5 +452,6 @@ export function useAppShellPageShortcutEffects(context: Record<string, unknown>)
     settings?.showTitlebarAppName,
     showSidebar,
     leftTitlebarChromeLayout.isFloating,
-    sidebarOpen
-})
+sidebarOpen
+])
+}
