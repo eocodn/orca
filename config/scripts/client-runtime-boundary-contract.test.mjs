@@ -173,6 +173,15 @@ const sessionFiles = [
   'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-policies.ts'
 ]
 
+const integrationFiles = [
+  'src/renderer/src/runtime/runtime-hooks-client.ts',
+  'src/renderer/src/runtime/runtime-linear-issue-client.ts',
+  'src/renderer/src/runtime/runtime-linear-project-client.ts',
+  'src/renderer/src/runtime/runtime-jira-client.ts',
+  'src/renderer/src/runtime/runtime-jira-summary-client.ts',
+  'src/renderer/src/runtime/local-jira-search-cancellation.ts'
+]
+
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-connection.ts',
@@ -234,6 +243,17 @@ describe('ClientRuntime renderer boundary', () => {
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.pty/)
+    }
+  })
+
+  it('routes integration runtime calls through the integration adapter', async () => {
+    const sources = await Promise.all(integrationFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.(?:hooks|linear|jira)/)
     }
   })
 })

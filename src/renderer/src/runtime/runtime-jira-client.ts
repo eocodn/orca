@@ -22,6 +22,7 @@ import { searchLocalJiraIssues } from './local-jira-search-cancellation'
 import { callRuntimeRpc, RuntimeRpcCallError } from './runtime-rpc-client'
 import { isRuntimeProviderSearchQueryWithinLimit } from './runtime-provider-search-bounds'
 import { readRuntimeJiraPayload } from './runtime-jira-payload-stream'
+import { getClientRuntime } from './client-runtime'
 import { getJiraRuntimeTarget, type RuntimeJiraSettings } from './runtime-jira-target'
 
 export { jiraLookupIssueSummary, jiraReadStatus } from './runtime-jira-summary-client'
@@ -52,7 +53,7 @@ export async function jiraStatus(settings: RuntimeJiraSettings): Promise<JiraCon
   const target = getJiraRuntimeTarget(settings)
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraConnectionStatus>(target, 'jira.status', undefined, { timeoutMs: 15_000 })
-    : window.api.jira.status()
+    : getClientRuntime().integration.jira.status()
 }
 
 export async function jiraConnect(
@@ -62,7 +63,7 @@ export async function jiraConnect(
   const target = getJiraRuntimeTarget(settings)
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraConnectResult>(target, 'jira.connect', args, { timeoutMs: 30_000 })
-    : window.api.jira.connect(args)
+    : getClientRuntime().integration.jira.connect(args)
 }
 
 export async function jiraDisconnect(
@@ -76,7 +77,7 @@ export async function jiraDisconnect(
     })
     return
   }
-  await window.api.jira.disconnect(siteId ? { siteId } : undefined)
+  await getClientRuntime().integration.jira.disconnect(siteId ? { siteId } : undefined)
 }
 
 export async function jiraSelectSite(
@@ -91,7 +92,7 @@ export async function jiraSelectSite(
         { siteId },
         { timeoutMs: 15_000 }
       )
-    : window.api.jira.selectSite({ siteId })
+    : getClientRuntime().integration.jira.selectSite({ siteId })
 }
 
 export async function jiraTestConnection(
@@ -106,7 +107,7 @@ export async function jiraTestConnection(
         siteId ? { siteId } : undefined,
         { timeoutMs: 30_000 }
       )
-    : window.api.jira.testConnection(siteId ? { siteId } : undefined)
+    : getClientRuntime().integration.jira.testConnection(siteId ? { siteId } : undefined)
 }
 
 export async function jiraSearchIssues(
@@ -127,7 +128,9 @@ export async function jiraSearchIssues(
       signal
     })
   }
-  return signal ? searchLocalJiraIssues(args, signal) : window.api.jira.searchIssues(args)
+  return signal
+    ? searchLocalJiraIssues(args, signal)
+    : getClientRuntime().integration.jira.searchIssues(args)
 }
 
 export async function jiraListIssues(
@@ -140,7 +143,7 @@ export async function jiraListIssues(
   const args = { filter, limit, siteId: siteId ?? undefined }
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraIssue[]>(target, 'jira.listIssues', args, { timeoutMs: 30_000 })
-    : window.api.jira.listIssues(args)
+    : getClientRuntime().integration.jira.listIssues(args)
 }
 
 export async function jiraGetIssue(
@@ -152,7 +155,7 @@ export async function jiraGetIssue(
   const args = { key, siteId: siteId ?? undefined }
   return target.kind === 'environment'
     ? readRemoteJiraPayload<JiraIssue | null>(target, 'jira.getIssueStream', 'jira.getIssue', args)
-    : window.api.jira.getIssue(args)
+    : getClientRuntime().integration.jira.getIssue(args)
 }
 
 export async function jiraCreateIssue(
@@ -162,7 +165,7 @@ export async function jiraCreateIssue(
   const target = getJiraRuntimeTarget(settings)
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraCreateIssueResult>(target, 'jira.createIssue', args, { timeoutMs: 30_000 })
-    : window.api.jira.createIssue(args)
+    : getClientRuntime().integration.jira.createIssue(args)
 }
 
 export async function jiraUpdateIssue(
@@ -175,7 +178,7 @@ export async function jiraUpdateIssue(
   const args = { key, updates, siteId: siteId ?? undefined }
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraMutationResult>(target, 'jira.updateIssue', args, { timeoutMs: 30_000 })
-    : window.api.jira.updateIssue(args)
+    : getClientRuntime().integration.jira.updateIssue(args)
 }
 
 export async function jiraAddIssueComment(
@@ -190,7 +193,7 @@ export async function jiraAddIssueComment(
     ? callRuntimeRpc<JiraCommentResult>(target, 'jira.addIssueComment', args, {
         timeoutMs: 30_000
       })
-    : window.api.jira.addIssueComment(args)
+    : getClientRuntime().integration.jira.addIssueComment(args)
 }
 
 export async function jiraIssueComments(
@@ -207,7 +210,7 @@ export async function jiraIssueComments(
         'jira.issueComments',
         args
       )
-    : window.api.jira.issueComments(args)
+    : getClientRuntime().integration.jira.issueComments(args)
 }
 
 export async function jiraListProjects(
@@ -219,7 +222,7 @@ export async function jiraListProjects(
     ? callRuntimeRpc<JiraProject[]>(target, 'jira.listProjects', siteId ? { siteId } : undefined, {
         timeoutMs: 30_000
       })
-    : window.api.jira.listProjects(siteId ? { siteId } : undefined)
+    : getClientRuntime().integration.jira.listProjects(siteId ? { siteId } : undefined)
 }
 
 export async function jiraListIssueTypes(
@@ -231,7 +234,7 @@ export async function jiraListIssueTypes(
   const args = { projectIdOrKey, siteId: siteId ?? undefined }
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraIssueType[]>(target, 'jira.listIssueTypes', args, { timeoutMs: 30_000 })
-    : window.api.jira.listIssueTypes(args)
+    : getClientRuntime().integration.jira.listIssueTypes(args)
 }
 
 export async function jiraListCreateFields(
@@ -246,7 +249,7 @@ export async function jiraListCreateFields(
     ? callRuntimeRpc<JiraCreateField[]>(target, 'jira.listCreateFields', args, {
         timeoutMs: 30_000
       })
-    : window.api.jira.listCreateFields(args)
+    : getClientRuntime().integration.jira.listCreateFields(args)
 }
 
 export async function jiraListPriorities(
@@ -261,7 +264,7 @@ export async function jiraListPriorities(
         siteId ? { siteId } : undefined,
         { timeoutMs: 30_000 }
       )
-    : window.api.jira.listPriorities(siteId ? { siteId } : undefined)
+    : getClientRuntime().integration.jira.listPriorities(siteId ? { siteId } : undefined)
 }
 
 export async function jiraListAssignableUsers(
@@ -277,7 +280,7 @@ export async function jiraListAssignableUsers(
   const args = { key, query, siteId: siteId ?? undefined }
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraUser[]>(target, 'jira.listAssignableUsers', args, { timeoutMs: 30_000 })
-    : window.api.jira.listAssignableUsers(args)
+    : getClientRuntime().integration.jira.listAssignableUsers(args)
 }
 
 export async function jiraListTransitions(
@@ -289,7 +292,7 @@ export async function jiraListTransitions(
   const args = { key, siteId: siteId ?? undefined }
   return target.kind === 'environment'
     ? callRuntimeRpc<JiraTransition[]>(target, 'jira.listTransitions', args, { timeoutMs: 30_000 })
-    : window.api.jira.listTransitions(args)
+    : getClientRuntime().integration.jira.listTransitions(args)
 }
 
 export async function jiraGetProjectStatusOrder(
@@ -303,5 +306,5 @@ export async function jiraGetProjectStatusOrder(
     ? callRuntimeRpc<JiraProjectStatusOrder>(target, 'jira.getProjectStatusOrder', args, {
         timeoutMs: 30_000
       })
-    : window.api.jira.getProjectStatusOrder(args)
+    : getClientRuntime().integration.jira.getProjectStatusOrder(args)
 }

@@ -1,5 +1,6 @@
 import type { JiraIssue, JiraSiteSelection } from '../../../shared/types'
 import { createBrowserUuid } from '@/lib/browser-uuid'
+import { getClientRuntime } from './client-runtime'
 
 type LocalJiraSearchArgs = { jql: string; limit?: number; siteId?: JiraSiteSelection }
 
@@ -24,11 +25,13 @@ export async function searchLocalJiraIssues(
   }
   const requestId = createBrowserUuid()
   const handleAbort = (): void => {
-    void window.api.jira.cancelSearchIssues({ requestId }).catch(() => {})
+    void getClientRuntime()
+      .integration.jira.cancelSearchIssues({ requestId })
+      .catch(() => {})
   }
   signal.addEventListener('abort', handleAbort, { once: true })
   try {
-    const issues = await window.api.jira.searchIssues({ ...args, requestId })
+    const issues = await getClientRuntime().integration.jira.searchIssues({ ...args, requestId })
     // Why: cancel can race ahead of main-process registration; drop late successes.
     if (signal.aborted) {
       throw createJiraSearchAbortError()

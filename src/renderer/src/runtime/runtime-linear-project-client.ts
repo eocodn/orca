@@ -21,6 +21,7 @@ import {
   getActiveRuntimeTarget,
   runtimeEnvironmentSupportsCapability
 } from './runtime-rpc-client'
+import { getClientRuntime } from './client-runtime'
 import {
   getTaskSourceRuntimeSettings,
   type TaskSourceContext
@@ -67,7 +68,7 @@ export async function linearCreateProject(
     ? callRuntimeRpc<LinearCreateProjectResult>(target, 'linear.createProject', args, {
         timeoutMs: 30_000
       })
-    : window.api.linear.createProject(args)
+    : getClientRuntime().integration.linear.createProject(args)
 }
 
 export async function linearGetProject(
@@ -84,7 +85,11 @@ export async function linearGetProject(
         { id, workspaceId, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.getProject({ id, workspaceId, ...linearReadForce(options) })
+    : getClientRuntime().integration.linear.getProject({
+        id,
+        workspaceId,
+        ...linearReadForce(options)
+      })
 }
 
 export async function linearListProjectIssues(
@@ -102,7 +107,7 @@ export async function linearListProjectIssues(
         { projectId, limit, workspaceId, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.listProjectIssues({
+    : getClientRuntime().integration.linear.listProjectIssues({
         projectId,
         limit,
         workspaceId,
@@ -125,7 +130,7 @@ export async function linearListCustomViews(
         { model, limit, workspaceId: workspaceId ?? undefined, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.listCustomViews({
+    : getClientRuntime().integration.linear.listCustomViews({
         model,
         limit,
         workspaceId: workspaceId ?? undefined,
@@ -148,7 +153,12 @@ export async function linearGetCustomView(
         { viewId, model, workspaceId, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.getCustomView({ viewId, model, workspaceId, ...linearReadForce(options) })
+    : getClientRuntime().integration.linear.getCustomView({
+        viewId,
+        model,
+        workspaceId,
+        ...linearReadForce(options)
+      })
 }
 
 export async function linearListCustomViewIssues(
@@ -166,7 +176,7 @@ export async function linearListCustomViewIssues(
         { viewId, limit, workspaceId, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.listCustomViewIssues({
+    : getClientRuntime().integration.linear.listCustomViewIssues({
         viewId,
         limit,
         workspaceId,
@@ -189,7 +199,7 @@ export async function linearListCustomViewProjects(
         { viewId, limit, workspaceId, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.listCustomViewProjects({
+    : getClientRuntime().integration.linear.listCustomViewProjects({
         viewId,
         limit,
         workspaceId,
@@ -210,7 +220,10 @@ export async function linearTeamStates(
         { teamId, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.teamStates({ teamId, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.teamStates({
+        teamId,
+        workspaceId: workspaceId ?? undefined
+      })
 }
 
 export async function linearTeamLabels(
@@ -226,7 +239,10 @@ export async function linearTeamLabels(
         { teamId, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.teamLabels({ teamId, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.teamLabels({
+        teamId,
+        workspaceId: workspaceId ?? undefined
+      })
 }
 
 export async function linearTeamMembers(
@@ -242,5 +258,8 @@ export async function linearTeamMembers(
         { teamId, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.teamMembers({ teamId, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.teamMembers({
+        teamId,
+        workspaceId: workspaceId ?? undefined
+      })
 }

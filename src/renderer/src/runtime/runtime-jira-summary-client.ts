@@ -1,5 +1,6 @@
 import type { JiraConnectionStatus, JiraIssue } from '../../../shared/types'
 import { createBrowserUuid } from '@/lib/browser-uuid'
+import { getClientRuntime } from './client-runtime'
 import { callRuntimeRpc } from './runtime-rpc-client'
 import { getJiraRuntimeTarget, type RuntimeJiraSettings } from './runtime-jira-target'
 
@@ -9,7 +10,7 @@ export async function jiraReadStatus(settings: RuntimeJiraSettings): Promise<Jir
     ? callRuntimeRpc<JiraConnectionStatus>(target, 'jira.readStatus', undefined, {
         timeoutMs: 15_000
       })
-    : window.api.jira.readStatus()
+    : getClientRuntime().integration.jira.readStatus()
 }
 
 export async function jiraLookupIssueSummary(
@@ -31,11 +32,13 @@ export async function jiraLookupIssueSummary(
   }
   const requestId = createBrowserUuid()
   const handleAbort = (): void => {
-    void window.api.jira.cancelIssueSummary({ requestId }).catch(() => {})
+    void getClientRuntime()
+      .integration.jira.cancelIssueSummary({ requestId })
+      .catch(() => {})
   }
   signal?.addEventListener('abort', handleAbort, { once: true })
   try {
-    return await window.api.jira.lookupIssueSummary({ ...args, requestId })
+    return await getClientRuntime().integration.jira.lookupIssueSummary({ ...args, requestId })
   } finally {
     signal?.removeEventListener('abort', handleAbort)
   }

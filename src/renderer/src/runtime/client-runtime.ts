@@ -15,6 +15,14 @@ export type ClientRuntimeWorkspaceService = {
   worktrees: PreloadApi['worktrees']
 }
 export type ClientRuntimeTerminalService = PreloadApi['pty']
+export type ClientRuntimeIntegrationService = {
+  github: PreloadApi['gh']
+  gitlab: PreloadApi['gl']
+  linear: PreloadApi['linear']
+  jira: PreloadApi['jira']
+  hooks: PreloadApi['hooks']
+  hostedReview: PreloadApi['hostedReview']
+}
 
 export type ClientRuntime = {
   runtime: ClientRuntimeRuntimeService
@@ -27,6 +35,7 @@ export type ClientRuntime = {
   browser: ClientRuntimeBrowserService
   workspace: ClientRuntimeWorkspaceService
   terminal: ClientRuntimeTerminalService
+  integration: ClientRuntimeIntegrationService
 }
 
 type ClientRuntimeHostAdapter = {
@@ -43,6 +52,12 @@ type ClientRuntimeHostAdapter = {
   projectGroups: PreloadApi['projectGroups']
   worktrees: PreloadApi['worktrees']
   pty: ClientRuntimeTerminalService
+  gh: PreloadApi['gh']
+  gl: PreloadApi['gl']
+  linear: PreloadApi['linear']
+  jira: PreloadApi['jira']
+  hooks: PreloadApi['hooks']
+  hostedReview: PreloadApi['hostedReview']
 }
 
 // Why: renderer services must not encode whether their host is desktop preload,
@@ -63,7 +78,15 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
       projectGroups: adapter.projectGroups,
       worktrees: adapter.worktrees
     },
-    terminal: adapter.pty
+    terminal: adapter.pty,
+    integration: {
+      github: adapter.gh,
+      gitlab: adapter.gl,
+      linear: adapter.linear,
+      jira: adapter.jira,
+      hooks: adapter.hooks,
+      hostedReview: adapter.hostedReview
+    }
   }
 }
 

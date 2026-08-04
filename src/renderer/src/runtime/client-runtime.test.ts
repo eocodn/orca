@@ -8,6 +8,7 @@ import {
   type ClientRuntimeSessionService,
   type ClientRuntimeSshService,
   type ClientRuntimeBrowserService,
+  type ClientRuntimeIntegrationService,
   type ClientRuntimeTerminalService,
   type ClientRuntimeWorkspaceService
 } from './client-runtime'
@@ -23,6 +24,14 @@ describe('ClientRuntime service boundary', () => {
     const app = {} as ClientRuntimeAppService
     const ssh = {} as ClientRuntimeSshService
     const browser = {} as ClientRuntimeBrowserService
+    const integration = {
+      github: {} as ClientRuntimeIntegrationService['github'],
+      gitlab: {} as ClientRuntimeIntegrationService['gitlab'],
+      linear: {} as ClientRuntimeIntegrationService['linear'],
+      jira: {} as ClientRuntimeIntegrationService['jira'],
+      hooks: {} as ClientRuntimeIntegrationService['hooks'],
+      hostedReview: {} as ClientRuntimeIntegrationService['hostedReview']
+    }
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
@@ -41,7 +50,13 @@ describe('ClientRuntime service boundary', () => {
       worktrees: workspace.worktrees,
       runtimeEnvironments: remoteHost,
       fs: file,
-      pty: terminal
+      pty: terminal,
+      gh: integration.github,
+      gl: integration.gitlab,
+      linear: integration.linear,
+      jira: integration.jira,
+      hooks: integration.hooks,
+      hostedReview: integration.hostedReview
     })
 
     expect(clientRuntime.runtime).toBe(runtime)
@@ -50,6 +65,12 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.app).toBe(app)
     expect(clientRuntime.ssh).toBe(ssh)
     expect(clientRuntime.browser).toBe(browser)
+    expect(clientRuntime.integration.github).toBe(integration.github)
+    expect(clientRuntime.integration.gitlab).toBe(integration.gitlab)
+    expect(clientRuntime.integration.linear).toBe(integration.linear)
+    expect(clientRuntime.integration.jira).toBe(integration.jira)
+    expect(clientRuntime.integration.hooks).toBe(integration.hooks)
+    expect(clientRuntime.integration.hostedReview).toBe(integration.hostedReview)
     expect(clientRuntime.workspace.repos).toBe(workspace.repos)
     expect(clientRuntime.remoteHost).toBe(remoteHost)
     expect(clientRuntime.file).toBe(file)
@@ -63,6 +84,14 @@ describe('ClientRuntime service boundary', () => {
     const app = {} as ClientRuntimeAppService
     const ssh = {} as ClientRuntimeSshService
     const browser = {} as ClientRuntimeBrowserService
+    const integration = {
+      github: {} as ClientRuntimeIntegrationService['github'],
+      gitlab: {} as ClientRuntimeIntegrationService['gitlab'],
+      linear: {} as ClientRuntimeIntegrationService['linear'],
+      jira: {} as ClientRuntimeIntegrationService['jira'],
+      hooks: {} as ClientRuntimeIntegrationService['hooks'],
+      hostedReview: {} as ClientRuntimeIntegrationService['hostedReview']
+    }
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
@@ -75,6 +104,12 @@ describe('ClientRuntime service boundary', () => {
         app,
         ssh,
         browser,
+        gh: integration.github,
+        gl: integration.gitlab,
+        linear: integration.linear,
+        jira: integration.jira,
+        hooks: integration.hooks,
+        hostedReview: integration.hostedReview,
         repos: workspace.repos,
         projects: workspace.projects,
         projectGroups: workspace.projectGroups,
@@ -91,6 +126,7 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().app).toBe(app)
     expect(getClientRuntime().ssh).toBe(ssh)
     expect(getClientRuntime().browser).toBe(browser)
+    expect(getClientRuntime().integration).toEqual(integration)
     expect(getClientRuntime().workspace.repos).toBe(workspace.repos)
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
     expect(getClientRuntime().file).toBe(file)

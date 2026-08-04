@@ -21,6 +21,7 @@ import {
   getActiveRuntimeTarget,
   runtimeEnvironmentSupportsCapability
 } from './runtime-rpc-client'
+import { getClientRuntime } from './client-runtime'
 import {
   getTaskSourceRuntimeSettings,
   type TaskSourceContext
@@ -55,7 +56,7 @@ export async function linearStatus(
     ? callRuntimeRpc<LinearConnectionStatus>(target, 'linear.status', undefined, {
         timeoutMs: 15_000
       })
-    : window.api.linear.status()
+    : getClientRuntime().integration.linear.status()
 }
 
 export async function linearTestConnection(
@@ -72,7 +73,9 @@ export async function linearTestConnection(
           timeoutMs: 30_000
         }
       )
-    : window.api.linear.testConnection(workspaceId ? { workspaceId } : undefined)
+    : getClientRuntime().integration.linear.testConnection(
+        workspaceId ? { workspaceId } : undefined
+      )
 }
 
 export async function linearConnect(
@@ -87,7 +90,7 @@ export async function linearConnect(
         { apiKey },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.connect({ apiKey })
+    : getClientRuntime().integration.linear.connect({ apiKey })
 }
 
 export async function linearDisconnect(settings: RuntimeLinearSettings): Promise<void> {
@@ -110,7 +113,7 @@ export async function linearDisconnectWorkspace(
     )
     return
   }
-  await window.api.linear.disconnect(workspaceId ? { workspaceId } : undefined)
+  await getClientRuntime().integration.linear.disconnect(workspaceId ? { workspaceId } : undefined)
 }
 
 export async function linearSelectWorkspace(
@@ -125,7 +128,7 @@ export async function linearSelectWorkspace(
         { workspaceId },
         { timeoutMs: 15_000 }
       )
-    : window.api.linear.selectWorkspace({ workspaceId })
+    : getClientRuntime().integration.linear.selectWorkspace({ workspaceId })
 }
 
 export async function linearSearchIssues(
@@ -145,7 +148,11 @@ export async function linearSearchIssues(
         { query, limit, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.searchIssues({ query, limit, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.searchIssues({
+        query,
+        limit,
+        workspaceId: workspaceId ?? undefined
+      })
 }
 
 export async function linearListIssues(
@@ -184,7 +191,7 @@ export async function linearListIssues(
       ? await callRuntimeRpc<unknown>(target, 'linear.listIssues', payload, {
           timeoutMs: 30_000
         })
-      : await window.api.linear.listIssues(payload)
+      : await getClientRuntime().integration.linear.listIssues(payload)
   return normalizeLinearIssueCollectionResult(result)
 }
 
@@ -208,7 +215,7 @@ export async function linearCreateIssue(
     ? callRuntimeRpc<LinearCreateIssueResult>(target, 'linear.createIssue', args, {
         timeoutMs: 30_000
       })
-    : window.api.linear.createIssue(args)
+    : getClientRuntime().integration.linear.createIssue(args)
 }
 
 export async function linearCreateSubIssue(
@@ -238,7 +245,7 @@ export async function linearGetIssue(
         { id, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.getIssue({ id, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.getIssue({ id, workspaceId: workspaceId ?? undefined })
 }
 
 export async function linearUpdateIssue(
@@ -255,7 +262,11 @@ export async function linearUpdateIssue(
         { id, updates, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.updateIssue({ id, updates, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.updateIssue({
+        id,
+        updates,
+        workspaceId: workspaceId ?? undefined
+      })
 }
 
 export async function linearAddIssueComment(
@@ -272,7 +283,11 @@ export async function linearAddIssueComment(
         { issueId, body, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.addIssueComment({ issueId, body, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.addIssueComment({
+        issueId,
+        body,
+        workspaceId: workspaceId ?? undefined
+      })
 }
 
 export async function linearIssueComments(
@@ -288,7 +303,10 @@ export async function linearIssueComments(
         { issueId, workspaceId: workspaceId ?? undefined },
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.issueComments({ issueId, workspaceId: workspaceId ?? undefined })
+    : getClientRuntime().integration.linear.issueComments({
+        issueId,
+        workspaceId: workspaceId ?? undefined
+      })
 }
 
 export async function linearListTeams(
@@ -303,7 +321,7 @@ export async function linearListTeams(
         workspaceId ? { workspaceId } : undefined,
         { timeoutMs: 30_000 }
       )
-    : window.api.linear.listTeams(workspaceId ? { workspaceId } : undefined)
+    : getClientRuntime().integration.linear.listTeams(workspaceId ? { workspaceId } : undefined)
 }
 
 export async function linearListProjects(
@@ -324,8 +342,8 @@ export async function linearListProjects(
         { query, limit, workspaceId: workspaceId ?? undefined, ...linearReadForce(options) },
         { timeoutMs: 30_000 }
       )
-    : typeof window.api.linear.listProjects === 'function'
-      ? window.api.linear.listProjects({
+    : typeof getClientRuntime().integration.linear.listProjects === 'function'
+      ? getClientRuntime().integration.linear.listProjects({
           query,
           limit,
           workspaceId: workspaceId ?? undefined,
