@@ -29,7 +29,8 @@ describe('renderer orchestration setup state removal contract', () => {
   })
 
   it('keeps orchestration setup state out of renderer production sources', () => {
-    const forbiddenSource = /orchestration-setup-state|ORCHESTRATION_SETUP_STATE_EVENT|ORCHESTRATION_ENABLED_STORAGE_KEY|ORCHESTRATION_SETUP_DISMISSED_STORAGE_KEY|markOrchestrationSetupComplete|isOrchestrationSetupEnabled|hasOrchestrationSetupMarker|isOrchestrationSetupDismissed|notifyOrchestrationSetupStateChanged/
+    const forbiddenSource =
+      /orchestration-setup-state|ORCHESTRATION_SETUP_STATE_EVENT|ORCHESTRATION_ENABLED_STORAGE_KEY|ORCHESTRATION_SETUP_DISMISSED_STORAGE_KEY|markOrchestrationSetupComplete|isOrchestrationSetupEnabled|hasOrchestrationSetupMarker|isOrchestrationSetupDismissed|notifyOrchestrationSetupStateChanged/
 
     for (const filePath of collectRendererProductionFiles(rendererRoot)) {
       expect(readFileSync(filePath, 'utf8'), filePath).not.toMatch(forbiddenSource)
