@@ -1842,7 +1842,8 @@ describe('PtyHandler', () => {
     expect(result).toEqual({ incarnationId: spawn.incarnationId })
     expect(dispatcher.notify).toHaveBeenCalledWith('pty.replay', {
       id: 'pty-1',
-      data: 'buffered output'
+      data: 'buffered output',
+      incarnationId: spawn.incarnationId
     })
     vi.advanceTimersByTime(8)
     expect(dispatcher.notify).not.toHaveBeenCalledWith('pty.data', expect.anything())

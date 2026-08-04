@@ -46,7 +46,6 @@ import {
   currentRuntime,
   SSH_IPC_CHANNELS,
   getCurrentMainWindow,
-  getPublicSshState,
   activeSessions,
   runTargetLifecycle,
   awaitTargetLifecycle,
@@ -55,7 +54,6 @@ import {
   teardownSshTargetTransport,
   teardownActiveSshSession,
   relayGracePeriodForTarget,
-  type ConnectAttempt,
   connectInFlight,
   pendingTransportReconnects,
   resetRelayInFlight,
@@ -77,6 +75,7 @@ import {
   setRegisteredConnectSshTarget,
   setRegisteredGetSshState
 } from './ssh-ipc-foundation'
+import { getPublicSshState } from './ssh-ipc-connections'
 import {
   registerAdvertisedUrlRefresh,
   registerPowerMonitorReconnect,
@@ -522,5 +521,8 @@ export function registerSshHandlers(
 
   registerSshPortForwardHandlers()
 
+  if (!connectionManager || !sshStore) {
+    throw new Error('SSH IPC registration completed without initialized state')
+  }
   return { connectionManager, sshStore }
 }

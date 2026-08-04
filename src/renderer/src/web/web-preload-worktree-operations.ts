@@ -135,7 +135,131 @@ import { createWebFileMutationMethods } from './web-file-mutation-methods'
 
 import { createWebKeybindingsApi } from './web-preload-keybindings'
 
-import { SETTINGS_STORAGE_KEY, UI_STORAGE_KEY, SESSION_STORAGE_KEY, ONBOARDING_STORAGE_KEY, GITHUB_CACHE_STORAGE_KEY, webE2EExposeStore, webE2EQuery, webE2EConfig, WEB_RUNTIME_WORKTREE_LIST_LIMIT, MAX_CLIPBOARD_IMAGE_BASE64_CHARS, MAX_CLIPBOARD_IMAGE_SOURCE_BYTES, MAX_CLIPBOARD_IMAGE_PIXELS, CLIPBOARD_IMAGE_UPLOAD_CHUNK_BASE64_CHARS, CLIPBOARD_IMAGE_SINGLE_FRAME_FALLBACK_BASE64_CHARS, CLIPBOARD_IMAGE_SAVE_TIMEOUT_MS, activeEnvironment, activeClient, activeClientEnvironmentId, manuallyDisconnectedEnvironmentIds, cachedWorktrees, cachedDetectedWorktrees, runtimeCallQueuePool, blobToBase64, assertClipboardImageBlobWithinLimit, convertImageBlobToPng, readClipboardImagePngBase64, invalidateRuntimeWorktreeCaches, GITHUB_WEB_RPC_METHODS, GITLAB_WEB_RPC_METHODS, installWebPreloadApi, writeWebClipboardText, createWebPreloadApi, createNativeChatApi, createRuntimeApi, createRuntimeEnvironmentsApi, createAiVaultApi, webAiVaultUnavailableResult, createReposApi, createWorktreesApi, createFileApi, webGitStatusAbortControllers, callAbortableRuntimeStatus, createGitApi, createBrowserApi, createEmulatorApi, createGitHubApi, createGitLabApi, createRuntimeNamespaceApi, createHooksApi, createWebUiApi, createPreflightApi, createCliApi, createAgentHooksApi, createMacosTccPromptsApi, createDeveloperPermissionsApi, createComputerUsePermissionsApi, createSkillsApi, createNotificationsApi, createRateLimitsApi, createMiniMaxCredentialsApi, createGrokAccountsApi, createAccountsApi, createUpdaterApi, createShellApi, createPtyApi, createSshApi, callRuntimeEnvelope, callEnvironmentEnvelope, callRuntimeResult, callRuntimeResultWithOwner, withRuntimeRepoOwner, withRuntimeRepoMutationOwner, withRuntimeWorktreeOwner, captureWebFileMutationSession, saveClipboardImageAsTempFileInRuntime, getRemoteRuntimeStatus, getClientForEnvironment, closeActiveRuntimeClients, disconnectActiveRuntimeEnvironment, removeActiveRuntimeEnvironment, manuallyDisconnectedResponse, resolveEnvironment, requireActiveEnvironment, requireActiveEnvironmentOrNull, assertActiveEnvironment, updateEnvironmentFromResponse, getStoredSettings, writeStoredSettings, getRuntimeBackedStoredSettings, syncRuntimeBackedSettings, updateRuntimePRBotAuthorOverride, getStoredOnboarding, sessionStorageKeyForHost, getStoredWorkspaceSession, closeWebOnboarding, readLocalWebUIState, mergeWebUIState, mergeFeatureInteractionState, mergeContextualTourSeenIds, mergeOsc52ClipboardNoticePending, mergeSettings, createEmptyMemorySnapshot, getBrowserPlatform, readJson, writeJson, cloneJson, withFallback, createFallbackProxy, getFallbackResult, noopUnsubscribe, type WebSettingsApi, type WebGitHubApi, type WebGitHubResult, type WebRuntimeResultCaller, type WebRuntimeEnvelopeCaller, type WebGitHubRouteKey, type WebGitHubRuntimeMethod, type WebGitLabApi, type WebGitLabResult, type WebGitLabRouteKey, type WebGitLabRuntimeMethod } from './web-preload-compatibility'
+import {
+  SETTINGS_STORAGE_KEY,
+  UI_STORAGE_KEY,
+  SESSION_STORAGE_KEY,
+  ONBOARDING_STORAGE_KEY,
+  GITHUB_CACHE_STORAGE_KEY,
+  webE2EExposeStore,
+  webE2EQuery,
+  webE2EConfig,
+  WEB_RUNTIME_WORKTREE_LIST_LIMIT,
+  MAX_CLIPBOARD_IMAGE_BASE64_CHARS,
+  MAX_CLIPBOARD_IMAGE_SOURCE_BYTES,
+  MAX_CLIPBOARD_IMAGE_PIXELS,
+  CLIPBOARD_IMAGE_UPLOAD_CHUNK_BASE64_CHARS,
+  CLIPBOARD_IMAGE_SINGLE_FRAME_FALLBACK_BASE64_CHARS,
+  CLIPBOARD_IMAGE_SAVE_TIMEOUT_MS,
+  activeEnvironment,
+  activeClient,
+  activeClientEnvironmentId,
+  manuallyDisconnectedEnvironmentIds,
+  cachedWorktrees,
+  cachedDetectedWorktrees,
+  runtimeCallQueuePool,
+  blobToBase64,
+  assertClipboardImageBlobWithinLimit,
+  convertImageBlobToPng,
+  readClipboardImagePngBase64,
+  invalidateRuntimeWorktreeCaches,
+  GITHUB_WEB_RPC_METHODS,
+  GITLAB_WEB_RPC_METHODS,
+  installWebPreloadApi,
+  writeWebClipboardText,
+  createWebPreloadApi,
+  createNativeChatApi,
+  createRuntimeApi,
+  createRuntimeEnvironmentsApi,
+  createAiVaultApi,
+  webAiVaultUnavailableResult,
+  createReposApi,
+  createWorktreesApi,
+  createFileApi,
+  webGitStatusAbortControllers,
+  callAbortableRuntimeStatus,
+  createGitApi,
+  createBrowserApi,
+  createEmulatorApi,
+  createGitHubApi,
+  createGitLabApi,
+  createRuntimeNamespaceApi,
+  createHooksApi,
+  createWebUiApi,
+  createPreflightApi,
+  createCliApi,
+  createAgentHooksApi,
+  createMacosTccPromptsApi,
+  createDeveloperPermissionsApi,
+  createComputerUsePermissionsApi,
+  createSkillsApi,
+  createNotificationsApi,
+  createRateLimitsApi,
+  createMiniMaxCredentialsApi,
+  createGrokAccountsApi,
+  createAccountsApi,
+  createUpdaterApi,
+  createShellApi,
+  createPtyApi,
+  createSshApi,
+  callRuntimeEnvelope,
+  callEnvironmentEnvelope,
+  callRuntimeResult,
+  callRuntimeResultWithOwner,
+  withRuntimeRepoOwner,
+  withRuntimeRepoMutationOwner,
+  withRuntimeWorktreeOwner,
+  captureWebFileMutationSession,
+  saveClipboardImageAsTempFileInRuntime,
+  getRemoteRuntimeStatus,
+  getClientForEnvironment,
+  closeActiveRuntimeClients,
+  disconnectActiveRuntimeEnvironment,
+  removeActiveRuntimeEnvironment,
+  manuallyDisconnectedResponse,
+  resolveEnvironment,
+  requireActiveEnvironment,
+  requireActiveEnvironmentOrNull,
+  assertActiveEnvironment,
+  updateEnvironmentFromResponse,
+  getStoredSettings,
+  writeStoredSettings,
+  getRuntimeBackedStoredSettings,
+  syncRuntimeBackedSettings,
+  updateRuntimePRBotAuthorOverride,
+  getStoredOnboarding,
+  sessionStorageKeyForHost,
+  getStoredWorkspaceSession,
+  closeWebOnboarding,
+  readLocalWebUIState,
+  mergeWebUIState,
+  mergeFeatureInteractionState,
+  mergeContextualTourSeenIds,
+  mergeOsc52ClipboardNoticePending,
+  mergeSettings,
+  createEmptyMemorySnapshot,
+  getBrowserPlatform,
+  readJson,
+  writeJson,
+  cloneJson,
+  withFallback,
+  createFallbackProxy,
+  getFallbackResult,
+  noopUnsubscribe,
+  type WebSettingsApi,
+  type WebGitHubApi,
+  type WebGitHubResult,
+  type WebRuntimeResultCaller,
+  type WebRuntimeEnvelopeCaller,
+  type WebGitHubRouteKey,
+  type WebGitHubRuntimeMethod,
+  type WebGitLabApi,
+  type WebGitLabResult,
+  type WebGitLabRouteKey,
+  type WebGitLabRuntimeMethod
+} from './web-preload-compatibility'
+
+import { setCachedDetectedWorktrees, setCachedWorktrees } from './web-preload-compatibility'
 
 export async function listAllRuntimeWorktrees(): Promise<Worktree[]> {
   if (cachedWorktrees && Date.now() - cachedWorktrees.loadedAt < 5_000) {
@@ -148,7 +272,7 @@ export async function listAllRuntimeWorktrees(): Promise<Worktree[]> {
     withRuntimeWorktreeOwner(worktree, owned.hostId)
   )
   assertActiveEnvironment(owned.environmentId)
-  cachedWorktrees = { loadedAt: Date.now(), worktrees }
+  setCachedWorktrees({ loadedAt: Date.now(), worktrees })
   return worktrees
 }
 export async function listAllRuntimeDetectedWorktrees(
@@ -175,7 +299,7 @@ export async function listAllRuntimeDetectedWorktrees(
   const worktrees = detectedLists.flatMap((result) => result.worktrees)
   assertActiveEnvironment(expectedEnvironmentId)
   if (useCache) {
-    cachedDetectedWorktrees = { loadedAt: Date.now(), worktrees }
+    setCachedDetectedWorktrees({ loadedAt: Date.now(), worktrees })
   }
   return worktrees
 }

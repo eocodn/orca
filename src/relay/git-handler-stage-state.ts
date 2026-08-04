@@ -1,94 +1,14 @@
-import { execFile, spawn, type ExecFileOptions } from 'node:child_process'
-import { promisify } from 'node:util'
+import { execFile,type ExecFileOptions } from 'node:child_process'
 import * as path from 'node:path'
-import type { RelayDispatcher, RequestContext } from './dispatcher'
-import type { RelayContext } from './context'
-import { expandTilde } from './context'
-import {
-  isUnsupportedWorktreeListZError,
-  parseBranchDiff,
-  parseWorktreeList
-} from './git-handler-utils'
-import { parseNumstat } from '../shared/git-uncommitted-line-stats'
-import {
-  computeDiff,
-  branchCompare as branchCompareOp,
-  branchDiffEntries,
-  validateGitExecArgs,
-  type GitExec
-} from './git-handler-ops'
-import {
-  buildSubmoduleInnerCommitRangeDiff,
-  computeSubmodulePointerDiff,
-  computeSubmoduleRangeEntries,
-  clearSubmodulePathsCache,
-  createSubmodulePathsCache,
-  findContainingSubmodule,
-  listSubmodulePathsCached,
-  resolveSubmoduleWorktreePath,
-  resolveSubmoduleCommitRange,
-  type SubmodulePathsCache
-} from './git-handler-submodule-ops'
-import { commitCompare as commitCompareOp, commitDiffEntry } from './git-handler-commit-diff-ops'
-import {
-  areRelayWorktreePathsEqual,
-  commitChangesRelay,
-  addWorktreeOp,
-  removeWorktreeOp,
-  worktreeIsCleanOp
-} from './git-handler-worktree-ops'
-import { annotatePrunableWorktreesByExistence } from './git-handler-worktree-list'
-import { forceDeletePreservedRelayBranch } from './git-handler-branch-cleanup'
-import { refreshLocalBaseRefForWorktreeCreateOp } from './git-handler-local-base-ref-refresh'
-import { gitExecMutatesRepository } from '../shared/git-exec-mutation'
-import { detectConflictOperation, getStatusOp } from './git-handler-status-ops'
-import { capGitStatusEntries, resolveGitStatusLimit } from '../shared/git-status-limit'
-import { checkIgnoredPathsOp } from './git-handler-check-ignore'
-import { resolveRelayPushTarget } from './git-handler-push-target'
-import {
-  isExecKilledError,
-  isNoUpstreamError,
-  normalizeGitErrorMessage,
-  runPullWithDivergenceFallback
-} from '../shared/git-remote-error'
-import { upstreamOnlyCommitsArePatchEquivalent } from '../shared/git-upstream-status'
-import { assertGitPushTargetShape } from '../shared/git-push-target-validation'
-import { getPublishTargetStatus, type GitCommandRunner } from '../shared/git-publish-target-status'
-import { resolveGitRemoteRebaseSource } from '../shared/git-rebase-source'
-import type { GitPushTarget } from '../shared/types'
-import {
-  getEffectiveGitUpstreamStatus,
-  resolveEffectiveGitUpstream
-} from '../shared/git-effective-upstream'
-import { loadGitHistoryFromExecutor } from '../shared/git-history'
-import { buildRelayGitEnv, buildRelayUnattendedGitEnv } from './relay-command-env'
-import {
-  removeSafeUntrackedDiscardTarget,
-  removeSafeUntrackedDiscardTargets
-} from '../shared/git-discard-path-safety'
-import { getGitCloneFailureMessage } from '../shared/git-clone-failure-message'
-import { syncForkDefaultBranch, validateGitForkSyncExpectedUpstream } from '../shared/git-fork-sync'
-import { InFlightPromiseDedupe, stableInFlightKey } from '../shared/in-flight-promise-dedupe'
-import { GIT_FETCH_SKIP_AUTO_MAINTENANCE_CONFIG_ARGS } from '../shared/git-fetch-auto-maintenance'
+import { promisify } from 'node:util'
 import { GitCapabilityCache } from '../shared/git-capability-cache'
-import {
-  githubPullRequestHeadLocalRef,
-  gitlabMergeRequestHeadLocalRef,
-  isSafeReviewHeadFetchRemote,
-  isValidReviewHeadNumber,
-  reviewHeadRemoteRefComponent,
-  REVIEW_HEAD_FETCH_TIMEOUT_MS
-} from '../shared/review-head-tracking-ref'
-import type { RelayFilesystemWatchRegistry } from './relay-filesystem-watch-registry'
-import {
-  hasUnsupportedRevParsePathFormatEcho,
-  isUnsupportedRevParsePathFormatError
-} from '../shared/git-worktree-command-capabilities'
-import { GitResponseStreamRegistry } from './git-response-stream'
-import { GIT_RESPONSE_STREAM_THRESHOLD } from './protocol'
+import { InFlightPromiseDedupe } from '../shared/in-flight-promise-dedupe'
 import { endSubprocessStdin } from '../shared/subprocess-stdin-write'
-import { clearGitStatusLineStatsCache } from '../shared/git-status-line-stats-cache'
-import { streamRelayGitStdout } from './git-stdout-stream'
+import type { RelayContext } from './context'
+import type { RelayDispatcher,RequestContext } from './dispatcher'
+import { createSubmodulePathsCache,type SubmodulePathsCache } from './git-handler-submodule-ops'
+import { GitResponseStreamRegistry } from './git-response-stream'
+import type { RelayFilesystemWatchRegistry } from './relay-filesystem-watch-registry'
 
 const execFileAsync = promisify(execFile)
 const MAX_GIT_BUFFER = 10 * 1024 * 1024
@@ -171,7 +91,8 @@ function execFileWithStdin(
   })
 }
 
-export class GitHandler {
+// Split-stage declarations keep handler registration type-safe; the final stage owns each operation.
+export abstract class GitHandler {
   protected dispatcher: RelayDispatcher
   protected readonly gitDiffReadDedupe = new InFlightPromiseDedupe<unknown>()
   protected readonly gitCapabilities = new GitCapabilityCache()
@@ -180,6 +101,57 @@ export class GitHandler {
 
   // Why: instance-level TTL cache avoids re-reading `.gitmodules` per diff click over SSH; per-instance so it can't leak across tests.
   protected submodulePathsCache: SubmodulePathsCache = createSubmodulePathsCache()
+
+  protected abstract registerHandlers(): void
+  protected abstract localBranches(params: Record<string, unknown>): Promise<unknown>
+  protected abstract discard(params: Record<string, unknown>): Promise<unknown>
+  protected abstract bulkDiscard(params: Record<string, unknown>): Promise<unknown>
+  protected abstract conflictOperation(params: Record<string, unknown>): Promise<unknown>
+  protected abstract branchCompare(params: Record<string, unknown>): Promise<unknown>
+  protected abstract commitCompare(params: Record<string, unknown>): Promise<unknown>
+  protected abstract upstreamStatus(params: Record<string, unknown>): Promise<unknown>
+  protected abstract fetch(params: Record<string, unknown>): Promise<unknown>
+  protected abstract forkSync(
+    params: Record<string, unknown>,
+    context?: RequestContext
+  ): Promise<unknown>
+  protected abstract fetchRemoteTrackingRef(params: Record<string, unknown>): Promise<unknown>
+  protected abstract fetchGitHubPullRequestHead(params: Record<string, unknown>): Promise<unknown>
+  protected abstract fetchGitLabMergeRequestHead(params: Record<string, unknown>): Promise<unknown>
+  protected abstract push(params: Record<string, unknown>): Promise<unknown>
+  protected abstract pull(params: Record<string, unknown>): Promise<unknown>
+  protected abstract fastForward(params: Record<string, unknown>): Promise<unknown>
+  protected abstract rebaseFromBase(params: Record<string, unknown>): Promise<unknown>
+  protected abstract branchDiff(
+    params: Record<string, unknown>,
+    context?: RequestContext
+  ): Promise<unknown>
+  protected abstract commitDiff(
+    params: Record<string, unknown>,
+    context?: RequestContext
+  ): Promise<unknown>
+  protected abstract listWorktrees(
+    params: Record<string, unknown>,
+    context?: RequestContext
+  ): Promise<unknown>
+  protected abstract addWorktree(params: Record<string, unknown>): Promise<unknown>
+  protected abstract removeWorktree(params: Record<string, unknown>): Promise<unknown>
+  protected abstract worktreeIsClean(params: Record<string, unknown>): Promise<unknown>
+  protected abstract refreshLocalBaseRefForWorktreeCreate(
+    params: Record<string, unknown>
+  ): Promise<unknown>
+  protected abstract renameCurrentBranch(params: Record<string, unknown>): Promise<unknown>
+  protected abstract forceDeletePreservedBranch(params: Record<string, unknown>): Promise<unknown>
+  protected abstract exec(
+    params: Record<string, unknown>,
+    context?: RequestContext
+  ): Promise<unknown>
+  protected abstract clone(
+    params: Record<string, unknown>,
+    context?: RequestContext
+  ): Promise<unknown>
+  protected abstract isGitRepo(params: Record<string, unknown>): Promise<unknown>
+  protected abstract literalPathspec(filePath: string): string
 
   // Why: RelayContext accepted for protocol back-compat (docs/relay-fs-allowlist-removal.md) but no longer consulted on git ops.
   constructor(

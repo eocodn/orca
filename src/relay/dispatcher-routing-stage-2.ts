@@ -1,36 +1,33 @@
+import { MAX_TIMER_DELAY_MS,isSafeTimerDelayMs } from '../shared/timer-delay';
+import type {
+  DispatcherClientWriter
+} from './dispatcher-client-writer';
 import {
-  FrameDecoder,
-  MessageType,
-  encodeJsonRpcFrame,
-  encodeKeepAliveFrame,
-  parseJsonRpcMessage,
-  KEEPALIVE_SEND_MS,
-  type DecodedFrame,
-  type JsonRpcRequest,
-  type JsonRpcNotification,
-  type JsonRpcResponse
-} from './protocol'
-import { ClientRequestAborts } from './client-request-aborts'
-import { MAX_TIMER_DELAY_MS, isSafeTimerDelayMs } from '../shared/timer-delay'
-import {
-  DISPATCHER_CONTROL_QUEUE_MAX_BYTES,
   DEFAULT_PRODUCER_QUEUE_MAX_BYTES,
-  DispatcherClientWriter,
+  DISPATCHER_CONTROL_QUEUE_MAX_BYTES,
   type DispatcherWriterLane,
   type RelayClientSinkOptions,
   type RelayClientWrite,
   type SinkWriteSettlement
-} from './dispatcher-client-writer'
+} from './dispatcher-client-writer';
 import {
-  LegacyRelayPublicationLedger,
-  type LegacyPublicationLease
-} from './legacy-relay-publication-ledger'
+  FrameDecoder,
+  KEEPALIVE_SEND_MS,
+  MessageType,
+  encodeJsonRpcFrame,
+  encodeKeepAliveFrame,
+  parseJsonRpcMessage,
+  type DecodedFrame,
+  type JsonRpcNotification,
+  type JsonRpcRequest,
+  type JsonRpcResponse
+} from './protocol';
 
 export type {
   RelayClientSinkOptions,
   RelayClientWrite,
   SinkWriteSettlement
-} from './dispatcher-client-writer'
+} from './dispatcher-client-writer';
 
 export type RequestContext = {
   clientId: number
@@ -79,8 +76,8 @@ type PendingRelayRequest = {
 
 const RELAY_TO_CLIENT_REQUEST_TIMEOUT_MS = 30_000
 
-import { RelayDispatcherStage1 } from './dispatcher-routing-stage-1'
-export class RelayDispatcherStage2 extends RelayDispatcherStage1 {
+import { RelayDispatcherStage1 } from './dispatcher-routing-stage-1';
+export abstract class RelayDispatcherStage2 extends RelayDispatcherStage1 {
   requestAnyClient(
     method: string,
     params?: Record<string, unknown>,

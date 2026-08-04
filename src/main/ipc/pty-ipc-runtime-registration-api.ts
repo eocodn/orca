@@ -113,6 +113,7 @@ import { markClaudePtySpawned } from '../claude-accounts/live-pty-gate'
 import { isRemoteAgentHooksEnabled } from '../../shared/agent-hook-relay'
 import { resolveWslSessionContext } from '../daemon/wsl-session-context'
 import { clearMigrationUnsupportedPtysForPaneKey } from '../agent-hooks/migration-unsupported-pty-state'
+import { stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
 
 export function installPtyRuntimeRegistrationApis(): Record<string, any> {
   const state = getPtyRegistrationSharedState()
@@ -214,6 +215,7 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     normalizeNodePtySpawnError,
     verifyPtyStopped,
     buildPtyHostEnv,
+    stampWslOrchestrationCompatibilityHost,
     CODEX_HOME_ENV_KEYS,
     getCodexSelectionTargetForPty,
     getCompatibleSelectedCodexHomePath,

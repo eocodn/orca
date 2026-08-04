@@ -1,34 +1,8 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { net, safeStorage, session } from 'electron'
-import {
-  CredentialDecryptionError,
-  credentialFileHasContent,
-  readStoredCredentialToken
-} from '../integration-credential-file'
-import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
-import { withSpan } from '../observability/tracer'
-import type {
-  JiraAuthType,
-  JiraConnectArgs,
-  JiraConnectionStatus,
-  JiraSite,
-  JiraSiteSelection,
-  JiraViewer
-} from '../../shared/types'
-import { clearAttachmentImagesForSite } from './attachment-image-cache'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { safeStorage } from 'electron'
+import { CredentialDecryptionError, readStoredCredentialToken } from '../integration-credential-file'
+import type { JiraSite } from '../../shared/types'
 
-// Why: Atlassian's XSRF filter rejects POST/PUT REST calls that carry a browser
-// User-Agent, failing them with "XSRF check failed" even under API-token auth.
-// Electron's net.fetch sends a Chrome UA, so issue search/create/update/comment
-// all 403'd while GET calls (connect, /myself) passed. A non-browser UA is the
-// reliable fix; X-Atlassian-Token: no-check is not honored for this case.
-const JIRA_API_USER_AGENT = 'Orca'
-
-const MAX_CONCURRENT = 4
-let running = 0
 import { type JiraSiteFile, cachedSiteFile, siteFileLoaded, cachedTokens, credentialErrors, getSiteFilePath, getTokenPath, ensureOrcaDir, ensureTokenDir, emptySiteFile, hasStoredToken, normalizeSite, setCachedSiteFile, setSiteFileLoaded } from './jira-client-limiter'
 function readSiteFileFromDisk(): JiraSiteFile {
   const path = getSiteFilePath()
@@ -65,7 +39,11 @@ function getSiteFile(): JiraSiteFile {
     setCachedSiteFile(readSiteFileFromDisk())
     setSiteFileLoaded(true)
   }
-  return cachedSiteFile
+  const file = cachedSiteFile
+  if (!file) {
+    throw new Error('Jira site file cache was not initialized')
+  }
+  return file
 }
 
 function writeSiteFile(file: JiraSiteFile): void {

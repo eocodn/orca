@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.web.json",
+  "include": [
+    "../src/renderer/src/web/web-runtime-connection.ts",
+    "../src/renderer/src/web/web-runtime-environment.ts",
+    "../src/renderer/src/web/web-pairing.ts",
+    "../src/renderer/src/web/web-preload-state-ownership.test.ts"
+  ],
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "types": ["node", "vite/client"]
+  }
+}

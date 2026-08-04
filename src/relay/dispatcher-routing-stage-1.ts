@@ -1,36 +1,23 @@
+import type {
+  DispatcherClientWriter
+} from './dispatcher-client-writer';
 import {
-  FrameDecoder,
-  MessageType,
-  encodeJsonRpcFrame,
-  encodeKeepAliveFrame,
-  parseJsonRpcMessage,
-  KEEPALIVE_SEND_MS,
-  type DecodedFrame,
-  type JsonRpcRequest,
-  type JsonRpcNotification,
-  type JsonRpcResponse
-} from './protocol'
-import { ClientRequestAborts } from './client-request-aborts'
-import { MAX_TIMER_DELAY_MS, isSafeTimerDelayMs } from '../shared/timer-delay'
-import {
-  DISPATCHER_CONTROL_QUEUE_MAX_BYTES,
-  DEFAULT_PRODUCER_QUEUE_MAX_BYTES,
-  DispatcherClientWriter,
-  type DispatcherWriterLane,
   type RelayClientSinkOptions,
   type RelayClientWrite,
   type SinkWriteSettlement
-} from './dispatcher-client-writer'
+} from './dispatcher-client-writer';
+import type {
+  FrameDecoder
+} from './protocol';
 import {
-  LegacyRelayPublicationLedger,
-  type LegacyPublicationLease
-} from './legacy-relay-publication-ledger'
+  type JsonRpcNotification
+} from './protocol';
 
 export type {
   RelayClientSinkOptions,
   RelayClientWrite,
   SinkWriteSettlement
-} from './dispatcher-client-writer'
+} from './dispatcher-client-writer';
 
 export type RequestContext = {
   clientId: number
@@ -79,8 +66,8 @@ type PendingRelayRequest = {
 
 const RELAY_TO_CLIENT_REQUEST_TIMEOUT_MS = 30_000
 
-import { RelayDispatcher } from './dispatcher-routing-stage-state'
-export class RelayDispatcherStage1 extends RelayDispatcher {
+import { RelayDispatcher } from './dispatcher-routing-stage-state';
+export abstract class RelayDispatcherStage1 extends RelayDispatcher {
   setWrite(write: RelayClientWrite, sinkOptions?: RelayClientSinkOptions): void {
     this.requestAborts.abortClient(this.primaryClient.id)
     this.primaryClient.closed = true

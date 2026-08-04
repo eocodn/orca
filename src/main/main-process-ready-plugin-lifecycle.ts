@@ -13,6 +13,12 @@ function emitPluginWorktreeLifecycle(
 }
 
 export async function initializeReadyPlugins(): Promise<void> {
+  const store = startupState.store
+  const codexRuntimeHome = startupState.codexRuntimeHome
+  const stats = startupState.stats
+  if (!store || !codexRuntimeHome || !stats) {
+    throw new Error('Plugin initialization requires completed startup state')
+  }
   const pluginSystemStartupStartedAt = performance.now()
   startupState.pluginKillListService = new startupDeps.PluginKillListService({
     pluginsDataDir: startupDeps.getPluginsDataDir(startupDeps.app.getPath('userData'))
@@ -78,7 +84,7 @@ export async function initializeReadyPlugins(): Promise<void> {
       console.warn('[plugins] failed to apply plugin safety-list refresh:', error)
     })
   })
-  startupState.store.onSettingsChanged((updates) => {
+  store.onSettingsChanged((updates) => {
     if (updates.pluginSystemEnabled === true) {
       requestBundledPluginBootstrap()
       requestOfficialMarketplaceSeed()
@@ -153,7 +159,7 @@ export async function initializeReadyPlugins(): Promise<void> {
   startupState.runtime!.onWorktreeLifecycle((event) => {
     emitPluginWorktreeLifecycle(event)
   })
-  startupState.starNag = new startupDeps.StarNagService(startupState.store, startupState.stats)
+  startupState.starNag = new startupDeps.StarNagService(store, stats)
   startupState.starNag.start()
   startupState.starNag.registerIpcHandlers()
   startupState.runtime!.setAgentBrowserBridge(
@@ -166,19 +172,19 @@ export async function initializeReadyPlugins(): Promise<void> {
   // Why: externally started serve-sim processes must stay independent — only Orca-managed/attached helpers belong to a workspace.
   const emulatorBridge = new startupDeps.EmulatorBridge()
   startupState.runtime!.setEmulatorBridge(emulatorBridge)
-  startupDeps.nativeTheme.themeSource = startupState.store.getSettings().theme ?? 'system'
-  if (startupState.codexRuntimeHome.isHostSystemDefaultRealHomeSelected()) {
+  startupDeps.nativeTheme.themeSource = store.getSettings().theme ?? 'system'
+  if (codexRuntimeHome.isHostSystemDefaultRealHomeSelected()) {
     // Why: establish capability before managed-hook reconciliation so an
     // incapable host re-arms and completes the legacy real-home sweep now.
     startupDeps.ensureRealHomeCodexHookState({
-      hooksEnabled: startupDeps.isAgentStatusHooksEnabled(startupState.store.getSettings()),
+      hooksEnabled: startupDeps.isAgentStatusHooksEnabled(store.getSettings()),
       userDataPath: startupDeps.app.getPath('userData')
     })
   }
   if (startupDeps.shouldInstallManagedHooks(startupDeps.is.dev)) {
     // Why: check the persisted off switch before any auto-install so removed hooks don't silently reappear on launch.
-    if (startupDeps.isAgentStatusHooksEnabled(startupState.store.getSettings())) {
-      const managedHookStore = startupState.store
+    if (startupDeps.isAgentStatusHooksEnabled(store.getSettings())) {
+      const managedHookStore = store
       void startupDeps.applyAgentStatusHooksEnabled(true, managedHookStore.getSettings(), {
         shouldHydrateShellPath: startupDeps.app.isPackaged && process.platform !== 'win32',
         onInstallError: startupDeps.recordManagedHookInstallFailure,

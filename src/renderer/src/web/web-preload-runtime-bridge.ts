@@ -137,8 +137,126 @@ import {
 import { createWebFileMutationMethods } from './web-file-mutation-methods'
 
 import { createWebKeybindingsApi } from './web-preload-keybindings'
+import {
+  setActiveClient,
+  setActiveClientEnvironmentId,
+  setActiveEnvironment
+} from './web-preload-compatibility'
 
-import { SETTINGS_STORAGE_KEY, UI_STORAGE_KEY, SESSION_STORAGE_KEY, ONBOARDING_STORAGE_KEY, GITHUB_CACHE_STORAGE_KEY, webE2EExposeStore, webE2EQuery, webE2EConfig, WEB_RUNTIME_WORKTREE_LIST_LIMIT, MAX_CLIPBOARD_IMAGE_BASE64_CHARS, MAX_CLIPBOARD_IMAGE_SOURCE_BYTES, MAX_CLIPBOARD_IMAGE_PIXELS, CLIPBOARD_IMAGE_UPLOAD_CHUNK_BASE64_CHARS, CLIPBOARD_IMAGE_SINGLE_FRAME_FALLBACK_BASE64_CHARS, CLIPBOARD_IMAGE_SAVE_TIMEOUT_MS, activeEnvironment, activeClient, activeClientEnvironmentId, manuallyDisconnectedEnvironmentIds, cachedWorktrees, cachedDetectedWorktrees, runtimeCallQueuePool, blobToBase64, assertClipboardImageBlobWithinLimit, convertImageBlobToPng, readClipboardImagePngBase64, invalidateRuntimeWorktreeCaches, GITHUB_WEB_RPC_METHODS, GITLAB_WEB_RPC_METHODS, installWebPreloadApi, writeWebClipboardText, createWebPreloadApi, createNativeChatApi, createRuntimeApi, createRuntimeEnvironmentsApi, createAiVaultApi, webAiVaultUnavailableResult, createReposApi, createWorktreesApi, createFileApi, webGitStatusAbortControllers, callAbortableRuntimeStatus, createGitApi, createBrowserApi, createEmulatorApi, createGitHubApi, createGitLabApi, createRuntimeNamespaceApi, createHooksApi, createWebUiApi, createPreflightApi, createCliApi, createAgentHooksApi, createMacosTccPromptsApi, createDeveloperPermissionsApi, createComputerUsePermissionsApi, createSkillsApi, createNotificationsApi, createRateLimitsApi, createMiniMaxCredentialsApi, createGrokAccountsApi, createAccountsApi, createUpdaterApi, createShellApi, createPtyApi, createSshApi, getStoredSettings, writeStoredSettings, getRuntimeBackedStoredSettings, syncRuntimeBackedSettings, updateRuntimePRBotAuthorOverride, getStoredOnboarding, sessionStorageKeyForHost, getStoredWorkspaceSession, closeWebOnboarding, readLocalWebUIState, mergeWebUIState, mergeFeatureInteractionState, mergeContextualTourSeenIds, mergeOsc52ClipboardNoticePending, mergeSettings, listAllRuntimeWorktrees, listAllRuntimeDetectedWorktrees, callRuntimeDetectedWorktrees, toLegacyDetectedWorktreeResult, isMissingPathError, resolveRuntimeWorktreeByPath, resolveRuntimeFilePath, mutateGitPath, mutateGitPaths, mapRepoPathArg, mapRuntimeNamespaceArg, createEmptyMemorySnapshot, getBrowserPlatform, readJson, writeJson, cloneJson, withFallback, createFallbackProxy, getFallbackResult, noopUnsubscribe, type WebSettingsApi, type WebGitHubApi, type WebGitHubResult, type WebRuntimeResultCaller, type WebRuntimeEnvelopeCaller, type WebGitHubRouteKey, type WebGitHubRuntimeMethod, type WebGitLabApi, type WebGitLabResult, type WebGitLabRouteKey, type WebGitLabRuntimeMethod } from './web-preload-compatibility'
+import {
+  SETTINGS_STORAGE_KEY,
+  UI_STORAGE_KEY,
+  SESSION_STORAGE_KEY,
+  ONBOARDING_STORAGE_KEY,
+  GITHUB_CACHE_STORAGE_KEY,
+  webE2EExposeStore,
+  webE2EQuery,
+  webE2EConfig,
+  WEB_RUNTIME_WORKTREE_LIST_LIMIT,
+  MAX_CLIPBOARD_IMAGE_BASE64_CHARS,
+  MAX_CLIPBOARD_IMAGE_SOURCE_BYTES,
+  MAX_CLIPBOARD_IMAGE_PIXELS,
+  CLIPBOARD_IMAGE_UPLOAD_CHUNK_BASE64_CHARS,
+  CLIPBOARD_IMAGE_SINGLE_FRAME_FALLBACK_BASE64_CHARS,
+  CLIPBOARD_IMAGE_SAVE_TIMEOUT_MS,
+  activeEnvironment,
+  activeClient,
+  activeClientEnvironmentId,
+  manuallyDisconnectedEnvironmentIds,
+  cachedWorktrees,
+  cachedDetectedWorktrees,
+  runtimeCallQueuePool,
+  blobToBase64,
+  assertClipboardImageBlobWithinLimit,
+  convertImageBlobToPng,
+  readClipboardImagePngBase64,
+  invalidateRuntimeWorktreeCaches,
+  GITHUB_WEB_RPC_METHODS,
+  GITLAB_WEB_RPC_METHODS,
+  installWebPreloadApi,
+  writeWebClipboardText,
+  createWebPreloadApi,
+  createNativeChatApi,
+  createRuntimeApi,
+  createRuntimeEnvironmentsApi,
+  createAiVaultApi,
+  webAiVaultUnavailableResult,
+  createReposApi,
+  createWorktreesApi,
+  createFileApi,
+  webGitStatusAbortControllers,
+  callAbortableRuntimeStatus,
+  createGitApi,
+  createBrowserApi,
+  createEmulatorApi,
+  createGitHubApi,
+  createGitLabApi,
+  createRuntimeNamespaceApi,
+  createHooksApi,
+  createWebUiApi,
+  createPreflightApi,
+  createCliApi,
+  createAgentHooksApi,
+  createMacosTccPromptsApi,
+  createDeveloperPermissionsApi,
+  createComputerUsePermissionsApi,
+  createSkillsApi,
+  createNotificationsApi,
+  createRateLimitsApi,
+  createMiniMaxCredentialsApi,
+  createGrokAccountsApi,
+  createAccountsApi,
+  createUpdaterApi,
+  createShellApi,
+  createPtyApi,
+  createSshApi,
+  getStoredSettings,
+  writeStoredSettings,
+  getRuntimeBackedStoredSettings,
+  syncRuntimeBackedSettings,
+  updateRuntimePRBotAuthorOverride,
+  getStoredOnboarding,
+  sessionStorageKeyForHost,
+  getStoredWorkspaceSession,
+  closeWebOnboarding,
+  readLocalWebUIState,
+  mergeWebUIState,
+  mergeFeatureInteractionState,
+  mergeContextualTourSeenIds,
+  mergeOsc52ClipboardNoticePending,
+  mergeSettings,
+  listAllRuntimeWorktrees,
+  listAllRuntimeDetectedWorktrees,
+  callRuntimeDetectedWorktrees,
+  toLegacyDetectedWorktreeResult,
+  isMissingPathError,
+  resolveRuntimeWorktreeByPath,
+  resolveRuntimeFilePath,
+  mutateGitPath,
+  mutateGitPaths,
+  mapRepoPathArg,
+  mapRuntimeNamespaceArg,
+  createEmptyMemorySnapshot,
+  getBrowserPlatform,
+  readJson,
+  writeJson,
+  cloneJson,
+  withFallback,
+  createFallbackProxy,
+  getFallbackResult,
+  noopUnsubscribe,
+  type WebSettingsApi,
+  type WebGitHubApi,
+  type WebGitHubResult,
+  type WebRuntimeResultCaller,
+  type WebRuntimeEnvelopeCaller,
+  type WebGitHubRouteKey,
+  type WebGitHubRuntimeMethod,
+  type WebGitLabApi,
+  type WebGitLabResult,
+  type WebGitLabRouteKey,
+  type WebGitLabRuntimeMethod
+} from './web-preload-compatibility'
 
 const WEB_RUNTIME_PAIRING_CHANGED_ERROR =
   'Runtime environment pairing changed; refresh and try again'
@@ -272,7 +390,10 @@ export function withRuntimeRepoMutationOwner(
   return 'repo' in result ? { ...result, repo: withRuntimeRepoOwner(result.repo, hostId) } : result
 }
 
-export function withRuntimeWorktreeOwner<T extends Worktree>(worktree: T, hostId: ExecutionHostId): T {
+export function withRuntimeWorktreeOwner<T extends Worktree>(
+  worktree: T,
+  hostId: ExecutionHostId
+): T {
   const runtimeOwner = parseExecutionHostId(hostId)
   if (runtimeOwner?.kind !== 'runtime') {
     return worktree
@@ -428,14 +549,16 @@ export async function getRemoteRuntimeStatus(): Promise<RuntimeStatus> {
   return callRuntimeResult<RuntimeStatus>('status.get', undefined, 15_000)
 }
 
-export function getClientForEnvironment(environment: StoredWebRuntimeEnvironment): WebRuntimeClient {
+export function getClientForEnvironment(
+  environment: StoredWebRuntimeEnvironment
+): WebRuntimeClient {
   if (manuallyDisconnectedEnvironmentIds.has(environment.id)) {
     throw new Error('runtime_manually_disconnected')
   }
   if (!activeClient || activeClientEnvironmentId !== environment.id) {
     activeClient?.close()
-    activeClient = new WebRuntimeClient(getPreferredWebPairingOffer(environment))
-    activeClientEnvironmentId = environment.id
+    setActiveClient(new WebRuntimeClient(getPreferredWebPairingOffer(environment)))
+    setActiveClientEnvironmentId(environment.id)
   }
   return activeClient
 }
@@ -452,8 +575,8 @@ export function closeActiveRuntimeClients(): void {
     )
   }
   activeClient?.close()
-  activeClient = null
-  activeClientEnvironmentId = null
+  setActiveClient(null)
+  setActiveClientEnvironmentId(null)
   invalidateRuntimeWorktreeCaches()
 }
 
@@ -464,7 +587,7 @@ export function disconnectActiveRuntimeEnvironment(): void {
 export function removeActiveRuntimeEnvironment(): void {
   disconnectActiveRuntimeEnvironment()
   clearStoredWebRuntimeEnvironment()
-  activeEnvironment = null
+  setActiveEnvironment(null)
 }
 
 export function manuallyDisconnectedResponse(
@@ -496,7 +619,7 @@ export function resolveEnvironment(selector: string): StoredWebRuntimeEnvironmen
 }
 
 export function requireActiveEnvironment(): StoredWebRuntimeEnvironment {
-  activeEnvironment = activeEnvironment ?? readStoredWebRuntimeEnvironment()
+  setActiveEnvironment(activeEnvironment ?? readStoredWebRuntimeEnvironment())
   if (!activeEnvironment) {
     throw new Error('Pair this web client with an Orca server first.')
   }
@@ -504,7 +627,7 @@ export function requireActiveEnvironment(): StoredWebRuntimeEnvironment {
 }
 
 export function requireActiveEnvironmentOrNull(): StoredWebRuntimeEnvironment | null {
-  activeEnvironment = activeEnvironment ?? readStoredWebRuntimeEnvironment()
+  setActiveEnvironment(activeEnvironment ?? readStoredWebRuntimeEnvironment())
   return activeEnvironment
 }
 
@@ -522,5 +645,5 @@ export function updateEnvironmentFromResponse(
     return
   }
   const runtimeId = response.ok ? response._meta.runtimeId : (response._meta?.runtimeId ?? null)
-  activeEnvironment = updateStoredEnvironmentRuntimeId(environment, runtimeId)
+  setActiveEnvironment(updateStoredEnvironmentRuntimeId(environment, runtimeId))
 }

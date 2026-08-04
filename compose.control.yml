@@ -530,3 +530,130 @@ services:
       - src/preload/ssh-authority-forwarding.test.ts
     init: true
     network_mode: host
+
+  phase1-characterization:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        exec pnpm exec vitest run --maxWorkers=1 --config config/vitest.config.ts
+        src/cli/handlers/folder-workspace.test.ts
+        src/cli/handlers/file.test.ts
+        src/cli/handlers/terminal.test.ts
+        src/cli/runtime/websocket-transport.test.ts
+        src/main/runtime/orca-runtime-git.test.ts
+        src/main/runtime/orca-runtime-terminal-create-idempotency.test.ts
+        src/main/runtime/rpc/methods/files.test.ts
+        src/main/runtime/rpc/methods/git.test.ts
+        src/main/runtime/rpc/methods/pairing.test.ts
+        src/main/runtime/rpc/methods/terminal-create-idempotency.test.ts
+        src/main/runtime/mobile-pairing-qr.test.ts
+        src/main/runtime/mobile-rpc-allowlist.test.ts
+        src/main/runtime/mobile-subscribe-integration.test.ts
+        src/renderer/src/web/web-preload-state-ownership.test.ts
+        src/main/daemon/terminal-snapshot-serialize-roundtrip.test.ts
+        src/main/git/status.test.ts
+        src/main/git/commit.test.ts
+        src/main/ssh/ssh-relay-session-reconnect-incarnation.test.ts
+        src/main/ssh/ssh-relay-session-reconnect-queued-exits.test.ts
+    init: true
+    network_mode: host
+
+  phase1-web-typecheck:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - pnpm
+      - exec
+      - tsc
+      - --noEmit
+      - --noUnusedLocals
+      - "false"
+      - --noUnusedParameters
+      - "false"
+      - -p
+      - config/tsconfig.phase1-web.json
+    init: true
+    network_mode: host
+
+  phase1-quality:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        pnpm exec oxfmt --check
+        config/tsconfig.cli.json
+        config/tsconfig.phase1-web.json
+        src/main/ipc/pty-ipc-runtime-registration-api.ts
+        src/main/ipc/pty.test.ts
+        src/main/ipc/ssh-ipc-connection-registration-logic.ts
+        src/main/jira/jira-client-storage.ts
+        src/main/linear/linear-client-storage.ts
+        src/main/main-process-ready-plugin-lifecycle.ts
+        src/main/persistence-store-repository-load-primary-state.ts
+        src/main/runtime/mobile-rpc-allowlist.test.ts
+        src/main/runtime/oversized-source-boundaries.test.ts
+        src/main/speech/speech-model-management-download-delete-race.test.ts
+        src/main/speech/stt-service-foundation.ts
+        src/main/ssh/ssh-channel-multiplexer-frame-methods.ts
+        src/main/ssh/ssh-connection-lifecycle.ts
+        src/main/ssh/ssh-connection-lifecycle-get-state-can-run-concurrent-exec-commands.ts
+        src/main/ssh/ssh-connection-lifecycle-get-system-ssh-build-args-options-setup-disconnect-handler.ts
+        src/main/ssh/ssh-connection-lifecycle-write-file-attempt-connect.ts
+        src/main/ssh/ssh-relay-session-lifecycle-establish-detach.ts
+        src/main/ssh/ssh-relay-session-lifecycle-foundation.ts
+        src/main/ssh/ssh-relay-session-reconnect-queued-exits.test.ts
+        src/main/updater-lifecycle-install.ts
+        src/renderer/src/web/web-preload-compatibility.ts
+        src/renderer/src/web/web-preload-runtime-apis.ts
+        src/renderer/src/web/web-preload-runtime-bridge.ts
+        src/renderer/src/web/web-preload-settings-persistence.ts
+        src/renderer/src/web/web-preload-state-ownership.test.ts
+        src/renderer/src/web/web-preload-worktree-operations.ts
+        src/relay/dispatcher-routing-stage-1.ts
+        src/relay/dispatcher-routing-stage-2.ts
+        src/relay/dispatcher-routing-stage-state.ts
+        src/relay/git-handler-stage-1.ts
+        src/relay/git-handler-stage-2.ts
+        src/relay/git-handler-stage-3.ts
+        src/relay/git-handler-stage-state.ts
+        src/relay/pty-handler.test.ts
+    init: true
+    network_mode: host
+
+  phase1-startup-smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - sh
+      - -euc
+      - >-
+        ORCA_ELECTRON_VITE_TARGET=main pnpm exec electron-vite build
+        --config config/electron-vite-target.config.ts &&
+        node config/scripts/daemon-boot-smoke.mjs
+    init: true
+    network_mode: host

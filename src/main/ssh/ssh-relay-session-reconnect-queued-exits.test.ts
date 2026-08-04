@@ -309,7 +309,8 @@ describe('SshRelaySession queued reconnect exits', () => {
     )
     expect(mockWindow.webContents.send).toHaveBeenCalledWith('pty:replay', {
       id: APP_PTY_ID,
-      data: 'live-output'
+      data: 'live-output',
+      incarnationId: currentIncarnationId
     })
   })
 

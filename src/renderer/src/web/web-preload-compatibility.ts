@@ -165,6 +165,26 @@ export let cachedWorktrees: { loadedAt: number; worktrees: Worktree[] } | null =
 export let cachedDetectedWorktrees: { loadedAt: number; worktrees: Worktree[] } | null = null
 export const runtimeCallQueuePool = new RuntimeRpcCallQueuePool()
 
+export function setActiveEnvironment(value: StoredWebRuntimeEnvironment | null): void {
+  activeEnvironment = value
+}
+
+export function setActiveClient(value: WebRuntimeClient | null): void {
+  activeClient = value
+}
+
+export function setActiveClientEnvironmentId(value: string | null): void {
+  activeClientEnvironmentId = value
+}
+
+export function setCachedWorktrees(value: typeof cachedWorktrees): void {
+  cachedWorktrees = value
+}
+
+export function setCachedDetectedWorktrees(value: typeof cachedDetectedWorktrees): void {
+  cachedDetectedWorktrees = value
+}
+
 export function invalidateRuntimeWorktreeCaches(): void {
   cachedWorktrees = null
   cachedDetectedWorktrees = null
@@ -401,9 +421,6 @@ export const GITLAB_WEB_RPC_METHODS = {
   workItemByPath: 'gitlab.workItemByPath'
 } as const satisfies Record<WebGitLabRouteKey, WebGitLabRuntimeMethod>
 
-
-
-
 export function installWebPreloadApi(): void {
   activeEnvironment = readStoredWebRuntimeEnvironment()
   const webWindow = window as unknown as { __ORCA_WEB_CLIENT__?: boolean }
@@ -412,22 +429,117 @@ export function installWebPreloadApi(): void {
   window.api = withFallback(createWebPreloadApi(), []) as PreloadApi
 }
 
-
-
-export { blobToBase64, assertClipboardImageBlobWithinLimit, convertImageBlobToPng, readClipboardImagePngBase64, writeWebClipboardText } from './web-preload-clipboard'
+export {
+  blobToBase64,
+  assertClipboardImageBlobWithinLimit,
+  convertImageBlobToPng,
+  readClipboardImagePngBase64,
+  writeWebClipboardText
+} from './web-preload-clipboard'
 export { createWebPreloadApi } from './web-preload-api-factory'
 export { createNativeChatApi } from './web-preload-native-chat-api'
-export { createRuntimeApi, createRuntimeEnvironmentsApi, createAiVaultApi, webAiVaultUnavailableResult } from './web-preload-runtime-apis'
+export {
+  createRuntimeApi,
+  createRuntimeEnvironmentsApi,
+  createAiVaultApi,
+  webAiVaultUnavailableResult
+} from './web-preload-runtime-apis'
 export { createReposApi, createWorktreesApi } from './web-preload-repository-apis'
-export { createFileApi, webGitStatusAbortControllers, callAbortableRuntimeStatus } from './web-preload-file-apis'
+export {
+  createFileApi,
+  webGitStatusAbortControllers,
+  callAbortableRuntimeStatus
+} from './web-preload-file-apis'
 export { createGitApi } from './web-preload-git-apis'
 export { createBrowserApi, createEmulatorApi } from './web-preload-browser-api'
-export { createGitHubApi, createGitLabApi, createRuntimeNamespaceApi } from './web-preload-review-provider-apis'
+export {
+  createGitHubApi,
+  createGitLabApi,
+  createRuntimeNamespaceApi
+} from './web-preload-review-provider-apis'
 export { createHooksApi, createWebUiApi } from './web-preload-ui-apis'
-export { createPreflightApi, createCliApi, createAgentHooksApi, createMacosTccPromptsApi, createDeveloperPermissionsApi, createComputerUsePermissionsApi, createSkillsApi, createNotificationsApi, createRateLimitsApi, createMiniMaxCredentialsApi, createGrokAccountsApi } from './web-preload-capability-apis'
-export { createAccountsApi, createUpdaterApi, createShellApi, createPtyApi, createSshApi } from './web-preload-integration-apis'
-export { callRuntimeEnvelope, callEnvironmentEnvelope, callRuntimeResult, callRuntimeResultWithOwner, withRuntimeRepoOwner, withRuntimeRepoMutationOwner, withRuntimeWorktreeOwner, captureWebFileMutationSession, saveClipboardImageAsTempFileInRuntime, getRemoteRuntimeStatus, getClientForEnvironment, closeActiveRuntimeClients, disconnectActiveRuntimeEnvironment, removeActiveRuntimeEnvironment, manuallyDisconnectedResponse, resolveEnvironment, requireActiveEnvironment, requireActiveEnvironmentOrNull, assertActiveEnvironment, updateEnvironmentFromResponse } from './web-preload-runtime-bridge'
-export { getStoredSettings, writeStoredSettings, getRuntimeBackedStoredSettings, syncRuntimeBackedSettings } from './web-preload-settings-persistence'
-export { updateRuntimePRBotAuthorOverride, getStoredOnboarding, sessionStorageKeyForHost, getStoredWorkspaceSession, closeWebOnboarding, readLocalWebUIState, mergeWebUIState, mergeFeatureInteractionState, mergeContextualTourSeenIds, mergeOsc52ClipboardNoticePending, mergeSettings } from './web-preload-session-persistence'
-export { listAllRuntimeWorktrees, listAllRuntimeDetectedWorktrees, callRuntimeDetectedWorktrees, toLegacyDetectedWorktreeResult, isMissingPathError, resolveRuntimeWorktreeByPath, resolveRuntimeFilePath, mutateGitPath, mutateGitPaths, mapRepoPathArg, mapRuntimeNamespaceArg } from './web-preload-worktree-operations'
-export { createEmptyMemorySnapshot, getBrowserPlatform, readJson, writeJson, cloneJson, withFallback, createFallbackProxy, getFallbackResult, noopUnsubscribe } from './web-preload-fallbacks'
+export {
+  createPreflightApi,
+  createCliApi,
+  createAgentHooksApi,
+  createMacosTccPromptsApi,
+  createDeveloperPermissionsApi,
+  createComputerUsePermissionsApi,
+  createSkillsApi,
+  createNotificationsApi,
+  createRateLimitsApi,
+  createMiniMaxCredentialsApi,
+  createGrokAccountsApi
+} from './web-preload-capability-apis'
+export {
+  createAccountsApi,
+  createUpdaterApi,
+  createShellApi,
+  createPtyApi,
+  createSshApi
+} from './web-preload-integration-apis'
+export {
+  callRuntimeEnvelope,
+  callEnvironmentEnvelope,
+  callRuntimeResult,
+  callRuntimeResultWithOwner,
+  withRuntimeRepoOwner,
+  withRuntimeRepoMutationOwner,
+  withRuntimeWorktreeOwner,
+  captureWebFileMutationSession,
+  saveClipboardImageAsTempFileInRuntime,
+  getRemoteRuntimeStatus,
+  getClientForEnvironment,
+  closeActiveRuntimeClients,
+  disconnectActiveRuntimeEnvironment,
+  removeActiveRuntimeEnvironment,
+  manuallyDisconnectedResponse,
+  resolveEnvironment,
+  requireActiveEnvironment,
+  requireActiveEnvironmentOrNull,
+  assertActiveEnvironment,
+  updateEnvironmentFromResponse
+} from './web-preload-runtime-bridge'
+export {
+  getStoredSettings,
+  writeStoredSettings,
+  getRuntimeBackedStoredSettings,
+  syncRuntimeBackedSettings
+} from './web-preload-settings-persistence'
+export {
+  updateRuntimePRBotAuthorOverride,
+  getStoredOnboarding,
+  sessionStorageKeyForHost,
+  getStoredWorkspaceSession,
+  closeWebOnboarding,
+  readLocalWebUIState,
+  mergeWebUIState,
+  mergeFeatureInteractionState,
+  mergeContextualTourSeenIds,
+  mergeOsc52ClipboardNoticePending,
+  mergeSettings
+} from './web-preload-session-persistence'
+export {
+  listAllRuntimeWorktrees,
+  listAllRuntimeDetectedWorktrees,
+  callRuntimeDetectedWorktrees,
+  toLegacyDetectedWorktreeResult,
+  isMissingPathError,
+  resolveRuntimeWorktreeByPath,
+  resolveRuntimeFilePath,
+  mutateGitPath,
+  mutateGitPaths,
+  mapRepoPathArg,
+  mapRuntimeNamespaceArg
+} from './web-preload-worktree-operations'
+export {
+  createEmptyMemorySnapshot,
+  getBrowserPlatform,
+  readJson,
+  writeJson,
+  cloneJson,
+  withFallback,
+  createFallbackProxy,
+  getFallbackResult,
+  noopUnsubscribe
+} from './web-preload-fallbacks'

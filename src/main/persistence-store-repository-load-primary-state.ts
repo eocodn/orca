@@ -1,3 +1,5 @@
+import type { SshRemotePtyLease } from '../shared/ssh-types'
+import type { GlobalSettings } from '../shared/types'
 import * as loadDependencies from './persistence-store-repository-load-api'
 import {
   canonicalizePersistedFloatingWorkspaceDirectory,

@@ -40,6 +40,10 @@ const {
   statSyncMock,
   accessSyncMock,
   mkdirSyncMock,
+  renameSyncMock,
+  unlinkSyncMock,
+  copyFileSyncMock,
+  realpathSyncMock,
   readFileSyncMock,
   writeFileSyncMock,
   chmodSyncMock,
@@ -60,6 +64,7 @@ const {
   registerPtyMock,
   unregisterPtyMock,
   setMigrationUnsupportedPtyMock,
+  setMigrationUnsupportedPtyPersistenceListenerMock,
   clearMigrationUnsupportedPtyMock,
   clearMigrationUnsupportedPtysForPaneKeyMock,
   clearPaneKeyAliasesForPtyMock,
@@ -74,6 +79,10 @@ const {
   statSyncMock: vi.fn(),
   accessSyncMock: vi.fn(),
   mkdirSyncMock: vi.fn(),
+  renameSyncMock: vi.fn(),
+  unlinkSyncMock: vi.fn(),
+  copyFileSyncMock: vi.fn(),
+  realpathSyncMock: vi.fn(),
   readFileSyncMock: vi.fn(),
   writeFileSyncMock: vi.fn(),
   chmodSyncMock: vi.fn(),
@@ -94,6 +103,7 @@ const {
   registerPtyMock: vi.fn(),
   unregisterPtyMock: vi.fn(),
   setMigrationUnsupportedPtyMock: vi.fn(),
+  setMigrationUnsupportedPtyPersistenceListenerMock: vi.fn(),
   clearMigrationUnsupportedPtyMock: vi.fn(),
   clearMigrationUnsupportedPtysForPaneKeyMock: vi.fn(),
   clearPaneKeyAliasesForPtyMock: vi.fn(),
@@ -131,6 +141,10 @@ vi.mock('fs', () => ({
   statSync: statSyncMock,
   accessSync: accessSyncMock,
   mkdirSync: mkdirSyncMock,
+  renameSync: renameSyncMock,
+  unlinkSync: unlinkSyncMock,
+  copyFileSync: copyFileSyncMock,
+  realpathSync: realpathSyncMock,
   readFileSync: readFileSyncMock,
   writeFileSync: writeFileSyncMock,
   chmodSync: chmodSyncMock,
@@ -203,6 +217,8 @@ vi.mock('../memory/pty-registry', () => ({
 
 vi.mock('../agent-hooks/migration-unsupported-pty-state', () => ({
   setMigrationUnsupportedPty: setMigrationUnsupportedPtyMock,
+  setMigrationUnsupportedPtyPersistenceListener:
+    setMigrationUnsupportedPtyPersistenceListenerMock,
   clearMigrationUnsupportedPty: clearMigrationUnsupportedPtyMock,
   clearMigrationUnsupportedPtysForPaneKey: clearMigrationUnsupportedPtysForPaneKeyMock
 }))
@@ -363,6 +379,10 @@ describe('registerPtyHandlers', () => {
     statSyncMock.mockReset()
     accessSyncMock.mockReset()
     mkdirSyncMock.mockReset()
+    renameSyncMock.mockReset()
+    unlinkSyncMock.mockReset()
+    copyFileSyncMock.mockReset()
+    realpathSyncMock.mockReset()
     readFileSyncMock.mockReset()
     writeFileSyncMock.mockReset()
     chmodSyncMock.mockReset()
@@ -383,6 +403,7 @@ describe('registerPtyHandlers', () => {
     registerPtyMock.mockReset()
     unregisterPtyMock.mockReset()
     setMigrationUnsupportedPtyMock.mockReset()
+    setMigrationUnsupportedPtyPersistenceListenerMock.mockReset()
     clearMigrationUnsupportedPtyMock.mockReset()
     clearMigrationUnsupportedPtysForPaneKeyMock.mockReset()
     clearPaneKeyAliasesForPtyMock.mockReset()

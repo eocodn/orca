@@ -155,7 +155,11 @@ export const SshChannelMultiplexerFrameMethods = {
   },
   handleNotification(this: any, msg: JsonRpcNotification): void {
     const params = msg.params ?? {}
-    for (const handler of Array.from(this.notificationHandlers)) {
+    for (const handler of Array.from(
+      this.notificationHandlers as Array<
+        (method: string, params: Record<string, unknown>) => void
+      >
+    )) {
       try {
         handler(msg.method, params)
       } catch (err) {
@@ -166,7 +170,9 @@ export const SshChannelMultiplexerFrameMethods = {
     if (!methodHandlers || methodHandlers.size === 0) {
       return
     }
-    for (const handler of Array.from(methodHandlers)) {
+    for (const handler of Array.from(
+      methodHandlers as Set<(params: Record<string, unknown>) => void>
+    )) {
       try {
         handler(params)
       } catch (err) {

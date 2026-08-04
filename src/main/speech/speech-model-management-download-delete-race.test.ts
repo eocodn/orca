@@ -1,8 +1,8 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { mkdir, rm as realRm } from 'node:fs/promises'
+import { mkdtempSync } from 'node:fs'
+import { mkdir,rm as realRm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { describe,expect,it,vi } from 'vitest'
 import { SPEECH_MODEL_CATALOG } from './model-catalog'
 import { ModelManager } from './model-manager'
 
@@ -29,8 +29,8 @@ describe('speech model download/delete ordering', () => {
     try {
       const manifest = SPEECH_MODEL_CATALOG.find((model) => model.provider === 'local')!
       const manager = new ModelManager(dir)
-      vi.spyOn(manager as any, 'downloadModelFiles').mockImplementation(
-        async (_manifest: unknown, stagingDir: string) => {
+      vi.spyOn(manager, 'downloadModelFiles').mockImplementation(
+        async (_manifest, stagingDir, _modelId, _isAborted, _signal) => {
           await mkdir(stagingDir, { recursive: true })
         }
       )
