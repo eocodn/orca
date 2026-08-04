@@ -1,10 +1,8 @@
-
 import { z } from 'zod'
 import { FEATURE_WALL_EXIT_ACTIONS, FEATURE_WALL_TOUR_DEPTH_STEPS } from './feature-wall-tour-depth'
 import { SETUP_SCRIPT_IMPORT_PROVIDERS } from './setup-script-import-providers'
 import { WORKSPACE_SOURCE_VALUES, type WorkspaceSource } from './workspace-source'
 import type { GlobalSettings } from './types'
-
 
 // ── Shared property enums ───────────────────────────────────────────────
 
@@ -163,13 +161,7 @@ export type FeatureWallTileIdTelemetry = z.infer<typeof featureWallTileIdSchema>
 export const featureWallOpenSourceSchema = z.enum(['help_menu', 'popup', 'onboarding', 'unknown'])
 export type FeatureWallOpenSourceTelemetry = z.infer<typeof featureWallOpenSourceSchema>
 
-export const featureWallWorkflowIdSchema = z.enum([
-  'tasks',
-  'workspaces',
-  'agents-orchestration',
-  'workbench',
-  'review'
-])
+export const featureWallWorkflowIdSchema = z.enum(['tasks', 'workspaces', 'workbench', 'review'])
 export type FeatureWallWorkflowIdTelemetry = z.infer<typeof featureWallWorkflowIdSchema>
 
 export const featureWallTourDepthStepSchema = z.enum(FEATURE_WALL_TOUR_DEPTH_STEPS)

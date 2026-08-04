@@ -1,14 +1,12 @@
-import type { AgentsStep } from '../../../../shared/agents-orchestration-steps'
 import type { ReviewStep } from '../../../../shared/review-steps'
 import type { WorkbenchStep } from '../../../../shared/workbench-steps'
 import type { FeatureWallActiveStepCopy } from './FeatureWallTourPanel'
 
 export function getFeatureWallActiveStepCopy(
-  agentsActiveStep: AgentsStep | null,
   workbenchActiveStep: WorkbenchStep | null,
   reviewActiveStep: ReviewStep | null
 ): FeatureWallActiveStepCopy | null {
-  const activeStep = agentsActiveStep ?? workbenchActiveStep ?? reviewActiveStep
+  const activeStep = workbenchActiveStep ?? reviewActiveStep
   if (!activeStep) {
     return null
   }

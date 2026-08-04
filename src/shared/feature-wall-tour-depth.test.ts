@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentsStepId } from './agents-orchestration-steps'
 import type { FeatureWallWorkflowId } from './feature-wall-workflows'
 import type { ReviewStepId } from './review-steps'
 import type { WorkbenchStepId } from './workbench-steps'
@@ -9,14 +8,8 @@ import {
 } from './feature-wall-tour-depth'
 
 describe('feature wall tour depth summary', () => {
-  it('maps workflow and nested steps to canonical depth values', () => {
+  it('maps retained workflows and nested steps to canonical depth values', () => {
     expect(getFeatureWallTourDepthStep({ workflowId: 'workspaces' })).toBe('workspaces')
-    expect(
-      getFeatureWallTourDepthStep({
-        workflowId: 'agents-orchestration',
-        agentStepId: 'usage'
-      })
-    ).toBe('agents_usage')
     expect(
       getFeatureWallTourDepthStep({ workflowId: 'workbench', workbenchStepId: 'browser' })
     ).toBe('workbench_browser')
@@ -29,20 +22,13 @@ describe('feature wall tour depth summary', () => {
     expect(
       buildFeatureWallTourDepthSummary({
         visitedWorkflows: new Set<FeatureWallWorkflowId>(['workspaces', 'workbench']),
-        visitedAgentSteps: new Set<AgentsStepId>(),
         visitedWorkbenchSteps: new Set<WorkbenchStepId>(['terminal', 'editor']),
         visitedReviewSteps: new Set<ReviewStepId>(),
         workflowDone: {
           workspaces: true,
           tasks: false,
-          'agents-orchestration': false,
           workbench: false,
           review: false
-        },
-        agentStepDone: {
-          statuses: false,
-          usage: false,
-          orchestration: false
         },
         workbenchStepDone: {
           terminal: true,

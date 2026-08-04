@@ -1,6 +1,4 @@
-// Per-step copy for the workbench tile in the Explore Orca modal. Mirrors
-// agents-orchestration-steps.ts so the rail / body code can render both the
-// same way.
+// Per-step copy for the workbench tile in the Explore Orca modal.
 
 export type WorkbenchStepId = 'terminal' | 'editor' | 'browser'
 

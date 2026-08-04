@@ -15,8 +15,8 @@ describe('feature wall tour close telemetry session', () => {
     expect(opened).toBe(true)
     expect(
       buildFeatureWallClosedTelemetry(state, 350, 'help_menu', {
-        furthest_step: 'agents_usage',
-        last_group_id: 'agents-orchestration',
+        furthest_step: 'workbench_browser',
+        last_group_id: 'workbench',
         visited_workflow_count: 3,
         visited_substep_count: 2,
         completed_workflow_count: 1,
@@ -26,8 +26,8 @@ describe('feature wall tour close telemetry session', () => {
       dwell_ms: 250,
       source: 'help_menu',
       exit_action: 'done',
-      furthest_step: 'agents_usage',
-      last_group_id: 'agents-orchestration',
+      furthest_step: 'workbench_browser',
+      last_group_id: 'workbench',
       visited_workflow_count: 3,
       visited_substep_count: 2,
       completed_workflow_count: 1,

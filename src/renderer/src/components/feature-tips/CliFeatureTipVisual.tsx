@@ -1,9 +1,4 @@
 import { useEffect, useState, type JSX } from 'react'
-import { AgentsOrchestrationVisual } from '@/components/feature-wall/AgentsOrchestrationVisual'
-import {
-  ORCHESTRATION_CLI_COMMAND_LOOP_MS,
-  ORCHESTRATION_CLI_COMMAND_TIMINGS_MS
-} from '@/components/feature-wall/agents-orchestration/orchestration-types'
 import { usePrefersReducedMotion } from '@/components/feature-wall/feature-wall-modal-helpers'
 import { translate } from '@/i18n/i18n'
 
@@ -37,11 +32,10 @@ export function CliFeatureTipVisual(): JSX.Element {
     // Why: terminal lines mirror the orchestration tour beat timings so the
     // shell shows each command as the parent agent runs it.
     const runOnce = (): void => {
-      setAnimatedVisibleCommandCount(0)
-      ORCHESTRATION_CLI_COMMAND_TIMINGS_MS.forEach((ms, index) => {
+      setAnimatedVisibleCommandCount(0)[(700, 1400, 2100, 2800)].forEach((ms, index) => {
         later(() => setAnimatedVisibleCommandCount(index + 1), ms)
       })
-      later(runOnce, ORCHESTRATION_CLI_COMMAND_LOOP_MS)
+      later(runOnce, 3600)
     }
 
     runOnce()
@@ -88,20 +82,6 @@ export function CliFeatureTipVisual(): JSX.Element {
               </div>
             )
           })}
-        </div>
-      </div>
-
-      <div className="cli-tip-orchestration-frame relative mt-5 flex h-[17rem] items-center justify-center overflow-hidden rounded-lg border border-border/70 bg-background/80 px-5 shadow-xs">
-        <div className="origin-center">
-          <AgentsOrchestrationVisual
-            activeStepId="orchestration"
-            reducedMotion={reducedMotion}
-            widthPx={350}
-            heightPx={252}
-            orchestrationCreatedChildCount={Math.min(visibleCommandCount, 2)}
-            orchestrationLoopMs={ORCHESTRATION_CLI_COMMAND_LOOP_MS}
-            orchestrationShowResponseBeats={false}
-          />
         </div>
       </div>
     </div>

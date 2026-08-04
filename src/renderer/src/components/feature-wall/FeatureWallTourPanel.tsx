@@ -1,5 +1,4 @@
 import type { JSX, KeyboardEvent, MutableRefObject, ReactNode } from 'react'
-import type { AgentsStep, AgentsStepId } from '../../../../shared/agents-orchestration-steps'
 import type {
   FeatureWallWorkflow,
   FeatureWallWorkflowId
@@ -35,9 +34,6 @@ export function FeatureWallTourPanel(props: {
   railRefs: MutableRefObject<(HTMLButtonElement | null)[]>
   onSelectWorkflow: (workflow: FeatureWallWorkflow) => void
   onRailKeyDown: (event: KeyboardEvent<HTMLButtonElement>, index: number) => void
-  agentsSteps: readonly AgentsStep[]
-  agentsActiveStep: AgentsStep | null
-  onSelectAgentsStep: (id: AgentsStepId) => void
   workbenchSteps: readonly WorkbenchStep[]
   workbenchActiveStep: WorkbenchStep | null
   onSelectWorkbenchStep: (id: WorkbenchStepId) => void
@@ -84,10 +80,6 @@ export function FeatureWallTourPanel(props: {
             onSelect={props.onSelectWorkflow}
             onRailKeyDown={props.onRailKeyDown}
             workflowDone={props.completion.workflowDone}
-            agentsSteps={props.agentsSteps}
-            agentsActiveStepId={props.agentsActiveStep?.id ?? null}
-            agentStepDone={props.completion.agentStepDone}
-            onSelectAgentsStep={props.onSelectAgentsStep}
             workbenchSteps={props.workbenchSteps}
             workbenchActiveStepId={props.workbenchActiveStep?.id ?? null}
             workbenchStepDone={props.completion.workbenchStepDone}
@@ -135,11 +127,9 @@ export function FeatureWallTourPanel(props: {
               showGif={props.showGif}
               prefersReducedMotion={props.prefersReducedMotion}
               source={props.source}
-              agentsActiveStep={props.agentsActiveStep}
               workbenchActiveStep={props.workbenchActiveStep}
               reviewActiveStep={props.reviewActiveStep}
               browserUseSkill={props.browserUseSkill}
-              onUsageAccountStateChange={props.completion.refreshUsageAccountState}
               settings={props.settings}
               updateSettings={props.updateSettings}
             />

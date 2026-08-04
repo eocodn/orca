@@ -5,7 +5,6 @@ import {
   type FeatureWallWorkflow,
   type FeatureWallWorkflowId
 } from '../../../../shared/feature-wall-workflows'
-import type { AgentsStep, AgentsStepId } from '../../../../shared/agents-orchestration-steps'
 import type { WorkbenchStep, WorkbenchStepId } from '../../../../shared/workbench-steps'
 import type { ReviewStep, ReviewStepId } from '../../../../shared/review-steps'
 import { cn } from '@/lib/utils'
@@ -20,10 +19,6 @@ export function FeatureWallRail(props: {
   onSelect: (workflow: FeatureWallWorkflow) => void
   onRailKeyDown: (event: KeyboardEvent<HTMLButtonElement>, index: number) => void
   workflowDone: Record<FeatureWallWorkflowId, boolean>
-  agentsSteps: readonly AgentsStep[]
-  agentsActiveStepId: AgentsStepId | null
-  agentStepDone: Record<AgentsStepId, boolean>
-  onSelectAgentsStep: (id: AgentsStepId) => void
   workbenchSteps: readonly WorkbenchStep[]
   workbenchActiveStepId: WorkbenchStepId | null
   workbenchStepDone: Record<WorkbenchStepId, boolean>
@@ -40,10 +35,6 @@ export function FeatureWallRail(props: {
     onSelect,
     onRailKeyDown,
     workflowDone,
-    agentsSteps,
-    agentsActiveStepId,
-    agentStepDone,
-    onSelectAgentsStep,
     workbenchSteps,
     workbenchActiveStepId,
     workbenchStepDone,
@@ -63,28 +54,21 @@ export function FeatureWallRail(props: {
           const isSelected = workflow.id === selectedId
           const isDone = workflowDone[workflow.id] === true
           const subSteps =
-            workflow.id === 'agents-orchestration'
+            workflow.id === 'workbench'
               ? {
-                  steps: agentsSteps,
-                  activeId: agentsActiveStepId as string | null,
-                  done: agentStepDone as Record<string, boolean>,
-                  onSelect: (id: string) => onSelectAgentsStep(id as AgentsStepId)
+                  steps: workbenchSteps,
+                  activeId: workbenchActiveStepId as string | null,
+                  done: workbenchStepDone as Record<string, boolean>,
+                  onSelect: (id: string) => onSelectWorkbenchStep(id as WorkbenchStepId)
                 }
-              : workflow.id === 'workbench'
+              : workflow.id === 'review'
                 ? {
-                    steps: workbenchSteps,
-                    activeId: workbenchActiveStepId as string | null,
-                    done: workbenchStepDone as Record<string, boolean>,
-                    onSelect: (id: string) => onSelectWorkbenchStep(id as WorkbenchStepId)
+                    steps: reviewSteps,
+                    activeId: reviewActiveStepId as string | null,
+                    done: reviewStepDone as Record<string, boolean>,
+                    onSelect: (id: string) => onSelectReviewStep(id as ReviewStepId)
                   }
-                : workflow.id === 'review'
-                  ? {
-                      steps: reviewSteps,
-                      activeId: reviewActiveStepId as string | null,
-                      done: reviewStepDone as Record<string, boolean>,
-                      onSelect: (id: string) => onSelectReviewStep(id as ReviewStepId)
-                    }
-                  : null
+                : null
           const showSubSteps = subSteps !== null && isSelected
           return (
             <div key={workflow.id}>

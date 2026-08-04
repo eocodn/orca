@@ -5,12 +5,7 @@ import {
   type FeatureWallMediaTileId
 } from './feature-wall-tiles'
 
-export type FeatureWallWorkflowId =
-  | 'tasks'
-  | 'workspaces'
-  | 'agents-orchestration'
-  | 'workbench'
-  | 'review'
+export type FeatureWallWorkflowId = 'tasks' | 'workspaces' | 'workbench' | 'review'
 
 export type FeatureWallWorkflow = {
   id: FeatureWallWorkflowId
@@ -40,15 +35,6 @@ export const FEATURE_WALL_WORKFLOWS: readonly FeatureWallWorkflow[] = [
     primaryTileId: 'tile-03',
     relatedTileIds: [],
     docsUrl: 'https://www.onorca.dev/docs/review/linear'
-  },
-  {
-    id: 'agents-orchestration',
-    title: 'Agents',
-    meta: 'Agents · Usage · Orca CLI',
-    lede: 'Run several agents at once, track their progress, and let automation drive Orca when it helps.',
-    primaryTileId: 'tile-04',
-    relatedTileIds: ['tile-11', 'tile-09'],
-    docsUrl: 'https://www.onorca.dev/docs/agents/supported'
   },
   {
     id: 'workbench',

@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentsStepId } from '../../../../shared/agents-orchestration-steps'
 import type { FeatureWallWorkflowId } from '../../../../shared/feature-wall-workflows'
 import type { ReviewStepId } from '../../../../shared/review-steps'
 import type { WorkbenchStepId } from '../../../../shared/workbench-steps'
 import {
-  normalizeFeatureWallVisitedWorkflows,
-  normalizeFeatureWallVisitedAgentSteps,
   normalizeFeatureWallVisitedReviewSteps,
-  normalizeFeatureWallVisitedWorkbenchSteps
+  normalizeFeatureWallVisitedWorkbenchSteps,
+  normalizeFeatureWallVisitedWorkflows
 } from './feature-wall-completion-persistence'
 import { getFeatureWallCompletionProgress } from './feature-wall-completion-progress'
 
@@ -16,12 +14,10 @@ type CompletionInput = Parameters<typeof getFeatureWallCompletionProgress>[0]
 function completionInput(overrides: Partial<CompletionInput> = {}): CompletionInput {
   return {
     visitedWorkflows: new Set<FeatureWallWorkflowId>(),
-    visitedAgentSteps: new Set<AgentsStepId>(),
     visitedWorkbenchSteps: new Set<WorkbenchStepId>(),
     visitedReviewSteps: new Set<ReviewStepId>(),
     hasConnectedTaskSource: false,
     isCheckingTaskSources: false,
-    hasUsageAccount: false,
     browserUseSkillInstalled: false,
     githubConfigured: false,
     aiCommitPrConfigured: false,
@@ -30,11 +26,10 @@ function completionInput(overrides: Partial<CompletionInput> = {}): CompletionIn
 }
 
 describe('getFeatureWallCompletionProgress', () => {
-  it('does not complete setup-backed items before the user visits them in the tour', () => {
+  it('does not complete setup-backed items before the user visits them', () => {
     const progress = getFeatureWallCompletionProgress(
       completionInput({
         hasConnectedTaskSource: true,
-        hasUsageAccount: true,
         browserUseSkillInstalled: true,
         githubConfigured: true,
         aiCommitPrConfigured: true
@@ -42,96 +37,40 @@ describe('getFeatureWallCompletionProgress', () => {
     )
 
     expect(progress.workflowDone.tasks).toBe(false)
-    expect(progress.workflowDone['agents-orchestration']).toBe(false)
     expect(progress.workflowDone.workbench).toBe(false)
     expect(progress.workflowDone.review).toBe(false)
-    expect(progress.agentStepDone.usage).toBe(false)
     expect(progress.workbenchStepDone.browser).toBe(false)
     expect(progress.reviewStepDone['pr-view']).toBe(false)
     expect(progress.reviewStepDone.ship).toBe(false)
   })
 
-  it('completes tasks only after the user visits Tasks and a task source is connected', () => {
-    expect(
-      getFeatureWallCompletionProgress(
-        completionInput({
-          visitedWorkflows: new Set<FeatureWallWorkflowId>(['tasks'])
-        })
-      ).workflowDone.tasks
-    ).toBe(false)
-
-    expect(
-      getFeatureWallCompletionProgress(
-        completionInput({
-          visitedWorkflows: new Set<FeatureWallWorkflowId>(['tasks']),
-          hasConnectedTaskSource: true
-        })
-      ).workflowDone.tasks
-    ).toBe(true)
-  })
-
-  it('completes the orchestration step after it is visited without skill detection', () => {
-    expect(
-      getFeatureWallCompletionProgress(completionInput()).agentStepDone.orchestration
-    ).toBe(false)
-
-    expect(
-      getFeatureWallCompletionProgress(
-        completionInput({
-          visitedAgentSteps: new Set<AgentsStepId>(['orchestration'])
-        })
-      ).agentStepDone.orchestration
-    ).toBe(true)
-  })
-
-  it('keeps setup-backed substeps complete after detection later reports unavailable', () => {
-    const progress = getFeatureWallCompletionProgress(
-      completionInput({
-        completedAgentSteps: new Set<AgentsStepId>(['orchestration']),
-        completedWorkbenchSteps: new Set<WorkbenchStepId>(['browser'])
-      })
-    )
-
-    expect(progress.agentStepDone.orchestration).toBe(true)
-    expect(progress.workbenchStepDone.browser).toBe(true)
-  })
-
-  it('keeps completed workflows complete after setup-backed detection later reports unavailable', () => {
-    const progress = getFeatureWallCompletionProgress(
-      completionInput({
-        completedWorkflows: new Set<FeatureWallWorkflowId>(['agents-orchestration', 'workbench'])
-      })
-    )
-
-    expect(progress.workflowDone['agents-orchestration']).toBe(true)
-    expect(progress.workflowDone.workbench).toBe(true)
-  })
-
-  it('keeps the agents workflow complete after retained agent steps are visited', () => {
-    const otherwiseComplete = completionInput({
-      visitedWorkflows: new Set<FeatureWallWorkflowId>(['agents-orchestration']),
-      visitedAgentSteps: new Set<AgentsStepId>(['statuses', 'usage', 'orchestration']),
-      hasUsageAccount: true
+  it('completes tasks only after the user visits Tasks and a source is connected', () => {
+    const visitedTasks = completionInput({
+      visitedWorkflows: new Set<FeatureWallWorkflowId>(['tasks'])
     })
-
-    expect(getFeatureWallCompletionProgress(otherwiseComplete).workflowDone['agents-orchestration']).toBe(
-      true
-    )
-  })
-
-  it('keeps the agents workflow complete after sub-step visits are restored', () => {
+    expect(getFeatureWallCompletionProgress(visitedTasks).workflowDone.tasks).toBe(false)
     expect(
-      getFeatureWallCompletionProgress(
-        completionInput({
-          visitedWorkflows: new Set<FeatureWallWorkflowId>(['agents-orchestration']),
-          visitedAgentSteps: new Set<AgentsStepId>(['statuses', 'usage', 'orchestration']),
-          hasUsageAccount: true
-        })
-      ).workflowDone['agents-orchestration']
+      getFeatureWallCompletionProgress({ ...visitedTasks, hasConnectedTaskSource: true })
+        .workflowDone.tasks
     ).toBe(true)
   })
 
-  it('keeps the review workflow complete after the notes visit is restored', () => {
+  it('keeps completed retained workflows and substeps complete', () => {
+    const progress = getFeatureWallCompletionProgress(
+      completionInput({
+        completedWorkflows: new Set<FeatureWallWorkflowId>(['workspaces', 'review']),
+        completedWorkbenchSteps: new Set<WorkbenchStepId>(['browser']),
+        completedReviewSteps: new Set<ReviewStepId>(['ship'])
+      })
+    )
+
+    expect(progress.workflowDone.workspaces).toBe(true)
+    expect(progress.workflowDone.review).toBe(true)
+    expect(progress.workbenchStepDone.browser).toBe(true)
+    expect(progress.reviewStepDone.ship).toBe(true)
+  })
+
+  it('keeps the review workflow complete after its retained steps are restored', () => {
     expect(
       getFeatureWallCompletionProgress(
         completionInput({
@@ -144,7 +83,7 @@ describe('getFeatureWallCompletionProgress', () => {
     ).toBe(true)
   })
 
-  it('keeps the workbench workflow complete after all sub-step visits are restored', () => {
+  it('keeps the workbench workflow complete after its retained steps are restored', () => {
     expect(
       getFeatureWallCompletionProgress(
         completionInput({
@@ -156,53 +95,28 @@ describe('getFeatureWallCompletionProgress', () => {
     ).toBe(true)
   })
 
-  it('requires the Browser Use skill before completing the workbench browser step', () => {
+  it('requires the Browser Use skill before completing the browser step', () => {
     const browserVisited = completionInput({
       visitedWorkflows: new Set<FeatureWallWorkflowId>(['workbench']),
       visitedWorkbenchSteps: new Set<WorkbenchStepId>(['terminal', 'editor', 'browser'])
     })
 
     expect(getFeatureWallCompletionProgress(browserVisited).workbenchStepDone.browser).toBe(false)
-    expect(getFeatureWallCompletionProgress(browserVisited).workflowDone.workbench).toBe(false)
-
     expect(
-      getFeatureWallCompletionProgress({
-        ...browserVisited,
-        browserUseSkillInstalled: true
-      }).workbenchStepDone.browser
-    ).toBe(true)
-    expect(
-      getFeatureWallCompletionProgress({
-        ...browserVisited,
-        browserUseSkillInstalled: true
-      }).workflowDone.workbench
+      getFeatureWallCompletionProgress({ ...browserVisited, browserUseSkillInstalled: true })
+        .workflowDone.workbench
     ).toBe(true)
   })
 })
 
-describe('normalizeFeatureWallVisitedWorkflows', () => {
+describe('feature wall completion persistence normalization', () => {
   it('keeps persisted workflow visits and drops duplicates or unknown ids', () => {
     expect(normalizeFeatureWallVisitedWorkflows(['workspaces', 'tasks', 'tasks', 'bogus'])).toEqual(
       ['workspaces', 'tasks']
     )
   })
-})
 
-describe('normalizeFeatureWallVisitedAgentSteps', () => {
-  it('keeps persisted agents visits and drops duplicates or unknown steps', () => {
-    expect(
-      normalizeFeatureWallVisitedAgentSteps([
-        'statuses',
-        'usage',
-        'notifications',
-        'bogus'
-      ])
-    ).toEqual(['statuses', 'usage'])
-  })
-})
-
-describe('normalizeFeatureWallVisitedWorkbenchSteps', () => {
-  it('keeps persisted workbench visits and drops duplicates or unknown steps', () => {
+  it('keeps retained workbench and review visits and drops unknown steps', () => {
     expect(
       normalizeFeatureWallVisitedWorkbenchSteps([
         'terminal',
@@ -212,11 +126,6 @@ describe('normalizeFeatureWallVisitedWorkbenchSteps', () => {
         'bogus'
       ])
     ).toEqual(['terminal', 'editor', 'browser'])
-  })
-})
-
-describe('normalizeFeatureWallVisitedReviewSteps', () => {
-  it('keeps persisted review visits and drops duplicates or unknown steps', () => {
     expect(
       normalizeFeatureWallVisitedReviewSteps(['notes', 'pr-view', 'ship', 'notes', 'bogus'])
     ).toEqual(['notes', 'pr-view', 'ship'])
