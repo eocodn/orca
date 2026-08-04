@@ -3,7 +3,6 @@ export type {
   AgentProviderSessionMetadata,
   SleepingAgentLaunchConfig
 } from '../../shared/agent-session-resume'
-export type { ExactWorkerProviderSession } from '../../shared/orchestration-worker-output'
 export type { RuntimeClientEvent } from '../../shared/runtime-client-events'
 export { toRuntimeActivateWorktreeEvent } from '../../shared/runtime-client-events'
 export {

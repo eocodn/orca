@@ -1,8 +1,22 @@
-import { type TerminalOutputSourceRange, type RemoteTerminalSourceRangeConsumerHooks, type RemoteTerminalSourceRangeReplacementPublication, type RemoteTerminalSourceRangeReplacementReservation, type RemoteTerminalSourceRangeStreamIdentity, type ParsedAgentStatusPayload, type ProcessedAgentStatusChunk, type PtyIncarnationId, type RuntimeTerminalDataMeta, type RuntimePtyWorktreeRecord } from './orca-runtime-symbols'
+import type {
+  TerminalOutputSourceRange,
+  RemoteTerminalSourceRangeConsumerHooks,
+  RemoteTerminalSourceRangeReplacementPublication,
+  RemoteTerminalSourceRangeReplacementReservation,
+  RemoteTerminalSourceRangeStreamIdentity,
+  ParsedAgentStatusPayload,
+  ProcessedAgentStatusChunk,
+  PtyIncarnationId,
+  RuntimeTerminalDataMeta,
+  RuntimePtyWorktreeRecord
+} from './orca-runtime-symbols'
 import { OrcaRuntimeGetOrCreatePtyTitleTrackerEntryPart22 } from './orca-runtime-get-or-create-pty-title-tracker-entry-part-22'
 
 export class OrcaRuntimeEmitTerminalAgentStatusEventsPart23 extends OrcaRuntimeGetOrCreatePtyTitleTrackerEntryPart22 {
-  protected emitTerminalAgentStatusEvents(ptyId: string, chunk: ProcessedAgentStatusChunk): boolean {
+  protected emitTerminalAgentStatusEvents(
+    ptyId: string,
+    chunk: ProcessedAgentStatusChunk
+  ): boolean {
     // Why: snapshot retention (for mobile worktree.ps) must run even when no
     // renderer listener is attached, so we don't early-return on a missing
     // onTerminalAgentStatus — only the per-target emit below is gated on it.
@@ -129,7 +143,6 @@ export class OrcaRuntimeEmitTerminalAgentStatusEventsPart23 extends OrcaRuntimeG
   }
   protected advancePtyLifecycleGeneration(ptyId: string): void {
     this.ptyLifecycleGenerationById.set(ptyId, this.nextPtyLifecycleGeneration++)
-    this.legacyWorkerRecoveredPtys.delete(ptyId)
     // Why: a provider response belongs to the process generation that issued
     // it; a respawn must neither reuse its frame nor join its in-flight call.
     this.providerBufferAcquisitionsByPtyId.delete(ptyId)

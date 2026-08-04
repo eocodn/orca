@@ -1,4 +1,18 @@
-import { type TerminalOscLinkRange, TerminalKittyKeyboardModeTracker, type RuntimeTerminalRead, buildPreview, DEFAULT_TERMINAL_READ_LIMIT, terminalReadLimit, shouldFallbackToVisibleTerminalSnapshot, visibleNonBlankTerminalLines, buildVisibleSnapshotReadFallback, type PtyProviderBufferSnapshot, HeadlessEmulator, withTimeout, type RuntimeVisibleTerminalState } from './orca-runtime-symbols'
+import {
+  type TerminalOscLinkRange,
+  TerminalKittyKeyboardModeTracker,
+  type RuntimeTerminalRead,
+  buildPreview,
+  DEFAULT_TERMINAL_READ_LIMIT,
+  terminalReadLimit,
+  shouldFallbackToVisibleTerminalSnapshot,
+  visibleNonBlankTerminalLines,
+  buildVisibleSnapshotReadFallback,
+  type PtyProviderBufferSnapshot,
+  HeadlessEmulator,
+  withTimeout,
+  type RuntimeVisibleTerminalState
+} from './orca-runtime-symbols'
 import { OrcaRuntimeMaybeHydrateHeadlessFromRendererPart25 } from './orca-runtime-maybe-hydrate-headless-from-renderer-part-25'
 
 export class OrcaRuntimeSerializeTerminalBufferFromAvailableStatePart26 extends OrcaRuntimeMaybeHydrateHeadlessFromRendererPart25 {
@@ -212,8 +226,7 @@ export class OrcaRuntimeSerializeTerminalBufferFromAvailableStatePart26 extends 
       return read
     }
     const blankFallback = shouldFallbackToVisibleTerminalSnapshot(read, opts)
-    const recoveredWorkerFallback =
-      read.tail.length === 0 && this.legacyWorkerRecoveredPtys.has(ptyId)
+    const recoveredWorkerFallback = read.tail.length === 0
     if (recoveredWorkerFallback) {
       const providerLines = await this.readProviderTerminalTailLines(ptyId, opts.limit)
       if (providerLines.length > 0) {
@@ -358,4 +371,7 @@ export class OrcaRuntimeSerializeTerminalBufferFromAvailableStatePart26 extends 
     return visibleState
   }
 }
-import { VISIBLE_TERMINAL_SNAPSHOT_TIMEOUT_MS, VISIBLE_TERMINAL_SNAPSHOT_RETRY_MS } from './orca-runtime-tail-constants'
+import {
+  VISIBLE_TERMINAL_SNAPSHOT_TIMEOUT_MS,
+  VISIBLE_TERMINAL_SNAPSHOT_RETRY_MS
+} from './orca-runtime-tail-constants'

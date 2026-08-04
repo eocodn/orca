@@ -73,4 +73,18 @@ describe('runtime orchestration storage removal contract', () => {
       existsSync(resolve(projectRoot, 'src/main/runtime/orchestration/environment-transport.ts'))
     ).toBe(false)
   })
+
+  it('does not retain the legacy worker orphan-recovery state path', () => {
+    for (const relativePath of [
+      'src/main/runtime/orca-runtime-imports-agent.ts',
+      'src/main/runtime/orca-runtime-get-terminal-orphan-adoption-snapshot-part-40.ts',
+      'src/main/runtime/orca-runtime-emit-terminal-agent-status-events-part-23.ts',
+      'src/main/runtime/orca-runtime-serialize-terminal-buffer-from-available-state-part-26.ts'
+    ]) {
+      const source = readProjectFile(relativePath)
+      expect(source).not.toContain('legacyWorkerRecoveredPtys')
+      expect(source).not.toContain('OrchestrationError')
+      expect(source).not.toContain('selectExactWorkerProviderSession')
+    }
+  })
 })

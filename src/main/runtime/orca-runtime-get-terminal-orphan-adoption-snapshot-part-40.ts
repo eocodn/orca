@@ -1,4 +1,18 @@
-import { OrchestrationError, selectExactWorkerProviderSession, type TabGroupLayoutNode, type TerminalPaneLayoutNode, type TuiAgent, type ExactWorkerProviderSession, type RuntimeTerminalSummary, type RuntimeTerminalVisualGroupNode, type RuntimeTerminalVisualLayout, type RuntimeTerminalVisualLayoutNode, type RuntimeTerminalVisualPaneNode, type RuntimeTerminalVisualTab, type RuntimeMobileSessionTerminalTab, type RuntimeMobileSessionTabsResult, type RuntimeMobileSessionTabsSnapshot, parsePaneKey, isTuiAgentEnabled, type ResolvedWorktree } from './orca-runtime-symbols'
+import {
+  type TabGroupLayoutNode,
+  type TerminalPaneLayoutNode,
+  type RuntimeTerminalSummary,
+  type RuntimeTerminalVisualGroupNode,
+  type RuntimeTerminalVisualLayout,
+  type RuntimeTerminalVisualLayoutNode,
+  type RuntimeTerminalVisualPaneNode,
+  type RuntimeTerminalVisualTab,
+  type RuntimeMobileSessionTerminalTab,
+  type RuntimeMobileSessionTabsResult,
+  type RuntimeMobileSessionTabsSnapshot,
+  parsePaneKey,
+  type ResolvedWorktree
+} from './orca-runtime-symbols'
 import { OrcaRuntimeAdoptTerminalOrphansFromInventoryPart39 } from './orca-runtime-adopt-terminal-orphans-from-inventory-part-39'
 
 export class OrcaRuntimeGetTerminalOrphanAdoptionSnapshotPart40 extends OrcaRuntimeAdoptTerminalOrphansFromInventoryPart39 {
@@ -57,7 +71,6 @@ export class OrcaRuntimeGetTerminalOrphanAdoptionSnapshotPart40 extends OrcaRunt
       const root =
         this.buildTerminalVisualGroupLayout(snapshot.tabGroupLayout, groupsById) ?? groups[0]
       if (!root) {
-
         continue
       }
       const worktree = worktreesById.get(snapshot.worktree)
@@ -340,47 +353,5 @@ export class OrcaRuntimeGetTerminalOrphanAdoptionSnapshotPart40 extends OrcaRunt
     // Why: renderer generations only change on pane rebind; lifecycle
     // generation fences same-id process replacement for legacy providers.
     return `${this.runtimeId}:${record.ptyId}:${this.getPtyLifecycleGeneration(record.ptyId)}`
-  }
-  getExactWorkerProviderSession(
-    handle: string,
-    observedAfter: number
-  ): ExactWorkerProviderSession | null {
-    const paneKey = this.getTerminalPaneKey(handle)
-    const processIncarnation = this.getTerminalProcessIncarnation(handle)
-    if (!paneKey || !processIncarnation) {
-      return null
-    }
-    let connectionId: string | null | undefined
-    let launchToken: string | null | undefined
-    try {
-      const ptyId = this.getTerminalAgentStatusPtyId(handle)
-      const pty = this.ptysById.get(ptyId)
-      connectionId = pty?.connectionId ?? null
-      launchToken = pty?.launchToken ?? null
-    } catch {
-      // Exact worker validation rejects this in production; test/legacy providers may not expose PTY metadata.
-      connectionId = undefined
-      launchToken = undefined
-    }
-    return selectExactWorkerProviderSession({
-      paneKey,
-      processIncarnation,
-      connectionId,
-      launchToken,
-      observedAfter,
-      statuses: this.getAgentStatusSnapshotFn?.() ?? []
-    })
-  }
-  validateOrchestrationAgentLauncher(agent: TuiAgent): void {
-    const settings = this.store?.getSettings()
-    if (!settings) {
-      throw new Error('runtime_unavailable')
-    }
-    if (!isTuiAgentEnabled(agent, settings.disabledTuiAgents)) {
-      throw new OrchestrationError(
-        'agent_unconfigured',
-        `Agent launcher ${agent} is disabled or unavailable.`
-      )
-    }
   }
 }

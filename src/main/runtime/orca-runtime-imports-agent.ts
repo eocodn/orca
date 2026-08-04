@@ -103,7 +103,6 @@ export type {
   OrchestrationCompatibilityEvidence,
   OrchestrationCompatibilityHostStamp
 } from '../../shared/orchestration-compatibility-evidence'
-export { selectExactWorkerProviderSession } from './orchestration/worker-provider-session'
 export type { Automation, AutomationRun } from '../../shared/automations-types'
 export type {
   AutomationWorkspaceProvenance,
