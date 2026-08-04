@@ -5,6 +5,7 @@ import type { PtyTransport } from './pty-transport'
 import type { PaneCwdMap } from './resolve-split-cwd'
 import { PRIMARY_SELECTION_MAX_LENGTH } from '@/lib/primary-selection'
 import { resolveLocalhostHttpLinkDisplayUrl } from '@/lib/http-link-routing'
+import { getClientRuntime } from '@/runtime/client-runtime'
 
 export function extractUncHost(value: string | undefined): string | null {
   const match = /^(?:\\\\|\/\/)([^\\/]+)/.exec(value ?? '')
@@ -71,7 +72,7 @@ export function hydrateTerminalScrollbackRefs(layout: TerminalLayoutSnapshot): {
       continue
     }
     try {
-      const buffer = window.api.session.readTerminalScrollback({ ref })
+      const buffer = getClientRuntime().session.readTerminalScrollback({ ref })
       if (buffer) {
         buffers[leafId] = buffer
         hydrated = true
@@ -122,7 +123,9 @@ export function resolvePaneSeedCwd(splitPaneCwd: string | undefined, fallbackCwd
   return splitPaneCwd ?? fallbackCwd
 }
 
-export function resolveTerminalHomePathFromEnv(env: Record<string, string> | undefined): string | null {
+export function resolveTerminalHomePathFromEnv(
+  env: Record<string, string> | undefined
+): string | null {
   const home = env?.HOME?.trim()
   if (home) {
     return home

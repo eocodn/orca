@@ -6,6 +6,7 @@ import { guardPinnedTabClose, resolvePinnedTabLabel } from '../store/pinned-tab-
 import { persistWorkspaceSessionByHost } from '@/lib/workspace-session-host-persistence'
 import { buildWorkspaceSessionPayload } from '@/lib/workspace-session'
 import { CLOSE_TERMINAL_PANE_EVENT, type CloseTerminalPaneDetail } from '@/constants/terminal'
+import { getClientRuntime } from '@/runtime/client-runtime'
 type SessionSurfaceContext = {
   unsubs: Array<() => void>
   isRuntimeEnvironmentActive: () => boolean
@@ -173,7 +174,7 @@ if (window.api.ui.onTerminalTabCloseRequest) {
           void (async () => {
             const state = useAppStore.getState()
             await persistWorkspaceSessionByHost(
-              window.api.session,
+              getClientRuntime().session,
               buildWorkspaceSessionPayload(state),
               state
             )
@@ -186,7 +187,6 @@ if (window.api.ui.onTerminalTabCloseRequest) {
     })
   )
 }
-
 unsubs.push(
   window.api.ui.onSleepWorktree(({ worktreeId }) => {
     void runSleepWorktree(worktreeId)

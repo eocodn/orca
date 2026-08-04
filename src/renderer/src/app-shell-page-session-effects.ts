@@ -195,6 +195,7 @@ import {
   subscribeBackgroundTerminalWorktreeMountRequests
 } from './components/terminal/background-terminal-worktree-mount'
 import { useRemoteRuntimeRecoveryTriggers } from './runtime/use-remote-runtime-recovery-triggers'
+import { getClientRuntime } from './runtime/client-runtime'
 import {
   getKeybindingContext,
   hasCustomTitleBar,
@@ -318,7 +319,7 @@ export function useAppShellPageSessionEffects(context: Record<string, unknown>) 
       persist: ({ patch }) => {
         const state = useAppStore.getState()
         // Why: route each host's worktree-scoped slice to its own partition; return the local write so the remote-workspace upload chain below keeps its ordering.
-        const localWrite = patchWorkspaceSessionByHost(window.api.session, patch, state)
+        const localWrite = patchWorkspaceSessionByHost(getClientRuntime().session, patch, state)
         void localWrite
         const hydratedTargetIds = Array.from(state.remoteWorkspaceHydratedTargetIds).filter(
           (targetId) => state.remoteWorkspaceSyncStatusByTargetId[targetId]?.phase !== 'conflict'

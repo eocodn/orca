@@ -18,7 +18,17 @@ const runtimeFiles = [
   'src/renderer/src/runtime/runtime-git-remote-links.ts',
   'src/renderer/src/runtime/runtime-git-staging-client.ts',
   'src/renderer/src/runtime/runtime-git-sync-client.ts',
-  'src/renderer/src/components/right-sidebar/SourceControl.tsx'
+  'src/renderer/src/components/right-sidebar/SourceControl.tsx',
+  'src/renderer/src/app-shell-page-session-effects.ts',
+  'src/renderer/src/app-shell-page-startup-effects.ts',
+  'src/renderer/src/hooks/ipc-events-session.ts'
+]
+
+const sessionFiles = [
+  'src/renderer/src/app-shell-page-session-effects.ts',
+  'src/renderer/src/app-shell-page-startup-effects.ts',
+  'src/renderer/src/hooks/ipc-events-session.ts',
+  'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-policies.ts'
 ]
 
 async function readRuntimeFile(relativePath) {
@@ -30,8 +40,10 @@ describe('ClientRuntime renderer boundary', () => {
     const sources = await Promise.all(runtimeFiles.map(readRuntimeFile))
 
     for (const source of sources) {
-      expect(source).toMatch(/from ['"](?:\.\/client-runtime|@\/runtime\/client-runtime)['"]/)
-      expect(source).not.toMatch(/window\.api\.(?:runtime(?:Environments)?|fs|pty|git)/)
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.(?:runtime(?:Environments)?|fs|pty|git|session)/)
     }
   })
 
@@ -43,5 +55,16 @@ describe('ClientRuntime renderer boundary', () => {
 
     expect(source).not.toMatch(/ipcRenderer|contextBridge|electron/i)
     expect(source).toContain('createClientRuntime')
+  })
+
+  it('routes session persistence and scrollback through the session adapter', async () => {
+    const sources = await Promise.all(sessionFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.session/)
+    }
   })
 })

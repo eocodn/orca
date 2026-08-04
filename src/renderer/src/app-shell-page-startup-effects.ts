@@ -195,6 +195,7 @@ import {
   subscribeBackgroundTerminalWorktreeMountRequests
 } from './components/terminal/background-terminal-worktree-mount'
 import { useRemoteRuntimeRecoveryTriggers } from './runtime/use-remote-runtime-recovery-triggers'
+import { getClientRuntime } from './runtime/client-runtime'
 import {
   getKeybindingContext,
   hasCustomTitleBar,
@@ -328,7 +329,7 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
           // Why: include saved runtime host ids so per-host worktree session slices restore from local settings without waiting on network reachability; unreadable partitions skip.
           timeRendererStartupStep('session-get', () =>
             fetchWorkspaceSessionWithRuntimeHostOwners(
-              window.api.session,
+              getClientRuntime().session,
               useAppStore.getState().repos,
               startupRuntimeHostIds
             )
