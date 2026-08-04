@@ -12365,19 +12365,6 @@
           }
         },
         "tips": {
-          "CliFeatureTipVisual": {
-            "badb4fc342": ">",
-            "22e62f3bab": "Claude Code 세션이 시작되었습니다."
-          },
-          "CliSkillSetupTerminal": {
-            "1953e90447": "Enter를 눌러 agents 용 Orca CLI 오케스트레이션 스킬을 설치하세요.",
-            "43b60ec5c3": "Orca CLI 및 오케스트레이션 스킬 설치 terminal",
-            "84e9576dac": "스킬 설정",
-            "5c3aee22c0": "명령 복사",
-            "5eca672aac": "스킬 설치 명령어 복사",
-            "6ff813fc1d": "스킬 명령어 복사에 실패했습니다.",
-            "b8ad063571": "스킬 설치 명령어를 복사했습니다."
-          },
           "CmdJPaletteTipDialog": {
             "c0bb9f869b": "설정 → 바로가기",
             "8241897205": "언제든지 바로가기를 다시 바인딩할 수 있습니다."

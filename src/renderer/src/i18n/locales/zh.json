@@ -12365,19 +12365,6 @@
           }
         },
         "tips": {
-          "CliFeatureTipVisual": {
-            "badb4fc342": ">",
-            "22e62f3bab": "Claude Code 会话已开始"
-          },
-          "CliSkillSetupTerminal": {
-            "1953e90447": "按 Enter 为您的智能体安装 Orca CLI 编排技能。",
-            "43b60ec5c3": "Orca CLI 和编排技能安装终端",
-            "84e9576dac": "技能设置",
-            "5c3aee22c0": "复制命令",
-            "5eca672aac": "复制技能安装命令",
-            "6ff813fc1d": "复制技能命令失败。",
-            "b8ad063571": "复制技能安装命令。"
-          },
           "CmdJPaletteTipDialog": {
             "c0bb9f869b": "设置 → 快捷键",
             "8241897205": "随时重新绑定快捷方式"

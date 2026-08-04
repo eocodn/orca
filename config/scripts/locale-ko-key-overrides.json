@@ -959,9 +959,6 @@
   "auto.components.emulator.pane.emulator.pane.toolbar.868c0f2938": {
     "ko": "작업 중…"
   },
-  "auto.components.feature.tips.CliSkillSetupTerminal.1953e90447": {
-    "ko": "Enter를 눌러 agents 용 Orca CLI 오케스트레이션 스킬을 설치하세요."
-  },
   "auto.components.feature.tips.CmdJPaletteFeatureTipVisual.379d776971": {
     "ko": "입력 중"
   },

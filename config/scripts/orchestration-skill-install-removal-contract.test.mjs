@@ -15,12 +15,6 @@ describe('orchestration skill install removal contract', () => {
     )
   })
 
-  it('keeps the CLI feature tip limited to the retained CLI skill', () => {
-    const source = readProjectFile('src/renderer/src/components/feature-tips/CliSkillSetupTerminal.tsx')
-    expect(source).toContain('ORCA_CLI_SKILL_INSTALL_COMMAND')
-    expect(source).not.toContain('ORCA_CLI_ORCHESTRATION_SKILL_INSTALL_COMMAND')
-  })
-
   it('does not mark orchestration setup from generic skill discovery', () => {
     const source = readProjectFile('src/renderer/src/hooks/useInstalledAgentSkills.ts')
     expect(source).not.toContain('isOrchestrationSkillName')

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -23,5 +23,22 @@ describe('public Orca CLI feature-tip removal contract', () => {
     expect(source).not.toContain('CliSkillSetupTerminal')
     expect(source).not.toContain('installCliFromFeatureTip')
     expect(source).not.toContain('ORCHESTRATION_ENABLED_STORAGE_KEY')
+  })
+
+  it('removes the deleted CLI feature-tip implementation files', () => {
+    for (const relativePath of [
+      'src/renderer/src/components/feature-tips/CliFeatureTipVisual.tsx',
+      'src/renderer/src/components/feature-tips/CliSkillSetupTerminal.tsx',
+      'src/renderer/src/components/feature-tips/feature-tip-cli-install-action.ts',
+      'src/renderer/src/components/feature-tips/feature-tip-cli-install-action.test.ts'
+    ]) {
+      expect(existsSync(resolve(projectRoot, relativePath)), relativePath).toBe(false)
+    }
+  })
+
+  it('keeps feature-tip actions free of the removed setup action', () => {
+    expect(
+      readProjectFile('src/renderer/src/components/feature-tips/FeatureTipActions.tsx')
+    ).not.toContain('setup-cli')
   })
 })
