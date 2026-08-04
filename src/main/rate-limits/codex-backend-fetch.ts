@@ -1,8 +1,17 @@
-import type { CodexRateLimitResetOutcome, ProviderRateLimits, RateLimitWindow } from '../../shared/rate-limit-types'
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { cancelUnreadResponseBody } from '../lib/unread-response-body'
 import { join } from 'node:path'
+import type { CodexRateLimitResetOutcome,ProviderRateLimits,RateLimitWindow } from '../../shared/rate-limit-types'
+import {
+  buildWslLoginShellCommand,
+  escapeWslShCommandForWindows
+} from '../../shared/wsl-login-shell-command'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import { cancelUnreadResponseBody } from '../lib/unread-response-body'
+import {
+  createAuthFilesystemOperation,
+  type SharedAuthFilesystemOperation
+} from './auth-filesystem-operation'
 import type { FetchCodexRateLimitsOptions } from './codex-fetcher'
 import {
   classifyCodexRateLimitWindows,
@@ -10,16 +19,7 @@ import {
   CODEX_WEEKLY_WINDOW_MINUTES,
   type CodexRateWindowSnapshot
 } from './codex-rate-limit-window-classification'
-import { parseWslUncPath } from '../../shared/wsl-paths'
-import {
-  buildWslLoginShellCommand,
-  escapeWslShCommandForWindows
-} from '../../shared/wsl-login-shell-command'
 import { getHiddenRateLimitWslCwdSetupCommands } from './hidden-rate-limit-pty-cwd'
-import {
-  createAuthFilesystemOperation,
-  type SharedAuthFilesystemOperation
-} from './auth-filesystem-operation'
 
 const BACKEND_TIMEOUT_MS = 10_000
 const REDEEM_BACKEND_TIMEOUT_MS = 30_000

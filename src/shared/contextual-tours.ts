@@ -5,7 +5,6 @@ export type ContextualTourId =
   | 'workspace-agent-sessions'
   | 'browser'
   | 'tasks'
-  | 'automations'
   | 'floating-workspace'
   | 'workspace-creation'
 
@@ -139,22 +138,6 @@ export const CONTEXTUAL_TOURS = [
         body: 'Use Start or Open on a task, issue, review, or merge request to bring its context into a workspace.',
         targetSelector:
           '[data-contextual-tour-target="tasks-start-workspace"], [data-contextual-tour-target="tasks-actions"], [data-contextual-tour-target="tasks-search-presets"]'
-      }
-    ]
-  },
-  {
-    id: 'automations',
-    steps: [
-      {
-        title: 'What is an automation?',
-        body: 'Automations run agent work on a schedule. Add an automation by clicking this button.',
-        targetSelector: '[data-contextual-tour-target="automations-create"]',
-        requiredForStart: true
-      },
-      {
-        title: 'Find the results',
-        body: 'Runs show when automations executed, what happened, and where to inspect their output.',
-        targetSelector: '[data-contextual-tour-target="automations-runs"]'
       }
     ]
   },

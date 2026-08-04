@@ -1,4 +1,4 @@
-import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeAutomationCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
+import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
 import { OrcaRuntimeStatePart3 } from './orca-runtime-state-part-3'
 
 export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
@@ -41,19 +41,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
     this.store = store
     this.clientSettingsCommands = new RuntimeClientSettingsCommands(store, () =>
       this.reconcileManagedAgentHooks()
-    )
-    this.automationCommands = new RuntimeAutomationCommands(
-      store,
-      {
-        showRepo: (selector) => this.showRepo(selector),
-        showManagedWorktree: (selector) => this.showManagedWorktree(selector)
-      },
-      (id) => {
-        if (!this.automationService) {
-          throw new Error('runtime_unavailable')
-        }
-        return this.automationService.runNow(id)
-      }
     )
     this.repoHookCommands = new RuntimeRepoHookCommands({
       resolveRepoSelector: (selector) => this.resolveRepoSelector(selector)

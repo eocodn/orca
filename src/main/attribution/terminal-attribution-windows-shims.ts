@@ -1,5 +1,5 @@
 // Generated Windows scripts remain independent from POSIX shell behavior.
-const POWERSHELL_TICK = "`"
+const POWERSHELL_TICK = '`'
 
 export const WIN32_GIT_CMD_WRAPPER = String.raw`@echo off
 setlocal
@@ -389,3 +389,11 @@ if ($isIssueCreate) {
         }
       } finally {
         Remove-Item -LiteralPath $tmpFile -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+}
+
+Remove-Item -LiteralPath $stdoutFile, $stderrFile -Force -ErrorAction SilentlyContinue
+exit 0
+`

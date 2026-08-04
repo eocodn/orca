@@ -1,7 +1,5 @@
-import { MAX_TIMER_DELAY_MS,isSafeTimerDelayMs } from '../shared/timer-delay';
-import type {
-  DispatcherClientWriter
-} from './dispatcher-client-writer';
+import { MAX_TIMER_DELAY_MS, isSafeTimerDelayMs } from '../shared/timer-delay'
+import type { DispatcherClientWriter } from './dispatcher-client-writer'
 import {
   DEFAULT_PRODUCER_QUEUE_MAX_BYTES,
   DISPATCHER_CONTROL_QUEUE_MAX_BYTES,
@@ -9,7 +7,7 @@ import {
   type RelayClientSinkOptions,
   type RelayClientWrite,
   type SinkWriteSettlement
-} from './dispatcher-client-writer';
+} from './dispatcher-client-writer'
 import {
   FrameDecoder,
   KEEPALIVE_SEND_MS,
@@ -21,13 +19,13 @@ import {
   type JsonRpcNotification,
   type JsonRpcRequest,
   type JsonRpcResponse
-} from './protocol';
+} from './protocol'
 
 export type {
   RelayClientSinkOptions,
   RelayClientWrite,
   SinkWriteSettlement
-} from './dispatcher-client-writer';
+} from './dispatcher-client-writer'
 
 export type RequestContext = {
   clientId: number
@@ -76,7 +74,7 @@ type PendingRelayRequest = {
 
 const RELAY_TO_CLIENT_REQUEST_TIMEOUT_MS = 30_000
 
-import { RelayDispatcherStage1 } from './dispatcher-routing-stage-1';
+import { RelayDispatcherStage1 } from './dispatcher-routing-stage-1'
 export abstract class RelayDispatcherStage2 extends RelayDispatcherStage1 {
   requestAnyClient(
     method: string,
@@ -437,7 +435,9 @@ export abstract class RelayDispatcherStage2 extends RelayDispatcherStage1 {
     return `${client.id}:${client.generation}`
   }
 
-  protected estimateFrameBytes(msg: JsonRpcRequest | JsonRpcResponse | JsonRpcNotification): number {
+  protected estimateFrameBytes(
+    msg: JsonRpcRequest | JsonRpcResponse | JsonRpcNotification
+  ): number {
     return encodeJsonRpcFrame(msg, 0, 0).length
   }
 
@@ -494,5 +494,4 @@ export abstract class RelayDispatcherStage2 extends RelayDispatcherStage1 {
       return !this.disposed
     })
   }
-
 }

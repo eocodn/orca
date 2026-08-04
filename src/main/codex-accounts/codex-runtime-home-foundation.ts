@@ -1,76 +1,40 @@
 import {
-  appendFileSync,
-  copyFileSync,
-  existsSync,
-  chmodSync,
-  lstatSync,
-  mkdirSync,
-  readlinkSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmdirSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  unlinkSync
+  existsSync
 } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import {
-  dirname,
-  extname,
-  isAbsolute,
-  join,
-  parse,
-  relative,
-  resolve,
-  win32 as pathWin32
+  join
 } from 'node:path'
-import { app } from 'electron'
 import type { CodexManagedAccount } from '../../shared/types'
-import type { Store } from '../persistence'
-import { WSL_CODEX_RUNTIME_HOME_SEGMENTS } from '../pty/codex-home-wsl-env'
-import { writeFileAtomically } from './fs-utils'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import { startCodexAccountSessionBridgeInBackground } from '../codex/codex-account-session-bridge'
 import {
-  getOrcaManagedCodexHomePath,
-  getOrcaUserDataPath,
+  prepareSystemConfigForFreshRuntimeMirror,
+  syncSystemConfigIntoManagedCodexHome
+} from '../codex/codex-config-mirror'
+import {
   getCodexSessionBackfillStateDirPath,
   getSystemCodexHomePath,
   resolveOrcaManagedCodexHomePath,
   syncCodexGlobalInstructionsIntoManagedHome,
   syncSystemCodexResourcesIntoManagedHome
 } from '../codex/codex-home-paths'
-import { startCodexAccountSessionBridgeInBackground } from '../codex/codex-account-session-bridge'
+import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
+import { hasCustomCodexHomeOverride } from '../codex/codex-real-home-path'
+import { invalidateCodexSessionBackfillMarker } from '../codex/codex-session-backfill-marker'
 import { startSystemCodexSessionBridgeInBackground } from '../codex/codex-session-bridge'
 import {
   resolveHostCodexSessionSourceHome,
   resolveWslCodexSessionSourceHome
 } from '../codex/codex-session-source-home'
 import { startWslCodexSessionBridgeInBackground } from '../codex/wsl-codex-session-bridge'
-import {
-  prepareSystemConfigForFreshRuntimeMirror,
-  syncSystemConfigIntoManagedCodexHome
-} from '../codex/codex-config-mirror'
-import { parseWslUncPath } from '../../shared/wsl-paths'
-import {
-  getWslSelectionKey,
-  getSelectedCodexAccountIdForTarget,
-  normalizeCodexRuntimeSelection,
-  setSelectedCodexAccountIdForTarget,
-  type CodexAccountSelectionTarget
-} from './runtime-selection'
-import { getDefaultWslDistro, getWslHome } from '../wsl'
-import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
-import { hasCustomCodexHomeOverride } from '../codex/codex-real-home-path'
-import { invalidateCodexSessionBackfillMarker } from '../codex/codex-session-backfill-marker'
+import type { Store } from '../persistence'
 import { readShellStartupEnvVar } from '../pty/shell-startup-env'
+import { getDefaultWslDistro,getWslHome } from '../wsl'
 import { assertOwnedHostCodexManagedHomePath } from './host-codex-managed-home-ownership'
 import {
-  codexAuthIsFresher,
-  codexAuthMatchesManagedAccount,
-  codexAuthMatchesSystemDefaultIdentity
-} from './codex-auth-identity'
-import { migrateLegacySharedAuthToPerAccountHome } from './legacy-shared-auth-migration'
+  normalizeCodexRuntimeSelection,
+  type CodexAccountSelectionTarget
+} from './runtime-selection'
 
 export type CodexSystemDefaultSnapshot = {
   authJson: string | null

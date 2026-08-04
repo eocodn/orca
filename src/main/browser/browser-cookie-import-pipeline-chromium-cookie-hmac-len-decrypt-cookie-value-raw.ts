@@ -1,10 +1,9 @@
 import { createDecipheriv } from 'node:crypto'
 
-import { type EncryptionKeyResult } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
+import type { EncryptionKeyResult } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
 import { decryptAes256Gcm } from './browser-cookie-import-pipeline-decrypt-aes256-gcm-decode-safari-page'
 
 export const CHROMIUM_COOKIE_HMAC_LEN = 32
-
 
 export function hasHmacPrefix(buf: Buffer): boolean {
   if (buf.length <= CHROMIUM_COOKIE_HMAC_LEN) {
@@ -19,11 +18,9 @@ export function hasHmacPrefix(buf: Buffer): boolean {
   return nonPrintable >= 8
 }
 
-
 export function stripHmac(buf: Buffer): Buffer {
   return hasHmacPrefix(buf) ? buf.subarray(CHROMIUM_COOKIE_HMAC_LEN) : buf
 }
-
 
 export function decryptCookieValueRaw(
   encryptedBuffer: Buffer,

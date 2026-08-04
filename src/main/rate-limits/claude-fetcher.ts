@@ -1,45 +1,39 @@
-import { net, session } from 'electron'
-import type {
-  ProviderRateLimits,
-  RateLimitWindow,
-  UsageRateLimitFailureKind,
-  UsageRateLimitMetadata,
-  UsageRateLimitSource
-} from '../../shared/rate-limit-types'
+import { session } from 'electron'
 import type { NetworkProxySettings } from '../../shared/network-proxy'
-import { fetchViaPty } from './claude-pty'
-import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
+import type {
+  ProviderRateLimits
+} from '../../shared/rate-limit-types'
 import {
   isOauthTokenExpiring,
   refreshClaudeOauthCredentials
 } from '../claude-accounts/oauth-refresh'
-import { createOAuthUsageError, OAuthUsageError } from './claude-oauth-usage-error'
-import { mapClaudeUsageWindow, type ClaudeUsageWindowInput } from './claude-usage-window'
+import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
 import { withMacTailscaleDnsHint } from '../network/macos-tailscale-dns-diagnostic'
 import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
-import { resolveClaudeUsageRefreshPlan } from './claude-usage-refresh-plan'
-import {
-  classifyClaudeCredentialAbsence,
-  classifyClaudeOAuthUsageError,
-  type ClaudeUsageErrorClassification
-} from './claude-usage-error-classification'
-import {
-  parseOAuthCredentialsJson,
-  readOAuthCredentials,
-  type OAuthCredentialReadOptions,
-  type OAuthCredentialReadResult
-} from './claude-oauth-credentials'
 import {
   canTrustManagedUsagePanelSupplement,
   getManagedUsagePanelAuthPreparation,
   readManagedCredentials,
   readStagedManagedPreviewCredentials,
   resolveManagedCredentialsLocation,
-  type InactiveClaudeAccountInfo,
-  type ManagedCredentialsLocation,
   withManagedPreviewKeychainCredentials,
-  writeManagedCredentialsJson
+  writeManagedCredentialsJson,
+  type InactiveClaudeAccountInfo,
+  type ManagedCredentialsLocation
 } from './claude-managed-credentials'
+import {
+  parseOAuthCredentialsJson,
+  readOAuthCredentials,
+  type OAuthCredentialReadOptions,
+  type OAuthCredentialReadResult
+} from './claude-oauth-credentials'
+import { OAuthUsageError } from './claude-oauth-usage-error'
+import { fetchViaPty } from './claude-pty'
+import {
+  classifyClaudeCredentialAbsence,
+  classifyClaudeOAuthUsageError
+} from './claude-usage-error-classification'
+import { resolveClaudeUsageRefreshPlan } from './claude-usage-refresh-plan'
 
 const OAUTH_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA_HEADER = 'oauth-2025-04-20'
@@ -102,31 +96,27 @@ function warnClaudeUsageFetchFailure(
   })
 }
 
-import { abortedClaudeRateLimitResult, fetchViaOAuth } from './claude-oauth-fetch'
-import {
-  recordAttempt,
-  withClaudeUsageMetadata,
-  makeClaudeUsageResult,
-  metadataForAttempt,
-  classifyClaudeCliUsageFailure,
-  fetchClaudeUsageViaCli,
-  isManagedClaudeAuth,
-  canSupplementOAuthUsageFromCli,
-  mergeClaudeUsageWindows,
-  supplementOAuthUsageFromCli,
-  completeOAuthUsageSuccess,
-  canRetryWithLegacyKeychainToken,
-  retryOAuthWithLegacyKeychainToken,
-  shouldDeferForLiveClaude,
-  liveClaudeDeferredResult,
-  errorResultForClassification,
-  attemptCliRepairThenRetryOAuth
-} from './claude-oauth-attribution'
 import type {
   ClaudeUsageAttemptState,
   FetchClaudeRateLimitsOptions,
   FetchManagedAccountUsageOptions
 } from './claude-oauth-attribution'
+import {
+  attemptCliRepairThenRetryOAuth,
+  canRetryWithLegacyKeychainToken,
+  canSupplementOAuthUsageFromCli,
+  completeOAuthUsageSuccess,
+  errorResultForClassification,
+  fetchClaudeUsageViaCli,
+  liveClaudeDeferredResult,
+  makeClaudeUsageResult,
+  mergeClaudeUsageWindows,
+  metadataForAttempt,
+  recordAttempt,
+  retryOAuthWithLegacyKeychainToken,
+  shouldDeferForLiveClaude
+} from './claude-oauth-attribution'
+import { abortedClaudeRateLimitResult,fetchViaOAuth } from './claude-oauth-fetch'
 
 // ---------------------------------------------------------------------------
 // Public API

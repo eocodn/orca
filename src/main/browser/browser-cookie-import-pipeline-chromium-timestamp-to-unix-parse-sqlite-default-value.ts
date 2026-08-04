@@ -1,4 +1,3 @@
-
 import { CHROMIUM_EPOCH_OFFSET } from './browser-cookie-import-pipeline-pbkdf2-iterations-chromium-epoch-offset'
 
 export function chromiumTimestampToUnix(chromiumTs: bigint | number | string): number {
@@ -21,14 +20,12 @@ export function chromiumTimestampToUnix(chromiumTs: bigint | number | string): n
 
 // Why: each platform protects the Chromium key differently: macOS/Linux PBKDF2→AES-128-CBC, Windows DPAPI→AES-256-GCM.
 
-
 export type EncryptionKeyResult = {
   key: Buffer
   mode: 'aes-128-cbc' | 'aes-256-gcm'
   // Why: Linux v10 cookies use "peanuts" and v11 the keyring password; both keys are needed to decrypt the full set.
   fallbackKey?: Buffer
 }
-
 
 export type ChromiumCookieColumnInfo = {
   name: string
@@ -37,8 +34,10 @@ export type ChromiumCookieColumnInfo = {
   dflt_value?: unknown
 }
 
-
-export function parseSqliteDefaultValue(raw: unknown, type: string): string | number | Buffer | null {
+export function parseSqliteDefaultValue(
+  raw: unknown,
+  type: string
+): string | number | Buffer | null {
   if (raw === null || raw === undefined) {
     return null
   }

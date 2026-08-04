@@ -1,1 +1,1 @@
-export * from './codex-account-lifecycle.ts'
+export * from './codex-account-lifecycle'

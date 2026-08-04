@@ -1,4 +1,4 @@
-import { type Automation, type AutomationRun, type GlobalSettings, type PersistedUIState, type StatsSummary, type MemorySnapshot, type TerminalQuickCommand, type FeatureInteractionId, type TerminalQuickCommandMutation, applyAgentStatusHooksEnabled, recordManagedHookInstallFailure, type IPtyProvider, collectMemorySnapshot, app, killAllProcessesForWorktree, type RuntimeClientSettings, type RuntimeAutomationCreateInput, type RuntimeAutomationUpdateInput } from './orca-runtime-symbols'
+import { type GlobalSettings, type PersistedUIState, type StatsSummary, type MemorySnapshot, type TerminalQuickCommand, type FeatureInteractionId, type TerminalQuickCommandMutation, applyAgentStatusHooksEnabled, recordManagedHookInstallFailure, type IPtyProvider, collectMemorySnapshot, app, killAllProcessesForWorktree, type RuntimeClientSettings } from './orca-runtime-symbols'
 import { OrcaRuntimeState } from './orca-runtime-state'
 import type { OrcaRuntimeService } from './orca-runtime'
 
@@ -132,26 +132,5 @@ export class OrcaRuntimeGetLocalProviderPart1 extends OrcaRuntimeState {
   }
   updateClientPRBotAuthorOverride(args: { author: string; isBot: boolean }) {
     return this.clientSettingsCommands.updateClientPRBotAuthorOverride(args)
-  }
-  listAutomations(): Automation[] {
-    return this.automationCommands.listAutomations()
-  }
-  listAutomationRuns(automationId?: string): AutomationRun[] {
-    return this.automationCommands.listAutomationRuns(automationId)
-  }
-  showAutomation(id: string): Automation {
-    return this.automationCommands.showAutomation(id)
-  }
-  async createAutomation(input: RuntimeAutomationCreateInput): Promise<Automation> {
-    return this.automationCommands.createAutomation(input)
-  }
-  async updateAutomation(id: string, updates: RuntimeAutomationUpdateInput): Promise<Automation> {
-    return this.automationCommands.updateAutomation(id, updates)
-  }
-  deleteAutomation(id: string): { removed: boolean; id: string } {
-    return this.automationCommands.deleteAutomation(id)
-  }
-  async runAutomationNow(id: string): Promise<AutomationRun> {
-    return this.automationCommands.runAutomationNow(id)
   }
 }

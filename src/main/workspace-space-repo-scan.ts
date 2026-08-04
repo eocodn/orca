@@ -1,7 +1,7 @@
 import type { Store } from "./persistence"
 import { isFolderRepo } from "../shared/repo-kind"
 import type { GitWorktreeInfo, Repo, Worktree } from "../shared/types"
-import type { WorkspaceSpaceScanStatus, WorkspaceSpaceRepoSummary, WorkspaceSpaceWorktree } from "../shared/workspace-space-types"
+import type { WorkspaceSpaceWorktree } from "../shared/workspace-space-types"
 import { getSshFilesystemProvider } from "./providers/ssh-filesystem-dispatch"
 import { getSshGitProvider } from "./providers/ssh-git-dispatch"
 import { createFolderWorktree, listRepoWorktrees } from "./repo-worktrees"
@@ -9,7 +9,7 @@ import { mergeWorktree } from "./ipc/worktree-logic"
 import { getLocalProjectWorktreeGitOptions } from "./project-runtime-git-options"
 import { mapWithConcurrency } from "../shared/map-with-concurrency"
 import { scanLocalWorktree, scanRemoteWorktree } from "./workspace-space-directory-scan"
-import { WORKTREE_SCAN_CONCURRENCY, throwIfAborted, classifyError, createUnavailableWorktreeRow, type WorkspaceSpaceAnalyzeOptions, type WorkspaceSpaceProgressState, type WorkspaceSpaceScanLimiters, type RepoScanResult } from "./workspace-space-scan-support"
+import { WORKTREE_SCAN_CONCURRENCY, throwIfAborted, classifyError, createUnavailableWorktreeRow, WorkspaceSpaceScanCancelledError, type WorktreeListResult, type WorkspaceSpaceAnalyzeOptions, type WorkspaceSpaceProgressState, type WorkspaceSpaceScanLimiters, type RepoScanResult } from "./workspace-space-scan-support"
 
 export async function listWorktreesForSpaceScan(
   store: Store,

@@ -1,60 +1,14 @@
-import { webContents } from 'electron'
-import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
-} from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
+import type { CdpCommandSender, RefEntry } from './snapshot-engine'
 
 import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+const { BrowserError } = foundation
 
 export const CdpBridgeMethods15 = {
-  async tryRecoverRef(this: any, sender: CdpCommandSender, entry: RefEntry): Promise<number | null> {
+  async tryRecoverRef(
+    this: any,
+    sender: CdpCommandSender,
+    entry: RefEntry
+  ): Promise<number | null> {
     try {
       const { nodes } = (await sender('Accessibility.getFullAXTree')) as {
         nodes: { role?: { value: string }; name?: { value: string }; backendDOMNodeId?: number }[]
@@ -85,7 +39,7 @@ export const CdpBridgeMethods15 = {
       // AX tree unavailable — can't recover
     }
     return null
-  }
+  },
   async getNavigationId(this: any, sender: CdpCommandSender): Promise<string> {
     const { entries, currentIndex } = (await sender('Page.getNavigationHistory')) as {
       entries: { id: number; url: string }[]
@@ -93,7 +47,7 @@ export const CdpBridgeMethods15 = {
     }
     const current = entries[currentIndex]
     return current ? `${current.id}:${current.url}` : 'unknown'
-  }
+  },
   async getPreviousHistoryEntryId(this: any, sender: CdpCommandSender): Promise<number> {
     const { entries, currentIndex } = (await sender('Page.getNavigationHistory')) as {
       entries: { id: number }[]
@@ -103,8 +57,12 @@ export const CdpBridgeMethods15 = {
       throw new BrowserError('browser_navigation_failed', 'No previous history entry.')
     }
     return entries[currentIndex - 1].id
-  }
-  async waitForLoad(this: any, sender: CdpCommandSender, guest: Electron.WebContents): Promise<void> {
+  },
+  async waitForLoad(
+    this: any,
+    sender: CdpCommandSender,
+    guest: Electron.WebContents
+  ): Promise<void> {
     // Why: SPAs fire 'load' before async content renders, so also wait for 500ms of network idle.
     const TIMEOUT_MS = 25_000
     const IDLE_MS = 500

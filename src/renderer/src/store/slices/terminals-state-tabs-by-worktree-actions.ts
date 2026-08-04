@@ -44,7 +44,7 @@ import {
 import { isWslUncPath } from '../../../../shared/wsl-paths'
 import type { ProjectExecutionRuntimeResolution } from '../../../../shared/project-execution-runtime'
 import type { StartupCommandDelivery } from '../../../../shared/codex-startup-delivery'
-import type { SessionOptionValue } from '../../../../shared/native-chat-session-options'
+import type { SessionOptionValue } from '../../../../shared/agent-session-option-types'
 import { resolveLocalWindowsTerminalShellOverrideForTab } from '../../../../shared/local-windows-terminal-runtime'
 import { WINDOWS_GIT_BASH_SHELL } from '../../../../shared/windows-terminal-shell'
 import type { AgentStartedTelemetry } from '../../lib/worktree-activation'
@@ -119,7 +119,6 @@ import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner
 import { resolveTerminalWorktreeRoute } from '@/lib/terminal-worktree-route'
 import { resolveWorktreeOperationRouteResult } from '@/lib/worktree-operation-route'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
-import type { NativeChatLaunchDraft, NativeChatLaunchPrompt } from '@/lib/native-chat-launch-prompt'
 import {
   addAdditionalValidWorkspaceKeys,
   type WorkspaceSessionHydrationOptions
@@ -171,8 +170,6 @@ export function createTerminalSliceTabsByWorktreeActions(set: SliceSet, get: Sli
   pendingSetupSplitByTabId: {},
   pendingIssueCommandSplitByTabId: {},
   automaticAgentResumeClaimsByTabId: {},
-  nativeChatLaunchPromptByTabId: {},
-  nativeChatLaunchDraftByTabId: {},
   tabBarOrderByWorktree: {},
   workspaceSessionReady: false,
   restoredRuntimeHostIdByWorkspaceSessionKey: {},
@@ -219,89 +216,6 @@ export function createTerminalSliceTabsByWorktreeActions(set: SliceSet, get: Sli
         [tabId]: claim
       }
     }))
-  },
-  seedNativeChatLaunchPrompt: (prompt) => {
-    set((s) => ({
-      nativeChatLaunchPromptByTabId: {
-        ...s.nativeChatLaunchPromptByTabId,
-        [prompt.tabId]: prompt
-      }
-    }))
-  },
-  markNativeChatLaunchPromptFailed: (tabId) => {
-    set((s) => {
-      const current = s.nativeChatLaunchPromptByTabId[tabId]
-      if (!current || current.failed) {
-        return {}
-      }
-      return {
-        nativeChatLaunchPromptByTabId: {
-          ...s.nativeChatLaunchPromptByTabId,
-          [tabId]: { ...current, failed: true }
-        }
-      }
-    })
-  },
-  clearNativeChatLaunchPrompt: (tabId) => {
-    set((s) => {
-      if (!s.nativeChatLaunchPromptByTabId[tabId]) {
-        return {}
-      }
-      const next = { ...s.nativeChatLaunchPromptByTabId }
-      delete next[tabId]
-      return { nativeChatLaunchPromptByTabId: next }
-    })
-  },
-  seedNativeChatLaunchDraft: (draft) => {
-    set((s) => ({
-      nativeChatLaunchDraftByTabId: {
-        ...s.nativeChatLaunchDraftByTabId,
-        [draft.tabId]: draft
-      }
-    }))
-  },
-  markNativeChatLaunchDraftAdopted: (tabId) => {
-    set((s) => {
-      const current = s.nativeChatLaunchDraftByTabId[tabId]
-      if (!current || current.adopted) {
-        return {}
-      }
-      return {
-        nativeChatLaunchDraftByTabId: {
-          ...s.nativeChatLaunchDraftByTabId,
-          [tabId]: { ...current, adopted: true }
-        }
-      }
-    })
-  },
-  resolveNativeChatLaunchDraft: (tabId, resolution) => {
-    set((s) => {
-      const current = s.nativeChatLaunchDraftByTabId[tabId]
-      if (
-        !current ||
-        current.resolved ||
-        current.createdAt !== resolution.createdAt ||
-        current.text !== resolution.text
-      ) {
-        return {}
-      }
-      return {
-        nativeChatLaunchDraftByTabId: {
-          ...s.nativeChatLaunchDraftByTabId,
-          [tabId]: { ...current, resolved: true }
-        }
-      }
-    })
-  },
-  clearNativeChatLaunchDraft: (tabId) => {
-    set((s) => {
-      if (!s.nativeChatLaunchDraftByTabId[tabId]) {
-        return {}
-      }
-      const next = { ...s.nativeChatLaunchDraftByTabId }
-      delete next[tabId]
-      return { nativeChatLaunchDraftByTabId: next }
-    })
   },
   recordTerminalInput: (paneKey, timestamp = Date.now()) => {
     if (!paneKey || !Number.isFinite(timestamp)) {

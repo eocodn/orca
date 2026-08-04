@@ -1,19 +1,12 @@
+import type { NetworkProxySettings } from '../../shared/network-proxy'
 import type {
   ProviderRateLimits,
-  RateLimitWindow,
   UsageRateLimitFailureKind,
   UsageRateLimitMetadata,
   UsageRateLimitSource
 } from '../../shared/rate-limit-types'
-import type { NetworkProxySettings } from '../../shared/network-proxy'
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
-import { OAuthUsageError } from './claude-oauth-usage-error'
-import { mapClaudeUsageWindow } from './claude-usage-window'
 import { withMacTailscaleDnsHint } from '../network/macos-tailscale-dns-diagnostic'
-import {
-  classifyClaudeOAuthUsageError,
-  type ClaudeUsageErrorClassification
-} from './claude-usage-error-classification'
 import {
   readOAuthCredentials,
   type OAuthCredentialReadResult
@@ -21,10 +14,18 @@ import {
 import {
   abortedClaudeRateLimitResult,
   fetchViaOAuth,
-  type OAuthUsageWindow,
-  type OAuthUsageLimit,
-  type OAuthUsageResponse
+  LIVE_CLAUDE_REFRESH_DEFERRED_MESSAGE,
+  resolveOAuthCredentialReadOptions,
+  warnClaudeUsageFetchFailure,
+  type ClaudeUsageAttemptState
 } from './claude-oauth-fetch'
+import { OAuthUsageError } from './claude-oauth-usage-error'
+import { fetchViaPty } from './claude-pty'
+import {
+  type ClaudeUsageErrorClassification
+} from './claude-usage-error-classification'
+
+export type { ClaudeUsageAttemptState } from './claude-oauth-fetch'
 
 export function recordAttempt(
   state: ClaudeUsageAttemptState,

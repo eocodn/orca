@@ -1,8 +1,8 @@
 
-import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFailure, SshConnectionState, SshConfigImportResult, SshTargetAddResult, SshTarget, PortForwardEntry, EnrichedDetectedPort, PluginPanelActionOutcome, PluginPanelEntry, PluginConsentRequest, PluginLanguagePackRegistration, PluginChangeEvent, PluginMarketplaceGitSource, FilesystemPathFlavor, RuntimeAccessGrant, AgentStatusClearIpcPayload, AgentStatusIpcPayload, MigrationUnsupportedPtyEntry, AgentInterruptInferenceRequest, AgentQuestionAnsweredInferenceRequest, SpeechErrorEvent, SpeechLifecycleEvent, SpeechModelManifest, SpeechModelState, SpeechTranscriptEvent, Automation, AutomationCreateInput, AutomationDispatchRequest, AutomationDispatchResult, ExternalAutomationCreateInput, ExternalAutomationActionInput, ExternalAutomationManager, ExternalAutomationRunsInput, ExternalAutomationRunsPage, ExternalAutomationUpdateInput, AutomationRun, AutomationPrecheckResult, AutomationUpdateInput, PluginHostListEntry, PluginHostLogLine, PluginHostInstallSource, PluginHostInstallResult, PluginMarketplaceHostSourceState, PluginMarketplaceHostListing, PluginMarketplaceHostInstallPreview } from './preload-api-contract-types';export type PreloadApiUi = {
+import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFailure, SshConnectionState, SshConfigImportResult, SshTargetAddResult, SshTarget, PortForwardEntry, EnrichedDetectedPort, PluginPanelActionOutcome, PluginPanelEntry, PluginConsentRequest, PluginLanguagePackRegistration, PluginChangeEvent, PluginMarketplaceGitSource, FilesystemPathFlavor, RuntimeAccessGrant, AgentStatusClearIpcPayload, AgentStatusIpcPayload, MigrationUnsupportedPtyEntry, AgentInterruptInferenceRequest, AgentQuestionAnsweredInferenceRequest, SpeechErrorEvent, SpeechLifecycleEvent, SpeechModelManifest, SpeechModelState, SpeechTranscriptEvent, PluginHostListEntry, PluginHostLogLine, PluginHostInstallSource, PluginHostInstallResult, PluginMarketplaceHostSourceState, PluginMarketplaceHostListing, PluginMarketplaceHostInstallPreview } from './preload-api-contract-types';export type PreloadApiUi = {
   ssh: {
     listTargets: () => Promise<SshTarget[]>
-    // Removed-target id → last known label, for a friendly host name on workspaces still pinned to a removed target.
+    // Removed-target id â last known label, for a friendly host name on workspaces still pinned to a removed target.
     listRemovedTargetLabels: () => Promise<Record<string, string>>
     addTarget: (args: { target: Omit<SshTarget, 'id'> }) => Promise<SshTargetAddResult>
     updateTarget: (args: {
@@ -62,27 +62,6 @@ import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFai
     ) => () => void
     onCredentialResolved: (callback: (data: { requestId: string }) => void) => () => void
     submitCredential: (args: { requestId: string; value: string | null }) => Promise<void>
-  }
-  automations: {
-    list: () => Promise<Automation[]>
-    listRuns: (args?: { automationId?: string }) => Promise<AutomationRun[]>
-    listExternalManagers: () => Promise<ExternalAutomationManager[]>
-    listExternalRuns: (input: ExternalAutomationRunsInput) => Promise<ExternalAutomationRunsPage>
-    createExternal: (input: ExternalAutomationCreateInput) => Promise<void>
-    updateExternal: (input: ExternalAutomationUpdateInput) => Promise<void>
-    runExternalAction: (input: ExternalAutomationActionInput) => Promise<void>
-    create: (input: AutomationCreateInput) => Promise<Automation>
-    update: (args: { id: string; updates: AutomationUpdateInput }) => Promise<Automation>
-    delete: (args: { id: string }) => Promise<void>
-    runNow: (args: { id: string }) => Promise<AutomationRun>
-    runPrecheck: (args: {
-      automationId: string
-      runId: string
-    }) => Promise<AutomationPrecheckResult | null>
-    markDispatchResult: (result: AutomationDispatchResult) => Promise<AutomationRun>
-    snapshotWorkspaceName: (args: { workspaceId: string; displayName: string }) => Promise<number>
-    rendererReady: () => Promise<void>
-    onDispatchRequested: (callback: (request: AutomationDispatchRequest) => void) => () => void
   }
   wsl: {
     isAvailable: () => Promise<boolean>
@@ -158,7 +137,7 @@ import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFai
     /** Return the current main-process hook cache after renderer hydration. */
     getSnapshot: () => Promise<AgentStatusIpcPayload[]>
     inferInterrupt: (request: AgentInterruptInferenceRequest) => Promise<boolean>
-    /** Guarded clear for an answered AskUserQuestion wait — the CLI emits no hook at answer time, so the renderer reports the submit keystroke. */
+    /** Guarded clear for an answered AskUserQuestion wait â the CLI emits no hook at answer time, so the renderer reports the submit keystroke. */
     inferQuestionAnswered: (request: AgentQuestionAnsweredInferenceRequest) => Promise<boolean>
     /** Listen for PTYs on a legacy numeric pane key that have registry-backed UUID pane proof. */
     onMigrationUnsupported: (callback: (entry: MigrationUnsupportedPtyEntry) => void) => () => void

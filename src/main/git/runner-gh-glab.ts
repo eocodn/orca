@@ -5,51 +5,27 @@
  * gh.exe, rg.exe) are absent or slow, so this routes execution through
  * `wsl.exe -d <distro>` with translated Linux paths.
  */
+import { UNTRANSLATED_GIT_OUTPUT_ENV } from '../../shared/git-output-locale'
 import {
-  execFile,
-  execFileSync,
-  spawn,
-  type ChildProcess,
-  type ExecFileOptions,
-  type SpawnOptions
-} from 'node:child_process'
-import { StringDecoder } from 'node:string_decoder'
-import { withGitSpan } from '../observability/instrumentation'
-import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
-import {
+  type GhRateLimitBucket,
   classifyGhRateLimitBucket,
   createGhRateLimitBlockedError,
   getGhRateLimitBlockedUntilMs,
   ghRateLimitScopeKey,
   isGhPrimaryRateLimitStderr,
   isGhRateLimitProbe,
-  notifyGhPrimaryRateLimit,
-  type GhRateLimitBucket
+  notifyGhPrimaryRateLimit
 } from './gh-rate-limit-breaker'
-import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
-import { addWslEnvKeys } from '../wsl-env'
-import {
-  appendGitConfigEnv,
-  gitCredentialPromptGuardEnv
-} from '../../shared/git-credential-prompt-env'
-import { getSpawnArgsForWindows, isWindowsBatchScript, resolveWindowsCommand } from '../win32-utils'
-import {
-  buildWslLoginShellCommand,
-  escapeWslShCommandForWindows,
-  quotePosixShell
-} from '../../shared/wsl-login-shell-command'
-import { UNTRANSLATED_GIT_OUTPUT_ENV } from '../../shared/git-output-locale'
-import { endSubprocessStdin } from '../../shared/subprocess-stdin-write'
 // Re-exported for existing importers; lightweight consumers should import from './exec-error' to avoid this heavy module.
-import { extractExecError, parseRetryAfterMs } from './exec-error'
+import { extractExecError,parseRetryAfterMs } from './exec-error'
+import { type ResolvedCommand,canFallBackToHostGitHubCli,isHostCommandMissing,resolveCommand,resolveDefaultWslCli,resolveHostGitHubCli } from './runner-command-resolution'
+import { type GitExecOptions,execFileCapture } from './runner-execution'
 // ─── Core resolution ────────────────────────────────────────────────
 
 // Env-assignment prefix for WSL-routed git, where spawn env can't cross the wsl.exe boundary; values are shell-safe unquoted.
 const GIT_OUTPUT_LOCALE_SHELL_PREFIX = Object.entries(UNTRANSLATED_GIT_OUTPUT_ENV)
   .map(([key, value]) => `${key}=${value}`)
   .join(' ')
-import { type ResolvedCommand, canFallBackToHostGitHubCli, resolveHostGitHubCli, resolveDefaultWslCli, isHostCommandMissing, resolveCommand } from './runner-command-resolution'
-import { type GitExecOptions, execFileCapture } from './runner-execution'
 type GhExecOptions = Omit<GitExecOptions, 'cwd'> & {
   cwd?: string
   wslDistro?: string
@@ -499,6 +475,4 @@ async function glabExecFileAsync(
  * Used for non-git binaries like `rg` that also need WSL routing.
  */
 
-export { NON_IDEMPOTENT_METHODS, NON_IDEMPOTENT_GH_VERBS, argsLookIdempotent, isTransientGhError, GH_RETRY_DELAYS_MS, GH_RETRY_AFTER_MAX_MS, DEFAULT_GH_EXEC_TIMEOUT_MS, sleep, defaultGhExecTimeoutMs, nonInteractiveGhEnv, hasGhHostnameFlag, hostQualifiedGhRepoValue, applyGhHostToArgs, explicitGhHostname, explicitGhRepoHostname, ghRateLimitScope, assertGhRateLimitScopeAvailable, ghExecFileAsync, redirectPortedHostnameToEnv, glabExecFileAsync }
-export { type GhExecOptions, type GlabExecOptions }
-
+export { DEFAULT_GH_EXEC_TIMEOUT_MS,GH_RETRY_AFTER_MAX_MS,GH_RETRY_DELAYS_MS,NON_IDEMPOTENT_GH_VERBS,NON_IDEMPOTENT_METHODS,applyGhHostToArgs,argsLookIdempotent,assertGhRateLimitScopeAvailable,defaultGhExecTimeoutMs,explicitGhHostname,explicitGhRepoHostname,ghExecFileAsync,ghRateLimitScope,glabExecFileAsync,hasGhHostnameFlag,hostQualifiedGhRepoValue,isTransientGhError,nonInteractiveGhEnv,redirectPortedHostnameToEnv,sleep,type GhExecOptions,type GlabExecOptions }

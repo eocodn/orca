@@ -1,4 +1,4 @@
-import * as pty from 'node-pty'
+import type * as pty from 'node-pty'
 import { win32 as pathWin32 } from 'node:path'
 import type { SubprocessHandle } from './session'
 import {

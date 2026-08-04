@@ -1,38 +1,27 @@
-import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs'
-import { join, win32 as pathWin32 } from 'node:path'
-import type { SFTPWrapper } from 'ssh2'
-import type { AgentHookInstallState, AgentHookInstallStatus } from '../../shared/agent-hook-types'
+import { existsSync,readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { POSIX_HOOK_STDIN_DRAIN_COMMAND } from '../agent-hooks/hook-stdin-contract'
 import {
-  buildManagedCommandHook,
-  createManagedCommandMatcher,
-  buildWindowsAgentHookCurlPostCommand,
   getSharedManagedScriptPath,
-  hookDefinitionHasManagedCommand,
-  MANAGED_HOOK_TIMEOUT_SECONDS,
   readHooksJson,
-  readHooksJsonWithRaw,
   removeManagedCommands,
   wrapPosixHookCommand,
   wrapWindowsCmdHookCommand,
   writeHooksJson,
-  writeManagedScript,
   type HookDefinition
 } from '../agent-hooks/installer-utils'
-import { resolveHooksJsonWritePath } from '../agent-hooks/hook-config-write-path'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { getOrcaManagedCodexHomePath,getSystemCodexHomePath } from './codex-home-paths'
 import {
-  readHooksJsonRemote,
-  readTextFileRemote,
-  writeHooksJsonRemote,
-  writeManagedScriptRemote,
-  writeTextFileRemoteAtomic
-} from '../agent-hooks/installer-utils-remote'
+  CODEX_HOOK_EVENT_LABEL,
+  createCodexHookTrustEntry,
+  getCodexHookTrustSignature,
+  getCodexManagedScriptFileName
+} from './codex-hook-identity'
+import { getManagedScript } from './codex-hook-support-b'
 import {
-  buildPosixHookPayloadCapture,
-  buildWindowsHookEnvironmentGuardLines,
-  buildWindowsHookStdinDrainEpilogue,
-  POSIX_HOOK_STDIN_DRAIN_COMMAND
-} from '../agent-hooks/hook-stdin-contract'
+  createCodexWslRuntimeHookInstallPlan,
+  type CodexWslRuntimeHookInstallPlan,
+} from './codex-wsl-hook-install-plan'
 import {
   codexHookSourcePathsEqual,
   computeTrustKey,
@@ -40,47 +29,15 @@ import {
   escapeTomlString,
   getCodexExplicitHomeHookSourcePath,
   normalizeCodexHookSourcePath,
-  normalizeCodexProjectPathForLookup,
   normalizeHookTrustKeyForLookup,
   parseTrustKey,
   readHookTrustEntries,
   removeHookTrustEntries,
-  upsertHookTrustEntriesInContent,
-  upsertHookTrustEntries,
   writeConfigAtomically,
   type CodexEventLabel,
   type CodexHookTrustState,
   type CodexTrustEntry
 } from './config-toml-trust'
-import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
-import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
-import {
-  createCodexWslRuntimeHookInstallPlan,
-  type CodexWslRuntimeHookInstallPlan,
-  type CodexWslRuntimeHookTarget,
-  type WslCanonicalPathSettlement
-} from './codex-wsl-hook-install-plan'
-import {
-  CODEX_HOOK_EVENT_LABEL,
-  createCodexHookTrustEntry,
-  getCodexHookTrustSignature,
-  getCodexManagedScriptFileName
-} from './codex-hook-identity'
-import {
-  promoteCodexRuntimeHookApprovalsToSystem,
-  snapshotCodexRuntimeHookTrustProvenance
-} from './hook-trust-promotion'
-import { grantManagedCodexHookTrust } from './codex-hook-trust-grant'
-import { readCurrentCodexTrustGrantLedgerHome } from './codex-trust-grant-host'
-import {
-  getCodexLedgerTrustedHash,
-  readCodexTrustGrantLedgerHomeForReconciliation,
-  removeCodexManagedHookTrustEntries,
-  removeStaleWslCodexManagedHookTrustEntries
-} from './codex-managed-trust-reconciliation'
-import type { CodexTrustGrantLedgerHome } from './codex-trust-grant-ledger'
-import { mutateRealHomeHooksPreservingUserTrust } from './codex-user-hook-trust-rebase'
-import { getManagedScript } from './codex-hook-support-b'
 
 
 // Why: Pre/PostToolUse feed the live in-flight-tool readout; PermissionRequest exits with no decision so Codex still shows its approval UI while Orca flips the pane to waiting.
@@ -573,4 +530,4 @@ export function dedupeHookDefinitions(definitions: readonly HookDefinition[]): H
   })
 }
 
-export { CODEX_EVENTS, CODEX_EVENT_LABEL, CODEX_MANAGED_EVENT_LABELS, CODEX_PLUGIN_ONLY_HOOK_PLACEHOLDERS }
+export { CODEX_EVENTS,CODEX_EVENT_LABEL,CODEX_MANAGED_EVENT_LABELS,CODEX_PLUGIN_ONLY_HOOK_PLACEHOLDERS }

@@ -1,13 +1,14 @@
 import { join } from 'node:path'
 import { app } from 'electron'
 import { mkdirSync, existsSync } from 'node:fs'
-import { type ChildProcess } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { connect } from 'node:net'
+import type {
+  DaemonSpawner} from './daemon-spawner';
 import {
-  DaemonSpawner,
   type DaemonProcessHandle
 } from './daemon-spawner'
-import { DaemonPtyAdapter } from './daemon-pty-adapter'
+import type { DaemonPtyAdapter } from './daemon-pty-adapter'
 import { DaemonClient } from './client'
 import {
   PROTOCOL_VERSION,

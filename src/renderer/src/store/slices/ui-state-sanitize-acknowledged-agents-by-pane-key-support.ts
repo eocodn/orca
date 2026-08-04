@@ -201,7 +201,7 @@ export function sanitizeHydratedActiveView(
   if (!isTopLevelView(value)) {
     return 'terminal'
   }
-  // Why: activity is hidden when its setting is off, so gate only it (mobile/automations stay functional when hidden).
+  // Why: activity is hidden when its setting is off, so gate only it.
   if (value === 'activity' && !experimentalActivityEnabled) {
     return 'terminal'
   }

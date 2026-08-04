@@ -1,1 +1,1 @@
-export * from './codex-hook-reconciliation.ts'
+export * from './codex-hook-reconciliation'

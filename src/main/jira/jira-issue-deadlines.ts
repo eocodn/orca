@@ -1,52 +1,22 @@
 import type {
-  JiraComment,
   JiraCreateField,
   JiraCreateFieldAllowedValue,
-  JiraCreateIssueArgs,
-  JiraCreateIssueResult,
-  JiraIssue,
-  JiraIssueFilter,
   JiraIssueType,
-  JiraIssueUpdate,
-  JiraMutationResult,
   JiraPriority,
   JiraProject,
-  JiraProjectStatusOrder,
   JiraSite,
   JiraSiteSelection,
   JiraStatus,
-  JiraTransition,
   JiraUser
 } from '../../shared/types'
 import {
-  acquire,
-  apiBasePath,
-  clearToken,
-  getClients,
-  isAuthError,
-  jiraRequest,
-  release,
-  type JiraClientForSite
-} from './client'
-import {
-  adfToMarkdownText,
-  collectAdfMediaAttrs,
-  textToAdf,
-  type AdfToMarkdownOptions,
-  type JiraAdfMediaAttrs
+  textToAdf
 } from './adf-markdown'
 import {
-  extractAttachmentContentIdsFromHtml,
-  selectPreferredAttachmentIds,
-  warnIfMediaResolutionIncomplete
-} from './attachment-discovery'
-import {
-  createMediaMarkdownResolver,
-  loadIssueImageAttachments,
-  type MediaResolutionStats
-} from './attachment-images'
-import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
-import { type JiraRecord, type JiraPagedResponse, type JiraPageItemKey } from './jira-issue-primitives'
+  jiraRequest,
+  type JiraClientForSite
+} from './client'
+import type { JiraPagedResponse,JiraPageItemKey,JiraRecord } from './jira-issue-primitives'
 async function withJiraDeadline<T>(
   signal: AbortSignal | undefined,
   timeoutMs: number,
@@ -330,5 +300,5 @@ function toBodyText(site: JiraSite, text: string): unknown {
   return site.authType === 'server' ? text : textToAdf(text)
 }
 
-export { withJiraDeadline, settleJiraSummaryRead, getErrorStatus, toIssueSearchFailureError, shouldSurfaceSiteFailure, asRecord, asString, asIdentifier, asStringArray, asFiniteNumber, getPageItems, shouldFetchNextPage, fetchPagedRecords, avatarUrl, mapUser, mapProject, mapIssueType, mapCreateFieldAllowedValue, mapCreateField, getCreateFieldRecords, mapPriority, mapStatus, issueUrl, toBodyText }
+export { asFiniteNumber,asIdentifier,asRecord,asString,asStringArray,avatarUrl,fetchPagedRecords,getCreateFieldRecords,getErrorStatus,getPageItems,issueUrl,mapCreateField,mapCreateFieldAllowedValue,mapIssueType,mapPriority,mapProject,mapStatus,mapUser,settleJiraSummaryRead,shouldFetchNextPage,shouldSurfaceSiteFailure,toBodyText,toIssueSearchFailureError,withJiraDeadline }
 

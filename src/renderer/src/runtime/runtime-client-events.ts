@@ -6,6 +6,7 @@ import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { isRuntimeSubscriptionReplayResponse } from '../../../shared/runtime-subscription-replay'
 import { admitSshConnectionState } from '../../../shared/ssh-retained-payload-admission'
 import { getRuntimeEnvironmentRevision } from './runtime-environment-revision'
+import { getClientRuntime } from './client-runtime'
 
 export type RuntimeClientEventSubscription = {
   unsubscribe: () => void
@@ -21,7 +22,7 @@ export async function subscribeRuntimeClientEvents(
   // per-environment SSH bucket) may have missed transitions and must resync.
   onReplayedAfterReconnect?: () => void
 ): Promise<RuntimeClientEventSubscription> {
-  const handle = await window.api.runtimeEnvironments.subscribe(
+  const handle = await getClientRuntime().remoteHost.subscribe(
     {
       selector: environmentId,
       method: 'runtime.clientEvents.subscribe',
@@ -86,7 +87,6 @@ function isRuntimeClientEvent(
   return (
     message.type === 'reposChanged' ||
     message.type === 'worktreesChanged' ||
-    message.type === 'nativeChatLaunchDraftResolved' ||
     message.type === 'terminalSideEffects' ||
     message.type === 'sshStateChanged' ||
     message.type === 'linearLinkedIssueUpdated' ||

@@ -83,13 +83,13 @@ describe('pty pane state', () => {
     const connectionId = 'ssh-pane-state-race'
     const ptyId = `ssh:${connectionId}@@pty-current`
     const oldInventory = makeDeferred<
-      Array<{
+      {
         id: string
         incarnationId?: string
         cwd: string
         title: string
         agentSessionOwners?: AgentSessionOwnerBinding[]
-      }>
+      }[]
     >()
     const oldOwner = {
       claim: {
@@ -148,13 +148,13 @@ describe('pty pane state', () => {
     const connectionId = 'ssh-pane-state-same-generation'
     const ptyId = `ssh:${connectionId}@@pty-current`
     const inventory = makeDeferred<
-      Array<{
+      {
         id: string
         incarnationId?: string
         cwd: string
         title: string
         agentSessionOwners?: AgentSessionOwnerBinding[]
-      }>
+      }[]
     >()
     const owner = {
       claim: {
@@ -211,13 +211,13 @@ describe('pty pane state', () => {
     const connectionId = 'ssh-pane-state-partial-listing'
     const ptyId = `ssh:${connectionId}@@pty-current`
     const inventory = makeDeferred<
-      Array<{
+      {
         id: string
         incarnationId?: string
         cwd: string
         title: string
         agentSessionOwners?: AgentSessionOwnerBinding[]
-      }>
+      }[]
     >()
     const owner = {
       claim: {

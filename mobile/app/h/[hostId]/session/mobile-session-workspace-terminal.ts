@@ -1,6 +1,4 @@
 import { useCallback, useRef } from 'react'
-import { useMobileNativeChatTerminalStream } from '../../../../src/session/use-mobile-native-chat-terminal-stream'
-import * as nativeChatTerminalStream from '../../../../src/session/mobile-native-chat-terminal-stream'
 import { subscribeMobileTerminalSafely } from '../../../../src/session/mobile-terminal-stream-subscribe'
 import { isTerminalOscLinkRanges } from '../../../../src/terminal/terminal-osc-link-ranges'
 import { updateTerminalCwdFromStreamEvent } from '../../../../src/session/mobile-session-route-helpers'
@@ -13,14 +11,12 @@ type WorkspaceContext = Record<string, any>
 
 export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
   const { terminalRefs, terminalUnsubsRef, subscribingHandlesRef, terminalDiagnosticsRef, subscribeSeqRef,
-    layoutSeqRef, clearNativeChatInputLease, nativeChatInputLeaseReadyRef, showNativeChatRef,
-    activeHandleRef, setCoveredStreamRevision, initializedHandlesRef, webReadyHandlesRef,
-    setTerminalKeyboardMetrics, client, deviceTokenRef, viewportRef, viewportMeasuredRef, markNativeChatInputLeaseReady,
-    scheduleDelayedAction, terminalFrameHeightRef, activeSessionTab, showNativeChat, activeHandle,
-    nativeChatInputLeaseReady, coveredStreamRevision, terminalModes, setTerminalModes, setTerminals,
+    layoutSeqRef, activeHandleRef, initializedHandlesRef, webReadyHandlesRef,
+    setTerminalKeyboardMetrics, client, deviceTokenRef, viewportRef, viewportMeasuredRef,
+    scheduleDelayedAction, terminalFrameHeightRef, activeHandle,
+    terminalModes, setTerminalModes, setTerminals,
     terminalsRef, sessionTabsRef, worktreeId, clearTerminalLiveInputDefault, defaultTerminalHandlesToLiveInput,
-    pruneTerminalHandlesFromLiveInput, nativeChatStream: _nativeChatStream, setTerminalKeyboardMetrics: _setMetrics,
-    terminalCwdRef } = context
+    pruneTerminalHandlesFromLiveInput, terminalCwdRef } = context
   const getTerminalRef = useCallback((handle: string | null) => {
     return handle ? terminalRefs.current.get(handle) : undefined
   }, [])
@@ -34,32 +30,14 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
       subscribeSeqRef.current.set(handle, (subscribeSeqRef.current.get(handle) ?? 0) + 1)
       // Why: reset the high-water mark so a fresh subscription's first scrollback isn't dropped as stale.
       layoutSeqRef.current.delete(handle)
-      // Why compare against the RENDERED lease: `clear` reports the drop from its
-      // synchronous mirror, so a `subscribed`+`end` pair applied in one render batch
-      // reports "dropped" while React only ever sees false → the effect never re-runs
-      // and the composer stays locked (#10681). A dead PTY can also emit `end` with no
-      // preceding `subscribed`, where the clear is a no-op for the same reason. Either
-      // way the flip carries no signal, so bump. When the lease really was up on
-      // screen, `leaseReady` already re-runs the effect and bumping too would
-      // double-render this whole route on every chat open.
-      const leaseWasOnScreen = nativeChatInputLeaseReadyRef.current
-      const leaseDropped = clearNativeChatInputLease(handle)
-      if (
-        (!leaseDropped || !leaseWasOnScreen) &&
-        showNativeChatRef.current &&
-        handle === activeHandleRef.current
-      ) {
-        setCoveredStreamRevision((revision) => revision + 1)
-      }
     },
-    [clearNativeChatInputLease, nativeChatInputLeaseReadyRef, showNativeChatRef]
+    []
   )
   const unsubscribeTerminalRef = useRef(unsubscribeTerminal)
   unsubscribeTerminalRef.current = unsubscribeTerminal
 
   const clearTerminalCache = useCallback(() => {
     terminalUnsubsRef.current.forEach((unsub) => unsub())
-    clearNativeChatInputLease()
     terminalUnsubsRef.current.clear()
     subscribingHandlesRef.current.clear()
     initializedHandlesRef.current.clear()
@@ -72,7 +50,7 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
     for (const term of terminalRefs.current.values()) {
       term.clear()
     }
-  }, [clearNativeChatInputLease])
+  }, [])
 
   // Why: measure the phone viewport once from the first TerminalWebView; dims ride every subscribe so the server auto-fits without a separate RPC.
   const measureViewportOnce = useCallback(
@@ -109,21 +87,13 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
         logSkippedGate('subscribe-in-flight')
         return
       }
-      const covered = nativeChatTerminalStream.isTerminalCoveredByNativeChat(
-        showNativeChatRef.current,
-        activeHandleRef.current,
-        handle
-      )
-      // Why: a native-chat-covered terminal has no mounted webview, so only gate on the webview when not covered.
-      if (!covered) {
-        if (!getTerminalRef(handle)) {
-          logSkippedGate('no-webview-ref')
-          return
-        }
-        if (!webReadyHandlesRef.current.has(handle)) {
-          logSkippedGate('webview-not-ready')
-          return
-        }
+      if (!getTerminalRef(handle)) {
+        logSkippedGate('no-webview-ref')
+        return
+      }
+      if (!webReadyHandlesRef.current.has(handle)) {
+        logSkippedGate('webview-not-ready')
+        return
       }
 
       subscribingHandlesRef.current.add(handle)
@@ -137,11 +107,7 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
         {
           terminal: handle,
           client: { id: deviceTokenRef.current!, type: 'mobile' as const },
-          viewport: nativeChatTerminalStream.mobileNativeChatSubscribeViewport(
-            covered,
-            viewportRef.current
-          ),
-          capabilities: nativeChatTerminalStream.mobileNativeChatTerminalCapabilities(covered)
+          ...(viewportRef.current ? { viewport: viewportRef.current } : {})
         },
         (result) => {
           if (subscribeSeqRef.current.get(handle) !== seq) {
@@ -154,17 +120,6 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
             return
           }
           if (data.type === 'subscribed') {
-            markNativeChatInputLeaseReady(handle)
-            return
-          }
-          // Why: keep the subscription as the input-floor lease but don't mutate covered xterm state; return-to-terminal resubscribes.
-          if (
-            nativeChatTerminalStream.isTerminalCoveredByNativeChat(
-              showNativeChatRef.current,
-              activeHandleRef.current,
-              handle
-            )
-          ) {
             return
           }
           // Why: drop `resized` events older than the seen seq (superseded layout); scrollback always resets the mark, else reconnect blanks the terminal.
@@ -307,22 +262,8 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
       }
       subscribingHandlesRef.current.delete(handle)
     },
-    [client, getTerminalRef, markNativeChatInputLeaseReady, scheduleDelayedAction]
+    [client, getTerminalRef, scheduleDelayedAction]
   )
-
-  const nativeChatStream = useMobileNativeChatTerminalStream({
-    showNativeChat,
-    activeHandle,
-    activeTabType: activeSessionTab?.type ?? null,
-    leaseReady: nativeChatInputLeaseReady,
-    streamRevision: coveredStreamRevision,
-    subscriptionsRef: terminalUnsubsRef,
-    subscribingRef: subscribingHandlesRef,
-    webReadyRef: webReadyHandlesRef,
-    initializedRef: initializedHandlesRef,
-    subscribe: subscribeToTerminal,
-    unsubscribe: unsubscribeTerminal
-  })
 
   // Why: server does the resize and emits 'resized' on the existing subscription — no client-side state tracking needed.
   const toggleInFlightRef = useRef<Set<string>>(new Set())
@@ -388,20 +329,15 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
             return
           }
 
-          const liveHandles = new Set(result.terminals.map((terminal) => terminal.handle))
-          const pruneContext = {
-            liveHandles,
-            showNativeChat: showNativeChatRef.current,
-            activeHandle: activeHandleRef.current
-          }
+          const liveHandles = new Set<string>(
+            result.terminals.map((terminal) => String(terminal.handle))
+          )
+          const pruneContext = { liveHandles }
           // Why: terminal.list is the lifetime signal; lagging tab snapshots must not erase a user's buffered-mode opt-out.
-          // Sweep against the retained set, not the raw list: a chat-covered handle
-          // keeps its subscription across a graph reload, so erasing its live-input
-          // preference on the same refresh is the erasure this guard exists to stop.
           pruneTerminalHandlesFromLiveInput(resolveRetainedTerminalHandles(pruneContext))
           defaultTerminalHandlesToLiveInput([...liveHandles])
           const shouldPrune = createTerminalPrunePredicate(pruneContext)
-          for (const handle of Array.from(terminalUnsubsRef.current.keys())) {
+          for (const handle of Array.from(terminalUnsubsRef.current.keys()) as string[]) {
             if (!shouldPrune(handle)) {
               continue
             }
@@ -411,9 +347,6 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
             clearTerminalLiveInputDefault(handle)
           }
           setTerminalKeyboardMetrics((prev) => pruneTerminalKeyboardMetrics(prev, shouldPrune))
-          // Why: a chat-covered handle the host reports again refills its rearm budget,
-          // so an exhausted rearm can't lock the composer until leave-chat.
-          nativeChatStream.notifyListedHandles(liveHandles)
           lastKnownTerminalCountRef.current = result.terminals.length
           // Why: dedupe duplicate handles (rename/split race) to avoid a React duplicate-key throw; keep first for tab-strip order.
           const seen = new Set<string>()
@@ -448,7 +381,6 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
       worktreeId,
       clearTerminalLiveInputDefault,
       defaultTerminalHandlesToLiveInput,
-      nativeChatStream,
       pruneTerminalHandlesFromLiveInput,
       subscribeToTerminal,
       unsubscribeTerminal
@@ -456,6 +388,6 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
   )
 
   return { getTerminalRef, unsubscribeTerminal, unsubscribeTerminalRef, clearTerminalCache, measureViewportOnce,
-    subscribeToTerminal, nativeChatStream, toggleDisplayMode, fetchTerminals, toggleInFlightRef,
+    subscribeToTerminal, toggleDisplayMode, fetchTerminals, toggleInFlightRef,
     lastKnownTerminalCountRef, fetchTerminalsInFlightRef }
 }

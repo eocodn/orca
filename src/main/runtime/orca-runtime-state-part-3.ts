@@ -1,4 +1,4 @@
-import type { RuntimeAutomationCommands, RuntimeRepoHookCommands } from './orca-runtime-symbols'
+import type { RuntimeRepoHookCommands } from './orca-runtime-symbols'
 import {
   type TerminalSideEffectBatch,
   type AgentStatusIpcPayload,
@@ -6,7 +6,6 @@ import {
   type RuntimeDesktopWindowStatus,
   type AiVaultPrepareSessionResumeArgs,
   type AiVaultPrepareSessionResumeResult,
-  type AutomationService,
   type IPtyProvider,
   ClaudeAgentTeamsService,
   type StatsCollector,
@@ -131,8 +130,6 @@ export class OrcaRuntimeStatePart3 extends OrcaRuntimeStatePart2 {
   protected ptyControllerInventoryGenerationByProvider = new Map<string, number>()
   protected accountServices: RuntimeAccountServices | null = null
   protected commitMessageAgentEnv: CommitMessageAgentEnvironmentResolvers | null = null
-  protected automationService: AutomationService | null = null
-  protected automationCommands!: RuntimeAutomationCommands
   protected repoHookCommands!: RuntimeRepoHookCommands
   protected readonly claudeAgentTeams = new ClaudeAgentTeamsService()
   protected mobileDictation: {

@@ -10,7 +10,6 @@ import type {
   WorkspaceSessionState,
   WorkspaceVisibleTabType
 } from '../../../../shared/types'
-import { emitNativeChatToggled } from '@/lib/native-chat-telemetry'
 import {
   dedupeTabOrder,
   ensureGroup,
@@ -43,7 +42,7 @@ import {
   buildValidWorktreeIdsForSessionHydration,
   collectPersistedWorktreeIdsForSessionHydration
 } from './degraded-repo-worktree-validity'
-import { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, mirrorTabViewModeToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType, findSiblingGroupId, removeLeaf, collapseGroupLayout, toVisibleTabType, deriveActiveSurfaceForWorktree, buildActiveSurfacePatch, activeSurfacePatchMatchesState } from './tabs-state'
+import { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType, findSiblingGroupId, removeLeaf, collapseGroupLayout, toVisibleTabType, deriveActiveSurfaceForWorktree, buildActiveSurfacePatch, activeSurfacePatchMatchesState } from './tabs-state'
 import type { TabSplitDirection, TabsSlice } from './tabs-state'
 type SliceSet = Parameters<StateCreator<AppState>>[0]
 type SliceGet = Parameters<StateCreator<AppState>>[1]
@@ -226,43 +225,6 @@ export function createTabsSliceCloseUnifiedTabActions2(set: SliceSet, get: Slice
   },
   setTabLabel: (tabId, label) => {
     set((state) => patchTab(state.unifiedTabsByWorktree, tabId, { label }) ?? {})
-  },
-  setTabViewMode: (tabId, mode) => {
-    set((state) => patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: mode }) ?? {})
-    mirrorTabViewModeToHost(get(), tabId, mode)
-  },
-  toggleTabViewMode: (tabId) => {
-    let toggled: {
-      from: 'terminal' | 'chat'
-      to: 'terminal' | 'chat'
-      agent: TuiAgent | null
-    } | null = null
-    set((state) => {
-      const found = findTabAndWorktree(state.unifiedTabsByWorktree, tabId)
-      if (!found) {
-        return {}
-      }
-      // Why: viewMode defaults to 'terminal' for legacy/missing, so the first toggle flips to 'chat'.
-      const fromMode: 'terminal' | 'chat' = found.tab.viewMode === 'chat' ? 'chat' : 'terminal'
-      const nextMode = fromMode === 'chat' ? 'terminal' : 'chat'
-      // Why: launchAgent lives on the legacy terminal tab (keyed by entityId); resolve it here so toggle telemetry can attribute by agent.
-      const agent =
-        (state.tabsByWorktree[found.worktreeId] ?? []).find(
-          (terminal) => terminal.id === found.tab.entityId
-        )?.launchAgent ?? null
-      toggled = { from: fromMode, to: nextMode, agent }
-      return patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: nextMode }) ?? {}
-    })
-    // Why: emit after the state write so the event reflects the committed mode.
-    const committed = toggled as {
-      from: 'terminal' | 'chat'
-      to: 'terminal' | 'chat'
-      agent: TuiAgent | null
-    } | null
-    if (committed) {
-      emitNativeChatToggled(committed)
-      mirrorTabViewModeToHost(get(), tabId, committed.to)
-    }
   },
   setRenamingTabId: (tabId) => {
     set({ renamingTabId: tabId })

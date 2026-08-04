@@ -17,7 +17,6 @@ export const DEFAULT_WORKTREE_CARD_PROPERTIES: WorktreeCardProperty[] = [
   ...FIXED_WORKTREE_CARD_PROPERTIES,
   ...TASK_WORKTREE_CARD_PROPERTIES,
   'pr',
-  'automation',
   'cli',
   'comment',
   'ports',
@@ -32,17 +31,6 @@ export const DEFAULT_WORKTREE_CARD_PROPERTIES: WorktreeCardProperty[] = [
 export const COMPACT_WORKTREE_CARD_PROPERTIES: WorktreeCardProperty[] = ['status']
 const NORMALIZED_COMPACT_WORKTREE_CARD_PROPERTIES: WorktreeCardProperty[] = ['status', 'unread']
 
-const LEGACY_COMPACT_WORKTREE_CARD_PROPERTIES_WITH_AUTOMATION: WorktreeCardProperty[] = [
-  'status',
-  'automation'
-]
-
-const LEGACY_NORMALIZED_COMPACT_WORKTREE_CARD_PROPERTIES_WITH_AUTOMATION: WorktreeCardProperty[] = [
-  'status',
-  'unread',
-  'automation'
-]
-
 /** Every card property, in canonical render order. Client schemas derive their
  *  accepted value domain from this so a new property cannot drift out of them. */
 export const WORKTREE_CARD_PROPERTIES = [
@@ -54,7 +42,6 @@ export const WORKTREE_CARD_PROPERTIES = [
   'linear-issue',
   'jira-issue',
   'pr',
-  'automation',
   'cli',
   'comment',
   'ports',
@@ -98,15 +85,7 @@ export function isDefaultedCompactWorktreeCardProperties(
 ): boolean {
   return (
     matchesWorktreeCardProperties(properties, COMPACT_WORKTREE_CARD_PROPERTIES) ||
-    matchesWorktreeCardProperties(properties, NORMALIZED_COMPACT_WORKTREE_CARD_PROPERTIES) ||
-    matchesWorktreeCardProperties(
-      properties,
-      LEGACY_COMPACT_WORKTREE_CARD_PROPERTIES_WITH_AUTOMATION
-    ) ||
-    matchesWorktreeCardProperties(
-      properties,
-      LEGACY_NORMALIZED_COMPACT_WORKTREE_CARD_PROPERTIES_WITH_AUTOMATION
-    )
+    matchesWorktreeCardProperties(properties, NORMALIZED_COMPACT_WORKTREE_CARD_PROPERTIES)
   )
 }
 

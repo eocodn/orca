@@ -6,7 +6,6 @@ import {
   Eraser,
   GitFork,
   Maximize2,
-  MessageSquare,
   Minimize2,
   PanelBottomClose,
   PanelsTopLeft,
@@ -14,7 +13,6 @@ import {
   Pencil,
   Play,
   Plus,
-  SquareTerminal,
   X
 } from 'lucide-react'
 import {
@@ -36,7 +34,6 @@ import { formatPrimaryShortcutLabel } from '@/hooks/useShortcutLabel'
 import { AgentIcon } from '@/lib/agent-catalog'
 import type { KeybindingOverrides } from '../../../../shared/keybindings'
 import { translate } from '@/i18n/i18n'
-import { isMacPlatform, nativeChatToggleShortcutLabel } from '../native-chat/native-chat-shortcut'
 import { AgentSessionContinuationMenuItem } from './AgentSessionContinuationMenuItem'
 
 type TerminalContextMenuProps = {
@@ -59,9 +56,6 @@ type TerminalContextMenuProps = {
   canContinueAgentSessionInNewSession: boolean
   onContinueAgentSessionInNewSession: () => void
   onForkAgentSession: () => void
-  canToggleNativeChat: boolean
-  isNativeChatView: boolean
-  onToggleNativeChat: () => void
   onCopyAgentSessionContext: () => void
   repoQuickCommands: TerminalQuickCommand[]
   globalQuickCommands: TerminalQuickCommand[]
@@ -96,9 +90,6 @@ export default function TerminalContextMenu({
   canContinueAgentSessionInNewSession,
   onContinueAgentSessionInNewSession,
   onForkAgentSession,
-  canToggleNativeChat,
-  isNativeChatView,
-  onToggleNativeChat,
   onCopyAgentSessionContext,
   repoQuickCommands,
   globalQuickCommands,
@@ -125,7 +116,6 @@ export default function TerminalContextMenu({
       setTitle: formatPrimaryShortcutLabel('terminal.setTitle', keybindings),
       clearPaneTitle: formatPrimaryShortcutLabel('terminal.clearPaneTitle', keybindings),
       close: formatPrimaryShortcutLabel('terminal.closePane', keybindings),
-      nativeChat: nativeChatToggleShortcutLabel(isMacPlatform())
     }),
     [keybindings]
   )
@@ -285,21 +275,6 @@ export default function TerminalContextMenu({
             'Copy Context'
           )}
         </DropdownMenuItem>
-        {canToggleNativeChat ? (
-          <DropdownMenuItem onSelect={onToggleNativeChat}>
-            {isNativeChatView ? <SquareTerminal /> : <MessageSquare />}
-            {isNativeChatView
-              ? translate(
-                  'components.tab.bar.SortableTabContextMenu.switchToTerminalView',
-                  'Switch to terminal view'
-                )
-              : translate(
-                  'components.tab.bar.SortableTabContextMenu.switchToChatView',
-                  'Switch to chat view'
-                )}
-            <DropdownMenuShortcut>{shortcuts.nativeChat}</DropdownMenuShortcut>
-          </DropdownMenuItem>
-        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem className="whitespace-nowrap" onSelect={onSplitRight}>
           <PanelRightClose />

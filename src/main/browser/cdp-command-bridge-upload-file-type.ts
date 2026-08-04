@@ -1,57 +1,13 @@
-import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
   BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
   BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
   BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
+  BrowserUploadResult
 } from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
 import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 
 import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+const { BrowserError } = foundation
 
 export const CdpBridgeMethods3 = {
   async uploadFile(this: any, element: string, filePaths: string[]): Promise<BrowserUploadResult> {
@@ -69,7 +25,7 @@ export const CdpBridgeMethods3 = {
 
       return { uploaded: filePaths.length }
     })
-  }
+  },
   async goto(this: any, url: string): Promise<BrowserGotoResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -89,7 +45,7 @@ export const CdpBridgeMethods3 = {
 
       return { url: guest.getURL(), title: guest.getTitle() }
     })
-  }
+  },
   async fill(this: any, element: string, value: string): Promise<BrowserFillResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -133,7 +89,7 @@ export const CdpBridgeMethods3 = {
 
       return { filled: element }
     })
-  }
+  },
   async type(this: any, input: string): Promise<BrowserTypeResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()

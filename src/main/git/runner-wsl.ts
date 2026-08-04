@@ -6,49 +6,20 @@
  * `wsl.exe -d <distro>` with translated Linux paths.
  */
 import {
-  execFile,
-  execFileSync,
   spawn,
   type ChildProcess,
-  type ExecFileOptions,
   type SpawnOptions
 } from 'node:child_process'
-import { StringDecoder } from 'node:string_decoder'
-import { withGitSpan } from '../observability/instrumentation'
-import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
-import {
-  classifyGhRateLimitBucket,
-  createGhRateLimitBlockedError,
-  getGhRateLimitBlockedUntilMs,
-  ghRateLimitScopeKey,
-  isGhPrimaryRateLimitStderr,
-  isGhRateLimitProbe,
-  notifyGhPrimaryRateLimit,
-  type GhRateLimitBucket
-} from './gh-rate-limit-breaker'
-import { getDefaultWslDistro, parseWslPath, toWindowsWslPath, type WslPathInfo } from '../wsl'
-import { addWslEnvKeys } from '../wsl-env'
-import {
-  appendGitConfigEnv,
-  gitCredentialPromptGuardEnv
-} from '../../shared/git-credential-prompt-env'
-import { getSpawnArgsForWindows, isWindowsBatchScript, resolveWindowsCommand } from '../win32-utils'
-import {
-  buildWslLoginShellCommand,
-  escapeWslShCommandForWindows,
-  quotePosixShell
-} from '../../shared/wsl-login-shell-command'
 import { UNTRANSLATED_GIT_OUTPUT_ENV } from '../../shared/git-output-locale'
-import { endSubprocessStdin } from '../../shared/subprocess-stdin-write'
-// Re-exported for existing importers; lightweight consumers should import from './exec-error' to avoid this heavy module.
-import { extractExecError, parseRetryAfterMs } from './exec-error'
+import { recordSubprocessSpawn } from '../diagnostics/main-thread-churn-probe'
+import { parseWslPath,toWindowsWslPath } from '../wsl'
+import { resolveCommand } from './runner-command-resolution'
 // ─── Core resolution ────────────────────────────────────────────────
 
 // Env-assignment prefix for WSL-routed git, where spawn env can't cross the wsl.exe boundary; values are shell-safe unquoted.
 const GIT_OUTPUT_LOCALE_SHELL_PREFIX = Object.entries(UNTRANSLATED_GIT_OUTPUT_ENV)
   .map(([key, value]) => `${key}=${value}`)
   .join(' ')
-import { resolveCommand } from './runner-command-resolution'
 function wslAwareSpawn(
   command: string,
   args: string[],
@@ -91,7 +62,6 @@ function translateWslOutputPaths(
 }
 
 /** Convenience re-export of wsl.ts path helpers so consumers don't import it directly. */
-export { parseWslPath, toLinuxPath, toWindowsWslPath, isWslPath } from '../wsl'
+export { isWslPath,parseWslPath,toLinuxPath,toWindowsWslPath } from '../wsl'
 
-export { wslAwareSpawn, translateWslOutputPaths }
-
+export { translateWslOutputPaths,wslAwareSpawn }

@@ -20,12 +20,6 @@ const {
   daemonAuditEligibilitySchema,
   codexTrustGrantSchema,
   settingsChangedSchema,
-  nativeChatToggledSchema,
-  nativeChatMessageSentSchema,
-  nativeChatPickerOpenedSchema,
-  nativeChatPickerItemAcceptedSchema,
-  nativeChatSendClassifiedSchema,
-  nativeChatSkillDiscoverySchema,
   telemetryOptedInSchema,
   telemetryOptedOutSchema,
   orcaCliFeatureTipShownSchema,
@@ -124,12 +118,6 @@ export const eventSchemas = {
 
   settings_changed: settingsChangedSchema,
 
-  native_chat_toggled: nativeChatToggledSchema,
-  native_chat_message_sent: nativeChatMessageSentSchema,
-  native_chat_picker_opened: nativeChatPickerOpenedSchema,
-  native_chat_picker_item_accepted: nativeChatPickerItemAcceptedSchema,
-  native_chat_send_classified: nativeChatSendClassifiedSchema,
-  native_chat_skill_discovery: nativeChatSkillDiscoverySchema,
 
   telemetry_opted_in: telemetryOptedInSchema,
   telemetry_opted_out: telemetryOptedOutSchema,

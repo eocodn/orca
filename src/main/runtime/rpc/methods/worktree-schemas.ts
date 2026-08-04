@@ -25,16 +25,6 @@ const OptionalTuiAgent = z
   .transform((value): TuiAgent | undefined => (isTuiAgent(value) ? value : undefined))
   .optional()
 
-const AutomationWorkspaceProvenanceRequest = z.object({
-  automationId: z.string(),
-  automationRunId: z.string(),
-  dispatchToken: z.string(),
-  createRequestId: z.string()
-})
-
-// Why no dispatch token (unlike automation provenance): this is a descriptive
-// origin marker for sidebar filtering, not an authority grant. The host stamps
-// createdAt itself so a client clock can't skew sort order.
 const CliWorkspaceProvenanceRequest = z.object({
   callerTerminalHandle: OptionalString
 })
@@ -178,7 +168,6 @@ export const WorktreeCreate = z
     // Why: mobile retries a create interrupted by a connection migration with the
     // same key so the host dedupes instead of spawning a duplicate worktree.
     clientMutationId: z.string().min(1).max(128).optional(),
-    automationProvenanceRequest: AutomationWorkspaceProvenanceRequest.optional(),
     cliProvenanceRequest: CliWorkspaceProvenanceRequest.optional()
   })
   .superRefine((params, ctx) => {

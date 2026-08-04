@@ -217,12 +217,6 @@ export function activateAndRevealWorktree(
   if (state.filterRepoIds.length > 0 && !state.filterRepoIds.includes(wt.repoId)) {
     state.setFilterRepoIds([])
   }
-  if (
-    state.hideAutomationGeneratedWorkspaces &&
-    wt.automationProvenance?.kind === 'created-by-automation'
-  ) {
-    state.setHideAutomationGeneratedWorkspaces(false)
-  }
   if (state.hideCliCreatedWorkspaces && wt.cliProvenance?.kind === 'created-by-cli') {
     state.setHideCliCreatedWorkspaces(false)
   }
@@ -297,5 +291,4 @@ export { ensureWorktreeHasInitialTerminal } from './worktree-activation-terminal
 
 
 export { activateAndRevealWorkspace } from './worktree-activation-nav-history'
-
 

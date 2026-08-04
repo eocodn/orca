@@ -1,9 +1,9 @@
-import { WebSocket } from 'ws'
+import type { WebSocket } from 'ws'
 import { buildPrintToPdfOptions } from './cdp-print-to-pdf'
 
-
 export const CdpWsProxyMethods7 = {
-  async sendDomFocus(this: any,
+  async sendDomFocus(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>,
@@ -22,7 +22,8 @@ export const CdpWsProxyMethods7 = {
       return undefined
     }
   },
-  async forwardInsertText(this: any,
+  async forwardInsertText(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>,
@@ -55,7 +56,8 @@ export const CdpWsProxyMethods7 = {
     }
     this.forwardCommand(client, clientId, 'Input.insertText', params, effectiveSessionId)
   },
-  async handlePrintToPdf(this: any,
+  async handlePrintToPdf(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>
@@ -83,7 +85,8 @@ export const CdpWsProxyMethods7 = {
       this.sendError(clientId, err instanceof Error ? err.message : String(err), client)
     }
   },
-  handleStreamRead(this: any,
+  handleStreamRead(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>

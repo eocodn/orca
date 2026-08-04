@@ -13,7 +13,6 @@ describe('contextual tour definitions', () => {
       'workspace-agent-sessions',
       'browser',
       'tasks',
-      'automations',
       'floating-workspace',
       'workspace-creation'
     ]
@@ -134,25 +133,6 @@ describe('contextual tour definitions', () => {
       '[data-contextual-tour-target="tasks-start-workspace"]',
       '[data-contextual-tour-target="tasks-actions"]',
       '[data-contextual-tour-target="tasks-search-presets"]'
-    ])
-  })
-
-  it('orders the automations tour as create, then results', () => {
-    const tour = CONTEXTUAL_TOURS.find((entry) => entry.id === 'automations') as
-      | ContextualTour
-      | undefined
-
-    expect(tour?.steps.map((step) => step.title)).toEqual([
-      'What is an automation?',
-      'Find the results'
-    ])
-    expect(tour?.steps[0]).toMatchObject({
-      body: 'Automations run agent work on a schedule. Add an automation by clicking this button.',
-      requiredForStart: true
-    })
-    expect(tour?.steps.map((step) => step.targetSelector)).toEqual([
-      '[data-contextual-tour-target="automations-create"]',
-      '[data-contextual-tour-target="automations-runs"]'
     ])
   })
 

@@ -25,7 +25,6 @@ import { AgentExecHandler } from './agent-exec-handler'
 import { endpointDirForRelaySocket, RelayAgentHookServer } from './agent-hook-server'
 import { expandTilde, RelayContext } from './context'
 import { RelayDispatcher } from './dispatcher'
-import { ExternalAutomationsHandler } from './external-automations-handler'
 import { FsHandler } from './fs-handler'
 import { GitHandler } from './git-handler'
 import { registerManagedHookInstaller } from './managed-hook-installer'
@@ -334,9 +333,7 @@ async function main(): Promise<void> {
   const gitHandler = new GitHandler(dispatcher, context, watchRegistry)
 
   const _preflightHandler = new PreflightHandler(dispatcher)
-  const _externalAutomationsHandler = new ExternalAutomationsHandler(dispatcher)
   void _preflightHandler
-  void _externalAutomationsHandler
 
   const _portScanHandler = new PortScanHandler(dispatcher)
   void _portScanHandler

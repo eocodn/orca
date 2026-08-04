@@ -1,60 +1,13 @@
-import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
   BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
   BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
   BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
+  BrowserViewportResult
 } from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-
-import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
 
 export const CdpBridgeMethods7 = {
-  async cookieDelete(this: any,
+  async cookieDelete(
+    this: any,
     name: string,
     domain?: string,
     url?: string
@@ -83,8 +36,9 @@ export const CdpBridgeMethods7 = {
       await sender('Network.deleteCookies', params)
       return { deleted: true }
     })
-  }
-  async setViewport(this: any,
+  },
+  async setViewport(
+    this: any,
     width: number,
     height: number,
     deviceScaleFactor = 1,
@@ -106,8 +60,9 @@ export const CdpBridgeMethods7 = {
 
       return { width, height, deviceScaleFactor, mobile }
     })
-  }
-  async setGeolocation(this: any,
+  },
+  async setGeolocation(
+    this: any,
     latitude: number,
     longitude: number,
     accuracy = 1
@@ -120,8 +75,11 @@ export const CdpBridgeMethods7 = {
       await sender('Emulation.setGeolocationOverride', { latitude, longitude, accuracy })
       return { latitude, longitude, accuracy }
     })
-  }
-  async interceptEnable(this: any, patterns: string[] = ['*']): Promise<BrowserInterceptEnableResult> {
+  },
+  async interceptEnable(
+    this: any,
+    patterns: string[] = ['*']
+  ): Promise<BrowserInterceptEnableResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
       const sender = this.makeCdpSender(guest)

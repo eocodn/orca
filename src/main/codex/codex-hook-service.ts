@@ -1,22 +1,22 @@
 import type { SFTPWrapper } from 'ssh2'
 import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
-import type { CodexTrustEntry } from './config-toml-trust'
 import { getOrcaManagedCodexHomePath } from './codex-home-paths'
-import type { CodexWslRuntimeHookTarget } from './codex-wsl-hook-install-plan'
 import {
   getManagedScript,
+  getWslHookReconciliationAction,
+  getWslReconciliationKey,
   installManagedHooksIntoWslRuntime,
   refreshWslRuntimeUserHooks,
-  removeStaleWslRuntimeManagedHookTrustEntries,
-  getWslHookReconciliationAction,
-  getWslReconciliationKey
+  removeStaleWslRuntimeManagedHookTrustEntries
 } from './codex-hook-support-b'
+import type { CodexWslRuntimeHookTarget } from './codex-wsl-hook-install-plan'
+import type { CodexTrustEntry } from './config-toml-trust'
 
-import * as codexHookRuntimeInstallation from './codex-hook-runtime-installation'
-import * as codexHookStatus from './codex-hook-status'
 import * as codexHookInstallation from './codex-hook-installation'
 import * as codexHookRemote from './codex-hook-remote'
 import * as codexHookRemoval from './codex-hook-removal'
+import * as codexHookRuntimeInstallation from './codex-hook-runtime-installation'
+import * as codexHookStatus from './codex-hook-status'
 
 export class CodexHookService {
   private readonly wslReconciliationGeneration = new Map<string, number>()

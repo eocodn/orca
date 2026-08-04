@@ -4,7 +4,6 @@ import {
   type LinkedWorkItemSummary
 } from '@/lib/new-workspace'
 import { resolveQuickCreateLinkedWorkItemPrompt } from '@/lib/linked-work-item-context'
-import { seedNativeChatLaunchDraftForAgentTab } from '@/lib/agent-launch-prompt-delivery'
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import {
   buildAgentDraftLaunchPlan,
@@ -21,7 +20,7 @@ import { isWslUncPath } from '../../../../shared/wsl-paths'
 import { resolveLocalWindowsAgentStartupShell } from '../../../../shared/windows-terminal-shell'
 import type { AgentStartupShell } from '../../../../shared/tui-agent-startup-shell'
 import type { LaunchSource } from '../../../../shared/telemetry-events'
-import type { SessionOptionValue } from '../../../../shared/native-chat-session-options'
+import type { SessionOptionValue } from '../../../../shared/agent-session-option-types'
 import type { TaskSourceContext } from '../../../../shared/task-source-context'
 import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import {
@@ -296,21 +295,6 @@ export async function submitFolderWorkspaceCreate({
       ...(startup ? { startup } : {}),
       runtimeEnvironmentId
     })
-    if (
-      quickAgent &&
-      startupPlan &&
-      launchDraftPrompt &&
-      activation !== false &&
-      activation.primaryTabId
-    ) {
-      // Why: draft launch context reaches only the TUI input; seed the
-      // chat-composer copy so it isn't invisible in the chat view.
-      seedNativeChatLaunchDraftForAgentTab({
-        tabId: activation.primaryTabId,
-        agent: quickAgent,
-        text: launchDraftPrompt
-      })
-    }
     if (
       startupPlan &&
       (startupPlan.followupPrompt || startupPlan.draftPrompt) &&

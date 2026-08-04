@@ -1,7 +1,8 @@
 import type { Store } from "./persistence"
-import type { WorkspaceSpaceAnalysis, WorkspaceSpaceScanProgress } from "../shared/workspace-space-types"
+import type { WorkspaceSpaceAnalysis } from "../shared/workspace-space-types"
 import { mapWithConcurrency } from "../shared/map-with-concurrency"
 import { REPO_SCAN_CONCURRENCY, LOCAL_WORKTREE_SCAN_CONCURRENCY, REMOTE_FALLBACK_SCAN_CONCURRENCY, createAsyncLimiter, throwIfAborted, type WorkspaceSpaceAnalyzeOptions, type WorkspaceSpaceProgressState, type WorkspaceSpaceScanLimiters } from "./workspace-space-scan-support"
+export { WorkspaceSpaceScanCancelledError } from './workspace-space-scan-support'
 import { scanRepo } from "./workspace-space-repo-scan"
 
 export async function analyzeWorkspaceSpace(

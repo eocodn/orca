@@ -20,7 +20,8 @@ const { SAFE_POPUP_WINDOW_OPTIONS, isChromiumInternalErrorUrl, safeOrigin } = fo
 type PopupOwnerContext = foundation.PopupOwnerContext
 
 export const BrowserManagerMethods4 = {
-  attachGuestPolicies(this: any,
+  attachGuestPolicies(
+    this: any,
     guest: Electron.WebContents,
     inheritedOwnerContext: PopupOwnerContext | null = null
   ): void {
@@ -312,7 +313,8 @@ export const BrowserManagerMethods4 = {
       }
     })
   },
-  createPopupChildWindowWithOriginBar(this: any,
+  createPopupChildWindowWithOriginBar(
+    this: any,
     openerGuest: Electron.WebContents,
     targetUrl: string,
     options: PopupChildWindowOptions

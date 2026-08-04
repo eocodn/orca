@@ -18,10 +18,6 @@ import {
 } from '../src/onboarding/MobileOnboardingPage'
 import { parseMobileOnboardingSteps } from '../src/onboarding/mobile-onboarding-plan'
 import { mobileOnboardingStyles as styles } from '../src/onboarding/mobile-onboarding-styles'
-import {
-  saveDefaultSessionView,
-  type MobileSessionView
-} from '../src/storage/session-view-preferences'
 import { savePushNotificationsEnabled } from '../src/storage/preferences'
 
 const SLIDE_DURATION_MS = 280
@@ -95,28 +91,6 @@ function MobileOnboardingFlow({
     })
   }, [activeIndex, continueToApp, reducedMotionEnabled, slideProgress, steps.length])
 
-  const chooseSessionView = useCallback(
-    async (view: MobileSessionView) => {
-      // Why: state does not disable both buttons synchronously; the ref prevents
-      // rapid taps from persisting conflicting choices or advancing twice.
-      if (choiceInFlightRef.current) {
-        return
-      }
-      choiceInFlightRef.current = true
-      setBusyChoice(view)
-      setError(null)
-      try {
-        await saveDefaultSessionView(view)
-        advanceOrContinue()
-      } catch {
-        setError('Your choice could not be saved. Try again.')
-        setBusyChoice(null)
-        choiceInFlightRef.current = false
-      }
-    },
-    [advanceOrContinue]
-  )
-
   const chooseNotifications = useCallback(
     async (choice: NotificationOnboardingChoice) => {
       if (choiceInFlightRef.current) {
@@ -178,7 +152,6 @@ function MobileOnboardingFlow({
               active={index === activeIndex}
               busyChoice={busyChoice}
               error={error}
-              onSessionChoice={(view) => void chooseSessionView(view)}
               onNotificationChoice={(choice) => void chooseNotifications(choice)}
             />
           ))}

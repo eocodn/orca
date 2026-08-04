@@ -1,197 +1,62 @@
-import { ipcMain, type BrowserWindow } from 'electron'
-import { readFile, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import type { Store } from '../persistence'
-import { isFolderRepo } from '../../shared/repo-kind'
-import { readBranchRenameFailureOutputForDisplay } from '../agent-hooks/branch-rename-failure-output'
+import { createAgentScratchWorktreePathMatcher } from '../../shared/agent-scratch-worktrees'
+import { getRepoExecutionHostId } from '../../shared/execution-host'
+import { projectResolvedWorktreeLineage } from '../../shared/resolved-worktree-lineage'
+import type {
+  DetectedWorktree,
+  GitWorktreeInfo,
+  Repo,
+  Worktree,
+  WorktreeMeta
+} from '../../shared/types'
 import {
   isWorkspaceKey,
   parseWorkspaceKey,
   worktreeWorkspaceKey
 } from '../../shared/workspace-scope'
-import { inspectSetupScriptImportCandidates } from '../../shared/setup-script-imports'
-import { getProjectHostSetupWorktreeMeta } from '../../shared/project-host-setup-projection'
-import { TaskSourceContextSchema } from '../../shared/task-source-context-schema'
-import { WorkspaceLinkedItemSchema } from '../../shared/workspace-linked-item-schema'
-import { isWorkspaceLinkedItemSourceContextMatch } from '../../shared/workspace-linked-item-source-context'
-import { getProjectGroupSubtreeIds } from '../../shared/project-groups'
-import { projectResolvedWorktreeLineage } from '../../shared/resolved-worktree-lineage'
-import { isPathInsideOrEqual, isWindowsAbsolutePathLike } from '../../shared/cross-platform-path'
-import { deleteWorktreeHistoryDir } from '../terminal-history-deletion'
-import type {
-  AutomationWorkspaceProvenance,
-  CliWorkspaceProvenance,
-  CreateWorktreeArgs,
-  CreateWorktreeResult,
-  DetectedWorktree,
-  DetectedWorktreeListResult,
-  ForceDeleteWorktreeBranchResult,
-  GitHubPrStartPoint,
-  GitPushTarget,
-  GitWorktreeInfo,
-  OrcaHooks,
-  Repo,
-  RemoveWorktreeResult,
-  Worktree,
-  WorktreeLineage,
-  WorkspaceLineage,
-  WorktreeMeta
-} from '../../shared/types'
-import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
+import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
+import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree-id'
 import {
-  getRepoExecutionHostId,
-  LOCAL_EXECUTION_HOST_ID,
-  parseExecutionHostId,
-  toSshExecutionHostId,
-  type ExecutionHostId
-} from '../../shared/execution-host'
-import {
-  PROVIDER_REQUEST_ID_MAX_UTF8_BYTES,
-  type DirectSshDetectedWorktreeRequest,
-  type HostQualifiedDetectedWorktreeResult,
-  type ListDetectedWorktreesArgs,
-  type ProviderRequestId
-} from '../../shared/detected-worktree-provider-contract'
-import type {
-  HostLineageSnapshot,
-  ListDesktopLineageForHostArgs
-} from '../../shared/host-lineage-contract'
-import { isAdmissibleDirectSshAuthority } from '../../shared/ssh-retained-payload-admission'
-import {
-  applyMetadataFallbackVisibility,
   buildKnownOrcaWorkspaceLayouts,
   isLegacyRepoForExternalWorktreeVisibility,
   toDetectedWorktree
 } from '../../shared/worktree-ownership'
-import { createAgentScratchWorktreePathMatcher } from '../../shared/agent-scratch-worktrees'
+import type { Store } from '../persistence'
 import {
-  assertWorktreeCleanForRemoval,
-  forceDeleteLocalBranch,
-  listWorktreesStrict as listGitWorktreesStrict,
-  removeWorktree
-} from '../git/worktree'
-import { gitExecFileAsync } from '../git/runner'
-import { withWorktreeRemoveStageSpan, withWorktreeSpan } from '../observability/instrumentation'
-import { resolveGitHubPrStartPoint } from '../github/pr-start-point'
-import {
-  fetchGitHubPullRequestHeadRef,
-  fetchPrHeadTrackingRef
-} from '../github/pr-head-tracking-ref'
-import { pruneWorktreePRRefreshAliases } from '../github/pr-refresh-coordinator'
-import { resolveGitHubReviewHeadRemote } from '../github/review-head-remote'
-import { listRepoWorktrees } from '../repo-worktrees'
-import { getSshGitProvider, requireSshGitProvider } from '../providers/ssh-git-dispatch'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import {
-  createIssueCommandRunnerScript,
-  getEffectiveHooks,
-  getEffectiveHooksFromConfig,
-  getSetupRunnerEnvVars,
-  loadHooks,
-  parseOrcaYaml,
-  readIssueCommand,
-  runHook,
-  hasHooksFile,
-  hasUnrecognizedOrcaYamlKeys,
-  writeIssueCommand
-} from '../hooks'
-import {
-  mergeWorktree,
-  parseWorktreeId,
-  areWorktreePathsEqual,
-  formatWorktreeRemovalError,
-  isOrphanCompatiblePreflightError,
-  isOrphanedWorktreeError
-} from './worktree-logic'
+  getProjectHostSetupMetaUpdates,
+  resolveWorktreeMetaWithDiscoveryBackfill
+} from './worktree-ipc-foundation'
+import { areWorktreePathsEqual, mergeWorktree, parseWorktreeId } from './worktree-logic'
 import { dedupeWorktreesByPath } from './worktree-path-comparison'
-import { joinWorktreeRelativePath } from '../runtime/runtime-relative-paths'
-import {
-  createLocalWorktree,
-  createRemoteWorktree,
-  cleanupUnusedWorktreePushTargetRemote,
-  cleanupUnusedWorktreePushTargetRemoteSsh,
-  notifyWorktreesChanged
-} from './worktree-remote'
-import { registerWorktreeChangeInvalidator } from './worktree-change-invalidators'
-import {
-  invalidateAuthorizedRootsCache,
-  isENOENT,
-  registerWorktreeRootsForRepo
-} from './filesystem-auth'
-import type { OrcaRuntimeService, RuntimeWorktreeLifecycleEvent } from '../runtime/orca-runtime'
-import { killAllProcessesForWorktree } from '../runtime/worktree-teardown'
-import { clearProviderPtyState, getLocalPtyProvider, getSshPtyProvider } from './pty'
-import { findExistingWorktreeSymlinkPaths, removeWorktreeLinkedPaths } from './worktree-symlinks'
-import { getWorktreeSharedLinkPaths } from '../git/worktree-shared-directories'
-import { track } from '../telemetry/client'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
-import { workspaceSourceSchema, type WorkspaceSource } from '../../shared/telemetry-events'
-import {
-  finishAutomationWorkspaceProvenanceRequest,
-  releaseAutomationWorkspaceProvenanceRequest,
-  resolveAutomationWorkspaceProvenance
-} from '../automations/workspace-provenance'
-import { shouldEmitBoundedWarning } from './bounded-warning-dedupe'
-import {
-  getSshProviderAuthority,
-  isCurrentSshProviderAuthority,
-  registerSshProviderRequestAbort
-} from '../ssh/ssh-provider-authority'
-import { createSenderScopedRequestCancellations } from './sender-scoped-request-cancellation'
-import { getProjectHostSetupMetaUpdates, resolveWorktreeMetaWithDiscoveryBackfill } from './worktree-ipc-foundation'
-import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree-id'
-import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
 
-import { runRemoteArchiveHook,
-  type WorktreeRemovalInFlight,
-  type PreservedBranchCleanupTarget,
-  preservedBranchCleanupByWorktreeId,
-  rememberPreservedBranchCleanupTarget,
-  preserveBranchHeadFallback,
-  getPreservedBranchCleanupTarget,
-  loggedUnavailableSshGitProviders,
-  loggedWorktreeListFailures,
-  loggedMalformedWorktreeMetaKeys,
+import { loggedMalformedWorktreeMetaKeys, warnOnce } from './worktree-ipc-creation'
+export {
   DETECTED_WORKTREE_PROVIDER_TIMEOUT_MS,
-  LINEAGE_HYDRATION_TIMEOUT_MS,
   DETECTED_WORKTREE_SCAN_CACHE_TTL_MS,
-  type DetectedWorktreeScanCacheEntry,
-  type DetectedWorktreeScan,
-  type DetectedWorktreeScanResult,
+  LINEAGE_HYDRATION_TIMEOUT_MS,
+  __getDetectedWorktreeScanCacheStatsForTests,
+  __resetDetectedWorktreeScanCacheForTests,
   detectedWorktreeScanCache,
   detectedWorktreeScanInFlight,
-  invalidateDetectedWorktreeScanCache,
-  __resetDetectedWorktreeScanCacheForTests,
-  __getDetectedWorktreeScanCacheStatsForTests,
-  listDetectedGitWorktrees,
   getDetectedWorktreeScanCacheKey,
-  warnOnce,
-  rememberLocalWorktreeRoots } from './worktree-ipc-creation'
-export { runRemoteArchiveHook,
-  type WorktreeRemovalInFlight,
-  type PreservedBranchCleanupTarget,
-  preservedBranchCleanupByWorktreeId,
-  rememberPreservedBranchCleanupTarget,
-  preserveBranchHeadFallback,
   getPreservedBranchCleanupTarget,
+  invalidateDetectedWorktreeScanCache,
+  listDetectedGitWorktrees,
+  loggedMalformedWorktreeMetaKeys,
   loggedUnavailableSshGitProviders,
   loggedWorktreeListFailures,
-  loggedMalformedWorktreeMetaKeys,
-  DETECTED_WORKTREE_PROVIDER_TIMEOUT_MS,
-  LINEAGE_HYDRATION_TIMEOUT_MS,
-  DETECTED_WORKTREE_SCAN_CACHE_TTL_MS,
-  type DetectedWorktreeScanCacheEntry,
-  type DetectedWorktreeScan,
-  type DetectedWorktreeScanResult,
-  detectedWorktreeScanCache,
-  detectedWorktreeScanInFlight,
-  invalidateDetectedWorktreeScanCache,
-  __resetDetectedWorktreeScanCacheForTests,
-  __getDetectedWorktreeScanCacheStatsForTests,
-  listDetectedGitWorktrees,
-  getDetectedWorktreeScanCacheKey,
+  preserveBranchHeadFallback,
+  preservedBranchCleanupByWorktreeId,
+  rememberLocalWorktreeRoots,
+  rememberPreservedBranchCleanupTarget,
+  runRemoteArchiveHook,
   warnOnce,
-  rememberLocalWorktreeRoots } from './worktree-ipc-creation'
+  type DetectedWorktreeScan,
+  type DetectedWorktreeScanCacheEntry,
+  type DetectedWorktreeScanResult,
+  type PreservedBranchCleanupTarget,
+  type WorktreeRemovalInFlight
+} from './worktree-ipc-creation'
 
 export function pruneLineageForMissingRepoWorktrees(
   store: Store,
@@ -253,7 +118,9 @@ export type SshWorktreeMetaCandidate = {
 
 export type SshWorktreeMetaIndex = Map<string, SshWorktreeMetaCandidate[]>
 
-export function createSshWorktreeMetaIndex(entries: [string, WorktreeMeta][]): SshWorktreeMetaIndex {
+export function createSshWorktreeMetaIndex(
+  entries: [string, WorktreeMeta][]
+): SshWorktreeMetaIndex {
   const index: SshWorktreeMetaIndex = new Map()
   for (const [worktreeId, meta] of entries) {
     let parsed: { repoId: string; worktreePath: string }
@@ -276,7 +143,11 @@ export function createSshWorktreeMetaIndex(entries: [string, WorktreeMeta][]): S
   return index
 }
 
-export function synthesizeSshGitWorktree(repo: Repo, path: string, meta: WorktreeMeta): GitWorktreeInfo {
+export function synthesizeSshGitWorktree(
+  repo: Repo,
+  path: string,
+  meta: WorktreeMeta
+): GitWorktreeInfo {
   return {
     path,
     head: '',
@@ -439,9 +310,6 @@ export function mergeFolderWorkspace(repo: Repo, worktreeId: string, meta: Workt
     lastActivityAt: meta.lastActivityAt ?? 0,
     ...(meta.createdAt !== undefined ? { createdAt: meta.createdAt } : {}),
     ...(meta.createdWithAgent !== undefined ? { createdWithAgent: meta.createdWithAgent } : {}),
-    ...(meta.automationProvenance !== undefined
-      ? { automationProvenance: meta.automationProvenance }
-      : {}),
     ...(meta.cliProvenance !== undefined ? { cliProvenance: meta.cliProvenance } : {}),
     ...(meta.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
     workspaceStatus: meta.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,

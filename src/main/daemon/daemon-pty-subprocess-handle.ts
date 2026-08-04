@@ -1,4 +1,4 @@
-import * as pty from 'node-pty'
+import type * as pty from 'node-pty'
 import type { SubprocessHandle } from './session'
 import type { PtySubprocessOptions } from './daemon-pty-spawn-support'
 import {
@@ -14,10 +14,12 @@ import {
 import { isValidPtySize } from './daemon-pty-size'
 import { resolveAgentForegroundProcessWithAvailability } from '../providers/agent-foreground-process'
 import { readWindowsConptyProcessIds } from '../providers/windows-conpty-process-membership'
+import type {
+  recognizeAgentProcessFromCommandLine
+} from '../../shared/agent-process-recognition';
 import {
   isAgentForegroundWrapperProcess,
-  recognizeAgentProcess,
-  recognizeAgentProcessFromCommandLine
+  recognizeAgentProcess
 } from '../../shared/agent-process-recognition'
 import { shouldInspectOuterWrapperForegroundProcess } from '../../shared/foreground-wrapper-agent'
 import { isShellProcess } from '../../shared/shell-process-detection'

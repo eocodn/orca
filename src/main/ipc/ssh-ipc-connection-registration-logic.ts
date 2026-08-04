@@ -30,14 +30,18 @@ import {
 import { registerSshTargetHandlers } from './ssh-ipc-connection-registration-targets'
 import { registerSshPortForwardHandlers } from './ssh-ipc-connection-registration-port-forwards'
 
-import { createSshConnectionCallbacks,
+import {
+  createSshConnectionCallbacks,
   broadcastDetectedPortsFromCurrentWindow,
   configureRelaySessionCallbacks,
-  refreshActiveRelaySessions } from './ssh-ipc-browse'
-export { createSshConnectionCallbacks,
+  refreshActiveRelaySessions
+} from './ssh-ipc-browse'
+export {
+  createSshConnectionCallbacks,
   broadcastDetectedPortsFromCurrentWindow,
   configureRelaySessionCallbacks,
-  refreshActiveRelaySessions } from './ssh-ipc-browse'
+  refreshActiveRelaySessions
+} from './ssh-ipc-browse'
 import {
   sshStore,
   connectionManager,

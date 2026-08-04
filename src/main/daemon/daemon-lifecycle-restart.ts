@@ -1,25 +1,19 @@
+import type {
+  DaemonSpawner} from './daemon-spawner';
 import {
-  DaemonSpawner,
   getDaemonPidPath
 } from './daemon-spawner'
 import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter'
 import { DaemonPtyRouter } from './daemon-pty-router'
 import { PROTOCOL_VERSION } from './types'
 import {
-  collectPinnedDaemonVersions,
-  materializeRelocatedDaemonHost,
-  pruneOldDaemonHosts
-} from './daemon-host-relocation'
-import {
   DegradedDaemonPtyProvider,
   type CurrentDaemonInventoryState
 } from './degraded-daemon-pty-provider'
-import { trackDaemonReplaced } from './daemon-lifecycle-event'
 import {
   unbindLocalProviderListeners,
   rebindLocalProviderListeners
 } from '../ipc/pty'
-import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from '../startup/startup-diagnostics'
 
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'
@@ -32,6 +26,7 @@ import {
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 import type { IPtyProvider } from '../providers/types'
 import { setAttributedReplaceReason } from './daemon-lifecycle-launcher-process'
+import { trackDaemonRetired } from './daemon-lifecycle-event'
 
 export type RestartDaemonResult = {
   killedCount: number

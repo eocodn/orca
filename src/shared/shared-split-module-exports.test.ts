@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { classifyAutomationCronSchedule } from './automation-schedule-classifier'
 import { createHookListenerState } from './agent-hook-listener'
 import { appOpenedSchema } from './telemetry-event-core-schemas'
 import { contextualTourShownSchema } from './telemetry-event-education-schemas'
@@ -13,7 +12,6 @@ describe('shared split module boundaries', () => {
     expect(DIGIT_INDEX_KEY_PATTERN.test('1')).toBe(true)
     expect(copyRecord({ value: 1 })).toEqual({ value: 1 })
     expect(typeof createHookListenerState).toBe('function')
-    expect(typeof classifyAutomationCronSchedule).toBe('function')
     expect(eventSchemas).toBeDefined()
   })
 
@@ -30,7 +28,9 @@ describe('shared split module boundaries', () => {
     expect(onboardingStartedSchema).toBe(eventSchemas.onboarding_started)
     expect(contextualTourShownSchema).toBe(eventSchemas.contextual_tour_shown)
     expect(appOpenedSchema.parse(appOpenedPayload)).toEqual(appOpenedPayload)
-    expect(onboardingStartedSchema.parse(onboardingStartedPayload)).toEqual(onboardingStartedPayload)
+    expect(onboardingStartedSchema.parse(onboardingStartedPayload)).toEqual(
+      onboardingStartedPayload
+    )
     expect(contextualTourShownSchema.parse(contextualTourShownPayload)).toEqual(
       contextualTourShownPayload
     )

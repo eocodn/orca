@@ -1,57 +1,9 @@
-import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
   BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
   BrowserScrollResult,
-  BrowserSelectAllResult,
   BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
   BrowserWaitResult
 } from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-
-import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
 
 export const CdpBridgeMethods4 = {
   async select(this: any, element: string, value: string): Promise<BrowserSelectResult> {
@@ -103,7 +55,7 @@ export const CdpBridgeMethods4 = {
 
       return { selected: element }
     })
-  }
+  },
   async scroll(this: any, direction: 'up' | 'down', amount?: number): Promise<BrowserScrollResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -118,7 +70,7 @@ export const CdpBridgeMethods4 = {
 
       return { scrolled: direction }
     })
-  }
+  },
   async wait(this: any, timeoutMs = 5000): Promise<BrowserWaitResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -126,7 +78,7 @@ export const CdpBridgeMethods4 = {
       await this.waitForNetworkIdle(guest, timeoutMs, 500)
       return { waited: true }
     })
-  }
+  },
   async check(this: any, element: string, checked: boolean): Promise<BrowserCheckResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()

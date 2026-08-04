@@ -1,5 +1,4 @@
 import type { ExecutionHostId } from './execution-host'
-import type { AutomationExecutionTargetType } from './automations-types'
 import type { TaskSourceContext } from './task-source-context'
 import type { WorkspaceKey, WorkspaceLinkedItem } from './types-repository'
 import type { OrcaWorkspaceLayout } from './types-persistence'
@@ -116,7 +115,6 @@ export type Worktree = {
   workspaceStatus?: WorkspaceStatus
   diffComments?: DiffComment[]
   mobileDiffReview?: MobileDiffReviewState
-  automationProvenance?: AutomationWorkspaceProvenance
   cliProvenance?: CliWorkspaceProvenance
 } & GitWorktreeInfo
 
@@ -131,27 +129,6 @@ export type CliWorkspaceProvenance = {
   callerTerminalHandle?: string
   /** Agent requested via `--agent`, when one was passed. */
   startupAgent?: TuiAgent
-}
-
-export type AutomationWorkspaceProvenance = {
-  kind: 'created-by-automation'
-  automationId: string
-  automationNameSnapshot: string
-  automationRunId: string
-  automationRunTitleSnapshot: string
-  createdAt: number
-  executionTargetType: AutomationExecutionTargetType
-  executionTargetId: string
-  projectId: string
-  repoId?: string
-  hostId?: ExecutionHostId
-}
-
-export type AutomationWorkspaceProvenanceRequest = {
-  automationId: string
-  automationRunId: string
-  dispatchToken: string
-  createRequestId: string
 }
 
 export type GitPushTarget = {
@@ -242,8 +219,6 @@ export type WorktreeMeta = {
    *  them. Self-prunes when the worktree is deleted. */
   priorWorktreeIds?: string[]
   mobileDiffReview?: MobileDiffReviewState
-  /** System-owned provenance for workspaces created by automation new-per-run dispatches. */
-  automationProvenance?: AutomationWorkspaceProvenance
   /** System-owned provenance for workspaces created via `orca worktree create`. */
   cliProvenance?: CliWorkspaceProvenance
 }

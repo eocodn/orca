@@ -1,9 +1,29 @@
 import * as startupDeps from './main-process-startup-dependencies'
-import { startupState, clearExpectedRendererReload, isRecoveryReloadInFlight, markExpectedRendererReload, markRecoveryReloadInFlight, getExpectedTeardownScope, recordAgentStateCrashBreadcrumb } from './main-process-startup-state'
+import {
+  startupState,
+  clearExpectedRendererReload,
+  isRecoveryReloadInFlight,
+  markExpectedRendererReload,
+  markRecoveryReloadInFlight,
+  getExpectedTeardownScope,
+  recordAgentStateCrashBreadcrumb
+} from './main-process-startup-state'
 import { maybeAutoRenameBranchOnFirstWorkFromHook } from './main-process-first-work-rename-startup'
-import { prepareCodexRuntimeHomeForLaunch, prepareCodexSessionResumeForLaunch } from './main-process-runtime-startup-preparation'
-import { presentRendererRecoveryPrompt, recordProcessGoneCrash } from './main-process-crash-lifecycle'
-import { driveSyntheticTitleFromHook, shouldSuppressCodexAutoApprovalSyntheticTitleFromHook, stopAllSyntheticTitleSpinners, resumeSyntheticTitleSpinnerTimer, stopSyntheticTitleSpinnerTimer } from './main-process-synthetic-title-lifecycle'
+import {
+  prepareCodexRuntimeHomeForLaunch,
+  prepareCodexSessionResumeForLaunch
+} from './main-process-runtime-startup-preparation'
+import {
+  presentRendererRecoveryPrompt,
+  recordProcessGoneCrash
+} from './main-process-crash-lifecycle'
+import {
+  driveSyntheticTitleFromHook,
+  shouldSuppressCodexAutoApprovalSyntheticTitleFromHook,
+  stopAllSyntheticTitleSpinners,
+  resumeSyntheticTitleSpinnerTimer,
+  stopSyntheticTitleSpinnerTimer
+} from './main-process-synthetic-title-lifecycle'
 
 function emitPluginWorktreeLifecycle(event: startupDeps.RuntimeWorktreeLifecycleEvent): void {
   startupState.pluginService?.emitEvent(
@@ -31,15 +51,18 @@ export function showMainWindowFromTray(): void {
 
 export function openSettingsFromSystemMenu(): void {
   showMainWindowFromTray()
-  const targetWindow = startupState.mainWindow && !startupState.mainWindow.isDestroyed() ? startupState.mainWindow : null
+  const targetWindow =
+    startupState.mainWindow && !startupState.mainWindow.isDestroyed()
+      ? startupState.mainWindow
+      : null
   if (!targetWindow) {
     return
   }
   startupDeps.recordCrashBreadcrumb('settings_opened')
 
-  // Why: no signal proves the renderer listener is attached — push, and also leave a one-shot intent the unmounted renderer pulls at mount.
+  // Why: no signal proves the renderer listener is attached â push, and also leave a one-shot intent the unmounted renderer pulls at mount.
   targetWindow.webContents.send('ui:openSettings')
-  // Why: untimed — any TTL can be outrun by a slow cold start; id-scoping + consume-on-read still prevent leaking to a later renderer.
+  // Why: untimed â any TTL can be outrun by a slow cold start; id-scoping + consume-on-read still prevent leaking to a later renderer.
   startupState.pendingOpenSettings.mark(targetWindow.webContents.id, Number.POSITIVE_INFINITY)
 }
 
@@ -108,9 +131,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
   }
   if (!startupState.rateLimits) {
     throw new Error('Rate limit service must be initialized before opening the main window')
-  }
-  if (!startupState.automations) {
-    throw new Error('Automation service must be initialized before opening the main window')
   }
   if (!startupState.codexAccounts) {
     throw new Error('Codex account service must be initialized before opening the main window')
@@ -245,24 +265,28 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     startupState.claudeAccounts,
     startupState.rateLimits,
     rendererWebContentsId,
-    startupState.automations,
     {
       prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch,
-      prepareForClaudeLaunch: (target) => startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target)
+      prepareForClaudeLaunch: (target) =>
+        startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target)
     },
     startupState.agentAwakeService ?? undefined,
     startupState.crashReports ?? undefined,
     startupState.keybindings,
     {
       getAdditionalAiVaultCodexHomePaths: () =>
-        startupState.codexRuntimeHome ? startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery() : [],
+        startupState.codexRuntimeHome
+          ? startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery()
+          : [],
       prepareAiVaultSessionResume: (args) =>
         startupDeps.prepareLegacySharedCodexSessionResume(args, {
           isHostSystemDefaultRealHome: () =>
             startupState.codexRuntimeHome?.isHostSystemDefaultRealHome() === true,
           getSelectedHostAccountCodexHomePath: () =>
             startupState.codexRuntimeHome?.getSelectedHostAccountCodexHomePath() ?? null,
-          systemCodexHomePath: startupDeps.resolveHostCodexSessionSourceHome(startupState.store!.getSettings())
+          systemCodexHomePath: startupDeps.resolveHostCodexSessionSourceHome(
+            startupState.store!.getSettings()
+          )
         }),
       onBeforeRelaunch: async () => {
         startupState.isQuitting = true
@@ -278,11 +302,12 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     },
     startupState.pluginService ?? undefined,
     startupState.pluginMarketplaceService && startupState.pluginMarketplaceInstaller
-      ? { marketplace: startupState.pluginMarketplaceService, installer: startupState.pluginMarketplaceInstaller }
+      ? {
+          marketplace: startupState.pluginMarketplaceService,
+          installer: startupState.pluginMarketplaceInstaller
+        }
       : undefined
   )
-  startupState.automations.setWebContents(window.webContents)
-  startupState.automations.start()
   startupDeps.attachMainWindowServices(
     window,
     startupState.store,
@@ -321,12 +346,11 @@ export function openMainWindow(): startupDeps.BrowserWindow {
       startupState.mainWindow = null
     }
     clearExpectedRendererReload(rendererWebContentsId)
-    startupState.automations?.setWebContents(null)
     // Why: detach the hook listener on close so the server never fires into destroyed webContents before reopen, and replay runs only on deliberate recreations.
     startupDeps.agentHookServer.setListener(null)
     startupDeps.agentHookServer.setPaneStatusClearListener(null)
     startupDeps.setMigrationUnsupportedPtyListener(null)
-    // Why: stop the spinner timer here — it would fire into destroyed webContents, and per-pane teardown may never run for restored-but-untorn panes.
+    // Why: stop the spinner timer here â it would fire into destroyed webContents, and per-pane teardown may never run for restored-but-untorn panes.
     stopAllSyntheticTitleSpinners()
   })
   startupState.mainWindow = window
@@ -387,7 +411,7 @@ export function openMainWindow(): startupDeps.BrowserWindow {
         receivedAt,
         stateStartedAt,
         ...(providerSession ? { providerSession } : {}),
-        ...(promptInteractionKey ? { promptInteractionKey } : {}),
+        ...(promptInteractionKey ? { promptInteractionKey } : {})
       })
       recordAgentStateCrashBreadcrumb(payload.agentType ?? 'unknown', payload.state)
       // Why: native OSC titles miss some idle/permission frames, so inject hook-derived ones to keep the renderer title tracker in sync.
@@ -398,7 +422,9 @@ export function openMainWindow(): startupDeps.BrowserWindow {
           ? shouldSuppressCodexAutoApprovalSyntheticTitleFromHook({
               agentType: payload.agentType,
               state: payload.state,
-              launchConfig: startupState.runtime?.getAgentStatusLaunchConfigForPaneKey(paneKey, { launchToken })
+              launchConfig: startupState.runtime?.getAgentStatusLaunchConfigForPaneKey(paneKey, {
+                launchToken
+              })
             })
           : false
       if (
@@ -435,19 +461,25 @@ export function openMainWindow(): startupDeps.BrowserWindow {
 
 export function sendOpenFeatureTour(targetWindow?: startupDeps.BrowserWindow | null): void {
   const webContents =
-    targetWindow && !targetWindow.isDestroyed() ? targetWindow.webContents : startupState.mainWindow?.webContents
+    targetWindow && !targetWindow.isDestroyed()
+      ? targetWindow.webContents
+      : startupState.mainWindow?.webContents
   webContents?.send('ui:openFeatureTour')
 }
 
 export function sendOpenSetupGuide(targetWindow?: startupDeps.BrowserWindow | null): void {
   const webContents =
-    targetWindow && !targetWindow.isDestroyed() ? targetWindow.webContents : startupState.mainWindow?.webContents
+    targetWindow && !targetWindow.isDestroyed()
+      ? targetWindow.webContents
+      : startupState.mainWindow?.webContents
   webContents?.send('ui:openSetupGuide')
 }
 
 export function sendOpenCrashReport(targetWindow?: startupDeps.BrowserWindow | null): void {
   const webContents =
-    targetWindow && !targetWindow.isDestroyed() ? targetWindow.webContents : startupState.mainWindow?.webContents
+    targetWindow && !targetWindow.isDestroyed()
+      ? targetWindow.webContents
+      : startupState.mainWindow?.webContents
   webContents?.send('ui:openCrashReport')
 }
 

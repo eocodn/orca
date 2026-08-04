@@ -17,12 +17,16 @@ import {
 } from './ssh-connection-utils'
 import { getPassphrasePrivateKeyPath } from './ssh-private-key-authentication'
 import { resolveSftpTransferPathIfMapped } from './sftp-namespace-resolution'
-import { createLinkedSshFileTransferSignal, raceSftpFileTransferWithAbort } from './ssh-file-transfer-abort'
+import {
+  createLinkedSshFileTransferSignal,
+  raceSftpFileTransferWithAbort
+} from './ssh-file-transfer-abort'
 import type { SshRemoteFileOptions } from './ssh-connection-lifecycle-foundation'
 import { shouldUseSystemSshTransport } from './ssh-connection-lifecycle'
 
 export const SshConnectionMethods5 = {
-  async writeFile(this: any,
+  async writeFile(
+    this: any,
     remotePath: string,
     contents: string,
     options?: SshRemoteFileOptions & { signal?: AbortSignal }
@@ -72,7 +76,8 @@ export const SshConnectionMethods5 = {
       linkedSignal.dispose()
     }
   },
-  async writeBuffer(this: any,
+  async writeBuffer(
+    this: any,
     remotePath: string,
     contents: Buffer,
     options?: SshRemoteFileOptions & { append?: boolean; exclusive?: boolean }

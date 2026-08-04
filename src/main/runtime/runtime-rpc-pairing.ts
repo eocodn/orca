@@ -23,9 +23,9 @@ import {
   mobileRelayMintFailureFromUnknown,
   type MobileRelayMintFailure
 } from '../../shared/mobile-relay-mint-failure'
-import {
-  type RelayDeviceBinding,
-  type RelayRevokeOutboxItem
+import type {
+  RelayDeviceBinding,
+  RelayRevokeOutboxItem
 } from './relay/relay-revoke-outbox'
 
 import { encodePairingOffer, PAIRING_OFFER_VERSION } from '../../shared/pairing'

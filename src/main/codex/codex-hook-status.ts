@@ -1,8 +1,20 @@
-import type { AgentHookInstallState, AgentHookInstallStatus } from '../../shared/agent-hook-types'
+import type { AgentHookInstallState,AgentHookInstallStatus } from '../../shared/agent-hook-types'
 import {
   MANAGED_HOOK_TIMEOUT_SECONDS,
   readHooksJson
 } from '../agent-hooks/installer-utils'
+import { getOrcaManagedCodexHomePath } from './codex-home-paths'
+import { getCodexHookTrustSignature } from './codex-hook-identity'
+import {
+  CODEX_EVENTS,
+  CODEX_EVENT_LABEL,
+  getCodexConfigTomlPath,
+  getConfigPath,
+  getManagedCommand,
+  getManagedScriptPath
+} from './codex-hook-support-a'
+import { getCodexLedgerTrustedHash } from './codex-managed-trust-reconciliation'
+import { readCurrentCodexTrustGrantLedgerHome } from './codex-trust-grant-host'
 import {
   computeTrustKey,
   computeTrustedHash,
@@ -12,18 +24,6 @@ import {
   type CodexHookTrustState,
   type CodexTrustEntry
 } from './config-toml-trust'
-import { getOrcaManagedCodexHomePath } from './codex-home-paths'
-import { getCodexHookTrustSignature } from './codex-hook-identity'
-import { readCurrentCodexTrustGrantLedgerHome } from './codex-trust-grant-host'
-import { getCodexLedgerTrustedHash } from './codex-managed-trust-reconciliation'
-import {
-  getConfigPath,
-  getCodexConfigTomlPath,
-  getManagedScriptPath,
-  getManagedCommand,
-  CODEX_EVENTS,
-  CODEX_EVENT_LABEL
-} from './codex-hook-support-a'
 
 export function getStatus(service: any, runtimeHomePath: string = getOrcaManagedCodexHomePath()): AgentHookInstallStatus {
 

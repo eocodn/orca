@@ -1,5 +1,38 @@
-import type * as ApiExternal from "./api-types-external"
-type MemorySnapshot = ApiExternal.MemorySnapshot; type ClaudeUsageBreakdownKind = ApiExternal.ClaudeUsageBreakdownKind; type ClaudeUsageBreakdownRow = ApiExternal.ClaudeUsageBreakdownRow; type ClaudeUsageDailyPoint = ApiExternal.ClaudeUsageDailyPoint; type ClaudeUsageRange = ApiExternal.ClaudeUsageRange; type ClaudeUsageScanState = ApiExternal.ClaudeUsageScanState; type ClaudeUsageScope = ApiExternal.ClaudeUsageScope; type ClaudeUsageSessionRow = ApiExternal.ClaudeUsageSessionRow; type ClaudeUsageSnapshot = ApiExternal.ClaudeUsageSnapshot; type ClaudeUsageSummary = ApiExternal.ClaudeUsageSummary; type CodexUsageBreakdownKind = ApiExternal.CodexUsageBreakdownKind; type CodexUsageBreakdownRow = ApiExternal.CodexUsageBreakdownRow; type CodexUsageDailyPoint = ApiExternal.CodexUsageDailyPoint; type CodexUsageRange = ApiExternal.CodexUsageRange; type CodexUsageScanState = ApiExternal.CodexUsageScanState; type CodexUsageScope = ApiExternal.CodexUsageScope; type CodexUsageSessionRow = ApiExternal.CodexUsageSessionRow; type CodexUsageSnapshot = ApiExternal.CodexUsageSnapshot; type CodexUsageSummary = ApiExternal.CodexUsageSummary; type OpenCodeUsageBreakdownKind = ApiExternal.OpenCodeUsageBreakdownKind; type OpenCodeUsageBreakdownRow = ApiExternal.OpenCodeUsageBreakdownRow; type OpenCodeUsageDailyPoint = ApiExternal.OpenCodeUsageDailyPoint; type OpenCodeUsageRange = ApiExternal.OpenCodeUsageRange; type OpenCodeUsageScanState = ApiExternal.OpenCodeUsageScanState; type OpenCodeUsageScope = ApiExternal.OpenCodeUsageScope; type OpenCodeUsageSessionRow = ApiExternal.OpenCodeUsageSessionRow; type OpenCodeUsageSnapshot = ApiExternal.OpenCodeUsageSnapshot; type OpenCodeUsageSummary = ApiExternal.OpenCodeUsageSummary; type AiVaultListArgs = ApiExternal.AiVaultListArgs; type AiVaultListResult = ApiExternal.AiVaultListResult; type AiVaultSubagentListArgs = ApiExternal.AiVaultSubagentListArgs; type AiVaultSubagentListResult = ApiExternal.AiVaultSubagentListResult; type AiVaultPrepareSessionResumeArgs = ApiExternal.AiVaultPrepareSessionResumeArgs; type AiVaultPrepareSessionResumeResult = ApiExternal.AiVaultPrepareSessionResumeResult; type AgentType = ApiExternal.AgentType; type NativeChatMessage = ApiExternal.NativeChatMessage; type NativeChatTurnLifecycle = ApiExternal.NativeChatTurnLifecycle; 
+import type * as ApiExternal from './api-types-external'
+type MemorySnapshot = ApiExternal.MemorySnapshot
+type ClaudeUsageBreakdownKind = ApiExternal.ClaudeUsageBreakdownKind
+type ClaudeUsageBreakdownRow = ApiExternal.ClaudeUsageBreakdownRow
+type ClaudeUsageDailyPoint = ApiExternal.ClaudeUsageDailyPoint
+type ClaudeUsageRange = ApiExternal.ClaudeUsageRange
+type ClaudeUsageScanState = ApiExternal.ClaudeUsageScanState
+type ClaudeUsageScope = ApiExternal.ClaudeUsageScope
+type ClaudeUsageSessionRow = ApiExternal.ClaudeUsageSessionRow
+type ClaudeUsageSnapshot = ApiExternal.ClaudeUsageSnapshot
+type ClaudeUsageSummary = ApiExternal.ClaudeUsageSummary
+type CodexUsageBreakdownKind = ApiExternal.CodexUsageBreakdownKind
+type CodexUsageBreakdownRow = ApiExternal.CodexUsageBreakdownRow
+type CodexUsageDailyPoint = ApiExternal.CodexUsageDailyPoint
+type CodexUsageRange = ApiExternal.CodexUsageRange
+type CodexUsageScanState = ApiExternal.CodexUsageScanState
+type CodexUsageScope = ApiExternal.CodexUsageScope
+type CodexUsageSessionRow = ApiExternal.CodexUsageSessionRow
+type CodexUsageSnapshot = ApiExternal.CodexUsageSnapshot
+type CodexUsageSummary = ApiExternal.CodexUsageSummary
+type OpenCodeUsageBreakdownKind = ApiExternal.OpenCodeUsageBreakdownKind
+type OpenCodeUsageBreakdownRow = ApiExternal.OpenCodeUsageBreakdownRow
+type OpenCodeUsageDailyPoint = ApiExternal.OpenCodeUsageDailyPoint
+type OpenCodeUsageRange = ApiExternal.OpenCodeUsageRange
+type OpenCodeUsageScanState = ApiExternal.OpenCodeUsageScanState
+type OpenCodeUsageScope = ApiExternal.OpenCodeUsageScope
+type OpenCodeUsageSessionRow = ApiExternal.OpenCodeUsageSessionRow
+type OpenCodeUsageSnapshot = ApiExternal.OpenCodeUsageSnapshot
+type OpenCodeUsageSummary = ApiExternal.OpenCodeUsageSummary
+type AiVaultListArgs = ApiExternal.AiVaultListArgs
+type AiVaultListResult = ApiExternal.AiVaultListResult
+type AiVaultSubagentListArgs = ApiExternal.AiVaultSubagentListArgs
+type AiVaultSubagentListResult = ApiExternal.AiVaultSubagentListResult
+type AiVaultPrepareSessionResumeArgs = ApiExternal.AiVaultPrepareSessionResumeArgs
+type AiVaultPrepareSessionResumeResult = ApiExternal.AiVaultPrepareSessionResumeResult
 
 export type MemoryApi = {
   getSnapshot: () => Promise<MemorySnapshot>
@@ -101,70 +134,4 @@ export type AiVaultApi = {
   listSubagentSessions: (args: AiVaultSubagentListArgs) => Promise<AiVaultSubagentListResult>
   /** Fires when any app window regains OS focus; returns an unsubscribe. */
   onWindowFocused: (callback: () => void) => () => void
-}
-
-// notFound marks a not-yet-on-disk miss (retry-worthy) vs a real read/parse error (#8401).
-export type NativeChatReadSessionResult =
-  | {
-      messages: NativeChatMessage[]
-      lifecycle?: NativeChatTurnLifecycle
-    }
-  | { error: string; notFound?: true }
-
-/** Messages appended to a live-tailed transcript since the previous emit. */
-export type NativeChatAppendedMessages = NativeChatMessage[]
-
-export type NativeChatSubscriptionFrame =
-  | {
-      type: 'snapshot'
-      messages: NativeChatMessage[]
-      hasMore: boolean
-      error?: string
-      lifecycle?: NativeChatTurnLifecycle
-    }
-  | {
-      type: 'replacement'
-      messages: NativeChatMessage[]
-      hasMore: boolean
-      lifecycle?: NativeChatTurnLifecycle
-    }
-  | {
-      type: 'appended'
-      messages: NativeChatMessage[]
-      lifecycle?: NativeChatTurnLifecycle
-    }
-
-/** Wire payload for the `nativeChat:appended` push channel. */
-export type NativeChatAppendedPayload = {
-  subscriptionId: string
-  frame: NativeChatSubscriptionFrame
-}
-
-export type NativeChatSubscribeArgs = {
-  /** Unique per-caller id, echoed on every append so multiple live panes in
-   *  one renderer don't cross-talk. */
-  subscriptionId: string
-  agent: AgentType
-  sessionId: string
-  /** Authoritative transcript path from the agent hook (providerSession). */
-  transcriptPath?: string
-  /** First snapshot size; later readSession calls grow this for pagination. */
-  limit?: number
-}
-
-export type NativeChatApi = {
-  /** Read the on-disk transcript for an agent + session id, windowed to the most recent `limit`
-   *  turns. `transcriptPath` is the hook-reported authoritative path, preferred over the id glob. */
-  readSession: (
-    agent: AgentType,
-    sessionId: string,
-    limit?: number,
-    transcriptPath?: string
-  ) => Promise<NativeChatReadSessionResult>
-  /** Live-tail a transcript. The first frame is a bounded race-safe snapshot;
-   *  later frames contain only newly appended messages. */
-  subscribe: (
-    args: NativeChatSubscribeArgs,
-    onFrame: (frame: NativeChatSubscriptionFrame) => void
-  ) => () => void
 }

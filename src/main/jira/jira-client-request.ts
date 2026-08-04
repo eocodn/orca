@@ -1,24 +1,7 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { net, safeStorage, session } from 'electron'
-import {
-  CredentialDecryptionError,
-  credentialFileHasContent,
-  readStoredCredentialToken
-} from '../integration-credential-file'
+import { net, session } from 'electron'
 import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
 import { withSpan } from '../observability/tracer'
-import type {
-  JiraAuthType,
-  JiraConnectArgs,
-  JiraConnectionStatus,
-  JiraSite,
-  JiraSiteSelection,
-  JiraViewer
-} from '../../shared/types'
-import { clearAttachmentImagesForSite } from './attachment-image-cache'
+import type { JiraAuthType } from '../../shared/types'
 
 // Why: Atlassian's XSRF filter rejects POST/PUT REST calls that carry a browser
 // User-Agent, failing them with "XSRF check failed" even under API-token auth.
@@ -27,8 +10,6 @@ import { clearAttachmentImagesForSite } from './attachment-image-cache'
 // reliable fix; X-Atlassian-Token: no-check is not honored for this case.
 const JIRA_API_USER_AGENT = 'Orca'
 
-const MAX_CONCURRENT = 4
-let running = 0
 import { type JiraClientForSite, JiraApiError } from './jira-client-limiter'
 import { authHeader, describeErrorCause } from './jira-client-auth'
 async function jiraFetch(url: string, init: RequestInit): Promise<Response> {
@@ -170,4 +151,3 @@ async function jiraRequestBinary(
 }
 
 export { jiraFetch, requestWithCredentials, readJiraError, jiraRequest, jiraRequestBinary }
-

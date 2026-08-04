@@ -1,8 +1,3 @@
-import {
-  finishAutomationWorkspaceProvenanceRequest,
-  releaseAutomationWorkspaceProvenanceRequest,
-  resolveAutomationWorkspaceProvenance
-} from '../../../automations/workspace-provenance'
 import { buildCliWorkspaceProvenance } from '../../../../shared/cli-workspace-provenance'
 import { defineMethod, type RpcMethod } from '../core'
 import { resolveRuntimeNavigationTarget } from '../../../../shared/runtime-navigation'
@@ -93,17 +88,7 @@ export const WORKTREE_METHODS: RpcMethod[] = [
       // the same clientMutationId; dedupe so the host returns the in-flight/created
       // worktree instead of spawning a duplicate. No key (desktop/CLI) runs plainly.
       runtime.dedupeWorktreeCreate(params.repo, params.clientMutationId, async () => {
-        const repo = await runtime.showRepo(params.repo)
-        const automationProvenance = resolveAutomationWorkspaceProvenance({
-          authority: runtime,
-          repoSelector: params.repo,
-          repo,
-          request: params.automationProvenanceRequest
-        })
-        // Why: provenance tokens are reserved before creation so retries can recover,
-        // but failed create attempts must release the reservation for a safe retry.
-        try {
-          const result = await runtime.createManagedWorktree({
+        const result = await runtime.createManagedWorktree({
             repoSelector: params.repo,
             name: params.name ?? '',
             baseBranch: params.baseBranch,
@@ -132,7 +117,6 @@ export const WORKTREE_METHODS: RpcMethod[] = [
             activate: params.activate === true,
             setupDecision: params.setupDecision,
             createdWithAgent: params.createdWithAgent ?? params.startupAgent,
-            automationProvenance,
             cliProvenance: buildCliWorkspaceProvenance(params.cliProvenanceRequest, {
               startupAgent: params.startupAgent ?? params.createdWithAgent,
               createdAt: Date.now()
@@ -161,16 +145,11 @@ export const WORKTREE_METHODS: RpcMethod[] = [
               callerTerminalHandle: params.callerTerminalHandle
             }
           })
-          finishAutomationWorkspaceProvenanceRequest(params.automationProvenanceRequest)
-          // Why: agent callers need a stable dispatch target without traversing
-          // terminal-list layout duplicates after creating the worktree.
-          return params.startupAgent && result.startupTerminal?.handle
-            ? { ...result, agentTerminalHandle: result.startupTerminal.handle }
-            : result
-        } catch (error) {
-          releaseAutomationWorkspaceProvenanceRequest(params.automationProvenanceRequest)
-          throw error
-        }
+        // Why: agent callers need a stable dispatch target without traversing
+        // terminal-list layout duplicates after creating the worktree.
+        return params.startupAgent && result.startupTerminal?.handle
+          ? { ...result, agentTerminalHandle: result.startupTerminal.handle }
+          : result
       })
   }),
   defineMethod({

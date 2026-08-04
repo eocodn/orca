@@ -16,11 +16,6 @@ import { withWorktreeSpan } from '../observability/instrumentation'
 import { resolveGitHubPrStartPoint } from '../github/pr-start-point'
 import { fetchGitHubPullRequestHeadRef, fetchPrHeadTrackingRef } from '../github/pr-head-tracking-ref'
 import { resolveGitHubReviewHeadRemote } from '../github/review-head-remote'
-import {
-  finishAutomationWorkspaceProvenanceRequest,
-  releaseAutomationWorkspaceProvenanceRequest,
-  resolveAutomationWorkspaceProvenance
-} from '../automations/workspace-provenance'
 import { getCohortAtEmit } from '../telemetry/cohort-classifier'
 import { track } from '../telemetry/client'
 import type { CreateWorktreeArgsWithSystemProvenance } from './worktree-ipc-foundation'
@@ -63,15 +58,8 @@ export function registerWorktreeCreationHandlers({
         const sourceParse = workspaceSourceSchema.safeParse(args.telemetrySource)
         const source: WorkspaceSource = sourceParse.success ? sourceParse.data : 'unknown'
 
-        const automationProvenance = resolveAutomationWorkspaceProvenance({
-          authority: runtime,
-          repoSelector: args.repoId,
-          repo,
-          request: args.automationProvenanceRequest
-        })
         const createArgs: CreateWorktreeArgsWithSystemProvenance = {
-          ...args,
-          automationProvenance
+          ...args
         }
 
         let result: CreateWorktreeResult
@@ -83,7 +71,6 @@ export function registerWorktreeCreationHandlers({
               ? await createRemoteWorktree(createArgs, repo, store, mainWindow)
               : await createLocalWorktree(createArgs, repo, store, mainWindow, runtime)
         } catch (error) {
-          releaseAutomationWorkspaceProvenanceRequest(args.automationProvenanceRequest)
           track('workspace_create_failed', {
             source,
             error_class: classifyWorkspaceCreateError(error),
@@ -91,7 +78,6 @@ export function registerWorktreeCreationHandlers({
           })
           throw error
         }
-        finishAutomationWorkspaceProvenanceRequest(args.automationProvenanceRequest)
 
         // Why: reaching here means create succeeded (helpers throw); skip a separate workspace_initialized (telemetry-plan.md§Deferred); never send the branch name.
         track('workspace_created', {

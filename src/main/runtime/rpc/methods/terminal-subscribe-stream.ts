@@ -1,5 +1,5 @@
-import { z } from 'zod'
-import { type RpcContext } from '../core'
+import type { z } from 'zod'
+import type { RpcContext } from '../core'
 import {
   TerminalStreamOpcode,
   decodeTerminalStreamJson,
@@ -27,7 +27,7 @@ import {
   type TerminalOutputChunk
 } from './terminal-stream-state'
 import { serializeBudgetedMobileSnapshot, updateViewportForClient } from './terminal-snapshot-support'
-import { TerminalSubscribe } from './terminal-schemas'
+import type { TerminalSubscribe } from './terminal-schemas'
 import {
   continueTerminalSubscribeBinaryStream,
   type TerminalSubscribeBinaryState

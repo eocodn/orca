@@ -1,6 +1,4 @@
-import type { ExecutionHostId } from '../../../../shared/execution-host'
 import type {
-  AutomationWorkspaceProvenance,
   CliWorkspaceProvenance,
   IssueInfo
 } from '../../../../shared/types'
@@ -37,7 +35,6 @@ export type WorktreeCardMetaBadgesProps = {
   jiraIssue?: WorktreeCardJiraIssueDisplay | null
   review: WorktreeCardPrDisplay | null
   comment: string | null
-  automationProvenance?: AutomationWorkspaceProvenance | null
   cliProvenance?: CliWorkspaceProvenance | null
 }
 
@@ -50,7 +47,6 @@ export type WorktreeCardDetailsHoverProps = WorktreeCardMetaBadgesProps & {
   workspaceTitle?: string
   identityOrder?: 'workspace-first' | 'branch-first'
   workspaceTitleRenameDisabled?: boolean
-  automationHostId?: ExecutionHostId
   detailsAfter?: React.ReactNode
   openDelay?: number
   closeDelay?: number
@@ -62,7 +58,5 @@ export type WorktreeCardDetailsHoverProps = WorktreeCardMetaBadgesProps & {
   onOpenLinearIssueInOrca?: (event: React.MouseEvent) => void
   onOpenReviewInOrca?: (event: React.MouseEvent) => void
   onUnlinkReview?: () => void
-  onOpenAutomation?: (event: React.MouseEvent) => void
-  onOpenAutomationRun?: (event: React.MouseEvent) => void
   hoverControl?: WorktreeCardDetailsHoverControl
 }

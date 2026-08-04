@@ -2,9 +2,9 @@ import { basename } from "node:path"
 import { createReadStream } from "node:fs"
 import { createInterface } from "node:readline"
 import type { CodexUsageAttributedEvent, CodexUsageParsedEvent, CodexUsagePersistedFile } from "./types"
-import { attributeCodexUsageEvent, type CodexUsageWorktreeRef } from "./scanner-attribution"
+import { attributeCodexUsageEvent } from "./scanner-attribution"
 import { aggregateCodexUsage } from "./scanner-aggregation"
-import { ensureNumber, getProcessedFileInfo, type CodexUsageDeltaResolution, type CodexUsageParseContext, type CodexUsageRawRecord, type CodexUsageRawUsage } from "./scanner-io"
+import { ensureNumber, getProcessedFileInfo, type CodexUsageDeltaResolution, type CodexUsageParseContext, type CodexUsageRawRecord, type CodexUsageRawUsage, type CodexUsageWorktreeRef } from "./scanner-io"
 
 export function normalizeRawUsage(value: unknown): CodexUsageRawUsage | null {
   if (value == null || typeof value !== 'object') {

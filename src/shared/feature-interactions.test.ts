@@ -47,9 +47,6 @@ describe('feature interactions', () => {
       'gitlab-tasks',
       'linear-tasks',
       'jira-tasks',
-      'automations',
-      'automation-created',
-      'automation-run',
       'browser-annotations',
       'browser-annotations-sent-to-agent',
       'browser-grab',
@@ -60,7 +57,6 @@ describe('feature interactions', () => {
       'ephemeral-vm-setup',
       'agent-orchestration-setup',
       'agent-orchestration',
-      'mobile-emulator-agent-setup',
       'ai-commit-generation',
       'ai-pr-generation',
       'claude-account-switching',
@@ -98,14 +94,12 @@ describe('feature interactions', () => {
       normalizeFeatureInteractions({
         tasks: { firstInteractedAt: 100 },
         browser: { firstInteractedAt: Number.NaN },
-        automations: { firstInteractedAt: 200, interactionCount: 3 },
         'browser-grab': { firstInteractedAt: 250, interactionCount: 0 },
         unknown: { firstInteractedAt: 200 },
         'voice-dictation': { firstInteractedAt: 300 }
       })
     ).toEqual({
       tasks: { firstInteractedAt: 100, interactionCount: 1 },
-      automations: { firstInteractedAt: 200, interactionCount: 3 },
       'browser-grab': { firstInteractedAt: 250, interactionCount: 1 },
       'voice-dictation': { firstInteractedAt: 300, interactionCount: 1 }
     })
@@ -188,7 +182,6 @@ describe('feature interactions', () => {
       normalizeFeatureInteractionTelemetryBuckets({
         tasks: 'count_1',
         browser: 'count_1000_plus',
-        automations: 'count_4',
         unknown: 'count_1',
         'voice-dictation': null
       })

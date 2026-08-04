@@ -1,54 +1,22 @@
-import { ipcMain, powerMonitor, type BrowserWindow } from 'electron'
-import { appendFileSync } from 'node:fs'
-import type { Store } from '../persistence'
-import { SshConnectionStore } from '../ssh/ssh-connection-store'
-import type { SshConnectionCallbacks } from '../ssh/ssh-connection'
-import { SshConnectionManager } from '../ssh/ssh-connection-manager'
-import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
-import { SshRelaySession, type SshRelayAiVaultHostInfo } from '../ssh/ssh-relay-session'
-import { SshPortForwardManager } from '../ssh/ssh-port-forward'
-import type {
-  DetectedPort,
-  EnrichedDetectedPort,
-  SavedPortForward,
-  SshRepoReadoption,
-  SshTarget,
-  SshConnectionStatus,
-  SshConnectionState,
-  DirectSshAuthority
-} from '../../shared/ssh-types'
-import { SSH_TERMINATE_RECONNECT_REQUIRED } from '../../shared/constants'
+import { type BrowserWindow } from 'electron'
 import { isRuntimeOwnedSshTargetId } from '../../shared/execution-host'
-import { isAuthError } from '../ssh/ssh-connection-utils'
-import { forceStopRelayForTarget } from '../ssh/ssh-relay-reset'
-import { isSshPtyNotFoundError } from '../providers/ssh-pty-errors'
-import { toAppSshPtyId, toRelaySshPtyId } from '../providers/ssh-pty-id'
-import { registerSshBrowseHandler } from './ssh-browse'
-import {
-  getConnectionIdsForWorktree,
-  enrichSshDetectedPorts,
-  enrichSshForwardEntries,
-  getWorktreeIdsForConnection
-} from '../ports/ssh-advertised-url-enrichment'
-import { advertisedUrlWatcher } from '../ports/advertised-url-watcher'
-import { requestCredential, registerCredentialHandler } from './ssh-passphrase'
-import {
-  clearProviderPtyState,
-  deletePtyOwnership,
-  getPtyIdsForConnection,
-  getSshPtyProvider
-} from './pty'
+import type {
+  DirectSshAuthority,
+  SshConnectionState,
+  SshTarget
+} from '../../shared/ssh-types'
+import type { Store } from '../persistence'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import {
-  initializeSshConnectionGenerationSession,
-  resetSshConnectionGenerations
-} from '../ssh/ssh-connection-generation'
+import type { SshConnectionManager } from '../ssh/ssh-connection-manager'
+import type { SshConnectionStore } from '../ssh/ssh-connection-store'
+import type { SshPortForwardManager } from '../ssh/ssh-port-forward'
 import {
   getSshProviderAuthority,
   isCurrentSshProviderAuthority,
-  resetSshProviderAuthorities,
   rotateSshProviderAuthority
 } from '../ssh/ssh-provider-authority'
+import type { SshRelaySession } from '../ssh/ssh-relay-session'
+import { type SshRelayAiVaultHostInfo } from '../ssh/ssh-relay-session'
 
 export let sshStore: SshConnectionStore | null = null
 export let connectionManager: SshConnectionManager | null = null

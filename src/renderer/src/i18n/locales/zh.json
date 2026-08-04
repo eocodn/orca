@@ -52,7 +52,6 @@
     "toggleRightSidebar": "显示/隐藏右侧边栏",
     "showStatusBar": "显示状态栏",
     "showTasksButton": "显示任务按钮",
-    "showAutomationsButton": "显示自动化按钮",
     "showMobileButton": "显示 Orca 手机端按钮",
     "showTitlebarAppName": "显示标题栏应用名称",
     "view": "查看",
@@ -668,12 +667,6 @@
       }
     },
     "hooks": {
-      "useAutomationDispatchEvents": {
-        "59718b120b": "目标工作区不再可用。",
-        "16a21d6413": "SSH 重新连接需要交互式凭据。",
-        "386db94f3e": "目标项目不再可用。",
-        "3ad7d77f57": "目标工作区所在的主机与此自动化运行目标不同。"
-      },
       "useComposerState": {
         "7eb3f44ff7": "所选智能体已禁用。创建之前选择启用的智能体。",
         "b2ead86962": "无法解析 PR 基础引用。",
@@ -4213,7 +4206,6 @@
           "75405270ed": "编辑筛选条件（{{value0}} 个已启用）",
           "489d1c8c9f": "搜索项目...",
           "ee240a39eb": "编辑筛选条件",
-          "automationCreated": "隐藏自动化创建的工作区",
           "cliCreated": "Hide CLI-created",
           "detachedHead": "隐藏分离 HEAD"
         },
@@ -4278,7 +4270,6 @@
           "c3fa13dc2e": "隐藏默认分支",
           "ed1611b65b": "隐藏休眠项",
           "82594419ba": "筛选条件",
-          "automationCreated": "隐藏自动化创建的工作区",
           "cliCreated": "Hide CLI-created",
           "detachedHead": "隐藏分离 HEAD"
         },
@@ -4336,7 +4327,6 @@
           "2d74665a56": "端口",
           "65a9820bd1": "智能体状态",
           "219ebf1961": "分支名称",
-          "automation": "自动化",
           "folderPathIdentity": "分支 / 文件夹路径",
           "cli": "Orca CLI"
         },
@@ -4417,7 +4407,6 @@
           "runtimeHostDisconnectedNamed": "{{hostName}} 已断开连接",
           "runtimeHostProject": "Orca 服务器上的项目",
           "runtimeHostProjectNamed": "{{hostName}} 上的项目",
-          "automationCreated": "由自动化创建",
           "branchIdentity": "分支",
           "branchFolderPathIdentity": "分支或文件夹路径",
           "ef18787206": "已排队删除"
@@ -4447,14 +4436,6 @@
           "b105fd3057": "链接 Linear {{value0}}",
           "3f2649eeb8": "链接议题#{{value0}}",
           "fe075cb851": "工作区笔记",
-          "automationHeader": "自动化",
-          "openAutomation": "打开自动化",
-          "openAutomationRun": "打开运行",
-          "automationCreated": "由自动化创建",
-          "checkingAutomationAvailability": "正在检查自动化可用性...",
-          "automationMissing": "自动化已不可用。",
-          "automationRunMissing": "运行历史已不可用。",
-          "automationAvailabilityUnavailable": "无法检查自动化可用性。",
           "moreIssueActions": "更多议题操作",
           "copyLink": "复制链接",
           "copyLinkSuccess": "{{value0}} 已复制",
@@ -5720,17 +5701,6 @@
             "description": "预览更新后的 worktree 卡片布局、元数据位置、卡片显示菜单选项和状态呈现。",
             "title": "新卡片样式",
             "toggleLabel": "切换新卡片样式"
-          },
-          "nativeChat": {
-            "title": "Chat UI",
-            "description": "预览受支持的智能体终端会话的桌面聊天界面。",
-            "copy": "添加可从受支持的智能体终端窗格切换的 Chat UI 视图。在我们调整记录保真度、流式传输和终端一致性期间，此功能仍处于实验阶段。",
-            "toggleLabel": "切换 Chat UI",
-            "defaultTitle": "默认视图",
-            "defaultCopy": "选择如何打开受支持智能体的新终端标签页。",
-            "defaultViewLabel": "默认 Chat UI 视图",
-            "defaultViewTerminal": "终端聊天",
-            "defaultViewNative": "Chat UI"
           },
           "agentDashboard": {
             "title": "智能体仪表盘",
@@ -7981,11 +7951,6 @@
               "title": "新卡片样式",
               "worktree": "工作树",
               "worktrees": "工作树"
-            },
-            "nativeChat": {
-              "title": "Chat UI",
-              "description": "预览受支持的智能体终端会话的桌面聊天界面。",
-              "grok": "grok"
             },
             "agentDashboard": {
               "title": "智能体仪表盘",
@@ -13487,314 +13452,6 @@
           }
         }
       },
-      "automations": {
-        "AutomationCustomCronPanel": {
-          "3e3b2c369f": "cron",
-          "e81a02d61b": "保存前输入有效的五字段 cron。",
-          "968e66d686": "输入一个五字段 cron。",
-          "cadb7b0bc9": "无效的"
-        },
-        "AutomationDetail": {
-          "007c8ad874": "提示词",
-          "a1d52c2189": "使用范围",
-          "449fc83bf7": "token",
-          "401f40ae79": "预计。花费",
-          "a7c312430d": "最后一次运行",
-          "2df8970cd5": "智能体",
-          "e353ab9516": "预检查",
-          "620b22145e": "优雅",
-          "15ea446b93": "会话",
-          "5405a09b1f": "运行位置",
-          "2f8baf5360": "创建自",
-          "578ff46987": "下次运行",
-          "18763ded26": "日程",
-          "dbef8dc110": "此 SSH 自动化仅在 Orca 可以到达 SSH 远程主机时运行。如果重新连接需要交互式凭据或主机不可用，则运行将记录为已跳过。",
-          "1f6026358e": "删除自动化",
-          "d79452fb30": "恢复自动化",
-          "91a4155e95": "暂停自动化",
-          "4b1ea02d2e": "编辑自动化",
-          "2fb1605beb": "立即运行",
-          "221916d93c": "创建自动化来开始安排智能体工作。",
-          "de0fedac06": "每次运行新的",
-          "51a470b966": "SSH",
-          "b09b2384fd": "已暂停",
-          "eaa02014f8": "启用",
-          "29baf8f4c2": "来源"
-        },
-        "AutomationEditorDialog": {
-          "fb1896a5e7": "取消",
-          "57b722cbba": "智能体",
-          "6ff66f9012": "新运行",
-          "a2e688226d": "工作树",
-          "6f9610e667": "工作树在选定的工作区中运行。新运行每次都会从所选分支创建一个新的工作区。",
-          "2c3fd9bfa1": "工作区模式帮助",
-          "b28b140eaf": "工作区",
-          "0d17f4ca8f": "选择项目",
-          "02d351877e": "项目",
-          "a4ac8fcc62": "/goal",
-          "827b25a81e": "支持技能、文件路径和内置命令，例如",
-          "6d778190b7": "每周运行依赖项审计并总结有风险的更改。",
-          "058c23cb3f": "提示词",
-          "c4b19094c2": "日程",
-          "e46c1aa9ad": "创建",
-          "a9d9dccf77": "保存",
-          "777548c2d6": "保存更改",
-          "ff5db28639": "现存的"
-        },
-        "AutomationEditorDialogHeader": {
-          "31f9253920": "使用模板",
-          "7e35393632": "Hermes",
-          "6f309eef8d": "Orca",
-          "58f56b73d9": "自动化名称",
-          "1d9826933e": "工作日仓库审计",
-          "4133d33862": "创建自动化",
-          "0a75e5e2fa": "创建 Hermes 自动化",
-          "03142e7721": "编辑 Hermes 自动化",
-          "17086b48ee": "编辑自动化"
-        },
-        "AutomationMissedRunGraceField": {
-          "0f4459e91d": "48小时",
-          "adbab51feb": "24小时",
-          "ba50e2a230": "12小时",
-          "2dc9ee84d0": "3小时",
-          "521f77cd58": "1小时",
-          "e5ad263ae5": "30分钟",
-          "529dc6c0b7": "没有恩典",
-          "3d70c185c8": "如果 Orca 或执行主机在计划时间不可用，Orca 会在该窗口内变得可用时运行一次错过的事件。较旧的错过运行将被跳过。",
-          "3df53d554a": "错过运行恩典帮助",
-          "fc089e5fde": "优雅"
-        },
-        "AutomationPrecheckFields": {
-          "d2a2ac89ac": "10分钟",
-          "bf49585b3c": "5分钟",
-          "d84d3765fd": "2分钟",
-          "c820119736": "1分钟",
-          "51e28cdad9": "30秒",
-          "bb2dfb3629": "暂停",
-          "99a577306c": "gh pr list --json number -q '.[0].number'",
-          "c2a762a180": "预检查"
-        },
-        "AutomationRunHistory": {
-          "402651bfb6": "还没有运行。",
-          "9974a2b429": "状态",
-          "13988187b3": "token",
-          "86a248187e": "花费",
-          "149c0b49c7": "工作区",
-          "8faaa00726": "执行",
-          "53fc5f07ab": "运行历史",
-          "a00e38d1a3": "不适用",
-          "fdb3caa8fb": "已知的"
-        },
-        "AutomationRunPageFrame": {
-          "40a511bed4": "运行上下文",
-          "33741dd973": "返回执行"
-        },
-        "AutomationSchedulePicker": {
-          "22359b186a": "上午或下午",
-          "9e677335b0": "分钟",
-          "6b802ecc99": "小时",
-          "d90981f766": "时间",
-          "6b914c5fbb": "天",
-          "233b8c94b6": "节奏",
-          "55b2ef82a4": "每小时",
-          "f0202f3a89": "每天",
-          "57e83307d0": "工作日",
-          "837d902bba": "每周",
-          "ddba78647e": "自定义 cron"
-        },
-        "AutomationSessionField": {
-          "f3c76dce51": "重复利用",
-          "c90888ee94": "新鲜的",
-          "b675112193": "重用将未来的运行发送到之前的实时自动化会话。如果该会话结束，Orca 将开始新的会话。",
-          "4bdce31f37": "会话重用帮助",
-          "5ad314118e": "会话"
-        },
-        "AutomationsPage": {
-          "2695883141": "删除",
-          "c3a28c9793": "选择一个自动化来查看运行。",
-          "295698292f": "重新运行",
-          "0e110a3469": "执行",
-          "bb1b2cd31e": "概述",
-          "97ff587ee3": "连接此源以检查远程配置文件中的 Hermes 自动化。",
-          "aaa007846f": "来源不可用",
-          "25060635c6": "添加新的",
-          "d207ab4c25": "从模板开始",
-          "15e0bfb13b": "删除",
-          "f4612e3f78": "编辑",
-          "2faecab10b": "立即运行",
-          "82eb6cb933": "来源",
-          "13118faadf": "未知项目",
-          "587a4b205c": "下一步",
-          "761a35834d": "自动化",
-          "73f630b49d": "取消",
-          "1b586f0e2b": "在",
-          "02a33e3204": "从",
-          "9adfab2596": "删除外部自动化",
-          "1e2e41392f": "不要再问",
-          "b264564427": "及其运行历史记录。先前运行创建的工作区不会被删除。",
-          "080dcb5fbb": "删除自动化",
-          "19a6e30eae": "刷新自动化",
-          "8d1afa8269": "添加自动化",
-          "77c2778945": "自动化",
-          "0329f9bef1": "关闭 · Esc",
-          "67c7ff795b": "关闭自动化",
-          "e1bf9b1512": "工作区不可用。",
-          "3e42a5cc1b": "SSH 连接失败。",
-          "9f2855677c": "SSH 连接。",
-          "126d726546": "外部自动化操作失败。",
-          "37288942f0": "外部自动化恢复。",
-          "77c518a34b": "外部自动化暂停。",
-          "4d7878402c": "外部自动化排队。",
-          "4c22bc9913": "外部自动化已删除。",
-          "3a4c476aa0": "无法重新运行自动化。",
-          "a1bdb57008": "自动化运行排队。",
-          "8a3226f172": "打开设置",
-          "d2a01b0b6f": "您可以在“设置”中更改此设置。",
-          "690b94da54": "下次我们将跳过此确认。",
-          "b11170a008": "无法保存自动化。",
-          "2a20596d6b": "自动化已保存。",
-          "244727e655": "自动化已更新。",
-          "77b81bc4ac": "Hermes 自动化创建。",
-          "08efc3ae12": "Hermes 自动化已更新。",
-          "e431bb85d4": "选择与此 Hermes 自动化位于同一主机上的工作区。",
-          "32534e7c9c": "保存前选择一个可用的工作区。",
-          "2360ffc956": "保存前选择已启用的智能体。",
-          "6e91dab317": "保存前输入有效的高级计划。",
-          "64bdb2304f": "保存前选择支持的计划。",
-          "2430fecf53": "选择运行位置并在保存前输入提示。",
-          "7934ee0d81": "连接SSH",
-          "f93ed7a6f8": "正在连接...",
-          "8705757e27": "工作",
-          "376631ef2b": "恢复",
-          "b457436d6a": "暂停",
-          "0ae52dd760": "Hermes",
-          "e059042585": "只读",
-          "aecdc3681f": "易于管理",
-          "8500baacb4": "外部来源",
-          "36f71740a7": "选定的工作区",
-          "cd8397cc32": "每次运行新工作区",
-          "dd0bc7a1ba": "每次运行新的",
-          "7b2e285552": "SSH 连接在此客户端中不可用。",
-          "d441032f7e": "暂停",
-          "5918020edc": "执行",
-          "a21f6c33ad": "自动化来源已刷新。",
-          "53f06f0ad5": "重试来源",
-          "pendingAutomationMissing": "自动化已不可用。",
-          "pendingAutomationRunMissing": "运行历史已不可用。"
-        },
-        "CreateFromPicker": {
-          "f061f49e3f": "搜索仓库分支...",
-          "dd3841b442": "分支来自",
-          "ef6d762538": "项目默认",
-          "e53d306056": "{{value0}}（默认）",
-          "79512f22a7": "没有找到分支。",
-          "9ce96621f4": "搜索分支..."
-        },
-        "ExternalAutomationManagers": {
-          "e02f970595": "未找到外部自动化经理。",
-          "6da3bfba4b": "发现自动化。",
-          "3d58d5b67d": "不",
-          "a42bf2b27e": "删除外部自动化",
-          "1c3bfd38fe": "恢复外部自动化",
-          "0def1693bb": "暂停外部自动化",
-          "1df491fd00": "编辑外部自动化",
-          "cc77ba88ff": "运行外部自动化",
-          "5820648765": "最后的",
-          "844f1acb72": "成立",
-          "20fd7a3a15": "下一步",
-          "c6695e6fbd": "外部自动化",
-          "5524365227": "OpenClaw",
-          "766abf833c": "Hermes",
-          "bf5f67b590": "Hermes",
-          "e66091daf4": "运行",
-          "8e9165af08": "执行",
-          "2b0adbce21": "已暂停",
-          "b3feba84c7": "当前",
-          "92405f1431": "不可用",
-          "dbdcec22bd": "只读",
-          "0a2d4359a8": "易于管理",
-          "330b3c32e8": "可用的",
-          "e2532150ed": "自动化",
-          "701515f010": "自动化"
-        },
-        "ExternalAutomationRunTable": {
-          "0ba9c0a95c": "下一个运行页面",
-          "52d468a0b8": "上一个运行页面",
-          "7475c0ce96": "的",
-          "be551397ca": "状态",
-          "a813df9808": "预览",
-          "d4b34feb66": "运行时间",
-          "2d4388a908": "执行",
-          "9c080765ff": "尚未找到 Hermes 运行信息。",
-          "8ea934cacf": "正在加载运行...",
-          "d5527d8fe7": "运行",
-          "872d032d05": "执行"
-        },
-        "HermesCronOutputView": {
-          "e27c716b43": "提示词",
-          "4557213074": "回复",
-          "05affc68e3": "错误",
-          "88d48157fc": "默认"
-        },
-        "WorkspaceCombobox": {
-          "ee5b280eba": "未找到工作区。",
-          "8e9c8cc6b5": "搜索工作区...",
-          "66a0cd9628": "选择工作区"
-        },
-        "automation": {
-          "templates": {
-            "37571fcb16": "查找卡住的工作、陈旧的生成文件以及失败的本地验证。",
-            "8a0228bea3": "每小时排队检查",
-            "3b7281c75f": "扫描最近的工作并指出正确性、用户体验和测试覆盖率风险。",
-            "6023075b27": "每日变更回顾",
-            "513401db93": "根据当前项目状态准备每周发布风险摘要。",
-            "39ed39280a": "发布准备情况",
-            "a7fbd32ddb": "每个工作日检查依赖关系、失败的测试和有风险的开放变更。",
-            "b84757677d": "工作日仓库审计",
-            "repoHealth": {
-              "category": "Repo 健康",
-              "name": "工作日仓库审计",
-              "prompt": "检查存储库的运行状况。检查依赖项更新、失败的测试、lint/类型检查状态以及有风险的开放更改。总结调查结果并建议下一步行动。"
-            },
-            "releasePrep": {
-              "category": "发布准备",
-              "name": "发布就绪评审",
-              "prompt": "准备发布准备摘要。寻找阻碍因素、未合并的风险变更、缺少验证和文档空白。以简洁的发布/不发布建议结束。"
-            },
-            "recurringReview": {
-              "category": "定期评审",
-              "name": "每日变更回顾",
-              "prompt": "查看此工作区中的最新更改。重点关注正确性风险、用户体验回归、缺失测试和后续任务。保持报告简短且具有可操作性。"
-            },
-            "maintenance": {
-              "category": "维护",
-              "name": "每小时维护检查",
-              "prompt": "检查是否有卡住的工作、过时的生成文件、失败的验证以及任何需要人工注意的内容。仅报告需处理的问题。"
-            }
-          }
-        },
-        "external": {
-          "automation": {
-            "schedule": {
-              "display": {
-                "a8e92b815a": "时间表不可用"
-              }
-            }
-          }
-        },
-        "AutomationProjectCombobox": {
-          "search": "搜索项目/文件夹...",
-          "empty": "没有匹配搜索的项目/文件夹。",
-          "chooseHost": "选择自动化主机",
-          "adding": "正在添加项目…",
-          "addProject": "添加项目"
-        },
-        "AutomationSetupDecisionField": {
-          "5a7863909c": "为每个新工作区运行设置",
-          "18f000ad4e": "高级",
-          "874b72195b": "当此自动化创建工作区时，使用与手动创建工作树相同的方式准备——运行项目的设置并打开其终端标签页。"
-        }
-      },
       "agent": {
         "AgentCombobox": {
           "19522e25ee": "管理智能体",
@@ -14036,11 +13693,6 @@
             "dismiss": "关闭",
             "later": "稍后"
           }
-        }
-      },
-      "nativeChat": {
-        "contextMenu": {
-          "copy": "复制"
         }
       },
       "orca": {
@@ -14310,121 +13962,6 @@
     }
   },
   "components": {
-    "native-chat": {
-      "composer": {
-        "imageUnsupported": "此智能体不支持粘贴图片。",
-        "send": "发送",
-        "noPty": "没有实时终端，请切回终端以重新连接。",
-        "locked": "输入正被另一台设备占用。",
-        "placeholder": "发送消息…",
-        "mentionHint": "引用文件：",
-        "attach": "附加文件",
-        "startDictation": "开始听写",
-        "stopDictation": "停止听写",
-        "noSkills": "没有匹配的技能",
-        "localAttachmentUnsupported": "远程会话不支持本地附件。",
-        "removeAttachment": "移除附件",
-        "pastedImageLabel": "粘贴的图片",
-        "imagePasteFailed": "图片粘贴失败。",
-        "worktreeNotReady": "工作树未就绪 — 请稍后重试。",
-        "uploadingAttachments": "正在上传 {{value0}} 个文件到远程…",
-        "model": "模型",
-        "effort": "推理强度",
-        "fastMode": "快速模式",
-        "thinking": "思考",
-        "options": "选项",
-        "sessionOptions": "会话选项",
-        "chooseInAgentPicker": "在代理选择器中选择…",
-        "toggleOption": "切换{{value0}}",
-        "pillAccessibleName": "{{value0}} {{value1}}",
-        "valueUnknown": "当前值未知 — 请选择开或关",
-        "sentNotConfirmed": "已发送给代理 — 尚未确认",
-        "setWhenSessionStarts": "请在会话开始时设置。",
-        "availableAfterSessionStarts": "会话开始后可用。",
-        "optionUpdateFailed": "无法更新选项",
-        "optionValue": {
-          "fast": "快速",
-          "minimal": "最小",
-          "low": "低",
-          "medium": "中",
-          "high": "高",
-          "xhigh": "极高",
-          "max": "最大",
-          "on": "开",
-          "off": "关"
-        },
-        "noCommandsOrSkills": "没有匹配的命令或技能",
-        "commands": "命令",
-        "skills": "技能",
-        "loadingSkills": "正在加载技能…",
-        "skillsUnavailableHost": "此主机不可用技能",
-        "skillsLoadFailed": "无法从此主机加载技能",
-        "retrySkills": "重试",
-        "skillCommandCollision": "也是技能名称 - 由代理决定",
-        "skillMultipleSources": "{{sourceCount}} 个来源 - 由代理解析",
-        "skillScopeProject": "项目",
-        "skillScopePersonal": "个人",
-        "skillScopeBuiltIn": "内置",
-        "skillScopePlugin": "插件",
-        "skillsLoaded": "技能已加载",
-        "noCommands": "没有匹配的命令"
-      },
-      "tool": {
-        "running": "正在运行…",
-        "result": "结果"
-      },
-      "status": {
-        "responding": "智能体正在回复"
-      },
-      "jumpToLatest": "跳到最新消息",
-      "toggle": {
-        "showTerminal": "显示终端",
-        "showChat": "显示聊天视图"
-      },
-      "state": {
-        "loading": {
-          "title": "正在加载对话…",
-          "subtitle": "正在读取智能体记录。"
-        },
-        "error": {
-          "title": "无法加载对话",
-          "subtitle": "无法读取记录。请切回终端继续工作。"
-        },
-        "pairHost": "配对主机以查看智能体聊天记录。",
-        "notAgent": {
-          "title": "这里没有对话",
-          "subtitle": "此终端未运行可识别的编码智能体。"
-        },
-        "empty": {
-          "title": "开始与 {{value0}} 聊天",
-          "subtitle": "让 {{value0}} 检查代码、解释输出或进行修改。"
-        }
-      },
-      "stop": "停止智能体",
-      "copyMessage": {
-        "copied": "已复制",
-        "copy": "复制消息"
-      },
-      "scrollMessageToTop": "将此消息滚动到顶部",
-      "loadingEarlier": "正在加载…",
-      "loadEarlier": "加载更早的消息",
-      "question": {
-        "step": "步骤 {{value0}}",
-        "other": "其他…",
-        "otherPlaceholder": "输入你的回答",
-        "cancel": "取消",
-        "send": "发送回答",
-        "next": "下一步",
-        "skip": "跳过",
-        "sending": "正在发送…"
-      },
-      "approval": {
-        "title": "允许 {{value0}}？",
-        "allow": "允许",
-        "deny": "拒绝"
-      },
-      "launchPromptNotDelivered": "未送达 — 请检查终端"
-    },
     "tab": {
       "bar": {
         "SortableTabContextMenu": {

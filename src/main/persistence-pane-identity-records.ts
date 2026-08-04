@@ -9,7 +9,7 @@ export function normalizeMigrationUnsupportedPtyEntries(
     return []
   }
   return value.filter((entry): entry is MigrationUnsupportedPtyEntry => {
-    if (!entry || typeof entry !== 'object') return false
+    if (!entry || typeof entry !== 'object') {return false}
     const candidate = entry as Partial<MigrationUnsupportedPtyEntry>
     return (
       typeof candidate.ptyId === 'string' &&
@@ -26,9 +26,9 @@ export function normalizeMigrationUnsupportedPtyEntries(
 }
 
 export function normalizeLegacyPaneKeyAliasEntries(value: unknown): LegacyPaneKeyAliasEntry[] {
-  if (!Array.isArray(value)) return []
+  if (!Array.isArray(value)) {return []}
   return value.filter((entry): entry is LegacyPaneKeyAliasEntry => {
-    if (!entry || typeof entry !== 'object') return false
+    if (!entry || typeof entry !== 'object') {return false}
     const candidate = entry as Partial<LegacyPaneKeyAliasEntry>
     if (
       typeof candidate.ptyId !== 'string' ||
@@ -36,7 +36,7 @@ export function normalizeLegacyPaneKeyAliasEntries(value: unknown): LegacyPaneKe
       typeof candidate.legacyPaneKey !== 'string' ||
       typeof candidate.stablePaneKey !== 'string' ||
       !Number.isFinite(candidate.updatedAt)
-    ) return false
+    ) {return false}
     const legacy = parseLegacyNumericPaneKey(candidate.legacyPaneKey)
     const relocatedSource = parsePaneKey(candidate.legacyPaneKey)
     const stable = parsePaneKey(candidate.stablePaneKey)
@@ -61,7 +61,7 @@ export function legacyPaneKeyAliasEntriesEqual(
   left: LegacyPaneKeyAliasEntry[],
   right: LegacyPaneKeyAliasEntry[]
 ): boolean {
-  if (left.length !== right.length) return false
+  if (left.length !== right.length) {return false}
   const rightByLegacyPaneKey = new Map(right.map((entry) => [entry.legacyPaneKey, entry]))
   return left.every((entry) => {
     const other = rightByLegacyPaneKey.get(entry.legacyPaneKey)
@@ -73,7 +73,7 @@ export function migrationUnsupportedEntriesEqual(
   left: MigrationUnsupportedPtyEntry[],
   right: MigrationUnsupportedPtyEntry[]
 ): boolean {
-  if (left.length !== right.length) return false
+  if (left.length !== right.length) {return false}
   const rightByPtyId = new Map(right.map((entry) => [entry.ptyId, entry]))
   return left.every((entry) => {
     const other = rightByPtyId.get(entry.ptyId)

@@ -1,22 +1,12 @@
+import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
 import type {
-  JiraComment,
-  JiraCreateField,
-  JiraCreateFieldAllowedValue,
   JiraCreateIssueArgs,
   JiraCreateIssueResult,
   JiraIssue,
   JiraIssueFilter,
-  JiraIssueType,
   JiraIssueUpdate,
   JiraMutationResult,
-  JiraPriority,
-  JiraProject,
-  JiraProjectStatusOrder,
-  JiraSite,
-  JiraSiteSelection,
-  JiraStatus,
-  JiraTransition,
-  JiraUser
+  JiraSiteSelection
 } from '../../shared/types'
 import {
   acquire,
@@ -28,27 +18,9 @@ import {
   release,
   type JiraClientForSite
 } from './client'
-import {
-  adfToMarkdownText,
-  collectAdfMediaAttrs,
-  textToAdf,
-  type AdfToMarkdownOptions,
-  type JiraAdfMediaAttrs
-} from './adf-markdown'
-import {
-  extractAttachmentContentIdsFromHtml,
-  selectPreferredAttachmentIds,
-  warnIfMediaResolutionIncomplete
-} from './attachment-discovery'
-import {
-  createMediaMarkdownResolver,
-  loadIssueImageAttachments,
-  type MediaResolutionStats
-} from './attachment-images'
-import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
-import { ISSUE_DETAIL_FIELDS, ISSUE_SUMMARY_FIELDS, ISSUE_SUMMARY_TIMEOUT_MS, ISSUE_SEARCH_TIMEOUT_MS, type JiraRecord, clampLimit, type JiraIssueSearchFailure } from './jira-issue-primitives'
-import { withJiraDeadline, settleJiraSummaryRead, getErrorStatus, toIssueSearchFailureError, shouldSurfaceSiteFailure, mapUser, issueUrl, toBodyText } from './jira-issue-deadlines'
-import { mapJiraIssue, type MediaRequest, collectIssueMediaRequest, prepareMediaResolver, flushMediaResolutionWarn, sortAndLimitIssues, filterToJql, searchIssuesForClient } from './jira-issue-mappers'
+import { getErrorStatus,issueUrl,settleJiraSummaryRead,shouldSurfaceSiteFailure,toBodyText,toIssueSearchFailureError,withJiraDeadline } from './jira-issue-deadlines'
+import { collectIssueMediaRequest,filterToJql,flushMediaResolutionWarn,mapJiraIssue,prepareMediaResolver,searchIssuesForClient,sortAndLimitIssues,type MediaRequest } from './jira-issue-mappers'
+import { clampLimit,ISSUE_DETAIL_FIELDS,ISSUE_SEARCH_TIMEOUT_MS,ISSUE_SUMMARY_FIELDS,ISSUE_SUMMARY_TIMEOUT_MS,type JiraIssueSearchFailure,type JiraRecord } from './jira-issue-primitives'
 async function listIssues(
   filter: JiraIssueFilter = 'assigned',
   limit = 30,
@@ -346,4 +318,4 @@ async function addIssueComment(
   }
 }
 
-export { listIssues, searchIssues, getIssue, getIssueSummary, createIssue, updateIssue, addIssueComment }
+export { addIssueComment,createIssue,getIssue,getIssueSummary,listIssues,searchIssues,updateIssue }

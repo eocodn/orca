@@ -21,5 +21,4 @@ type StopInFlight = {
 
 type StopOutcome = 'stopped' | 'error' | 'exit' | 'timeout'
 
-
-export { STOP_DICTATION_TIMEOUT_MS,type StopInFlight,type StopOutcome }
+export { STOP_DICTATION_TIMEOUT_MS, type StopInFlight, type StopOutcome }

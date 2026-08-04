@@ -9,7 +9,6 @@ import {
   hydrateBrowserDrivers,
   setDriverForBrowserPage
 } from '@/lib/pane-manager/browser-mobile-driver-state'
-import { applyNativeChatLaunchDraftResolved } from '@/runtime/native-chat-launch-draft-runtime-resolution'
 type MobileStateSurfaceContext = {
   unsubs: Array<() => void>
 }
@@ -96,18 +95,6 @@ unsubs.push(
     setDriverForPty(event.ptyId, event.driver)
   })
 )
-
-const unsubscribeLaunchDraftResolution = window.api.runtime.onNativeChatLaunchDraftResolved?.(
-  (event) => {
-    applyNativeChatLaunchDraftResolved(useAppStore.getState(), {
-      type: 'nativeChatLaunchDraftResolved',
-      ...event
-    })
-  }
-)
-if (unsubscribeLaunchDraftResolution) {
-  unsubs.push(unsubscribeLaunchDraftResolution)
-}
 
 unsubs.push(
   window.api.runtime.onBrowserDriverChanged((event) => {

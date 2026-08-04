@@ -1,87 +1,48 @@
-import { ipcMain, powerMonitor, type BrowserWindow } from 'electron'
-import { appendFileSync } from 'node:fs'
-import type { Store } from '../persistence'
-import { SshConnectionStore } from '../ssh/ssh-connection-store'
-import type { SshConnectionCallbacks } from '../ssh/ssh-connection'
-import { SshConnectionManager } from '../ssh/ssh-connection-manager'
-import type { SshChannelMultiplexer } from '../ssh/ssh-channel-multiplexer'
-import { SshRelaySession, type SshRelayAiVaultHostInfo } from '../ssh/ssh-relay-session'
-import { SshPortForwardManager } from '../ssh/ssh-port-forward'
 import type {
   DetectedPort,
-  EnrichedDetectedPort,
-  SavedPortForward,
-  SshRepoReadoption,
-  SshTarget,
-  SshConnectionStatus,
-  SshConnectionState,
-  DirectSshAuthority
+  SshConnectionState
 } from '../../shared/ssh-types'
-import { SSH_TERMINATE_RECONNECT_REQUIRED } from '../../shared/constants'
-import { isRuntimeOwnedSshTargetId } from '../../shared/execution-host'
-import { isAuthError } from '../ssh/ssh-connection-utils'
-import { forceStopRelayForTarget } from '../ssh/ssh-relay-reset'
-import { isSshPtyNotFoundError } from '../providers/ssh-pty-errors'
-import { toAppSshPtyId, toRelaySshPtyId } from '../providers/ssh-pty-id'
-import { registerSshBrowseHandler } from './ssh-browse'
+import type { SshConnectionCallbacks } from '../ssh/ssh-connection'
 import {
-  getConnectionIdsForWorktree,
-  enrichSshDetectedPorts,
-  enrichSshForwardEntries,
-  getWorktreeIdsForConnection
-} from '../ports/ssh-advertised-url-enrichment'
-import { advertisedUrlWatcher } from '../ports/advertised-url-watcher'
-import { requestCredential, registerCredentialHandler } from './ssh-passphrase'
-import {
-  clearProviderPtyState,
-  deletePtyOwnership,
-  getPtyIdsForConnection,
-  getSshPtyProvider
-} from './pty'
-import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import {
-  initializeSshConnectionGenerationSession,
-  resetSshConnectionGenerations
-} from '../ssh/ssh-connection-generation'
-import {
-  getSshProviderAuthority,
-  isCurrentSshProviderAuthority,
-  resetSshProviderAuthorities,
   rotateSshProviderAuthority
 } from '../ssh/ssh-provider-authority'
+import type { SshRelaySession } from '../ssh/ssh-relay-session'
+import { requestCredential } from './ssh-passphrase'
 
-import { publishRelayOverride,
+import {
+  broadcastDetectedPorts,
   clearRelayStateOverride,
   connectionSupportsFolderDownload,
-  getPublicSshState,
-  broadcastPortForwards,
-  broadcastDetectedPorts,
-  listForwardsEnriched,
-  enrichDetected,
-  persistPortForwards,
-  persistPortForwardsWithUnrestored,
-  restorePortForwards,
-  registerAdvertisedUrlRefresh,
-  RESUME_PROBE_TIMEOUT_MS,
-  RESUME_PROBE_ATTEMPTS,
-  isRelayLinkAliveAfterResume,
-  registerPowerMonitorReconnect } from './ssh-ipc-connections'
-export { publishRelayOverride,
-  clearRelayStateOverride,
-  connectionSupportsFolderDownload,
-  getPublicSshState,
-  broadcastPortForwards,
-  broadcastDetectedPorts,
-  listForwardsEnriched,
-  enrichDetected,
-  persistPortForwards,
-  persistPortForwardsWithUnrestored,
-  restorePortForwards,
-  registerAdvertisedUrlRefresh,
-  RESUME_PROBE_TIMEOUT_MS,
-  RESUME_PROBE_ATTEMPTS,
-  isRelayLinkAliveAfterResume,
-  registerPowerMonitorReconnect } from './ssh-ipc-connections'
+  publishRelayOverride,
+  restorePortForwards
+} from './ssh-ipc-connections'
+import {
+  RELAY_LOST_BASE_DELAY_MS,
+  RELAY_LOST_MAX_ATTEMPTS,
+  RELAY_LOST_MAX_DELAY_MS,
+  RELAY_LOST_STABILIZED_MS,
+  activeSessions,
+  broadcastSshState,
+  clearRelayLostBackoff,
+  connectInFlight,
+  connectionManager,
+  credentialRequestedForTarget,
+  currentRuntime,
+  getCurrentMainWindow,
+  pendingTransportReconnects,
+  persistedStore,
+  portForwardManager,
+  relayGracePeriodForTarget,
+  relayLostBackoff,
+  relayStateOverrides,
+  sshStore,
+  testingTargets
+} from './ssh-ipc-foundation'
+export {
+  RESUME_PROBE_ATTEMPTS,RESUME_PROBE_TIMEOUT_MS,broadcastDetectedPorts,broadcastPortForwards,clearRelayStateOverride,
+  connectionSupportsFolderDownload,enrichDetected,getPublicSshState,isRelayLinkAliveAfterResume,listForwardsEnriched,persistPortForwards,
+  persistPortForwardsWithUnrestored,publishRelayOverride,registerAdvertisedUrlRefresh,registerPowerMonitorReconnect,restorePortForwards
+} from './ssh-ipc-connections'
 
 export function createSshConnectionCallbacks(): SshConnectionCallbacks {
   return {
@@ -310,4 +271,3 @@ export function refreshActiveRelaySessions(): void {
     configureRelaySessionCallbacks(session)
   }
 }
-

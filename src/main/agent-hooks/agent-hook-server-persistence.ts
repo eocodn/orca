@@ -2,7 +2,7 @@ import { AgentHookServerRuntime } from './agent-hook-server-runtime'
 import { createHash, randomUUID } from 'node:crypto'
 import { chmodSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import * as hookShared from './agent-hook-server-shared'
+import type * as hookShared from './agent-hook-server-shared'
 import {
   authorityCommitmentsMatch,
   dropHydratedIdleClaudeSubagents,

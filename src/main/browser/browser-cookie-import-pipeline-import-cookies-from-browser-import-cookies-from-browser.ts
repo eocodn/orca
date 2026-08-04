@@ -6,16 +6,25 @@ import { join } from 'node:path'
 
 // Why: write the diag log to userData, not world-readable /tmp, so only the current user can read it.
 import { reasonWithDiagLog } from './browser-cookie-import-pipeline-diag-log-cookie-import-error-summary-max-chars'
-import { summarizeCookieImportError, diag } from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
-import { type DetectedBrowser } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
+import {
+  summarizeCookieImportError,
+  diag
+} from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
+import type { DetectedBrowser } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
 import { chromiumSameSite } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
 import { deriveUrl } from './browser-cookie-import-pipeline-firefox-same-site-validate-cookie-entry'
 import { getUserAgentForBrowser } from './browser-cookie-import-pipeline-import-validated-cookies-get-user-agent-for-browser'
-import { type ChromiumCookieColumnInfo, chromiumTimestampToUnix } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
+import {
+  type ChromiumCookieColumnInfo,
+  chromiumTimestampToUnix
+} from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
 import { buildChromiumCookieInsertParams } from './browser-cookie-import-pipeline-normalize-sqlite-cookie-value-build-chromium-cookie-insert-params'
 import { getEncryptionKey } from './browser-cookie-import-pipeline-get-encryption-key-get-windows-encryption-key'
 import { decryptCookieValueRaw } from './browser-cookie-import-pipeline-chromium-cookie-hmac-len-decrypt-cookie-value-raw'
-import { importCookiesFromFirefox, importCookiesFromSafari } from './browser-cookie-import-pipeline-decode-safari-cookie-import-cookies-from-safari'
+import {
+  importCookiesFromFirefox,
+  importCookiesFromSafari
+} from './browser-cookie-import-pipeline-decode-safari-cookie-import-cookies-from-safari'
 import type { BrowserCookieImportResult, BrowserCookieImportSummary } from '../../shared/types'
 import { browserSessionRegistry } from './browser-session-registry'
 import { setupClientHintsOverride } from './browser-session-ua'

@@ -14,7 +14,6 @@ export type DetectedBrowser = {
   selectedProfile: string
 }
 
-
 export type ChromiumBrowserDef = {
   family: BrowserSessionProfileSource['browserFamily']
   label: string
@@ -25,7 +24,6 @@ export type ChromiumBrowserDef = {
   winRoot?: string
   linuxRoot?: string
 }
-
 
 export const CHROMIUM_BROWSERS: ChromiumBrowserDef[] = [
   {
@@ -81,7 +79,6 @@ export const CHROMIUM_BROWSERS: ChromiumBrowserDef[] = [
     // winRoot/linuxRoot intentionally omitted — only the macOS install is verified
   }
 ]
-
 
 export function browserRootPath(def: ChromiumBrowserDef): string | null {
   if (process.platform === 'darwin') {

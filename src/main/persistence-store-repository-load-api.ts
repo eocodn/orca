@@ -3,7 +3,7 @@ import {
   canonicalizePersistedFloatingWorkspaceDirectory,
   normalizeFloatingWorkspaceTrustedCwds,
   normalizeSshRemotePtyLease
-} from './persistence-state-automation'
+} from './persistence-state-repo-sanitization'
 import {
   migrateAgentYoloDefaults,
   normalizeShowDotfilesByWorktree,
@@ -73,17 +73,12 @@ export const {
   stripLegacyTerminalScrollbackBytes,
   stripMainOwnedTelemetryMarkerFromUI,
   backupPath,
-  backfillLegacyAutomationContexts,
   normalizeRightSidebarTab,
   normalizeWorkspaceLineageByChildKey,
   normalizeLoadedOnboardingState,
   readDeprecatedExperimentFlag,
   readLegacySidekickFlag,
   resolveSetupGuideSidebarDismissedOnLoad,
-  latestAutomationOccurrenceAtOrBefore,
-  nextAutomationOccurrenceAfter,
-  getAutomationLegacyRepoId,
-  normalizeAutomationPrecheck,
   deriveGlobalWindowsRuntimeDefaultFromLegacySettings,
   normalizeProjectRuntimePreference,
   projectHostSetupProjectionFromRepos,
@@ -141,9 +136,6 @@ export const {
   setMigrationUnsupportedPtyPersistenceListener,
   agentHookServer,
   pruneLocalTerminalScrollbackBuffers,
-  backfillAutomationRunNumbers,
-  nextAutomationRunNumber,
-  pruneAutomationRuns,
   pruneWorkspaceSessionBrowserHistory,
   FOLDER_WORKSPACE_INSTANCE_SEPARATOR,
   getRepoIdFromWorktreeId,

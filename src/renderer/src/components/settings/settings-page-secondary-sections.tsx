@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { translate } from '@/i18n/i18n'
 import { BrowserPane } from './BrowserPane'
-import { MobileEmulatorSettingsPane } from './MobileEmulatorSettingsPane'
 import { FloatingWorkspacePane } from './FloatingWorkspacePane'
 import { AppearancePane } from './AppearancePane'
 import { InputPane } from './InputPane'
@@ -68,28 +67,6 @@ export function SettingsPageSecondarySections({
                         settings={settings}
                         updateSettings={updateSettings}
                         onOpenComputerUse={openComputerUseFromBrowser}
-                      />
-                    ) : null}
-                  </SettingsSection>
-                ) : null}
-
-                {showDesktopOnlySettings ? (
-                  <SettingsSection
-                    id="mobile-emulator"
-                    title={translate(
-                      'auto.components.settings.Settings.f75daf1002',
-                      'Mobile Emulator'
-                    )}
-                    description={translate(
-                      'auto.components.settings.Settings.01f9d36292',
-                      'Configure mobile emulator support for Orca and coding agents.'
-                    )}
-                    searchEntries={getSectionSearchEntries('mobile-emulator')}
-                  >
-                    {isSectionMounted('mobile-emulator') ? (
-                      <MobileEmulatorSettingsPane
-                        settings={settings}
-                        updateSettings={updateSettings}
                       />
                     ) : null}
                   </SettingsSection>

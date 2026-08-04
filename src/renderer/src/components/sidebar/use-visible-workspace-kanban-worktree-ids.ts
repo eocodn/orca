@@ -19,7 +19,6 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
   const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
   const showSleepingWorkspaces = useAppStore((s) => s.showSleepingWorkspaces)
   const hideDefaultBranchWorkspace = useAppStore((s) => s.hideDefaultBranchWorkspace)
-  const hideAutomationGeneratedWorkspaces = useAppStore((s) => s.hideAutomationGeneratedWorkspaces)
   const hideCliCreatedWorkspaces = useAppStore((s) => s.hideCliCreatedWorkspaces)
   const hideDetachedHeadWorkspaces = useAppStore((s) => s.hideDetachedHeadWorkspaces)
   const workspaceHostScope = useAppStore((s) => s.workspaceHostScope)
@@ -58,7 +57,6 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
         browserTabsByWorktree,
         worktreeIdsWithLiveAgent,
         hideDefaultBranchWorkspace,
-        hideAutomationGeneratedWorkspaces,
         hideCliCreatedWorkspaces,
         hideDetachedHeadWorkspaces,
         repoMap,
@@ -76,7 +74,6 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
     browserTabsByWorktree,
     filterRepoIds,
     hideDefaultBranchWorkspace,
-    hideAutomationGeneratedWorkspaces,
     hideCliCreatedWorkspaces,
     hideDetachedHeadWorkspaces,
     workspaceHostScope,

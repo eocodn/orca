@@ -29,10 +29,6 @@ export const DRIFT_PROBE_SUBJECT_LIMIT = 5
 export const PTY_CONTROLLER_LIST_TIMEOUT_MS = 3_000
 export const WORKTREE_TERMINAL_SLEEP_TIMEOUT_MS = 12_000
 export type { ApplyLayoutResult, PtyLayoutState, PtyLayoutTarget } from './pty-layout-queue'
-export type {
-  RuntimeAutomationCreateInput,
-  RuntimeAutomationUpdateInput
-} from './runtime-automation-commands'
 
 export function sanitizeNestedRepoRuntimeImportError(context: string, error: unknown): string {
   console.warn(`[project-groups] ${context}`, error)
@@ -170,11 +166,6 @@ export type RuntimeStore = {
   getUI?: Store['getUI']
   updateUI?: Store['updateUI']
   recordFeatureInteraction?: Store['recordFeatureInteraction']
-  listAutomations?: Store['listAutomations']
-  listAutomationRuns?: Store['listAutomationRuns']
-  createAutomation?: Store['createAutomation']
-  updateAutomation?: Store['updateAutomation']
-  deleteAutomation?: Store['deleteAutomation']
   getSparsePresets?: Store['getSparsePresets']
   saveSparsePreset?: Store['saveSparsePreset']
   getMobileClientTabSelections?: Store['getMobileClientTabSelections']

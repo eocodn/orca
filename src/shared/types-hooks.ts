@@ -17,7 +17,6 @@ import type {
 } from './types-worktree'
 import type { TaskSourceContext } from './task-source-context'
 import type { WorkspaceSource } from './workspace-source'
-import type { AutomationWorkspaceProvenanceRequest } from './types-worktree'
 import type { SleepingAgentLaunchConfig } from './agent-session-resume'
 import type { StartupCommandDelivery } from './codex-startup-delivery'
 import type { AgentKind, LaunchSource, RequestKind } from './telemetry-event-shared-enums'
@@ -186,8 +185,6 @@ export type CreateWorktreeArgs = {
    *  creation in the renderer, so concurrent background creates each drive
    *  their own status surface. Omitted by synchronous callers. */
   creationId?: string
-  /** Authorizes the host to mint system-owned automation provenance. */
-  automationProvenanceRequest?: AutomationWorkspaceProvenanceRequest
 }
 
 export type CreateWorktreeResult = {

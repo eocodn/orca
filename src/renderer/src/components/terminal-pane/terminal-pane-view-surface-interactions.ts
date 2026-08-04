@@ -34,7 +34,6 @@ import { TerminalSessionStateSaveFailureDialog } from './TerminalSessionStateSav
 import TerminalContextMenu from './TerminalContextMenu'
 import TerminalPaneHeaderOverlay, { type PaneTitleOverlayRect } from './TerminalPaneHeaderOverlay'
 import { arePaneTitleOverlayRectsEqual, clearPaneTitleOverlayRects } from './pane-title-overlay-rects'
-import NativeChatView from '../native-chat/NativeChatView'
 import { splitTerminalPaneWithInheritedCwd } from './terminal-pane-split-with-inherited-cwd'
 import { TerminalAgentSessionForkDialog } from './TerminalAgentSessionForkDialog'
 import { AgentSessionContinuationDialog } from '@/components/agent-session-continuation/AgentSessionContinuationDialog'
@@ -55,10 +54,6 @@ import { shouldPreserveTerminalScrollbackBuffers } from '../../../../shared/work
 import { getMobileFitOverridePtyIds, getFitOverrideForPty, onOverrideChange } from '@/lib/pane-manager/mobile-fit-overrides'
 import { shouldShowMobileDriverOverlay } from './mobile-driver-overlay-visibility'
 import { getAllDrivers, getDriverForPty, isPtyLocked, onDriverChange } from '@/lib/pane-manager/mobile-driver-state'
-import { shouldChatTakeOverMobileSurface } from '../native-chat/native-chat-send-eligibility'
-import { canToggleNativeChat } from '../native-chat/native-chat-availability'
-import { nativeChatLaunchAgentForLeaf, resolveNativeChatLeafRoute, type NativeChatLeafRoute } from '../native-chat/native-chat-leaf-routing'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { resolvePaneKeyForManager } from '@/lib/pane-manager/pane-key-resolution'
 import { safeFit, safeFitAndThen } from '@/lib/pane-manager/pane-tree-ops'
 import { applyDesktopFitFallbackAfterReplay } from './desktop-fit-fallback'
@@ -106,7 +101,6 @@ import { writeTerminalPastePtyInput } from './terminal-pty-paste-writer'
 import { applyTerminalPaneAttentionToManager, subscribeTerminalPaneAttention } from './terminal-pane-attention-subscriptions'
 import { getCachedTerminalTabForWorktree } from './terminal-tab-lookup'
 import { getCachedTerminalGroupIdForWorktree, getCachedUnifiedTerminalTabForWorktree } from './terminal-unified-tab-lookup'
-import { resolveNativeChatLeafTitleAgent } from './native-chat-leaf-title-agent'
 import { useRepoById } from '@/store/selectors'
 import { isXtermHelperTextarea, releaseTerminalFocusForOutsidePointerDown, releaseTerminalFocusForWindowBlur, resyncTerminalFocusForWindowFocus, setRegularTerminalInputFocusAttribute } from './regular-terminal-focus-ownership'
 import { refreshTerminalImeInputContext } from './terminal-ime-input-context-refresh'
@@ -133,9 +127,6 @@ export function useTerminalPaneSurfaceInteractions(context: TerminalPaneSurfaceC
     setAgentSessionContinuation,
     forceBracketedMultilineTextPaste,
     rightClickToPaste,
-    effectiveChatViewMode,
-    chatLeafId,
-    toggleNativeChatForLeaf,
     setOverrideTick,
     settingsRef,
   } = context
@@ -171,15 +162,6 @@ export function useTerminalPaneSurfaceInteractions(context: TerminalPaneSurfaceC
     return manager.getActivePane()?.leafId ?? null
   }, [contextMenu.menuPaneId])
   const contextMenuLeafId = getContextMenuLeafId()
-  const contextMenuIsChatView = effectiveChatViewMode && contextMenuLeafId === chatLeafId
-  const handleContextMenuToggleNativeChat = useCallback(() => {
-    const leafId = getContextMenuLeafId()
-    if (!leafId) {
-      return
-    }
-    toggleNativeChatForLeaf(leafId)
-  }, [getContextMenuLeafId, toggleNativeChatForLeaf])
-
   const getMobileOwnedTerminalPtyIds = useCallback((): string[] => {
     const ptyIds = new Set(getMobileFitOverridePtyIds())
     for (const [ptyId, driver] of getAllDrivers()) {
@@ -399,8 +381,6 @@ export function useTerminalPaneSurfaceInteractions(context: TerminalPaneSurfaceC
     contextMenu,
     getContextMenuLeafId,
     contextMenuLeafId,
-    contextMenuIsChatView,
-    handleContextMenuToggleNativeChat,
     getMobileOwnedTerminalPtyIds,
     scheduleRestoredTerminalRefit,
     restorePaneTerminalFit,

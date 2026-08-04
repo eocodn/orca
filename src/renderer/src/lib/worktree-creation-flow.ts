@@ -25,7 +25,6 @@ import type {
   WorktreeCreationRequest
 } from '@/lib/pending-worktree-creation'
 import { createBrowserUuid } from '@/lib/browser-uuid'
-import { seedAgentTabStateAfterWorktreeCreate } from '@/lib/worktree-creation-agent-seeds'
 import { resolveBackendDraftStartup } from '@/lib/worktree-draft-startup-view-mode'
 
 type ContinueBackgroundWorktreeCreationOptions = {
@@ -268,13 +267,6 @@ async function executeWorktreeCreation(
   // Why: clearing synchronously right after activation lets React commit the
   // panel→terminal swap in one frame — no two-row flicker, no empty-terminal flash.
   useAppStore.getState().removePendingWorktreeCreation(creationId, { cleanupVm: false })
-  seedAgentTabStateAfterWorktreeCreate({
-    request: preparedRequest,
-    worktreeId: worktree.id,
-    primaryTabId,
-    startupTerminalTabId: result.startupTerminal?.tabId,
-    backendSpawned
-  })
   if (preparedRequest.startupPlan && !backendSpawned) {
     void ensureAgentStartupInTerminal({
       worktreeId: worktree.id,

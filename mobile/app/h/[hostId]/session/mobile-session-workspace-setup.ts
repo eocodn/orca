@@ -15,11 +15,6 @@ import { resolveMobileTerminalInputGate } from '../../../../src/terminal/termina
 import { HOST_DOCK_MIN_WIDTH, type MobileTerminalLinkOpenMode, saveTerminalTextScale } from '../../../../src/storage/preferences'
 import { getDefaultTerminalAccessoryBuiltInIds, getVisibleTerminalAccessoryKeys } from '../../../../src/terminal/terminal-accessory-layout'
 import { useWorktreeSessionTabsLoaded } from '../../../../src/session/use-initial-session-terminal-autocreate'
-import { useMobileNativeChatController } from '../../../../src/session/use-mobile-native-chat-controller'
-import { useMobileNativeChatInputLease } from '../../../../src/session/use-mobile-native-chat-input-lease'
-import { useMobileNativeChatReadability } from '../../../../src/session/use-mobile-native-chat-readability'
-import { useMobileNativeChatSendError } from '../../../../src/session/use-mobile-native-chat-send-error'
-import { mobileNativeChatScopeKey } from '../../../../src/session/mobile-native-chat-scope-key'
 import { canDockSessionPanel } from '../../../../src/session/session-panel-host'
 import type { AppliedSnapshotMarker } from '../../../../src/session/session-tab-snapshot-gate'
 import { MobileTerminalDiagnostics } from '../../../../src/session/mobile-terminal-diagnostics'
@@ -128,8 +123,6 @@ export function useMobileSessionWorkspaceSetup() {
     toggleTerminalLiveInput
   } = useTerminalLiveInputModePreference({ hostId, worktreeId })
   const [activeHandle, setActiveHandle] = useState<string | null>(null)
-  // Reactive teardown signal for the native-chat covered stream; see unsubscribeTerminal.
-  const [coveredStreamRevision, setCoveredStreamRevision] = useState(0)
   const [activeSessionTabId, setActiveSessionTabId] = useState<string | null>(null)
   const activeSessionTabIdRef = useRef<string | null>(null)
   // Auto-scroll the tab strip so the desktop-synced active tab is revealed without a manual scroll.
@@ -371,51 +364,10 @@ export function useMobileSessionWorkspaceSetup() {
     },
     [clearToastHideTimer]
   )
-  const nativeChatScopeKey = mobileNativeChatScopeKey(hostId, worktreeId, activeSessionTabId)
-  const nativeChatSendError = useMobileNativeChatSendError({
-    scopeKey: nativeChatScopeKey,
-    showToast
-  })
-  const nativeChatTranscriptIsLocalReadable = useMobileNativeChatReadability(client, worktreeId)
-  const {
-    ready: nativeChatInputLeaseReady,
-    readyRef: nativeChatInputLeaseReadyRef,
-    lockReason: nativeChatInputLockReason,
-    markReady: markNativeChatInputLeaseReady,
-    clear: clearNativeChatInputLease
-  } = useMobileNativeChatInputLease({
-    activeHandle,
-    connected: connState === 'connected'
-  })
-  const nativeChatController = useMobileNativeChatController({
-    client,
-    hostId,
-    worktreeId,
-    activeSessionTab,
-    activeSessionTabId,
-    activeHandleRef,
-    deviceTokenRef,
-    nativeChatTranscriptIsLocalReadable,
-    nativeChatInputLeaseReady,
-    connState,
-    onSendError: nativeChatSendError.show,
-    onSendResolved: nativeChatSendError.clear
-  })
-  const { toggleTabChatView, showNativeChat, showNativeChatRef } = nativeChatController
-  nativeChatSendError.bannerMountedRef.current = showNativeChat
-
   const dictation = useMobileDictation({
     client,
     enabled: canSend,
     onTranscript: (text) => {
-      // Why: dictation belongs to the visible composer — native chat consumes it locally, terminal mode keeps live-input routing.
-      if (showNativeChatRef.current) {
-        nativeChatController.setChatComposerText((current) =>
-          appendBufferedDictation(current, text)
-        )
-        showToast('Dictation inserted')
-        return
-      }
       // Live mode inserts the transcript into its PTY as text (no Return); buffered mode appends to the command field.
       const routeContext = dictationRouteContextRef.current
       dictationRouteContextRef.current = null
@@ -537,7 +489,7 @@ export function useMobileSessionWorkspaceSetup() {
     setAutocompleteEnabled, terminalLinkOpenMode, setTerminalLinkOpenMode, liveInputCapture,
     setLiveInputCapture, clearTerminalLiveInputDefault, defaultTerminalHandlesToLiveInput,
     liveInputTerminalHandles, liveInputTerminalHandlesRef, pruneTerminalHandlesFromLiveInput,
-    toggleTerminalLiveInput, activeHandle, setActiveHandle, coveredStreamRevision, setCoveredStreamRevision,
+    toggleTerminalLiveInput, activeHandle, setActiveHandle,
     activeSessionTabId, setActiveSessionTabId, activeSessionTabIdRef, tabStripRef, tabStripOffsetRef,
     tabStripViewportWidthRef, tabStripContentWidthRef, tabLayoutsRef, markdownDocs, setMarkdownDocs,
     markdownDocsRef, fileDocs, setFileDocs, diffComments, setDiffComments, diffCommentsRef,
@@ -572,10 +524,7 @@ export function useMobileSessionWorkspaceSetup() {
     browserScreencastSupported, setBrowserScreencastSupported, agentSessionHistorySupported,
     setAgentSessionHistorySupported, quickCommandsSupported, setQuickCommandsSupported,
     browserScreencastSupportedRef, reconciledCreateWarningState, createWarning, clearDelayedActionTimers,
-    scheduleDelayedAction, clearToastHideTimer, showToast, nativeChatScopeKey, nativeChatSendError,
-    nativeChatTranscriptIsLocalReadable, nativeChatInputLeaseReady, nativeChatInputLeaseReadyRef,
-    nativeChatInputLockReason, markNativeChatInputLeaseReady, clearNativeChatInputLease,
-    nativeChatController, toggleTabChatView, showNativeChat, showNativeChatRef, dictation,
+    scheduleDelayedAction, clearToastHideTimer, showToast, dictation,
     startDictation, cancelDictation, handleDictationToggle, handleDictationPressIn, handleDictationPressOut,
     refreshDictationMode
   }

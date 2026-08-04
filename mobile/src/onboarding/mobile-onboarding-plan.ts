@@ -1,7 +1,6 @@
 import { shouldPresentNotificationOptIn } from '../notifications/notification-opt-in-gate'
-import { shouldPresentSessionViewOptIn } from '../session/session-view-opt-in-gate'
 
-export const MOBILE_ONBOARDING_STEPS = ['session-view', 'notifications'] as const
+export const MOBILE_ONBOARDING_STEPS = ['notifications'] as const
 export type MobileOnboardingStep = (typeof MOBILE_ONBOARDING_STEPS)[number]
 export type MobileOnboardingDestination =
   | '/'
@@ -15,14 +14,10 @@ export type MobileOnboardingDestination =
 export async function loadMobileOnboardingSteps(): Promise<MobileOnboardingStep[]> {
   // Why: the wizard needs the complete plan for accurate progress dots; run the
   // independent gates together so adding the second decision does not add latency.
-  const [showSessionView, showNotifications] = await Promise.all([
-    shouldPresentSessionViewOptIn(),
-    shouldPresentNotificationOptIn()
-  ])
+  const showNotifications = await shouldPresentNotificationOptIn()
   return MOBILE_ONBOARDING_STEPS.filter(
     (step) =>
-      (step === 'session-view' && showSessionView) ||
-      (step === 'notifications' && showNotifications)
+      step === 'notifications' && showNotifications
   )
 }
 

@@ -1,7 +1,5 @@
 import type {
-  GlobalSettings,
   SetupSplitDirection,
-  Tab,
   TuiAgent,
   WorktreeDefaultTabsLaunch,
   WorktreeSetupLaunch
@@ -38,7 +36,6 @@ export type WorktreeStartupPayload = {
   launchDraftText?: string
   startupCommandDelivery?: StartupCommandDelivery
   initialAgentStatus?: { agent: TuiAgent; prompt: string }
-  sessionOptions?: Record<string, SessionOptionValue>
   telemetry?: AgentStartedTelemetry
 }
 
@@ -78,7 +75,6 @@ type WorktreeActivationStore = Partial<WorktreeRuntimeOwnerState> & {
       pendingActivationSpawn?: boolean
       launchAgent?: TuiAgent
       recordInteraction?: boolean
-      viewMode?: Tab['viewMode']
       activate?: boolean
     }
   ) => { id: string }
@@ -115,7 +111,6 @@ type WorktreeActivationStore = Partial<WorktreeRuntimeOwnerState> & {
     startup: { command: string; env?: Record<string, string> }
   ) => void
   queueTabInitialCwd: (tabId: string, cwd: string) => void
-  settings?: Pick<GlobalSettings, 'experimentalNativeChat' | 'openAgentTabsInChatByDefault'> | null
 }
 
 /**

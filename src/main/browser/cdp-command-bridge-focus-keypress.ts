@@ -1,57 +1,10 @@
-import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
   BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
   BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
   BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
+  BrowserSelectAllResult
 } from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-
-import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+import { resolveKeyDefinition } from './cdp-command-bridge'
 
 export const CdpBridgeMethods5 = {
   async focus(this: any, element: string): Promise<BrowserFocusResult> {
@@ -66,7 +19,7 @@ export const CdpBridgeMethods5 = {
 
       return { focused: element }
     })
-  }
+  },
   async clear(this: any, element: string): Promise<BrowserClearResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -94,7 +47,7 @@ export const CdpBridgeMethods5 = {
 
       return { cleared: element }
     })
-  }
+  },
   async selectAll(this: any, element: string): Promise<BrowserSelectAllResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -118,7 +71,7 @@ export const CdpBridgeMethods5 = {
 
       return { selected: element }
     })
-  }
+  },
   async keypress(this: any, key: string): Promise<BrowserKeypressResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()

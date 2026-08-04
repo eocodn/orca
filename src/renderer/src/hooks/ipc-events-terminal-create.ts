@@ -3,9 +3,6 @@ import type { TerminalLayoutSnapshot } from '../../../shared/types'
 import type { RuntimeTerminalPresentation as RuntimeTerminalPresentationType } from '../../../shared/runtime-types'
 import { requestBackgroundTerminalWorktreeMount } from '@/components/terminal/background-terminal-worktree-mount'
 import { resolveTerminalTabPtyOwnership } from '@/lib/terminal-tab-for-pty-id'
-import { initialAgentTabViewModeProps } from '@/lib/native-chat-initial-view-mode'
-import { getConnectionIdFromState } from '@/lib/connection-context'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { singlePaneLayoutSnapshot } from '@/store/slices/terminal-helpers'
 import { verifyTerminalRevealIdentity } from '@/lib/terminal-reveal-identity'
 import { SPLIT_TERMINAL_PANE_EVENT } from '@/constants/terminal'
@@ -122,15 +119,7 @@ unsubs.push(
                   ? {
                       launchAgent,
                       // Why: a paired client resolved explicit mode before PTY materialization; only omitted mode uses host defaults.
-                      ...(viewMode
-                        ? { viewMode }
-                        : initialAgentTabViewModeProps(store.settings, {
-                            agent: launchAgent,
-                            nativeChatTranscriptIsLocalReadable:
-                              isNativeChatTranscriptLocalReadable(
-                                getConnectionIdFromState(store, worktreeId)
-                              )
-                          }))
+                      ...(viewMode ? { viewMode } : {})
                     }
                   : {}),
                 ...(cwd ? { startupCwd: cwd } : {}),

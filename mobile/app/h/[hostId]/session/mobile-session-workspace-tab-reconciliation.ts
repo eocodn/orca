@@ -124,7 +124,6 @@ export function useMobileSessionWorkspaceTabReconciliation(context: WorkspaceCon
           activeSessionTabTypeRef.current = 'terminal'
           // Why: every other active-handle branch assigns the ref alongside the
           // state. Leaving it stale here makes `covered` resolve against the wrong
-          // handle, so a native-chat rearm silently no-ops on the webview gates.
           activeHandleRef.current = pendingActiveTerminalHandle
           setActiveHandle(pendingActiveTerminalHandle)
           subscribeToTerminal(pendingActiveTerminalHandle)

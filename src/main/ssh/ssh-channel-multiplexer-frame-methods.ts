@@ -11,7 +11,11 @@ import {
 } from './relay-protocol'
 import { messageLane } from './ssh-multiplexer-message-lane'
 import type { MultiplexerWriteSettlement } from './ssh-multiplexer-transport-writer'
-import { MAX_UNACKED_TIMESTAMPS, MAX_ORDINARY_UNACKED_TIMESTAMPS, type SshMultiplexerDisposeReason } from './ssh-channel-multiplexer-foundation'
+import {
+  MAX_UNACKED_TIMESTAMPS,
+  MAX_ORDINARY_UNACKED_TIMESTAMPS,
+  type SshMultiplexerDisposeReason
+} from './ssh-channel-multiplexer-foundation'
 
 export const SshChannelMultiplexerFrameMethods = {
   dispose(this: any, reason: SshMultiplexerDisposeReason = 'shutdown'): void {
@@ -19,14 +23,18 @@ export const SshChannelMultiplexerFrameMethods = {
       return
     }
     if (process.env.ORCA_SSH_MUX_DEBUG === '1') {
-      console.warn(`[ssh-mux] Disposing multiplexer (reason: ${reason})`, new Error('dispose trace').stack)
+      console.warn(
+        `[ssh-mux] Disposing multiplexer (reason: ${reason})`,
+        new Error('dispose trace').stack
+      )
     }
     this.disposed = true
     if (this.connectionHealthTimer) {
       clearInterval(this.connectionHealthTimer)
       this.connectionHealthTimer = null
     }
-    const errorMessage = reason === 'connection_lost' ? 'SSH connection lost, reconnecting...' : 'Multiplexer disposed'
+    const errorMessage =
+      reason === 'connection_lost' ? 'SSH connection lost, reconnecting...' : 'Multiplexer disposed'
     const errorCode = reason === 'connection_lost' ? 'CONNECTION_LOST' : 'DISPOSED'
     for (const waiter of this.livenessProbeWaiters.splice(0)) {
       waiter.fail()
@@ -58,7 +66,11 @@ export const SshChannelMultiplexerFrameMethods = {
   isDisposed(this: any): boolean {
     return this.disposed
   },
-  sendMessage(this: any, msg: JsonRpcMessage, onSettled?: (result: MultiplexerWriteSettlement) => void): void {
+  sendMessage(
+    this: any,
+    msg: JsonRpcMessage,
+    onSettled?: (result: MultiplexerWriteSettlement) => void
+  ): void {
     const seq = this.nextOutgoingSeq++
     const frame = encodeJsonRpcFrame(msg, seq, this.highestReceivedSeq)
     this.trackOutgoingTimestamp(seq, false)
@@ -115,7 +127,11 @@ export const SshChannelMultiplexerFrameMethods = {
   async handleRequest(this: any, msg: JsonRpcRequest): Promise<void> {
     const handler = this.requestHandlers.get(msg.method)
     if (!handler) {
-      this.sendMessage({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: `Method not found: ${msg.method}` } })
+      this.sendMessage({
+        jsonrpc: '2.0',
+        id: msg.id,
+        error: { code: -32601, message: `Method not found: ${msg.method}` }
+      })
       return
     }
     try {
@@ -156,14 +172,14 @@ export const SshChannelMultiplexerFrameMethods = {
   handleNotification(this: any, msg: JsonRpcNotification): void {
     const params = msg.params ?? {}
     for (const handler of Array.from(
-      this.notificationHandlers as Array<
-        (method: string, params: Record<string, unknown>) => void
-      >
+      this.notificationHandlers as Array<(method: string, params: Record<string, unknown>) => void>
     )) {
       try {
         handler(msg.method, params)
       } catch (err) {
-        console.warn(`[ssh-mux] Notification handler failed for ${msg.method}: ${err instanceof Error ? err.message : String(err)}`)
+        console.warn(
+          `[ssh-mux] Notification handler failed for ${msg.method}: ${err instanceof Error ? err.message : String(err)}`
+        )
       }
     }
     const methodHandlers = this.methodNotificationHandlers.get(msg.method)
@@ -176,7 +192,9 @@ export const SshChannelMultiplexerFrameMethods = {
       try {
         handler(params)
       } catch (err) {
-        console.warn(`[ssh-mux] Method notification handler failed for ${msg.method}: ${err instanceof Error ? err.message : String(err)}`)
+        console.warn(
+          `[ssh-mux] Method notification handler failed for ${msg.method}: ${err instanceof Error ? err.message : String(err)}`
+        )
       }
     }
   },

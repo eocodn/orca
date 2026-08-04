@@ -1,7 +1,11 @@
+import {
+  type ChromiumCookieColumnInfo,
+  parseSqliteDefaultValue
+} from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
 
-import { type ChromiumCookieColumnInfo, parseSqliteDefaultValue } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
-
-export function normalizeSqliteCookieValue(value: unknown): string | number | bigint | Buffer | null {
+export function normalizeSqliteCookieValue(
+  value: unknown
+): string | number | bigint | Buffer | null {
   if (value instanceof Uint8Array) {
     return Buffer.from(value)
   }
@@ -14,11 +18,9 @@ export function normalizeSqliteCookieValue(value: unknown): string | number | bi
   return String(value)
 }
 
-
 export function isSqliteNotNull(column: ChromiumCookieColumnInfo): boolean {
   return Number(column.notnull ?? 0) !== 0
 }
-
 
 export function fallbackChromiumCookieColumnValue(
   column: ChromiumCookieColumnInfo,
@@ -53,7 +55,6 @@ export function fallbackChromiumCookieColumnValue(
       return ''
   }
 }
-
 
 export function buildChromiumCookieInsertParams(
   targetColumns: ChromiumCookieColumnInfo[],

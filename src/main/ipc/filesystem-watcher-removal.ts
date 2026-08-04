@@ -1,71 +1,46 @@
-import { ipcMain, type WebContents } from 'electron'
-import * as path from 'node:path'
-import { stat } from 'node:fs/promises'
-import type { Event as WatcherEvent } from '@parcel/watcher'
-import type { FsChangeEvent, FsChangedPayload } from '../../shared/types'
+import { type WebContents } from 'electron'
+import type { FsChangedPayload } from '../../shared/types'
+import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
 import {
-  isWindowsAbsolutePathLike,
-  normalizeRuntimePathForComparison
-} from '../../shared/cross-platform-path'
-import { isWslPath } from '../wsl'
-import { createWslWatcher } from './filesystem-watcher-wsl'
-import type { WatchedRoot } from './filesystem-watcher-wsl'
+  abandonedLocalUnsubscribes,
+  clearLocalCapacityRetry,
+  failedLocalUnsubscribes,
+  inFlightLocalInstalls,
+  localWatcherRoot,
+  pendingLocalCapacityRetries,
+  pendingLocalInstallPromises,
+  pendingLocalUnsubscribesByRoot,
+  pendingTeardowns,
+  suspendedLocalWatcherListeners,
+  watchedRoots,
+} from './filesystem-watcher-foundation'
 import {
-  getSshFilesystemProvider,
-  onSshFilesystemProviderRegistered
-} from '../providers/ssh-filesystem-dispatch'
-import { MAX_BATCHED_WATCHER_EVENTS, queueWatcherEvents } from './filesystem-watcher-event-batch'
-import { disposeWatcherProcess, subscribeViaWatcherProcess } from './parcel-watcher-process'
-import { isWatcherProcessFailure } from './parcel-watcher-process-failure'
+  clearDormantRemoteWatcher,
+  clearRemoteWatcherResync,
+  remoteWatcherKey,
+  scheduleRemoteWatcherRetry
+} from './filesystem-watcher-ipc'
 import {
-  onWatcherChildCapacityAvailable,
-  WatcherChildCapacityError
-} from './parcel-watcher-child-registry'
-import { beginWatcherInstall, isWatcherRemovalInProgressError } from './watcher-removal-gate'
+  abandonLocalUnsubscribes,
+  subscribe,
+  trackLocalUnsubscribe
+} from './filesystem-watcher-local'
+import {
+  installRemoteWatcher,
+  type RemoteWatcherInstallResult
+} from './filesystem-watcher-retry'
 import {
   createWatcherRemovalDeadline,
   drainBeforeWatcherRemoval,
   WATCHER_REMOVAL_FINAL_DRAIN_RESERVE_MS,
   type WatcherRemovalDeadline
 } from './watcher-removal-drain'
-// Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
-import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
-import {
-  abandonedLocalUnsubscribes,
-  failedLocalUnsubscribes,
-  watchedRoots,
-  suspendedLocalWatcherListeners,
-  pendingLocalCapacityRetries,
-  inFlightLocalInstalls,
-  pendingLocalInstallPromises,
-  pendingTeardowns,
-  localWatcherRoot,
-  clearLocalCapacityRetry,
-  pendingLocalUnsubscribes
-} from './filesystem-watcher-foundation'
-import {
-  trackLocalUnsubscribe,
-  subscribe
-} from './filesystem-watcher-local'
-import {
-  remoteWatcherKey,
-  clearDormantRemoteWatcher,
-  clearRemoteWatcherResync,
-  scheduleRemoteWatcherRetry
-} from './filesystem-watcher-ipc'
-import {
-  type RemoteWatcherInstallResult,
-  installRemoteWatcher
-} from './filesystem-watcher-retry'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
-import { subscribeWhileRemovalAllowed,
-  doInstallLocalWatcher,
-  unsubscribe } from './filesystem-watcher-remote'
-export { subscribeWhileRemovalAllowed,
-  doInstallLocalWatcher,
-  unsubscribe } from './filesystem-watcher-remote'
+export {
+  doInstallLocalWatcher,subscribeWhileRemovalAllowed,unsubscribe
+} from './filesystem-watcher-remote'
 
 export async function closeLocalWatcherForWorktreePath(
   worktreePath: string,

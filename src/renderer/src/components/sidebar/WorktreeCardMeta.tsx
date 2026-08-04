@@ -27,7 +27,6 @@ import type {
 } from './worktree-card-meta-types'
 import { translate } from '@/i18n/i18n'
 import { WorktreeCardReviewDetailSection } from './WorktreeCardReviewDetailSection'
-import { WorktreeCardAutomationDetailSection } from './WorktreeCardAutomationDetailSection'
 import { WorktreeCardCliDetailSection } from './WorktreeCardCliDetailSection'
 import { WorktreeCardIssueDetailSection } from './WorktreeCardIssueDetailSection'
 import { WorktreeCardHoverIdentityHeader } from './WorktreeCardHoverIdentityHeader'
@@ -55,14 +54,12 @@ export function WorktreeCardDetailsHover({
   jiraIssue,
   review,
   comment,
-  automationProvenance,
   cliProvenance,
   children,
   branchName,
   workspaceTitle,
   identityOrder = 'workspace-first',
   workspaceTitleRenameDisabled = false,
-  automationHostId,
   detailsAfter,
   openDelay = 250,
   closeDelay = 120,
@@ -74,8 +71,6 @@ export function WorktreeCardDetailsHover({
   onOpenLinearIssueInOrca,
   onOpenReviewInOrca,
   onUnlinkReview,
-  onOpenAutomation,
-  onOpenAutomationRun,
   hoverControl
 }: WorktreeCardDetailsHoverProps): React.JSX.Element {
   const internalHoverControl = useWorktreeCardDetailsHoverControl()
@@ -167,7 +162,6 @@ export function WorktreeCardDetailsHover({
       jiraIssue,
       review,
       comment,
-      automationProvenance,
       cliProvenance
     }) &&
     !detailsAfter
@@ -310,17 +304,6 @@ export function WorktreeCardDetailsHover({
             onUnlinkReview={onUnlinkReview}
             closeHover={closeHover}
           />
-
-          {automationProvenance && (
-            <WorktreeCardAutomationDetailSection
-              provenance={automationProvenance}
-              worktreeHostId={automationHostId}
-              onOpenAutomation={onOpenAutomation ? dismissAndRun(onOpenAutomation) : undefined}
-              onOpenAutomationRun={
-                onOpenAutomationRun ? dismissAndRun(onOpenAutomationRun) : undefined
-              }
-            />
-          )}
 
           {cliProvenance && <WorktreeCardCliDetailSection provenance={cliProvenance} />}
 

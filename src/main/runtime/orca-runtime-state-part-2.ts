@@ -1,4 +1,5 @@
-import { TerminalKittyKeyboardModeTracker, createAgentStatusOscProcessor, type RuntimeBrowserDriverState, type TerminalTailWaitState, type PtyProviderBufferSnapshot, type RuntimePtyTitleTrackerEntry, type RuntimeAgentRowSnapshot, type RuntimeVisibleTerminalState, type ProviderBufferAcquisition, type DriverState } from './orca-runtime-symbols'
+import type { TerminalKittyKeyboardModeTracker, createAgentStatusOscProcessor} from './orca-runtime-symbols';
+import { type RuntimeBrowserDriverState, type TerminalTailWaitState, type PtyProviderBufferSnapshot, type RuntimePtyTitleTrackerEntry, type RuntimeAgentRowSnapshot, type RuntimeVisibleTerminalState, type ProviderBufferAcquisition, type DriverState } from './orca-runtime-symbols'
 import { OrcaRuntimeStatePart1 } from './orca-runtime-state-part-1'
 
 export class OrcaRuntimeStatePart2 extends OrcaRuntimeStatePart1 {

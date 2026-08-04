@@ -10,7 +10,6 @@ import type {
   WorkspaceSessionState,
   WorkspaceVisibleTabType
 } from '../../../../shared/types'
-import { emitNativeChatToggled } from '@/lib/native-chat-telemetry'
 import {
   dedupeTabOrder,
   ensureGroup,
@@ -43,7 +42,7 @@ import {
   buildValidWorktreeIdsForSessionHydration,
   collectPersistedWorktreeIdsForSessionHydration
 } from './degraded-repo-worktree-validity'
-import { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, mirrorTabViewModeToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType, findSiblingGroupId, removeLeaf, collapseGroupLayout, toVisibleTabType, deriveActiveSurfaceForWorktree, buildActiveSurfacePatch, activeSurfacePatchMatchesState } from './tabs-state'
+import { replaceWorkspaceRecordKeys, patchTerminalTabPinned, mirrorTabPinnedToHost, buildSplitNode, replaceLeaf, updateSplitRatio, findFirstLeaf, partitionPinnedTabOrder, applyTabOrderSortValues, isReplaceablePreviewContentType, canReplacePreviewContentType, findSiblingGroupId, removeLeaf, collapseGroupLayout, toVisibleTabType, deriveActiveSurfaceForWorktree, buildActiveSurfacePatch, activeSurfacePatchMatchesState } from './tabs-state'
 import type { TabSplitDirection, TabsSlice } from './tabs-state'
 type SliceSet = Parameters<StateCreator<AppState>>[0]
 type SliceGet = Parameters<StateCreator<AppState>>[1]

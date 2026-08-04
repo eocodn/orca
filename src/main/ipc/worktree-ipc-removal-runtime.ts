@@ -36,13 +36,15 @@ export {
   findRegisteredDeletableWorktree,
   isDangerousWorktreeRemovalPath,
   isWorktreePathMissing,
-  formatWorktreeRemovalError,
-  isOrphanCompatiblePreflightError,
-  isOrphanedWorktreeError,
   ORPHANED_WORKTREE_DIRECTORY_MESSAGE,
   UNREGISTERED_MISSING_WORKTREE_MESSAGE,
   stripOrcaProvenanceMetaUpdates
 } from '../worktree-removal-safety'
+export {
+  formatWorktreeRemovalError,
+  isOrphanCompatiblePreflightError,
+  isOrphanedWorktreeError
+} from './worktree-logic'
 export { invalidateAuthorizedRootsCache } from './filesystem-auth'
 export { isLocalGitRepository } from './worktree-ipc-foundation'
 export { runHook } from '../hooks'

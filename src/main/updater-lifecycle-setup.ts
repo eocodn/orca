@@ -1,76 +1,18 @@
-import { app, BrowserWindow, powerMonitor } from 'electron'
-import { is } from '@electron-toolkit/utils'
-import type { UpdateCheckOptions, UpdateStatus } from '../shared/types'
-import type {
-  RemoteServerUpdateInstallResult,
-  RemoteServerUpdaterSnapshot,
-  RemoteServerUpdateSupport
-} from '../shared/remote-server-update'
-import { isWindowsSignatureCheckUnavailableFailure } from '../shared/updater-windows-signature-check'
-import { killAllPty } from './ipc/pty'
-import { withUpdaterSpan } from './observability/instrumentation'
-import { loadElectronAutoUpdater, type ElectronAutoUpdater } from './electron-updater-loader'
-import { writeMainThreadDiagnosticMarker } from './diagnostics/main-thread-churn-probe'
-import {
-  beginMacUpdateDownload,
-  deferMacQuitUntilInstallerReady,
-  isMacInstallerReady,
-  markMacQuitAndInstallInFlight,
-  resetMacInstallState
-} from './updater-mac-install'
-import {
-  armUpdateInstallExitWatchdog,
-  disarmUpdateInstallExitWatchdog
-} from './update-install-exit-watchdog'
-import { registerAutoUpdaterHandlers } from './updater-events'
-import { recordUpdaterLifecycle } from './updater-lifecycle-diagnostics'
-import {
-  compareVersions,
-  isBenignCheckFailure,
-  isMissingUpdateManifestFailure,
-  isPrereleaseVersion,
-  statusesEqual
-} from './updater-fallback'
-import {
-  fetchNewerReleaseTagsWithReadiness,
-  getReleaseDownloadUrl
-} from './updater-prerelease-feed'
-import { fetchNudge, shouldApplyNudge } from './updater-nudge'
-import {
-  failServeUpdateHandoff,
-  getServeUpdateHandoffFailure,
-  hasServeUpdateSupervisor,
-  requestServeUpdateHandoff
-} from './serve-update-handoff'
-import type { LocalBuildFeed } from './local-builds/local-build-feed-server'
-import { listReleaseBuilds, resolveTargetBuild } from './updater-release-builds'
-import {
-  isChannelSupportedOnPlatform,
-  type ReleaseBuild,
-  type ReleaseChannel
-} from '../shared/release-channel'
+import { is } from '@electron-toolkit/utils';
+import type { BrowserWindow } from 'electron';
+import { app,powerMonitor } from 'electron';
+import type { ReleaseChannel } from '../shared/release-channel';
+import { getServeUpdateHandoffFailure } from './serve-update-handoff';
+import { registerAutoUpdaterHandlers } from './updater-events';
+import { recordUpdaterLifecycle } from './updater-lifecycle-diagnostics';
+import { beginMacUpdateDownload } from './updater-mac-install';
 
-import { updaterLifecycleState as state } from './updater-lifecycle-state'
+import * as internal from './updater-lifecycle-domain-registry';
 import {
   AUTO_UPDATE_CHECK_INTERVAL_MS,
-  AUTO_UPDATE_RETRY_INTERVAL_MS,
-  MAX_AUTO_UPDATE_RETRY_INTERVAL_MS,
-  NUDGE_POLL_INTERVAL_MS,
-  NUDGE_ACTIVATION_COOLDOWN_MS,
-  QUIT_AND_INSTALL_DELAY_MS,
-  PRE_QUIT_CLEANUP_TIMEOUT_MS,
-  UPDATE_CHECK_SILENT_SETTLE_DELAY_MS,
-  UPDATE_CHECK_STALL_TIMEOUT_MS,
-  ReleaseFeedPreflightError,
-  type CheckFailureSource,
-  type MissingManifestPrereleaseFallbackResult,
-  type PrimaryEventSuppression,
-  type UpdateCheckVariant,
-  type ReleaseFeedPreflightFailure,
-  type ReleaseFeedPreflightResult,
   type UpdateInstallMode
-} from './updater-lifecycle-foundation'
-import * as internal from './updater-lifecycle-domain-registry'
+} from './updater-lifecycle-foundation';
+import { updaterLifecycleState as state } from './updater-lifecycle-state';
 
 export function setupAutoUpdater(
   mainWindow: BrowserWindow,

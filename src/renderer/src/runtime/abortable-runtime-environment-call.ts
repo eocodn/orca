@@ -1,4 +1,5 @@
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
+import { getClientRuntime } from './client-runtime'
 
 export function createRuntimeRpcAbortError(): Error {
   const error = new Error('Runtime request aborted')
@@ -45,8 +46,8 @@ export async function callAbortableRuntimeEnvironment(
     }
     const onAbort = (): void => finish(() => reject(createRuntimeRpcAbortError()))
     signal.addEventListener('abort', onAbort, { once: true })
-    void window.api.runtimeEnvironments
-      .subscribe(
+    void getClientRuntime()
+      .remoteHost.subscribe(
         { selector: environmentId, method, params, timeoutMs, expectedEnvironmentPairingRevision },
         {
           onResponse: (response) => finish(() => resolve(response)),

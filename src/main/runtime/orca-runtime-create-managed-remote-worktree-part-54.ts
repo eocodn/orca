@@ -1,4 +1,5 @@
-import { type AutomationWorkspaceProvenance, type CliWorkspaceProvenance, type CreateWorktreeResult, type GitPushTarget, type Repo, type WorktreeStartupLaunch, type TuiAgent, type WorkspaceLinkedItem, type TaskSourceContext, getSetupRunnerCommandPlatformForPath, createSequencedSetupAgentCommands, isWindowsAbsolutePathLike, BrowserWindow, createRemoteWorktree, type Store, type WorktreeStartupDraftPaste, type WorktreeStartupFollowup, ownerSurfacing } from './orca-runtime-symbols'
+import type { BrowserWindow} from './orca-runtime-symbols';
+import { type CliWorkspaceProvenance, type CreateWorktreeResult, type GitPushTarget, type Repo, type WorktreeStartupLaunch, type TuiAgent, type WorkspaceLinkedItem, type TaskSourceContext, getSetupRunnerCommandPlatformForPath, createSequencedSetupAgentCommands, isWindowsAbsolutePathLike, createRemoteWorktree, type Store, type WorktreeStartupDraftPaste, type WorktreeStartupFollowup, ownerSurfacing } from './orca-runtime-symbols'
 import { OrcaRuntimeCreateManagedWorktreePart53 } from './orca-runtime-create-managed-worktree-part-53'
 
 export class OrcaRuntimeCreateManagedRemoteWorktreePart54 extends OrcaRuntimeCreateManagedWorktreePart53 {
@@ -34,7 +35,6 @@ export class OrcaRuntimeCreateManagedRemoteWorktreePart54 extends OrcaRuntimeCre
       observeSetupCompletion?: boolean
       createdWithAgent?: TuiAgent
       pendingFirstAgentMessageRename?: boolean
-      automationProvenance?: AutomationWorkspaceProvenance
       cliProvenance?: CliWorkspaceProvenance
       startup?: WorktreeStartupLaunch
       startupFollowup?: WorktreeStartupFollowup
@@ -91,7 +91,6 @@ export class OrcaRuntimeCreateManagedRemoteWorktreePart54 extends OrcaRuntimeCre
         ...(args.pendingFirstAgentMessageRename === true
           ? { pendingFirstAgentMessageRename: true }
           : {}),
-        ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
         ...(args.cliProvenance ? { cliProvenance: args.cliProvenance } : {})
       },
       repo,

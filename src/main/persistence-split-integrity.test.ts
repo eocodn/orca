@@ -34,9 +34,9 @@ describe('persistence split integrity', () => {
       'readGithubCacheSnapshot'
     ]) {
       expect(loaderApi).toMatch(
-        new RegExp('export const \\{[\\s\\S]*\\b' + api + '\\b[\\s\\S]*\\}')
+        new RegExp(`export const \\{[\\s\\S]*\\b${  api  }\\b[\\s\\S]*\\}`)
       )
-      expect(dependencyMembers).toMatch(new RegExp('\\b' + api + '\\b'))
+      expect(dependencyMembers).toMatch(new RegExp(`\\b${  api  }\\b`))
     }
     expect(dependencies).toMatch(/export const persistenceLoadDependencies/)
     expect(primaryLoader).toMatch(/loadDependencies\.readFileSync/)
@@ -54,7 +54,7 @@ describe('persistence split integrity', () => {
       'gcStaleWorktreeMeta',
       'readGithubCacheSnapshot'
     ]) {
-      expect(finalizationApiImports).toMatch(new RegExp('\\b' + binding + '\\b'))
+      expect(finalizationApiImports).toMatch(new RegExp(`\\b${  binding  }\\b`))
     }
   })
 
@@ -105,7 +105,7 @@ describe('persistence split integrity', () => {
       './persistence-state-foundation'
     )
     for (const binding of ['BACKUP_COUNT', 'BACKUP_MIN_INTERVAL_MS']) {
-      expect(stateFoundationImports).toMatch(new RegExp('\\b' + binding + '\\b'))
+      expect(stateFoundationImports).toMatch(new RegExp(`\\b${  binding  }\\b`))
     }
 
     const statePathImports = importedNamesFrom(

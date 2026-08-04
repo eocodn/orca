@@ -15,19 +15,6 @@ function chmodUnixCliLaunchers(resourcesDir, electronPlatformName) {
   }
 }
 
-function chmodMacServeSimHelpers(resourcesDir, electronPlatformName) {
-  if (electronPlatformName !== 'darwin') return
-  const helperPaths = [
-    join(resourcesDir, 'serve-sim', 'bin', 'serve-sim-bin'),
-    join(resourcesDir, 'serve-sim', 'dist', 'simcam', 'serve-sim-camera-helper'),
-    join(resourcesDir, 'node_modules', 'serve-sim', 'bin', 'serve-sim-bin'),
-    join(resourcesDir, 'node_modules', 'serve-sim', 'dist', 'simcam', 'serve-sim-camera-helper')
-  ]
-  for (const helperPath of helperPaths) {
-    if (existsSync(helperPath)) chmodSync(helperPath, 0o755)
-  }
-}
-
 async function signMacComputerUseHelper(helperAppPath, packager) {
   if (!existsSync(helperAppPath)) {
     if (isMacRelease) throw new Error(`Missing Orca Computer Use helper app at ${helperAppPath}`)
@@ -103,7 +90,6 @@ function findInstalledMacSigningIdentity(keychainFile) {
 }
 
 module.exports = {
-  chmodMacServeSimHelpers,
   chmodUnixCliLaunchers,
   signMacComputerUseHelper,
   signMacNotificationStatusHelper

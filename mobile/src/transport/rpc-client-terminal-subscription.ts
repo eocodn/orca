@@ -1,5 +1,3 @@
-import { buildNativeChatUnsubscribe } from '../../../src/shared/native-chat-stream-unsubscribe'
-
 type TerminalStreamParams = {
   terminal?: unknown
 }
@@ -39,7 +37,7 @@ export function updateTerminalSubscriptionViewport(
 }
 
 /** Build the unsubscribe RPC for a streaming method that needs the host told to
- *  tear down (session tabs, native chat), or null when none is required. Keeps
+ *  tear down, or null when none is required. Keeps
  *  the per-method echo logic out of the rpc-client teardown closure. */
 export function buildStreamUnsubscribe(
   method: string | undefined,
@@ -63,18 +61,6 @@ export function buildStreamUnsubscribe(
   }
   if (!params || typeof params !== 'object') {
     return null
-  }
-  if (method === 'nativeChat.subscribe') {
-    const subscriptionId = (params as { subscriptionId?: unknown }).subscriptionId
-    if (typeof subscriptionId === 'string') {
-      return { method: 'nativeChat.unsubscribe', params: { subscriptionId } }
-    }
-    // Backward compatibility for callers that predate explicit cleanup tokens.
-    const agent = (params as { agent?: unknown }).agent
-    const sessionId = (params as { sessionId?: unknown }).sessionId
-    return typeof agent === 'string' && typeof sessionId === 'string'
-      ? buildNativeChatUnsubscribe(agent, sessionId)
-      : null
   }
   const subscriptionId =
     identity.subscriptionId ?? (params as { subscriptionId?: unknown }).subscriptionId

@@ -1,4 +1,4 @@
-import { type TerminalOutputSourceRange, type PtyIncarnationId, type RuntimePtyDataAdmission } from './orca-runtime-symbols'
+import type { TerminalOutputSourceRange, PtyIncarnationId, RuntimePtyDataAdmission } from './orca-runtime-symbols'
 import { OrcaRuntimeResolveRuntimeGitTargetPart18 } from './orca-runtime-resolve-runtime-git-target-part-18'
 
 export class OrcaRuntimeRememberObservedPtyExitPart19 extends OrcaRuntimeResolveRuntimeGitTargetPart18 {

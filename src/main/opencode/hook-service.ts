@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -10,8 +10,8 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs'
-import { createHash } from 'node:crypto'
-import { mirrorEntry, safeRemoveTree } from '../pty/overlay-mirror'
+import { join } from 'node:path'
+import { mirrorEntry,safeRemoveTree } from '../pty/overlay-mirror'
 
 const ORCA_OPENCODE_PLUGIN_FILE = 'orca-opencode-status.js'
 const OPENCODE_LEGACY_HOOKS_DIR = 'opencode-hooks'
@@ -34,8 +34,8 @@ function toSafeDirName(id: string): string {
   return createHash('sha256').update(id).digest('hex').slice(0, 32)
 }
 
-import { getOpenCodePluginSource, getOpenCodeFamilyPluginSource } from './hook-plugin-source'
-export { getOpenCodePluginSource, getOpenCodeFamilyPluginSource } from './hook-plugin-source'
+import { getOpenCodePluginSource } from './hook-plugin-source'
+export { getOpenCodeFamilyPluginSource,getOpenCodePluginSource } from './hook-plugin-source'
 
 export class OpenCodeHookService {
   clearPty(_ptyId: string): void {

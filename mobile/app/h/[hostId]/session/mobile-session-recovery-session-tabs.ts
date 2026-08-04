@@ -13,7 +13,6 @@ export function useMobileSessionRecoverySessionTabs(context: SessionRecoveryCont
     switchSessionTabRef,
     setMarkdownDocs,
     closedTabTombstonesRef,
-    nativeChatStream,
     appliedSessionTabsRevisionRef,
     worktreeId,
     terminalDiagnosticsRef,
@@ -55,9 +54,8 @@ export function useMobileSessionRecoverySessionTabs(context: SessionRecoveryCont
   const hasSessionTabsRecoveryNeed = useCallback(
     () =>
       closedTabTombstonesRef.current.size > 0 ||
-      pendingBrowserFocusPageIdRef.current !== null ||
-      nativeChatStream.hasTabsRecoveryNeed(),
-    [nativeChatStream]
+      pendingBrowserFocusPageIdRef.current !== null,
+    []
   )
   const getSessionTabsApplicationRevision = useCallback(
     () => appliedSessionTabsRevisionRef.current,

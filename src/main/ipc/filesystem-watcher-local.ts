@@ -1,106 +1,40 @@
-import { ipcMain, type WebContents } from 'electron'
-import * as path from 'node:path'
-import { stat } from 'node:fs/promises'
-import type { Event as WatcherEvent } from '@parcel/watcher'
-import type { FsChangeEvent, FsChangedPayload } from '../../shared/types'
-import {
-  isWindowsAbsolutePathLike,
-  normalizeRuntimePathForComparison
-} from '../../shared/cross-platform-path'
-import { isWslPath } from '../wsl'
-import { createWslWatcher } from './filesystem-watcher-wsl'
+import { type WebContents } from 'electron'
+import type { FsChangeEvent,FsChangedPayload } from '../../shared/types'
+import { MAX_BATCHED_WATCHER_EVENTS,queueWatcherEvents } from './filesystem-watcher-event-batch'
 import type { WatchedRoot } from './filesystem-watcher-wsl'
-import {
-  getSshFilesystemProvider,
-  onSshFilesystemProviderRegistered
-} from '../providers/ssh-filesystem-dispatch'
-import { MAX_BATCHED_WATCHER_EVENTS, queueWatcherEvents } from './filesystem-watcher-event-batch'
-import { disposeWatcherProcess, subscribeViaWatcherProcess } from './parcel-watcher-process'
+import { subscribeViaWatcherProcess } from './parcel-watcher-process'
 import { isWatcherProcessFailure } from './parcel-watcher-process-failure'
-import {
-  onWatcherChildCapacityAvailable,
-  WatcherChildCapacityError
-} from './parcel-watcher-child-registry'
-import { beginWatcherInstall, isWatcherRemovalInProgressError } from './watcher-removal-gate'
-import {
-  createWatcherRemovalDeadline,
-  drainBeforeWatcherRemoval,
-  WATCHER_REMOVAL_FINAL_DRAIN_RESERVE_MS,
-  type WatcherRemovalDeadline
-} from './watcher-removal-drain'
+import { beginWatcherInstall } from './watcher-removal-gate'
 // Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
-import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
-import { cleanupRemoteWatchersForSender } from './filesystem-watcher-retry'
+import { WATCHER_IGNORE_DIRS,buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
 import { subscribeWhileRemovalAllowed } from './filesystem-watcher-remote'
+import { cleanupRemoteWatchersForSender } from './filesystem-watcher-retry'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
-import { DEBOUNCE_TRAILING_MS,
+import {
   DEBOUNCE_MAX_WAIT_MS,
-  watchedRoots,
-  UNWATCHABLE_ROOT_CACHE_MAX,
-  unwatchableRoots,
-  rememberUnwatchableRoot,
-  senderCleanupRegistered,
-  WATCHER_TEARDOWN_GRACE_MS,
-  pendingTeardowns,
+  DEBOUNCE_TRAILING_MS,
+  abandonedLocalUnsubscribes,
+  cleanupInFlightLocalInstallsForSender,
+  coalesceEvents,
+  emitOverflowPayload,
+  failedLocalUnsubscribes,
+  localWatcherLifecycleGeneration,
+  localWatchersClosed,
   pendingLocalUnsubscribes,
   pendingLocalUnsubscribesByRoot,
-  suspendedLocalWatcherListeners,
-  localWatchersClosed,
-  localWatcherLifecycleGeneration,
-  failedLocalUnsubscribes,
-  abandonedLocalUnsubscribes,
-  type LocalWatcherInstallToken,
-  type LocalWatcherInstallResult,
-  type LocalWatcherCapacityRetry,
-  inFlightLocalInstalls,
-  pendingLocalInstallPromises,
-  pendingLocalCapacityRetries,
-  addInFlightLocalInstallListener,
-  cleanupInFlightLocalInstallsForSender,
-  takeLocalCapacityRetryListeners,
-  clearLocalCapacityRetry,
-  scheduleLocalCapacityRetry,
-  normalizeRootPath,
-  localWatcherRoot,
-  normalizeEventPath,
-  coalesceEvents,
-  tryStatIsDirectory,
-  emitOverflowPayload } from './filesystem-watcher-foundation'
-export { DEBOUNCE_TRAILING_MS,
-  DEBOUNCE_MAX_WAIT_MS,
-  watchedRoots,
-  UNWATCHABLE_ROOT_CACHE_MAX,
-  unwatchableRoots,
-  rememberUnwatchableRoot,
-  senderCleanupRegistered,
-  WATCHER_TEARDOWN_GRACE_MS,
   pendingTeardowns,
-  pendingLocalUnsubscribes,
-  pendingLocalUnsubscribesByRoot,
+  senderCleanupRegistered,
   suspendedLocalWatcherListeners,
-  localWatchersClosed,
-  localWatcherLifecycleGeneration,
-  failedLocalUnsubscribes,
-  abandonedLocalUnsubscribes,
-  type LocalWatcherInstallToken,
-  type LocalWatcherInstallResult,
-  type LocalWatcherCapacityRetry,
-  inFlightLocalInstalls,
-  pendingLocalInstallPromises,
-  pendingLocalCapacityRetries,
-  addInFlightLocalInstallListener,
-  cleanupInFlightLocalInstallsForSender,
-  takeLocalCapacityRetryListeners,
-  clearLocalCapacityRetry,
-  scheduleLocalCapacityRetry,
-  normalizeRootPath,
-  localWatcherRoot,
-  normalizeEventPath,
-  coalesceEvents,
   tryStatIsDirectory,
-  emitOverflowPayload } from './filesystem-watcher-foundation'
+  watchedRoots
+} from './filesystem-watcher-foundation'
+export {
+  DEBOUNCE_MAX_WAIT_MS,DEBOUNCE_TRAILING_MS,UNWATCHABLE_ROOT_CACHE_MAX,WATCHER_TEARDOWN_GRACE_MS,abandonedLocalUnsubscribes,addInFlightLocalInstallListener,
+  cleanupInFlightLocalInstallsForSender,clearLocalCapacityRetry,coalesceEvents,emitOverflowPayload,failedLocalUnsubscribes,inFlightLocalInstalls,localWatcherLifecycleGeneration,localWatcherRoot,localWatchersClosed,normalizeEventPath,normalizeRootPath,pendingLocalCapacityRetries,pendingLocalInstallPromises,pendingLocalUnsubscribes,
+  pendingLocalUnsubscribesByRoot,pendingTeardowns,rememberUnwatchableRoot,scheduleLocalCapacityRetry,senderCleanupRegistered,suspendedLocalWatcherListeners,takeLocalCapacityRetryListeners,tryStatIsDirectory,unwatchableRoots,watchedRoots,type LocalWatcherCapacityRetry,type LocalWatcherInstallResult,type LocalWatcherInstallToken
+} from './filesystem-watcher-foundation'
 
 export async function flushBatch(root: WatchedRoot): Promise<void> {
   const overflowed = root.batch.overflowed

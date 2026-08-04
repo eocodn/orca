@@ -1,9 +1,6 @@
-
 import { webContents } from 'electron'
 import { cleanElectronUserAgent } from './browser-session-ua'
-import type {
-  BrowserViewportOverride,
-} from '../../shared/types'
+import type { BrowserViewportOverride } from '../../shared/types'
 import {
   type BrowserAnnotationViewportBridgeOptions,
   BROWSER_ANNOTATION_VIEWPORT_BRIDGE_WORLD_ID,
@@ -14,7 +11,8 @@ import * as foundation from './browser-manager-lifecycle-foundation'
 const { buildMobileUserAgent, extractChromeMajor } = foundation
 
 export const BrowserManagerMethods10 = {
-  async doSetAnnotationViewportBridgeImpl(this: any,
+  async doSetAnnotationViewportBridgeImpl(
+    this: any,
     browserTabId: string,
     options: BrowserAnnotationViewportBridgeOptions
   ): Promise<boolean> {
@@ -41,7 +39,8 @@ export const BrowserManagerMethods10 = {
       return false
     }
   },
-  async doSetViewportOverrideImpl(this: any,
+  async doSetViewportOverrideImpl(
+    this: any,
     browserTabId: string,
     override: BrowserViewportOverride | null
   ): Promise<boolean> {
@@ -127,7 +126,8 @@ export const BrowserManagerMethods10 = {
       return false
     }
   },
-  getAuthorizedGuest(this: any,
+  getAuthorizedGuest(
+    this: any,
     browserTabId: string,
     senderWebContentsId: number
   ): Electron.WebContents | null {

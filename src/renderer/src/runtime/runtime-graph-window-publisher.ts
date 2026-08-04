@@ -18,7 +18,6 @@ import type {
 import { isTerminalLeafId } from '../../../shared/stable-pane-id'
 import type { Tab } from '../../../shared/types'
 import { resolveTerminalLayoutRoot } from './remote-terminal-layout-resolution'
-import { applyNativeChatLaunchDraftResolved } from './native-chat-launch-draft-runtime-resolution'
 import {
   type RuntimeMobileSessionSyncKey,
   buildRuntimeMobileAgentStatusProjectionForTests,
@@ -177,14 +176,6 @@ export async function syncRuntimeGraph(): Promise<void> {
     const result = await window.api.runtime.syncWindowGraph(graph)
     const currentState = getStoreState()
     currentState?.setRuntimeAgentOrchestrationByPaneKey?.(result?.agentOrchestrationByPaneKey ?? {})
-    for (const resolution of result?.nativeChatLaunchDraftResolutions ?? []) {
-      if (currentState) {
-        applyNativeChatLaunchDraftResolved(currentState, {
-          type: 'nativeChatLaunchDraftResolved',
-          ...resolution
-        })
-      }
-    }
   } catch (error) {
     console.error('[runtime] Failed to sync renderer graph:', error)
   }

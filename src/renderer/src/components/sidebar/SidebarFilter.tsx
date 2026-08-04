@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react'
 import {
-  CalendarClock,
   Check,
   FolderPlus,
   GitBranch,
@@ -54,10 +53,6 @@ const SidebarFilter = React.memo(function SidebarFilter({
   const sleepingShortcut = useShortcutLabel('sidebar.sleepingWorkspaces.toggle')
   const hideDefaultBranchWorkspace = useAppStore((s) => s.hideDefaultBranchWorkspace)
   const setHideDefaultBranchWorkspace = useAppStore((s) => s.setHideDefaultBranchWorkspace)
-  const hideAutomationGeneratedWorkspaces = useAppStore((s) => s.hideAutomationGeneratedWorkspaces)
-  const setHideAutomationGeneratedWorkspaces = useAppStore(
-    (s) => s.setHideAutomationGeneratedWorkspaces
-  )
   const hideCliCreatedWorkspaces = useAppStore((s) => s.hideCliCreatedWorkspaces)
   const setHideCliCreatedWorkspaces = useAppStore((s) => s.setHideCliCreatedWorkspaces)
   const hideDetachedHeadWorkspaces = useAppStore((s) => s.hideDetachedHeadWorkspaces)
@@ -111,14 +106,12 @@ const SidebarFilter = React.memo(function SidebarFilter({
   const hasAnyFilter =
     hasSleepingFilter ||
     hideDefaultBranchWorkspace ||
-    hideAutomationGeneratedWorkspaces ||
     hideCliCreatedWorkspaces ||
     hideDetachedHeadWorkspaces ||
     hasRepoFilter
   const activeFilterCount =
     (hasSleepingFilter ? 1 : 0) +
     (hideDefaultBranchWorkspace ? 1 : 0) +
-    (hideAutomationGeneratedWorkspaces ? 1 : 0) +
     (hideCliCreatedWorkspaces ? 1 : 0) +
     (hideDetachedHeadWorkspaces ? 1 : 0) +
     selectedCount
@@ -133,14 +126,12 @@ const SidebarFilter = React.memo(function SidebarFilter({
   const clearAll = useCallback(() => {
     setShowSleepingWorkspaces(DEFAULT_SHOW_SLEEPING_WORKSPACES)
     setHideDefaultBranchWorkspace(false)
-    setHideAutomationGeneratedWorkspaces(false)
     setHideCliCreatedWorkspaces(false)
     setHideDetachedHeadWorkspaces(false)
     setFilterRepoIds([])
   }, [
     setShowSleepingWorkspaces,
     setHideDefaultBranchWorkspace,
-    setHideAutomationGeneratedWorkspaces,
     setHideCliCreatedWorkspaces,
     setHideDetachedHeadWorkspaces,
     setFilterRepoIds
@@ -220,15 +211,6 @@ const SidebarFilter = React.memo(function SidebarFilter({
           )}
           checked={hideDefaultBranchWorkspace}
           onChange={setHideDefaultBranchWorkspace}
-        />
-        <FilterToggleRow
-          icon={<CalendarClock className="size-3.5" />}
-          label={translate(
-            'auto.components.sidebar.SidebarFilter.automationCreated',
-            'Hide automation-created'
-          )}
-          checked={hideAutomationGeneratedWorkspaces}
-          onChange={setHideAutomationGeneratedWorkspaces}
         />
         <FilterToggleRow
           icon={<SquareTerminal className="size-3.5" />}

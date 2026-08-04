@@ -1,4 +1,4 @@
-import { ipcRenderer, subscribeRuntimeEnvironmentFromPreload } from './preload-api-runtime-context';import type { VerifyAndAddRuntimeEnvironmentResult, MemorySnapshot, RuntimeBrowserDriverState, RuntimeStatus, RuntimeSyncWindowGraphResult, RuntimeSyncWindowGraph, RuntimeTerminalDriverState, RuntimeRpcResponse, PublicKnownRuntimeEnvironment, CodexRateLimitResetResult, GrokAccountStatus, RateLimitRuntimeTarget, RateLimitState, NativeChatAppendedPayload, NativeChatReadSessionResult, NativeChatSubscriptionFrame, AiVaultListArgs, AiVaultSubagentListArgs, AiVaultPrepareSessionResumeArgs, AgentType, RuntimeEnvironmentSubscriptionHandle } from './preload-api-runtime-context';export function createPreloadApiStats(): Record<string, unknown> {
+import { ipcRenderer, subscribeRuntimeEnvironmentFromPreload } from './preload-api-runtime-context';import type { VerifyAndAddRuntimeEnvironmentResult, MemorySnapshot, RuntimeBrowserDriverState, RuntimeStatus, RuntimeSyncWindowGraphResult, RuntimeSyncWindowGraph, RuntimeTerminalDriverState, RuntimeRpcResponse, PublicKnownRuntimeEnvironment, CodexRateLimitResetResult, GrokAccountStatus, RateLimitRuntimeTarget, RateLimitState, AiVaultListArgs, AiVaultSubagentListArgs, AiVaultPrepareSessionResumeArgs, RuntimeEnvironmentSubscriptionHandle } from './preload-api-runtime-context';export function createPreloadApiStats(): Record<string, unknown> {
   return {
   stats: {
     getSummary: (): Promise<{
@@ -75,38 +75,6 @@ import { ipcRenderer, subscribeRuntimeEnvironmentFromPreload } from './preload-a
       return () => ipcRenderer.removeListener('aiVault:windowFocused', listener)
     }
   },
-  nativeChat: {
-    readSession: (
-      agent: AgentType,
-      sessionId: string,
-      limit?: number,
-      transcriptPath?: string
-    ): Promise<NativeChatReadSessionResult> =>
-      ipcRenderer.invoke('nativeChat:readSession', { agent, sessionId, limit, transcriptPath }),
-    /** Start live tailing; onAppended fires with only newly-appended messages. Returns an unsubscribe fn that closes the watcher. */
-    subscribe: (
-      args: {
-        subscriptionId: string
-        agent: AgentType
-        sessionId: string
-        transcriptPath?: string
-        limit?: number
-      },
-      onFrame: (frame: NativeChatSubscriptionFrame) => void
-    ): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, payload: NativeChatAppendedPayload) => {
-        if (payload.subscriptionId === args.subscriptionId) {
-          onFrame(payload.frame)
-        }
-      }
-      ipcRenderer.on('nativeChat:appended', listener)
-      ipcRenderer.send('nativeChat:subscribe', args)
-      return () => {
-        ipcRenderer.removeListener('nativeChat:appended', listener)
-        ipcRenderer.send('nativeChat:unsubscribe', { subscriptionId: args.subscriptionId })
-      }
-    }
-  },
   runtime: {
     syncWindowGraph: (graph: RuntimeSyncWindowGraph): Promise<RuntimeSyncWindowGraphResult> =>
       ipcRenderer.invoke('runtime:syncWindowGraph', graph),
@@ -164,16 +132,6 @@ import { ipcRenderer, subscribeRuntimeEnvironmentFromPreload } from './preload-a
       ) => callback(data)
       ipcRenderer.on('runtime:terminalDriverChanged', listener)
       return () => ipcRenderer.removeListener('runtime:terminalDriverChanged', listener)
-    },
-    onNativeChatLaunchDraftResolved: (
-      callback: (event: { tabId: string; text: string; createdAt: number }) => void
-    ): (() => void) => {
-      const listener = (
-        _event: Electron.IpcRendererEvent,
-        data: { tabId: string; text: string; createdAt: number }
-      ) => callback(data)
-      ipcRenderer.on('runtime:nativeChatLaunchDraftResolved', listener)
-      return () => ipcRenderer.removeListener('runtime:nativeChatLaunchDraftResolved', listener)
     },
     onBrowserDriverChanged: (
       callback: (event: { browserPageId: string; driver: RuntimeBrowserDriverState }) => void

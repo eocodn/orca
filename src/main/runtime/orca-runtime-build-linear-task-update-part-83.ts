@@ -1,4 +1,5 @@
-import { type LinearIssueUpdate, type LinearProjectSummary, type LinearIssueTaskUpdateRequest, type LinearSaveIssueRequest, LINEAR_SEARCH_MAX_LIMIT, isLinearUuid, getLinearIssueByUuidForAgent, linearError, getLinearProject, listLinearProjectsByExactName, listLinearProjectTeams, listLinearProjects, getLinearTeamMembersOrThrow, type LinearCreateFieldIntent, sameStringSet, labelsForIds } from './orca-runtime-symbols'
+import type { getLinearIssueByUuidForAgent} from './orca-runtime-symbols';
+import { type LinearIssueUpdate, type LinearProjectSummary, type LinearIssueTaskUpdateRequest, type LinearSaveIssueRequest, LINEAR_SEARCH_MAX_LIMIT, isLinearUuid, linearError, getLinearProject, listLinearProjectsByExactName, listLinearProjectTeams, listLinearProjects, getLinearTeamMembersOrThrow, type LinearCreateFieldIntent, sameStringSet, labelsForIds } from './orca-runtime-symbols'
 import { OrcaRuntimeLinearIssueUpdateTaskPart82 } from './orca-runtime-linear-issue-update-task-part-82'
 
 export class OrcaRuntimeBuildLinearTaskUpdatePart83 extends OrcaRuntimeLinearIssueUpdateTaskPart82 {

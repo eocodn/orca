@@ -24,7 +24,7 @@ export function parseLsofListeningOutput(output: string): RawListeningPort[] {
   let currentPid: number | undefined
   let currentProcessName: string | undefined
   for (const line of output.split('\n')) {
-    if (!line) continue
+    if (!line) {continue}
     const tag = line[0]
     const value = line.slice(1)
     if (tag === 'p') {
@@ -35,7 +35,7 @@ export function parseLsofListeningOutput(output: string): RawListeningPort[] {
       currentProcessName = value
     } else if (tag === 'n') {
       const parsed = parseAddressWithPort(value)
-      if (parsed) ports.push({ pid: currentPid, processName: currentProcessName, ...parsed })
+      if (parsed) {ports.push({ pid: currentPid, processName: currentProcessName, ...parsed })}
     }
   }
   return dedupeRawPorts(ports)
@@ -45,12 +45,12 @@ export function parseNetstatListeningOutput(output: string): RawListeningPort[] 
   const ports: RawListeningPort[] = []
   for (const line of output.split('\n')) {
     const fields = getProcessOutputFields(line, 6)
-    if (fields[0]?.toUpperCase() !== 'TCP') continue
+    if (fields[0]?.toUpperCase() !== 'TCP') {continue}
     const stateIndex = fields.findIndex((field) => field.toUpperCase() === 'LISTENING')
-    if (stateIndex < 2) continue
+    if (stateIndex < 2) {continue}
     const parsed = parseAddressWithPort(fields[1])
     const pid = Number.parseInt(fields[stateIndex + 1] ?? '', 10)
-    if (parsed) ports.push({ ...parsed, pid: Number.isFinite(pid) ? pid : undefined })
+    if (parsed) {ports.push({ ...parsed, pid: Number.isFinite(pid) ? pid : undefined })}
   }
   return dedupeRawPorts(ports)
 }
@@ -60,18 +60,18 @@ export function parseProcNetTcp(content: string): { host: string; port: number; 
   const lines = content.split('\n')
   for (let index = 1; index < lines.length; index += 1) {
     const fields = getProcessOutputFields(lines[index], 10)
-    if (fields.length < 10 || fields[3] !== '0A') continue
+    if (fields.length < 10 || fields[3] !== '0A') {continue}
     const parsed = parseProcAddress(fields[1])
     const inode = Number.parseInt(fields[9], 10)
-    if (parsed && Number.isFinite(inode) && inode !== 0) results.push({ ...parsed, inode })
+    if (parsed && Number.isFinite(inode) && inode !== 0) {results.push({ ...parsed, inode })}
   }
   return results
 }
 
 export async function scanPlatformListeningPorts(): Promise<RawListeningPort[]> {
-  if (process.platform === 'linux') return scanLinuxProcPorts()
-  if (process.platform === 'darwin') return scanDarwinLsofPorts()
-  if (process.platform === 'win32') return scanWindowsNetstatPorts()
+  if (process.platform === 'linux') {return scanLinuxProcPorts()}
+  if (process.platform === 'darwin') {return scanDarwinLsofPorts()}
+  if (process.platform === 'win32') {return scanWindowsNetstatPorts()}
   throw new Error(`Port scanning is not supported on ${process.platform}`)
 }
 
@@ -97,7 +97,7 @@ async function scanLinuxProcPorts(): Promise<RawListeningPort[]> {
   const rawPorts: RawListeningPort[] = []
   for (const socket of sockets) {
     const pid = inodeToPid.get(socket.inode)
-    if (pid != null && !metadata.has(pid)) metadata.set(pid, await loadLinuxProcessMetadata(pid))
+    if (pid != null && !metadata.has(pid)) {metadata.set(pid, await loadLinuxProcessMetadata(pid))}
     rawPorts.push({ host: socket.host, port: socket.port, pid, ...metadata.get(pid ?? -1) })
   }
   return dedupeRawPorts(rawPorts)
@@ -113,7 +113,7 @@ async function readProcNet(filePath: string): Promise<{ host: string; port: numb
 
 async function mapLinuxInodesToPids(inodes: Set<number>): Promise<Map<number, number>> {
   const result = new Map<number, number>()
-  if (inodes.size === 0) return result
+  if (inodes.size === 0) {return result}
   let pids: string[]
   try {
     pids = (await readdir('/proc')).filter((entry) => /^\d+$/.test(entry))
@@ -130,7 +130,7 @@ async function mapLinuxInodesToPids(inodes: Set<number>): Promise<Map<number, nu
       const match = link.match(/^socket:\[(\d+)\]$/)
       if (match) {
         const inode = Number.parseInt(match[1], 10)
-        if (inodes.has(inode)) result.set(inode, pid)
+        if (inodes.has(inode)) {result.set(inode, pid)}
       }
     }
   }
@@ -149,7 +149,7 @@ async function loadLinuxProcessMetadata(pid: number): Promise<ProcessMetadata> {
 async function loadDarwinProcessMetadata(pids: Set<number>): Promise<Map<number, ProcessMetadata>> {
   const result = new Map<number, ProcessMetadata>()
   const pidList = Array.from(pids).join(',')
-  if (!pidList) return result
+  if (!pidList) {return result}
   const [cwdOutput, commandOutput] = await Promise.all([
     runCommand('lsof', ['-a', '-p', pidList, '-d', 'cwd', '-Fn']).catch(() => null),
     runCommand('ps', ['-p', pidList, '-o', 'pid=', '-o', 'command=']).catch(() => null)
@@ -165,14 +165,14 @@ async function loadDarwinProcessMetadata(pids: Set<number>): Promise<Map<number,
   }
   for (const line of commandOutput?.stdout.split('\n') ?? []) {
     const match = line.match(/^\s*(\d+)\s+(.+)$/)
-    if (match) result.set(Number.parseInt(match[1], 10), { ...result.get(Number.parseInt(match[1], 10)), commandLine: match[2].trim() || undefined })
+    if (match) {result.set(Number.parseInt(match[1], 10), { ...result.get(Number.parseInt(match[1], 10)), commandLine: match[2].trim() || undefined })}
   }
   return result
 }
 
 async function loadWindowsProcessMetadata(pids: Set<number>): Promise<Map<number, ProcessMetadata>> {
   const result = new Map<number, ProcessMetadata>()
-  if (pids.size === 0) return result
+  if (pids.size === 0) {return result}
   try {
     const pidFilter = Array.from(pids).filter(Number.isFinite).map((pid) => `ProcessId=${pid}`).join(' OR ')
     const { stdout } = await runCommand('powershell.exe', [
@@ -181,7 +181,7 @@ async function loadWindowsProcessMetadata(pids: Set<number>): Promise<Map<number
     ])
     const parsed = JSON.parse(stdout) as { ProcessId: number; Name?: string; CommandLine?: string } | { ProcessId: number; Name?: string; CommandLine?: string }[]
     for (const row of Array.isArray(parsed) ? parsed : [parsed]) {
-      if (pids.has(row.ProcessId)) result.set(row.ProcessId, { processName: row.Name, commandLine: row.CommandLine })
+      if (pids.has(row.ProcessId)) {result.set(row.ProcessId, { processName: row.Name, commandLine: row.CommandLine })}
     }
   } catch {
     // Process metadata is optional; port rows still render without attribution.
@@ -194,21 +194,21 @@ async function runCommand(command: string, args: string[]): Promise<{ stdout: st
     let settled = false
     let child: ReturnType<typeof execFile> | undefined
     const timer = setTimeout(() => {
-      if (settled) return
+      if (settled) {return}
       settled = true
       child?.kill()
       reject(new CommandTimeoutError(command, COMMAND_TIMEOUT_MS))
     }, COMMAND_TIMEOUT_MS)
     const settle = (callback: () => void): void => {
-      if (settled) return
+      if (settled) {return}
       settled = true
       clearTimeout(timer)
       callback()
     }
     try {
       child = execFile(command, args, { timeout: COMMAND_TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024, windowsHide: true }, (error, stdout) => {
-        if (error) settle(() => reject(error))
-        else settle(() => resolve({ stdout: String(stdout) }))
+        if (error) {settle(() => reject(error))}
+        else {settle(() => resolve({ stdout: String(stdout) }))}
       })
     } catch (error) { settle(() => reject(error)) }
   })
@@ -237,7 +237,7 @@ function dedupeRawPorts(ports: RawListeningPort[]): RawListeningPort[] {
   const seen = new Set<string>()
   return ports.filter((port) => {
     const key = `${connectHostForBindHost(port.host)}:${port.port}:${port.pid ?? 'unknown'}`
-    if (seen.has(key)) return false
+    if (seen.has(key)) {return false}
     seen.add(key)
     return true
   })
@@ -246,9 +246,9 @@ function dedupeRawPorts(ports: RawListeningPort[]): RawListeningPort[] {
 function parseAddressWithPort(value: string): { host: string; port: number } | null {
   const trimmed = value.trim().replace(/\s+\(LISTEN\)$/i, '')
   const bracketed = trimmed.match(/^\[([^\]]+)\]:(\d+)$/)
-  if (bracketed) return { host: bracketed[1], port: Number.parseInt(bracketed[2], 10) }
+  if (bracketed) {return { host: bracketed[1], port: Number.parseInt(bracketed[2], 10) }}
   const match = trimmed.match(/^(.+):(\d+)$/)
-  if (!match) return null
+  if (!match) {return null}
   const port = Number.parseInt(match[2], 10)
   return Number.isFinite(port) && port > 0 && port <= 65535 ? { host: match[1], port } : null
 }
@@ -256,14 +256,14 @@ function parseAddressWithPort(value: string): { host: string; port: number } | n
 function parseProcAddress(hexAddress: string): { host: string; port: number } | null {
   const [addrHex, portHex] = hexAddress.split(':')
   const port = Number.parseInt(portHex, 16)
-  if (!Number.isFinite(port) || port === 0) return null
+  if (!Number.isFinite(port) || port === 0) {return null}
   if (addrHex.length === 8) {
     const bytes = [6, 4, 2, 0].map((index) => Number.parseInt(addrHex.slice(index, index + 2), 16))
     return { host: bytes.join('.'), port }
   }
-  if (addrHex.length !== 32) return null
-  if (addrHex === '00000000000000000000000000000000') return { host: '::', port }
-  if (addrHex === '00000000000000000000000001000000') return { host: '::1', port }
+  if (addrHex.length !== 32) {return null}
+  if (addrHex === '00000000000000000000000000000000') {return { host: '::', port }}
+  if (addrHex === '00000000000000000000000001000000') {return { host: '::1', port }}
   return { host: formatIPv6Address(addrHex), port }
 }
 

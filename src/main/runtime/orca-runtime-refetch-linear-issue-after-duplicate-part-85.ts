@@ -1,4 +1,5 @@
-import { type LinearAttachResult, type LinearCommentAddResult, type LinearCreateResult, type LinearErrorCode, getLinearStatus, getLinearAttachmentByUuidForAgent, getLinearCommentByUuidForAgent, getLinearIssueByUuidForAgent, LinearAgentAccessError, linearError, sanitizeLinearErrorMessage, listLinearTeamsOrThrow, type LinearAgentWriteTarget, type LinearCreateFieldIntent } from './orca-runtime-symbols'
+import type { getLinearAttachmentByUuidForAgent, getLinearCommentByUuidForAgent, getLinearIssueByUuidForAgent} from './orca-runtime-symbols';
+import { type LinearAttachResult, type LinearCommentAddResult, type LinearCreateResult, type LinearErrorCode, getLinearStatus, LinearAgentAccessError, linearError, sanitizeLinearErrorMessage, listLinearTeamsOrThrow, type LinearAgentWriteTarget, type LinearCreateFieldIntent } from './orca-runtime-symbols'
 import { OrcaRuntimeFilterLinearProjectsForTeamPart84 } from './orca-runtime-filter-linear-projects-for-team-part-84'
 
 export class OrcaRuntimeRefetchLinearIssueAfterDuplicatePart85 extends OrcaRuntimeFilterLinearProjectsForTeamPart84 {

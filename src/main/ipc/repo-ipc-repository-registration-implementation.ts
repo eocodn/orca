@@ -1,56 +1,33 @@
 // Repository IPC registration facade; concrete domains own their handler wiring.
 import type { BrowserWindow } from 'electron'
-import { dialog, ipcMain } from 'electron'
+import { dialog,ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { access, mkdir, readdir, rm } from 'node:fs/promises'
-import { isAbsolute, join } from 'node:path'
-import type { Store } from '../persistence'
-import type { ActiveCloneMetadata, ActiveRemoteCloneMetadata } from './repo-ipc-clone'
-import {
-  cloneInFlightByPath,
-  latestCloneGenerationByPath,
-  pendingAbortCleanupByPath
-} from './repo-ipc-clone'
-import type { BaseRefDefaultResult, Repo } from '../../shared/types'
-import type { ExecutionHostId } from '../../shared/execution-host'
-import { isFolderRepo } from '../../shared/repo-kind'
+import { mkdir } from 'node:fs/promises'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../shared/constants'
-import {
-  getBaseRefDefault,
-  getRemoteCount,
-  getRepoName,
-  parseRemoteCount,
-  resolveDefaultBaseRefViaExec
-} from '../git/repo'
-import { gitExecFileAsync, gitSpawn, nonInteractiveGitEnv } from '../git/runner'
-import {
-  cleanupClaimedCloneTarget,
-  claimCloneTarget,
-  deriveValidatedClonePath,
-  getClonePathComparisonKey
-} from '../git/repo-clone-path'
-import { getSshGitProvider } from '../providers/ssh-git-dispatch'
-import { getSshGitUsername, resolveLocalGitUsername } from '../git/git-username'
+import type { ExecutionHostId } from '../../shared/execution-host'
 import { getGitCloneFailureMessage } from '../../shared/git-clone-failure-message'
-import { invalidateAuthorizedRootsCache } from './filesystem-auth'
+import { isFolderRepo } from '../../shared/repo-kind'
+import type { BaseRefDefaultResult,Repo } from '../../shared/types'
+import { getSshGitUsername,resolveLocalGitUsername } from '../git/git-username'
+import { getBaseRefDefault,getRemoteCount,getRepoName,parseRemoteCount,resolveDefaultBaseRefViaExec } from '../git/repo'
+import { claimCloneTarget,cleanupClaimedCloneTarget,deriveValidatedClonePath,getClonePathComparisonKey } from '../git/repo-clone-path'
+import { gitSpawn,nonInteractiveGitEnv } from '../git/runner'
+import { runWithGitReadCacheInvalidation } from '../git/status'
+import type { Store } from '../persistence'
+import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
-import { runWithGitReadCacheInvalidation } from '../git/status'
-import {
-  cloneRemoteRepo,
-  emitCloneProgressFromText,
-  emitRepoAdded,
-  getRepoForExecutionHost,
-  searchBaseRefDetailsForRepo
-} from './repo-ipc-handlers'
+import { invalidateAuthorizedRootsCache } from './filesystem-auth'
+import type { ActiveCloneMetadata,ActiveRemoteCloneMetadata } from './repo-ipc-clone'
+import { cloneInFlightByPath,latestCloneGenerationByPath,pendingAbortCleanupByPath } from './repo-ipc-clone'
+import { cloneRemoteRepo,emitCloneProgressFromText,emitRepoAdded,getRepoForExecutionHost,searchBaseRefDetailsForRepo } from './repo-ipc-handlers'
 import { notifyReposChanged } from './repo-ipc-imports'
 import { registerProjectGroupHandlers } from './repo-ipc-project-group-registration'
 import { registerRepositoryCatalogHandlers } from './repo-ipc-repository-catalog-registration'
 import { registerRepositoryMutationHandlers } from './repo-ipc-repository-mutation-registration'
 import { registerSparsePresetHandlers } from './repo-ipc-sparse-preset-registration'
-import { scanNestedReposForIpc, runNestedRepoScanForIpc } from './repo-ipc-folder-workspaces'
 
-export { scanNestedReposForIpc, runNestedRepoScanForIpc } from './repo-ipc-folder-workspaces'
+export { runNestedRepoScanForIpc,scanNestedReposForIpc } from './repo-ipc-folder-workspaces'
 
 let activeClone: ActiveCloneMetadata | null = null
 let activeRemoteClone: ActiveRemoteCloneMetadata | null = null

@@ -1,64 +1,14 @@
-import { app } from 'electron'
 import { execFile } from 'node:child_process'
 import { constants, existsSync } from 'node:fs'
-import {
-  access,
-  lstat,
-  mkdir,
-  readFile,
-  readlink,
-  stat,
-  symlink,
-  unlink,
-  writeFile
-} from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { access, mkdir, stat, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute, join, relative } from 'node:path'
 import { promisify } from 'node:util'
-import type { CliInstallMethod, CliInstallStatus } from '../../shared/cli-install-types'
-import { buildAppImageCliWrapper } from './appimage-cli-wrapper'
-import {
-  invalidateWindowsUserPathRegistryCache,
-  readFreshWindowsUserPathRegistry,
-  readWindowsUserPathRegistry,
-  type WindowsUserPathReadResult
-} from './windows-user-path-registry'
 
 const execFileAsync = promisify(execFile)
-const DEFAULT_MAC_COMMAND_PATH = '/usr/local/bin/orca'
 const DEV_COMMAND_NAME = 'orca-dev'
-const LINUX_COMMAND_NAME = 'orca-ide'
-const LEGACY_LINUX_COMMAND_NAME = 'orca'
 const DEV_LAUNCHER_DIR = ['cli', 'bin']
 const WINDOWS_PATH_WRITE_TIMEOUT_MS = 5_000
 
-type CliInstallerOptions = {
-  platform?: NodeJS.Platform
-  isPackaged?: boolean
-  userDataPath?: string
-  resourcesPath?: string
-  execPath?: string
-  appPath?: string
-  homePath?: string
-  localAppDataPath?: string
-  processPathEnv?: string | null
-  commandPathOverride?: string | null
-  /** Feeds into the /usr/local/bin existence check at construction time; used in tests to simulate absent /usr/local/bin on arm64 without relying on real filesystem state. */
-  defaultMacCommandPath?: string
-  privilegedRunner?: (command: string) => Promise<void>
-  userPathReader?: () => Promise<WindowsUserPathReadResult>
-  userPathMutationReader?: () => Promise<WindowsUserPathReadResult>
-  userPathWriter?: (value: string) => Promise<void>
-  userPathCacheInvalidator?: () => void
-  windowsEnvironment?: NodeJS.ProcessEnv
-  /** Why: AppImage reports a stable outer file path via $APPIMAGE while bundled resources live in an ephemeral FUSE mount. */
-  appImagePath?: string | null
-}
-
-type InstallSpec = {
-  commandPath: string
-  installMethod: CliInstallMethod
-}
 export async function ensureDevLauncher(args: {
   platform: NodeJS.Platform
   userDataPath: string

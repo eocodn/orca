@@ -94,7 +94,7 @@ export async function initializeReadyFoundation(): Promise<void> {
       syncMacMenuBarIcon(settings.showMenuBarIcon !== false)
     }
   })
-  // Why: run before ClaudeRuntimeAuthService's constructor sync — a surviving daemon Claude CLI holds the single-use refresh token; early refresh rotates it out mid-session.
+  // Why: run before ClaudeRuntimeAuthService's constructor sync â a surviving daemon Claude CLI holds the single-use refresh token; early refresh rotates it out mid-session.
   startupDeps.attachClaudeLivePtyPersistence(startupState.store)
   // Why: while a live claude defers the managed OAuth refresh, usage shows
   // "Waiting for Claude session"; refetch when the last live PTY exits so the
@@ -129,7 +129,7 @@ export async function initializeReadyFoundation(): Promise<void> {
   startupState.agentAwakeService.setEnabled(
     startupState.store.getSettings().keepComputerAwakeWhileAgentsRun
   )
-  // Why: start from empty — disk-hydrated status rows are UI continuity only; only this runtime's hook events keep the computer awake.
+  // Why: start from empty â disk-hydrated status rows are UI continuity only; only this runtime's hook events keep the computer awake.
   startupState.agentAwakeService.setStatuses([])
   const collectChangedProviderSessionWorktrees = startupDeps.createHookProviderSessionInvalidator()
   const publishProviderSessionChanges = (
@@ -162,7 +162,7 @@ export async function initializeReadyFoundation(): Promise<void> {
   }
   // Why: telemetry must init before any IPC handler/renderer can call track(); it's a no-op in dev and while TELEMETRY_ENABLED is false, so it's safe early.
   startupDeps.initTelemetry(startupState.store)
-  // Why: the breadcrumb alone never leaves the machine — it rides crash reports, and a hang is not
+  // Why: the breadcrumb alone never leaves the machine â it rides crash reports, and a hang is not
   // a crash (the app is force-quit, so no report is ever generated). Without this the incidence
   // number the watchdog exists to produce would sit unread on the user's disk. Must run after
   // initTelemetry: track() drops silently until the client and store are wired.
@@ -188,7 +188,7 @@ export async function initializeReadyFoundation(): Promise<void> {
     }
   )
   // Why: the error-tracking lane (telemetry-error-tracking.md) is its own
-  // composition root — independent of product telemetry — and must
+  // composition root â independent of product telemetry â and must
   // initialize before any IPC handler / runtime span is created so the
   // tracer's active sink is populated at the moment the first span fires.
   // Honors DO_NOT_TRACK / ORCA_TELEMETRY_DISABLED / ORCA_DIAGNOSTICS_DISABLED
@@ -198,7 +198,7 @@ export async function initializeReadyFoundation(): Promise<void> {
     packaged: startupDeps.app.isPackaged,
     platform: process.platform
   })
-  // Why: cohort-classifier reads repo count synchronously at every emit, so hydrate it here — before any IPC handler or window can trigger track().
+  // Why: cohort-classifier reads repo count synchronously at every emit, so hydrate it here â before any IPC handler or window can trigger track().
   startupDeps.initCohortClassifier(startupState.store)
   startupDeps.initOnboardingCohortClassifier(startupState.store)
   startupState.stats = new startupDeps.StatsCollector()
@@ -345,7 +345,7 @@ export async function initializeReadyFoundation(): Promise<void> {
         startupDeps.getProfileUserDataPath(),
         startupDeps.getProfileUserDataPath()
       ),
-      // Why: resolve the PTY provider lazily — a daemon swap happens later, so an eager reference would freeze the pre-daemon provider (design §4.3).
+      // Why: resolve the PTY provider lazily â a daemon swap happens later, so an eager reference would freeze the pre-daemon provider (design Â§4.3).
       getLocalProvider: () => startupDeps.getLocalPtyProvider(),
       // Why: SSH relay providers register after construction and may reconnect, so destructive cleanup must resolve the current generation.
       getSshProvider: (connectionId) => startupDeps.getSshPtyProvider(connectionId),
@@ -367,7 +367,7 @@ export async function initializeReadyFoundation(): Promise<void> {
           .filter((entry) => entry.providerSessionOnly !== true),
       // Why: the filter above hides resume-identity rows from the live-agent views, but
       // those rows carry the provider session mobile native chat addresses transcripts
-      // by — Pi publishes identity that way and would otherwise be unreachable.
+      // by â Pi publishes identity that way and would otherwise be unreachable.
       getAgentProviderSessionSnapshot: () => startupDeps.agentHookServer.getStatusSnapshot(),
       getAgentProviderSessionRowsForPane: (paneKey) =>
         startupDeps.agentHookServer.getStatusSnapshotForPane(paneKey),
@@ -392,7 +392,7 @@ export async function initializeReadyFoundation(): Promise<void> {
       buildAgentHookPtyEnv: () =>
         startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
           ? startupDeps.agentHookServer.buildPtyEnv()
-          : {},
+          : {}
     }
   )
   startupState.runtime = runtimeService
@@ -400,99 +400,6 @@ export async function initializeReadyFoundation(): Promise<void> {
   startupDeps.browserManager.setBrowserGuestStateChangedListener((worktreeId) => {
     runtimeService.notifyMobileSessionTabsChanged(worktreeId)
   })
-  startupState.automations = new startupDeps.AutomationService(startupState.store, {
-    claudeUsage: startupState.claudeUsage,
-    codexUsage: startupState.codexUsage,
-    // Why: desktop clients mirror remote-host automations, but only a server process should execute remote_host_service-owned schedules.
-    allowRemoteHostScheduling: startupState.isServeMode,
-    headlessDispatcher: startupState.isServeMode
-      ? async ({ automation, run, target }) => {
-          const terminalSnapshotLimit = 2_000
-          let terminalHandle: string
-          let terminalSessionId: string | null = null
-          let terminalPaneKey: string | null = null
-          let terminalPtyId: string | null = null
-          let workspaceId: string
-          let workspaceDisplayName: string | null = null
-
-          if (automation.workspaceMode === 'new_per_run') {
-            const created = await runtimeService.createManagedWorktree({
-              ...startupDeps.buildHeadlessAutomationWorktreeCreateArgs({
-                automation,
-                run,
-                repo: target.repo
-              })
-            })
-            terminalHandle = created.startupTerminal?.handle ?? ''
-            terminalSessionId = created.startupTerminal?.tabId ?? null
-            terminalPaneKey = created.startupTerminal?.paneKey ?? null
-            terminalPtyId = created.startupTerminal?.ptyId ?? null
-            workspaceId = created.worktree.id
-            workspaceDisplayName = created.worktree.displayName ?? null
-            if (!terminalHandle) {
-              throw new Error(
-                created.warning ||
-                  'Automation workspace was created, but no agent terminal started.'
-              )
-            }
-          } else {
-            if (!automation.workspaceId) {
-              throw new Error('The target workspace is no longer available.')
-            }
-            const terminal = await runtimeService.launchAgentTerminal(
-              `id:${automation.workspaceId}`,
-              {
-                agent: automation.agentId,
-                prompt: automation.prompt,
-                title: run.title
-              }
-            )
-            terminalHandle = terminal.handle
-            terminalSessionId = terminal.tabId ?? null
-            terminalPaneKey = terminal.paneKey ?? null
-            terminalPtyId = terminal.ptyId ?? null
-            workspaceId = terminal.worktreeId
-            const worktree = await runtimeService.showManagedWorktree(`id:${workspaceId}`)
-            workspaceDisplayName = worktree.displayName ?? null
-          }
-
-          const completion = (async () => {
-            const wait = await runtimeService.waitForTerminal(terminalHandle, {
-              condition: 'tui-idle'
-            })
-            const read = await runtimeService.readTerminal(terminalHandle, {
-              limit: terminalSnapshotLimit
-            })
-            const snapshotBuffer = startupDeps.createHeadlessAutomationOutputSnapshotBuffer()
-            snapshotBuffer.append(read.tail.join('\n'))
-            if (wait.satisfied) {
-              return {
-                status: 'completed' as const,
-                outputSnapshot: snapshotBuffer.snapshot(),
-                error: null
-              }
-            }
-            return {
-              status: 'dispatch_failed' as const,
-              outputSnapshot: snapshotBuffer.snapshot(),
-              error: wait.blockedReason
-                ? `Automation agent is blocked: ${wait.blockedReason}.`
-                : 'Automation agent did not report completion.'
-            }
-          })()
-
-          return {
-            workspaceId,
-            workspaceDisplayName,
-            terminalSessionId,
-            terminalPaneKey,
-            terminalPtyId,
-            completion
-          }
-        }
-      : undefined
-  })
-  runtimeService.setAutomationService(startupState.automations)
   runtimeService.setAccountServices({
     claudeAccounts: startupState.claudeAccounts,
     codexAccounts: startupState.codexAccounts,

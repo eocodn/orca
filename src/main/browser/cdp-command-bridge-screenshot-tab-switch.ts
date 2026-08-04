@@ -1,57 +1,14 @@
 import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
   BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
   BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
   BrowserTabInfo,
   BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
+  BrowserTabSwitchResult
 } from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 
 import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+const { BrowserError } = foundation
 
 export const CdpBridgeMethods10 = {
   async screenshot(this: any, format: 'png' | 'jpeg' = 'png'): Promise<BrowserScreenshotResult> {
@@ -66,7 +23,7 @@ export const CdpBridgeMethods10 = {
 
       return { data, format }
     })
-  }
+  },
   async evaluate(this: any, expression: string): Promise<BrowserEvalResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -100,7 +57,7 @@ export const CdpBridgeMethods10 = {
         origin: urlResult.value
       }
     })
-  }
+  },
   tabList(this: any): BrowserTabListResult {
     const tabs: BrowserTabInfo[] = []
     let index = 0
@@ -121,7 +78,7 @@ export const CdpBridgeMethods10 = {
     }
 
     return { tabs }
-  }
+  },
   async tabSwitch(this: any, index: number): Promise<BrowserTabSwitchResult> {
     // Why: filter to live tabs so indices match tabList(), skipping destroyed-but-uncleaned entries.
     const liveEntries = [...this.getRegisteredTabs()].filter(([_, wcId]) => {

@@ -1,15 +1,3 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { net, safeStorage, session } from 'electron'
-import {
-  CredentialDecryptionError,
-  credentialFileHasContent,
-  readStoredCredentialToken
-} from '../integration-credential-file'
-import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
-import { withSpan } from '../observability/tracer'
 import type {
   JiraAuthType,
   JiraConnectArgs,
@@ -18,17 +6,9 @@ import type {
   JiraSiteSelection,
   JiraViewer
 } from '../../shared/types'
+import { CredentialDecryptionError } from '../integration-credential-file'
 import { clearAttachmentImagesForSite } from './attachment-image-cache'
 
-// Why: Atlassian's XSRF filter rejects POST/PUT REST calls that carry a browser
-// User-Agent, failing them with "XSRF check failed" even under API-token auth.
-// Electron's net.fetch sends a Chrome UA, so issue search/create/update/comment
-// all 403'd while GET calls (connect, /myself) passed. A non-browser UA is the
-// reliable fix; X-Atlassian-Token: no-check is not honored for this case.
-const JIRA_API_USER_AGENT = 'Orca'
-
-const MAX_CONCURRENT = 4
-let running = 0
 import { acquire, release, type JiraClientForSite, apiBasePath, JiraApiError, credentialErrors, hasStoredToken } from './jira-client-limiter'
 import { getSiteFile, writeSiteFile, readToken, saveToken, deleteToken } from './jira-client-storage'
 import { normalizeJiraSiteUrl, getSiteId, toViewer, siteToViewer, authHeader } from './jira-client-auth'
@@ -217,4 +197,3 @@ function isAuthError(error: unknown): boolean {
 }
 
 export { getClients, getStatus, connect, disconnect, selectSite, testConnection, clearToken, isAuthError }
-

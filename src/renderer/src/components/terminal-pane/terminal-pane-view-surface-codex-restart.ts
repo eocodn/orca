@@ -72,7 +72,6 @@ import {
   arePaneTitleOverlayRectsEqual,
   clearPaneTitleOverlayRects
 } from './pane-title-overlay-rects'
-import NativeChatView from '../native-chat/NativeChatView'
 import { splitTerminalPaneWithInheritedCwd } from './terminal-pane-split-with-inherited-cwd'
 import { TerminalAgentSessionForkDialog } from './TerminalAgentSessionForkDialog'
 import { AgentSessionContinuationDialog } from '@/components/agent-session-continuation/AgentSessionContinuationDialog'
@@ -114,14 +113,6 @@ import {
   isPtyLocked,
   onDriverChange
 } from '@/lib/pane-manager/mobile-driver-state'
-import { shouldChatTakeOverMobileSurface } from '../native-chat/native-chat-send-eligibility'
-import { canToggleNativeChat } from '../native-chat/native-chat-availability'
-import {
-  nativeChatLaunchAgentForLeaf,
-  resolveNativeChatLeafRoute,
-  type NativeChatLeafRoute
-} from '../native-chat/native-chat-leaf-routing'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { resolvePaneKeyForManager } from '@/lib/pane-manager/pane-key-resolution'
 import { safeFit, safeFitAndThen } from '@/lib/pane-manager/pane-tree-ops'
 import { applyDesktopFitFallbackAfterReplay } from './desktop-fit-fallback'
@@ -216,7 +207,6 @@ import {
   getCachedTerminalGroupIdForWorktree,
   getCachedUnifiedTerminalTabForWorktree
 } from './terminal-unified-tab-lookup'
-import { resolveNativeChatLeafTitleAgent } from './native-chat-leaf-title-agent'
 import { useRepoById } from '@/store/selectors'
 import {
   isXtermHelperTextarea,

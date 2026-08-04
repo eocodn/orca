@@ -1,15 +1,11 @@
 import {
   type RuntimeSessionFlushResult,
   type RuntimeSessionSnapshot,
-  type AutomationService,
   SESSION_SNAPSHOT_STABILITY_ATTEMPTS
 } from './orca-runtime-symbols'
 import { OrcaRuntimeGetLocalProviderPart1 } from './orca-runtime-get-local-provider-part-1'
 
 export class OrcaRuntimeSessionPersistencePart3 extends OrcaRuntimeGetLocalProviderPart1 {
-  setAutomationService(service: AutomationService): void {
-    this.automationService = service
-  }
   getRuntimeId(): string {
     return this.runtimeId
   }

@@ -6,6 +6,7 @@ import type { CodexSubagentTranscriptState } from './codex-subagent-transcript'
 import type { ToolSnapshot } from './agent-hook-prompt-tools'
 import { ORCA_HOOK_PROTOCOL_VERSION } from './agent-hook-types'
 import { REMOTE_AGENT_HOOK_ENV } from './agent-hook-relay'
+import { MAX_WARNED_KEYS } from './agent-hook-request-body'
 
 export type HookListenerState = {
   warnedVersions: Set<string>

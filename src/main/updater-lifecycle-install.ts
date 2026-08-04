@@ -18,10 +18,7 @@ import {
   disarmUpdateInstallExitWatchdog
 } from './update-install-exit-watchdog'
 import { recordUpdaterLifecycle } from './updater-lifecycle-diagnostics'
-import {
-  failServeUpdateHandoff,
-  requestServeUpdateHandoff
-} from './serve-update-handoff'
+import { failServeUpdateHandoff, requestServeUpdateHandoff } from './serve-update-handoff'
 
 import { updaterLifecycleState as state } from './updater-lifecycle-state'
 import {
@@ -155,7 +152,11 @@ export function resetQuitForUpdateState(): void {
 
 // Why: internal.quitAndInstall failures arrive via 'error'; recover only after native invoke and before commit, else clearing state.quittingForUpdate lets dock activate reopen the old process mid-installer.
 export function handleQuitAndInstallFailure(): boolean {
-  if (!state.quitAndInstallInProgress || !state.quitAndInstallNativeInvoked || state.updateInstallCommitted) {
+  if (
+    !state.quitAndInstallInProgress ||
+    !state.quitAndInstallNativeInvoked ||
+    state.updateInstallCommitted
+  ) {
     return false
   }
   failServeUpdateHandoff('The native updater rejected the install request.')
@@ -164,7 +165,9 @@ export function handleQuitAndInstallFailure(): boolean {
     level: 'warn',
     message: 'Update install could not start; recovered app state'
   })
-  internal.sendErrorStatus('Could not restart to install the update. Quit and reopen Orca, then try again.')
+  internal.sendErrorStatus(
+    'Could not restart to install the update. Quit and reopen Orca, then try again.'
+  )
   return true
 }
 
@@ -266,7 +269,10 @@ export async function sendCheckFailureStatus(
   }
 
   const handleFailure = async (): Promise<void> => {
-    if (isBenignCheckFailure(message) || internal.isRetryableReleaseFeedPreflightFailure(sourceError)) {
+    if (
+      isBenignCheckFailure(message) ||
+      internal.isRetryableReleaseFeedPreflightFailure(sourceError)
+    ) {
       // Why: benign failures (incomplete latest.yml, network blips) are transient — retry, and skip persisting the timestamp (would suppress the next startup check).
       console.warn('[updater] benign check failure:', message)
       internal.clearAvailableUpdateContext()

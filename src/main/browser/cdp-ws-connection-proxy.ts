@@ -1,4 +1,5 @@
-import { WebSocketServer, WebSocket } from 'ws'
+import type { WebSocket } from 'ws';
+import { WebSocketServer } from 'ws'
 import { createServer, type Server } from 'node:http'
 import type { WebContents } from 'electron'
 import { CdpPdfStreamStore } from './cdp-print-to-pdf'
@@ -145,16 +146,7 @@ export class CdpWsProxy {
   }
 }
 
-export interface CdpWsProxy
-  extends
-    CdpWsProxyMethods1Surface,
-    CdpWsProxyMethods2Surface,
-    CdpWsProxyMethods3Surface,
-    CdpWsProxyMethods4Surface,
-    CdpWsProxyMethods5Surface,
-    CdpWsProxyMethods6Surface,
-    CdpWsProxyMethods7Surface,
-    CdpWsProxyMethods8Surface {}
+export interface CdpWsProxy extends CdpWsProxyMethods1Surface, CdpWsProxyMethods2Surface, CdpWsProxyMethods3Surface, CdpWsProxyMethods4Surface, CdpWsProxyMethods5Surface, CdpWsProxyMethods6Surface, CdpWsProxyMethods7Surface, CdpWsProxyMethods8Surface {}
 
 Object.assign(
   CdpWsProxy.prototype,

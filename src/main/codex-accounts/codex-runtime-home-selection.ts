@@ -1,86 +1,34 @@
 import {
-  appendFileSync,
-  copyFileSync,
   existsSync,
-  chmodSync,
-  lstatSync,
-  mkdirSync,
-  readlinkSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  rmdirSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  unlinkSync
+  readFileSync
 } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import {
-  dirname,
-  extname,
-  isAbsolute,
-  join,
-  parse,
-  relative,
-  resolve,
-  win32 as pathWin32
+  join
 } from 'node:path'
-import { app } from 'electron'
 import type { CodexManagedAccount } from '../../shared/types'
-import type { Store } from '../persistence'
-import { WSL_CODEX_RUNTIME_HOME_SEGMENTS } from '../pty/codex-home-wsl-env'
-import { writeFileAtomically } from './fs-utils'
-import {
-  getOrcaManagedCodexHomePath,
-  getOrcaUserDataPath,
-  getCodexSessionBackfillStateDirPath,
-  getSystemCodexHomePath,
-  resolveOrcaManagedCodexHomePath,
-  syncCodexGlobalInstructionsIntoManagedHome,
-  syncSystemCodexResourcesIntoManagedHome
-} from '../codex/codex-home-paths'
-import { startCodexAccountSessionBridgeInBackground } from '../codex/codex-account-session-bridge'
-import { startSystemCodexSessionBridgeInBackground } from '../codex/codex-session-bridge'
-import {
-  resolveHostCodexSessionSourceHome,
-  resolveWslCodexSessionSourceHome
-} from '../codex/codex-session-source-home'
-import { startWslCodexSessionBridgeInBackground } from '../codex/wsl-codex-session-bridge'
-import {
-  prepareSystemConfigForFreshRuntimeMirror,
-  syncSystemConfigIntoManagedCodexHome
-} from '../codex/codex-config-mirror'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 import {
-  getWslSelectionKey,
+  syncSystemConfigIntoManagedCodexHome
+} from '../codex/codex-config-mirror'
+import {
+  getSystemCodexHomePath,
+  syncSystemCodexResourcesIntoManagedHome
+} from '../codex/codex-home-paths'
+import {
+  codexAuthMatchesManagedAccount
+} from './codex-auth-identity'
+import { writeFileAtomically } from './fs-utils'
+import {
   getSelectedCodexAccountIdForTarget,
   normalizeCodexRuntimeSelection,
-  setSelectedCodexAccountIdForTarget,
   type CodexAccountSelectionTarget
 } from './runtime-selection'
-import { getDefaultWslDistro, getWslHome } from '../wsl'
-import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
-import { hasCustomCodexHomeOverride } from '../codex/codex-real-home-path'
-import { invalidateCodexSessionBackfillMarker } from '../codex/codex-session-backfill-marker'
-import { readShellStartupEnvVar } from '../pty/shell-startup-env'
-import { assertOwnedHostCodexManagedHomePath } from './host-codex-managed-home-ownership'
+
+
 import {
-  codexAuthIsFresher,
-  codexAuthMatchesManagedAccount,
-  codexAuthMatchesSystemDefaultIdentity
-} from './codex-auth-identity'
-import { migrateLegacySharedAuthToPerAccountHome } from './legacy-shared-auth-migration'
-
-
-import { type CodexSystemDefaultSnapshot,
-  type CodexRuntimeLogoutMarker,
-  type CodexRuntimeLogoutMarkerStatus,
-  type CodexReadBackResult,
-  type CodexReadBackMatch,
   CodexRuntimeHomeServiceFoundation,
-  readLaunchEnvValue,
-  getEffectiveCodexHomeEnv  } from './codex-runtime-home-foundation'
+  type CodexReadBackResult
+} from './codex-runtime-home-foundation'
 
 export class CodexRuntimeHomeServicePhase1 extends CodexRuntimeHomeServiceFoundation {
   prepareForRateLimitFetch(target?: CodexAccountSelectionTarget): string | null {

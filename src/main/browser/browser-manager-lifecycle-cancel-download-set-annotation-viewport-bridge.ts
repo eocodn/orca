@@ -1,12 +1,6 @@
-
 import { webContents } from 'electron'
-import type {
-  BrowserViewportOverride,
-} from '../../shared/types'
-import {
-  type BrowserAnnotationViewportBridgeOptions,
-} from '../../shared/browser-annotation-viewport-bridge'
-
+import type { BrowserViewportOverride } from '../../shared/types'
+import type { BrowserAnnotationViewportBridgeOptions } from '../../shared/browser-annotation-viewport-bridge'
 
 export const BrowserManagerMethods9 = {
   cancelDownload(this: any, args: { downloadId: string; senderWebContentsId: number }): boolean {
@@ -31,7 +25,8 @@ export const BrowserManagerMethods9 = {
     guest.openDevTools({ mode: 'detach' })
     return true
   },
-  async setViewportOverride(this: any,
+  async setViewportOverride(
+    this: any,
     browserTabId: string,
     override: BrowserViewportOverride | null
   ): Promise<boolean> {
@@ -50,7 +45,8 @@ export const BrowserManagerMethods9 = {
       }
     }
   },
-  async setAnnotationViewportBridge(this: any,
+  async setAnnotationViewportBridge(
+    this: any,
     browserTabId: string,
     options: BrowserAnnotationViewportBridgeOptions
   ): Promise<boolean> {

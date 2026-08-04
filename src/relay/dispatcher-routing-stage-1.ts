@@ -1,23 +1,17 @@
-import type {
-  DispatcherClientWriter
-} from './dispatcher-client-writer';
+import type { DispatcherClientWriter } from './dispatcher-client-writer'
 import {
   type RelayClientSinkOptions,
   type RelayClientWrite,
   type SinkWriteSettlement
-} from './dispatcher-client-writer';
-import type {
-  FrameDecoder
-} from './protocol';
-import {
-  type JsonRpcNotification
-} from './protocol';
+} from './dispatcher-client-writer'
+import type { FrameDecoder } from './protocol'
+import { type JsonRpcNotification } from './protocol'
 
 export type {
   RelayClientSinkOptions,
   RelayClientWrite,
   SinkWriteSettlement
-} from './dispatcher-client-writer';
+} from './dispatcher-client-writer'
 
 export type RequestContext = {
   clientId: number
@@ -66,7 +60,7 @@ type PendingRelayRequest = {
 
 const RELAY_TO_CLIENT_REQUEST_TIMEOUT_MS = 30_000
 
-import { RelayDispatcher } from './dispatcher-routing-stage-state';
+import { RelayDispatcher } from './dispatcher-routing-stage-state'
 export abstract class RelayDispatcherStage1 extends RelayDispatcher {
   setWrite(write: RelayClientWrite, sinkOptions?: RelayClientSinkOptions): void {
     this.requestAborts.abortClient(this.primaryClient.id)
@@ -486,5 +480,4 @@ export abstract class RelayDispatcherStage1 extends RelayDispatcher {
   ) {
     return this.requestClient(this.primaryClient.id, method, params, options)
   }
-
 }

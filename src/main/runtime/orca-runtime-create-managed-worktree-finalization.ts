@@ -1,5 +1,5 @@
-import { randomUUID, type CreateWorktreeResult, getRepoExecutionHostId, getProjectHostSetupWorktreeMeta, getSetupRunnerCommandPlatformForPath, createSequencedSetupAgentCommands, isWindowsAbsolutePathLike, listWorktrees, invalidateAuthorizedRootsCache, createSetupRunnerScript, getDefaultTabsLaunch, getEffectiveHooks, loadHooks, runHook, shouldRunSetupForCreate, createWorktreeCopiedPaths, createWorktreeLinkedPaths, createWorktreeSharedPaths, formatWorktreeIncludeCopyWarning, resolveWorktreeIncludePaths, resolveWorktreeSharedDirectories, getWorktreeCreationLayout, mergeWorktree, shouldSetDisplayName, findCreatedWorktree, ownerSurfacing} from './orca-runtime-symbols'
 import type { OrcaRuntimeCreateManagedWorktreePart53 } from './orca-runtime-create-managed-worktree-part-53'
+import { createSequencedSetupAgentCommands,createSetupRunnerScript,createWorktreeCopiedPaths,createWorktreeLinkedPaths,createWorktreeSharedPaths,findCreatedWorktree,formatWorktreeIncludeCopyWarning,getDefaultTabsLaunch,getEffectiveHooks,getProjectHostSetupWorktreeMeta,getRepoExecutionHostId,getSetupRunnerCommandPlatformForPath,getWorktreeCreationLayout,invalidateAuthorizedRootsCache,isWindowsAbsolutePathLike,listWorktrees,loadHooks,mergeWorktree,ownerSurfacing,randomUUID,resolveWorktreeIncludePaths,resolveWorktreeSharedDirectories,runHook,shouldRunSetupForCreate,shouldSetDisplayName,type CreateWorktreeResult } from './orca-runtime-symbols'
 
 type ManagedWorktreeCreateArgs = Parameters<OrcaRuntimeCreateManagedWorktreePart53['createManagedWorktree']>[0]
 
@@ -107,7 +107,6 @@ const meta = runtime.store.setWorktreeMeta(worktreeId, {
   ...(args.pendingFirstAgentMessageRename === true && effectiveCreatedWithAgent
     ? { pendingFirstAgentMessageRename: true }
     : {}),
-  ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
   ...(args.cliProvenance ? { cliProvenance: args.cliProvenance } : {}),
   ...(args.comment !== undefined ? { comment: args.comment } : {}),
   ...(args.manualOrder !== undefined ? { manualOrder: args.manualOrder } : {}),

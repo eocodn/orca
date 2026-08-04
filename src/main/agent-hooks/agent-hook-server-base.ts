@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { createServer } from 'node:http'
+import type { createServer } from 'node:http'
 
 import { getCohortAtEmit } from '../telemetry/cohort-classifier'
 import { track } from '../telemetry/client'

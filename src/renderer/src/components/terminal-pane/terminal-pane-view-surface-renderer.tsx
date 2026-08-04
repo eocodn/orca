@@ -98,20 +98,9 @@ function TerminalPane(
     setSearchOpen,
     searchStateRef,
     sessionRestoredBannerPaneIds,
-    effectiveChatViewMode,
-    chatPane,
-    chatPanePtyId,
-    chatPaneLaunchAgent,
-    chatPaneResolvedAgent,
-    toggleNativeChatForLeaf,
-    readNativeChatTerminalScreen,
     expandedPaneId,
-    resolveAgentForLeaf,
     keybindings,
     contextMenuCanContinueInNewSession,
-    contextMenuIsChatView,
-    contextMenuCanToggleChat,
-    handleContextMenuToggleNativeChat,
     repoQuickCommands,
     globalQuickCommands,
     quickCommandRepoLabel,
@@ -134,9 +123,6 @@ function TerminalPane(
     paneTitleBackground,
     terminalContentVisible,
     hiddenStartupStyle,
-    activePaneCanToggleChat,
-    activePaneIsChatLeaf,
-    handleToggleNativeChat,
     activePaneCanContinueInNewSession,
     handleRenameSubmit,
     handleRenameCancel,
@@ -188,20 +174,9 @@ function TerminalPane(
       setSearchOpen={setSearchOpen}
       searchStateRef={searchStateRef}
       sessionRestoredBannerPaneIds={sessionRestoredBannerPaneIds}
-      effectiveChatViewMode={effectiveChatViewMode}
-      chatPane={chatPane}
-      chatPanePtyId={chatPanePtyId}
-      chatPaneLaunchAgent={chatPaneLaunchAgent}
-      chatPaneResolvedAgent={chatPaneResolvedAgent}
-      toggleNativeChatForLeaf={toggleNativeChatForLeaf}
-      readNativeChatTerminalScreen={readNativeChatTerminalScreen}
       expandedPaneId={expandedPaneId}
-      resolveAgentForLeaf={resolveAgentForLeaf}
       keybindings={keybindings}
       contextMenuCanContinueInNewSession={contextMenuCanContinueInNewSession}
-      contextMenuIsChatView={contextMenuIsChatView}
-      contextMenuCanToggleChat={contextMenuCanToggleChat}
-      handleContextMenuToggleNativeChat={handleContextMenuToggleNativeChat}
       repoQuickCommands={repoQuickCommands}
       globalQuickCommands={globalQuickCommands}
       quickCommandRepoLabel={quickCommandRepoLabel}
@@ -224,9 +199,6 @@ function TerminalPane(
       paneTitleBackground={paneTitleBackground}
       terminalContentVisible={terminalContentVisible}
       hiddenStartupStyle={hiddenStartupStyle}
-      activePaneCanToggleChat={activePaneCanToggleChat}
-      activePaneIsChatLeaf={activePaneIsChatLeaf}
-      handleToggleNativeChat={handleToggleNativeChat}
       activePaneCanContinueInNewSession={activePaneCanContinueInNewSession}
       showSplitButton={showSplitButton}
       splitTerminalPaneFromHeader={splitTerminalPaneFromHeader}

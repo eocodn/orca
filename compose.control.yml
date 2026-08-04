@@ -53,7 +53,6 @@ services:
         src/main/runtime/runtime-notification-registry.ts
         src/main/runtime/mobile-notification-replay.ts
         src/main/runtime/runtime-client-settings-commands.ts
-        src/main/runtime/runtime-automation-commands.ts
         src/main/runtime/pty-layout-queue.ts
         src/main/runtime/pty-generation-reference-count.ts
         src/main/runtime/runtime-repo-hook-commands.ts
@@ -108,7 +107,6 @@ services:
         src/main/runtime/runtime-notification-registry.ts
         src/main/runtime/mobile-notification-replay.ts
         src/main/runtime/runtime-client-settings-commands.ts
-        src/main/runtime/runtime-automation-commands.ts
         src/main/runtime/pty-layout-queue.ts
         src/main/runtime/pty-generation-reference-count.ts
         src/main/runtime/runtime-repo-hook-commands.ts
@@ -246,6 +244,9 @@ services:
       - config/scripts/ssh-orchestration-removal-contract.test.mjs
       - config/scripts/runtime-rpc-envelope-orchestration-removal-contract.test.mjs
       - config/scripts/runtime-orchestration-storage-removal-contract.test.mjs
+      - config/scripts/automations-removal-contract.test.mjs
+      - config/scripts/native-chat-removal-contract.test.mjs
+      - config/scripts/client-runtime-boundary-contract.test.mjs
       - src/shared/feature-tips.test.ts
     init: true
     network_mode: host
@@ -348,7 +349,6 @@ services:
       - src/main/runtime/mobile-notification-replay.test.ts
       - src/main/runtime/runtime-notification-registry.ts
       - src/main/runtime/runtime-client-settings-commands.ts
-      - src/main/runtime/runtime-automation-commands.ts
       - src/main/runtime/pty-layout-queue.ts
       - src/main/runtime/pty-generation-reference-count.ts
       - src/main/runtime/runtime-repo-hook-commands.ts

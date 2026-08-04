@@ -39,15 +39,6 @@ export const PROPERTY_OPTIONS: { id: WorktreeCardProperty; label: string }[] = [
     }
   },
   {
-    id: 'automation',
-    get label() {
-      return translate(
-        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.automation',
-        'Automation'
-      )
-    }
-  },
-  {
     id: 'comment',
     get label() {
       return translate('auto.components.sidebar.SidebarWorkspaceOptionsMenu.26c71e536c', 'Notes')

@@ -47,7 +47,7 @@ export function installPtyRegistrationSupport(): void {
 
   const settleSerializeRequest = (requestId: string, result: SerializeResult): void => {
     const pending = pendingSerializeRequests.get(requestId)
-    if (!pending) return
+    if (!pending) {return}
     clearTimeout(pending.timeout)
     pendingSerializeRequests.delete(requestId)
     pending.resolve(result)
@@ -57,20 +57,20 @@ export function installPtyRegistrationSupport(): void {
     requestId?: string
     snapshot?: { data?: unknown; cols?: unknown; rows?: unknown; seq?: unknown; lastTitle?: unknown } | null
   }) => {
-    if (typeof args?.requestId !== 'string') return
+    if (typeof args?.requestId !== 'string') {return}
     const snapshot = args.snapshot
     if (!snapshot || typeof snapshot.data !== 'string' || typeof snapshot.cols !== 'number' || typeof snapshot.rows !== 'number') {
       settleSerializeRequest(args.requestId, null)
       return
     }
     const result: Exclude<SerializeResult, null> = { data: snapshot.data, cols: snapshot.cols, rows: snapshot.rows }
-    if (typeof snapshot.seq === 'number' && Number.isFinite(snapshot.seq)) result.seq = snapshot.seq
-    if (typeof snapshot.lastTitle === 'string' && snapshot.lastTitle.length > 0) result.lastTitle = snapshot.lastTitle
+    if (typeof snapshot.seq === 'number' && Number.isFinite(snapshot.seq)) {result.seq = snapshot.seq}
+    if (typeof snapshot.lastTitle === 'string' && snapshot.lastTitle.length > 0) {result.lastTitle = snapshot.lastTitle}
     settleSerializeRequest(args.requestId, result)
   })
 
   const requestSerializedBuffer = (ptyId: string, opts?: { scrollbackRows?: number; altScreenForcesZeroRows?: boolean }): Promise<SerializeResult> => {
-    if (mainWindow.isDestroyed()) return Promise.resolve(null)
+    if (mainWindow.isDestroyed()) {return Promise.resolve(null)}
     const requestId = randomUUID()
     return new Promise<SerializeResult>((resolve) => {
       const timeout = setTimeout(() => settleSerializeRequest(requestId, null), 750)
@@ -100,7 +100,7 @@ export function installPtyRegistrationSupport(): void {
     const lp = localProvider
     ptyRuntimeState.didFinishLoadHandler = () => {
       const generation = lp.advanceGeneration()
-      if (options?.isRecoveryReloadInFlight?.(mainWindow.webContents.id)) return
+      if (options?.isRecoveryReloadInFlight?.(mainWindow.webContents.id)) {return}
       lp.killOrphanedPtys(generation - 1)
     }
     ptyRuntimeState.didFinishLoadWebContents = mainWindow.webContents
@@ -109,7 +109,7 @@ export function installPtyRegistrationSupport(): void {
 
   const assertFolderWorkspacePtyPathUsable = async (worktreeId: string | undefined): Promise<void> => {
     const workspaceScope = typeof worktreeId === 'string' ? parseWorkspaceKey(worktreeId) : null
-    if (!store || workspaceScope?.type !== 'folder') return
+    if (!store || workspaceScope?.type !== 'folder') {return}
     const status = await getFolderWorkspacePathStatus(store, { scope: 'folder-workspace', folderWorkspaceId: workspaceScope.folderWorkspaceId }, { getSshFilesystemProvider })
     assertFolderWorkspacePathUsable(status)
   }
@@ -123,7 +123,7 @@ export function installPtyRegistrationSupport(): void {
     })
 
   const localStartupCwdDirectoryExists = (path: string): boolean => {
-    if (isWslUncPath(path)) return true
+    if (isWslUncPath(path)) {return true}
     try { return statSync(path).isDirectory() } catch { return false }
   }
 
@@ -135,9 +135,9 @@ export function installPtyRegistrationSupport(): void {
     launchEnv?: NodeJS.ProcessEnv
     workspacePath?: string
   }): { providerSession: AgentProviderSessionMetadata; preparation: Promise<CodexSessionResumePreparation | null> } | null => {
-    if (args.connectionId || args.launchAgent !== 'codex' || !options?.prepareCodexSessionResume) return null
+    if (args.connectionId || args.launchAgent !== 'codex' || !options?.prepareCodexSessionResume) {return null}
     const providerSession = normalizeAgentProviderSession(args.providerSession)
-    if (!providerSession) return null
+    if (!providerSession) {return null}
     return { providerSession, preparation: options.prepareCodexSessionResume({ providerSession, target: args.target, launchEnv: args.launchEnv, workspacePath: args.workspacePath }) }
   }
 
@@ -145,13 +145,13 @@ export function installPtyRegistrationSupport(): void {
   const resolveCodexResumeLaunch = (command: string | undefined, preparation: NonNullable<ReturnType<typeof prepareCodexResumeHome>>): Promise<CodexResumeLaunch> =>
     preparation.preparation.then((prepared) => {
       const providerSession = preparation.providerSession
-      if (prepared?.outcome !== 'fresh') return { codexResumeHome: prepared ?? null, command, notifyResumeUnavailable: false, droppedResumeArgv: false, providerSession }
+      if (prepared?.outcome !== 'fresh') {return { codexResumeHome: prepared ?? null, command, notifyResumeUnavailable: false, droppedResumeArgv: false, providerSession }}
       const dropped = dropUnverifiedCodexResumeArgv({ command, providerSession, claimedCodexProvenance: prepared.claimedCodexProvenance })
       return { codexResumeHome: null, command: dropped.command, notifyResumeUnavailable: dropped.droppedResumeArgv && (prepared.claimedCodexProvenance || !providerSession.transcriptPath), droppedResumeArgv: dropped.droppedResumeArgv, providerSession }
     })
   const stripSequencedStartupResumeArgv = <T extends Record<string, string> | undefined>(env: T, launch: CodexResumeLaunch): T => {
     const sequenced = env?.[SETUP_AGENT_SEQUENCE_STARTUP_COMMAND_ENV]
-    if (!env || !sequenced || !launch.droppedResumeArgv || !launch.providerSession) return env
+    if (!env || !sequenced || !launch.droppedResumeArgv || !launch.providerSession) {return env}
     const drop = dropAgentResumeArgvFromCommand({ command: sequenced, agent: 'codex', providerSession: launch.providerSession })
     return drop.status === 'dropped' ? { ...env, [SETUP_AGENT_SEQUENCE_STARTUP_COMMAND_ENV]: drop.command } : env
   }

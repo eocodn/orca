@@ -1,9 +1,9 @@
-import { WebSocket } from 'ws'
+import type { WebSocket } from 'ws'
 import { captureScreenshot } from './cdp-screenshot'
 
-
 export const CdpWsProxyMethods8 = {
-  handleStreamClose(this: any,
+  handleStreamClose(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>
@@ -11,7 +11,8 @@ export const CdpWsProxyMethods8 = {
     this.pdfStreams.close(params)
     this.sendResult(clientId, {}, client)
   },
-  handleScreenshot(this: any,
+  handleScreenshot(
+    this: any,
     client: WebSocket,
     clientId: number,
     params?: Record<string, unknown>

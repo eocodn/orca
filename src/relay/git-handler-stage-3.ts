@@ -1,4 +1,4 @@
-import { execFile,spawn,type ExecFileOptions } from 'node:child_process'
+import { execFile, spawn, type ExecFileOptions } from 'node:child_process'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
 import { getGitCloneFailureMessage } from '../shared/git-clone-failure-message'
@@ -29,15 +29,9 @@ import { expandTilde } from './context'
 import type { RequestContext } from './dispatcher'
 import { forceDeletePreservedRelayBranch } from './git-handler-branch-cleanup'
 import { commitDiffEntry } from './git-handler-commit-diff-ops'
-import {
-  branchDiffEntries,
-  validateGitExecArgs
-} from './git-handler-ops'
+import { branchDiffEntries, validateGitExecArgs } from './git-handler-ops'
 import { resolveRelayPushTarget } from './git-handler-push-target'
-import {
-  isUnsupportedWorktreeListZError,
-  parseWorktreeList
-} from './git-handler-utils'
+import { isUnsupportedWorktreeListZError, parseWorktreeList } from './git-handler-utils'
 import { annotatePrunableWorktreesByExistence } from './git-handler-worktree-list'
 import { areRelayWorktreePathsEqual } from './git-handler-worktree-ops'
 import { buildRelayUnattendedGitEnv } from './relay-command-env'
@@ -543,5 +537,4 @@ export abstract class GitHandlerStage3 extends GitHandlerStage2 {
       )
       .catch(() => [])
   }
-
 }

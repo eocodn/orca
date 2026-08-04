@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, Menu, Notification, powerMonitor } from 'electron'
+import type { BrowserWindow} from 'electron';
+import { app, ipcMain, Menu, Notification, powerMonitor } from 'electron'
 import { browserManager } from '../browser/browser-manager'
 import { translateMain } from '../i18n/main-i18n'
 import { clearTrustedUIRendererWebContentsId } from '../ipc/ui'

@@ -5,9 +5,12 @@ import { startupState } from './main-process-startup-state'
 // 80ms matches Pi's cadence (smooth but under the IPC budget). opencode needs only one frame but reuses this for consistent animated UX.
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const SPINNER_INTERVAL_MS = 80
-})
 
-export function sendSyntheticTitle(ptyId: string, data: string, options: { force?: boolean } = {}): void {
+export function sendSyntheticTitle(
+  ptyId: string,
+  data: string,
+  options: { force?: boolean } = {}
+): void {
   if (!startupState.mainWindow || startupState.mainWindow.isDestroyed()) {
     return
   }
@@ -77,7 +80,7 @@ export function tickSyntheticTitleSpinners(): void {
   const ticks = startupDeps.advanceSyntheticTitleSpinnerEntries({
     entries: startupState.syntheticTitleSpinnerByPaneKey,
     frameCount: SPINNER_FRAMES.length,
-    startupDeps.getPtyIdForPaneKey
+    getPtyIdForPaneKey: startupDeps.getPtyIdForPaneKey
   })
   for (const tick of ticks) {
     sendSyntheticTitle(
@@ -97,7 +100,10 @@ export function ensureSyntheticTitleSpinnerTimer(): void {
     return
   }
   // Why: one shared timer for all spinners — per-pane intervals multiplied idle wakeups when several agents were working.
-  startupState.syntheticTitleSpinnerTimer = setInterval(tickSyntheticTitleSpinners, SPINNER_INTERVAL_MS)
+  startupState.syntheticTitleSpinnerTimer = setInterval(
+    tickSyntheticTitleSpinners,
+    SPINNER_INTERVAL_MS
+  )
 }
 
 export function resumeSyntheticTitleSpinnerTimer(): void {

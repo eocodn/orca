@@ -13,7 +13,7 @@ export function installPtySnapshotHandlers(
 ): void {
   const { runtime, providerSnapshotRequiredPtys, pendingData } = state
   function normalizeSnapshotScrollbackRows(value: unknown): number | undefined {
-    if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+    if (typeof value !== 'number' || !Number.isFinite(value)) {return undefined}
     return Math.max(0, Math.min(50_000, Math.floor(value)))
   }
   ipcMain.handle(

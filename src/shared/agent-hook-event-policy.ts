@@ -1,11 +1,9 @@
-import type { AgentHookSource } from './agent-hook-relay'
-import type { HookListenerState } from './agent-hook-state'
-import type { ExtractedPromptText, ToolSnapshot } from './agent-hook-prompt-tools'
-import * as prompt from './agent-hook-prompt-tools'
-import * as sourceTools from './agent-hook-source-tools'
+import type { ExtractedPromptText,ToolSnapshot } from './agent-hook-prompt-tools'
 import * as providerTools from './agent-hook-provider-tools'
+import type { AgentHookSource } from './agent-hook-relay'
+import * as sourceTools from './agent-hook-source-tools'
 import { isKnownHarnessInjectedUserTurnText } from './harness-injected-user-turns'
-const { normalizeCopilotEventName } = providerTools
+const { normalizeCopilotEventName } = sourceTools
 const {
   extractClaudeToolFields,
   extractCodexToolFields,
@@ -23,6 +21,7 @@ const {
   extractCopilotToolFields,
   extractHermesToolFields
 } = providerTools
+const { isGrokEvent } = providerTools
 
 export function isNewTurnEvent(source: AgentHookSource, eventName: unknown): boolean {
   // Why: exhaustive switch so a new AgentHookSource fails typecheck here instead of falling through to false.

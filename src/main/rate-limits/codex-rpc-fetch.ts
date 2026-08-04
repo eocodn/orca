@@ -9,7 +9,7 @@ import {
 } from './codex-rate-limit-window-classification'
 import type { FetchCodexRateLimitsOptions } from './codex-fetcher'
 import { resolveCodexCommand } from '../codex-cli/command'
-import { getCmdExePath, getSpawnArgsForWindows } from '../win32-utils'
+import { getSpawnArgsForWindows } from '../win32-utils'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 import {
   buildWslLoginShellCommand,
@@ -225,7 +225,7 @@ export async function fetchCodexRateLimitsViaRpc(
       settle(abortedCodexRateLimitResult(), { kill: true })
     }
     function cleanupListeners(): void {
-      if (timeout) clearTimeout(timeout)
+      if (timeout) {clearTimeout(timeout)}
       options?.signal?.removeEventListener('abort', onAbort)
       child.stdout.off('data', onStdoutData)
       child.stderr.off('data', onStderrData)
@@ -233,10 +233,10 @@ export async function fetchCodexRateLimitsViaRpc(
       child.off('close', onClose)
     }
     function settle(result: ProviderRateLimits, settleOptions?: { kill?: boolean }): void {
-      if (resolved) return
+      if (resolved) {return}
       resolved = true
       cleanupListeners()
-      if (settleOptions?.kill) child.kill()
+      if (settleOptions?.kill) {child.kill()}
       resolve(result)
     }
     function sendRpc(method: string, params?: unknown): number {
@@ -245,7 +245,7 @@ export async function fetchCodexRateLimitsViaRpc(
       return id
     }
     if (options?.signal) {
-      if (options.signal.aborted) return onAbort()
+      if (options.signal.aborted) {return onAbort()}
       options.signal.addEventListener('abort', onAbort, { once: true })
     }
     timeout = setTimeout(() => {
@@ -273,10 +273,10 @@ export async function fetchCodexRateLimitsViaRpc(
       while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
         const line = buffer.slice(0, newlineIdx).trim()
         buffer = buffer.slice(newlineIdx + 1)
-        if (!line) continue
+        if (!line) {continue}
         try {
           const msg = JSON.parse(line) as RpcResponse
-          if (msg.id == null) continue
+          if (msg.id == null) {continue}
           if (msg.id === initId) {
             sendNotification('initialized')
             rateLimitsId = sendRpc('account/rateLimits/read')

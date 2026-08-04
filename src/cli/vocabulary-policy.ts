@@ -18,7 +18,6 @@ const FAMILIES: VerbFamily[] = [
     allowlist: new Set([
       'cookie delete',
       'tab profile delete',
-      'automations remove',
       'linear label remove'
     ])
   },

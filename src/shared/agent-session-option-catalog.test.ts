@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { getAgentSessionOptionCatalog, mergeCatalogModels } from './agent-session-option-catalog'
 import { resolveAgentSessionOptionLaunch } from './agent-session-option-launch'
 import {
-  resolveNativeChatSessionOptionDefaults,
-  updateNativeChatSessionOptionDefaults
-} from './native-chat-session-option-defaults'
+  resolveAgentSessionOptionDefaults,
+  updateAgentSessionOptionDefaults
+} from './agent-session-option-defaults'
 
 describe('agent session option catalog', () => {
   it('returns no catalog for unknown agents', () => {
@@ -73,21 +73,21 @@ describe('agent session option catalog', () => {
   })
 
   it('resolves only stored values without leaking values across models', () => {
-    let persisted = updateNativeChatSessionOptionDefaults({
+    let persisted = updateAgentSessionOptionDefaults({
       persisted: undefined,
       agent: 'claude',
       modelId: 'opus',
       optionId: 'model',
       value: 'opus'
     })
-    persisted = updateNativeChatSessionOptionDefaults({
+    persisted = updateAgentSessionOptionDefaults({
       persisted,
       agent: 'claude',
       modelId: 'opus',
       optionId: 'effort',
       value: 'xhigh'
     })
-    persisted = updateNativeChatSessionOptionDefaults({
+    persisted = updateAgentSessionOptionDefaults({
       persisted,
       agent: 'claude',
       modelId: 'sonnet',
@@ -95,7 +95,7 @@ describe('agent session option catalog', () => {
       value: 'sonnet'
     })
 
-    expect(resolveNativeChatSessionOptionDefaults(persisted, 'claude')).toEqual({
+    expect(resolveAgentSessionOptionDefaults(persisted, 'claude')).toEqual({
       model: 'sonnet'
     })
     expect(persisted.claude?.valuesByModel?.opus).toEqual({ effort: 'xhigh' })
@@ -104,44 +104,44 @@ describe('agent session option catalog', () => {
   it('spawns vanilla when the user has not explicitly selected a model', () => {
     // Regression (#9085): a fresh launch must not force the catalog default
     // model/effort — the agent must spawn exactly as its own CLI would.
-    expect(resolveNativeChatSessionOptionDefaults(undefined, 'claude')).toBeUndefined()
-    expect(resolveNativeChatSessionOptionDefaults({}, 'claude')).toBeUndefined()
-    expect(resolveNativeChatSessionOptionDefaults({}, 'future-agent')).toBeUndefined()
+    expect(resolveAgentSessionOptionDefaults(undefined, 'claude')).toBeUndefined()
+    expect(resolveAgentSessionOptionDefaults({}, 'claude')).toBeUndefined()
+    expect(resolveAgentSessionOptionDefaults({}, 'future-agent')).toBeUndefined()
   })
 
   it('resolves an explicitly selected model and only its stored options', () => {
-    let persisted = updateNativeChatSessionOptionDefaults({
+    let persisted = updateAgentSessionOptionDefaults({
       persisted: undefined,
       agent: 'claude',
       modelId: 'opus',
       optionId: 'model',
       value: 'opus'
     })
-    expect(resolveNativeChatSessionOptionDefaults(persisted, 'claude')).toEqual({
+    expect(resolveAgentSessionOptionDefaults(persisted, 'claude')).toEqual({
       model: 'opus'
     })
-    persisted = updateNativeChatSessionOptionDefaults({
+    persisted = updateAgentSessionOptionDefaults({
       persisted,
       agent: 'claude',
       modelId: 'opus',
       optionId: 'effort',
       value: 'xhigh'
     })
-    expect(resolveNativeChatSessionOptionDefaults(persisted, 'claude')).toEqual({
+    expect(resolveAgentSessionOptionDefaults(persisted, 'claude')).toEqual({
       model: 'opus',
       effort: 'xhigh'
     })
   })
 
   it('keeps catalog option defaults after the user explicitly selects a model', () => {
-    const persisted = updateNativeChatSessionOptionDefaults({
+    const persisted = updateAgentSessionOptionDefaults({
       persisted: undefined,
       agent: 'claude',
       modelId: 'sonnet',
       optionId: 'model',
       value: 'sonnet'
     })
-    const defaults = resolveNativeChatSessionOptionDefaults(persisted, 'claude')
+    const defaults = resolveAgentSessionOptionDefaults(persisted, 'claude')
 
     expect(resolveAgentSessionOptionLaunch('claude', defaults)).toEqual({
       args: ['--model', 'sonnet', '--effort', 'high'],

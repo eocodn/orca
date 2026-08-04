@@ -1,11 +1,11 @@
 import { parseDaemonResizeIfCurrentResponse } from './daemon-pty-resize-response'
-import { type ColdRestoreInfo } from './history-reader'
-import { type CreateOrAttachResult } from './types'
+import type { ColdRestoreInfo } from './history-reader'
+import type { CreateOrAttachResult } from './types'
 import type { PtySpawnResult } from '../providers/types'
 import { normalizeWslColdRestoreCwd } from './wsl-cold-restore-cwd'
 import { resolveSafePtyDefaultCwd } from '../providers/pty-default-cwd'
 import { PtyWriteUnavailableError } from '../providers/pty-write-unavailable-error'
-import { type ColdRestorePayload } from './cold-restore-payload-cache'
+import type { ColdRestorePayload } from './cold-restore-payload-cache'
 
 
 import { type PendingDaemonSpawnOperation, MAX_TOMBSTONES, remainingRequestTimeoutMs } from './daemon-pty-adapter-foundation'

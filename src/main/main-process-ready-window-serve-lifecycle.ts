@@ -8,8 +8,7 @@ import { recordProcessGoneCrash, handleGpuChildCrash } from './main-process-cras
 export async function initializeReadyWindowAndServe(): Promise<void> {
   const store = startupState.store
   const runtime = startupState.runtime
-  const automations = startupState.automations
-  if (!store || !runtime || !automations) {
+  if (!store || !runtime) {
     throw new Error('Main process services must be initialized before the ready lifecycle')
   }
 
@@ -101,7 +100,6 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
       const ui = startupState.store?.getUI()
       return {
         showTasksButton: settings?.showTasksButton !== false,
-        showAutomationsButton: settings?.showAutomationsButton !== false,
         showMobileButton: settings?.showMobileButton !== false,
         showTitlebarAppName: settings?.showTitlebarAppName !== false,
         statusBarVisible: ui?.statusBarVisible !== false
@@ -237,8 +235,6 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
         )
       }
     }
-    // Why: headless serve never opens a renderer, so arm scheduled automation dispatch here.
-    automations.start()
     // Why: serve deletes worktrees too, and the history GC that normally drains delete tombstones is
     // armed from the main window — without this, a quit mid-removal leaks the tree until a desktop launch.
     startupDeps.scheduleAllPendingHistoryTreeRemovals()

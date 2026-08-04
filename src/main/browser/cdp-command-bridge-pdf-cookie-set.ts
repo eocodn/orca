@@ -1,57 +1,13 @@
-import { webContents } from 'electron'
 import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
   BrowserCookie,
-  BrowserCookieDeleteResult,
   BrowserCookieGetResult,
   BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
   BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
+  BrowserScreenshotResult
 } from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 
 import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+const { BrowserError } = foundation
 
 export const CdpBridgeMethods6 = {
   async pdf(this: any): Promise<BrowserPdfResult> {
@@ -66,8 +22,11 @@ export const CdpBridgeMethods6 = {
 
       return { data }
     })
-  }
-  async fullPageScreenshot(this: any, format: 'png' | 'jpeg' = 'png'): Promise<BrowserScreenshotResult> {
+  },
+  async fullPageScreenshot(
+    this: any,
+    format: 'png' | 'jpeg' = 'png'
+  ): Promise<BrowserScreenshotResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
       const sender = this.makeCdpSender(guest)
@@ -97,7 +56,7 @@ export const CdpBridgeMethods6 = {
 
       return { data, format }
     })
-  }
+  },
   async cookieGet(this: any, url?: string): Promise<BrowserCookieGetResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
@@ -114,17 +73,20 @@ export const CdpBridgeMethods6 = {
 
       return { cookies }
     })
-  }
-  async cookieSet(this: any, cookie: {
-    name: string
-    value: string
-    domain?: string
-    path?: string
-    secure?: boolean
-    httpOnly?: boolean
-    sameSite?: string
-    expires?: number
-  }): Promise<BrowserCookieSetResult> {
+  },
+  async cookieSet(
+    this: any,
+    cookie: {
+      name: string
+      value: string
+      domain?: string
+      path?: string
+      secure?: boolean
+      httpOnly?: boolean
+      sameSite?: string
+      expires?: number
+    }
+  ): Promise<BrowserCookieSetResult> {
     return this.enqueueCommand(async () => {
       const guest = this.getActiveGuest()
       const sender = this.makeCdpSender(guest)

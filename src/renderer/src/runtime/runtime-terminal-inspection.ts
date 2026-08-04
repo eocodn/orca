@@ -8,6 +8,7 @@ import {
   getRemoteRuntimePtyEnvironmentId,
   getRemoteRuntimeTerminalHandle
 } from './runtime-terminal-stream'
+import { getClientRuntime } from './client-runtime'
 
 export type RuntimeTerminalProcessInspection = {
   foregroundProcess: string | null
@@ -77,7 +78,7 @@ export async function inspectRuntimeTerminalProcess(
     : getActiveRuntimeTarget(settings)
   const terminal = getRemoteRuntimeTerminalHandle(ptyId)
   if (target.kind !== 'environment' || !terminal) {
-    return window.api.pty.inspectProcess(ptyId)
+    return getClientRuntime().terminal.inspectProcess(ptyId)
   }
 
   try {
@@ -114,7 +115,7 @@ export async function confirmRuntimeTerminalForegroundProcess(
   if (target.kind === 'environment' && getRemoteRuntimeTerminalHandle(ptyId)) {
     return null
   }
-  const confirmForegroundProcess = window.api.pty.confirmForegroundProcess
+  const confirmForegroundProcess = getClientRuntime().terminal.confirmForegroundProcess
   // Why the shape check: a preload older than this handler has no such method.
   if (typeof confirmForegroundProcess !== 'function') {
     return null
@@ -157,7 +158,7 @@ function sendRuntimePtyInputWithinLimit(
     : getActiveRuntimeTarget(settings)
   const terminal = getRemoteRuntimeTerminalHandle(ptyId)
   if (target.kind !== 'environment' || !terminal) {
-    window.api.pty.write(ptyId, data)
+    getClientRuntime().terminal.write(ptyId, data)
     recordRuntimeTerminalInputForPtyId(ptyId)
     return true
   }
@@ -195,9 +196,9 @@ export async function sendRuntimePtyInputVerified(
     : getActiveRuntimeTarget(settings)
   const terminal = getRemoteRuntimeTerminalHandle(ptyId)
   if (target.kind !== 'environment' || !terminal) {
-    const accepted = await window.api.pty.writeAccepted(ptyId, data)
+    const accepted = await getClientRuntime().terminal.writeAccepted(ptyId, data)
     if (!accepted) {
-      window.api.pty.write(ptyId, data)
+      getClientRuntime().terminal.write(ptyId, data)
       // Why: SSH/local fallback writes are fire-and-forget. Callers use this
       // boolean to continue UX flow, while hook telemetry confirms real turns.
       recordRuntimeTerminalInputForPtyId(ptyId)

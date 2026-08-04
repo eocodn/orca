@@ -1,34 +1,16 @@
-import { readFile, stat } from 'node:fs/promises'
-import { isAbsolute, join, posix, resolve, win32 } from 'node:path'
-import {
-  branchHasNoUnmergedChangesOnAnyTarget,
-  getBranchCleanupTargetRefs,
-  refreshBranchCleanupTargetRefs
-} from '../../shared/git-branch-cleanup'
-import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-import { withSpan } from '../observability/tracer'
-import type {
-  GitWorktreeInfo,
-  LocalBaseRefRefreshResult,
-  LocalBaseRefUpdateSuggestion,
-  RemoveWorktreeResult
-} from '../../shared/types'
-import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
-import { isSubmoduleWorktreeRemovalRefusal } from '../../shared/worktree-submodule-removal'
+import { stat } from 'node:fs/promises'
 import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
-import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
-import { parseWslUncPath } from '../../shared/wsl-paths'
 import {
-  hasUnsupportedRevParsePathFormatEcho,
-  isUnsupportedRevParsePathFormatError,
   isUnsupportedWorktreeListZError
 } from '../../shared/git-worktree-command-capabilities'
+import type {
+  GitWorktreeInfo,
+  LocalBaseRefRefreshResult
+} from '../../shared/types'
 import { getLocalGitCapabilityCache } from './git-capability-state'
-import { gitExecFileAsync, translateWslOutputPaths } from './runner'
-import { resolveGitDir, runWithGitReadCacheInvalidation } from './status'
-import { hasWorktreeBaseCommitRef } from './worktree-base-ref-probe'
-import { type GitWorktreeExecOptions, type AddWorktreeOptions, SPARSE_CHECKOUT_DETECTION_CONCURRENCY, PRUNABLE_EXISTENCE_PROBE_CONCURRENCY, WORKTREE_LIST_TIMEOUT_MS, gitExecOptions, getErrorCode, isNotGitRepositoryError, evaluateLocalBaseRefRefreshability, normalizeMainWorktreePath } from './worktree-foundation'
-import { translateWorktreePath, detectSparseCheckout } from './worktree-cleanup-sparse'
+import { gitExecFileAsync,translateWslOutputPaths } from './runner'
+import { detectSparseCheckout,translateWorktreePath } from './worktree-cleanup-sparse'
+import { type AddWorktreeOptions,type GitWorktreeExecOptions,PRUNABLE_EXISTENCE_PROBE_CONCURRENCY,SPARSE_CHECKOUT_DETECTION_CONCURRENCY,WORKTREE_LIST_TIMEOUT_MS,evaluateLocalBaseRefRefreshability,getErrorCode,gitExecOptions,isNotGitRepositoryError,normalizeMainWorktreePath } from './worktree-foundation'
 function parseWorktreeList(
   output: string,
   options: { nulDelimited?: boolean } = {}
@@ -460,5 +442,4 @@ async function refreshLocalBaseRefForWorktreeCreate(
  * write `push.autoSetupRemote=true` to the repo's shared config.
  */
 
-export { parseWorktreeList, splitLineWorktreeList, splitNulWorktreeList, readWorktreeList, annotatePrunableByExistence, readTranslatedWorktreeGraph, listWorktreeGraph, inFlightWorktreeScans, worktreeScanGenerations, hasInFlightWorktreeScanForRepo, bumpWorktreeScanGeneration, pruneWorktreeScanGeneration, _getWorktreeScanCacheSizesForTests, _resetWorktreeScanCacheForTests, listWorktrees, listWorktreesUnshared, listWorktreesStrict, annotateSparseCheckoutStatus, refreshLocalBaseRefForWorktreeCreate }
-
+export { _getWorktreeScanCacheSizesForTests,_resetWorktreeScanCacheForTests,annotatePrunableByExistence,annotateSparseCheckoutStatus,bumpWorktreeScanGeneration,hasInFlightWorktreeScanForRepo,inFlightWorktreeScans,listWorktreeGraph,listWorktrees,listWorktreesStrict,listWorktreesUnshared,parseWorktreeList,pruneWorktreeScanGeneration,readTranslatedWorktreeGraph,readWorktreeList,refreshLocalBaseRefForWorktreeCreate,splitLineWorktreeList,splitNulWorktreeList,worktreeScanGenerations }

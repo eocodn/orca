@@ -1,5 +1,5 @@
 // Generated shell scripts are isolated so the runtime attribution module only owns environment setup.
-const SHELL_DOLLAR = "$"
+const SHELL_DOLLAR = '$'
 
 export const POSIX_COMMON = String.raw`#!/usr/bin/env bash
 set -euo pipefail
@@ -420,5 +420,3 @@ fi
 
 PATH="$real_path" exec "$real_gh" "$@"
 `
-
-const WIN32_GIT_CMD_WRAPPER = String.raw`@echo off

@@ -1,6 +1,6 @@
 import type { CodexUsageDailyAggregate, CodexUsagePersistedFile, CodexUsageSession } from "./types"
 import { getProcessedFileInfo, getLegacySourceSkipBytesByPath, listCodexSessionFiles, YIELD_EVERY_FILES, yieldToEventLoop, type CodexUsageWorktreeRef } from "./scanner-io"
-import { buildWorktreesWithCanonicalPaths, createWorktreeRefs } from "./scanner-attribution"
+import { buildWorktreesWithCanonicalPaths } from "./scanner-attribution"
 import { mergeDailyAggregates, mergeSessions, finalizeSessions } from "./scanner-aggregation"
 import { parseCodexUsageFile } from "./scanner-events"
 

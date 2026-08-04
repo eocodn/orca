@@ -119,8 +119,8 @@ export function stripRemotePaneEnvWhenHooksDisabled(
   connectionId: string | null | undefined,
   env: Record<string, string> | undefined
 ): Record<string, string> | undefined {
-  if (!connectionId || isRemoteAgentHooksEnabled()) return env
-  if (!env || (!('ORCA_PANE_KEY' in env) && !('ORCA_TAB_ID' in env) && !('ORCA_WORKTREE_ID' in env) && !('ORCA_AGENT_LAUNCH_TOKEN' in env))) return env
+  if (!connectionId || isRemoteAgentHooksEnabled()) {return env}
+  if (!env || (!('ORCA_PANE_KEY' in env) && !('ORCA_TAB_ID' in env) && !('ORCA_WORKTREE_ID' in env) && !('ORCA_AGENT_LAUNCH_TOKEN' in env))) {return env}
   const stripped = { ...env }
   delete stripped.ORCA_PANE_KEY
   delete stripped.ORCA_TAB_ID

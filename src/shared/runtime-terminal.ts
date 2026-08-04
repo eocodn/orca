@@ -1,23 +1,14 @@
 import type {
-  AgentStatusEntry,
-  AgentStatusOrchestrationContext,
   AgentStatusState,
   AgentType
 } from './agent-status-types'
 import type {
   BaseRefSearchResult,
-  BrowserCookieImportResult,
-  BrowserCertificateFailure,
-  BrowserLoadError,
-  BrowserSessionProfile,
-  BrowserSessionProfileSource,
   CreateWorktreeResult,
   GitWorktreeInfo,
   RemoveWorktreeResult,
   Repo,
   TabGroupLayoutNode,
-  TerminalColorOverrides,
-  TerminalLayoutSnapshot,
   TuiAgent,
   Worktree,
   WorktreeLineage,
@@ -26,23 +17,15 @@ import type {
   TerminalPaneLayoutNode
 } from './types'
 import type {
-  RuntimeMarkdownReadTabResult,
-  RuntimeMarkdownSaveTabResult
-} from './mobile-markdown-document'
-import type { RuntimeCapability } from './protocol-version'
-import type { RemoteRuntimeSharedConnectionDiagnostics } from './remote-runtime-shared-control-types'
-import type {
   AgentProviderSessionMetadata,
   SleepingAgentLaunchConfig
 } from './agent-session-resume'
 import type { StartupCommandDelivery } from './codex-startup-delivery'
-import type { RemoteServerUpdateSupport } from './remote-server-update'
 import type { ExecutionHostId } from './execution-host'
 import type { PtyIncarnationId } from './pty-incarnation'
-import type { RasterImageDimensions } from './raster-image-dimensions'
+import type * as SharedRuntimeTypes from './runtime-types'
 
-import type * as SharedRuntimeTypes from "./runtime-types"
-type RuntimeGraphStatus = SharedRuntimeTypes.RuntimeGraphStatus; type RuntimeDesktopWindowStatus = SharedRuntimeTypes.RuntimeDesktopWindowStatus; type DeviceScope = SharedRuntimeTypes.DeviceScope; type RuntimeTerminalDriverState = SharedRuntimeTypes.RuntimeTerminalDriverState; type RuntimeBrowserDriverState = SharedRuntimeTypes.RuntimeBrowserDriverState; type RuntimeStatus = SharedRuntimeTypes.RuntimeStatus; type CliRuntimeState = SharedRuntimeTypes.CliRuntimeState; type CliStatusResult = SharedRuntimeTypes.CliStatusResult; type RuntimeSyncedTab = SharedRuntimeTypes.RuntimeSyncedTab; type RuntimeSyncedLeaf = SharedRuntimeTypes.RuntimeSyncedLeaf; type RuntimeSyncWindowGraph = SharedRuntimeTypes.RuntimeSyncWindowGraph; type RuntimeNativeChatLaunchDraftResolution = SharedRuntimeTypes.RuntimeNativeChatLaunchDraftResolution; type RuntimeSyncWindowGraphResult = SharedRuntimeTypes.RuntimeSyncWindowGraphResult; type RuntimeMobileSessionTerminalTab = SharedRuntimeTypes.RuntimeMobileSessionTerminalTab; type RuntimeMobileTerminalTheme = SharedRuntimeTypes.RuntimeMobileTerminalTheme; type RuntimeMobileSessionMarkdownTab = SharedRuntimeTypes.RuntimeMobileSessionMarkdownTab; type RuntimeMobileSessionFileTab = SharedRuntimeTypes.RuntimeMobileSessionFileTab; type RuntimeMobileSessionBrowserTab = SharedRuntimeTypes.RuntimeMobileSessionBrowserTab; type RuntimeMobileSessionSnapshotTab = SharedRuntimeTypes.RuntimeMobileSessionSnapshotTab; type RuntimeMobileSessionTerminalClientTab = SharedRuntimeTypes.RuntimeMobileSessionTerminalClientTab; type RuntimeMobileSessionClientTab = SharedRuntimeTypes.RuntimeMobileSessionClientTab; type RuntimeMobileSessionTabGroup = SharedRuntimeTypes.RuntimeMobileSessionTabGroup; type RuntimeMobileSessionTabMove = SharedRuntimeTypes.RuntimeMobileSessionTabMove; type RuntimeMobileSessionTabMoveResult = SharedRuntimeTypes.RuntimeMobileSessionTabMoveResult; type RuntimeMobileSessionTabCloseResult = SharedRuntimeTypes.RuntimeMobileSessionTabCloseResult; type RuntimeSessionTabCloseReason = SharedRuntimeTypes.RuntimeSessionTabCloseReason; type RuntimeMobileSessionTabsSnapshot = SharedRuntimeTypes.RuntimeMobileSessionTabsSnapshot; type RuntimeMobileSessionTabsResult = SharedRuntimeTypes.RuntimeMobileSessionTabsResult; type RuntimeSessionSnapshot = SharedRuntimeTypes.RuntimeSessionSnapshot; type RuntimeSessionFlushResult = SharedRuntimeTypes.RuntimeSessionFlushResult; type RuntimeMobileSessionCreateTerminalResult = SharedRuntimeTypes.RuntimeMobileSessionCreateTerminalResult; type RuntimeMobileSessionTabsRemovedResult = SharedRuntimeTypes.RuntimeMobileSessionTabsRemovedResult; type RuntimeFileListEntry = SharedRuntimeTypes.RuntimeFileListEntry; type RuntimeFileListResult = SharedRuntimeTypes.RuntimeFileListResult; type RuntimeFileOpenResult = SharedRuntimeTypes.RuntimeFileOpenResult; type RuntimeFileReadResult = SharedRuntimeTypes.RuntimeFileReadResult; type RuntimeTerminalPathOpenTarget = SharedRuntimeTypes.RuntimeTerminalPathOpenTarget; type RuntimeTerminalPathResolution = SharedRuntimeTypes.RuntimeTerminalPathResolution; type RuntimeFilePreviewResult = SharedRuntimeTypes.RuntimeFilePreviewResult; type RuntimeFileReadChunkResult = SharedRuntimeTypes.RuntimeFileReadChunkResult; type RuntimeTerminalSummary = SharedRuntimeTypes.RuntimeTerminalSummary; type BrowserSnapshotRef = SharedRuntimeTypes.BrowserSnapshotRef; type BrowserSnapshotResult = SharedRuntimeTypes.BrowserSnapshotResult; type BrowserClickResult = SharedRuntimeTypes.BrowserClickResult; type BrowserGotoResult = SharedRuntimeTypes.BrowserGotoResult; type BrowserFillResult = SharedRuntimeTypes.BrowserFillResult; type BrowserTypeResult = SharedRuntimeTypes.BrowserTypeResult; type BrowserSelectResult = SharedRuntimeTypes.BrowserSelectResult; type BrowserScrollResult = SharedRuntimeTypes.BrowserScrollResult; type BrowserBackResult = SharedRuntimeTypes.BrowserBackResult; type BrowserReloadResult = SharedRuntimeTypes.BrowserReloadResult; type BrowserScreenshotResult = SharedRuntimeTypes.BrowserScreenshotResult; type BrowserScreencastReadyResult = SharedRuntimeTypes.BrowserScreencastReadyResult; type BrowserScreencastEndResult = SharedRuntimeTypes.BrowserScreencastEndResult; type BrowserScreencastDialogResult = SharedRuntimeTypes.BrowserScreencastDialogResult; type BrowserScreencastDialogClosedResult = SharedRuntimeTypes.BrowserScreencastDialogClosedResult; type BrowserScreencastErrorResult = SharedRuntimeTypes.BrowserScreencastErrorResult; type BrowserScreencastResult = SharedRuntimeTypes.BrowserScreencastResult; type BrowserEvalResult = SharedRuntimeTypes.BrowserEvalResult; type BrowserTabInfo = SharedRuntimeTypes.BrowserTabInfo; type BrowserTabListResult = SharedRuntimeTypes.BrowserTabListResult; type BrowserTabSwitchResult = SharedRuntimeTypes.BrowserTabSwitchResult; type BrowserTabSetProfileResult = SharedRuntimeTypes.BrowserTabSetProfileResult; type BrowserTabShowResult = SharedRuntimeTypes.BrowserTabShowResult; type BrowserTabCurrentResult = SharedRuntimeTypes.BrowserTabCurrentResult; type BrowserTabProfileShowResult = SharedRuntimeTypes.BrowserTabProfileShowResult; type BrowserTabProfileCloneResult = SharedRuntimeTypes.BrowserTabProfileCloneResult; type BrowserProfileListResult = SharedRuntimeTypes.BrowserProfileListResult; type BrowserProfileCreateResult = SharedRuntimeTypes.BrowserProfileCreateResult; type BrowserProfileDeleteResult = SharedRuntimeTypes.BrowserProfileDeleteResult; type BrowserDetectedProfileInfo = SharedRuntimeTypes.BrowserDetectedProfileInfo; type BrowserDetectedInfo = SharedRuntimeTypes.BrowserDetectedInfo; type BrowserDetectProfilesResult = SharedRuntimeTypes.BrowserDetectProfilesResult; type BrowserProfileImportFromBrowserResult = SharedRuntimeTypes.BrowserProfileImportFromBrowserResult; type BrowserProfileClearDefaultCookiesResult = SharedRuntimeTypes.BrowserProfileClearDefaultCookiesResult; type BrowserHoverResult = SharedRuntimeTypes.BrowserHoverResult; type BrowserDragResult = SharedRuntimeTypes.BrowserDragResult; type BrowserUploadResult = SharedRuntimeTypes.BrowserUploadResult; type BrowserWaitResult = SharedRuntimeTypes.BrowserWaitResult; type BrowserCheckResult = SharedRuntimeTypes.BrowserCheckResult; type BrowserFocusResult = SharedRuntimeTypes.BrowserFocusResult; type BrowserClearResult = SharedRuntimeTypes.BrowserClearResult; type BrowserSelectAllResult = SharedRuntimeTypes.BrowserSelectAllResult; type BrowserKeypressResult = SharedRuntimeTypes.BrowserKeypressResult; type BrowserPdfResult = SharedRuntimeTypes.BrowserPdfResult; type BrowserCookie = SharedRuntimeTypes.BrowserCookie; type BrowserCookieGetResult = SharedRuntimeTypes.BrowserCookieGetResult; type BrowserCookieSetResult = SharedRuntimeTypes.BrowserCookieSetResult; type BrowserCookieDeleteResult = SharedRuntimeTypes.BrowserCookieDeleteResult; type BrowserViewportResult = SharedRuntimeTypes.BrowserViewportResult; type BrowserGeolocationResult = SharedRuntimeTypes.BrowserGeolocationResult; type BrowserInterceptedRequest = SharedRuntimeTypes.BrowserInterceptedRequest; type BrowserInterceptEnableResult = SharedRuntimeTypes.BrowserInterceptEnableResult; type BrowserInterceptDisableResult = SharedRuntimeTypes.BrowserInterceptDisableResult; type BrowserConsoleEntry = SharedRuntimeTypes.BrowserConsoleEntry; type BrowserConsoleResult = SharedRuntimeTypes.BrowserConsoleResult; type BrowserNetworkEntry = SharedRuntimeTypes.BrowserNetworkEntry; type BrowserNetworkLogResult = SharedRuntimeTypes.BrowserNetworkLogResult; type BrowserCaptureStartResult = SharedRuntimeTypes.BrowserCaptureStartResult; type BrowserCaptureStopResult = SharedRuntimeTypes.BrowserCaptureStopResult; type BrowserExecResult = SharedRuntimeTypes.BrowserExecResult; type BrowserTabCreateResult = SharedRuntimeTypes.BrowserTabCreateResult; type BrowserTabCloseResult = SharedRuntimeTypes.BrowserTabCloseResult; type BrowserErrorCode = SharedRuntimeTypes.BrowserErrorCode; type EmulatorErrorCode = SharedRuntimeTypes.EmulatorErrorCode;
+type RuntimeMobileSessionTabsResult = SharedRuntimeTypes.RuntimeMobileSessionTabsResult; type RuntimeTerminalSummary = SharedRuntimeTypes.RuntimeTerminalSummary;
 
 export type RuntimeTerminalVisualTerminalNode = {
   type: 'terminal'
@@ -99,6 +82,7 @@ export type RuntimeTerminalListResult = {
   totalCount: number
   truncated: boolean
 }
+
 
 export type RuntimeTerminalOrphanAdoptionClaim = {
   terminal: string
@@ -483,4 +467,3 @@ export type RuntimeWorktreeListResult = {
   totalCount: number
   truncated: boolean
 }
-

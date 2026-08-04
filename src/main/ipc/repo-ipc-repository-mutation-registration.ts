@@ -14,13 +14,8 @@ import { normalizeExecutionHostId } from '../../shared/execution-host'
 import { invalidateAuthorizedRootsCache } from './filesystem-auth'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
-import {
-  addLocalRepoFromPath,
-  addRemoteRepoFromPath,
-  createRemoteRepo,
-  emitRepoAdded,
-  notifyReposChanged
-} from './repo-ipc-handlers'
+import { addLocalRepoFromPath, addRemoteRepoFromPath, createRemoteRepo, emitRepoAdded, notifyReposChanged } from './repo-ipc-handlers'
+import { gitExecFileAsync } from '../git/runner'
 
 export function registerRepositoryMutationHandlers(
   mainWindow: BrowserWindow,

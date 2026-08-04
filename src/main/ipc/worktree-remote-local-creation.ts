@@ -1,77 +1,36 @@
 // Why: this module owns the local create lifecycle; Git-add dispatch is isolated so lifecycle ordering stays visible here.
 
 import type { BrowserWindow } from 'electron'
-import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import type { Store } from '../persistence'
+import { existsSync } from 'node:fs'
+import { getProjectHostSetupWorktreeMeta } from '../../shared/project-host-setup-projection'
+import { isTuiAgent } from '../../shared/tui-agent-config'
 import type {
   CreateWorktreeResult,
   GitPushTarget,
   Repo,
   WorktreeMeta
 } from '../../shared/types'
-import { getPRForBranch } from '../github/client'
-import { listWorktrees } from '../git/worktree'
 import {
-  getBranchConflictKind,
-  resolveDefaultBaseRefViaExec,
-  resolveDefaultBaseRefWithLocalGit
+  getBranchConflictKind
 } from '../git/repo'
-import { resolveLocalGitUsername, getSshGitUsername } from '../git/git-username'
-import { hasCommitObjectViaGitExec } from '../git/commit-object-ref'
-import { resolveWorktreeCreateBase } from '../worktree-create-base'
-import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-import { getHostedReviewForBranch } from '../source-control/hosted-review'
-import type { ForgeProviderId } from '../source-control/forge-provider'
-import { validateGitPushTarget } from '../git/push-target-validation'
-import { assertGitPushTargetShape } from '../../shared/git-push-target-validation'
-import { gitExecFileAsync } from '../git/runner'
-import { parseGitHubOwnerRepo } from '../github/gh-utils'
-import type {
-  OrcaRuntimeService,
-  RemoteFetchResult,
-  RemoteTrackingBase
-} from '../runtime/orca-runtime'
-import { getProjectHostSetupWorktreeMeta } from '../../shared/project-host-setup-projection'
+import { listWorktrees } from '../git/worktree'
+import type { getPRForBranch } from '../github/client'
 import {
-  buildPosixRunnerScript,
-  buildWindowsRunnerScript,
   createSetupRunnerScript,
   getDefaultTabsLaunch,
-  getEffectiveHooks,
   getEffectiveHooksFromConfig,
-  getSetupRunnerEnvVars,
   loadHooks,
-  parseOrcaYaml,
   shouldRunSetupForCreate
 } from '../hooks'
-import { requireSshGitProvider } from '../providers/ssh-git-dispatch'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import type { SshGitProvider } from '../providers/ssh-git-provider'
-import { TUI_AGENT_CONFIG, isTuiAgent } from '../../shared/tui-agent-config'
-import { isWindowsAbsolutePathLike } from '../../shared/cross-platform-path'
-import { runWorktreeChangeInvalidators } from './worktree-change-invalidators'
-import {
-  registerOptionalSshWorktreeCreateRoots,
-  registerRequiredSshWorktreeCreateRoots
-} from './ssh-worktree-create-root-registration'
+import type { Store } from '../persistence'
+import type {
+  OrcaRuntimeService
+} from '../runtime/orca-runtime'
 
-import { type CreateWorktreeArgsWithSystemProvenance } from './worktree-remote-context'
-import { type StagedStartupResult } from './worktree-remote-context'
-import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals, resolveCreateBranchName } from './worktree-remote-base'
-import { canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
-import { prepareWorktreePushTarget, configureCreatedWorktreePushTarget } from './worktree-remote-push'
-import { notifyWorktreesChanged, emitCreateWorktreeProgress } from './worktree-remote-events'
-import { prepareLocalWorktreeCreation } from './worktree-remote-local-preparation'
-import {
-  computeWorktreePath,
-  ensurePathWithinWorkspace,
-  getWorktreeCreationLayout,
-  getWorktreePathSettings,
-  mergeWorktree,
-  shouldSetDisplayName
-} from './worktree-logic'
 import { worktreeWorkspaceKey } from '../../shared/workspace-scope'
+import { resolveWorktreeIncludePaths } from '../git/worktree-include-file'
+import { resolveWorktreeSharedDirectories } from '../git/worktree-shared-directories'
 import {
   getBranchNameOverrideCandidate,
   getWorktreeCreateCandidate,
@@ -79,15 +38,26 @@ import {
 } from '../worktree-create-candidates'
 import { findCreatedWorktree } from './created-worktree-reconciliation'
 import { registerWorktreeRootsForRepo } from './filesystem-auth'
+import { formatWorktreeIncludeCopyWarning } from './worktree-include-copy-budget'
+import {
+  computeWorktreePath,
+  ensurePathWithinWorkspace,
+  getWorktreeCreationLayout,
+  mergeWorktree,
+  shouldSetDisplayName
+} from './worktree-logic'
+import { appendWorktreeCreateWarning,recordWorkspaceLineageForCreatedWorktree,resolveCreateBranchName,spawnLocalStartupAndSetupTerminals,validateWorkspaceLineageParentBeforeCreate } from './worktree-remote-base'
+import { canCheckoutExistingLocalBranch,getLocalGitHubPrForBranch,getSelectedHostedReviewForBranch,getSelectedReviewBranch,isAllowedPushTargetRemoteConflict,isMatchingSelectedGitHubPr } from './worktree-remote-branch'
+import type { CreateWorktreeArgsWithSystemProvenance } from './worktree-remote-context'
+import { emitCreateWorktreeProgress,notifyWorktreesChanged } from './worktree-remote-events'
+import { addLocalWorktree } from './worktree-remote-local-git-add'
+import { prepareLocalWorktreeCreation } from './worktree-remote-local-preparation'
+import { configureCreatedWorktreePushTarget,prepareWorktreePushTarget } from './worktree-remote-push'
 import {
   createWorktreeCopiedPaths,
   createWorktreeLinkedPaths,
   createWorktreeSharedPaths
 } from './worktree-symlinks'
-import { formatWorktreeIncludeCopyWarning } from './worktree-include-copy-budget'
-import { resolveWorktreeIncludePaths } from '../git/worktree-include-file'
-import { resolveWorktreeSharedDirectories } from '../git/worktree-shared-directories'
-import { addLocalWorktree } from './worktree-remote-local-git-add'
 
 export async function createLocalWorktree(
   args: CreateWorktreeArgsWithSystemProvenance,
@@ -358,7 +328,6 @@ export async function createLocalWorktree(
     orcaCreatedAt: now,
     orcaCreationSource: 'desktop',
     orcaCreationWorkspaceLayout: getWorktreeCreationLayout(repo, settings),
-    ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
     ...(args.cliProvenance ? { cliProvenance: args.cliProvenance } : {}),
     baseRef: metadataBaseRef,
     ...(checkoutExistingBranch ? { preserveBranchOnDelete: true } : {}),

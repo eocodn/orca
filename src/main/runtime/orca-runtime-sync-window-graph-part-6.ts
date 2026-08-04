@@ -1,7 +1,7 @@
 import { HEADLESS_RUNTIME_WINDOW_ID, type RuntimeSyncWindowGraphResult, type RuntimeSyncedTab, type RuntimeMobileSessionTabsResult, type RuntimeSyncWindowGraph, type RuntimeLeafRecord } from './orca-runtime-symbols'
-import { OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 } from './orca-runtime-notify-native-chat-launch-draft-resolved-part-5'
+import { OrcaRuntimeStatePart3 } from './orca-runtime-state-part-3'
 
-export class OrcaRuntimeSyncWindowGraphPart6 extends OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 {
+export class OrcaRuntimeSyncWindowGraphPart6 extends OrcaRuntimeStatePart3 {
   syncWindowGraph(windowId: number, graph: RuntimeSyncWindowGraph): RuntimeSyncWindowGraphResult {
     if (this.authoritativeWindowId === null) {
       this.authoritativeWindowId = windowId
@@ -193,13 +193,8 @@ export class OrcaRuntimeSyncWindowGraphPart6 extends OrcaRuntimeNotifyNativeChat
       cb()
     }
 
-    const nativeChatLaunchDraftResolutions =
-      this.getNativeChatLaunchDraftResolutionClientEventSnapshot().map(
-        ({ tabId, text, createdAt }) => ({ tabId, text, createdAt })
-      )
     return {
       ...this.getStatus(),
-      ...(nativeChatLaunchDraftResolutions.length > 0 ? { nativeChatLaunchDraftResolutions } : {})
     }
   }
 

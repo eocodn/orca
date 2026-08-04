@@ -8,7 +8,24 @@ import { isRelayVersionMismatchError } from './ssh-relay-version-mismatch-error'
 import { joinRemotePath } from './ssh-remote-platform'
 
 import * as foundation from './ssh-relay-session-lifecycle-foundation'
-const { SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE, SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS, SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS, SSH_PTY_REATTACH_MAX_CONCURRENCY, SSH_PTY_REATTACH_RETRY_JITTER_MS, SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS, SSH_SOURCE_RECOVERY_CANCELLATION_FAILED, expectedIdentityForLease, isSourceRecoveryCancellationError, nonNegativeSafeInteger, normalizeRelayGracePeriodSeconds, parseRecoveryComplete, positiveSafeInteger, ptyConsumerRecoveryByTarget, ptyConsumerRecoveryForTarget, sourceRecoveryCancellationError } = foundation
+const {
+  SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE,
+  SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS,
+  SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS,
+  SSH_PTY_REATTACH_MAX_CONCURRENCY,
+  SSH_PTY_REATTACH_RETRY_JITTER_MS,
+  SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS,
+  SSH_SOURCE_RECOVERY_CANCELLATION_FAILED,
+  expectedIdentityForLease,
+  isSourceRecoveryCancellationError,
+  nonNegativeSafeInteger,
+  normalizeRelayGracePeriodSeconds,
+  parseRecoveryComplete,
+  positiveSafeInteger,
+  ptyConsumerRecoveryByTarget,
+  ptyConsumerRecoveryForTarget,
+  sourceRecoveryCancellationError
+} = foundation
 type ExpectedPtyIdentity = foundation.ExpectedPtyIdentity
 type PendingPtyReattach = foundation.PendingPtyReattach
 type PtyConsumerRecovery = foundation.PtyConsumerRecovery

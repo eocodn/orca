@@ -1,6 +1,5 @@
 import type {
   CreateWorktreeResult,
-  CreateWorktreeArgs,
   CreateSparseCheckoutRequest,
   DetectedWorktree,
   DetectedWorktreeListResult,
@@ -188,7 +187,6 @@ export type WorktreeSlice = {
     linkedGiteaPR?: number | null,
     compareBaseRef?: string,
     options?: {
-      automationProvenanceRequest?: CreateWorktreeArgs['automationProvenanceRequest']
       linkedWorkItem?: WorkspaceLinkedItem | null
       linkedTaskSourceContext?: TaskSourceContext | null
     }

@@ -22,12 +22,7 @@ import {
 } from '@/runtime/web-runtime-session'
 import { queueHookCommandsForFirstWorktreeTab } from '@/lib/hook-command-delayed-delivery'
 import { getRuntimeEnvironmentIdForWorktree, type WorktreeRuntimeOwnerState } from '@/lib/worktree-runtime-owner'
-import { initialAgentTabViewModeProps } from './native-chat-initial-view-mode'
-import { getConnectionId } from '@/lib/connection-context'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
-import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/native-chat-session-option-cache'
-import type { SessionOptionValue } from '../../../shared/native-chat-session-options'
-import { resolveStartupLaunchDraftText, type WorktreeStartupPayload, type WorktreeActivationStore, type IssueCommandLaunch } from './worktree-activation-types'
+import { type WorktreeStartupPayload, type WorktreeActivationStore, type IssueCommandLaunch } from './worktree-activation-types'
 
 export function ensureWorktreeHasInitialTerminal(
   store: WorktreeActivationStore,
@@ -132,7 +127,7 @@ export function ensureWorktreeHasInitialTerminal(
   }
 
   // Why: tag this activation-created tab so its PTY spawn doesn't count as activity and reshuffle the Recent sort.
-  // Why: stamp the seeded agent before hooks arrive so native chat and provider chrome can resolve it immediately.
+  // Why: stamp the seeded agent before hooks arrive so provider chrome can resolve it immediately.
   const launchAgent =
     sequencedStartup?.launchAgent ??
     (sequencedStartup?.telemetry
@@ -143,15 +138,6 @@ export function ensureWorktreeHasInitialTerminal(
     ...(launchAgent
       ? {
           launchAgent,
-          ...initialAgentTabViewModeProps(store.settings ?? null, {
-            agent: launchAgent,
-            // Why: argv-prefill launches carry the draft in `command` and set no
-            // draftPrompt, so gating on draftPrompt alone misses them entirely.
-            ...draftViewModeProps(resolveStartupLaunchDraftText(sequencedStartup)),
-            nativeChatTranscriptIsLocalReadable: isNativeChatTranscriptLocalReadable(
-              getConnectionId(worktreeId)
-            )
-          })
         }
       : {}),
     ...(opts?.activateCreatedTabs === false ? { activate: false } : {})
@@ -162,13 +148,6 @@ export function ensureWorktreeHasInitialTerminal(
 
   // Why: queue the seeded startup on the initial pane so the terminal begins in the requested agent session instead of an idle shell.
   if (sequencedStartup) {
-    if (launchAgent) {
-      seedNativeChatAppliedSessionOptions(
-        terminalTab.id,
-        launchAgent,
-        sequencedStartup.sessionOptions
-      )
-    }
     store.queueTabStartupCommand(terminalTab.id, sequencedStartup)
   }
   queueSetupAndIssueCommands(
@@ -217,15 +196,6 @@ function applyDefaultTerminalTabs(
       ...(launchAgent
         ? {
             launchAgent,
-            ...initialAgentTabViewModeProps(store.settings ?? null, {
-              agent: launchAgent,
-              ...draftViewModeProps(
-                isStartupTab ? resolveStartupLaunchDraftText(startup) : undefined
-              ),
-              nativeChatTranscriptIsLocalReadable: isNativeChatTranscriptLocalReadable(
-                getConnectionId(worktreeId)
-              )
-            })
           }
         : {}),
       ...(opts?.activateCreatedTabs === false ? { activate: false } : {})
@@ -252,14 +222,6 @@ function applyDefaultTerminalTabs(
     store.setActiveTab(firstTabId)
   }
   if (startup) {
-    const startupAgent =
-      startup.launchAgent ??
-      (startup.telemetry
-        ? (agentKindToTuiAgent(startup.telemetry.agent_kind) ?? undefined)
-        : undefined)
-    if (startupAgent) {
-      seedNativeChatAppliedSessionOptions(firstTabId, startupAgent, startup.sessionOptions)
-    }
     store.queueTabStartupCommand(firstTabId, startup)
   }
   queueSetupAndIssueCommands(
@@ -324,4 +286,3 @@ function queueSetupAndIssueCommands(
     store.queueTabIssueCommandSplit(terminalTabId, queuedIssueCommand)
   }
 }
-

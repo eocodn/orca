@@ -75,7 +75,6 @@
     "toggleRightSidebar": "Toggle Right Sidebar",
     "showStatusBar": "Show Status Bar",
     "showTasksButton": "Show Tasks Button",
-    "showAutomationsButton": "Show Automations Button",
     "showMobileButton": "Show Orca Mobile Button",
     "showTitlebarAppName": "Show Titlebar App Name",
     "view": "View",
@@ -145,7 +144,6 @@
       "9f0152563e": "mobile",
       "62ca9895a7": "space",
       "844eb0f4f4": "activity",
-      "3443924e91": "automations",
       "4f08ae8311": "tasks",
       "ca6c6eece7": "skills",
       "1b9d9d065f": "settings",
@@ -433,9 +431,7 @@
             }
           },
           "background": {
-            "session": {
-              "4ca0651d56": "Your automation prompt wasn't sent — open the workspace and paste it."
-            }
+            "session": {}
           }
         },
         "worktree": {
@@ -692,12 +688,6 @@
       }
     },
     "hooks": {
-      "useAutomationDispatchEvents": {
-        "59718b120b": "The target workspace is no longer available.",
-        "16a21d6413": "SSH reconnect requires interactive credentials.",
-        "386db94f3e": "The target project is no longer available.",
-        "3ad7d77f57": "The target workspace is on a different host than this automation run target."
-      },
       "useComposerState": {
         "7eb3f44ff7": "Selected agent is disabled. Choose an enabled agent before creating.",
         "b2ead86962": "Failed to resolve PR base.",
@@ -4277,7 +4267,6 @@
           "75405270ed": "Edit filters ({{value0}} active)",
           "489d1c8c9f": "Search projects...",
           "ee240a39eb": "Edit filters",
-          "automationCreated": "Hide automation-created",
           "cliCreated": "Hide CLI-created",
           "detachedHead": "Hide detached HEAD"
         },
@@ -4295,7 +4284,6 @@
           "c86d83b5c3": "New",
           "1b5c41caee": "Orca Mobile",
           "9c95e1ce91": "Agents",
-          "f323383e9a": "Automations",
           "e7ad3c540d": "Open Jira tasks",
           "c39ab10000": "Open Linear tasks",
           "196c1b5362": "Open GitLab tasks",
@@ -4342,7 +4330,6 @@
           "c3fa13dc2e": "Hide default branch",
           "ed1611b65b": "Hide sleeping",
           "82594419ba": "Filters",
-          "automationCreated": "Hide automation-created",
           "cliCreated": "Hide CLI-created",
           "detachedHead": "Hide detached HEAD"
         },
@@ -4386,7 +4373,6 @@
           "2a81e07366": "Full list",
           "25105b28cb": "Compact",
           "d7084e8bc8": "Agent activity",
-          "automation": "Automation",
           "b64d8bcca0": "Ports",
           "26c71e536c": "Notes",
           "b8dcc6f321": "PR/MR link",
@@ -4489,7 +4475,6 @@
           "runtimeHostDisconnectedNamed": "{{hostName}} disconnected",
           "runtimeHostProject": "Project on Orca server",
           "runtimeHostProjectNamed": "Project on {{hostName}}",
-          "automationCreated": "Created by automation",
           "branchIdentity": "Branch",
           "branchFolderPathIdentity": "Branch or folder path",
           "ef18787206": "Queued for deletion"
@@ -4525,14 +4510,6 @@
           "b105fd3057": "Linked Linear {{value0}}",
           "3f2649eeb8": "Linked issue #{{value0}}",
           "fe075cb851": "Workspace notes",
-          "automationHeader": "Automation",
-          "openAutomation": "Open automation",
-          "openAutomationRun": "Open run",
-          "automationCreated": "Created by automation",
-          "checkingAutomationAvailability": "Checking automation availability...",
-          "automationMissing": "Automation no longer available.",
-          "automationRunMissing": "Run history no longer available.",
-          "automationAvailabilityUnavailable": "Automation availability could not be checked.",
           "cliHeader": "Orca CLI",
           "cliCreatedFromAgent": "Created by an agent via `orca worktree create`",
           "cliCreatedFromShell": "Created via `orca worktree create`",
@@ -5390,8 +5367,6 @@
           "61d842eca0": "Show the Orca Mobile shortcut in the sidebar. It remains available from Toolbox.",
           "9da1020447": "Show Orca Mobile Button",
           "5db6ba961f": "Show the Orca Mobile button at the top of the left sidebar.",
-          "fa882a3e6b": "Show the Automations button at the top of the left sidebar.",
-          "511f270ebb": "Show Automations Button",
           "661942ab7f": "Show the Tasks button at the top of the left sidebar.",
           "cf81907069": "Show Tasks Button",
           "dc29f3cc0d": "Sidebar",
@@ -5714,7 +5689,6 @@
         },
         "DeveloperPermissionsPane": {
           "4c17304beb": "Refresh",
-          "6326a4c5cc": "Use these controls when a CLI, local app, or automation tool needs macOS privacy access. Orca does not ask at startup.",
           "6f011b9bf6": "Terminal tools inherit Orca's macOS privacy envelope.",
           "bfa3402305": "Could not request permission",
           "66e94d6cf3": "Permission request sent",
@@ -5728,12 +5702,9 @@
           "f903bf20b5": "Discovery and access for development servers on your network.",
           "e7bb06007c": "LAN",
           "4a73f5217a": "Apple Events for scripts that control other local apps.",
-          "e119f0d66b": "Automation",
           "7ca17b62c8": "macOS names Orca when the agents it runs read other apps' data, because Orca is the responsible process for terminal commands. Grant this to Orca and Orca Helper to reduce those prompts. Then quit Orca, end any surviving Orca Helper process, and reopen Orca.",
           "c566bca278": "Full Disk Access",
-          "9f35980756": "Keystroke injection, window control, and UI automation tools.",
           "5b2f22ca2d": "Accessibility",
-          "0639db5496": "Screenshot, visual automation, and UI inspection tools.",
           "f24f31a884": "Screen Recording",
           "550cfa3750": "Webcam capture and camera-driven local test apps.",
           "e5b5f3d6b9": "Camera",
@@ -5769,17 +5740,6 @@
           "ca2219fe5e": "Shows a small animated pet pinned to the bottom-right corner. Pick a character (Claudino, OpenCode, Gremlin) or upload your own PNG, APNG, GIF, WebP, JPG, or SVG from the status-bar pet menu. Hide it any time from the same menu without disabling this setting.",
           "dd6f0a1d45": "Pet",
           "0e89a574ae": "Floating animated pet in the bottom-right corner.",
-          "nativeChat": {
-            "title": "Chat UI",
-            "description": "Preview the desktop chat surface for supported agent terminal sessions.",
-            "copy": "Adds a Chat UI view you can switch to from supported agent terminal panes. Experimental while we tune transcript fidelity, streaming, and terminal parity.",
-            "toggleLabel": "Toggle Chat UI",
-            "defaultTitle": "Default view",
-            "defaultCopy": "Choose how new supported agent terminal tabs open.",
-            "defaultViewLabel": "Default Chat UI view",
-            "defaultViewTerminal": "Terminal chat",
-            "defaultViewNative": "Chat UI"
-          },
           "agentDashboard": {
             "title": "Agent Dashboard",
             "description": "Kanban board for monitoring agents across worktrees, in-window or as a pop-out.",
@@ -5915,9 +5875,6 @@
         "GeneralWorkspaceSettingsSection": {
           "3d538a98f7": "Choose apps available from a workspace's Open in menu.",
           "008f92085f": "Open In Apps",
-          "824b98a0d9": "Show a confirmation before deleting automations and their run history.",
-          "ea98373cd8": "Ask Before Deleting Automations",
-          "d2dd2ca2e3": "Show a confirmation dialog before deleting an automation and its run history.",
           "28bc3d085e": "Show a confirmation before deleting a workspace from the context menu. Failed deletes still surface a Force Delete fallback.",
           "9f380934cf": "Ask Before Deleting Workspaces",
           "5734db82af": "Show a confirmation dialog before deleting a workspace.",
@@ -6489,7 +6446,6 @@
           "b2b06c7ce8": "Available environment variables (hover for details):",
           "95a0411b3e": "template",
           "175daba180": "Example",
-          "b20c5df6ca": "Add an `orca.yaml` file to enable shared setup, archive, or issue-automation defaults for this repo. Example template:",
           "56f9a4a1d0": "Using `orca.yaml`",
           "623e0c9f31": "`orca.yaml` could not be parsed",
           "5a67e4793d": "No `orca.yaml` detected",
@@ -6500,7 +6456,6 @@
           "0cc712b823": "The core configuration file exists in the repo root, but Orca could not parse the supported hook definitions yet.",
           "c90b858573": "text-amber-700 dark:text-amber-300",
           "aba825233f": "The file contains configuration keys that this version of Orca does not recognize. You may need to update Orca, or check the file for typos.",
-          "ca424ff135": "Shared hook and issue-automation defaults are defined in the repo and available to everyone who uses it.",
           "32f417fe17": "text-emerald-700 dark:text-emerald-300",
           "8bfe65fc60": "Use local commands",
           "8d6c56bff8": "Run both",
@@ -7659,10 +7614,6 @@
             "682293cadf": "Show the Orca Mobile button at the top of the left sidebar.",
             "1de96ec8a6": "Show Orca Mobile Button",
             "4c920ab2d1": "schedule",
-            "58f4e22fa2": "automation",
-            "b186f3cefb": "automations",
-            "ae13a0d340": "Show the Automations button at the top of the left sidebar.",
-            "caa27e1a8e": "Show Automations Button",
             "6b846424cc": "linear",
             "2ee4810f38": "github",
             "0d5a74b606": "tasks",
@@ -7889,7 +7840,6 @@
               "ba4eb53b72": "browser use",
               "2fb24d17db": "Import cookies from Chrome, Edge, or other browsers so agents can reuse your logins.",
               "614c756ab1": "Import Browser Cookies",
-              "cee44fb442": "automation",
               "a57c2172dc": "agent-browser",
               "6ea88e5206": "npx",
               "f5b8fdddf5": "orca-cli",
@@ -7953,7 +7903,6 @@
           "use": {
             "search": {
               "6e88da3508": "skill",
-              "798be54d7e": "automation",
               "e27f8bafbf": "screenshot",
               "26c1290d83": "screen recording",
               "82f01c2d2c": "accessibility",
@@ -7983,11 +7932,9 @@
               "05ab708ee5": "Open the macOS privacy pane for protected project and worktree file access.",
               "bbf543a3a1": "Full Disk Access",
               "7f145a3984": "window",
-              "5610022e1e": "automation",
               "0a467b750e": "screenshot",
               "08f8039ca9": "accessibility",
               "3cd51d18a1": "screen recording",
-              "2e5d98ab56": "Allow screenshots, screen inspection, keystrokes, and window automation.",
               "39bb49e662": "Screen Recording and Accessibility",
               "00e954319e": "whisper",
               "1e6e27b202": "ffmpeg",
@@ -8071,11 +8018,6 @@
             "051203d37c": "pet",
             "6b5a56ac35": "Floating animated pet in the bottom-right corner.",
             "87d99e634b": "Pet",
-            "nativeChat": {
-              "title": "Chat UI",
-              "description": "Preview the desktop chat surface for supported agent terminal sessions.",
-              "grok": "grok"
-            },
             "agentDashboard": {
               "title": "Agent Dashboard",
               "description": "Kanban board for monitoring agents across worktrees, in-window or as a pop-out."
@@ -8223,10 +8165,7 @@
             "7e9b556873": "skip",
             "ca86dd6e27": "dialog",
             "9f8558233a": "confirm",
-            "7edf4f69e2": "automation",
             "84c67d0108": "delete",
-            "a0c44061ee": "Show a confirmation dialog before deleting an automation and its run history.",
-            "d0a65b27fd": "Ask Before Deleting Automations",
             "df10666259": "worktree",
             "ae98c9cf36": "Show a confirmation dialog before deleting a workspace.",
             "913242091d": "Ask Before Deleting Workspaces",
@@ -13571,314 +13510,6 @@
           }
         }
       },
-      "automations": {
-        "AutomationCustomCronPanel": {
-          "3e3b2c369f": "Cron expression",
-          "e81a02d61b": "Enter a valid five-field cron before saving.",
-          "968e66d686": "Enter a five-field cron.",
-          "cadb7b0bc9": "invalid"
-        },
-        "AutomationDetail": {
-          "007c8ad874": "Prompt",
-          "a1d52c2189": "Usage coverage",
-          "449fc83bf7": "Tokens",
-          "401f40ae79": "Est. spend",
-          "a7c312430d": "Last run",
-          "2df8970cd5": "Agent",
-          "e353ab9516": "Precheck",
-          "620b22145e": "Grace",
-          "15ea446b93": "Session",
-          "5405a09b1f": "Run location",
-          "2f8baf5360": "Create from",
-          "578ff46987": "Next run",
-          "18763ded26": "Schedule",
-          "dbef8dc110": "This SSH automation runs only while Orca can reach the SSH host. If reconnect needs interactive credentials or the host is unavailable, the run is recorded as skipped.",
-          "1f6026358e": "Delete automation",
-          "d79452fb30": "Resume automation",
-          "91a4155e95": "Pause automation",
-          "4b1ea02d2e": "Edit automation",
-          "2fb1605beb": "Run Now",
-          "221916d93c": "Create an automation to start scheduling agent work.",
-          "de0fedac06": "new_per_run",
-          "51a470b966": "ssh",
-          "b09b2384fd": "Paused",
-          "eaa02014f8": "Enabled",
-          "29baf8f4c2": "Source"
-        },
-        "AutomationEditorDialog": {
-          "fb1896a5e7": "Cancel",
-          "57b722cbba": "Agent",
-          "6ff66f9012": "New run",
-          "a2e688226d": "Worktree",
-          "6f9610e667": "Worktree runs in the selected workspace. New run creates a fresh workspace from the selected branch each time.",
-          "2c3fd9bfa1": "Workspace mode help",
-          "b28b140eaf": "Workspace",
-          "0d17f4ca8f": "Select project",
-          "02d351877e": "Project",
-          "a4ac8fcc62": "/goal",
-          "827b25a81e": "Supports skills, file paths, and built-in commands like",
-          "6d778190b7": "Run the weekly dependency audit and summarize risky changes.",
-          "058c23cb3f": "Prompt",
-          "c4b19094c2": "Schedule",
-          "e46c1aa9ad": "Create",
-          "a9d9dccf77": "Save",
-          "777548c2d6": "Save Changes",
-          "ff5db28639": "existing"
-        },
-        "AutomationEditorDialogHeader": {
-          "31f9253920": "Use template",
-          "7e35393632": "Hermes",
-          "6f309eef8d": "Orca",
-          "58f56b73d9": "Automation name",
-          "1d9826933e": "Weekday repo audit",
-          "4133d33862": "Create automation",
-          "0a75e5e2fa": "Create Hermes automation",
-          "03142e7721": "Edit Hermes automation",
-          "17086b48ee": "Edit automation"
-        },
-        "AutomationMissedRunGraceField": {
-          "0f4459e91d": "48 hours",
-          "adbab51feb": "24 hours",
-          "ba50e2a230": "12 hours",
-          "2dc9ee84d0": "3 hours",
-          "521f77cd58": "1 hour",
-          "e5ad263ae5": "30 minutes",
-          "529dc6c0b7": "No grace",
-          "3d70c185c8": "If Orca or the execution host was unavailable at the scheduled time, Orca runs one missed occurrence when it becomes available within this window. Older missed runs are skipped.",
-          "3df53d554a": "Missed-run grace help",
-          "fc089e5fde": "Grace"
-        },
-        "AutomationPrecheckFields": {
-          "d2a2ac89ac": "10 min",
-          "bf49585b3c": "5 min",
-          "d84d3765fd": "2 min",
-          "c820119736": "1 min",
-          "51e28cdad9": "30 sec",
-          "bb2dfb3629": "Timeout",
-          "99a577306c": "gh pr list --json number -q '.[0].number'",
-          "c2a762a180": "Precheck"
-        },
-        "AutomationRunHistory": {
-          "402651bfb6": "No runs yet.",
-          "9974a2b429": "Status",
-          "13988187b3": "Tokens",
-          "86a248187e": "Spend",
-          "149c0b49c7": "Workspace",
-          "8faaa00726": "Run",
-          "53fc5f07ab": "Run history",
-          "a00e38d1a3": "n/a",
-          "fdb3caa8fb": "known"
-        },
-        "AutomationRunPageFrame": {
-          "40a511bed4": "Run context",
-          "33741dd973": "Back to runs"
-        },
-        "AutomationSchedulePicker": {
-          "22359b186a": "AM or PM",
-          "9e677335b0": "Minute",
-          "6b802ecc99": "Hour",
-          "d90981f766": "Time",
-          "6b914c5fbb": "Day",
-          "233b8c94b6": "Cadence",
-          "55b2ef82a4": "Hourly",
-          "f0202f3a89": "Daily",
-          "57e83307d0": "Weekdays",
-          "837d902bba": "Weekly",
-          "ddba78647e": "Custom cron"
-        },
-        "AutomationSessionField": {
-          "f3c76dce51": "Reuse",
-          "c90888ee94": "Fresh",
-          "b675112193": "Reuse sends future runs to the previous live automation session. If that session is gone, Orca starts a fresh one.",
-          "4bdce31f37": "Session reuse help",
-          "5ad314118e": "Session"
-        },
-        "AutomationsPage": {
-          "2695883141": "delete",
-          "c3a28c9793": "Select an automation to view runs.",
-          "295698292f": "Rerun",
-          "0e110a3469": "Runs",
-          "bb1b2cd31e": "Overview",
-          "97ff587ee3": "Connect this source to check for Hermes automations in the remote profile.",
-          "aaa007846f": "source unavailable",
-          "25060635c6": "Add new",
-          "d207ab4c25": "Start from a template",
-          "15e0bfb13b": "Delete",
-          "f4612e3f78": "Edit",
-          "2faecab10b": "Run Now",
-          "82eb6cb933": "source",
-          "13118faadf": "Unknown project",
-          "587a4b205c": "Next",
-          "761a35834d": "Automation",
-          "73f630b49d": "Cancel",
-          "1b586f0e2b": "on",
-          "02a33e3204": "from",
-          "9adfab2596": "Delete External Automation",
-          "1e2e41392f": "Don't ask again",
-          "b264564427": "and its run history. Workspaces created by previous runs are not deleted.",
-          "080dcb5fbb": "Delete Automation",
-          "19a6e30eae": "Refresh automations",
-          "8d1afa8269": "Add automation",
-          "77c2778945": "Automations",
-          "0329f9bef1": "Close · Esc",
-          "67c7ff795b": "Close automations",
-          "e1bf9b1512": "Workspace is not available.",
-          "3e42a5cc1b": "SSH connection failed.",
-          "9f2855677c": "SSH connected.",
-          "126d726546": "External automation action failed.",
-          "37288942f0": "External automation resumed.",
-          "77c518a34b": "External automation paused.",
-          "4d7878402c": "External automation queued.",
-          "4c22bc9913": "External automation deleted.",
-          "3a4c476aa0": "Failed to rerun automation.",
-          "a1bdb57008": "Automation run queued.",
-          "8a3226f172": "Open Settings",
-          "d2a01b0b6f": "You can change this in Settings.",
-          "690b94da54": "We'll skip this confirmation next time.",
-          "b11170a008": "Failed to save automation.",
-          "2a20596d6b": "Automation saved.",
-          "244727e655": "Automation updated.",
-          "77b81bc4ac": "Hermes automation created.",
-          "08efc3ae12": "Hermes automation updated.",
-          "e431bb85d4": "Choose a workspace on the same host as this Hermes automation.",
-          "32534e7c9c": "Choose an available workspace before saving.",
-          "2360ffc956": "Choose an enabled agent before saving.",
-          "6e91dab317": "Enter a valid advanced schedule before saving.",
-          "64bdb2304f": "Pick a supported schedule before saving.",
-          "2430fecf53": "Choose a run location and enter a prompt before saving.",
-          "7934ee0d81": "Connect SSH",
-          "f93ed7a6f8": "Connecting...",
-          "8705757e27": "job",
-          "376631ef2b": "Resume",
-          "b457436d6a": "Pause",
-          "0ae52dd760": "hermes",
-          "e059042585": "Read-only",
-          "aecdc3681f": "Manageable",
-          "8500baacb4": "external source",
-          "36f71740a7": "Selected workspace",
-          "cd8397cc32": "New workspace each run",
-          "dd0bc7a1ba": "new_per_run",
-          "7b2e285552": "SSH connections are unavailable in this client.",
-          "d441032f7e": "pause",
-          "5918020edc": "run",
-          "a21f6c33ad": "Automation source refreshed.",
-          "53f06f0ad5": "Retry source",
-          "pendingAutomationMissing": "Automation no longer available.",
-          "pendingAutomationRunMissing": "Run history no longer available."
-        },
-        "CreateFromPicker": {
-          "f061f49e3f": "Search repo branches...",
-          "dd3841b442": "Branch from",
-          "ef6d762538": "Project default",
-          "e53d306056": "{{value0}} (default)",
-          "79512f22a7": "No branches found.",
-          "9ce96621f4": "Searching branches..."
-        },
-        "ExternalAutomationManagers": {
-          "e02f970595": "No external automation managers found.",
-          "6da3bfba4b": "automations found.",
-          "3d58d5b67d": "No",
-          "a42bf2b27e": "Delete external automation",
-          "1c3bfd38fe": "Resume external automation",
-          "0def1693bb": "Pause external automation",
-          "1df491fd00": "Edit external automation",
-          "cc77ba88ff": "Run external automation",
-          "5820648765": "Last",
-          "844f1acb72": "found",
-          "20fd7a3a15": "next",
-          "c6695e6fbd": "External automations",
-          "5524365227": "OpenClaw",
-          "766abf833c": "Hermes",
-          "bf5f67b590": "hermes",
-          "e66091daf4": "runs",
-          "8e9165af08": "run",
-          "2b0adbce21": "Paused",
-          "b3feba84c7": "Active",
-          "92405f1431": "Unavailable",
-          "dbdcec22bd": "Read-only",
-          "0a2d4359a8": "Manageable",
-          "330b3c32e8": "available",
-          "e2532150ed": "automations",
-          "701515f010": "automation"
-        },
-        "ExternalAutomationRunTable": {
-          "0ba9c0a95c": "Next run page",
-          "52d468a0b8": "Previous run page",
-          "7475c0ce96": "of",
-          "be551397ca": "Status",
-          "a813df9808": "Preview",
-          "d4b34feb66": "Run time",
-          "2d4388a908": "Runs",
-          "9c080765ff": "No Hermes runs found yet.",
-          "8ea934cacf": "Loading runs...",
-          "d5527d8fe7": "runs",
-          "872d032d05": "run"
-        },
-        "HermesCronOutputView": {
-          "e27c716b43": "Prompt",
-          "4557213074": "Response",
-          "05affc68e3": "Error",
-          "88d48157fc": "default"
-        },
-        "WorkspaceCombobox": {
-          "ee5b280eba": "No workspaces found.",
-          "8e9c8cc6b5": "Search workspaces...",
-          "66a0cd9628": "Select workspace"
-        },
-        "automation": {
-          "templates": {
-            "37571fcb16": "Look for stuck work, stale generated files, and failed local validation.",
-            "8a0228bea3": "Hourly queue check",
-            "3b7281c75f": "Scan recent work and call out correctness, UX, and test coverage risks.",
-            "6023075b27": "Daily change review",
-            "513401db93": "Prepare a weekly release risk summary from the current project state.",
-            "39ed39280a": "Release readiness",
-            "a7fbd32ddb": "Check dependencies, failing tests, and risky open changes each weekday.",
-            "b84757677d": "Weekday repo audit",
-            "repoHealth": {
-              "category": "Repo health",
-              "name": "Weekday repo audit",
-              "prompt": "Review the repository health. Check dependency updates, failing tests, lint/typecheck status, and risky open changes. Summarize findings and suggest the next action."
-            },
-            "releasePrep": {
-              "category": "Release prep",
-              "name": "Release readiness review",
-              "prompt": "Prepare a release readiness summary. Look for blockers, unmerged risky changes, missing validation, and documentation gaps. End with a concise release/no-release recommendation."
-            },
-            "recurringReview": {
-              "category": "Recurring review",
-              "name": "Daily change review",
-              "prompt": "Review recent changes in this workspace. Focus on correctness risks, UX regressions, missing tests, and follow-up tasks. Keep the report short and actionable."
-            },
-            "maintenance": {
-              "category": "Maintenance",
-              "name": "Hourly maintenance check",
-              "prompt": "Check for stuck work, stale generated files, failing validation, and anything that needs human attention. Report only actionable issues."
-            }
-          }
-        },
-        "external": {
-          "automation": {
-            "schedule": {
-              "display": {
-                "a8e92b815a": "Schedule unavailable"
-              }
-            }
-          }
-        },
-        "AutomationProjectCombobox": {
-          "search": "Search projects/folders...",
-          "empty": "No projects/folders match your search.",
-          "chooseHost": "Choose automation host",
-          "adding": "Adding project…",
-          "addProject": "Add project"
-        },
-        "AutomationSetupDecisionField": {
-          "5a7863909c": "Run setup for each new workspace",
-          "18f000ad4e": "Advanced",
-          "874b72195b": "When this automation creates a workspace, prepare it the same way creating a worktree by hand does — run the project's setup and open its terminal tabs."
-        }
-      },
       "agent": {
         "AgentCombobox": {
           "19522e25ee": "Manage agents",
@@ -14120,11 +13751,6 @@
             "dismiss": "Dismiss",
             "later": "Later"
           }
-        }
-      },
-      "nativeChat": {
-        "contextMenu": {
-          "copy": "Copy"
         }
       },
       "orca": {
@@ -14399,123 +14025,6 @@
     }
   },
   "components": {
-    "native-chat": {
-      "composer": {
-        "imageUnsupported": "Image paste is not supported for this agent.",
-        "send": "Send",
-        "noPty": "No live terminal — toggle back to reconnect.",
-        "locked": "Input is held by another device.",
-        "placeholder": "Send a message…",
-        "mentionHint": "Referencing file:",
-        "attach": "Attach file",
-        "startDictation": "Start dictation",
-        "stopDictation": "Stop dictation",
-        "noSkills": "No matching skills",
-        "noCommandsOrSkills": "No matching commands or skills",
-        "noCommands": "No matching commands",
-        "commands": "Commands",
-        "skills": "Skills",
-        "loadingSkills": "Loading skills...",
-        "skillsLoaded": "Skills loaded",
-        "skillsUnavailableHost": "Skills are unavailable for this host",
-        "skillsLoadFailed": "Could not load skills from this host",
-        "retrySkills": "Retry",
-        "skillCommandCollision": "Also a skill name - agent decides",
-        "skillMultipleSources": "{{sourceCount}} sources - agent resolves",
-        "skillScopeProject": "Project",
-        "skillScopePersonal": "Personal",
-        "skillScopeBuiltIn": "Built-in",
-        "skillScopePlugin": "Plugin",
-        "localAttachmentUnsupported": "Local attachments are not available for remote sessions.",
-        "removeAttachment": "Remove attachment",
-        "pastedImageLabel": "Pasted image",
-        "imagePasteFailed": "Image paste failed.",
-        "worktreeNotReady": "Worktree not ready — try again in a moment.",
-        "uploadingAttachments": "Uploading {{value0}} file(s) to remote…",
-        "model": "Model",
-        "effort": "Effort",
-        "fastMode": "Fast mode",
-        "thinking": "Thinking",
-        "options": "Options",
-        "sessionOptions": "Session options",
-        "chooseInAgentPicker": "Choose in agent picker…",
-        "toggleOption": "Toggle {{value0}}",
-        "pillAccessibleName": "{{value0}} {{value1}}",
-        "valueUnknown": "Current value unknown — pick On or Off",
-        "sentNotConfirmed": "Sent to the agent — not confirmed",
-        "setWhenSessionStarts": "Set when the session starts.",
-        "availableAfterSessionStarts": "Available after the session starts.",
-        "optionUpdateFailed": "Could not update option",
-        "optionValue": {
-          "fast": "Fast",
-          "minimal": "Minimal",
-          "low": "Low",
-          "medium": "Medium",
-          "high": "High",
-          "xhigh": "Extra high",
-          "max": "Max",
-          "on": "On",
-          "off": "Off"
-        }
-      },
-      "tool": {
-        "running": "Running…",
-        "result": "Result",
-        "countOne": "1 tool call",
-        "countN": "{{value0}} tool calls"
-      },
-      "status": {
-        "responding": "Agent is responding"
-      },
-      "jumpToLatest": "Jump to latest",
-      "toggle": {
-        "showTerminal": "Show terminal",
-        "showChat": "Show chat view"
-      },
-      "state": {
-        "loading": {
-          "title": "Loading conversation…",
-          "subtitle": "Reading the agent transcript."
-        },
-        "error": {
-          "title": "Could not load conversation",
-          "subtitle": "The transcript could not be read. Toggle back to the terminal to keep working."
-        },
-        "pairHost": "Pair a host to view agent chat history.",
-        "notAgent": {
-          "title": "No conversation here",
-          "subtitle": "This terminal is not running a recognized coding agent."
-        },
-        "empty": {
-          "title": "Start a chat with {{value0}}",
-          "subtitle": "Ask {{value0}} to inspect code, explain output, or make a change."
-        }
-      },
-      "stop": "Stop the agent",
-      "copyMessage": {
-        "copied": "Copied",
-        "copy": "Copy message"
-      },
-      "scrollMessageToTop": "Scroll this message to top",
-      "loadingEarlier": "Loading…",
-      "loadEarlier": "Load earlier messages",
-      "question": {
-        "step": "Step {{value0}}",
-        "other": "Other…",
-        "otherPlaceholder": "Type your answer",
-        "cancel": "Cancel",
-        "send": "Send answer",
-        "next": "Next",
-        "skip": "Skip",
-        "sending": "Sending…"
-      },
-      "approval": {
-        "title": "Allow {{value0}}?",
-        "allow": "Allow",
-        "deny": "Deny"
-      },
-      "launchPromptNotDelivered": "Not delivered — check the terminal"
-    },
     "tab": {
       "bar": {
         "SortableTabContextMenu": {

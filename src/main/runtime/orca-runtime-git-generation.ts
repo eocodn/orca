@@ -1,4 +1,3 @@
-import { RuntimeGitRemoteCommands } from './orca-runtime-git-remote'
 import type {
   GitWorktreeInfo,
   GlobalSettings,
@@ -6,6 +5,7 @@ import type {
   TuiAgent,
   Worktree
 } from '../../shared/types'
+import { RuntimeGitRemoteCommands } from './orca-runtime-git-remote'
 
 import { getCommitMessageModelDiscoveryHostKey } from '../../shared/commit-message-host-key'
 
@@ -30,6 +30,15 @@ import {
 } from '../providers/ssh-git-dispatch'
 
 
+import type { HostedReviewProvider } from '../../shared/hosted-review'
+import type { GitRuntimeOptions } from '../git/git-runtime-options'
+import { gitExecFileAsync } from '../git/runner'
+import { resolveHostedReviewBodyForGeneration } from '../source-control/pull-request-template'
+import type {
+  CommitMessageAgentEnvironmentResolvers,
+  CommitMessageAgentRuntimeTarget
+} from '../text-generation/commit-message-agent-environment'
+import { prepareLocalCommitMessageAgentEnv } from '../text-generation/commit-message-agent-environment'
 import {
   cancelGenerateCommitMessageLocal,
   cancelGeneratePullRequestFieldsLocal,
@@ -41,17 +50,8 @@ import {
   type DiscoverCommitMessageModelsResult,
   type GeneratePullRequestFieldsResult
 } from '../text-generation/commit-message-text-generation'
-import type {
-  CommitMessageAgentEnvironmentResolvers,
-  CommitMessageAgentRuntimeTarget
-} from '../text-generation/commit-message-agent-environment'
-import { prepareLocalCommitMessageAgentEnv } from '../text-generation/commit-message-agent-environment'
 import { getPullRequestDraftContext } from '../text-generation/pull-request-context'
 import { normalizeRuntimeRelativePath } from './runtime-relative-paths'
-import { gitExecFileAsync } from '../git/runner'
-import type { GitRuntimeOptions } from '../git/git-runtime-options'
-import { resolveHostedReviewBodyForGeneration } from '../source-control/pull-request-template'
-import type { HostedReviewProvider } from '../../shared/hosted-review'
 
 type ResolvedRuntimeGitWorktree = Worktree & { git: GitWorktreeInfo }
 type RuntimeCommitMessageSettingsOverride = Partial<

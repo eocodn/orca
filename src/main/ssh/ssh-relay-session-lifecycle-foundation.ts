@@ -11,16 +11,14 @@ import {
   MAX_SSH_RELAY_GRACE_PERIOD_SECONDS,
   MIN_SSH_RELAY_GRACE_PERIOD_SECONDS
 } from '../../shared/ssh-types'
-import { isTerminalLeafId,makePaneKey } from '../../shared/stable-pane-id'
+import { isTerminalLeafId, makePaneKey } from '../../shared/stable-pane-id'
 import { isValidTerminalTabId } from '../../shared/terminal-tab-id'
 import type { SshPtyOutputMigrationResult } from '../ipc/ssh-pty-output-model-migration'
 import type { SshPtyAcceptedSourceCheckpoint } from '../ipc/ssh-pty-output-source-obligations'
 import type { Store } from '../persistence'
-import type { SshPtyDataCallback,SshPtyExitCallback } from '../providers/ssh-pty-provider-contract'
+import type { SshPtyDataCallback, SshPtyExitCallback } from '../providers/ssh-pty-provider-contract'
 import type { SshChannelMultiplexer } from './ssh-channel-multiplexer'
-import {
-  type SshPtyConsumerOwnerState
-} from './ssh-pty-consumer-session'
+import { type SshPtyConsumerOwnerState } from './ssh-pty-consumer-session'
 import { type RemoteHostPlatform } from './ssh-remote-platform'
 
 export type RelaySessionState = 'idle' | 'deploying' | 'ready' | 'reconnecting' | 'disposed'
@@ -178,5 +176,28 @@ function ptyConsumerRecoveryForTarget(targetId: string): PtyConsumerRecovery {
   return created
 }
 
-
-export { expectedIdentityForLease,isSourceRecoveryCancellationError,nonNegativeSafeInteger,normalizeRelayGracePeriodSeconds,parseRecoveryComplete,positiveSafeInteger,ptyConsumerRecoveryByTarget,ptyConsumerRecoveryForTarget,sourceRecoveryCancellationError,SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE,SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS,SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS,SSH_PTY_REATTACH_MAX_CONCURRENCY,SSH_PTY_REATTACH_RETRY_JITTER_MS,SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS,SSH_SOURCE_RECOVERY_CANCELLATION_FAILED,type ExpectedPtyIdentity,type PendingPtyReattach,type PtyConsumerRecovery,type RemoteCliBridgeEnv,type SshPtyDataPayload,type SshPtyExitPayload,type SshPtyLease }
+export {
+  expectedIdentityForLease,
+  isSourceRecoveryCancellationError,
+  nonNegativeSafeInteger,
+  normalizeRelayGracePeriodSeconds,
+  parseRecoveryComplete,
+  positiveSafeInteger,
+  ptyConsumerRecoveryByTarget,
+  ptyConsumerRecoveryForTarget,
+  sourceRecoveryCancellationError,
+  SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE,
+  SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS,
+  SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS,
+  SSH_PTY_REATTACH_MAX_CONCURRENCY,
+  SSH_PTY_REATTACH_RETRY_JITTER_MS,
+  SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS,
+  SSH_SOURCE_RECOVERY_CANCELLATION_FAILED,
+  type ExpectedPtyIdentity,
+  type PendingPtyReattach,
+  type PtyConsumerRecovery,
+  type RemoteCliBridgeEnv,
+  type SshPtyDataPayload,
+  type SshPtyExitPayload,
+  type SshPtyLease
+}

@@ -29,7 +29,6 @@ const CLI_FLAGS_WITH_VALUES = new Set(['--environment', '--pairing-code'])
 // launches need a conservative allow-list before bypassing the GUI startup.
 const APPIMAGE_CLI_COMMAND_NAMES = [
   'agent',
-  'automations',
   'back',
   'capture',
   'check',

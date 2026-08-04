@@ -22,8 +22,6 @@ const PACKAGED_RUNTIME_PACKAGE_ROOTS = [
   'jsonc-parser',
   'node-pty',
   'posthog-node',
-  // serve-sim (for CLI JS entry + closure + state/middleware + to make packaged require('serve-sim') + its internal relatives work; mirrors other runtime JS like ws/yaml/zod. Natives/dylibs still via extraResources + the node_modules/serve-sim copy in resources from builder. Client if added too.
-  'serve-sim',
   'qrcode',
   'ssh2',
   'tweetnacl',
@@ -74,14 +72,6 @@ function resolvePackageJsonPath(packageName, fromDir = projectDir) {
   if (existsSync(nested)) {
     return nested
   }
-  // Why: published serve-sim has no "." export (only ./middleware and ./state), so
-  // require.resolve('serve-sim') fails even though the package is present for bridge exec.
-  if (packageName === 'serve-sim') {
-    const direct = join(projectDir, 'node_modules', 'serve-sim', 'package.json')
-    if (existsSync(direct)) {
-      return direct
-    }
-  }
   try {
     return requireFromProject.resolve(`${packageName}/package.json`, { paths: [fromDir] })
   } catch {
@@ -114,21 +104,6 @@ function readPackage(packageName, fromDir = projectDir) {
   }
 }
 
-function isKnownOmittedServeSimDependency(packageName, fromDir) {
-  if (packageName !== 'inspect-webkit') {
-    return false
-  }
-  const serveSimPackageJsonPath = join(projectDir, 'node_modules', 'serve-sim', 'package.json')
-  if (!existsSync(serveSimPackageJsonPath)) {
-    return false
-  }
-  try {
-    return realpathSync(fromDir) === realpathSync(dirname(serveSimPackageJsonPath))
-  } catch {
-    return false
-  }
-}
-
 function collectPackagedRuntimePackages(electronPlatformName = process.platform) {
   const packages = new Map()
   const visit = (packageName, fromDir = projectDir) => {
@@ -140,11 +115,6 @@ function collectPackagedRuntimePackages(electronPlatformName = process.platform)
     try {
       packageInfo = readPackage(packageName, fromDir)
     } catch (error) {
-      // Why: serve-sim declares inspect-webkit, but current installs omit it.
-      // Keep that escape hatch narrow so broken packages still fail packaging.
-      if (isKnownOmittedServeSimDependency(packageName, fromDir)) {
-        return
-      }
       throw error
     }
     if (packages.has(packageInfo.name)) {

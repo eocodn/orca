@@ -5,7 +5,8 @@ import { advanceSessionGeneration } from './agent-browser-command-bridge-enqueue
 // Why: must exceed agent-browser's internal timeouts (goto 30s, wait 60s) so the bridge never kills a command before its own timeout fires.
 
 export const AgentBrowserBridgeMethods23 = {
-  async ensureSession(this: any,
+  async ensureSession(
+    this: any,
     sessionName: string,
     browserPageId: string,
     webContentsId: number
@@ -62,7 +63,8 @@ export const AgentBrowserBridgeMethods23 = {
       this.pendingSessionCreation.delete(sessionName)
     }
   },
-  async restartSessionForTarget(this: any,
+  async restartSessionForTarget(
+    this: any,
     sessionName: string,
     browserPageId: string,
     webContentsId: number,

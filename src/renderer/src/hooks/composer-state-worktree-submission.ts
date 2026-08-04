@@ -7,8 +7,6 @@ import { buildAgentPromptWithContext, canUseIssueCommandForLinkedItemProvider, D
 import { getLinkedWorkItemPromptContext } from '@/lib/linked-work-item-context'
 import { buildAgentStartupPlan } from '@/lib/tui-agent-startup'
 import { resolveTuiAgentLaunchArgs, resolveTuiAgentLaunchEnv } from '../../../shared/tui-agent-launch-defaults'
-import { resolveNativeChatSessionOptionDefaults } from '../../../shared/native-chat-session-option-defaults'
-import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/native-chat-session-option-cache'
 import { tuiAgentToAgentKind } from '@/lib/telemetry'
 import { ensureAgentStartupInTerminal } from '@/lib/new-workspace'
 import { ensureHooksConfirmed } from '@/lib/ensure-hooks-confirmed'
@@ -293,10 +291,6 @@ export function useComposerWorktreeSubmission(context: any) {
         cmdOverrides: settings?.agentCmdOverrides ?? {},
         agentArgs: resolveTuiAgentLaunchArgs(tuiAgent, settings?.agentDefaultArgs),
         agentEnv: resolveTuiAgentLaunchEnv(tuiAgent, settings?.agentDefaultEnv),
-        sessionOptions: resolveNativeChatSessionOptionDefaults(
-          settings?.nativeChatSessionOptions,
-          tuiAgent
-        ),
         platform: selectedRepoAgentLaunchPlatform,
         shell: selectedRepoStartupShell,
         isRemote: selectedRepoIsRemote
@@ -417,13 +411,6 @@ export function useComposerWorktreeSubmission(context: any) {
             }
           : {})
       })
-      if (startupPlan) {
-        const optionScopeKey =
-          (activation !== false ? activation.primaryTabId : null) ?? result.startupTerminal?.tabId
-        if (optionScopeKey) {
-          seedNativeChatAppliedSessionOptions(optionScopeKey, tuiAgent, startupPlan.sessionOptions)
-        }
-      }
       if (startupPlan && !backendSpawnedStartup) {
         void ensureAgentStartupInTerminal({
           worktreeId: worktree.id,
@@ -485,7 +472,6 @@ export function useComposerWorktreeSubmission(context: any) {
     settings?.agentDefaultArgs,
     settings?.agentDefaultEnv,
     settings?.autoRenameBranchFromWork,
-    settings?.nativeChatSessionOptions,
     smartNameMode,
     setSidebarOpen,
     setupDecision,

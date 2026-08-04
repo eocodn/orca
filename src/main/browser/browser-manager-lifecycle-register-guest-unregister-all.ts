@@ -1,20 +1,22 @@
-
 import { webContents } from 'electron'
 import { browserDownloadDestinationReservations } from './browser-download-destination'
 
-import * as foundation from './browser-manager-lifecycle-foundation'
+import type * as foundation from './browser-manager-lifecycle-foundation'
 type BrowserGuestRegistration = foundation.BrowserGuestRegistration
 
 export const BrowserManagerMethods5 = {
-  registerGuest(this: any, {
-    browserPageId,
-    browserTabId: legacyBrowserTabId,
-    workspaceId,
-    worktreeId,
-    sessionProfileId,
-    webContentsId,
-    rendererWebContentsId
-  }: BrowserGuestRegistration): boolean {
+  registerGuest(
+    this: any,
+    {
+      browserPageId,
+      browserTabId: legacyBrowserTabId,
+      workspaceId,
+      worktreeId,
+      sessionProfileId,
+      webContentsId,
+      rendererWebContentsId
+    }: BrowserGuestRegistration
+  ): boolean {
     const browserTabId = browserPageId ?? legacyBrowserTabId
     if (!browserTabId) {
       return false
@@ -117,17 +119,20 @@ export const BrowserManagerMethods5 = {
     this.viewportOpsByTabId.delete(browserTabId)
     this.annotationViewportBridgeOpsByTabId.delete(browserTabId)
   },
-  registerOffscreenGuest(this: any, {
-    browserPageId,
-    worktreeId,
-    sessionProfileId,
-    webContentsId
-  }: {
-    browserPageId: string
-    worktreeId?: string
-    sessionProfileId?: string | null
-    webContentsId: number
-  }): void {
+  registerOffscreenGuest(
+    this: any,
+    {
+      browserPageId,
+      worktreeId,
+      sessionProfileId,
+      webContentsId
+    }: {
+      browserPageId: string
+      worktreeId?: string
+      sessionProfileId?: string | null
+      webContentsId: number
+    }
+  ): void {
     const guest = webContents.fromId(webContentsId)
     if (!guest || guest.isDestroyed()) {
       return

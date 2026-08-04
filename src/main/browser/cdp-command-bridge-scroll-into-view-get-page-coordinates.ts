@@ -1,57 +1,4 @@
-import { webContents } from 'electron'
-import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
-} from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-
-import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
+import type { CdpCommandSender, RefEntry } from './snapshot-engine'
 
 export const CdpBridgeMethods14 = {
   async scrollIntoView(this: any, sender: CdpCommandSender, backendNodeId: number): Promise<void> {
@@ -63,8 +10,9 @@ export const CdpBridgeMethods14 = {
       objectId: object.objectId,
       functionDeclaration: `function() { this.scrollIntoView({ block: 'center', inline: 'center' }); }`
     })
-  }
-  async getElementCenter(this: any,
+  },
+  async getElementCenter(
+    this: any,
     sender: CdpCommandSender,
     backendNodeId: number
   ): Promise<{ cx: number; cy: number }> {
@@ -73,8 +21,9 @@ export const CdpBridgeMethods14 = {
     }
     const [x1, y1, , , x3, y3] = model.content
     return { cx: (x1 + x3) / 2, cy: (y1 + y3) / 2 }
-  }
-  async getIframeOffset(this: any,
+  },
+  async getIframeOffset(
+    this: any,
     guest: Electron.WebContents,
     sessionId: string
   ): Promise<{ offsetX: number; offsetY: number }> {
@@ -139,8 +88,9 @@ export const CdpBridgeMethods14 = {
     }
 
     return { offsetX: 0, offsetY: 0 }
-  }
-  async getPageCoordinates(this: any,
+  },
+  async getPageCoordinates(
+    this: any,
     guest: Electron.WebContents,
     refEntry: RefEntry,
     localCx: number,

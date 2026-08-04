@@ -172,7 +172,7 @@ export function createPtyRendererPendingQueue(
     const nextContainsBackgroundOutput =
       existing?.containsBackgroundOutput === true || containsBackgroundOutput
     if (!existing) {
-      const pending = preservePtyIncarnationId(
+      const pending = preservePtyIncarnationId<PendingPtyData>(
         {
           data,
           ...(typeof startSeq === 'number' ? { startSeq } : {}),
@@ -186,7 +186,7 @@ export function createPtyRendererPendingQueue(
       return dropOversizedPendingPtyData(id, pending)
     }
     const existingRawLength = existing.rawLength ?? existing.data.length
-    const next = preservePtyIncarnationId(
+    const next = preservePtyIncarnationId<PendingPtyData>(
       {
         data: existing.data + data,
         ...(!preservesSeq || existing.transformed || transformed

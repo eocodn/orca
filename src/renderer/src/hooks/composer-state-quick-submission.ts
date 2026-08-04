@@ -7,8 +7,6 @@ import { buildAgentPromptWithContext, canUseIssueCommandForLinkedItemProvider, D
 import { getLinkedWorkItemPromptContext, resolveQuickCreateLinkedWorkItemPrompt } from '@/lib/linked-work-item-context'
 import { buildAgentDraftLaunchPlan, buildAgentStartupPlan } from '@/lib/tui-agent-startup'
 import { resolveTuiAgentLaunchArgs, resolveTuiAgentLaunchEnv } from '../../../shared/tui-agent-launch-defaults'
-import { resolveNativeChatSessionOptionDefaults } from '../../../shared/native-chat-session-option-defaults'
-import { seedNativeChatAppliedSessionOptions } from '@/components/native-chat/native-chat-session-option-cache'
 import { tuiAgentToAgentKind } from '@/lib/telemetry'
 import { ensureAgentStartupInTerminal } from '@/lib/new-workspace'
 import { ensureHooksConfirmed } from '@/lib/ensure-hooks-confirmed'
@@ -282,10 +280,6 @@ export function useComposerQuickSubmission(context: any) {
                 cmdOverrides: settings?.agentCmdOverrides ?? {},
                 agentArgs: resolveTuiAgentLaunchArgs(agent, settings?.agentDefaultArgs),
                 agentEnv: resolveTuiAgentLaunchEnv(agent, settings?.agentDefaultEnv),
-                sessionOptions: resolveNativeChatSessionOptionDefaults(
-                  settings?.nativeChatSessionOptions,
-                  agent
-                ),
                 platform: selectedRepoAgentLaunchPlatform,
                 shell: selectedRepoStartupShell,
                 isRemote: selectedRepoIsRemote
@@ -299,9 +293,6 @@ export function useComposerQuickSubmission(context: any) {
             expectedProcess: draftLaunchPlan.expectedProcess,
             followupPrompt: null,
             launchConfig: draftLaunchPlan.launchConfig,
-            ...(draftLaunchPlan.sessionOptions
-              ? { sessionOptions: draftLaunchPlan.sessionOptions }
-              : {}),
             ...(draftLaunchPlan.startupCommandDelivery
               ? { startupCommandDelivery: draftLaunchPlan.startupCommandDelivery }
               : {}),
@@ -314,10 +305,6 @@ export function useComposerQuickSubmission(context: any) {
             cmdOverrides: settings?.agentCmdOverrides ?? {},
             agentArgs: resolveTuiAgentLaunchArgs(agent, settings?.agentDefaultArgs),
             agentEnv: resolveTuiAgentLaunchEnv(agent, settings?.agentDefaultEnv),
-            sessionOptions: resolveNativeChatSessionOptionDefaults(
-              settings?.nativeChatSessionOptions,
-              agent
-            ),
             platform: selectedRepoAgentLaunchPlatform,
             shell: selectedRepoStartupShell,
             isRemote: selectedRepoIsRemote,
@@ -507,7 +494,6 @@ export function useComposerQuickSubmission(context: any) {
       settings?.agentDefaultArgs,
       settings?.agentDefaultEnv,
       settings?.autoRenameBranchFromWork,
-      settings?.nativeChatSessionOptions,
       smartNameMode,
       sourceIntentBlocksCreate,
       disabledTuiAgents,

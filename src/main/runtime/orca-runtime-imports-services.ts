@@ -108,11 +108,6 @@ export {
   type RuntimeClientSettings
 } from './runtime-client-settings-commands'
 export {
-  RuntimeAutomationCommands,
-  type RuntimeAutomationCreateInput,
-  type RuntimeAutomationUpdateInput
-} from './runtime-automation-commands'
-export {
   PtyLayoutQueue,
   type ApplyLayoutResult,
   type PtyLayoutState,

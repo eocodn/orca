@@ -1,5 +1,5 @@
-import { type HistoryCheckpointResult } from './history-manager'
-import { type GetSnapshotResult, type TakePendingOutputResult } from './types'
+import type { HistoryCheckpointResult } from './history-manager'
+import type { GetSnapshotResult, TakePendingOutputResult } from './types'
 
 
 import { MAX_CONCURRENT_CHECKPOINTS, isDaemonGoneError, isMissingTokenFileError } from './daemon-pty-adapter-foundation'

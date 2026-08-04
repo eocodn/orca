@@ -1,13 +1,14 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import {
   TerminalStreamOpcode,
   encodeTerminalStreamJson
 } from '../../../../shared/terminal-stream-protocol'
 import type { TerminalReplyQuerySequence } from '../../../../shared/terminal-reply-query-scan'
-import { TerminalSubscribe } from './terminal-schemas'
+import type { TerminalSubscribe } from './terminal-schemas'
+import type {
+  createTerminalOutputBatcher} from './terminal-stream-state';
 import {
-  createTerminalOutputBatcher,
   getOutputAfterSnapshotSeq,
   isTerminalReadPayloadIncomplete,
   stripSnapshotBoundaryQuerySuffixes,

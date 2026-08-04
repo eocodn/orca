@@ -1,10 +1,5 @@
-import type {
-  BrowserNetworkEntry,
-} from '../../shared/runtime-types'
-import {
-  type CdpCommandSender,
-  type RefEntry,
-} from './snapshot-engine'
+import type { BrowserNetworkEntry } from '../../shared/runtime-types'
+import type { CdpCommandSender, RefEntry } from './snapshot-engine'
 import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 
 import * as foundation from './cdp-command-bridge-foundation'
@@ -222,7 +217,8 @@ export const CdpBridgeMethods13 = {
   senderForRef(this: any, guest: Electron.WebContents, ref: RefEntry): CdpCommandSender {
     return ref.sessionId ? this.makeCdpSender(guest, ref.sessionId) : this.makeCdpSender(guest)
   },
-  async resolveRef(this: any,
+  async resolveRef(
+    this: any,
     guest: Electron.WebContents,
     sender: CdpCommandSender,
     ref: string

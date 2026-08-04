@@ -48,7 +48,6 @@ export function discoverProfiles(browserRoot: string): BrowserProfile[] {
 // Firefox detection
 // ---------------------------------------------------------------------------
 
-
 export function firefoxProfilesRoot(): string | null {
   if (process.platform === 'darwin') {
     const home = process.env.HOME ?? ''
@@ -61,7 +60,6 @@ export function firefoxProfilesRoot(): string | null {
   const home = process.env.HOME ?? ''
   return join(home, '.mozilla', 'firefox')
 }
-
 
 export function discoverFirefoxProfiles(): BrowserProfile[] {
   const profilesRoot = firefoxProfilesRoot()

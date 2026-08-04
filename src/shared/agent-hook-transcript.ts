@@ -1,8 +1,21 @@
 import { createHash } from 'node:crypto'
+import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
-import { readSync, statSync } from 'node:fs'
+import { closeSync, openSync, readSync, statSync } from 'node:fs'
 import type { AgentHookSource } from './agent-hook-relay'
 import { readFirstString } from './agent-hook-prompt-tools'
+import { parseAgentHookJson } from './agent-hook-request-body'
+import { isAntigravityStopStillBusy } from './agent-hook-source-tools'
+import { isGrokEvent } from './agent-hook-provider-tools'
+import {
+  GROK_SESSION_ID_MAX_LENGTH,
+  buildGrokChatHistoryPathCandidates,
+  findGrokChatHistoryBySessionId,
+  getCachedGrokChatHistoryBySessionId,
+  isSafeGrokSessionId,
+  resolveGrokChatHistoryPathSync,
+  resolveGrokSessionsDir
+} from './grok-session-paths'
 
 export const TRANSCRIPT_CHUNK_BYTES = 64 * 1024
 export const TRANSCRIPT_MAX_SCAN_BYTES = 4 * 1024 * 1024

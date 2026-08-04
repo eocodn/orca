@@ -1,7 +1,10 @@
 import { appendFileSync } from 'node:fs'
 
 // Why: write the diag log to userData, not world-readable /tmp, so only the current user can read it.
-import { getDiagLogPath, COOKIE_IMPORT_ERROR_SUMMARY_MAX_CHARS } from './browser-cookie-import-pipeline-diag-log-cookie-import-error-summary-max-chars'
+import {
+  getDiagLogPath,
+  COOKIE_IMPORT_ERROR_SUMMARY_MAX_CHARS
+} from './browser-cookie-import-pipeline-diag-log-cookie-import-error-summary-max-chars'
 
 export const COOKIE_IMPORT_ERROR_SCAN_MAX_CHARS = 512
 
@@ -43,7 +46,6 @@ export function diag(msg: string): void {
 // ---------------------------------------------------------------------------
 // Browser detection
 // ---------------------------------------------------------------------------
-
 
 export type BrowserProfile = {
   name: string

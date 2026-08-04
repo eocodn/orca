@@ -1,15 +1,15 @@
-import { execFile,type ExecFileOptions } from 'node:child_process'
+import { execFile, type ExecFileOptions } from 'node:child_process'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
 import { loadGitHistoryFromExecutor } from '../shared/git-history'
-import { capGitStatusEntries,resolveGitStatusLimit } from '../shared/git-status-limit'
+import { capGitStatusEntries, resolveGitStatusLimit } from '../shared/git-status-limit'
 import { clearGitStatusLineStatsCache } from '../shared/git-status-line-stats-cache'
 import { stableInFlightKey } from '../shared/in-flight-promise-dedupe'
 import { endSubprocessStdin } from '../shared/subprocess-stdin-write'
 import { expandTilde } from './context'
 import type { RequestContext } from './dispatcher'
 import { checkIgnoredPathsOp } from './git-handler-check-ignore'
-import { computeDiff,type GitExec } from './git-handler-ops'
+import { computeDiff, type GitExec } from './git-handler-ops'
 import { getStatusOp } from './git-handler-status-ops'
 import {
   buildSubmoduleInnerCommitRangeDiff,
@@ -24,7 +24,7 @@ import {
 import { commitChangesRelay } from './git-handler-worktree-ops'
 import { streamRelayGitStdout } from './git-stdout-stream'
 import { GIT_RESPONSE_STREAM_THRESHOLD } from './protocol'
-import { buildRelayGitEnv,buildRelayUnattendedGitEnv } from './relay-command-env'
+import { buildRelayGitEnv, buildRelayUnattendedGitEnv } from './relay-command-env'
 
 const execFileAsync = promisify(execFile)
 const MAX_GIT_BUFFER = 10 * 1024 * 1024
@@ -518,5 +518,4 @@ export abstract class GitHandlerStage1 extends GitHandler {
       this.clearGitMutationReadCaches()
     }
   }
-
 }

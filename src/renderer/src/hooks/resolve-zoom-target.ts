@@ -8,7 +8,6 @@ export function resolveZoomTarget(args: {
     | 'settings'
     | 'tasks'
     | 'activity'
-    | 'automations'
     | 'space'
     | 'skills'
     | 'mobile'

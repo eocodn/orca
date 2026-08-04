@@ -16,7 +16,7 @@ type RendererDeliveryRecoveryOptions = {
   runtime: PtyRendererDeliveryContext['runtime']
   mainWindow: PtyRendererDeliveryContext['mainWindow']
   mainDeliveryBreadcrumbs: PtyRuntimeState['mainDeliveryBreadcrumbs']
-  readCurrentPtyRendererDeliveryDebugSnapshot: () => unknown
+  readCurrentPtyRendererDeliveryDebugSnapshot: () => Record<string, unknown>
   deletePendingPtyData: (id: string) => void
   updateProducerFlowControl: (id: string) => void
 }

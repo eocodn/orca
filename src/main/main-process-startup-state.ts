@@ -1,35 +1,34 @@
 import type { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
-import { Store } from './persistence'
-import { StatsCollector } from './stats/collector'
-import { ClaudeUsageStore } from './claude-usage/store'
-import { CodexUsageStore } from './codex-usage/store'
-import { OpenCodeUsageStore } from './opencode-usage/store'
-import { CodexAccountService } from './codex-accounts/service'
-import { CodexRuntimeHomeService } from './codex-accounts/runtime-home-service'
-import { ClaudeAccountService } from './claude-accounts/service'
-import { ClaudeRuntimeAuthService } from './claude-accounts/runtime-auth-service'
-import { OrcaRuntimeService } from './runtime/orca-runtime'
-import { OrcaRuntimeRpcServer } from './runtime/runtime-rpc'
+import type { Store } from './persistence'
+import type { StatsCollector } from './stats/collector'
+import type { ClaudeUsageStore } from './claude-usage/store'
+import type { CodexUsageStore } from './codex-usage/store'
+import type { OpenCodeUsageStore } from './opencode-usage/store'
+import type { CodexAccountService } from './codex-accounts/service'
+import type { CodexRuntimeHomeService } from './codex-accounts/runtime-home-service'
+import type { ClaudeAccountService } from './claude-accounts/service'
+import type { ClaudeRuntimeAuthService } from './claude-accounts/runtime-auth-service'
+import type { OrcaRuntimeService } from './runtime/orca-runtime'
+import type { OrcaRuntimeRpcServer } from './runtime/runtime-rpc'
 import { ServeReadinessPublisher } from './server/serve-readiness'
-import { DesktopRelayService } from './runtime/relay/desktop-relay-service'
+import type { DesktopRelayService } from './runtime/relay/desktop-relay-service'
 import type { RelayBrokerStatus } from './runtime/relay/relay-session-broker'
-import { RateLimitService } from './rate-limits/service'
-import { AutomationService } from './automations/service'
-import { AgentAwakeService } from './agent-awake-service'
-import { StarNagService } from './star-nag/service'
-import { KeybindingService } from './keybindings/keybinding-service'
-import { PluginService } from './plugins/plugin-service'
-import { PluginKillListService } from './plugins/plugin-kill-list-service'
-import { PluginMarketplaceService } from './plugins/plugin-marketplace-service'
-import { PluginMarketplaceInstaller } from './plugins/plugin-marketplace-installer'
-import { CrashReportStore } from './crash-reporting/crash-report-store'
+import type { RateLimitService } from './rate-limits/service'
+import type { AgentAwakeService } from './agent-awake-service'
+import type { StarNagService } from './star-nag/service'
+import type { KeybindingService } from './keybindings/keybinding-service'
+import type { PluginService } from './plugins/plugin-service'
+import type { PluginKillListService } from './plugins/plugin-kill-list-service'
+import type { PluginMarketplaceService } from './plugins/plugin-marketplace-service'
+import type { PluginMarketplaceInstaller } from './plugins/plugin-marketplace-installer'
+import type { CrashReportStore } from './crash-reporting/crash-report-store'
 import {
   DEFAULT_GPU_CRASH_FALLBACK_THRESHOLD,
   DEFAULT_GPU_CRASH_FALLBACK_WINDOW_MS,
   GpuCrashFallbackTracker
 } from './crash-reporting/gpu-crash-fallback-decision'
-import { createServeDesktopActivationGate } from './startup/serve-desktop-activation'
+import type { createServeDesktopActivationGate } from './startup/serve-desktop-activation'
 import { getDevInstanceIdentity } from './startup/dev-instance-identity'
 import { isQuittingForUpdate } from './updater'
 import type { ExpectedTeardownScope } from './crash-reporting/process-gone-classification'
@@ -97,7 +96,6 @@ export const startupState = {
   unsubscribeSystemResumeBroadcast: null as (() => void) | null,
   watcherShutdownPromise: null as Promise<void> | null,
   watcherShutdownDone: false,
-  automations: null as AutomationService | null,
   pluginService: null as PluginService | null,
   pluginKillListService: null as PluginKillListService | null,
   pluginMarketplaceService: null as PluginMarketplaceService | null,

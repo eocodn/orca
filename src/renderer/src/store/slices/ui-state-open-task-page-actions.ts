@@ -2,8 +2,7 @@
 import type { AppState } from '../types'
 import { normalizeRightSidebarRoute } from '../right-sidebar-route'
 import {
-  findPrevLiveNonTaskStackHistoryIndex,
-  findPrevLiveWorktreeHistoryIndex
+  findPrevLiveNonTaskStackHistoryIndex
 } from './worktree-nav-history'
 import type {
   ChangelogData,
@@ -328,34 +327,6 @@ export function createUISliceOpenTaskPageActions2(set: SliceSet, get: SliceGet) 
     set((state) => ({
       activeView: state.previousViewBeforeActivity
     })),
-  selectedAutomationId: null,
-  setSelectedAutomationId: (id) => set({ selectedAutomationId: id }),
-  pendingAutomationRunNavigation: null,
-  setPendingAutomationRunNavigation: (navigation) =>
-    set({ pendingAutomationRunNavigation: navigation }),
-  openAutomationsPage: () => {
-    get().recordViewVisit('automations')
-    set((state) => ({
-      activeView: 'automations',
-      previousViewBeforeAutomations:
-        state.activeView === 'automations' ? state.previousViewBeforeAutomations : state.activeView
-    }))
-  },
-  closeAutomationsPage: () =>
-    set((state) => {
-      const currentEntry = state.worktreeNavHistory[state.worktreeNavHistoryIndex]
-      let nextHistoryIndex = state.worktreeNavHistoryIndex
-      if (currentEntry === 'automations') {
-        const prev = findPrevLiveWorktreeHistoryIndex(state)
-        if (prev !== null) {
-          nextHistoryIndex = prev
-        }
-      }
-      return {
-        activeView: state.previousViewBeforeAutomations,
-        worktreeNavHistoryIndex: nextHistoryIndex
-      }
-    }),
   openSpacePage: () => {
     get().recordFeatureInteraction?.('workspace-cleanup')
     set((state) => ({

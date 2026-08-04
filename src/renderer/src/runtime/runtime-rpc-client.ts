@@ -8,6 +8,7 @@ import { callRuntimeEnvironmentWithRevision } from './runtime-rpc-environment-ca
 import { RuntimeRpcCallError, unwrapRuntimeRpcResult } from './runtime-rpc-result'
 import { captureRuntimeEnvironmentRequestRevision } from './runtime-environment-revision'
 import type { RuntimeClientTarget } from './runtime-client-target'
+import { getClientRuntime } from './client-runtime'
 
 export {
   getActiveRuntimeTarget,
@@ -77,7 +78,7 @@ export async function callRuntimeRpc<TResult>(
     : params
   const response =
     target.kind === 'local'
-      ? await window.api.runtime.call({ method, params: nextParams })
+      ? await getClientRuntime().runtime.call({ method, params: nextParams })
       : await callRuntimeEnvironmentWithRevision({
           environmentId: target.environmentId,
           method,
@@ -110,7 +111,7 @@ async function ensureRuntimeEnvironmentCompatible(
     statusCheckedAt: null
   }
   const check = (async () => {
-    const response = await window.api.runtimeEnvironments.call({
+    const response = await getClientRuntime().remoteHost.call({
       selector: environmentId,
       method: 'status.get',
       timeoutMs: options.timeoutMs,
@@ -243,7 +244,7 @@ export async function getRuntimeEnvironmentStatus(
   // capability lookups coalesce onto this one status.get (via the cache-hit path
   // in runtimeEnvironmentSupportsCapability) instead of each firing their own.
   const check = (async () => {
-    const response = await window.api.runtimeEnvironments.call({
+    const response = await getClientRuntime().remoteHost.call({
       selector: trimmed,
       method: 'status.get',
       timeoutMs

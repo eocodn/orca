@@ -23,6 +23,7 @@ import {
 } from './worktree-ipc-removal-runtime'
 import type { RemoveWorktreeArgs } from './worktree-ipc-foundation'
 import { getRepoForWorktreeRemoval } from './worktree-ipc-foundation'
+import type { ForceDeleteWorktreeBranchResult } from '../../shared/types-hooks'
 
 export function registerWorktreeRemovalCleanupHandlers({
   mainWindow,

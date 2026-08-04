@@ -1,7 +1,7 @@
 import type { PendingPtyData } from './pty-pending-data-drain-queue'
 
 export function canCoalescePtyData(
-  existing: Pick<PendingPtyData, 'incarnationId'>,
+  existing: Pick<PendingPtyData, 'incarnationId'> | PendingPtyData,
   incarnationId?: string
 ): boolean {
   return existing.incarnationId === incarnationId

@@ -158,7 +158,6 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'activity'
-    | 'automations'
     | 'space'
     | 'skills'
     | 'mobile';
@@ -166,7 +165,6 @@ export type UISlice = {
     | 'terminal'
     | 'tasks'
     | 'activity'
-    | 'automations'
     | 'space'
     | 'skills'
     | 'mobile';
@@ -174,15 +172,6 @@ export type UISlice = {
     | 'terminal'
     | 'settings'
     | 'tasks'
-    | 'automations'
-    | 'space'
-    | 'skills'
-    | 'mobile';
-  previousViewBeforeAutomations:
-    | 'terminal'
-    | 'settings'
-    | 'tasks'
-    | 'activity'
     | 'space'
     | 'skills'
     | 'mobile';
@@ -191,7 +180,6 @@ export type UISlice = {
     | 'settings'
     | 'tasks'
     | 'activity'
-    | 'automations'
     | 'skills'
     | 'mobile';
   previousViewBeforeSkills:
@@ -199,7 +187,6 @@ export type UISlice = {
     | 'settings'
     | 'tasks'
     | 'activity'
-    | 'automations'
     | 'space'
     | 'mobile';
   previousViewBeforeMobile:
@@ -207,7 +194,6 @@ export type UISlice = {
     | 'settings'
     | 'tasks'
     | 'activity'
-    | 'automations'
     | 'space'
     | 'skills';
   setActiveView: (view: UISlice['activeView']) => void;
@@ -272,18 +258,6 @@ export type UISlice = {
   closeTaskPage: () => void;
   openActivityPage: () => void;
   closeActivityPage: () => void;
-  selectedAutomationId: string | null;
-  setSelectedAutomationId: (id: string | null) => void;
-  pendingAutomationRunNavigation: {
-    automationId: string
-    runId: string | null
-    hostId?: ExecutionHostId
-  } | null;
-  setPendingAutomationRunNavigation: (
-    navigation: { automationId: string; runId: string | null; hostId?: ExecutionHostId } | null
-  ) => void;
-  openAutomationsPage: () => void;
-  closeAutomationsPage: () => void;
   openSpacePage: () => void;
   closeSpacePage: () => void;
   openSkillsPage: () => void;
@@ -410,8 +384,6 @@ export type UISlice = {
   manualRepoOrder: ManualRepoOrderEntry[];
   hideDefaultBranchWorkspace: boolean;
   setHideDefaultBranchWorkspace: (v: boolean) => void;
-  hideAutomationGeneratedWorkspaces: boolean;
-  setHideAutomationGeneratedWorkspaces: (v: boolean) => void;
   hideCliCreatedWorkspaces: boolean;
   setHideCliCreatedWorkspaces: (v: boolean) => void;
   hideDetachedHeadWorkspaces: boolean;

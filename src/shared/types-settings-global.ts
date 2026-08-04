@@ -5,7 +5,6 @@ import type { GitLabProjectSettings } from './gitlab-types'
 import type { GitHubProjectSettings } from './github-project-types'
 import type { GlobalWindowsRuntimeDefault } from './project-execution-runtime'
 import type { KeybindingOverrides, TerminalShortcutPolicy } from './keybinding-contract'
-import type { PersistedNativeChatSessionOptions } from './native-chat-session-options'
 import type { SourceControlAiSettings } from './source-control-ai-types'
 import type { UiLanguage } from './ui-language'
 import type {
@@ -183,12 +182,6 @@ export type GlobalSettings = {
   openLinksInAppPreferencePrompted: boolean
   /** Opt-in: Shift+modifier click inverts openLinksInApp instead of always forcing the system browser. Off keeps the historical one-way escape hatch. */
   openLinksInAppModifierInverts?: boolean
-  /** Opt-in: open new coding-agent tabs in native chat instead of the raw terminal; optional for legacy settings. */
-  openAgentTabsInChatByDefault?: boolean
-  /** Experimental native chat surface for Claude/Codex sessions; off by default. */
-  experimentalNativeChat?: boolean
-  /** Last explicit native-chat model + option selections; live panes need an applied/dispatched record before showing a value. */
-  nativeChatSessionOptions?: PersistedNativeChatSessionOptions
   /** Extra launcher rows for the worktree "Open in" submenu. VS Code is always shown first. */
   openInApplications?: OpenInApplication[]
   /** Deprecated: migration/backward-compat only. Use PersistedUIState.rightSidebarOpen. */
@@ -204,8 +197,6 @@ export type GlobalSettings = {
   showTitlebarAppName: boolean
   /** Hides the Tasks sidebar button (also removes it from keyboard navigation). */
   showTasksButton: boolean
-  /** Only toggles the sidebar shortcut; Automations stay reachable from Settings/View menu. */
-  showAutomationsButton?: boolean
   /** Only toggles the sidebar shortcut; Orca Mobile stays reachable from Settings. */
   showMobileButton?: boolean
   /** Pinned workspaces show in one sidebar location by default; opt in to also show them in their natural groups. */
@@ -286,8 +277,6 @@ export type GlobalSettings = {
   skipDeleteWorktreeConfirm: boolean
   /** Why: closing a terminal with child processes kills foreground work; keep this skip separate from other confirmations. */
   skipCloseTerminalWithRunningProcessConfirm: boolean
-  /** Why: deleting an automation also deletes its run history; keep this skip separate from worktree deletion. */
-  skipDeleteAutomationConfirm: boolean
   /** Why: a Codex rate-limit reset spends a scarce credit on the live account; keep this skip separate from local confirmations. */
   skipCodexRateLimitResetConfirm: boolean
   /** Default preset in the new-workspace GitHub task view. */

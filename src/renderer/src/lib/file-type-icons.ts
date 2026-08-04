@@ -313,10 +313,6 @@ export function getFileTypeIcon(filePath: string | undefined | null): LucideIcon
     return exactMatch
   }
 
-  // Why: simulator tabs reuse EditorFileTab chrome with a synthetic label path.
-  if (lowerName === 'mobile emulator' || lowerName === 'simulator') {
-    return Smartphone
-  }
 
   if (lowerName === '.env' || lowerName.startsWith('.env.')) {
     return FileLock

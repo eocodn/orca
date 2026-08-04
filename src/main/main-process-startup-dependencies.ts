@@ -227,9 +227,6 @@ export { browserCertificateTrustController, browserManager } from './browser/bro
 export { OffscreenBrowserBackend } from './browser/offscreen-browser-backend'
 export { initializeBrowserSessionsForApp } from './browser/browser-session-startup'
 export { setUnreadDockBadgeCount } from './dock/unread-badge'
-export { AutomationService } from './automations/service'
-export { createHeadlessAutomationOutputSnapshotBuffer } from './automations/headless-dispatch'
-export { buildHeadlessAutomationWorktreeCreateArgs } from './automations/headless-workspace-create'
 export { AgentAwakeService } from './agent-awake-service'
 export { registerSystemResumeBroadcast } from './system-resume-broadcast'
 export {

@@ -206,19 +206,6 @@ export function createWorktreeSliceRemoveWorktreeActions5(set: SliceSet, get: Sl
       // Why: invalidate stale probes once deletion is authoritative, so an old toast can't mutate a same-path replacement.
       forgetHugeRepoWarningDismissalsForWorktrees([worktreeId])
 
-      const worktreeDisplayName = worktreeBeforeRemoval?.displayName?.trim()
-      if (worktreeDisplayName) {
-        try {
-          await window.api.automations?.snapshotWorkspaceName?.({
-            workspaceId: worktreeId,
-            displayName: worktreeDisplayName
-          })
-        } catch (error) {
-          // Why: snapshotting automation labels is best-effort; a stale preload/test harness must not block removal.
-          console.warn('Failed to snapshot automation workspace name:', error)
-        }
-      }
-
       // Why: renderer state follows the successful backend result, so blocked dirty deletes keep their terminals intact.
       // Why browsers first: unregister Chromium guests before other teardown can intercept them (avoids a browser-state race).
       await get().shutdownWorktreeBrowsers(worktreeId)
@@ -255,8 +242,6 @@ export function createWorktreeSliceRemoveWorktreeActions5(set: SliceSet, get: Sl
         const nextAutomaticAgentResumeClaimsByTabId = {
           ...s.automaticAgentResumeClaimsByTabId
         }
-        const nextNativeChatLaunchPromptByTabId = { ...s.nativeChatLaunchPromptByTabId }
-        const nextNativeChatLaunchDraftByTabId = { ...s.nativeChatLaunchDraftByTabId }
         // Why: closeTab deletes these per-tab maps but removeWorktree missed them, leaking a split pane's expand flags.
         const nextExpandedPaneByTabId = { ...s.expandedPaneByTabId }
         const nextCanExpandPaneByTabId = { ...s.canExpandPaneByTabId }
@@ -265,8 +250,6 @@ export function createWorktreeSliceRemoveWorktreeActions5(set: SliceSet, get: Sl
           delete nextPtyIdsByTabId[tabId]
           delete nextRuntimePaneTitlesByTabId[tabId]
           delete nextAutomaticAgentResumeClaimsByTabId[tabId]
-          delete nextNativeChatLaunchPromptByTabId[tabId]
-          delete nextNativeChatLaunchDraftByTabId[tabId]
           delete nextExpandedPaneByTabId[tabId]
           delete nextCanExpandPaneByTabId[tabId]
         }
@@ -397,8 +380,6 @@ export function createWorktreeSliceRemoveWorktreeActions5(set: SliceSet, get: Sl
           ptyIdsByTabId: nextPtyIdsByTabId,
           runtimePaneTitlesByTabId: nextRuntimePaneTitlesByTabId,
           automaticAgentResumeClaimsByTabId: nextAutomaticAgentResumeClaimsByTabId,
-          nativeChatLaunchPromptByTabId: nextNativeChatLaunchPromptByTabId,
-          nativeChatLaunchDraftByTabId: nextNativeChatLaunchDraftByTabId,
           terminalLayoutsByTabId: nextLayouts,
           expandedPaneByTabId: nextExpandedPaneByTabId,
           canExpandPaneByTabId: nextCanExpandPaneByTabId,

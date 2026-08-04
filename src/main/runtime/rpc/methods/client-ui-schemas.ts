@@ -188,7 +188,6 @@ const UiUpdateFields = z
         'settings',
         'tasks',
         'activity',
-        'automations',
         'space',
         'skills',
         'mobile'
@@ -216,7 +215,6 @@ const UiUpdateFields = z
       .array(z.object({ hostId: z.string(), repoId: z.string() }).strict())
       .optional(),
     hideDefaultBranchWorkspace: z.boolean().optional(),
-    hideAutomationGeneratedWorkspaces: z.boolean().optional(),
     // Why: rides App.tsx's debounced writer, so omitting it rejected that entire
     // payload (sidebar widths, filters, agent acks) for every paired client.
     showDotfilesByWorktree: z.record(z.string(), z.boolean()).optional(),

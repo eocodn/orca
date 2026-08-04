@@ -12,8 +12,9 @@ import { resolveSetupAgentSequenceLaunchCommand } from '../../shared/setup-agent
 import { mergePersistedWindowsPath } from '../pty/windows-environment-path'
 import { isPiCompatibleAgentType, detectExplicitPiAgentKindFromCommand } from '../../shared/pi-agent-kind'
 import { AGENT_HOOK_RUNTIME_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
+import type {
+  BuildPtyHostEnvOptions} from './pty-ipc-runtime-host-env-foundation';
 import {
-  BuildPtyHostEnvOptions,
   clearPiAgentShadowEnv,
   exposePiManagedExtensionEnv,
   isMimoLaunchCommand,

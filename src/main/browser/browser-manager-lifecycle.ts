@@ -90,7 +90,6 @@ export class BrowserManager {
   private settingsResolver:
     | (() => {
         keybindings?: KeybindingOverrides
-        mobileEmulatorEnabled?: boolean
       })
     | null = null
   private readonly webContentsIdByTabId = new Map<string, number>()
@@ -164,26 +163,7 @@ export class BrowserManager {
   }
 }
 
-export interface BrowserManager
-  extends
-    BrowserManagerMethods1Surface,
-    BrowserManagerMethods2Surface,
-    BrowserManagerMethods3Surface,
-    BrowserManagerMethods4Surface,
-    BrowserManagerMethods5Surface,
-    BrowserManagerMethods6Surface,
-    BrowserManagerMethods7Surface,
-    BrowserManagerMethods8Surface,
-    BrowserManagerMethods9Surface,
-    BrowserManagerMethods10Surface,
-    BrowserManagerMethods11Surface,
-    BrowserManagerMethods12Surface,
-    BrowserManagerMethods13Surface,
-    BrowserManagerMethods14Surface,
-    BrowserManagerMethods15Surface,
-    BrowserManagerMethods16Surface,
-    BrowserManagerMethods17Surface,
-    BrowserManagerMethods18Surface {}
+export interface BrowserManager extends BrowserManagerMethods1Surface, BrowserManagerMethods2Surface, BrowserManagerMethods3Surface, BrowserManagerMethods4Surface, BrowserManagerMethods5Surface, BrowserManagerMethods6Surface, BrowserManagerMethods7Surface, BrowserManagerMethods8Surface, BrowserManagerMethods9Surface, BrowserManagerMethods10Surface, BrowserManagerMethods11Surface, BrowserManagerMethods12Surface, BrowserManagerMethods13Surface, BrowserManagerMethods14Surface, BrowserManagerMethods15Surface, BrowserManagerMethods16Surface, BrowserManagerMethods17Surface, BrowserManagerMethods18Surface {}
 
 Object.assign(
   BrowserManager.prototype,

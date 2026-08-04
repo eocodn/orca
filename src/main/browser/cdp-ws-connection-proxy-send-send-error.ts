@@ -1,6 +1,5 @@
 import { WebSocket } from 'ws'
 
-
 export const CdpWsProxyMethods2 = {
   send(this: any, payload: unknown, client = this.client): void {
     const responsePayload = client ? this.addResponseSessionId(payload, client) : payload

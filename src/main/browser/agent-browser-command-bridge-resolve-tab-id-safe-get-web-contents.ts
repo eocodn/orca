@@ -1,7 +1,7 @@
-import { type WebContents } from 'electron'
+import type { WebContents } from 'electron'
 
 // Why: must exceed agent-browser's internal timeouts (goto 30s, wait 60s) so the bridge never kills a command before its own timeout fires.
-import * as foundation from './agent-browser-command-bridge-foundation'
+import type * as foundation from './agent-browser-command-bridge-foundation'
 type ResolvedBrowserCommandTarget = foundation.ResolvedBrowserCommandTarget
 
 export const AgentBrowserBridgeMethods26 = {

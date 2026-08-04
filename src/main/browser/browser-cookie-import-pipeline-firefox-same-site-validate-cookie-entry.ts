@@ -1,5 +1,8 @@
-
-import { type RawCookieEntry, type ValidatedCookie, chromiumSameSite } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
+import {
+  type RawCookieEntry,
+  type ValidatedCookie,
+  chromiumSameSite
+} from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
 
 export function firefoxSameSite(raw: number): 'unspecified' | 'no_restriction' | 'lax' | 'strict' {
   switch (raw) {
@@ -14,8 +17,9 @@ export function firefoxSameSite(raw: number): 'unspecified' | 'no_restriction' |
   }
 }
 
-
-export function normalizeSameSite(raw: unknown): 'unspecified' | 'no_restriction' | 'lax' | 'strict' {
+export function normalizeSameSite(
+  raw: unknown
+): 'unspecified' | 'no_restriction' | 'lax' | 'strict' {
   if (typeof raw === 'number') {
     return chromiumSameSite(raw)
   }
@@ -50,7 +54,6 @@ export function deriveUrl(domain: string, secure: boolean): string | null {
     return null
   }
 }
-
 
 export function validateCookieEntry(raw: RawCookieEntry): ValidatedCookie | null {
   if (typeof raw.domain !== 'string' || raw.domain.trim().length === 0) {

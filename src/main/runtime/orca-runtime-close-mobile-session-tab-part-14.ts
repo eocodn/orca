@@ -1,4 +1,4 @@
-import { type RuntimeMobileSessionTabCloseResult, type RuntimeMobileSessionTerminalTab, type RuntimeMobileSessionBrowserTab, type RuntimeMobileSessionTabsSnapshot, type RuntimeSessionTabCloseReason } from './orca-runtime-symbols'
+import type { RuntimeMobileSessionTabCloseResult, RuntimeMobileSessionTerminalTab, RuntimeMobileSessionBrowserTab, RuntimeMobileSessionTabsSnapshot, RuntimeSessionTabCloseReason } from './orca-runtime-symbols'
 import { OrcaRuntimeActivateMobileSessionTabPart13 } from './orca-runtime-activate-mobile-session-tab-part-13'
 
 export class OrcaRuntimeCloseMobileSessionTabPart14 extends OrcaRuntimeActivateMobileSessionTabPart13 {

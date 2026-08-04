@@ -31,8 +31,9 @@ import {
 
 
 
+import type {
+  MobileInputFloorClaimHolder} from './terminal-stream-state';
 import {
-  MobileInputFloorClaimHolder,
   assertTerminalSendTextWithinLimit,
   isTerminalInputLockedForClient,
   resolveMobileFloorClientId,
@@ -353,14 +354,6 @@ export const TERMINAL_CORE_METHODS: RpcAnyMethod[] = [
       }
       if (result.accepted !== true) {
         mobileFloorClaim.current?.rollback()
-      }
-      if (
-        result.accepted === true &&
-        params.enter === true &&
-        params.client?.type === 'mobile' &&
-        params.resolvedLaunchDraft
-      ) {
-        runtime.notifyNativeChatLaunchDraftResolved(params.terminal, params.resolvedLaunchDraft)
       }
       // Why: deliberate mobile input takes the floor (drives `* → mobile{clientId}`); clientless sends fall back to the current mobile driver.
       return { send: result }

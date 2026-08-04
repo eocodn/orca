@@ -1,5 +1,5 @@
 import { AgentHookServerAuthority } from './agent-hook-server-authority'
-import * as hookShared from './agent-hook-server-shared'
+import type * as hookShared from './agent-hook-server-shared'
 import { track } from '../telemetry/client'
 import { normalizeAgentProviderSession } from '../../shared/agent-session-resume'
 import {

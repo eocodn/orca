@@ -93,7 +93,6 @@ export {
   type RuntimeMobileSessionTabsSnapshot,
   type RuntimeSessionFlushResult,
   type RuntimeSessionSnapshot,
-  type RuntimeNativeChatLaunchDraftResolution,
   type RuntimeSessionTabCloseReason,
   type RuntimeBrowserDriverState,
   type RuntimeTerminalDriverState,

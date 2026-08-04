@@ -1,7 +1,7 @@
-import { DaemonSpawner } from './daemon-spawner'
-import { DaemonPtyAdapter } from './daemon-pty-adapter'
-import { DaemonPtyRouter } from './daemon-pty-router'
-import { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
+import type { DaemonSpawner } from './daemon-spawner'
+import type { DaemonPtyAdapter } from './daemon-pty-adapter'
+import type { DaemonPtyRouter } from './daemon-pty-router'
+import type { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
 
 export type DaemonProvider = DaemonPtyRouter | DaemonPtyAdapter | DegradedDaemonPtyProvider
 

@@ -6,7 +6,6 @@ import {
   logPersistenceStartupMilestone,
   projectHostSetupCompatibilityStateEqual,
   mergeProjectHostSetupCompatibilityState,
-  backfillLegacyAutomationContexts,
   normalizeWorktreeLinkedItemMetadata,
   gcStaleWorktreeMeta,
   readGithubCacheSnapshot,
@@ -24,96 +23,82 @@ export function finalizeLoadedRepositoryState(
   fileExistedOnLoad: boolean,
   allowBackupRecovery: boolean
 ): any {
-    const dataFile = context.dataFile
-    if (result === null && allowBackupRecovery) {
-      let hasBackup = false
-      for (let i = 0; i < BACKUP_COUNT; i++) {
-        if (existsSync(backupPath(dataFile, i))) {
-          hasBackup = true
-          break
-        }
-      }
-      if (fileExistedOnLoad || hasBackup) {
-        if (context.restoreFromBackup(dataFile)) {
-          return context.load(false)
-        }
-        console.error('[persistence] No usable state file or backup found, using defaults')
+  const dataFile = context.dataFile
+  if (result === null && allowBackupRecovery) {
+    let hasBackup = false
+    for (let i = 0; i < BACKUP_COUNT; i++) {
+      if (existsSync(backupPath(dataFile, i))) {
+        hasBackup = true
+        break
       }
     }
-
-    if (result === null) {
-      result = getDefaultPersistedState(homedir())
+    if (fileExistedOnLoad || hasBackup) {
+      if (context.restoreFromBackup(dataFile)) {
+        return context.load(false)
+      }
+      console.error('[persistence] No usable state file or backup found, using defaults')
     }
+  }
 
-    const workspaceSession = pruneWorkspaceSessionBrowserHistory(
-      pruneLocalTerminalScrollbackBuffers(result.workspaceSession, result.repos)
-    )
-    const migratedScrollback = migrateWorkspaceSessionTerminalScrollbackSnapshots(
-      workspaceSession,
-      context.terminalScrollbackSnapshotStorage
-    )
-    if (migratedScrollback.changed) {
-      context.loadNeedsSave = true
-    }
+  if (result === null) {
+    result = getDefaultPersistedState(homedir())
+  }
 
-    const repos = clearMissingProjectGroupMemberships(result.repos, result.projectGroups ?? [])
-    const projectHostSetupCompatibility = mergeProjectHostSetupCompatibilityState(result, repos)
-    if (!projectHostSetupCompatibilityStateEqual(result, projectHostSetupCompatibility)) {
-      context.loadNeedsSave = true
-    }
+  const workspaceSession = pruneWorkspaceSessionBrowserHistory(
+    pruneLocalTerminalScrollbackBuffers(result.workspaceSession, result.repos)
+  )
+  const migratedScrollback = migrateWorkspaceSessionTerminalScrollbackSnapshots(
+    workspaceSession,
+    context.terminalScrollbackSnapshotStorage
+  )
+  if (migratedScrollback.changed) {
+    context.loadNeedsSave = true
+  }
 
-    const automationContextMigration = backfillLegacyAutomationContexts({
-      ...result,
-      repos,
-      ...projectHostSetupCompatibility
-    })
-    if (automationContextMigration.changed) {
-      context.loadNeedsSave = true
-    }
-    result = {
-      ...result,
-      automations: automationContextMigration.state.automations,
-      automationRuns: automationContextMigration.state.automationRuns
-    }
+  const repos = clearMissingProjectGroupMemberships(result.repos, result.projectGroups ?? [])
+  const projectHostSetupCompatibility = mergeProjectHostSetupCompatibilityState(result, repos)
+  if (!projectHostSetupCompatibilityStateEqual(result, projectHostSetupCompatibility)) {
+    context.loadNeedsSave = true
+  }
 
-    const folderScopeConnectionMigration = backfillFolderScopeConnectionIds({
-      ...result,
-      repos,
-      ...projectHostSetupCompatibility,
-      workspaceSession: migratedScrollback.session
-    })
-    if (folderScopeConnectionMigration.changed) {
-      context.loadNeedsSave = true
-    }
-    result = folderScopeConnectionMigration.state
+  const folderScopeConnectionMigration = backfillFolderScopeConnectionIds({
+    ...result,
+    repos,
+    ...projectHostSetupCompatibility,
+    workspaceSession: migratedScrollback.session
+  })
+  if (folderScopeConnectionMigration.changed) {
+    context.loadNeedsSave = true
+  }
+  result = folderScopeConnectionMigration.state
 
-    if (normalizeWorktreeLinkedItemMetadata(result)) {
-      context.loadNeedsSave = true
-    }
+  if (normalizeWorktreeLinkedItemMetadata(result)) {
+    context.loadNeedsSave = true
+  }
 
-    if (gcStaleWorktreeMeta(result) > 0) {
-      context.loadNeedsSave = true
-    }
+  if (gcStaleWorktreeMeta(result) > 0) {
+    context.loadNeedsSave = true
+  }
 
-    const migrated = context.migrateTabSwitchKeybindings(
-      context.migrateTelemetry(result, fileExistedOnLoad),
-      fileExistedOnLoad
-    )
+  const migrated = context.migrateTabSwitchKeybindings(
+    context.migrateTelemetry(result, fileExistedOnLoad),
+    fileExistedOnLoad
+  )
 
-    const legacyCache = migrated.githubCache
-    const hasLegacyCache =
-      Object.keys(legacyCache?.pr ?? {}).length > 0 ||
-      Object.keys(legacyCache?.issue ?? {}).length > 0
-    if (hasLegacyCache) {
-      context.loadNeedsSave = true
-      context.githubCacheDirty = true
-    } else {
-      migrated.githubCache = readGithubCacheSnapshot(context.dataFile) ?? migrated.githubCache
-    }
+  const legacyCache = migrated.githubCache
+  const hasLegacyCache =
+    Object.keys(legacyCache?.pr ?? {}).length > 0 ||
+    Object.keys(legacyCache?.issue ?? {}).length > 0
+  if (hasLegacyCache) {
+    context.loadNeedsSave = true
+    context.githubCacheDirty = true
+  } else {
+    migrated.githubCache = readGithubCacheSnapshot(context.dataFile) ?? migrated.githubCache
+  }
 
-    logPersistenceStartupMilestone('persistence-load-done', {
-      repos: migrated.repos.length,
-      workspaceSessionBytes: Buffer.byteLength(JSON.stringify(migrated.workspaceSession))
-    })
-    return migrated
+  logPersistenceStartupMilestone('persistence-load-done', {
+    repos: migrated.repos.length,
+    workspaceSessionBytes: Buffer.byteLength(JSON.stringify(migrated.workspaceSession))
+  })
+  return migrated
 }

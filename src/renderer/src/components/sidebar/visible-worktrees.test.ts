@@ -76,7 +76,6 @@ function visibleOptions(overrides: Partial<VisibleOptions> = {}): VisibleOptions
     browserTabsByWorktree: {},
     worktreeIdsWithLiveAgent: new Set(),
     hideDefaultBranchWorkspace: false,
-    hideAutomationGeneratedWorkspaces: false,
     hideCliCreatedWorkspaces: false,
     hideDetachedHeadWorkspaces: false,
     repoMap,
@@ -115,36 +114,6 @@ describe('computeVisibleWorktreeIds', () => {
     )
 
     expect(result).toEqual([])
-  })
-
-  it('hides automation-created workspaces when the automation filter is enabled', () => {
-    const manual = makeWorktree('manual')
-    const automationCreated = {
-      ...makeWorktree('automation-created'),
-      automationProvenance: {
-        kind: 'created-by-automation' as const,
-        automationId: 'automation-1',
-        automationNameSnapshot: 'Nightly review',
-        automationRunId: 'run-1',
-        automationRunTitleSnapshot: 'Nightly review run',
-        createdAt: 123,
-        executionTargetType: 'local' as const,
-        executionTargetId: 'local',
-        projectId: 'repo1',
-        repoId: 'repo1',
-        hostId: 'local' as const
-      }
-    }
-
-    const result = computeVisibleWorktreeIds(
-      { repo1: [manual, automationCreated] },
-      [manual.id, automationCreated.id],
-      visibleOptions({
-        hideAutomationGeneratedWorkspaces: true
-      })
-    )
-
-    expect(result).toEqual([manual.id])
   })
 
   it('hides CLI-created workspaces when the CLI filter is enabled', () => {
@@ -598,22 +567,6 @@ describe('computeVisibleWorktreeIds', () => {
     const defaultBranchParent = makeWorktree('default-parent')
     defaultBranchParent.isMainWorktree = true
     expect(run(defaultBranchParent, { hideDefaultBranchWorkspace: true })).toEqual([child.id])
-
-    const automationParent = makeWorktree('automation-parent')
-    automationParent.automationProvenance = {
-      kind: 'created-by-automation',
-      automationId: 'automation-1',
-      automationNameSnapshot: 'Review',
-      automationRunId: 'run-1',
-      automationRunTitleSnapshot: 'Review run',
-      createdAt: 1,
-      executionTargetType: 'local',
-      executionTargetId: 'local',
-      projectId: 'repo1',
-      repoId: 'repo1',
-      hostId: 'local'
-    }
-    expect(run(automationParent, { hideAutomationGeneratedWorkspaces: true })).toEqual([child.id])
 
     const cliParent = makeWorktree('cli-parent')
     cliParent.cliProvenance = { kind: 'created-by-cli', createdAt: 1 }

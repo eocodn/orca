@@ -234,7 +234,6 @@ export function setupGuestShortcutForwarding(args: {
   guest: Electron.WebContents
   resolveRenderer: ResolveRenderer
   shouldForwardDictationShortcut?: ShouldForwardDictationShortcut
-  isMobileEmulatorEnabled?: IsMobileEmulatorEnabled
   getKeybindings?: () => KeybindingOverrides | undefined
   // Why: a floating-panel guest owns a distinct workspace; its close/index chords must route to the panel, not the main tab strip.
   resolveWorktreeId?: (browserTabId: string) => string | null
@@ -245,7 +244,6 @@ export function setupGuestShortcutForwarding(args: {
     guest,
     resolveRenderer,
     shouldForwardDictationShortcut,
-    isMobileEmulatorEnabled,
     getKeybindings,
     resolveWorktreeId,
     resolveWorkspaceId
@@ -348,12 +346,6 @@ export function setupGuestShortcutForwarding(args: {
     const isFloatingGuest = resolveWorktreeId?.(browserTabId) === FLOATING_TERMINAL_WORKTREE_ID
     if (keybindingMatchesAction('tab.newBrowser', input, process.platform, keybindings)) {
       renderer.send('ui:newBrowserTab')
-    } else if (
-      process.platform === 'darwin' &&
-      (isMobileEmulatorEnabled?.() ?? true) &&
-      keybindingMatchesAction('tab.newSimulator', input, process.platform, keybindings)
-    ) {
-      renderer.send('ui:newSimulatorTab')
     } else if (keybindingMatchesAction('tab.newMarkdown', input, process.platform, keybindings)) {
       renderer.send('ui:newMarkdownTab')
     } else if (keybindingMatchesAction('tab.newTerminal', input, process.platform, keybindings)) {

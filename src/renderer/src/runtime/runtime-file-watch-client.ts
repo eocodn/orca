@@ -8,8 +8,13 @@ import {
   type RuntimeFileWatchListener,
   type SharedRuntimeFileWatch
 } from './runtime-file-context'
-import { callRuntimeRpc, getActiveRuntimeTarget, unwrapRuntimeRpcResult } from './runtime-rpc-client'
+import {
+  callRuntimeRpc,
+  getActiveRuntimeTarget,
+  unwrapRuntimeRpcResult
+} from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
+import { getClientRuntime } from './client-runtime'
 
 export async function subscribeRuntimeFileChanges(
   context: RuntimeFileOperationArgs,
@@ -18,7 +23,7 @@ export async function subscribeRuntimeFileChanges(
 ): Promise<() => void> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId || !context.worktreePath) {
-    return window.api.fs.onFsChanged(onPayload)
+    return getClientRuntime().file.onFsChanged(onPayload)
   }
 
   const listener: RuntimeFileWatchListener = { onPayload, onError }
@@ -70,8 +75,8 @@ function createSharedRuntimeFileWatch(
   }
   // Why: editor reloads and the Explorer can watch the same remote worktree.
   // Keep one runtime WebSocket/server watcher and fan out events in renderer.
-  shared.start = window.api.runtimeEnvironments
-    .subscribe(
+  shared.start = getClientRuntime()
+    .remoteHost.subscribe(
       {
         selector: target.environmentId,
         method: 'files.watch',
@@ -209,4 +214,3 @@ function unwatchSharedRuntimeFileWatch(shared: SharedRuntimeFileWatch): void {
     { timeoutMs: 5_000 }
   ).catch(() => {})
 }
-

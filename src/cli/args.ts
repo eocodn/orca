@@ -153,7 +153,6 @@ export function supportsBrowserPageFlag(commandPath: string[]): boolean {
   if (
     [
       'account',
-      'automations',
       'project',
       'repo',
       'worktree',
@@ -197,7 +196,6 @@ export function isCommandGroup(commandPath: string[]): boolean {
     (commandPath.length === 1 &&
       [
         'account',
-        'automations',
         'project',
         'folder-workspace',
         'repo',

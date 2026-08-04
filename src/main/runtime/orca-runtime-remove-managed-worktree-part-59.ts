@@ -501,9 +501,7 @@ export class OrcaRuntimeRemoveManagedWorktreePart59 extends OrcaRuntimeForceDele
               invalidateAuthorizedRootsCache()
               this.notifyWorktreesChanged(repo.id)
               removalCompleted = true
-              return {
-                ...(warning ? { warning } : {})
-              }
+              return (warning ? { warning } : {})
             } else {
               throw new Error(formatWorktreeRemovalError(error, canonicalWorktreePath, force))
             }

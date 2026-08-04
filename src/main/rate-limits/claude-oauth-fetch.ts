@@ -2,50 +2,22 @@ import { net, session } from 'electron'
 import type {
   ProviderRateLimits,
   RateLimitWindow,
-  UsageRateLimitFailureKind,
-  UsageRateLimitMetadata,
   UsageRateLimitSource
 } from '../../shared/rate-limit-types'
-import type { NetworkProxySettings } from '../../shared/network-proxy'
-import { fetchViaPty } from './claude-pty'
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
-import {
-  isOauthTokenExpiring,
-  refreshClaudeOauthCredentials
-} from '../claude-accounts/oauth-refresh'
+import type {
+  OAuthCredentialReadOptions,
+  OAuthCredentialReadResult
+} from './claude-oauth-credentials'
 import { createOAuthUsageError, OAuthUsageError } from './claude-oauth-usage-error'
 import { mapClaudeUsageWindow, type ClaudeUsageWindowInput } from './claude-usage-window'
-import { withMacTailscaleDnsHint } from '../network/macos-tailscale-dns-diagnostic'
 import { ensureElectronProxyFromEnvironment } from '../network/proxy-settings'
-import { resolveClaudeUsageRefreshPlan } from './claude-usage-refresh-plan'
-import {
-  classifyClaudeCredentialAbsence,
-  classifyClaudeOAuthUsageError,
-  type ClaudeUsageErrorClassification
-} from './claude-usage-error-classification'
-import {
-  parseOAuthCredentialsJson,
-  readOAuthCredentials,
-  type OAuthCredentialReadOptions,
-  type OAuthCredentialReadResult
-} from './claude-oauth-credentials'
-import {
-  canTrustManagedUsagePanelSupplement,
-  getManagedUsagePanelAuthPreparation,
-  readManagedCredentials,
-  readStagedManagedPreviewCredentials,
-  resolveManagedCredentialsLocation,
-  type InactiveClaudeAccountInfo,
-  type ManagedCredentialsLocation,
-  withManagedPreviewKeychainCredentials,
-  writeManagedCredentialsJson
-} from './claude-managed-credentials'
 
 const OAUTH_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const OAUTH_BETA_HEADER = 'oauth-2025-04-20'
 const CLAUDE_CODE_USER_AGENT = 'claude-code/2.1.0'
 const API_TIMEOUT_MS = 10_000
-const LIVE_CLAUDE_REFRESH_DEFERRED_MESSAGE =
+export const LIVE_CLAUDE_REFRESH_DEFERRED_MESSAGE =
   'Claude usage refresh is waiting for the live Claude terminal to rotate its credentials.'
 
 /**
@@ -125,7 +97,7 @@ export type OAuthUsageResponse = {
   limits?: OAuthUsageLimit[] | null
 }
 
-type ClaudeUsageAttemptState = {
+export type ClaudeUsageAttemptState = {
   attemptedSources: UsageRateLimitSource[]
 }
 

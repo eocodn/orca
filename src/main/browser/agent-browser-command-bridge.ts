@@ -157,34 +157,7 @@ export class AgentBrowserBridge {
   }
 }
 
-export interface AgentBrowserBridge
-  extends
-    AgentBrowserBridgeMethods1Surface,
-    AgentBrowserBridgeMethods2Surface,
-    AgentBrowserBridgeMethods3Surface,
-    AgentBrowserBridgeMethods4Surface,
-    AgentBrowserBridgeMethods5Surface,
-    AgentBrowserBridgeMethods6Surface,
-    AgentBrowserBridgeMethods7Surface,
-    AgentBrowserBridgeMethods8Surface,
-    AgentBrowserBridgeMethods9Surface,
-    AgentBrowserBridgeMethods10Surface,
-    AgentBrowserBridgeMethods11Surface,
-    AgentBrowserBridgeMethods12Surface,
-    AgentBrowserBridgeMethods13Surface,
-    AgentBrowserBridgeMethods14Surface,
-    AgentBrowserBridgeMethods15Surface,
-    AgentBrowserBridgeMethods16Surface,
-    AgentBrowserBridgeMethods17Surface,
-    AgentBrowserBridgeMethods18Surface,
-    AgentBrowserBridgeMethods19Surface,
-    AgentBrowserBridgeMethods20Surface,
-    AgentBrowserBridgeMethods21Surface,
-    AgentBrowserBridgeMethods22Surface,
-    AgentBrowserBridgeMethods23Surface,
-    AgentBrowserBridgeMethods24Surface,
-    AgentBrowserBridgeMethods25Surface,
-    AgentBrowserBridgeMethods26Surface {}
+export interface AgentBrowserBridge extends AgentBrowserBridgeMethods1Surface, AgentBrowserBridgeMethods2Surface, AgentBrowserBridgeMethods3Surface, AgentBrowserBridgeMethods4Surface, AgentBrowserBridgeMethods5Surface, AgentBrowserBridgeMethods6Surface, AgentBrowserBridgeMethods7Surface, AgentBrowserBridgeMethods8Surface, AgentBrowserBridgeMethods9Surface, AgentBrowserBridgeMethods10Surface, AgentBrowserBridgeMethods11Surface, AgentBrowserBridgeMethods12Surface, AgentBrowserBridgeMethods13Surface, AgentBrowserBridgeMethods14Surface, AgentBrowserBridgeMethods15Surface, AgentBrowserBridgeMethods16Surface, AgentBrowserBridgeMethods17Surface, AgentBrowserBridgeMethods18Surface, AgentBrowserBridgeMethods19Surface, AgentBrowserBridgeMethods20Surface, AgentBrowserBridgeMethods21Surface, AgentBrowserBridgeMethods22Surface, AgentBrowserBridgeMethods23Surface, AgentBrowserBridgeMethods24Surface, AgentBrowserBridgeMethods25Surface, AgentBrowserBridgeMethods26Surface {}
 
 Object.assign(
   AgentBrowserBridge.prototype,

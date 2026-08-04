@@ -1,6 +1,5 @@
 import {
   randomUUID,
-  type AutomationWorkspaceProvenance,
   type CliWorkspaceProvenance,
   type CreateWorktreeResult,
   type GitPushTarget,
@@ -57,7 +56,6 @@ export class OrcaRuntimeCreateManagedWorktreePart53 extends OrcaRuntimePasteStar
     startupAgent?: TuiAgent
     startupPrompt?: string
     pendingFirstAgentMessageRename?: boolean
-    automationProvenance?: AutomationWorkspaceProvenance
     cliProvenance?: CliWorkspaceProvenance
     startup?: WorktreeStartupLaunch
     startupDraft?: string
@@ -118,7 +116,6 @@ export class OrcaRuntimeCreateManagedWorktreePart53 extends OrcaRuntimePasteStar
           path: settings.workspaceDir,
           nestWorkspaces: settings.nestWorkspaces
         },
-        ...(args.automationProvenance ? { automationProvenance: args.automationProvenance } : {}),
         ...(args.cliProvenance ? { cliProvenance: args.cliProvenance } : {}),
         ...(args.linkedIssue !== undefined ? { linkedIssue: args.linkedIssue } : {}),
         ...(args.linkedPR !== undefined ? { linkedPR: args.linkedPR } : {}),

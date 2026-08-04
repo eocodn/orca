@@ -56,7 +56,6 @@ export function useMobileSessionTabInteractions(context: SessionTabInteractionCo
     terminalGestureInputQueuesRef,
     terminalGestureInputInFlightRef,
     webReadyHandlesRef,
-    nativeChatStream,
     measureViewportOnce,
     activeSessionTab,
     fileDocs,
@@ -243,7 +242,6 @@ export function useMobileSessionTabInteractions(context: SessionTabInteractionCo
     (handle: string) => {
       const wasAlreadyReady = webReadyHandlesRef.current.has(handle)
       webReadyHandlesRef.current.add(handle)
-      nativeChatStream.notifyWebReady(handle, wasAlreadyReady)
       terminalDiagnosticsRef.current.webViewReady(
         handle,
         wasAlreadyReady,
@@ -271,7 +269,7 @@ export function useMobileSessionTabInteractions(context: SessionTabInteractionCo
         })()
       }
     },
-    [measureViewportOnce, nativeChatStream, subscribeToTerminal, unsubscribeTerminal]
+    [measureViewportOnce, subscribeToTerminal, unsubscribeTerminal]
   )
 
   useEffect(() => {

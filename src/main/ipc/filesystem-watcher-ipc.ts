@@ -1,87 +1,49 @@
-import { ipcMain, type WebContents } from 'electron'
-import * as path from 'node:path'
-import { stat } from 'node:fs/promises'
-import type { Event as WatcherEvent } from '@parcel/watcher'
-import type { FsChangeEvent, FsChangedPayload } from '../../shared/types'
+import { ipcMain,type WebContents } from 'electron'
+import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
+import type { FsChangedPayload } from '../../shared/types'
+import { onSshFilesystemProviderRegistered } from '../providers/ssh-filesystem-dispatch'
+import { setLocalWatchersClosed } from './filesystem-watcher-foundation'
 import {
-  isWindowsAbsolutePathLike,
-  normalizeRuntimePathForComparison
-} from '../../shared/cross-platform-path'
-import { isWslPath } from '../wsl'
-import { createWslWatcher } from './filesystem-watcher-wsl'
-import type { WatchedRoot } from './filesystem-watcher-wsl'
+  reinstallRemoteWatchersForConnection,
+  scheduleDormantRemoteWatcherRearm
+} from './filesystem-watcher-foundation-phase-6'
+import { registerSenderCleanup,subscribe } from './filesystem-watcher-local'
+import { unsubscribe } from './filesystem-watcher-remote'
 import {
-  getSshFilesystemProvider,
-  onSshFilesystemProviderRegistered
-} from '../providers/ssh-filesystem-dispatch'
-import { MAX_BATCHED_WATCHER_EVENTS, queueWatcherEvents } from './filesystem-watcher-event-batch'
-import { disposeWatcherProcess, subscribeViaWatcherProcess } from './parcel-watcher-process'
-import { isWatcherProcessFailure } from './parcel-watcher-process-failure'
-import {
-  onWatcherChildCapacityAvailable,
-  WatcherChildCapacityError
-} from './parcel-watcher-child-registry'
-import { beginWatcherInstall, isWatcherRemovalInProgressError } from './watcher-removal-gate'
-import {
-  createWatcherRemovalDeadline,
-  drainBeforeWatcherRemoval,
-  WATCHER_REMOVAL_FINAL_DRAIN_RESERVE_MS,
-  type WatcherRemovalDeadline
-} from './watcher-removal-drain'
-// Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
-import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
-import {
-  remoteWatcherResyncStates,
-  pendingRemoteWatcherRetryListeners,
-  pendingRemoteWatcherRetries,
-  loggedUnavailableRemoteWatchers,
   desiredRemoteWatchers,
   dormantRemoteWatchers,
-  remoteWatchers,
-  suspendedRemoteWatcherListeners,
   inFlightRemoteInstalls,
-  remoteWatchersClosed,
-  REMOTE_WATCH_RETRY_TIMEOUT_MS,
+  loggedUnavailableRemoteWatchers,
+  pendingRemoteWatcherRetries,
+  pendingRemoteWatcherRetryListeners,
   REMOTE_WATCH_RESYNC_COALESCE_MS,
   REMOTE_WATCH_RETRY_MS,
-  unsubscribeFromProviderRegistrations,
-  setUnsubscribeFromProviderRegistrations,
+  REMOTE_WATCH_RETRY_TIMEOUT_MS,
+  remoteWatcherResyncStates,
+  remoteWatchers,
+  remoteWatchersClosed,
   setRemoteWatchersClosed,
+  setUnsubscribeFromProviderRegistrations,
+  suspendedRemoteWatcherListeners,
+  unsubscribeFromProviderRegistrations,
 } from './filesystem-watcher-removal'
-import { localWatchersClosed, setLocalWatchersClosed } from './filesystem-watcher-foundation'
-import {
-  reinstallRemoteWatchersForConnection
-} from './filesystem-watcher-foundation-phase-6'
-import { subscribe, registerSenderCleanup } from './filesystem-watcher-local'
+import { isWatcherRemovalInProgressError } from './watcher-removal-gate'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
-import { addInFlightRemoteInstallListener,
+import {
   cancelInFlightRemoteInstallIfUnowned,
-  cleanupInFlightRemoteInstallsForSender,
-  addRemoteWatchListener,
-  releaseRemoteWatchListener,
-  cleanupRemoteWatchersForSender,
-  type RemoteWatcherInstallResult,
+  clearRemoteWatcherResync,
   installRemoteWatcher,
-  installRemoteWatcherWhileRemovalAllowed,
-  doInstallRemoteWatcher,
-  handleRemoteWatcherTerminalError,
   isCurrentDesiredRemoteWatcher,
-  clearRemoteWatcherResync } from './filesystem-watcher-retry'
-export { addInFlightRemoteInstallListener,
-  cancelInFlightRemoteInstallIfUnowned,
-  cleanupInFlightRemoteInstallsForSender,
-  addRemoteWatchListener,
-  releaseRemoteWatchListener,
-  cleanupRemoteWatchersForSender,
-  type RemoteWatcherInstallResult,
-  installRemoteWatcher,
-  installRemoteWatcherWhileRemovalAllowed,
-  doInstallRemoteWatcher,
-  handleRemoteWatcherTerminalError,
-  isCurrentDesiredRemoteWatcher,
-  clearRemoteWatcherResync } from './filesystem-watcher-retry'
+  releaseRemoteWatchListener
+} from './filesystem-watcher-retry'
+export {
+  addInFlightRemoteInstallListener,addRemoteWatchListener,cancelInFlightRemoteInstallIfUnowned,
+  cleanupInFlightRemoteInstallsForSender,cleanupRemoteWatchersForSender,clearRemoteWatcherResync,doInstallRemoteWatcher,
+  handleRemoteWatcherTerminalError,installRemoteWatcher,
+  installRemoteWatcherWhileRemovalAllowed,isCurrentDesiredRemoteWatcher,releaseRemoteWatchListener,type RemoteWatcherInstallResult
+} from './filesystem-watcher-retry'
 
 export function flushRemoteWatcherResync(key: string): void {
   const state = remoteWatcherResyncStates.get(key)

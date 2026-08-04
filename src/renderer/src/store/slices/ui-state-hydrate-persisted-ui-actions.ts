@@ -238,7 +238,6 @@ export function createUISliceHydratePersistedUiActions6(set: SliceSet, get: Slic
         // Why: apply the desktop-owned overlay immediately since UI state can arrive after a catalog or from another client.
         repos: orderedRepos,
         hideDefaultBranchWorkspace: ui.hideDefaultBranchWorkspace ?? false,
-        hideAutomationGeneratedWorkspaces: ui.hideAutomationGeneratedWorkspaces === true,
         hideCliCreatedWorkspaces: ui.hideCliCreatedWorkspaces === true,
         hideDetachedHeadWorkspaces: ui.hideDetachedHeadWorkspaces === true,
         showDotfilesByWorktree: sanitizeShowDotfilesByWorktree(ui.showDotfilesByWorktree),

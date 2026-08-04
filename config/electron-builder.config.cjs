@@ -15,7 +15,6 @@ const { verifyLinuxGlibcFloor } = require('./scripts/verify-linux-glibc-floor.cj
 const { writeMacBuildCompatibility } = require('./scripts/mac-build-compatibility.cjs')
 const { verifyPackagedPluginResources } = require('./scripts/verify-packaged-plugin-resources.cjs')
 const {
-  chmodMacServeSimHelpers,
   chmodUnixCliLaunchers,
   signMacComputerUseHelper,
   signMacNotificationStatusHelper
@@ -227,7 +226,6 @@ module.exports = {
     // mapping fails packaging before bundled content reaches users.
     verifyPackagedPluginResources(resourcesDir)
     chmodUnixCliLaunchers(resourcesDir, context.electronPlatformName)
-    chmodMacServeSimHelpers(resourcesDir, context.electronPlatformName)
     for (const filename of readdirSync(resourcesDir)) {
       if (!filename.startsWith('agent-browser-')) {
         continue
@@ -331,12 +329,6 @@ module.exports = {
       {
         from: 'node_modules/agent-browser/bin/agent-browser-darwin-${arch}',
         to: 'agent-browser-darwin-${arch}'
-      },
-      // Why: serve-sim resolves its helper binary and camera assets relative
-      // to dist/serve-sim.js, so the whole package must be a real resource dir.
-      {
-        from: 'node_modules/serve-sim',
-        to: 'serve-sim'
       },
       {
         from: 'native/computer-use-macos/.build/release/Orca Computer Use.app',

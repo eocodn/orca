@@ -1,4 +1,4 @@
-import { type RemoteTerminalSourceRangeConsumerHooks, randomUUID, type RuntimeClientEvent, type RuntimeGraphStatus, type RuntimeWorktreeTerminalSleepResult, type RuntimeTerminalResolvePane, type RuntimeSyncedTab, type RuntimeMobileSessionCreateTerminalResult, type RuntimeMobileSessionTabsResult, type RuntimeMobileSessionTabsSnapshot, type PtyIncarnationId, RemoteRuntimeTerminalCreateIdempotency, TerminalOutputState, WorktreeResolutionState, RuntimeTerminalInputCommands, type RetiredTerminalSurface, ClientSessionTabSelectionStore, type AgentBrowserBridge, type BrowserBackend, RuntimeNotificationRegistry, createMobileSessionTabsNotifyCoalescer, type MobileSessionTabsNotifyCoalescer, type RuntimeStore, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, type PtyForegroundAgentRefresh, type RuntimeHeadlessTerminal, type RuntimePtyController, type RuntimeNotifier, type TerminalHandleRecord, type TerminalWaiter, type RuntimeWorktreeScanResult, type ResolvedWorktreeSnapshot, type RuntimeWorktreeLifecycleEvent, type DriverState, type NativeChatLaunchDraftResolutionTombstone, type AgentDetector, type RuntimeClientSettingsCommands } from './orca-runtime-symbols'
+import { type RemoteTerminalSourceRangeConsumerHooks, randomUUID, type RuntimeClientEvent, type RuntimeGraphStatus, type RuntimeWorktreeTerminalSleepResult, type RuntimeTerminalResolvePane, type RuntimeSyncedTab, type RuntimeMobileSessionCreateTerminalResult, type RuntimeMobileSessionTabsResult, type RuntimeMobileSessionTabsSnapshot, type PtyIncarnationId, RemoteRuntimeTerminalCreateIdempotency, TerminalOutputState, WorktreeResolutionState, RuntimeTerminalInputCommands, type RetiredTerminalSurface, ClientSessionTabSelectionStore, type AgentBrowserBridge, type BrowserBackend, RuntimeNotificationRegistry, createMobileSessionTabsNotifyCoalescer, type MobileSessionTabsNotifyCoalescer, type RuntimeStore, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, type PtyForegroundAgentRefresh, type RuntimeHeadlessTerminal, type RuntimePtyController, type RuntimeNotifier, type TerminalHandleRecord, type TerminalWaiter, type RuntimeWorktreeScanResult, type ResolvedWorktreeSnapshot, type RuntimeWorktreeLifecycleEvent, type DriverState, type AgentDetector, type RuntimeClientSettingsCommands } from './orca-runtime-symbols'
 import { OrcaRuntimeMethodSurface } from './orca-runtime-state-surface'
 
 export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
@@ -123,10 +123,6 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   // Why: mobile subscribers discard terminalSideEffects; exclude them from batch delivery and production.
   protected terminalSideEffectExcludedClientEventListeners = new Set<
     (event: RuntimeClientEvent) => void
-  >()
-  protected nativeChatLaunchDraftResolutionByTabId = new Map<
-    string,
-    NativeChatLaunchDraftResolutionTombstone
   >()
   protected worktreeLifecycleListeners = new Set<(event: RuntimeWorktreeLifecycleEvent) => void>()
   protected forkBackfillStarted = false

@@ -56,7 +56,9 @@ export function firefoxSameSite(raw: number): 'unspecified' | 'no_restriction' |
   }
 }
 
-export function normalizeSameSite(raw: unknown): 'unspecified' | 'no_restriction' | 'lax' | 'strict' {
+export function normalizeSameSite(
+  raw: unknown
+): 'unspecified' | 'no_restriction' | 'lax' | 'strict' {
   if (typeof raw === 'number') {
     return chromiumSameSite(raw)
   }

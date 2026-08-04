@@ -1,8 +1,8 @@
 import { mkdtempSync } from 'node:fs'
-import { mkdir,rm as realRm } from 'node:fs/promises'
+import { mkdir, rm as realRm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe,expect,it,vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SPEECH_MODEL_CATALOG } from './model-catalog'
 import { ModelManager } from './model-manager'
 

@@ -1,4 +1,4 @@
-import { type ChildProcess } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { existsSync, accessSync, chmodSync, constants } from 'node:fs'
 import { join } from 'node:path'
 import { platform, arch } from 'node:os'

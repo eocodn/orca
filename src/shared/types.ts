@@ -23,8 +23,6 @@ export type {
   WorkspaceStatusDefinition,
   Worktree,
   CliWorkspaceProvenance,
-  AutomationWorkspaceProvenance,
-  AutomationWorkspaceProvenanceRequest,
   GitPushTarget,
   GitHubPrStartPoint,
   WorktreeMeta,

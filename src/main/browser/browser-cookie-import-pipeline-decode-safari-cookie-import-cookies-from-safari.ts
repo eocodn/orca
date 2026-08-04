@@ -5,10 +5,13 @@ import { join } from 'node:path'
 
 // Why: write the diag log to userData, not world-readable /tmp, so only the current user can read it.
 import { diag } from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
-import { type DetectedBrowser } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
+import type { DetectedBrowser } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
 import { MAC_EPOCH_DELTA } from './browser-cookie-import-pipeline-detect-firefox-detect-installed-browsers'
-import { type ValidatedCookie } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
-import { firefoxSameSite, deriveUrl } from './browser-cookie-import-pipeline-firefox-same-site-validate-cookie-entry'
+import type { ValidatedCookie } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
+import {
+  firefoxSameSite,
+  deriveUrl
+} from './browser-cookie-import-pipeline-firefox-same-site-validate-cookie-entry'
 import { importValidatedCookies } from './browser-cookie-import-pipeline-import-validated-cookies-get-user-agent-for-browser'
 import { decodeSafariBinaryCookies } from './browser-cookie-import-pipeline-decrypt-aes256-gcm-decode-safari-page'
 import type { BrowserCookieImportResult } from '../../shared/types'

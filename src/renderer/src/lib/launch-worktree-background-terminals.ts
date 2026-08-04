@@ -276,7 +276,7 @@ export async function launchWorktreeBackgroundTerminals(
     try {
       launchedTabs.push(await createBackgroundTab({ worktree, connectionId, launch }))
     } catch (error) {
-      console.warn('[automations] Failed to launch workspace default tab:', error)
+      console.warn('[workspace] Failed to launch default tab:', error)
     }
   }
 

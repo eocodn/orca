@@ -9,7 +9,7 @@ import type { PtyBackgroundStreamEvent, PtySpawnOptions, PtySpawnResult } from '
 import type { PtyIncarnationId } from '../../shared/pty-incarnation'
 import { ColdRestorePayloadCache } from './cold-restore-payload-cache'
 import type { DaemonEndpointIdentity } from './daemon-hello-protocol'
-import { type DaemonAuditContext, type DaemonAuditObservation } from './daemon-audit-classifier'
+import type { DaemonAuditContext, DaemonAuditObservation } from './daemon-audit-classifier'
 import type { ExactDaemonIncarnation } from './daemon-incarnation-evidence'
 import { createDaemonAuditEligibilityTracker } from './daemon-audit-eligibility-event'
 

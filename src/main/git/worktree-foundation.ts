@@ -1,34 +1,18 @@
-import { readFile, stat } from 'node:fs/promises'
-import { isAbsolute, join, posix, resolve, win32 } from 'node:path'
+import { posix,win32 } from 'node:path'
+import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
 import {
-  branchHasNoUnmergedChangesOnAnyTarget,
-  getBranchCleanupTargetRefs,
-  refreshBranchCleanupTargetRefs
-} from '../../shared/git-branch-cleanup'
-import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-import { withSpan } from '../observability/tracer'
+  hasUnsupportedRevParsePathFormatEcho,
+  isUnsupportedRevParsePathFormatError
+} from '../../shared/git-worktree-command-capabilities'
 import type {
   GitWorktreeInfo,
   LocalBaseRefRefreshResult,
-  LocalBaseRefUpdateSuggestion,
-  RemoveWorktreeResult
+  LocalBaseRefUpdateSuggestion
 } from '../../shared/types'
-import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
-import { isSubmoduleWorktreeRemovalRefusal } from '../../shared/worktree-submodule-removal'
-import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
-import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
 import { parseWslUncPath } from '../../shared/wsl-paths'
-import {
-  hasUnsupportedRevParsePathFormatEcho,
-  isUnsupportedRevParsePathFormatError,
-  isUnsupportedWorktreeListZError
-} from '../../shared/git-worktree-command-capabilities'
 import { getLocalGitCapabilityCache } from './git-capability-state'
-import { gitExecFileAsync, translateWslOutputPaths } from './runner'
-import { resolveGitDir, runWithGitReadCacheInvalidation } from './status'
-import { hasWorktreeBaseCommitRef } from './worktree-base-ref-probe'
+import { gitExecFileAsync,translateWslOutputPaths } from './runner'
 import { parseWorktreeList } from './worktree-listing'
-import { addWorktree } from './worktree-create-remove'
 type AddWorktreeResult = {
   localBaseRefRefresh?: LocalBaseRefRefreshResult
   localBaseRefUpdateSuggestion?: LocalBaseRefUpdateSuggestion
@@ -470,6 +454,4 @@ async function normalizeMainWorktreePath(
  * Parse the porcelain output of `git worktree list --porcelain`.
  */
 
-export { SPARSE_CHECKOUT_DETECTION_CONCURRENCY, PRUNABLE_EXISTENCE_PROBE_CONCURRENCY, WORKTREE_ADD_TIMEOUT_MS, WORKTREE_REMOVAL_PREFLIGHT_TIMEOUT_MS, WORKTREE_LIST_TIMEOUT_MS, gitExecOptions, getErrorCode, getErrorText, isNotGitRepositoryError, isBranchCheckedOutInWorktreeError, normalizeLocalBranchRef, parseRemoteTrackingLocalBaseRef, parseRevListDrift, evaluateLocalBaseRefRefreshability, getLocalBaseRefUpdateSuggestionForWorktreeCreate, persistWorktreeCreationBase, unsetWorktreeCreationBase, areWorktreePathsEqual, looksLikeWindowsPath, resolveRevParsePath, parseRepoLocation, readRepoLocation, normalizeMainWorktreePath }
-export { type AddWorktreeResult, type SparseWorktreeCreateError, type GitWorktreeExecOptions, type WorktreeRemovalPreflightOptions, type AddWorktreeOptions, type RemoveWorktreeOptions, type LocalBaseRefRefreshability, type RepoLocation }
-
+export { areWorktreePathsEqual,evaluateLocalBaseRefRefreshability,getErrorCode,getErrorText,getLocalBaseRefUpdateSuggestionForWorktreeCreate,gitExecOptions,isBranchCheckedOutInWorktreeError,isNotGitRepositoryError,looksLikeWindowsPath,normalizeLocalBranchRef,normalizeMainWorktreePath,parseRemoteTrackingLocalBaseRef,parseRepoLocation,parseRevListDrift,persistWorktreeCreationBase,PRUNABLE_EXISTENCE_PROBE_CONCURRENCY,readRepoLocation,resolveRevParsePath,SPARSE_CHECKOUT_DETECTION_CONCURRENCY,unsetWorktreeCreationBase,WORKTREE_ADD_TIMEOUT_MS,WORKTREE_LIST_TIMEOUT_MS,WORKTREE_REMOVAL_PREFLIGHT_TIMEOUT_MS,type AddWorktreeOptions,type AddWorktreeResult,type GitWorktreeExecOptions,type LocalBaseRefRefreshability,type RemoveWorktreeOptions,type RepoLocation,type SparseWorktreeCreateError,type WorktreeRemovalPreflightOptions }

@@ -1,4 +1,5 @@
 import { callAbortableRuntimeEnvironment } from './abortable-runtime-environment-call'
+import { getClientRuntime } from './client-runtime'
 
 export async function callRuntimeEnvironmentWithRevision(args: {
   environmentId: string
@@ -18,7 +19,7 @@ export async function callRuntimeEnvironmentWithRevision(args: {
       args.expectedEnvironmentPairingRevision
     )
   }
-  return window.api.runtimeEnvironments.call({
+  return getClientRuntime().remoteHost.call({
     selector: args.environmentId,
     method: args.method,
     params: args.params,

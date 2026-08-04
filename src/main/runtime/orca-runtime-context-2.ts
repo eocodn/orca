@@ -375,9 +375,5 @@ export type RuntimeNotifier = {
   // structured payload carries the active mobile actor's clientId so the
   // renderer can disambiguate multi-phone scenarios.
   terminalDriverChanged(ptyId: string, driver: RuntimeTerminalDriverState): void
-  nativeChatLaunchDraftResolved?(
-    tabId: string,
-    resolution: { text: string; createdAt: number }
-  ): void
   browserDriverChanged?(browserPageId: string, driver: RuntimeBrowserDriverState): void
 }

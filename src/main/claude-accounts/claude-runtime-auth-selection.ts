@@ -1,53 +1,25 @@
-import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { app } from 'electron'
-import type { ClaudeManagedAccount } from '../../shared/types'
-import type { Store } from '../persistence'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
-import type { ClaudeEnvPatch } from './environment'
-import {
-  readClaudeManagedAuthFile,
-  resolveOwnedClaudeManagedAuthPath,
-  writeClaudeManagedAuthFile
-} from './managed-auth-path'
-import { parseWslUncPath } from '../../shared/wsl-paths'
+import { existsSync,readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { resolveLocalAccountRuntimeTarget } from '../../shared/local-account-runtime'
-import { getDefaultWslDistro, getWslHome, toWindowsWslPath } from '../wsl'
-import { buildEncodedWslBashCommand } from '../wsl-bash-command'
-import { hasLiveClaudePtys } from './live-pty-gate'
-import { isOauthTokenExpiring, refreshClaudeOauthCredentials } from './oauth-refresh'
-import { ClaudeRuntimePathResolver } from './runtime-paths'
-import {
-  deleteActiveClaudeKeychainCredentialsStrict,
-  readActiveClaudeKeychainCredentials,
-  readActiveClaudeKeychainCredentialsStrict,
-  readManagedClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentialsForRuntime,
-  writeManagedClaudeKeychainCredentials
-} from './keychain'
+import type { ClaudeManagedAccount } from '../../shared/types'
+import { parseWslUncPath } from '../../shared/wsl-paths'
+import { getDefaultWslDistro,getWslHome } from '../wsl'
+import { writeActiveClaudeKeychainCredentialsForRuntime } from './keychain'
 import {
   getSelectedClaudeAccountIdForTarget,
   normalizeClaudeAccountSelectionTarget,
-  normalizeClaudeRuntimeSelection,
-  setSelectedClaudeAccountIdForTarget,
   type ClaudeAccountSelectionTarget
 } from './runtime-selection'
 
 
-import { type ClaudeRuntimeAuthPreparation,
-  type ClaudeSystemDefaultSnapshot,
-  type ClaudeAuthIdentity,
-  type ClaudeReadBackResult,
-  type ClaudeReadBackMatch,
-  type ClaudeKeychainReadResult,
-  type ClaudeKeychainSnapshotValue,
-  type ClaudeRefreshTokenComparison,
-  type ClaudeRuntimeCredentialCandidate,
+import {
   ClaudeRuntimeAuthServiceFoundation,
-  RUNTIME_OAUTH_ACCOUNT_PARSE_ERROR,
-  shellQuote  } from './claude-runtime-auth-foundation'
+  type ClaudeAuthIdentity,
+  type ClaudeReadBackMatch,
+  type ClaudeReadBackResult,
+  type ClaudeRuntimeAuthPreparation,
+  type ClaudeRuntimeCredentialCandidate
+} from './claude-runtime-auth-foundation'
 
 export class ClaudeRuntimeAuthServicePhase1 extends ClaudeRuntimeAuthServiceFoundation {
   protected async readBackRefreshedTokens(

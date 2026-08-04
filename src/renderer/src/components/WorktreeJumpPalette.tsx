@@ -28,7 +28,6 @@ import { getLinkedWorkItemSuggestedName, getLinkedWorkItemWorkspaceName } from '
 import type { LinkedWorkItemSummary } from '@/lib/new-workspace'
 import { sortWorktreesSmart } from '@/components/sidebar/smart-sort'
 import {
-  isAutomationGeneratedWorkspace,
   isCliCreatedWorkspace,
   isDetachedHeadWorkspace,
   isDefaultBranchWorkspace
@@ -400,7 +399,6 @@ export default function WorktreeJumpPalette(): React.JSX.Element | null {
   const runtimeEnvironments = useAppStore((s) => s.runtimeEnvironments)
   const runtimeStatusByEnvironmentId = useAppStore((s) => s.runtimeStatusByEnvironmentId)
   const hideDefaultBranchWorkspace = useAppStore((s) => s.hideDefaultBranchWorkspace)
-  const hideAutomationGeneratedWorkspaces = useAppStore((s) => s.hideAutomationGeneratedWorkspaces)
   const hideCliCreatedWorkspaces = useAppStore((s) => s.hideCliCreatedWorkspaces)
   const hideDetachedHeadWorkspaces = useAppStore((s) => s.hideDetachedHeadWorkspaces)
   const showSleepingWorkspaces = useAppStore((s) => s.showSleepingWorkspaces)
@@ -490,9 +488,6 @@ export default function WorktreeJumpPalette(): React.JSX.Element | null {
         if (hideDefaultBranchWorkspace && isDefaultBranchWorkspace(worktree)) {
           return false
         }
-        if (hideAutomationGeneratedWorkspaces && isAutomationGeneratedWorkspace(worktree)) {
-          return false
-        }
         if (hideCliCreatedWorkspaces && isCliCreatedWorkspace(worktree)) {
           return false
         }
@@ -516,7 +511,6 @@ export default function WorktreeJumpPalette(): React.JSX.Element | null {
     [
       allWorktrees,
       browserTabsByWorktree,
-      hideAutomationGeneratedWorkspaces,
       hideCliCreatedWorkspaces,
       hideDefaultBranchWorkspace,
       hideDetachedHeadWorkspaces,

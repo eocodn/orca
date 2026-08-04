@@ -2,8 +2,15 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { resolveChromiumCookiesPath } from './chromium-cookie-path'
-import { type DetectedBrowser, CHROMIUM_BROWSERS, browserRootPath } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
-import { isSafeBrowserProfileDirectory, firefoxProfilesRoot } from './browser-cookie-import-pipeline-is-safe-browser-profile-directory-discover-firefox-profiles'
+import {
+  type DetectedBrowser,
+  CHROMIUM_BROWSERS,
+  browserRootPath
+} from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
+import {
+  isSafeBrowserProfileDirectory,
+  firefoxProfilesRoot
+} from './browser-cookie-import-pipeline-is-safe-browser-profile-directory-discover-firefox-profiles'
 
 export function selectBrowserProfile(
   browser: DetectedBrowser,

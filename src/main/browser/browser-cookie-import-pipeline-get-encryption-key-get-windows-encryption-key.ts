@@ -4,9 +4,17 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { diag } from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
 
-import { type DetectedBrowser, CHROMIUM_BROWSERS, browserRootPath } from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
-import { PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH, PBKDF2_SALT } from './browser-cookie-import-pipeline-pbkdf2-iterations-chromium-epoch-offset'
-import { type EncryptionKeyResult } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
+import {
+  type DetectedBrowser,
+  CHROMIUM_BROWSERS,
+  browserRootPath
+} from './browser-cookie-import-pipeline-detected-browser-browser-root-path'
+import {
+  PBKDF2_ITERATIONS,
+  PBKDF2_KEY_LENGTH,
+  PBKDF2_SALT
+} from './browser-cookie-import-pipeline-pbkdf2-iterations-chromium-epoch-offset'
+import type { EncryptionKeyResult } from './browser-cookie-import-pipeline-chromium-timestamp-to-unix-parse-sqlite-default-value'
 
 export function getEncryptionKey(
   keychainService: string,
@@ -24,7 +32,6 @@ export function getEncryptionKey(
   }
   return null
 }
-
 
 export function getMacEncryptionKey(
   keychainService: string,
@@ -44,7 +51,6 @@ export function getMacEncryptionKey(
     return null
   }
 }
-
 
 export function getLinuxEncryptionKey(
   keychainService: string,
@@ -77,7 +83,6 @@ export function getLinuxEncryptionKey(
   const v11Key = pbkdf2Sync(keyringPassword, PBKDF2_SALT, 1, PBKDF2_KEY_LENGTH, 'sha1')
   return { key: v11Key, mode: 'aes-128-cbc', fallbackKey: v10Key }
 }
-
 
 export function getWindowsEncryptionKey(browser: DetectedBrowser): EncryptionKeyResult | null {
   const browserDef = CHROMIUM_BROWSERS.find((b) => b.family === browser.family)

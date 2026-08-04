@@ -1,35 +1,16 @@
-import type { BrowserWindow } from 'electron'
-import type {
-  CodexRateLimitResetResult,
-  RateLimitState,
-  ProviderRateLimits,
-  InactiveAccountUsage,
-  RateLimitRuntimeTarget
-} from '../../shared/rate-limit-types'
-import { fetchClaudeRateLimits, fetchManagedAccountUsage } from './claude-fetcher'
-import type { InactiveClaudeAccountInfo } from './claude-fetcher'
-import { mapClaudeUsageWindow } from './claude-usage-window'
-import type { ClaudeStatusLineRateLimits } from '../../shared/claude-statusline-rate-limits'
-import { consumeCodexRateLimitResetCredit, fetchCodexRateLimits } from './codex-fetcher'
+import type { ProviderRateLimits } from '../../shared/rate-limit-types'
 import type { ClaudeRuntimeAuthPreparation } from '../claude-accounts/runtime-auth-service'
-import type { NetworkProxySettings } from '../../shared/network-proxy'
 import {
-  normalizeClaudeAccountSelectionTarget,
-  type ClaudeAccountSelectionTarget,
-  type NormalizedClaudeAccountSelectionTarget
+  type ClaudeAccountSelectionTarget
 } from '../claude-accounts/runtime-selection'
-import { fetchGeminiRateLimits } from './gemini-usage-fetcher'
-import { fetchKimiRateLimits } from './kimi-fetcher'
-import { fetchGrokRateLimits } from './grok-fetcher'
-import { readGrokAuthSession } from './grok-auth'
-import { hasMiniMaxSessionCookie } from '../minimax/minimax-cookie-store'
-import { fetchMiniMaxRateLimits } from './minimax-fetcher'
-import { fetchOpenCodeGoRateLimits } from './opencode-go-usage-fetcher'
 import {
-  normalizeCodexAccountSelectionTarget,
-  type CodexAccountSelectionTarget,
-  type NormalizedCodexAccountSelectionTarget
+  type CodexAccountSelectionTarget
 } from '../codex-accounts/runtime-selection'
+import { fetchClaudeRateLimits } from './claude-fetcher'
+import { fetchCodexRateLimits } from './codex-fetcher'
+import { readGrokAuthSession } from './grok-auth'
+import { fetchGrokRateLimits } from './grok-fetcher'
+import { RateLimitServiceFetchAll } from './rate-limit-service-fetch-all'
 
 export type InactiveCodexAccountInfo = {
   id: string
@@ -139,7 +120,6 @@ function isSameUsageWindow(
   }
   return a.usedPercent === b.usedPercent && a.resetsAt === b.resetsAt
 }
-import { RateLimitServiceFetchAll } from './rate-limit-service-fetch-all'
 
 
 export class RateLimitServiceFetchTargets extends RateLimitServiceFetchAll {

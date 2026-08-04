@@ -62,6 +62,7 @@ describe('PTY renderer delivery recovery incarnation fencing', () => {
     expect(
       recovery.writeOffLostRendererDelivery({
         receivedCharsByPty: { 'pty-1': 99 },
+        processedCharsByPty: {},
         rendererPtyDataListenerCount: 1
       })
     ).toEqual([])

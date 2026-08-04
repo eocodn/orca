@@ -1,8 +1,13 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, win32 as pathWin32 } from 'node:path'
 import { ORCA_GIT_COMMIT_TRAILER } from '../../shared/orca-attribution'
-import { POSIX_GIT_WRAPPER, POSIX_GH_WRAPPER } from "./terminal-attribution-posix-shims"
-import { WIN32_GIT_CMD_WRAPPER, WIN32_GH_CMD_WRAPPER, WIN32_GIT_PS_WRAPPER, WIN32_GH_PS_WRAPPER } from "./terminal-attribution-windows-shims"
+import { POSIX_GIT_WRAPPER, POSIX_GH_WRAPPER } from './terminal-attribution-posix-shims'
+import {
+  WIN32_GIT_CMD_WRAPPER,
+  WIN32_GH_CMD_WRAPPER,
+  WIN32_GIT_PS_WRAPPER,
+  WIN32_GH_PS_WRAPPER
+} from './terminal-attribution-windows-shims'
 
 const ATTRIBUTION_ROOT_DIR = 'orca-terminal-attribution'
 const ATTRIBUTION_SHIM_VERSION = '6'
@@ -211,5 +216,3 @@ function resolveWindowsExecutable(command: string, pathValue: string): string | 
 
   return null
 }
-
-const POSIX_COMMON = String.raw`#!/usr/bin/env bash

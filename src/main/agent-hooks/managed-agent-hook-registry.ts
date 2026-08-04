@@ -1,5 +1,4 @@
 import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
-import type { HookInstallAgent } from '../../shared/telemetry-events'
 import { ampHookService } from '../amp/hook-service'
 import { antigravityHookService } from '../antigravity/hook-service'
 import { claudeHookService } from '../claude/hook-service'
@@ -15,9 +14,14 @@ import { hermesHookService } from '../hermes/hook-service'
 import { kimiHookService } from '../kimi/hook-service'
 import { openClaudeHookService } from '../openclaude/hook-service'
 
-export type ManagedAgentHookInstaller = readonly [HookInstallAgent, () => AgentHookInstallStatus]
-export type ManagedAgentHookRemover = readonly [HookInstallAgent, () => AgentHookInstallStatus]
-export type ManagedAgentHookStatusReader = readonly [HookInstallAgent, () => AgentHookInstallStatus]
+type ManagedAgentHookEntry = readonly [
+  AgentHookInstallStatus['agent'],
+  () => AgentHookInstallStatus
+]
+
+export type ManagedAgentHookInstaller = ManagedAgentHookEntry
+export type ManagedAgentHookRemover = ManagedAgentHookEntry
+export type ManagedAgentHookStatusReader = ManagedAgentHookEntry
 
 export const MANAGED_AGENT_HOOK_INSTALLERS: readonly ManagedAgentHookInstaller[] = [
   ['claude', () => claudeHookService.install()],

@@ -3,7 +3,6 @@ import type { AppState } from '../types'
 import type {
   Repo,
   SetupSplitDirection,
-  Tab,
   TerminalLayoutSnapshot,
   TerminalTab,
   TuiAgent,
@@ -44,7 +43,6 @@ import {
 import { isWslUncPath } from '../../../../shared/wsl-paths'
 import type { ProjectExecutionRuntimeResolution } from '../../../../shared/project-execution-runtime'
 import type { StartupCommandDelivery } from '../../../../shared/codex-startup-delivery'
-import type { SessionOptionValue } from '../../../../shared/native-chat-session-options'
 import { resolveLocalWindowsTerminalShellOverrideForTab } from '../../../../shared/local-windows-terminal-runtime'
 import { WINDOWS_GIT_BASH_SHELL } from '../../../../shared/windows-terminal-shell'
 import type { AgentStartedTelemetry } from '../../lib/worktree-activation'
@@ -119,7 +117,6 @@ import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner
 import { resolveTerminalWorktreeRoute } from '@/lib/terminal-worktree-route'
 import { resolveWorktreeOperationRouteResult } from '@/lib/worktree-operation-route'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
-import type { NativeChatLaunchDraft, NativeChatLaunchPrompt } from '@/lib/native-chat-launch-prompt'
 import {
   addAdditionalValidWorkspaceKeys,
   type WorkspaceSessionHydrationOptions
@@ -176,20 +173,6 @@ export type TerminalSlice = {
   /** Runtime-only claim for auto sleeping-session recovery tabs; bridges the gap between startup payload consumption and hooks going live. */
   automaticAgentResumeClaimsByTabId: Record<string, AutomaticAgentResumeClaim>;
   claimAutomaticAgentResume: (tabId: string, claim: AutomaticAgentResumeClaim) => void;
-  /** Launch-time native-chat prompt echo, keyed by terminal tab. In-memory only. */
-  nativeChatLaunchPromptByTabId: Record<string, NativeChatLaunchPrompt>;
-  seedNativeChatLaunchPrompt: (prompt: NativeChatLaunchPrompt) => void;
-  markNativeChatLaunchPromptFailed: (tabId: string) => void;
-  clearNativeChatLaunchPrompt: (tabId: string) => void;
-  /** Launch context prefilled into the TUI input as an unsent draft; the chat composer adopts it. In-memory only. */
-  nativeChatLaunchDraftByTabId: Record<string, NativeChatLaunchDraft>;
-  seedNativeChatLaunchDraft: (draft: NativeChatLaunchDraft) => void;
-  markNativeChatLaunchDraftAdopted: (tabId: string) => void;
-  resolveNativeChatLaunchDraft: (
-    tabId: string,
-    resolution: Pick<NativeChatLaunchDraft, 'createdAt' | 'text'>
-  ) => void;
-  clearNativeChatLaunchDraft: (tabId: string) => void;
   pendingStartupByTabId: Record<
     string,
     {
@@ -206,7 +189,6 @@ export type TerminalSlice = {
       /** Explicit CLI override for host-owned agent launches; omission uses host settings. */
       agentArgsOverride?: string | null
       draftPrompt?: string
-      sessionOptions?: Record<string, SessionOptionValue>
       /** Initial prompt-start status for agents that lack native prompt hooks. */
       initialAgentStatus?: { agent: TuiAgent; prompt: string }
       /** Show the restored-session banner when this startup command mounts. */
@@ -262,8 +244,6 @@ export type TerminalSlice = {
       /** Coding-harness agent launched here, recorded so the tab bar shows the provider icon before the agent's first hook event. */
       launchAgent?: TuiAgent
       quickCommandLabel?: string | null
-      /** Initial native-chat view mode; agent launches pass 'chat' when openAgentTabsInChatByDefault is on, else omitted for the 'terminal' default. */
-      viewMode?: Tab['viewMode']
       startupCwd?: string
     }
   ) => TerminalTab;
@@ -374,7 +354,6 @@ export type TerminalSlice = {
       launchAgent?: TuiAgent
       agentArgsOverride?: string | null
       draftPrompt?: string
-      sessionOptions?: Record<string, SessionOptionValue>
       initialAgentStatus?: { agent: TuiAgent; prompt: string }
       showSessionRestoredBanner?: boolean
       telemetry?: AgentStartedTelemetry
@@ -394,7 +373,6 @@ export type TerminalSlice = {
     launchAgent?: TuiAgent
     agentArgsOverride?: string | null
     draftPrompt?: string
-    sessionOptions?: Record<string, SessionOptionValue>
     initialAgentStatus?: { agent: TuiAgent; prompt: string }
     showSessionRestoredBanner?: boolean
     telemetry?: AgentStartedTelemetry

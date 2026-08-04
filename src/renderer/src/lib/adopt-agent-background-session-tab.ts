@@ -1,7 +1,7 @@
 import { useAppStore } from '@/store'
 import { makePaneKey, type PaneKey } from '../../../shared/stable-pane-id'
 import type { AgentType } from '../../../shared/agent-status-types'
-import { bindAutomationTerminal } from '@/lib/automation-terminal-ownership'
+import { bindAgentTerminal } from '@/lib/agent-terminal-ownership'
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import { retireProvider, retireUnownedTerminal } from '@/lib/retire-unowned-background-terminal'
 import { isTerminalTabPresent } from '@/store/slices/terminal-tab-retirement'
@@ -68,7 +68,7 @@ export async function adoptAgentBackgroundSessionTab(args: {
 }): Promise<{
   tab: ReturnType<Store['createTab']>
   paneKey: PaneKey
-  terminalOwnership: ReturnType<typeof bindAutomationTerminal>
+  terminalOwnership: ReturnType<typeof bindAgentTerminal>
 } | null> {
   const { store, reservedTabId, ptyId, launchRegistration } = args
   // The worktree can disappear while its PTY spawn is pending.
@@ -102,7 +102,7 @@ export async function adoptAgentBackgroundSessionTab(args: {
   })
   const paneKey = args.paneKey
   store.registerAgentLaunchConfig(paneKey, args.launchConfig, launchRegistration)
-  const terminalOwnership = bindAutomationTerminal(
+  const terminalOwnership = bindAgentTerminal(
     tab,
     paneKey,
     ptyId,

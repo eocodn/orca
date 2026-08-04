@@ -1,6 +1,5 @@
 import type { ExecutionHostId } from './execution-host'
 import type { RemovedSshTargetTombstone, SshRemotePtyLease, SshTarget } from './ssh-types'
-import type { Automation, AutomationRun } from './automations-types'
 import type {
   AgentStatusState,
   AgentType,
@@ -208,7 +207,6 @@ export type WorktreeCardProperty =
   | 'linear-issue'
   | 'jira-issue'
   | 'pr'
-  | 'automation'
   // Badge marking workspaces created through `orca worktree create`.
   | 'cli'
   | 'comment'
@@ -282,7 +280,6 @@ export type TopLevelView =
   | 'settings'
   | 'tasks'
   | 'activity'
-  | 'automations'
   | 'space'
   | 'skills'
   | 'mobile'
@@ -321,8 +318,6 @@ export type PersistedUIState = {
   showInactiveWorkspaces?: boolean
   /** Hide the repo's checked-out branch from workspace nav (sidebar, Cmd+J); folder-mode repos are unaffected (empty-branch worktrees excluded). */
   hideDefaultBranchWorkspace: boolean
-  /** Hide workspaces created by automation new-per-run dispatches. */
-  hideAutomationGeneratedWorkspaces?: boolean
   /** Hide workspaces created through `orca worktree create`. */
   hideCliCreatedWorkspaces?: boolean
   /** Hide workspaces sitting on a detached HEAD; folder workspaces (no head at all) are unaffected. */
@@ -570,8 +565,6 @@ export type PersistedState = {
   claudeLivePtySessionIds?: string[]
   migrationUnsupportedPtyEntries: MigrationUnsupportedPtyEntry[]
   legacyPaneKeyAliasEntries: LegacyPaneKeyAliasEntry[]
-  automations: Automation[]
-  automationRuns: AutomationRun[]
   onboarding: OnboardingState
   /** Main-owned telemetry de-dupe marker; never exposed through PersistedUIState. */
   featureInteractionTelemetryBuckets?: FeatureInteractionTelemetryBucketState

@@ -1,12 +1,11 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
-import { BellRing, MessageSquare } from 'lucide-react-native'
+import { BellRing } from 'lucide-react-native'
 import type { MobileOnboardingStep } from './mobile-onboarding-plan'
 import { mobileOnboardingStyles as styles } from './mobile-onboarding-styles'
-import type { MobileSessionView } from '../storage/session-view-preferences'
 import { colors } from '../theme/mobile-theme'
 
 export type NotificationOnboardingChoice = 'enable' | 'skip'
-export type MobileOnboardingBusyChoice = MobileSessionView | NotificationOnboardingChoice | null
+export type MobileOnboardingBusyChoice = NotificationOnboardingChoice | null
 
 type Props = {
   step: MobileOnboardingStep
@@ -14,7 +13,6 @@ type Props = {
   active: boolean
   busyChoice: MobileOnboardingBusyChoice
   error: string | null
-  onSessionChoice: (view: MobileSessionView) => void
   onNotificationChoice: (choice: NotificationOnboardingChoice) => void
 }
 
@@ -24,11 +22,9 @@ export function MobileOnboardingPage({
   active,
   busyChoice,
   error,
-  onSessionChoice,
   onNotificationChoice
 }: Props) {
   const busy = busyChoice !== null
-  const isSessionView = step === 'session-view'
 
   return (
     <ScrollView
@@ -40,19 +36,13 @@ export function MobileOnboardingPage({
     >
       <View style={styles.content}>
         <View style={styles.iconSurface}>
-          {isSessionView ? (
-            <MessageSquare size={30} color={colors.textPrimary} />
-          ) : (
-            <BellRing size={30} color={colors.textPrimary} />
-          )}
+          <BellRing size={30} color={colors.textPrimary} />
         </View>
         <Text style={styles.title}>
-          {isSessionView ? 'How should sessions open?' : 'Stay updated while away'}
+          Stay updated while away
         </Text>
         <Text style={styles.body}>
-          {isSessionView
-            ? 'Choose whether supported agent sessions open in the terminal or Chat UI on this device. Press and hold a session tab to switch its view, or change the default later in Settings.'
-            : 'Get notified on this device when an agent needs your input or finishes a task.'}
+          Get notified on this device when an agent needs your input or finishes a task.
         </Text>
       </View>
 
@@ -62,47 +52,13 @@ export function MobileOnboardingPage({
             {error}
           </Text>
         ) : null}
-        {isSessionView ? (
-          <SessionViewChoices busyChoice={busyChoice} disabled={busy} onChoice={onSessionChoice} />
-        ) : (
-          <NotificationChoices
-            busyChoice={busyChoice}
-            disabled={busy}
-            onChoice={onNotificationChoice}
-          />
-        )}
+        <NotificationChoices
+          busyChoice={busyChoice}
+          disabled={busy}
+          onChoice={onNotificationChoice}
+        />
       </View>
     </ScrollView>
-  )
-}
-
-function SessionViewChoices({
-  busyChoice,
-  disabled,
-  onChoice
-}: {
-  busyChoice: MobileOnboardingBusyChoice
-  disabled: boolean
-  onChoice: (view: MobileSessionView) => void
-}) {
-  return (
-    <>
-      <ChoiceButton
-        label="Use Chat UI"
-        accessibilityLabel="Open sessions in Chat UI"
-        primary
-        busy={busyChoice === 'chat'}
-        disabled={disabled}
-        onPress={() => onChoice('chat')}
-      />
-      <ChoiceButton
-        label="Keep terminal"
-        accessibilityLabel="Open sessions in the terminal"
-        busy={busyChoice === 'terminal'}
-        disabled={disabled}
-        onPress={() => onChoice('terminal')}
-      />
-    </>
   )
 }
 

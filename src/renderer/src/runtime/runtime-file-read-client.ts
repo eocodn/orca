@@ -1,12 +1,23 @@
-import type { RuntimeFileReadChunkResult, RuntimeFileReadResult, RuntimeFilePreviewResult } from '../../../shared/runtime-types'
+import type {
+  RuntimeFileReadChunkResult,
+  RuntimeFileReadResult,
+  RuntimeFilePreviewResult
+} from '../../../shared/runtime-types'
 import type { RuntimeFileOperationArgs, RuntimeFileDownloadResult } from './runtime-file-context'
 import {
   REMOTE_DOWNLOAD_CHUNK_BYTES,
   REMOTE_DOWNLOAD_UPDATE_REQUIRED_MESSAGE,
   type RemoteFileDownloadArgs
 } from './runtime-file-context'
-import { RuntimeRpcCallError, callRuntimeRpc } from './runtime-rpc-client'
-import { getRemoteFileArgs, hasRemoteRuntimeOwner, assertExternalSshReadOwnership } from './runtime-file-context'
+import { RuntimeRpcCallError, callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
+import {
+  assertExternalSshReadOwnership,
+  canReadRelativeRuntimeFile,
+  getRemoteFileArgs,
+  hasRemoteRuntimeOwner
+} from './runtime-file-context'
+import { getClientRuntime } from './client-runtime'
+import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 
 export async function readRuntimeFileContent({
   settings,
@@ -20,10 +31,10 @@ export async function readRuntimeFileContent({
   assertExternalSshReadOwnership(settings, connectionId, expectedExternalSshTargetId)
   const target = getActiveRuntimeTarget(settings)
   if (target.kind !== 'environment') {
-    return window.api.fs.readFile({ filePath, connectionId, includeLocalLogMetadata })
+    return getClientRuntime().file.readFile({ filePath, connectionId, includeLocalLogMetadata })
   }
   if (!worktreeId) {
-    return window.api.fs.readFile({ filePath, connectionId, includeLocalLogMetadata })
+    return getClientRuntime().file.readFile({ filePath, connectionId, includeLocalLogMetadata })
   }
   if (!canReadRelativeRuntimeFile(relativePath)) {
     throw new Error('Remote file is outside the owning runtime worktree')
@@ -74,7 +85,7 @@ export async function readRuntimeFilePreview(
     if (hasRemoteRuntimeOwner(context)) {
       throw new Error('Remote file is outside the owning runtime worktree')
     }
-    return window.api.fs.readFile({ filePath, connectionId: context.connectionId })
+    return getClientRuntime().file.readFile({ filePath, connectionId: context.connectionId })
   }
   return callRuntimeRpc<RuntimeFilePreviewResult>(
     remoteArgs.target,
@@ -100,10 +111,10 @@ export async function downloadRuntimeFile(
       throw new Error('Remote file is outside the owning runtime worktree')
     }
     if (context.connectionId) {
-      return window.api.fs.downloadFile({ filePath, connectionId: context.connectionId })
+      return getClientRuntime().file.downloadFile({ filePath, connectionId: context.connectionId })
     }
     const result = await readRuntimeFilePreview(context, filePath)
-    return window.api.fs.saveDownloadedFile({
+    return getClientRuntime().file.saveDownloadedFile({
       suggestedName,
       content: result.content,
       encoding: result.isBinary ? 'base64' : 'utf8'
@@ -114,7 +125,7 @@ export async function downloadRuntimeFile(
     return downloadRemoteFileViaPreview(remoteArgs, suggestedName)
   }
 
-  const download = await window.api.fs.startDownloadedFile({ suggestedName })
+  const download = await getClientRuntime().file.startDownloadedFile({ suggestedName })
   if (download.canceled) {
     return download
   }
@@ -125,7 +136,7 @@ export async function downloadRuntimeFile(
     for (;;) {
       const chunk = await readRemoteDownloadChunk(remoteArgs, offset)
       if (chunk.bytesRead > 0) {
-        await window.api.fs.appendDownloadedFileChunk({
+        await getClientRuntime().file.appendDownloadedFileChunk({
           transferId: download.transferId,
           contentBase64: chunk.contentBase64
         })
@@ -138,12 +149,16 @@ export async function downloadRuntimeFile(
         throw new Error('Remote download stalled before reaching EOF')
       }
     }
-    const result = await window.api.fs.finishDownloadedFile({ transferId: download.transferId })
+    const result = await getClientRuntime().file.finishDownloadedFile({
+      transferId: download.transferId
+    })
     finished = true
     return result
   } finally {
     if (!finished) {
-      await window.api.fs.cancelDownloadedFile({ transferId: download.transferId }).catch(() => {})
+      await getClientRuntime()
+        .file.cancelDownloadedFile({ transferId: download.transferId })
+        .catch(() => {})
     }
   }
 }
@@ -207,7 +222,7 @@ async function downloadRemoteFileViaPreview(
     if (result.isBinary && !result.content && !result.isImage && !result.mimeType) {
       throw new Error(REMOTE_DOWNLOAD_UPDATE_REQUIRED_MESSAGE)
     }
-    return window.api.fs.saveDownloadedFile({
+    return getClientRuntime().file.saveDownloadedFile({
       suggestedName,
       content: result.content,
       encoding: result.isBinary ? 'base64' : 'utf8'

@@ -21,7 +21,7 @@ type Callback = (error?: Error | null, value?: unknown) => void
 function createLocalSftp(): SFTPWrapper {
   return {
     readFile(path: string, options: unknown, callback: Callback) {
-      void readFile(path, typeof options === 'string' ? options : 'utf8').then(
+      void readFile(path, typeof options === 'string' ? (options as BufferEncoding) : 'utf8').then(
         (value) => callback(null, value),
         (error) => callback(error)
       )

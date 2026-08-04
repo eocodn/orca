@@ -1,21 +1,10 @@
 import { app } from 'electron'
-import { join } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
-import { UsageCacheSnapshotWriter } from '../usage-cache-snapshot-writer'
-import type {
-  CodexUsageBreakdownKind,
-  CodexUsageBreakdownRow,
-  CodexUsageDailyPoint,
-  CodexUsageRange,
-  CodexUsageScanState,
-  CodexUsageScope,
-  CodexUsageSessionRow,
-  CodexUsageSnapshot,
-  CodexUsageSummary
-} from '../../shared/codex-usage-types'
-import type { AutomationRunUsage } from '../../shared/automations-types'
+import { join } from 'node:path'
+import type { CodexUsageRange, CodexUsageScanState } from '../../shared/codex-usage-types'
 import type { Store } from '../persistence'
-import { loadKnownUsageWorktreesByRepo, type UsageWorktreeRef } from '../usage-worktree-metadata'
+import { UsageCacheSnapshotWriter } from '../usage-cache-snapshot-writer'
+import type { UsageWorktreeRef } from '../usage-worktree-metadata'
 import type { CodexUsagePersistedState } from './types'
 
 // Why: v5 keys Codex ownership on raw token_count identity without session id
@@ -23,19 +12,11 @@ import type { CodexUsagePersistedState } from './types'
 // scoped keys and can double-count after fork/resume (#8006).
 const SCHEMA_VERSION = 5
 export const STALE_MS = 5 * 60_000
-export const AUTOMATION_ATTRIBUTION_WINDOW_MS = 5 * 60_000
 
 let _codexUsageFile: string | null = null
 
 export function initCodexUsagePath(): void {
   _codexUsageFile = join(app.getPath('userData'), 'orca-codex-usage.json')
-}
-
-export type AutomationUsageLookupInput = {
-  worktreeId: string | null
-  terminalSessionId: string | null
-  startedAt: number | null
-  completedAt: number | null
 }
 
 export function getRangeCutoff(range: CodexUsageRange): string | null {
@@ -77,7 +58,6 @@ export function getWorktreeFingerprint(worktreesByRepo: Map<string, UsageWorktre
     .sort()
   return JSON.stringify(rows)
 }
-
 
 function getDefaultState(): CodexUsagePersistedState {
   return {
@@ -122,7 +102,6 @@ function getCodexUsageFile(): string {
   }
   return _codexUsageFile
 }
-
 
 export abstract class CodexUsageStoreBase {
   protected state: CodexUsagePersistedState

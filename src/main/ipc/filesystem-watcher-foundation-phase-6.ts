@@ -1,92 +1,56 @@
-import { ipcMain, type WebContents } from 'electron'
-import * as path from 'node:path'
-import { stat } from 'node:fs/promises'
-import type { Event as WatcherEvent } from '@parcel/watcher'
-import type { FsChangeEvent, FsChangedPayload } from '../../shared/types'
+import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
 import {
-  isWindowsAbsolutePathLike,
-  normalizeRuntimePathForComparison
-} from '../../shared/cross-platform-path'
-import { isWslPath } from '../wsl'
-import { createWslWatcher } from './filesystem-watcher-wsl'
-import type { WatchedRoot } from './filesystem-watcher-wsl'
-import {
-  getSshFilesystemProvider,
-  onSshFilesystemProviderRegistered
-} from '../providers/ssh-filesystem-dispatch'
-import { MAX_BATCHED_WATCHER_EVENTS, queueWatcherEvents } from './filesystem-watcher-event-batch'
-import { disposeWatcherProcess, subscribeViaWatcherProcess } from './parcel-watcher-process'
-import { isWatcherProcessFailure } from './parcel-watcher-process-failure'
-import {
-  onWatcherChildCapacityAvailable,
-  WatcherChildCapacityError
-} from './parcel-watcher-child-registry'
-import { beginWatcherInstall, isWatcherRemovalInProgressError } from './watcher-removal-gate'
-import {
-  createWatcherRemovalDeadline,
-  drainBeforeWatcherRemoval,
-  WATCHER_REMOVAL_FINAL_DRAIN_RESERVE_MS,
-  type WatcherRemovalDeadline
-} from './watcher-removal-drain'
-// Why: suppress high-churn dirs at the watcher level (separate from the File Explorer display filter, which only hides rows).
-import { WATCHER_IGNORE_DIRS, buildParcelWatcherIgnoreOptions } from './filesystem-watcher-ignore'
-import {
-  senderCleanupRegistered,
-  unwatchableRoots,
-  suspendedLocalWatcherListeners,
-  localWatchersClosed,
+  failedLocalUnsubscribes,
+  inFlightLocalInstalls,
   localWatcherLifecycleGeneration,
   pendingLocalCapacityRetries,
-  pendingTeardowns,
-  inFlightLocalInstalls,
-  watchedRoots,
   pendingLocalUnsubscribes,
-  failedLocalUnsubscribes,
+  pendingTeardowns,
+  senderCleanupRegistered,
+  setLocalWatcherLifecycleGeneration,
   setLocalWatchersClosed,
-  setLocalWatcherLifecycleGeneration
+  suspendedLocalWatcherListeners,
+  unwatchableRoots,
+  watchedRoots
 } from './filesystem-watcher-foundation'
 import { trackLocalUnsubscribe } from './filesystem-watcher-local'
 import {
-  suspendedRemoteWatcherListeners,
-  remoteWatchers,
+  REMOTE_WATCH_DORMANT_RETRY_MAX_MS,
+  REMOTE_WATCH_DORMANT_RETRY_MS,
   desiredRemoteWatchers,
   dormantRemoteWatchers,
+  inFlightRemoteInstalls,
   loggedUnavailableRemoteWatchers,
+  pendingRemoteInstallPromises,
   pendingRemoteWatcherRetries,
   pendingRemoteWatcherRetryListeners,
-  remoteWatcherResyncStates,
-  inFlightRemoteInstalls,
-  pendingRemoteInstallPromises,
-  remoteWatchersClosed,
   remoteWatcherLifecycleGeneration,
-  REMOTE_WATCH_DORMANT_RETRY_MS,
-  REMOTE_WATCH_DORMANT_RETRY_MAX_MS,
+  remoteWatcherResyncStates,
+  remoteWatchers,
+  remoteWatchersClosed,
+  setRemoteWatcherLifecycleGeneration,
   setRemoteWatchersClosed,
-  setRemoteWatcherLifecycleGeneration
+  suspendedRemoteWatcherListeners
 } from './filesystem-watcher-removal'
 import {
   type RemoteWatcherInstallResult,
   installRemoteWatcher
 } from './filesystem-watcher-retry'
+import { disposeWatcherProcess } from './parcel-watcher-process'
+import { isWatcherRemovalInProgressError } from './watcher-removal-gate'
 
 // ── Debounce helpers ─────────────────────────────────────────────────
 
-import { flushRemoteWatcherResync,
-  requestRemoteWatcherResync,
-  scheduleRemoteWatcherRetry,
-  registerFilesystemWatcherHandlers,
+import {
+  clearDormantRemoteWatcher,
   remoteWatcherKey,
-  rememberDesiredRemoteWatcher,
-  forgetDesiredRemoteWatcher,
-  clearDormantRemoteWatcher } from './filesystem-watcher-ipc'
-export { flushRemoteWatcherResync,
   requestRemoteWatcherResync,
-  scheduleRemoteWatcherRetry,
-  registerFilesystemWatcherHandlers,
-  remoteWatcherKey,
-  rememberDesiredRemoteWatcher,
-  forgetDesiredRemoteWatcher,
-  clearDormantRemoteWatcher } from './filesystem-watcher-ipc'
+  scheduleRemoteWatcherRetry
+} from './filesystem-watcher-ipc'
+export {
+  clearDormantRemoteWatcher,flushRemoteWatcherResync,forgetDesiredRemoteWatcher,registerFilesystemWatcherHandlers,rememberDesiredRemoteWatcher,remoteWatcherKey,requestRemoteWatcherResync,
+  scheduleRemoteWatcherRetry
+} from './filesystem-watcher-ipc'
 
 export function scheduleDormantRemoteWatcherRearm(
   connectionId: string,

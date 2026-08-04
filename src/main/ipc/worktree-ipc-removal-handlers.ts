@@ -1,6 +1,13 @@
+import type { RemoveWorktreeResult } from '../../shared/types'
+import { preservedBranchCleanupByWorktreeId } from './worktree-ipc-creation'
+import type { RemoveWorktreeArgs } from './worktree-ipc-foundation'
+import {
+  getRepoForWorktreeRemoval,
+  isAlreadyRemovedWorktreePath
+} from './worktree-ipc-foundation'
+import { removeLocalWorktreeAfterArchive } from './worktree-ipc-local-removal'
 import type { WorktreeIpcRegistrationContext } from './worktree-ipc-registration-context'
 import {
-  ipcMain,
   assertWorktreeDoesNotContainRegisteredWorktree,
   assertWorktreeUnlockedForRemoval,
   canCleanupUnregisteredOrcaLeftoverDirectory,
@@ -21,40 +28,30 @@ import {
   getWorktreeRemovalInFlightKey,
   getWorktreeRemovalOptionsKey,
   invalidateAuthorizedRootsCache,
-  isLocalGitRepository,
+  ipcMain,
   isDangerousWorktreeRemovalPath,
   isFolderRepo,
+  isLocalGitRepository,
   isWindowsAbsolutePathLike,
   killAllProcessesForWorktree,
   listGitWorktreesStrict,
   notifyWorktreesChanged,
+  ORPHANED_WORKTREE_DIRECTORY_MESSAGE,
   parseWorktreeId,
   preserveBranchHeadFallback,
-  removeLocalWorktreePath,
-  removeWorktree,
-  removeWorktreeLinkedPaths,
-  removeWorktreeMetadataAndTransientState,
-  removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
   rememberPreservedBranchCleanupTarget,
+  removeLocalWorktreePath,
+  removeStaleLocalWorktreeRegistrationAfterFilesystemRemoval,
+  removeWorktreeMetadataAndTransientState,
   requireSshGitProvider,
   runHook,
   runRemoteArchiveHook,
   stopPtysForDestructiveWorktreeRemoval,
   toLocalWorktreeRuntimePath,
+  UNREGISTERED_MISSING_WORKTREE_MESSAGE,
   withWorktreeRemoveStageSpan,
   withWorktreeSpan
 } from './worktree-ipc-removal-runtime'
-import {
-  ORPHANED_WORKTREE_DIRECTORY_MESSAGE,
-  UNREGISTERED_MISSING_WORKTREE_MESSAGE
-} from './worktree-ipc-removal-runtime'
-import { removeLocalWorktreeAfterArchive } from './worktree-ipc-local-removal'
-import {
-  getRepoForWorktreeRemoval,
-  isAlreadyRemovedWorktreePath
-} from './worktree-ipc-foundation'
-import type { RemoveWorktreeArgs } from './worktree-ipc-foundation'
-import type { RemoveWorktreeResult } from '../../shared/types'
 
 export function registerWorktreeRemovalHandler({
   mainWindow,

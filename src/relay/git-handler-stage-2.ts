@@ -1,4 +1,4 @@
-import { execFile,type ExecFileOptions } from 'node:child_process'
+import { execFile, type ExecFileOptions } from 'node:child_process'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
 import {
@@ -7,8 +7,8 @@ import {
 } from '../shared/git-discard-path-safety'
 import { getEffectiveGitUpstreamStatus } from '../shared/git-effective-upstream'
 import { GIT_FETCH_SKIP_AUTO_MAINTENANCE_CONFIG_ARGS } from '../shared/git-fetch-auto-maintenance'
-import { syncForkDefaultBranch,validateGitForkSyncExpectedUpstream } from '../shared/git-fork-sync'
-import { getPublishTargetStatus,type GitCommandRunner } from '../shared/git-publish-target-status'
+import { syncForkDefaultBranch, validateGitForkSyncExpectedUpstream } from '../shared/git-fork-sync'
+import { getPublishTargetStatus, type GitCommandRunner } from '../shared/git-publish-target-status'
 import { assertGitPushTargetShape } from '../shared/git-push-target-validation'
 import {
   isExecKilledError,
@@ -521,5 +521,4 @@ export abstract class GitHandlerStage2 extends GitHandlerStage1 {
       this.clearGitMutationReadCaches()
     }
   }
-
 }

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { defineStreamingMethod, type RpcAnyMethod } from '../core'
 import {
@@ -26,8 +26,9 @@ import {
 import { drainTerminalMultiplexRoundRobin } from '../terminal-multiplex-round-robin'
 import { TerminalSourceRangeRegistry } from '../terminal-source-range-registry'
 import type { RemoteTerminalSourceRangeReplacementReservation } from '../../remote-terminal-source-range-consumer'
+import type {
+  TerminalMultiplexStream} from './terminal-stream-state';
 import {
-  TerminalMultiplexStream,
   createTerminalOutputBatcher,
   isTerminalInputLockedForClient,
   sendTerminalStreamInput,

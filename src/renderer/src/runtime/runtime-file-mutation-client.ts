@@ -1,4 +1,5 @@
 import type { RuntimeFileOperationArgs, RuntimeImportResult } from './runtime-file-context'
+import { REMOTE_UPLOAD_BASE64_CHUNK_CHARS } from './runtime-file-context'
 import { basename, joinPath, normalizeRelativePath } from '@/lib/path'
 import { getActiveRuntimeTarget } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
@@ -14,6 +15,12 @@ import {
 import { captureRuntimeEnvironmentRequestRevision } from './runtime-environment-revision'
 import { runtimePathExists } from './runtime-file-search-client'
 import { callRuntimeRpc } from './runtime-rpc-client'
+import { getClientRuntime } from './client-runtime'
+import {
+  assertRuntimeFileMutationCapability,
+  canReadRelativeRuntimeFile,
+  getRelativePathInsideWorktree
+} from './runtime-file-context'
 
 export async function writeRuntimeFile(
   context: RuntimeFileOperationArgs,
@@ -23,7 +30,7 @@ export async function writeRuntimeFile(
   const remoteArgs = getRemoteFileArgs(context, filePath)
   if (!remoteArgs) {
     assertLocalFilesystemFallbackAllowed(context)
-    await window.api.fs.writeFile(
+    await getClientRuntime().file.writeFile(
       withSshMutationExpectation(context, { filePath, content, connectionId: context.connectionId })
     )
     return
@@ -92,7 +99,6 @@ async function deconflictRuntimeImportName(
   throw new Error(`Could not generate a unique name for '${basename(originalName)}'`)
 }
 
-
 export async function createRuntimePath(
   context: RuntimeFileOperationArgs,
   path: string,
@@ -102,10 +108,10 @@ export async function createRuntimePath(
   if (!remoteArgs) {
     assertLocalFilesystemFallbackAllowed(context)
     await (kind === 'directory'
-      ? window.api.fs.createDir(
+      ? getClientRuntime().file.createDir(
           withSshMutationExpectation(context, { dirPath: path, connectionId: context.connectionId })
         )
-      : window.api.fs.createFile(
+      : getClientRuntime().file.createFile(
           withSshMutationExpectation(context, {
             filePath: path,
             connectionId: context.connectionId
@@ -133,7 +139,7 @@ export async function renameRuntimePath(
   const newRelativePath = getRelativePathInsideWorktree(context.worktreePath, newPath)
   if (!oldRemoteArgs || newRelativePath === null) {
     assertLocalFilesystemFallbackAllowed(context)
-    await window.api.fs.rename(
+    await getClientRuntime().file.rename(
       withSshMutationExpectation(context, { oldPath, newPath, connectionId: context.connectionId })
     )
     return
@@ -159,7 +165,7 @@ export async function copyRuntimePath(
   const destinationArgs = getRemoteFileArgs(context, destinationPath)
   if (!sourceArgs || !destinationArgs) {
     assertLocalFilesystemFallbackAllowed(context)
-    await window.api.fs.copy(
+    await getClientRuntime().file.copy(
       withSshMutationExpectation(context, {
         sourcePath,
         destinationPath,
@@ -188,7 +194,7 @@ export async function deleteRuntimePath(
   const remoteArgs = getRemoteFileArgs(context, targetPath)
   if (!remoteArgs) {
     assertLocalFilesystemFallbackAllowed(context)
-    await window.api.fs.deletePath(
+    await getClientRuntime().file.deletePath(
       withSshMutationExpectation(context, {
         targetPath,
         connectionId: context.connectionId,
@@ -243,7 +249,7 @@ export async function importExternalPathsToRuntime(
 ): Promise<{ results: RuntimeImportResult[] }> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId || !context.worktreePath) {
-    return window.api.fs.importExternalPaths(
+    return getClientRuntime().file.importExternalPaths(
       withSshMutationExpectation(context, {
         sourcePaths,
         destDir: destinationDir,
@@ -268,7 +274,7 @@ export async function importExternalPathsToRuntime(
   )
   await assertRuntimeFileMutationCapability(target, expectedEnvironmentPairingRevision)
   assertImportSessionCurrent()
-  const staged = await window.api.fs.stageExternalPathsForRuntimeUpload({ sourcePaths })
+  const staged = await getClientRuntime().file.stageExternalPathsForRuntimeUpload({ sourcePaths })
   assertImportSessionCurrent()
   const results: RuntimeImportResult[] = []
   const reservedNames = new Set<string>()

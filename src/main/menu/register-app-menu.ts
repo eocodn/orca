@@ -10,7 +10,6 @@ import { translateMain } from '../i18n/main-i18n'
 
 export type AppearanceMenuState = {
   showTasksButton: boolean
-  showAutomationsButton: boolean
   showMobileButton: boolean
   showTitlebarAppName: boolean
   statusBarVisible: boolean
@@ -178,7 +177,7 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
         label: translateMain('menu.paste', 'Paste'),
         accelerator: 'CmdOrCtrl+V',
         click: () => {
-          // Why: a focused terminal/native-chat pane is not a native editable
+          // Why: a focused terminal pane is not a native editable
           // control, so raw Electron paste cannot know which Orca surface owns it.
           BrowserWindow.getFocusedWindow()?.webContents.send('ui:appMenuPaste')
         }
@@ -224,12 +223,6 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
         type: 'checkbox',
         checked: appearance.showTasksButton,
         click: () => onToggleAppearance('showTasksButton')
-      },
-      {
-        label: translateMain('menu.showAutomationsButton', 'Show Automations Button'),
-        type: 'checkbox',
-        checked: appearance.showAutomationsButton,
-        click: () => onToggleAppearance('showAutomationsButton')
       },
       {
         label: translateMain('menu.showMobileButton', 'Show Orca Mobile Button'),

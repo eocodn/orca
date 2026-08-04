@@ -2,20 +2,9 @@ import { app } from 'electron'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { UsageCacheSnapshotWriter } from '../usage-cache-snapshot-writer'
-import type {
-  ClaudeUsageBreakdownKind,
-  ClaudeUsageBreakdownRow,
-  ClaudeUsageDailyPoint,
-  ClaudeUsageRange,
-  ClaudeUsageScanState,
-  ClaudeUsageScope,
-  ClaudeUsageSessionRow,
-  ClaudeUsageSnapshot,
-  ClaudeUsageSummary
-} from '../../shared/claude-usage-types'
-import type { AutomationRunUsage } from '../../shared/automations-types'
+import type { ClaudeUsageRange, ClaudeUsageScanState } from '../../shared/claude-usage-types'
 import type { Store } from '../persistence'
-import { loadKnownUsageWorktreesByRepo, type UsageWorktreeRef } from '../usage-worktree-metadata'
+import type { UsageWorktreeRef } from '../usage-worktree-metadata'
 import type { ClaudeUsagePersistedState } from './types'
 
 // Why: v5 widens Claude ownership keys (message-id / uuid fallbacks). Older
@@ -23,7 +12,6 @@ import type { ClaudeUsagePersistedState } from './types'
 // after fork reclaim (#8006).
 const SCHEMA_VERSION = 5
 export const STALE_MS = 5 * 60_000
-export const AUTOMATION_ATTRIBUTION_WINDOW_MS = 5 * 60_000
 
 // Why: capture the path after configureDevUserDataPath() but before app.setName()
 // mutates Electron's derived userData location, matching the persistence/store pattern.
@@ -31,13 +19,6 @@ let _claudeUsageFile: string | null = null
 
 export function initClaudeUsagePath(): void {
   _claudeUsageFile = join(app.getPath('userData'), 'orca-claude-usage.json')
-}
-
-type AutomationUsageLookupInput = {
-  worktreeId: string | null
-  terminalSessionId: string | null
-  startedAt: number | null
-  completedAt: number | null
 }
 
 export function getRangeCutoff(range: ClaudeUsageRange): string | null {
@@ -103,7 +84,6 @@ function getClaudeUsageFile(): string {
   }
   return _claudeUsageFile
 }
-
 
 export abstract class ClaudeUsageStoreBase {
   protected state: ClaudeUsagePersistedState

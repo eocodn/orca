@@ -14,7 +14,6 @@ import type { PtyTransport } from './pty-transport'
 import type { PtyTransportRecoveryState } from './pty-transport-types'
 import type { TerminalKittyKeyboardModeTracker } from '../../../../shared/terminal-kitty-keyboard-mode-tracker'
 import { isRuntimeOwnedSshTargetId } from '../../../../shared/execution-host'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { isTerminalSessionStateSaveFailure } from '../../../../shared/terminal-session-state-save-failure'
 import { isTerminalZeroDimensionsDiagnostic } from '../../../../shared/terminal-zero-dimensions-diagnostic'
 import { getOverrideAffectedPanes, getPanesNeedingOverrideFit } from './override-affected-panes'
@@ -76,9 +75,6 @@ export function useTerminalPaneSurfaceState(context: TerminalPaneSurfaceContext)
     }
     return connectionId
   })
-  const nativeChatTranscriptIsLocalReadable = useAppStore((store) =>
-    isNativeChatTranscriptLocalReadable(getConnectionIdFromState(store, worktreeId))
-  )
   // Which machine's SSH store this target belongs to: a remote server's per-environment bucket, or null for this machine's local SSH maps.
   const sshReconnectEnvironmentId = useAppStore((store) =>
     sshReconnectTargetId ? getExplicitRuntimeEnvironmentIdForWorktree(store, worktreeId) : null
@@ -346,7 +342,6 @@ export function useTerminalPaneSurfaceState(context: TerminalPaneSurfaceContext)
     isRendererVisible,
     isVisibleRef,
     sshReconnectTargetId,
-    nativeChatTranscriptIsLocalReadable,
     sshReconnectEnvironmentId,
     sshReconnectStatus,
     sshReconnectTargetLabel,

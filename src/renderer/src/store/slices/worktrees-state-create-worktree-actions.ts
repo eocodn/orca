@@ -157,7 +157,6 @@ export function createWorktreeSliceCreateWorktreeActions4(set: SliceSet, get: Sl
     compareBaseRef,
     options
   ) => {
-    const automationProvenanceRequest = options?.automationProvenanceRequest
     const linkedWorkItem = options?.linkedWorkItem
     const linkedTaskSourceContext = options?.linkedTaskSourceContext
     try {
@@ -210,8 +209,7 @@ export function createWorktreeSliceCreateWorktreeActions4(set: SliceSet, get: Sl
             ...(linkedWorkItem !== undefined ? { linkedWorkItem } : {}),
             ...(linkedTaskSourceContext !== undefined ? { linkedTaskSourceContext } : {}),
             ...(startup ? { startup } : {}),
-            ...(creationId ? { creationId } : {}),
-            ...(automationProvenanceRequest ? { automationProvenanceRequest } : {})
+            ...(creationId ? { creationId } : {})
           }
           const target = getActiveRuntimeTarget(settingsForRepoOwner(get(), repoId))
           if (
@@ -266,7 +264,6 @@ export function createWorktreeSliceCreateWorktreeActions4(set: SliceSet, get: Sl
                     ...(linkedGiteaPR !== undefined ? { linkedGiteaPR } : {}),
                     ...(linkedWorkItem !== undefined ? { linkedWorkItem } : {}),
                     ...(linkedTaskSourceContext !== undefined ? { linkedTaskSourceContext } : {}),
-                    ...(automationProvenanceRequest ? { automationProvenanceRequest } : {}),
                     ...(startup
                       ? {
                           startupCommand: startup.command,

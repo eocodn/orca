@@ -1,4 +1,4 @@
-import { type Socket } from 'node:net'
+import type { Socket } from 'node:net'
 import { StringDecoder } from 'node:string_decoder'
 import { encodeNdjson, createNdjsonParser } from './ndjson'
 import {
@@ -8,7 +8,7 @@ import {
 } from './types'
 import { DaemonServerFoundation } from './daemon-server-foundation'
 
-import { type ConnectedClient, type PendingPtySpawnPreparation } from './daemon-server-foundation'
+import type { ConnectedClient, PendingPtySpawnPreparation } from './daemon-server-foundation'
 
 export class DaemonServerPhase1 extends DaemonServerFoundation {
   protected setupControlSocket(socket: Socket, clientId: string): void {

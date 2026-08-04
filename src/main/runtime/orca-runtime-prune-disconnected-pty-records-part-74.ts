@@ -184,9 +184,7 @@ export class OrcaRuntimePruneDisconnectedPtyRecordsPart74 extends OrcaRuntimeRef
       ) {
         continue
       }
-      this.reconcileNativeChatLaunchDraftResolutionTombstones(snapshot)
-      const launchDraftFencedSnapshot = this.applyNativeChatLaunchDraftResolutionFence(snapshot)
-      const fencedSnapshot = this.applyMobileSessionRetirementFences(launchDraftFencedSnapshot)
+      const fencedSnapshot = this.applyMobileSessionRetirementFences(snapshot)
       const nextSnapshot = this.mergePreservedHeadlessMobileSessionTabs(fencedSnapshot, existing)
       // Why: clients drop same-epoch frames whose version isn't strictly newer,
       // and main-local touches may already have emitted a higher version than

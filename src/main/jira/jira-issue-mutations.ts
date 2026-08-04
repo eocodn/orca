@@ -1,23 +1,24 @@
 import type {
   JiraComment,
   JiraCreateField,
-  JiraCreateFieldAllowedValue,
-  JiraCreateIssueArgs,
-  JiraCreateIssueResult,
-  JiraIssue,
-  JiraIssueFilter,
   JiraIssueType,
-  JiraIssueUpdate,
-  JiraMutationResult,
   JiraPriority,
   JiraProject,
   JiraProjectStatusOrder,
-  JiraSite,
   JiraSiteSelection,
-  JiraStatus,
   JiraTransition,
   JiraUser
 } from '../../shared/types'
+import {
+  adfToMarkdownText,
+  collectAdfMediaAttrs,
+  type AdfToMarkdownOptions,
+  type JiraAdfMediaAttrs
+} from './adf-markdown'
+import {
+  extractAttachmentContentIdsFromHtml,
+  selectPreferredAttachmentIds
+} from './attachment-discovery'
 import {
   acquire,
   apiBasePath,
@@ -28,27 +29,9 @@ import {
   release,
   type JiraClientForSite
 } from './client'
-import {
-  adfToMarkdownText,
-  collectAdfMediaAttrs,
-  textToAdf,
-  type AdfToMarkdownOptions,
-  type JiraAdfMediaAttrs
-} from './adf-markdown'
-import {
-  extractAttachmentContentIdsFromHtml,
-  selectPreferredAttachmentIds,
-  warnIfMediaResolutionIncomplete
-} from './attachment-discovery'
-import {
-  createMediaMarkdownResolver,
-  loadIssueImageAttachments,
-  type MediaResolutionStats
-} from './attachment-images'
-import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
-import { type JiraRecord, type JiraPagedResponse } from './jira-issue-primitives'
-import { shouldSurfaceSiteFailure, asRecord, asString, asIdentifier, asFiniteNumber, shouldFetchNextPage, fetchPagedRecords, mapUser, mapProject, mapIssueType, mapCreateField, getCreateFieldRecords, mapPriority, mapStatus } from './jira-issue-deadlines'
-import { type MediaRequest, prepareMediaResolver, flushMediaResolutionWarn } from './jira-issue-mappers'
+import { asFiniteNumber,asIdentifier,asRecord,asString,fetchPagedRecords,getCreateFieldRecords,mapCreateField,mapIssueType,mapPriority,mapProject,mapStatus,mapUser,shouldFetchNextPage,shouldSurfaceSiteFailure } from './jira-issue-deadlines'
+import { flushMediaResolutionWarn,prepareMediaResolver,type MediaRequest } from './jira-issue-mappers'
+import type { JiraPagedResponse,JiraRecord } from './jira-issue-primitives'
 function mapComment(raw: JiraRecord, adfOptions?: AdfToMarkdownOptions): JiraComment {
   return {
     id: asString(raw.id),
@@ -456,5 +439,5 @@ async function getProjectStatusOrder(
   }
 }
 
-export { mapComment, collectCommentMediaRequest, getIssueComments, listProjects, listIssueTypes, listCreateFields, listPriorities, listAssignableUsers, listTransitions, getProjectStatusOrder }
+export { collectCommentMediaRequest,getIssueComments,getProjectStatusOrder,listAssignableUsers,listCreateFields,listIssueTypes,listPriorities,listProjects,listTransitions,mapComment }
 

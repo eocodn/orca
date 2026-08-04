@@ -1,10 +1,11 @@
-import { WebSocket } from 'ws'
+import type { WebSocket } from 'ws'
 
 import * as foundation from './cdp-ws-connection-proxy-foundation'
 const { LIFECYCLE_PRIMING_TIMEOUT_MS } = foundation
 
 export const CdpWsProxyMethods6 = {
-  async reloadWithLifecycle(this: any,
+  async reloadWithLifecycle(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>,
@@ -69,7 +70,8 @@ export const CdpWsProxyMethods6 = {
       }
     }
   },
-  forwardDomFocus(this: any,
+  forwardDomFocus(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>,

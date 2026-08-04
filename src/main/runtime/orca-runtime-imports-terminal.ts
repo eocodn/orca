@@ -14,7 +14,6 @@ export {
   scanWorkspacePortProbes
 } from '../ports/workspace-port-ownership'
 export { advertisedUrlWatcher } from '../ports/advertised-url-watcher'
-export type { AutomationService } from '../automations/service'
 export { RuntimeBrowserCommands } from './orca-runtime-browser'
 export { RemoteRuntimeTerminalCreateIdempotency } from './remote-runtime-terminal-create-idempotency'
 export { deriveRemoteRuntimeTerminalCreateHandle } from './remote-runtime-terminal-create-identity'

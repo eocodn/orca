@@ -345,8 +345,6 @@ export function createUISliceCancelContextualTourActions4(set: SliceSet, get: Sl
   manualRepoOrder: [],
   hideDefaultBranchWorkspace: false,
   setHideDefaultBranchWorkspace: (v) => set({ hideDefaultBranchWorkspace: v }),
-  hideAutomationGeneratedWorkspaces: false,
-  setHideAutomationGeneratedWorkspaces: (v) => set({ hideAutomationGeneratedWorkspaces: v }),
   hideCliCreatedWorkspaces: false,
   setHideCliCreatedWorkspaces: (v) => set({ hideCliCreatedWorkspaces: v }),
   hideDetachedHeadWorkspaces: false,

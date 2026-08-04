@@ -1,93 +1,46 @@
 // Why: worktree create helpers (local + remote) split out of worktrees.ts; the cohesive create flow runs this file just over the per-file line limit.
 
 import type { BrowserWindow } from 'electron'
-import { posix, win32 } from 'node:path'
-import { existsSync } from 'node:fs'
-import { randomUUID } from 'node:crypto'
-import type { Store } from '../persistence'
 import type {
-  AutomationWorkspaceProvenance,
-  CliWorkspaceProvenance,
-  CreateWorktreeArgs,
-  CreateWorktreeResult,
-  GitPushTarget,
-  GlobalSettings,
-  LocalBaseRefRefreshResult,
-  LocalBaseRefUpdateSuggestion,
   Repo,
-  Worktree,
-  WorktreeCreateBaseFallback,
-  WorktreeHeadIdentity,
-  WorktreeMeta
+  WorktreeCreateBaseFallback
 } from '../../shared/types'
-import { getPRForBranch } from '../github/client'
-import { listWorktrees, addWorktree, addSparseWorktree } from '../git/worktree'
-import type { AddWorktreeOptions, AddWorktreeResult } from '../git/worktree'
+import { resolveLocalGitUsername } from '../git/git-username'
 import {
-  getBranchConflictKind,
-  resolveDefaultBaseRefViaExec,
   resolveDefaultBaseRefWithLocalGit
 } from '../git/repo'
-import { resolveLocalGitUsername, getSshGitUsername } from '../git/git-username'
-import { hasCommitObjectViaGitExec } from '../git/commit-object-ref'
-import { resolveWorktreeCreateBase } from '../worktree-create-base'
-import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-import { getHostedReviewForBranch } from '../source-control/hosted-review'
-import type { ForgeProviderId } from '../source-control/forge-provider'
-import { validateGitPushTarget } from '../git/push-target-validation'
-import { assertGitPushTargetShape } from '../../shared/git-push-target-validation'
 import { gitExecFileAsync } from '../git/runner'
-import { parseGitHubOwnerRepo } from '../github/gh-utils'
+import type { AddWorktreeOptions } from '../git/worktree'
+import {
+  getEffectiveHooks,
+  shouldRunSetupForCreate
+} from '../hooks'
+import type { Store } from '../persistence'
 import type {
   OrcaRuntimeService,
   RemoteFetchResult,
   RemoteTrackingBase
 } from '../runtime/orca-runtime'
-import { getProjectHostSetupWorktreeMeta } from '../../shared/project-host-setup-projection'
-import {
-  buildPosixRunnerScript,
-  buildWindowsRunnerScript,
-  createSetupRunnerScript,
-  getDefaultTabsLaunch,
-  getEffectiveHooks,
-  getEffectiveHooksFromConfig,
-  getSetupRunnerEnvVars,
-  loadHooks,
-  parseOrcaYaml,
-  shouldRunSetupForCreate
-} from '../hooks'
-import { requireSshGitProvider } from '../providers/ssh-git-dispatch'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import type { SshGitProvider } from '../providers/ssh-git-provider'
-import { TUI_AGENT_CONFIG, isTuiAgent } from '../../shared/tui-agent-config'
-import { isWindowsAbsolutePathLike } from '../../shared/cross-platform-path'
-import { runWorktreeChangeInvalidators } from './worktree-change-invalidators'
-import {
-  registerOptionalSshWorktreeCreateRoots,
-  registerRequiredSshWorktreeCreateRoots
-} from './ssh-worktree-create-root-registration'
+import { resolveWorktreeCreateBase } from '../worktree-create-base'
 
 import {
-  type CreateWorktreeArgsWithSystemProvenance,
-  CREATE_BASE_FALLBACK_FETCH_TIMEOUT_MS
-} from './worktree-remote-context'
-import { type StagedStartupResult } from './worktree-remote-context'
-import { appendWorktreeCreateWarning, validateWorkspaceLineageParentBeforeCreate, recordWorkspaceLineageForCreatedWorktree, spawnLocalStartupAndSetupTerminals, resolveCreateBranchName } from './worktree-remote-base'
-import { canCheckoutExistingLocalBranch, hasLocalWorktreeBaseRefWithOptions, getLocalGitHubPrForBranch, getSelectedReviewBranch, isMatchingSelectedGitHubPr, isAllowedPushTargetRemoteConflict, getSelectedHostedReviewForBranch } from './worktree-remote-branch'
-import { prepareWorktreePushTarget, configureCreatedWorktreePushTarget } from './worktree-remote-push'
-import { notifyWorktreesChanged, emitCreateWorktreeProgress } from './worktree-remote-events'
+  getLocalProjectGitExecOptions,
+  getLocalProjectWorktreeGitOptions
+} from '../project-runtime-git-options'
 import { createWorktreeCreateTimingRecorder } from '../worktree-create-timing'
+import { normalizeSparseDirectories } from './sparse-checkout-directories'
 import {
   computeWorkspaceRoot,
   getWorktreePathSettings,
   sanitizeWorktreeDisplayName,
   sanitizeWorktreeName
 } from './worktree-logic'
+import { hasLocalWorktreeBaseRefWithOptions } from './worktree-remote-branch'
 import {
-  getLocalProjectGitExecOptions,
-  getLocalProjectWorktreeGitOptions
-} from '../project-runtime-git-options'
-import { normalizeSparseDirectories } from './sparse-checkout-directories'
+  type CreateWorktreeArgsWithSystemProvenance,
+  CREATE_BASE_FALLBACK_FETCH_TIMEOUT_MS
+} from './worktree-remote-context'
+import { emitCreateWorktreeProgress } from './worktree-remote-events'
 
 export async function prepareLocalWorktreeCreation(
   args: CreateWorktreeArgsWithSystemProvenance,

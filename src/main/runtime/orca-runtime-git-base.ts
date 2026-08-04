@@ -16,7 +16,7 @@ import type {
 } from '../../shared/types'
 
 
-import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
+import type { GitHistoryOptions,GitHistoryResult } from '../../shared/git-history'
 import {
   mergeLegacyCommitMessageAiIntoSourceControlAi,
   type ResolvedSourceControlAiGenerationParams
@@ -25,6 +25,12 @@ import {
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
 import type { GitProviderStatusOptions } from '../providers/types'
 
+import type { RuntimeGitCheckoutResult,RuntimeGitLocalBranches } from '../../shared/runtime-types'
+import { checkIgnoredPaths } from '../git/check-ignored-paths'
+import { checkoutBranch,listLocalBranches } from '../git/checkout'
+import { gitSyncForkDefaultBranch } from '../git/fork-sync'
+import { getHistory as getGitHistory } from '../git/history'
+import { gitFastForward,gitFetch,gitPull } from '../git/remote'
 import {
   abortMerge,
   abortRebase,
@@ -33,25 +39,21 @@ import {
   getCommitCompare,
   getDiff,
   getStatus as getGitStatus,
-  getSubmoduleStatus as getGitSubmoduleStatus} from '../git/status'
-import { checkoutBranch, listLocalBranches } from '../git/checkout'
-import type { RuntimeGitCheckoutResult, RuntimeGitLocalBranches } from '../../shared/runtime-types'
-import { getHistory as getGitHistory } from '../git/history'
+  getSubmoduleStatus as getGitSubmoduleStatus
+} from '../git/status'
 import { getUpstreamStatus } from '../git/upstream'
-import { gitFastForward, gitFetch, gitPull} from '../git/remote'
-import { gitSyncForkDefaultBranch } from '../git/fork-sync'
+import { getWorktreeSharedLinkPaths } from '../git/worktree-shared-directories'
 import {
   getSshGitProvider,
   SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
 } from '../providers/ssh-git-dispatch'
-import { checkIgnoredPaths } from '../git/check-ignored-paths'
-import { getWorktreeSharedLinkPaths } from '../git/worktree-shared-directories'
-import {
-  type CommitMessageGenerationTarget} from '../text-generation/commit-message-text-generation'
 import type {
   CommitMessageAgentEnvironmentResolvers,
   CommitMessageAgentRuntimeTarget
 } from '../text-generation/commit-message-agent-environment'
+import type {
+  CommitMessageGenerationTarget
+} from '../text-generation/commit-message-text-generation'
 
 
 import { normalizeRuntimeRelativePath } from './runtime-relative-paths'

@@ -1,4 +1,4 @@
-import { type ColdRestoreInfo } from './history-reader'
+import type { ColdRestoreInfo } from './history-reader'
 import { getRecoveredHistorySeedSegments } from './terminal-history-seed-segments'
 import { supportsPtyStartupBarrier } from './shell-ready'
 import { CODEX_SHELL_READY_TIMEOUT_MS } from './session'

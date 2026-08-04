@@ -1,17 +1,17 @@
 import {
   FrameDecoder
 } from './relay-protocol'
+import type { PendingRequest } from './ssh-channel-multiplexer-foundation'
+import { SshChannelMultiplexerFrameMethods,type SshChannelMultiplexerFrameMethodsSurface } from './ssh-channel-multiplexer-frame-methods'
+import { SshChannelMultiplexerHealthMethods,type SshChannelMultiplexerHealthMethodsSurface } from './ssh-channel-multiplexer-health-methods'
+import { SshChannelMultiplexerRequestMethods,type SshChannelMultiplexerRequestMethodsSurface } from './ssh-channel-multiplexer-request-methods'
 import {
   SshMultiplexerTransportWriter,
   type MultiplexerTransport,
   type MultiplexerWriteSettlement
 } from './ssh-multiplexer-transport-writer'
-import { SshChannelMultiplexerRequestMethods, type SshChannelMultiplexerRequestMethodsSurface } from './ssh-channel-multiplexer-request-methods'
-import { SshChannelMultiplexerFrameMethods, type SshChannelMultiplexerFrameMethodsSurface } from './ssh-channel-multiplexer-frame-methods'
-import { SshChannelMultiplexerHealthMethods, type SshChannelMultiplexerHealthMethodsSurface } from './ssh-channel-multiplexer-health-methods'
-import type { PendingRequest } from './ssh-channel-multiplexer-foundation'
 
-export type { MultiplexerTransport, MultiplexerWriteSettlement }
+export type { MultiplexerTransport,MultiplexerWriteSettlement }
 
 export type SshMultiplexerRequestOptions = {
   signal?: AbortSignal

@@ -1,10 +1,10 @@
-import { RuntimeGitGenerationCommands } from './orca-runtime-git-generation'
 import type {
   GitWorktreeInfo,
   GlobalSettings,
   Repo,
   Worktree
 } from '../../shared/types'
+import { RuntimeGitGenerationCommands } from './orca-runtime-git-generation'
 
 
 
@@ -15,7 +15,7 @@ import {
 
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
 
-import { getRemoteCommitUrl, getRemoteFileUrl } from '../git/repo'
+import { getRemoteCommitUrl,getRemoteFileUrl } from '../git/repo'
 import {
   bulkDiscardChanges,
   bulkStageFiles,
@@ -36,12 +36,13 @@ import {
 } from '../providers/ssh-git-dispatch'
 
 
-import {
-  type CommitMessageGenerationTarget} from '../text-generation/commit-message-text-generation'
 import type {
   CommitMessageAgentEnvironmentResolvers,
   CommitMessageAgentRuntimeTarget
 } from '../text-generation/commit-message-agent-environment'
+import type {
+  CommitMessageGenerationTarget
+} from '../text-generation/commit-message-text-generation'
 
 
 import { normalizeRuntimeRelativePath } from './runtime-relative-paths'

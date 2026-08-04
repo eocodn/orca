@@ -34,7 +34,6 @@ import { TerminalSessionStateSaveFailureDialog } from './TerminalSessionStateSav
 import TerminalContextMenu from './TerminalContextMenu'
 import TerminalPaneHeaderOverlay, { type PaneTitleOverlayRect } from './TerminalPaneHeaderOverlay'
 import { arePaneTitleOverlayRectsEqual, clearPaneTitleOverlayRects } from './pane-title-overlay-rects'
-import NativeChatView from '../native-chat/NativeChatView'
 import { splitTerminalPaneWithInheritedCwd } from './terminal-pane-split-with-inherited-cwd'
 import { TerminalAgentSessionForkDialog } from './TerminalAgentSessionForkDialog'
 import { AgentSessionContinuationDialog } from '@/components/agent-session-continuation/AgentSessionContinuationDialog'
@@ -55,10 +54,6 @@ import { shouldPreserveTerminalScrollbackBuffers } from '../../../../shared/work
 import { getMobileFitOverridePtyIds, getFitOverrideForPty, onOverrideChange } from '@/lib/pane-manager/mobile-fit-overrides'
 import { shouldShowMobileDriverOverlay } from './mobile-driver-overlay-visibility'
 import { getAllDrivers, getDriverForPty, isPtyLocked, onDriverChange } from '@/lib/pane-manager/mobile-driver-state'
-import { shouldChatTakeOverMobileSurface } from '../native-chat/native-chat-send-eligibility'
-import { canToggleNativeChat } from '../native-chat/native-chat-availability'
-import { nativeChatLaunchAgentForLeaf, resolveNativeChatLeafRoute, type NativeChatLeafRoute } from '../native-chat/native-chat-leaf-routing'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { resolvePaneKeyForManager } from '@/lib/pane-manager/pane-key-resolution'
 import { safeFit, safeFitAndThen } from '@/lib/pane-manager/pane-tree-ops'
 import { applyDesktopFitFallbackAfterReplay } from './desktop-fit-fallback'
@@ -106,7 +101,6 @@ import { writeTerminalPastePtyInput } from './terminal-pty-paste-writer'
 import { applyTerminalPaneAttentionToManager, subscribeTerminalPaneAttention } from './terminal-pane-attention-subscriptions'
 import { getCachedTerminalTabForWorktree } from './terminal-tab-lookup'
 import { getCachedTerminalGroupIdForWorktree, getCachedUnifiedTerminalTabForWorktree } from './terminal-unified-tab-lookup'
-import { resolveNativeChatLeafTitleAgent } from './native-chat-leaf-title-agent'
 import { useRepoById } from '@/store/selectors'
 import { isXtermHelperTextarea, releaseTerminalFocusForOutsidePointerDown, releaseTerminalFocusForWindowBlur, resyncTerminalFocusForWindowFocus, setRegularTerminalInputFocusAttribute } from './regular-terminal-focus-ownership'
 import { refreshTerminalImeInputContext } from './terminal-ime-input-context-refresh'
@@ -127,17 +121,10 @@ export function useTerminalPaneSurfaceRenderState(context: TerminalPaneSurfaceCo
     setTerminalError,
     contextMenu,
     contextMenuLeafId,
-    canToggleChatForLeaf,
     paneTitles,
-    chatLeafId,
-    isChatViewMode,
-    isChatEligibleForLeaf,
-    applyNativeChatLeafRoute,
-    paneTransportsRef,
     resolveTitleAgentForLeaf,
     terminalTab,
     getTabWideAgentHintLeafId,
-    getNativeChatLeafIds,
     tabAgentTypeByLeaf,
   } = context
   const effectiveAppearance = settings
@@ -197,58 +184,13 @@ export function useTerminalPaneSurfaceRenderState(context: TerminalPaneSurfaceCo
   }, [showSshReconnectOverlay, terminalError])
   const menuPaneHasCustomTitle =
     contextMenu.menuPaneId !== null && Boolean(paneTitles[contextMenu.menuPaneId])
-  const chatLeafStillMounted = chatLeafId
-    ? managedPanes.some((pane) => pane.leafId === chatLeafId)
-    : false
-  useEffect(() => {
-    const activeLeafId = activePane?.leafId ?? null
-    const route = resolveNativeChatLeafRoute({
-      isChatViewMode,
-      chatLeafId,
-      activeLeafId,
-      chatLeafStillMounted,
-      activeLeafIsEligible: isChatEligibleForLeaf(activeLeafId)
-    })
-    applyNativeChatLeafRoute(route)
-  }, [
-    isChatViewMode,
-    chatLeafId,
-    activePane?.leafId,
-    chatLeafStillMounted,
-    applyNativeChatLeafRoute,
-    isChatEligibleForLeaf
-  ])
-  const chatPane =
-    isChatViewMode && chatLeafId
-      ? (managedPanes.find((pane) => pane.leafId === chatLeafId) ?? null)
-      : null
-  const chatPanePtyId = chatPane
-    ? (paneTransportsRef.current.get(chatPane.id)?.getPtyId() ?? null)
-    : null
-  const chatPaneResolvedAgent = chatPane ? resolveTitleAgentForLeaf(chatPane.leafId) : null
-  const chatPaneLaunchAgent = nativeChatLaunchAgentForLeaf({
-    launchAgent: terminalTab?.launchAgent,
-    launchAgentLeafId: getTabWideAgentHintLeafId(),
-    leafId: chatPane?.leafId ?? null,
-    leafIds: getNativeChatLeafIds()
-  })
-  const activePaneIsChatLeaf = Boolean(
-    isChatViewMode && activePane?.leafId && activePane.leafId === chatLeafId
-  )
   // A split can host different agents, so continuation resolves the specific leaf before using tab-wide hints.
   const resolveAgentForLeaf = (leafId: string | null): string | null => {
     const detectedAgent = leafId ? (tabAgentTypeByLeaf[leafId] ?? null) : null
     if (detectedAgent) {
       return detectedAgent
     }
-    return (
-      nativeChatLaunchAgentForLeaf({
-        launchAgent: terminalTab?.launchAgent,
-        launchAgentLeafId: getTabWideAgentHintLeafId(),
-        leafId,
-        leafIds: getNativeChatLeafIds()
-      }) ?? resolveTitleAgentForLeaf(leafId)
-    )
+    return resolveTitleAgentForLeaf(leafId) ?? terminalTab?.launchAgent ?? getTabWideAgentHintLeafId()
   }
   const activePaneCanContinueInNewSession = canContinueAgentSessionInNewSession(
     resolveAgentForLeaf(activePane?.leafId ?? null)
@@ -256,8 +198,6 @@ export function useTerminalPaneSurfaceRenderState(context: TerminalPaneSurfaceCo
   const contextMenuCanContinueInNewSession = canContinueAgentSessionInNewSession(
     resolveAgentForLeaf(contextMenuLeafId)
   )
-  const activePaneCanToggleChat = canToggleChatForLeaf(activePane?.leafId ?? null)
-  const contextMenuCanToggleChat = canToggleChatForLeaf(contextMenuLeafId)
   return {
     effectiveAppearance,
     terminalBackground,
@@ -270,16 +210,8 @@ export function useTerminalPaneSurfaceRenderState(context: TerminalPaneSurfaceCo
     managedPanes,
     showSshReconnectOverlay,
     menuPaneHasCustomTitle,
-    chatLeafStillMounted,
-    chatPane,
-    chatPanePtyId,
-    chatPaneResolvedAgent,
-    chatPaneLaunchAgent,
-    activePaneIsChatLeaf,
     resolveAgentForLeaf,
     activePaneCanContinueInNewSession,
     contextMenuCanContinueInNewSession,
-    activePaneCanToggleChat,
-    contextMenuCanToggleChat,
   }
 }

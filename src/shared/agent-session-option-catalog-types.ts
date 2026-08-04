@@ -3,7 +3,7 @@ import type {
   SessionOptionDescriptor,
   SessionOptionSelectChoice,
   SessionOptionValue
-} from './native-chat-session-options'
+} from './agent-session-option-types'
 
 export type CatalogAgentInteractionDetection = 'claude-model-switch-confirmation'
 

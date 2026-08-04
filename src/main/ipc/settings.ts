@@ -52,7 +52,6 @@ function sanitizeRendererSettingsUpdate(args: Partial<GlobalSettings>): Partial<
 // items when the backing state changes.
 const APPEARANCE_MENU_KEYS: readonly (keyof GlobalSettings)[] = [
   'showTasksButton',
-  'showAutomationsButton',
   'showMobileButton',
   'showTitlebarAppName'
 ]

@@ -1,4 +1,4 @@
-import { ipcRenderer, preloadE2EConfig, admitSshConnectionStateForAuthorityReconciliation, admitSshDetectedPorts } from './preload-api-runtime-context';import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFailure, SshConnectionState, SshConfigImportResult, SshTargetAddResult, SshTarget, PortForwardEntry, EnrichedDetectedPort, FilesystemPathFlavor, AgentStatusClearIpcPayload, AgentStatusIpcPayload, MigrationUnsupportedPtyEntry, AgentInterruptInferenceRequest, AgentQuestionAnsweredInferenceRequest, Automation, AutomationCreateInput, AutomationDispatchRequest, AutomationDispatchResult, ExternalAutomationCreateInput, ExternalAutomationActionInput, ExternalAutomationManager, ExternalAutomationRunsInput, ExternalAutomationRunsPage, ExternalAutomationUpdateInput, AutomationRun, AutomationPrecheckResult, AutomationUpdateInput } from './preload-api-runtime-context';export function createPreloadApiSsh(): Record<string, unknown> {
+import { ipcRenderer, preloadE2EConfig, admitSshConnectionStateForAuthorityReconciliation, admitSshDetectedPorts } from './preload-api-runtime-context';import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFailure, SshConnectionState, SshConfigImportResult, SshTargetAddResult, SshTarget, PortForwardEntry, EnrichedDetectedPort, FilesystemPathFlavor, AgentStatusClearIpcPayload, AgentStatusIpcPayload, MigrationUnsupportedPtyEntry, AgentInterruptInferenceRequest, AgentQuestionAnsweredInferenceRequest } from './preload-api-runtime-context';export function createPreloadApiSsh(): Record<string, unknown> {
   return {
   ssh: {
     listTargets: (): Promise<SshTarget[]> => ipcRenderer.invoke('ssh:listTargets'),
@@ -156,44 +156,6 @@ import { ipcRenderer, preloadE2EConfig, admitSshConnectionStateForAuthorityRecon
 
     submitCredential: (args: { requestId: string; value: string | null }): Promise<void> =>
       ipcRenderer.invoke('ssh:submitCredential', args)
-  },
-  automations: {
-    list: (): Promise<Automation[]> => ipcRenderer.invoke('automations:list'),
-    listRuns: (args?: { automationId?: string }): Promise<AutomationRun[]> =>
-      ipcRenderer.invoke('automations:listRuns', args),
-    listExternalManagers: (): Promise<ExternalAutomationManager[]> =>
-      ipcRenderer.invoke('automations:listExternalManagers'),
-    listExternalRuns: (input: ExternalAutomationRunsInput): Promise<ExternalAutomationRunsPage> =>
-      ipcRenderer.invoke('automations:listExternalRuns', input),
-    createExternal: (input: ExternalAutomationCreateInput): Promise<void> =>
-      ipcRenderer.invoke('automations:createExternal', input),
-    updateExternal: (input: ExternalAutomationUpdateInput): Promise<void> =>
-      ipcRenderer.invoke('automations:updateExternal', input),
-    runExternalAction: (input: ExternalAutomationActionInput): Promise<void> =>
-      ipcRenderer.invoke('automations:runExternalAction', input),
-    create: (input: AutomationCreateInput): Promise<Automation> =>
-      ipcRenderer.invoke('automations:create', input),
-    update: (args: { id: string; updates: AutomationUpdateInput }): Promise<Automation> =>
-      ipcRenderer.invoke('automations:update', args),
-    delete: (args: { id: string }): Promise<void> => ipcRenderer.invoke('automations:delete', args),
-    runNow: (args: { id: string }): Promise<AutomationRun> =>
-      ipcRenderer.invoke('automations:runNow', args),
-    runPrecheck: (args: {
-      automationId: string
-      runId: string
-    }): Promise<AutomationPrecheckResult | null> =>
-      ipcRenderer.invoke('automations:runPrecheck', args),
-    markDispatchResult: (result: AutomationDispatchResult): Promise<AutomationRun> =>
-      ipcRenderer.invoke('automations:markDispatchResult', result),
-    snapshotWorkspaceName: (args: { workspaceId: string; displayName: string }): Promise<number> =>
-      ipcRenderer.invoke('automations:snapshotWorkspaceName', args),
-    rendererReady: (): Promise<void> => ipcRenderer.invoke('automations:rendererReady'),
-    onDispatchRequested: (callback: (request: AutomationDispatchRequest) => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, request: AutomationDispatchRequest) =>
-        callback(request)
-      ipcRenderer.on('automations:dispatchRequested', listener)
-      return () => ipcRenderer.removeListener('automations:dispatchRequested', listener)
-    }
   },
   e2e: {
     getConfig: () => preloadE2EConfig

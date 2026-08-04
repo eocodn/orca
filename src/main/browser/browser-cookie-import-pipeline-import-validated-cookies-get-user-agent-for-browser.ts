@@ -9,7 +9,10 @@ import type {
 import { diag } from './browser-cookie-import-pipeline-cookie-import-error-scan-max-chars-browser-profile'
 
 // Why: write the diag log to userData, not world-readable /tmp, so only the current user can read it.
-import { type RawCookieEntry, type ValidatedCookie } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
+import type {
+  RawCookieEntry,
+  ValidatedCookie
+} from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
 import { validateCookieEntry } from './browser-cookie-import-pipeline-firefox-same-site-validate-cookie-entry'
 
 export async function importValidatedCookies(
@@ -103,7 +106,6 @@ export async function pickCookieFile(parentWindow: BrowserWindow | null): Promis
   }
   return result.filePaths[0]
 }
-
 
 export async function importCookiesFromFile(
   filePath: string,

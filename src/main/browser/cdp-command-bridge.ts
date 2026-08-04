@@ -83,24 +83,7 @@ export class CdpBridge {
     ]
   }
 }
-export interface CdpBridge
-  extends
-    CdpBridgeMethods1Surface,
-    CdpBridgeMethods2Surface,
-    CdpBridgeMethods3Surface,
-    CdpBridgeMethods4Surface,
-    CdpBridgeMethods5Surface,
-    CdpBridgeMethods6Surface,
-    CdpBridgeMethods7Surface,
-    CdpBridgeMethods8Surface,
-    CdpBridgeMethods9Surface,
-    CdpBridgeMethods10Surface,
-    CdpBridgeMethods11Surface,
-    CdpBridgeMethods12Surface,
-    CdpBridgeMethods13Surface,
-    CdpBridgeMethods14Surface,
-    CdpBridgeMethods15Surface,
-    CdpBridgeMethods16Surface {}
+export interface CdpBridge extends CdpBridgeMethods1Surface, CdpBridgeMethods2Surface, CdpBridgeMethods3Surface, CdpBridgeMethods4Surface, CdpBridgeMethods5Surface, CdpBridgeMethods6Surface, CdpBridgeMethods7Surface, CdpBridgeMethods8Surface, CdpBridgeMethods9Surface, CdpBridgeMethods10Surface, CdpBridgeMethods11Surface, CdpBridgeMethods12Surface, CdpBridgeMethods13Surface, CdpBridgeMethods14Surface, CdpBridgeMethods15Surface, CdpBridgeMethods16Surface {}
 
 Object.assign(
   CdpBridge.prototype,

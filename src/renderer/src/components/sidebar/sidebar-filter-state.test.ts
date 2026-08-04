@@ -35,7 +35,6 @@ function filterState(overrides: Partial<FilterState> = {}): FilterState {
     showSleepingWorkspaces: true,
     filterRepoIds: [],
     hideDefaultBranchWorkspace: false,
-    hideAutomationGeneratedWorkspaces: false,
     hideCliCreatedWorkspaces: false,
     hideDetachedHeadWorkspaces: false,
     workspaceHostScope: 'all',
@@ -75,12 +74,6 @@ describe('sidebarHasActiveFilters', () => {
     expect(sidebarHasActiveFilters(filterState({ hideDefaultBranchWorkspace: true }))).toBe(true)
   })
 
-  it('returns true when only automation-created workspaces are hidden', () => {
-    expect(sidebarHasActiveFilters(filterState({ hideAutomationGeneratedWorkspaces: true }))).toBe(
-      true
-    )
-  })
-
   it('returns true when only CLI-created workspaces are hidden', () => {
     expect(sidebarHasActiveFilters(filterState({ hideCliCreatedWorkspaces: true }))).toBe(true)
   })
@@ -108,7 +101,6 @@ describe('computeClearFilterActions', () => {
       resetShowSleepingWorkspaces: false,
       resetFilterRepoIds: false,
       resetHideDefaultBranchWorkspace: false,
-      resetHideAutomationGeneratedWorkspaces: false,
       resetHideCliCreatedWorkspaces: false,
       resetHideDetachedHeadWorkspaces: false,
       resetVisibleWorkspaceHostIds: false
@@ -123,21 +115,6 @@ describe('computeClearFilterActions', () => {
       resetShowSleepingWorkspaces: false,
       resetFilterRepoIds: false,
       resetHideDefaultBranchWorkspace: true,
-      resetHideAutomationGeneratedWorkspaces: false,
-      resetHideCliCreatedWorkspaces: false,
-      resetHideDetachedHeadWorkspaces: false,
-      resetVisibleWorkspaceHostIds: false
-    })
-  })
-
-  it('flags only hideAutomationGeneratedWorkspaces for reset when it is the sole filter', () => {
-    expect(
-      computeClearFilterActions(filterState({ hideAutomationGeneratedWorkspaces: true }))
-    ).toEqual({
-      resetShowSleepingWorkspaces: false,
-      resetFilterRepoIds: false,
-      resetHideDefaultBranchWorkspace: false,
-      resetHideAutomationGeneratedWorkspaces: true,
       resetHideCliCreatedWorkspaces: false,
       resetHideDetachedHeadWorkspaces: false,
       resetVisibleWorkspaceHostIds: false
@@ -149,7 +126,6 @@ describe('computeClearFilterActions', () => {
       resetShowSleepingWorkspaces: false,
       resetFilterRepoIds: false,
       resetHideDefaultBranchWorkspace: false,
-      resetHideAutomationGeneratedWorkspaces: false,
       resetHideCliCreatedWorkspaces: true,
       resetHideDetachedHeadWorkspaces: false,
       resetVisibleWorkspaceHostIds: false
@@ -161,7 +137,6 @@ describe('computeClearFilterActions', () => {
       resetShowSleepingWorkspaces: false,
       resetFilterRepoIds: false,
       resetHideDefaultBranchWorkspace: false,
-      resetHideAutomationGeneratedWorkspaces: false,
       resetHideCliCreatedWorkspaces: false,
       resetHideDetachedHeadWorkspaces: true,
       resetVisibleWorkspaceHostIds: false
@@ -186,7 +161,6 @@ describe('computeClearFilterActions', () => {
       resetShowSleepingWorkspaces: false,
       resetFilterRepoIds: false,
       resetHideDefaultBranchWorkspace: false,
-      resetHideAutomationGeneratedWorkspaces: false,
       resetHideCliCreatedWorkspaces: false,
       resetHideDetachedHeadWorkspaces: false,
       resetVisibleWorkspaceHostIds: true
@@ -200,7 +174,6 @@ describe('computeClearFilterActions', () => {
           showSleepingWorkspaces: false,
           filterRepoIds: ['repo1', 'repo2'],
           hideDefaultBranchWorkspace: true,
-          hideAutomationGeneratedWorkspaces: true,
           visibleWorkspaceHostIds: ['local']
         })
       )
@@ -208,7 +181,6 @@ describe('computeClearFilterActions', () => {
       resetShowSleepingWorkspaces: true,
       resetFilterRepoIds: true,
       resetHideDefaultBranchWorkspace: true,
-      resetHideAutomationGeneratedWorkspaces: true,
       resetHideCliCreatedWorkspaces: false,
       resetHideDetachedHeadWorkspaces: false,
       resetVisibleWorkspaceHostIds: true

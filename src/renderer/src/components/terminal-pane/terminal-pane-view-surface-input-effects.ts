@@ -47,12 +47,6 @@ import {
 } from './regular-terminal-focus-ownership'
 import { refreshTerminalImeInputContext } from './terminal-ime-input-context-refresh'
 
-const NATIVE_CHAT_ROOT_SELECTOR = '[data-native-chat-root="true"]'
-
-function isInsideNativeChatRoot(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest(NATIVE_CHAT_ROOT_SELECTOR) !== null
-}
-
 function formatClipboardImagePasteError(error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error)
   return `Image paste failed: ${detail}`
@@ -369,10 +363,7 @@ export function useTerminalPaneSurfaceInputEffects(context: TerminalPaneSurfaceC
     }
     const onKeyPaste = (e: KeyboardEvent): void => {
       const target = e.target
-      if (
-        (target instanceof Element && target.closest('[data-terminal-search-root]')) ||
-        isInsideNativeChatRoot(target)
-      ) {
+      if (target instanceof Element && target.closest('[data-terminal-search-root]')) {
         return
       }
       const matchesPaste = keybindingMatchesAction(
@@ -427,10 +418,7 @@ export function useTerminalPaneSurfaceInputEffects(context: TerminalPaneSurfaceC
     // Fallback: paste events from non-keyboard sources (Edit > Paste menu, programmatic paste, etc.).
     const onPaste = (e: ClipboardEvent): void => {
       const target = e.target
-      if (
-        (target instanceof Element && target.closest('[data-terminal-search-root]')) ||
-        isInsideNativeChatRoot(target)
-      ) {
+      if (target instanceof Element && target.closest('[data-terminal-search-root]')) {
         return
       }
       if (suppressNextNativePaste) {
@@ -468,8 +456,7 @@ export function useTerminalPaneSurfaceInputEffects(context: TerminalPaneSurfaceC
       if (
         !(activeElementAtDispatch instanceof Element) ||
         !container.contains(activeElementAtDispatch) ||
-        activeElementAtDispatch.closest('[data-terminal-search-root]') ||
-        isInsideNativeChatRoot(activeElementAtDispatch)
+        activeElementAtDispatch.closest('[data-terminal-search-root]')
       ) {
         return
       }

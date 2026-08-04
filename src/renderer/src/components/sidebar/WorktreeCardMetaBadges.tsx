@@ -1,5 +1,5 @@
 import React from 'react'
-import { CalendarClock, CircleDot, SquareTerminal, StickyNote } from 'lucide-react'
+import { CircleDot, SquareTerminal, StickyNote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LinearIcon } from '@/components/icons/LinearIcon'
 import { JiraIcon } from '@/components/icons/JiraIcon'
@@ -21,7 +21,6 @@ export function hasWorktreeCardDetails({
   jiraIssue,
   review,
   comment,
-  automationProvenance,
   cliProvenance
 }: WorktreeCardMetaBadgesProps): boolean {
   return Boolean(
@@ -30,7 +29,6 @@ export function hasWorktreeCardDetails({
     jiraIssue ||
     review ||
     hasComment(comment) ||
-    automationProvenance ||
     cliProvenance
   )
 }
@@ -45,7 +43,6 @@ export const WorktreeCardMetaBadges = React.forwardRef<
     jiraIssue,
     review,
     comment,
-    automationProvenance,
     cliProvenance,
     className,
     ...props
@@ -59,7 +56,6 @@ export const WorktreeCardMetaBadges = React.forwardRef<
       jiraIssue,
       review,
       comment,
-      automationProvenance,
       cliProvenance
     })
   ) {
@@ -86,16 +82,6 @@ export const WorktreeCardMetaBadges = React.forwardRef<
           )}
         >
           <StickyNote className="text-muted-foreground" />
-        </MetaIconBadge>
-      )}
-      {automationProvenance && (
-        <MetaIconBadge
-          label={translate(
-            'auto.components.sidebar.WorktreeCardMeta.automationCreated',
-            'Created by automation'
-          )}
-        >
-          <CalendarClock className="text-muted-foreground" />
         </MetaIconBadge>
       )}
       {cliProvenance && (

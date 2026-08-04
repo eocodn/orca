@@ -7,7 +7,6 @@ import {
   Monitor, Plus, Smartphone
 } from 'lucide-react-native'
 import { MobileBrowserPane } from '../../../../src/browser/MobileBrowserPane'
-import { MobileNativeChatOverlay } from '../../../../src/session/MobileNativeChatOverlay'
 import { MobileTerminalInputActions } from '../../../../src/session/MobileTerminalInputActions'
 import { MobileTerminalLiveInputStatus } from '../../../../src/session/MobileTerminalLiveInputStatus'
 import { SessionDockColumn } from '../../../../src/session/SessionDockColumn'
@@ -37,9 +36,8 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
     setTerminalWebViewRef, handleTerminalWebReady, handleSelectionMode, handleSelectionCopy,
     handleSelectionEvicted, handleModesChanged, handleKeyboardAvoidanceMetrics, handleHaptic,
     handleTerminalInput, handleTerminalQueryReply, handleTerminalTap, handleFileTap, handleTerminalOpenUrl,
-    nativeChatController, nativeChatImages, handleDictationToggle, dictation, dictationMode,
-    handleDictationPressIn, handleDictationPressOut, nativeChatInputLockReason, nativeChatSendError,
-    showNativeChat, dismissSoftwareKeyboard, canSend, toggleDisplayMode, handleAccessoryKey,
+    handleDictationToggle, dictation, dictationMode, handleDictationPressIn, handleDictationPressOut,
+    dismissSoftwareKeyboard, canSend, toggleDisplayMode, handleAccessoryKey,
     startAccessoryRepeat, stopAccessoryRepeat, visibleBuiltInAccessoryKeys, customKeys, setDeleteKeyTarget,
     setShowCustomKeyModal, liveInputEnabled, focusLiveInput, isAttaching, liveInputRef,
     liveInputCapture, handleLiveInputChange, handleLiveInputKeyPress, handleLiveInputSubmit,
@@ -200,19 +198,6 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
                     onOpenUrl={handleTerminalOpenUrl}
                   />
                 ))}
-                <MobileNativeChatOverlay
-                  controller={nativeChatController}
-                  images={nativeChatImages}
-                  onMicPress={handleDictationToggle}
-                  micActive={dictation.isRecording}
-                  dictationMode={dictationMode}
-                  onMicPressIn={handleDictationPressIn}
-                  onMicPressOut={handleDictationPressOut}
-                  inputLockReason={nativeChatInputLockReason}
-                  sendErrorMessage={nativeChatSendError.message}
-                  onClearSendError={nativeChatSendError.clear}
-                  keyboardInset={keyboardLift}
-                />
                 {toastMessage && (
                   <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
                     <Text style={styles.toastText}>{toastMessage}</Text>
@@ -222,7 +207,7 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
             )}
 
             {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-            {!activeMarkdownTab && !activeFileTab && !activeBrowserTab && !showNativeChat && (
+            {!activeMarkdownTab && !activeFileTab && !activeBrowserTab && (
               <View
                 style={[
                   styles.commandDock,

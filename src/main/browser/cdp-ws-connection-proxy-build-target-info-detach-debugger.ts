@@ -3,7 +3,6 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { ANTI_DETECTION_SCRIPT } from './anti-detection'
 import { acquireElectronDebugger } from './electron-debugger-lease'
 
-
 export const CdpWsProxyMethods3 = {
   buildTargetInfo(this: any): Record<string, unknown> {
     const destroyed = this.webContents.isDestroyed()

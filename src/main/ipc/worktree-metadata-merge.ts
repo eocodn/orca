@@ -44,9 +44,6 @@ export function mergeWorktree(
     lastActivityAt: meta?.lastActivityAt ?? 0,
     ...(meta?.createdAt !== undefined ? { createdAt: meta.createdAt } : {}),
     ...(meta?.createdWithAgent !== undefined ? { createdWithAgent: meta.createdWithAgent } : {}),
-    ...(meta?.automationProvenance !== undefined
-      ? { automationProvenance: meta.automationProvenance }
-      : {}),
     ...(meta?.cliProvenance !== undefined ? { cliProvenance: meta.cliProvenance } : {}),
     ...(meta?.pendingFirstAgentMessageRename !== undefined
       ? { pendingFirstAgentMessageRename: meta.pendingFirstAgentMessageRename }

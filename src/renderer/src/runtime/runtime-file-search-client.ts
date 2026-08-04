@@ -2,6 +2,11 @@ import type { DirEntry, MarkdownDocument, SearchOptions, SearchResult } from '..
 import type { RuntimeFileOperationArgs } from './runtime-file-context'
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
+import { getClientRuntime } from './client-runtime'
+import {
+  createEmptyRuntimeFileSearchResult,
+  getRuntimeFileSearchRejectedField
+} from './runtime-file-search-bounds'
 import {
   assertLocalFilesystemFallbackAllowed,
   getRemoteFileArgs,
@@ -15,7 +20,7 @@ export async function readRuntimeDirectory(
   const remoteArgs = getRemoteFileArgs(context, dirPath)
   if (!remoteArgs) {
     assertLocalFilesystemFallbackAllowed(context)
-    return window.api.fs.readDir({ dirPath, connectionId: context.connectionId })
+    return getClientRuntime().file.readDir({ dirPath, connectionId: context.connectionId })
   }
   return callRuntimeRpc<DirEntry[]>(
     remoteArgs.target,
@@ -34,7 +39,7 @@ export async function searchRuntimeFiles(
   }
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId) {
-    return window.api.fs.search({
+    return getClientRuntime().file.search({
       ...options,
       connectionId: context.connectionId
     })
@@ -54,7 +59,7 @@ export async function listRuntimeFiles(
 ): Promise<string[]> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId) {
-    return window.api.fs.listFiles({
+    return getClientRuntime().file.listFiles({
       rootPath: args.rootPath,
       connectionId: context.connectionId,
       excludePaths: args.excludePaths,
@@ -83,9 +88,11 @@ export function cancelRuntimeFileList(
 ): void {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId) {
-    void window.api.fs.cancelListFiles({ requestToken }).catch(() => {
-      /* cancellation is advisory; the request path has its own timeouts */
-    })
+    void getClientRuntime()
+      .file.cancelListFiles({ requestToken })
+      .catch(() => {
+        /* cancellation is advisory; the request path has its own timeouts */
+      })
   }
   // Environment runtimes bound files.listAll with their own RPC timeout.
 }
@@ -96,7 +103,7 @@ export async function listRuntimeMarkdownDocuments(
 ): Promise<MarkdownDocument[]> {
   const target = getActiveRuntimeTarget(context.settings)
   if (target.kind !== 'environment' || !context.worktreeId) {
-    return window.api.fs.listMarkdownDocuments({
+    return getClientRuntime().file.listMarkdownDocuments({
       rootPath,
       connectionId: context.connectionId
     })
@@ -116,7 +123,7 @@ export async function statRuntimePath(
   const remoteArgs = getRemoteFileArgs(context, absolutePath)
   if (!remoteArgs) {
     assertLocalFilesystemFallbackAllowed(context)
-    return window.api.fs.stat({
+    return getClientRuntime().file.stat({
       filePath: absolutePath,
       connectionId: context.connectionId
     })
@@ -137,7 +144,7 @@ export async function runtimePathExists(
   const remoteArgs = getRemoteFileArgs(context, absolutePath)
   if (!remoteArgs) {
     assertLocalFilesystemFallbackAllowed(context)
-    return window.api.fs.pathExists({
+    return getClientRuntime().file.pathExists({
       filePath: absolutePath,
       connectionId: context.connectionId
     })
@@ -170,4 +177,3 @@ export function isRemoteRuntimeFileOperation(
 ): boolean {
   return getRemoteFileArgs(context, path) !== null
 }
-

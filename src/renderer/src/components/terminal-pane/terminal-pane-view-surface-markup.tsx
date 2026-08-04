@@ -2,14 +2,12 @@ import { createPortal } from 'react-dom'
 import { useAppStore } from '../../store'
 import { TerminalQuickCommandDialog } from '@/components/terminal-quick-commands/TerminalQuickCommandDialog'
 import type { TerminalQuickCommand } from '../../../../shared/types'
-import { makePaneKey } from '../../../../shared/stable-pane-id'
 import { WORKSPACE_FILE_PATH_MIME, WORKSPACE_FILE_PATHS_MIME } from '@/lib/workspace-file-drag'
 import { shouldShowMobileDriverOverlay } from './mobile-driver-overlay-visibility'
 import {
   getDriverForPty,
   getFitOverrideForPty
 } from '@/lib/pane-manager/mobile-driver-state'
-import { shouldChatTakeOverMobileSurface } from '../native-chat/native-chat-send-eligibility'
 import { DaemonActionDialog } from '@/components/shared/useDaemonActions'
 import TerminalSearch from '@/components/TerminalSearch'
 import CloseTerminalDialog from './CloseTerminalDialog'
@@ -17,7 +15,6 @@ import { MobileDriverOverlay } from './MobileDriverOverlay'
 import { TerminalErrorToast } from './TerminalErrorToast'
 import { TerminalSessionStateSaveFailureDialog } from './TerminalSessionStateSaveFailureDialog'
 import TerminalContextMenu from './TerminalContextMenu'
-import NativeChatView from '../native-chat/NativeChatView'
 import { TerminalAgentSessionForkDialog } from './TerminalAgentSessionForkDialog'
 import { AgentSessionContinuationDialog } from '@/components/agent-session-continuation/AgentSessionContinuationDialog'
 import { SessionRestoredBannerPortals } from './SessionRestoredBannerPortals'
@@ -82,20 +79,9 @@ export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps)
   setSearchOpen,
   searchStateRef,
   sessionRestoredBannerPaneIds,
-  effectiveChatViewMode,
-  chatPane,
-  chatPanePtyId,
-  chatPaneLaunchAgent,
-  chatPaneResolvedAgent,
-  toggleNativeChatForLeaf,
-  readNativeChatTerminalScreen,
   expandedPaneId,
-  resolveAgentForLeaf,
   keybindings,
   contextMenuCanContinueInNewSession,
-  contextMenuIsChatView,
-  contextMenuCanToggleChat,
-  handleContextMenuToggleNativeChat,
   repoQuickCommands,
   globalQuickCommands,
   quickCommandRepoLabel,
@@ -118,9 +104,6 @@ export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps)
   paneTitleBackground,
   terminalContentVisible,
   hiddenStartupStyle,
-  activePaneCanToggleChat,
-  activePaneIsChatLeaf,
-  handleToggleNativeChat,
   activePaneCanContinueInNewSession,
   showSplitButton,
   splitTerminalPaneFromHeader,
@@ -234,51 +217,6 @@ export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps)
         panes={managerRef.current?.getPanes() ?? []}
         paneIds={sessionRestoredBannerPaneIds}
       />
-      {effectiveChatViewMode && chatPane?.container
-        ? createPortal(
-            <div className="absolute inset-0 z-10 flex min-h-0 min-w-0 bg-background">
-              <NativeChatView
-                terminalTabId={tabId}
-                paneKey={makePaneKey(tabId, chatPane.leafId)}
-                targetPtyId={chatPanePtyId}
-                launchAgent={chatPaneLaunchAgent}
-                resolvedAgent={chatPaneResolvedAgent}
-                onSwitchToTerminal={() => toggleNativeChatForLeaf(chatPane.leafId)}
-                readTerminalScreen={readNativeChatTerminalScreen}
-                contextMenuActions={{
-                  onSplitRight: () => contextMenu.runForPane(chatPane.id, contextMenu.onSplitRight),
-                  onSplitDown: () => contextMenu.runForPane(chatPane.id, contextMenu.onSplitDown),
-                  canEqualizePaneSizes: managedPanes.length > 1 && expandedPaneId === null,
-                  onEqualizePaneSizes: () =>
-                    contextMenu.runForPane(chatPane.id, contextMenu.onEqualizePaneSizes),
-                  canExpandPane: managedPanes.length > 1,
-                  isPaneExpanded: expandedPaneId === chatPane.id,
-                  onToggleExpand: () =>
-                    contextMenu.runForPane(chatPane.id, contextMenu.onToggleExpand),
-                  canContinueAgentSessionInNewSession: canContinueAgentSessionInNewSession(
-                    resolveAgentForLeaf(chatPane.leafId)
-                  ),
-                  onContinueAgentSessionInNewSession: () =>
-                    contextMenu.runForPane(
-                      chatPane.id,
-                      contextMenu.onContinueAgentSessionInNewSession
-                    ),
-                  onForkAgentSession: () =>
-                    void contextMenu.runForPane(chatPane.id, contextMenu.onForkAgentSession),
-                  onSetTitle: () => contextMenu.runForPane(chatPane.id, contextMenu.onSetTitle),
-                  onCopyTerminalId: () =>
-                    void contextMenu.runForPane(chatPane.id, contextMenu.onCopyTerminalId),
-                  onCopyPaneId: () =>
-                    void contextMenu.runForPane(chatPane.id, contextMenu.onCopyPaneId),
-                  canClosePane: managedPanes.length > 1,
-                  onClosePane: () => contextMenu.runForPane(chatPane.id, contextMenu.onClosePane)
-                }}
-              />
-            </div>,
-            chatPane.container,
-            `native-chat-${tabId}-${chatPane.leafId}`
-          )
-        : null}
       <TerminalContextMenu
         open={contextMenu.open}
         onOpenChange={contextMenu.setOpen}
@@ -301,9 +239,6 @@ export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps)
         canContinueAgentSessionInNewSession={contextMenuCanContinueInNewSession}
         onContinueAgentSessionInNewSession={contextMenu.onContinueAgentSessionInNewSession}
         onForkAgentSession={() => void contextMenu.onForkAgentSession()}
-        canToggleNativeChat={contextMenuCanToggleChat}
-        isNativeChatView={contextMenuIsChatView}
-        onToggleNativeChat={handleContextMenuToggleNativeChat}
         onCopyAgentSessionContext={() => void contextMenu.onCopyAgentSessionContext()}
         repoQuickCommands={repoQuickCommands}
         globalQuickCommands={globalQuickCommands}
@@ -369,9 +304,6 @@ export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps)
         hiddenStartupStyle={hiddenStartupStyle}
         managerRef={managerRef}
         paneTransportsRef={paneTransportsRef}
-        canToggleNativeChat={activePaneCanToggleChat}
-        isChatViewMode={activePaneIsChatLeaf}
-        onToggleNativeChat={handleToggleNativeChat}
         canContinueAgentSessionInNewSession={activePaneCanContinueInNewSession}
         onContinueAgentSessionInNewSession={(pane) =>
           contextMenu.runForPane(pane.id, contextMenu.onContinueAgentSessionInNewSession)
@@ -418,12 +350,6 @@ export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps)
         const fitMode = getFitOverrideForPty(ptyId)?.mode ?? null
         const hasFitOverride = fitMode === 'mobile-fit'
         if (!shouldShowMobileDriverOverlay(driver.kind, fitMode)) {
-          return null
-        }
-        // Why: only the chat-replaced pane hides presence-lock/phone-fit chrome; sibling splits stay normal terminals.
-        const paneSurface =
-          effectiveChatViewMode && pane.leafId === chatLeafId ? 'chat' : 'terminal'
-        if (shouldChatTakeOverMobileSurface(paneSurface)) {
           return null
         }
         return createPortal(

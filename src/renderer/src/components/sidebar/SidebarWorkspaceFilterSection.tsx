@@ -1,5 +1,5 @@
 import React from 'react'
-import { CalendarClock, GitBranch, GitCommitHorizontal, Moon, SquareTerminal } from 'lucide-react'
+import { GitBranch, GitCommitHorizontal, Moon, SquareTerminal } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
@@ -9,10 +9,6 @@ const SidebarWorkspaceFilterSection = React.memo(function SidebarWorkspaceFilter
   const setShowSleepingWorkspaces = useAppStore((s) => s.setShowSleepingWorkspaces)
   const hideDefaultBranchWorkspace = useAppStore((s) => s.hideDefaultBranchWorkspace)
   const setHideDefaultBranchWorkspace = useAppStore((s) => s.setHideDefaultBranchWorkspace)
-  const hideAutomationGeneratedWorkspaces = useAppStore((s) => s.hideAutomationGeneratedWorkspaces)
-  const setHideAutomationGeneratedWorkspaces = useAppStore(
-    (s) => s.setHideAutomationGeneratedWorkspaces
-  )
   const hideCliCreatedWorkspaces = useAppStore((s) => s.hideCliCreatedWorkspaces)
   const setHideCliCreatedWorkspaces = useAppStore((s) => s.setHideCliCreatedWorkspaces)
   const hideDetachedHeadWorkspaces = useAppStore((s) => s.hideDetachedHeadWorkspaces)
@@ -42,15 +38,6 @@ const SidebarWorkspaceFilterSection = React.memo(function SidebarWorkspaceFilter
         )}
         checked={hideDefaultBranchWorkspace}
         onChange={setHideDefaultBranchWorkspace}
-      />
-      <FilterToggleRow
-        icon={<CalendarClock className="size-3.5" />}
-        label={translate(
-          'auto.components.sidebar.SidebarWorkspaceFilterSection.automationCreated',
-          'Hide automation-created'
-        )}
-        checked={hideAutomationGeneratedWorkspaces}
-        onChange={setHideAutomationGeneratedWorkspaces}
       />
       <FilterToggleRow
         icon={<SquareTerminal className="size-3.5" />}

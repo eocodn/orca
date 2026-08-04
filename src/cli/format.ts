@@ -45,11 +45,6 @@ export {
   formatTerminalWait
 } from './terminal-format'
 export {
-  formatAutomationList,
-  formatAutomationRemoved,
-  formatAutomationRun,
-  formatAutomationRuns,
-  formatAutomationShow,
   formatEnvironment,
   formatEnvironmentList,
   formatMemorySnapshot,

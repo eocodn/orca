@@ -1,54 +1,10 @@
+import type {
+  BrowserWindow
+} from 'electron';
 import {
-  app,
-  BrowserWindow,
-  ipcMain,
-  Menu,
-  nativeTheme,
-  Notification,
-  powerMonitor,
-  screen
-} from 'electron'
-import { join } from 'node:path'
-import { is } from '@electron-toolkit/utils'
-import type { Store } from '../persistence'
-import { getAppIconPath } from '../app-icon'
-import { browserManager } from '../browser/browser-manager'
-import { browserSessionRegistry } from '../browser/browser-session-registry'
-import { translateMain } from '../i18n/main-i18n'
-import { normalizeBrowserNavigationUrl } from '../../shared/browser-url'
-import { ORCA_BROWSER_GUEST_WEB_PREFERENCES } from '../../shared/browser-guest-web-preferences'
-import { isCrashReportReason } from '../../shared/crash-reporting'
-import {
-  DEFAULT_RENDERER_RECOVERY_MAX_RECOVERIES,
-  DEFAULT_RENDERER_RECOVERY_WINDOW_MS,
-  RendererRecoveryCircuitBreaker
-} from '../crash-reporting/renderer-recovery-circuit-breaker'
-import {
-  getWindowShortcutActionId,
-  matchesRecentTabSwitcherChord,
-  nativeZoomCommandMatchesKeybindings,
-  resolveWindowShortcutAction,
-  windowShortcutActionCapturesTerminal,
-  type WindowShortcutAction
-} from '../../shared/window-shortcut-policy'
-import {
-  ModifierDoubleTapDetector,
-  toModifierDoubleTapEvent
-} from '../../shared/modifier-double-tap-detector'
-import {
-  normalizeTerminalShortcutPolicy,
-  type KeybindingMatchOptions,
-  type KeybindingOverrides
-} from '../../shared/keybindings'
-import { getMainE2EConfig } from '../e2e-config'
-import { buildEditableContextMenuTemplate } from './editable-context-menu'
-import { clearTrustedUIRendererWebContentsId, setTrustedUIRendererWebContentsId } from '../ipc/ui'
-import { resolveWindowCloseAction } from './window-close-decision'
-import { rectHasVisibleAreaOnAnyDisplay } from './window-bounds-validation'
-import { closeDashboardPopout } from './dashboard-popout-window'
-import { installPrivilegedWindowNavigationPolicy } from './privileged-window-navigation'
-import { isMacosTahoeOrNewer } from './macos-tahoe-release'
-import { registerPluginPanelNavigationGuard } from '../plugins/plugin-panel-navigation-guard'
+  ipcMain
+} from 'electron';
+import { isMacosTahoeOrNewer } from './macos-tahoe-release';
 
 // Why: show/restore/resume can overlap before the size nudge resets; never capture the temporary width as the next baseline.
 const activeRepaintJiggles = new WeakSet<BrowserWindow>()
@@ -178,5 +134,5 @@ export function syncTrafficLightPosition(win: BrowserWindow, zoomFactor: number)
 export {
   createMainWindow,
   loadMainWindow
-} from './main-window-creation-create-main-window'
-export type { CreateMainWindowOptions } from './main-window-creation-create-main-window'
+} from './main-window-creation-create-main-window';
+export type { CreateMainWindowOptions } from './main-window-creation-create-main-window';

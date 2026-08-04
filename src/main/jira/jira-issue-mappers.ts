@@ -1,39 +1,12 @@
 import type {
-  JiraComment,
-  JiraCreateField,
-  JiraCreateFieldAllowedValue,
-  JiraCreateIssueArgs,
-  JiraCreateIssueResult,
   JiraIssue,
   JiraIssueFilter,
-  JiraIssueType,
-  JiraIssueUpdate,
-  JiraMutationResult,
-  JiraPriority,
-  JiraProject,
-  JiraProjectStatusOrder,
-  JiraSite,
-  JiraSiteSelection,
-  JiraStatus,
-  JiraTransition,
-  JiraUser
+  JiraSite
 } from '../../shared/types'
-import {
-  acquire,
-  apiBasePath,
-  clearToken,
-  getClients,
-  isAuthError,
-  jiraRequest,
-  release,
-  type JiraClientForSite
-} from './client'
 import {
   adfToMarkdownText,
   collectAdfMediaAttrs,
-  textToAdf,
-  type AdfToMarkdownOptions,
-  type JiraAdfMediaAttrs
+  type AdfToMarkdownOptions
 } from './adf-markdown'
 import {
   extractAttachmentContentIdsFromHtml,
@@ -45,9 +18,13 @@ import {
   loadIssueImageAttachments,
   type MediaResolutionStats
 } from './attachment-images'
-import { JiraSummaryLookupError } from '../../shared/jira-summary-lookup'
-import { ISSUE_LIST_FIELDS, type JiraRecord, type JiraSearchResponse } from './jira-issue-primitives'
-import { asRecord, asString, asStringArray, mapUser, mapProject, mapIssueType, mapPriority, mapStatus, issueUrl } from './jira-issue-deadlines'
+import {
+  apiBasePath,
+  jiraRequest,
+  type JiraClientForSite
+} from './client'
+import { asRecord,asString,asStringArray,issueUrl,mapIssueType,mapPriority,mapProject,mapStatus,mapUser } from './jira-issue-deadlines'
+import { ISSUE_LIST_FIELDS,type JiraRecord,type JiraSearchResponse } from './jira-issue-primitives'
 function mapJiraIssue(
   site: JiraSite,
   raw: JiraRecord,
@@ -208,6 +185,4 @@ async function searchIssuesForClient(
   return (result.issues ?? []).map((issue) => mapJiraIssue(entry.site, issue))
 }
 
-export { mapJiraIssue, collectIssueMediaRequest, prepareMediaResolver, flushMediaResolutionWarn, sortAndLimitIssues, filterToJql, searchIssuesForClient }
-export { type MediaRequest, type PreparedMedia }
-
+export { collectIssueMediaRequest,filterToJql,flushMediaResolutionWarn,mapJiraIssue,prepareMediaResolver,searchIssuesForClient,sortAndLimitIssues,type MediaRequest,type PreparedMedia }

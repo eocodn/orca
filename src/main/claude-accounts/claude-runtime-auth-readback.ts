@@ -1,53 +1,22 @@
-import {  execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { app } from 'electron'
+import { execFileSync } from 'node:child_process'
+import { existsSync,readFileSync } from 'node:fs'
 import type { ClaudeManagedAccount } from '../../shared/types'
-import type { Store } from '../persistence'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
-import type { ClaudeEnvPatch } from './environment'
-import {
-  readClaudeManagedAuthFile,
-  resolveOwnedClaudeManagedAuthPath,
-  writeClaudeManagedAuthFile
-} from './managed-auth-path'
 import { parseWslUncPath } from '../../shared/wsl-paths'
-import { resolveLocalAccountRuntimeTarget } from '../../shared/local-account-runtime'
-import { getDefaultWslDistro, getWslHome, toWindowsWslPath } from '../wsl'
+import { toWindowsWslPath } from '../wsl'
 import { buildEncodedWslBashCommand } from '../wsl-bash-command'
-import { hasLiveClaudePtys } from './live-pty-gate'
-import { isOauthTokenExpiring, refreshClaudeOauthCredentials } from './oauth-refresh'
-import { ClaudeRuntimePathResolver } from './runtime-paths'
 import {
-  deleteActiveClaudeKeychainCredentialsStrict,
-  readActiveClaudeKeychainCredentials,
-  readActiveClaudeKeychainCredentialsStrict,
-  readManagedClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentials,
-  writeActiveClaudeKeychainCredentialsForRuntime,
-  writeManagedClaudeKeychainCredentials
-} from './keychain'
-import {
-  getSelectedClaudeAccountIdForTarget,
-  normalizeClaudeAccountSelectionTarget,
-  normalizeClaudeRuntimeSelection,
-  setSelectedClaudeAccountIdForTarget,
-  type ClaudeAccountSelectionTarget
-} from './runtime-selection'
-
-
-import { type ClaudeRuntimeAuthPreparation,
-  type ClaudeSystemDefaultSnapshot,
   type ClaudeAuthIdentity,
-  type ClaudeReadBackResult,
-  type ClaudeReadBackMatch,
-  type ClaudeKeychainReadResult,
   type ClaudeKeychainSnapshotValue,
+  type ClaudeReadBackMatch,
   type ClaudeRefreshTokenComparison,
-  type ClaudeRuntimeCredentialCandidate,
+  type ClaudeSystemDefaultSnapshot,
   RUNTIME_OAUTH_ACCOUNT_PARSE_ERROR,
-  shellQuote  } from './claude-runtime-auth-foundation'
+  shellQuote
+} from './claude-runtime-auth-foundation'
 import { ClaudeRuntimeAuthServicePhase1 } from './claude-runtime-auth-selection'
+import { readManagedClaudeKeychainCredentials,writeManagedClaudeKeychainCredentials } from './keychain'
+import { readClaudeManagedAuthFile,resolveOwnedClaudeManagedAuthPath,writeClaudeManagedAuthFile } from './managed-auth-path'
+import { isOauthTokenExpiring,refreshClaudeOauthCredentials } from './oauth-refresh'
 
 export class ClaudeRuntimeAuthServicePhase2 extends ClaudeRuntimeAuthServicePhase1 {
   protected isValidCredentialsJsonObject(credentialsJson: string): boolean {

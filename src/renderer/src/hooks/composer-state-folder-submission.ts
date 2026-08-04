@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 import { submitFolderWorkspaceCreate } from '@/components/sidebar/folder-workspace-composer-submit'
 import { isTuiAgentEnabled } from '../../../shared/tui-agent-selection'
 import { resolveTuiAgentLaunchArgs, resolveTuiAgentLaunchEnv } from '../../../shared/tui-agent-launch-defaults'
-import { resolveNativeChatSessionOptionDefaults } from '../../../shared/native-chat-session-option-defaults'
 import { formatWorkspaceCreateError, getWorkspaceCreateErrorToastMessage } from '@/lib/workspace-create-error-format'
 import { translate } from '@/i18n/i18n'
 import type { WorktreeMeta, TuiAgent } from '../../../shared/types'
@@ -92,9 +91,6 @@ export function useComposerFolderSubmission(context: any) {
             ? resolveTuiAgentLaunchArgs(agent, settings?.agentDefaultArgs)
             : undefined,
           agentEnv: agent ? resolveTuiAgentLaunchEnv(agent, settings?.agentDefaultEnv) : undefined,
-          sessionOptions: agent
-            ? resolveNativeChatSessionOptionDefaults(settings?.nativeChatSessionOptions, agent)
-            : undefined,
           terminalWindowsShell: settings?.terminalWindowsShell,
           isRemote: folderTargetIsRemote,
           launchSource: telemetrySource === 'onboarding' ? 'onboarding' : 'new_workspace_composer',
@@ -151,7 +147,6 @@ export function useComposerFolderSubmission(context: any) {
       settings?.agentDefaultArgs,
       settings?.agentDefaultEnv,
       settings?.autoRenameBranchFromWork,
-      settings?.nativeChatSessionOptions,
       settings?.terminalWindowsShell,
       taskSourceContext,
       telemetrySource

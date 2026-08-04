@@ -1,4 +1,4 @@
-import { type ApplyLayoutResult, type PtyLayoutState, type PtyLayoutTarget } from './orca-runtime-symbols'
+import type { ApplyLayoutResult, PtyLayoutState, PtyLayoutTarget } from './orca-runtime-symbols'
 import { OrcaRuntimeMobileTookFloorPart34 } from './orca-runtime-mobile-took-floor-part-34'
 
 export class OrcaRuntimePickEarliestRestoreTargetPart35 extends OrcaRuntimeMobileTookFloorPart34 {

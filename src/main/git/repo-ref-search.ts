@@ -1,16 +1,10 @@
-import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { gitExecFileSync, gitExecFileAsync } from './runner'
-import type { BaseRefSearchResult } from '../../shared/types'
-import { parseGitRevListAheadBehindCounts } from '../../shared/git-rev-list-output'
-import { normalizeRuntimePathSeparators } from '../../shared/cross-platform-path'
 import { isForEachRefExcludeUnsupportedError } from '../../shared/git-ref-command-capabilities'
-import { parseWslUncPath } from '../../shared/wsl-paths'
-import { toWindowsWslPath } from '../wsl'
-import { buildHostedRemoteCommitUrl, buildHostedRemoteFileUrl } from './hosted-remote-url'
+import type { BaseRefSearchResult } from '../../shared/types'
 import { getLocalGitCapabilityCache } from './git-capability-state'
-import { type LocalGitExecOptions, gitExecOptions } from './repo-detection'
-import { getRemoteUrl, getDefaultBaseRef, getDefaultBaseRefAsync, REF_SEARCH_CANDIDATE_MULTIPLIER, REF_SEARCH_LEGACY_HEADROOM } from './repo-base-ref'
+import { buildHostedRemoteCommitUrl,buildHostedRemoteFileUrl } from './hosted-remote-url'
+import { getDefaultBaseRef,getDefaultBaseRefAsync,getRemoteUrl,REF_SEARCH_CANDIDATE_MULTIPLIER,REF_SEARCH_LEGACY_HEADROOM } from './repo-base-ref'
+import { type LocalGitExecOptions,gitExecOptions } from './repo-detection'
+import { gitExecFileAsync } from './runner'
 type RefSearchPatternGroup = 'all' | 'segmented' | 'branchRoot'
 
 function getRefSearchTokens(normalizedQuery: string): string[] {
@@ -409,6 +403,4 @@ function getRemoteCommitUrl(repoPath: string, sha: string): string | null {
   return buildHostedRemoteCommitUrl(remoteUrl, sha)
 }
 
-export { getRefSearchTokens, getRefSearchCandidateCount, buildSearchBaseRefsArgv, runSearchBaseRefsGit, mergeBaseRefSearchResultGroups, getDefaultRemote, searchBaseRefs, searchBaseRefDetails, listRemoteNames, parseAndFilterSearchRefs, parseAndFilterSearchRefDetails, resolveLocalBranchName, normalizeRefSearchQuery, hasGitRefAsync, getBranchConflictKind, isAllowedRemoteBaseRef, getRemoteFileUrl, getRemoteCommitUrl }
-export { type RefSearchPatternGroup, type BranchConflictKind }
-
+export { buildSearchBaseRefsArgv,getBranchConflictKind,getDefaultRemote,getRefSearchCandidateCount,getRefSearchTokens,getRemoteCommitUrl,getRemoteFileUrl,hasGitRefAsync,isAllowedRemoteBaseRef,listRemoteNames,mergeBaseRefSearchResultGroups,normalizeRefSearchQuery,parseAndFilterSearchRefDetails,parseAndFilterSearchRefs,resolveLocalBranchName,runSearchBaseRefsGit,searchBaseRefDetails,searchBaseRefs,type BranchConflictKind,type RefSearchPatternGroup }

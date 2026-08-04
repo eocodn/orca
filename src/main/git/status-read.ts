@@ -1,66 +1,27 @@
-import { existsSync } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
-import * as path from 'node:path'
-import type {
-  GitBranchChangeEntry,
-  GitBranchChangeStatus,
-  GitBranchCompareResult,
-  GitBranchCompareSummary,
-  GitCommitCompareResult,
-  GitConflictKind,
-  GitConflictOperation,
-  GitDiffResult,
-  GitFileStatus,
-  GitStatusEntry,
-  GitStatusResult,
-  GitUpstreamStatus
-} from '../../shared/types'
-import type { CommitMessageDraftContext } from '../../shared/commit-message-generation'
-import {
-  getEffectiveGitUpstreamStatus,
-  getGitUpstreamStatusForUpstreamName,
-  splitRemoteBranchName
-} from '../../shared/git-effective-upstream'
-import { createGitConfigSnapshotRunner } from '../../shared/git-config-snapshot-runner'
-import { isBinaryBuffer } from '../../shared/binary-buffer'
-import {
-  applyLineStats,
-  collectUntrackedAdditions,
-  parseNumstat,
-  type GitLineStats
-} from '../../shared/git-uncommitted-line-stats'
-import { decodeGitCQuotedPath } from '../../shared/git-cquoted-path'
-import {
-  gitExecFileAsync,
-  gitExecFileAsyncBuffer,
-  gitOptionalLocksDisabledEnv,
-  gitStreamStdout
-} from './runner'
-import { StatusPorcelainParser } from '../../shared/git-status-porcelain-parser'
-import { findExistingWorktreeSymlinkPaths } from './worktree-symlink-detection'
-import { capGitStatusEntries, resolveGitStatusLimit } from '../../shared/git-status-limit'
-import { describeMaxBufferOverflowError, isMaxBufferOverflowError } from './max-buffer-overflow'
-import {
-  removeSafeUntrackedDiscardTarget,
-  removeSafeUntrackedDiscardTargets
-} from '../../shared/git-discard-path-safety'
-import { readBranchCompareHead } from '../../shared/git-branch-compare-head'
-import { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-import { resolveWorktreeBaseCommitOid } from './worktree-base-ref-probe'
-import { getLargeDiffRenderLimit } from '../../shared/large-diff-render-limit'
-import { InFlightPromiseDedupe, stableInFlightKey } from '../../shared/in-flight-promise-dedupe'
-import type { GitRuntimeOptions } from './git-runtime-options'
-import { gitOptionsForWorktree } from './git-runtime-options'
-import { GitStatusReadLeaseOwner } from './git-status-read-lease-owner'
-import { parseGitRevListFirstParentOid } from '../../shared/git-rev-list-output'
+import { resolveGitStatusLimit } from '../../shared/git-status-limit'
 import {
   beginGitStatusLineStatsCacheWrite,
   clearGitStatusLineStatsCache,
   clearGitStatusLineStatsCacheKey,
   reuseOrRecomputeGitStatusLineStats
 } from '../../shared/git-status-line-stats-cache'
+import { StatusPorcelainParser } from '../../shared/git-status-porcelain-parser'
+import { InFlightPromiseDedupe,stableInFlightKey } from '../../shared/in-flight-promise-dedupe'
+import type {
+  GitDiffResult,
+  GitStatusEntry,
+  GitStatusResult,
+  GitUpstreamStatus
+} from '../../shared/types'
+import type { GitRuntimeOptions } from './git-runtime-options'
+import { GitStatusReadLeaseOwner } from './git-status-read-lease-owner'
+import {
+  gitOptionalLocksDisabledEnv,
+  gitStreamStdout
+} from './runner'
 import { attachLineStats } from './status-submodules'
-import { getShortBranchName, getEffectiveUpstreamStatusCacheKey, readOrProbeEffectiveUpstreamStatus, shouldProbeEffectiveUpstreamStatus, parseUnmergedEntry, detectConflictOperation } from './status-upstream'
+import { detectConflictOperation,getEffectiveUpstreamStatusCacheKey,getShortBranchName,parseUnmergedEntry,readOrProbeEffectiveUpstreamStatus,shouldProbeEffectiveUpstreamStatus } from './status-upstream'
+import { findExistingWorktreeSymlinkPaths } from './worktree-symlink-detection'
 const MAX_GIT_SHOW_BYTES = 10 * 1024 * 1024
 const MAX_STAGED_COMMIT_CONTEXT_BYTES = MAX_GIT_SHOW_BYTES
 const BULK_CHUNK_SIZE = 100
@@ -426,6 +387,4 @@ function getStatusLineStatsCacheKey(worktreePath: string, options: GitRuntimeOpt
  * submodule path, rejecting anything that escapes the parent.
  */
 
-export { MAX_GIT_SHOW_BYTES, MAX_STAGED_COMMIT_CONTEXT_BYTES, BULK_CHUNK_SIZE, EFFECTIVE_UPSTREAM_NEGATIVE_CACHE_TTL_MS, MAX_EFFECTIVE_UPSTREAM_NEGATIVE_CACHE_ENTRIES, SUBMODULE_PATHS_CACHE_TTL_MS, MAX_SUBMODULE_PATHS_CACHE_ENTRIES, submodulePathsCache, submodulePathsCacheGeneration, RESOLVED_UPSTREAM_NAME_CACHE_TTL_MS, resolvedUpstreamNameCache, effectiveUpstreamStatusCache, effectiveUpstreamStatusInFlight, retiredEffectiveUpstreamStatusInFlight, gitDiffReadDedupe, effectiveUpstreamStatusWriteGeneration, statusReadLeaseOwner, invalidateGitReadCaches, runWithGitReadCacheInvalidation, clearSubmodulePathsCacheForTests, clearSubmodulePathsCache, getSubmodulePathsCacheCountForTests, gitRuntimeOptionsKey, getSubmodulePathsCacheKey, pruneExpiredSubmodulePathsCache, trimSubmodulePathsCache, getCachedSubmodulePaths, rememberSubmodulePaths, clearEffectiveUpstreamStatusCacheForTests, getEffectiveUpstreamStatusCacheCountForTests, getEffectiveUpstreamStatusGenerationCountForTests, getStatus, getStatusReadKey, dropSharedSymlinkUntrackedEntries, runGetStatus, getStatusLineStatsCacheKey }
-export { type EffectiveUpstreamStatusCacheEntry, type SubmodulePathsCacheEntry, type ResolvedUpstreamNameCacheEntry, type GetStatusOptions }
-
+export { BULK_CHUNK_SIZE,clearEffectiveUpstreamStatusCacheForTests,clearSubmodulePathsCache,clearSubmodulePathsCacheForTests,dropSharedSymlinkUntrackedEntries,EFFECTIVE_UPSTREAM_NEGATIVE_CACHE_TTL_MS,effectiveUpstreamStatusCache,effectiveUpstreamStatusInFlight,effectiveUpstreamStatusWriteGeneration,getCachedSubmodulePaths,getEffectiveUpstreamStatusCacheCountForTests,getEffectiveUpstreamStatusGenerationCountForTests,getStatus,getStatusLineStatsCacheKey,getStatusReadKey,getSubmodulePathsCacheCountForTests,getSubmodulePathsCacheKey,gitDiffReadDedupe,gitRuntimeOptionsKey,invalidateGitReadCaches,MAX_EFFECTIVE_UPSTREAM_NEGATIVE_CACHE_ENTRIES,MAX_GIT_SHOW_BYTES,MAX_STAGED_COMMIT_CONTEXT_BYTES,MAX_SUBMODULE_PATHS_CACHE_ENTRIES,pruneExpiredSubmodulePathsCache,rememberSubmodulePaths,RESOLVED_UPSTREAM_NAME_CACHE_TTL_MS,resolvedUpstreamNameCache,retiredEffectiveUpstreamStatusInFlight,runGetStatus,runWithGitReadCacheInvalidation,statusReadLeaseOwner,SUBMODULE_PATHS_CACHE_TTL_MS,submodulePathsCache,submodulePathsCacheGeneration,trimSubmodulePathsCache,type EffectiveUpstreamStatusCacheEntry,type GetStatusOptions,type ResolvedUpstreamNameCacheEntry,type SubmodulePathsCacheEntry }

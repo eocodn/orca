@@ -1,24 +1,14 @@
-import { safeStorage } from 'electron'
-import type { LinearClient } from '@linear/sdk'
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { loadLinearSdk } from './linear-sdk'
+import { existsSync,readFileSync,unlinkSync } from 'node:fs'
+import type { LinearWorkspace } from '../../shared/types'
 import {
   CredentialDecryptionError,
   credentialFileHasContent,
   readStoredCredentialToken
 } from '../integration-credential-file'
-import type {
-  LinearConnectionStatus,
-  LinearViewer,
-  LinearWorkspace,
-  LinearWorkspaceSelection
-} from '../../shared/types'
 
 // ── Concurrency limiter — max 4 parallel Linear API calls ────────────
-import { LEGACY_WORKSPACE_ID, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk, resetLinearClientState, setCachedLegacyViewer, setLegacyViewerLoaded } from './linear-client-limiter'
-import { getWorkspaceTokenPath, emptyWorkspaceFile, getWorkspaceFile, writeWorkspaceFile, getWorkspaceState, clearLegacyViewerOnDisk, saveWorkspaceToken } from './linear-client-storage'
+import { LEGACY_WORKSPACE_ID,cachedTokens,credentialErrors,resetLinearClientState,setCachedLegacyViewer,setLegacyViewerLoaded } from './linear-client-limiter'
+import { clearLegacyViewerOnDisk,emptyWorkspaceFile,getWorkspaceFile,getWorkspaceState,getWorkspaceTokenPath,saveWorkspaceToken,writeWorkspaceFile } from './linear-client-storage'
 function saveToken(apiKey: string): void {
   saveWorkspaceToken(LEGACY_WORKSPACE_ID, apiKey)
 }
@@ -180,4 +170,4 @@ function resolveWorkspaceId(workspaceId?: string | null): string | null {
 // Why: issues/teams modules call this for real Linear actions — at that point
 // decrypting the token and surfacing a keychain prompt is expected.
 
-export { saveToken, loadToken, hasStoredToken, clearTokenFile, clearToken, workspaceFromLinearData, upsertWorkspace, replaceLegacyWorkspace, resolveWorkspaceId }
+export { clearToken,clearTokenFile,hasStoredToken,loadToken,replaceLegacyWorkspace,resolveWorkspaceId,saveToken,upsertWorkspace,workspaceFromLinearData }

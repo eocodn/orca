@@ -87,16 +87,6 @@ const BASE_WORKTREE_CARD_PROPERTY_OPTIONS: WorktreeCardPropertyOption[] = [
     }
   },
   {
-    id: 'automation',
-    properties: ['automation'],
-    get label() {
-      return translate(
-        'auto.components.sidebar.SidebarWorkspaceOptionsMenu.automation',
-        'Automation'
-      )
-    }
-  },
-  {
     id: 'cli',
     properties: ['cli'],
     get label() {

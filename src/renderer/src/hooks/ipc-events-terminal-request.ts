@@ -4,9 +4,6 @@ import { hasRegisteredRuntimeTerminalTab } from '@/runtime/sync-runtime-graph'
 import { requestBackgroundTerminalWorktreeMount } from '@/components/terminal/background-terminal-worktree-mount'
 import { translate } from '@/i18n/i18n'
 import { resolveTerminalWorktreeRoute } from '@/lib/terminal-worktree-route'
-import { initialAgentTabViewModeProps } from '@/lib/native-chat-initial-view-mode'
-import { getConnectionIdFromState } from '@/lib/connection-context'
-import { isNativeChatTranscriptLocalReadable } from '@/lib/native-chat-transcript-readability'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { SPLIT_TERMINAL_PANE_EVENT } from '@/constants/terminal'
 import type { RuntimeTerminalPresentation } from '../../../shared/runtime-types'
@@ -100,14 +97,7 @@ unsubs.push(
         ? {
             ...(shouldActivate ? {} : { activate: false, recordInteraction: false }),
             launchAgent: data.launchAgent,
-            ...(data.viewMode
-              ? { viewMode: data.viewMode }
-              : initialAgentTabViewModeProps(store.settings, {
-                  agent: data.launchAgent,
-                  nativeChatTranscriptIsLocalReadable: isNativeChatTranscriptLocalReadable(
-                    getConnectionIdFromState(store, worktreeId)
-                  )
-                })),
+            ...(data.viewMode ? { viewMode: data.viewMode } : {}),
             ...(data.cwd ? { startupCwd: data.cwd } : {})
           }
         : shouldActivate

@@ -18,7 +18,6 @@ import type {
 import { isTerminalLeafId } from '../../../shared/stable-pane-id'
 import type { Tab } from '../../../shared/types'
 import { resolveTerminalLayoutRoot } from './remote-terminal-layout-resolution'
-import { applyNativeChatLaunchDraftResolved } from './native-chat-launch-draft-runtime-resolution'
 
 export type RegisteredTerminalTab = {
   tabId: string

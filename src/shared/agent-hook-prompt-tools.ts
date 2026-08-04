@@ -2,6 +2,8 @@ import type { HookListenerState } from './agent-hook-state'
 import { capOpenCodeHookText } from './agent-hook-request-body'
 import { isAskUserQuestionTool } from './agent-question-answered-intent'
 import { isKnownHarnessInjectedUserTurnText } from './harness-injected-user-turns'
+import { normalizeHookEventName } from './agent-hook-provider-tools'
+import { parseAgentHookJson } from './agent-hook-request-body'
 
 // ─── Per-pane field caches + extractors ─────────────────────────────
 

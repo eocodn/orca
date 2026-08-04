@@ -26,15 +26,6 @@ Environments:
 Environment Recipes:
   vm recipe doctor          Validate a per-workspace environment recipe
 
-Automations:
-  automations list          List scheduled Orca automations
-  automations show          Show one Orca automation
-  automations create        Create a scheduled Orca automation
-  automations edit          Edit an Orca automation
-  automations remove        Remove an Orca automation and its run history
-  automations run           Run an Orca automation now
-  automations runs          List automation run history
-
 Projects:
   project list              List durable projects known to Orca
   project setups            List project host setups

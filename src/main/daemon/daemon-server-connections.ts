@@ -1,23 +1,20 @@
-import { type Socket } from 'node:net'
 import { performance } from 'node:perf_hooks'
-import { StringDecoder } from 'node:string_decoder'
-import { encodeNdjson } from './ndjson'
-import { TerminalHost } from './terminal-host'
-import { recordDaemonStreamBacklogEvent } from './daemon-stream-backlog-probe'
-import { isTuiAgent } from '../../shared/tui-agent-config'
-import { parsePtyStartupIngressIntent } from '../../shared/pty-startup-ingress'
-import {
-  PROTOCOL_VERSION,
-  NOTIFY_PREFIX,
-  type DaemonRequest
-} from './types'
 import {
   isAgentSessionExecutionClaim,
   isAgentSessionSurfaceBinding
 } from '../../shared/agent-session-host-authority'
+import { parsePtyStartupIngressIntent } from '../../shared/pty-startup-ingress'
+import { isTuiAgent } from '../../shared/tui-agent-config'
 import { DaemonServerFoundation } from './daemon-server-foundation'
+import { recordDaemonStreamBacklogEvent } from './daemon-stream-backlog-probe'
+import type { TerminalHost } from './terminal-host'
+import {
+  type DaemonRequest
+} from './types'
 
-import { type ConnectedClient, type PendingPtySpawnPreparation } from './daemon-server-foundation'
+import { readCurrentProcessMacSystemResolverHealth } from '../network/macos-system-resolver-health'
+import { SessionNotFoundError } from './daemon-errors'
+import type { ConnectedClient } from './daemon-server-foundation'
 import { DaemonServerPhase1 } from './daemon-server-shutdown'
 
 export class DaemonServerPhase2 extends DaemonServerPhase1 {

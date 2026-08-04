@@ -3,10 +3,10 @@ import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { Store } from '../persistence'
 import type { GlobalSettings } from '../../shared/types'
 import { LocalPtyProvider } from '../providers/local-pty-provider'
-import {
-  type GetSelectedCodexHomePath,
-  type PrepareClaudeAuth,
-  type PrepareCodexSessionResume
+import type {
+  GetSelectedCodexHomePath,
+  PrepareClaudeAuth,
+  PrepareCodexSessionResume
 } from './pty-ipc-runtime-host-env-foundation'
 import { createPtyRegistrationFoundation } from './pty-ipc-runtime-registration-foundation'
 import { installPtyRegistrationSupport } from './pty-ipc-runtime-registration-support'

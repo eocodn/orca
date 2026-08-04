@@ -29,7 +29,6 @@ import type { NativeFileDropPayload, BrowserFindSource, TerminalTabCloseRequest,
     onWorktreeHistoryNavigate: (callback: (direction: 'back' | 'forward') => void) => () => void
     onNewBrowserTab: (callback: () => void) => () => void
     onNewMarkdownTab: (callback: () => void) => () => void
-    onNewSimulatorTab: (callback: () => void) => () => void
     onRequestTabCreate: (
       callback: (data: {
         requestId: string
@@ -249,9 +248,6 @@ import type { NativeFileDropPayload, BrowserFindSource, TerminalTabCloseRequest,
     ) => () => void
     onTerminalDriverChanged: (
       callback: (event: { ptyId: string; driver: RuntimeTerminalDriverState }) => void
-    ) => () => void
-    onNativeChatLaunchDraftResolved?: (
-      callback: (event: { tabId: string; text: string; createdAt: number }) => void
     ) => () => void
     onBrowserDriverChanged: (
       callback: (event: { browserPageId: string; driver: RuntimeBrowserDriverState }) => void

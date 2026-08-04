@@ -44,11 +44,6 @@ export type Tab = {
   createdAt: number
   isPreview?: boolean // preview tabs get replaced by next single-click open
   isPinned?: boolean // pinned tabs survive "close others"
-  /** Why: per-tab rendering mode for coding-agent terminals. `'chat'` shows the
-   *  native chat view as an overlay while the live terminal stays mounted
-   *  underneath; `'terminal'` (the default for legacy/missing) shows the raw
-   *  xterm. Optional so sessions persisted before this field hydrate cleanly. */
-  viewMode?: 'terminal' | 'chat'
 }
 
 export type TabGroup = {
@@ -83,9 +78,6 @@ export type TerminalTab = {
   color: string | null
   /** Pinned tabs survive "close others"; host-persisted for remote servers. */
   isPinned?: boolean
-  /** Per-tab view preference (terminal xterm vs native chat); host-persisted so
-   *  paired clients converge. Optional: older persisted tabs default to 'terminal'. */
-  viewMode?: 'terminal' | 'chat'
   sortOrder: number
   createdAt: number
   /** Bumped on shutdown so TerminalPane remounts with a fresh PTY. */

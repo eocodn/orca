@@ -1,8 +1,13 @@
-
 import { webContents } from 'electron'
 
 import * as foundation from './browser-manager-lifecycle-foundation'
-const { AUTOMATION_VISIBILITY_ACQUIRE_TIMEOUT_MS, createNoopRestoreForTimedOutAutomationAcquire, isAutomationVisibilityToken, releaseAutomationVisibilityToken, resolveWithTimeout } = foundation
+const {
+  AUTOMATION_VISIBILITY_ACQUIRE_TIMEOUT_MS,
+  createNoopRestoreForTimedOutAutomationAcquire,
+  isAutomationVisibilityToken,
+  releaseAutomationVisibilityToken,
+  resolveWithTimeout
+} = foundation
 type PopupOwnerContext = foundation.PopupOwnerContext
 
 export const BrowserManagerMethods3 = {

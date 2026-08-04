@@ -1,92 +1,32 @@
-import {  randomUUID } from 'node:crypto'
-import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve, sep } from 'node:path'
-import { homedir } from 'node:os'
-import { app } from 'electron'
-import { getSpawnArgsForWindows } from '../win32-utils'
-import type {
-  CodexManagedAccount,
-  CodexManagedAccountSummary,
-  CodexRateLimitAccountsState,
-  CodexSystemDefaultIdentity
-} from '../../shared/types'
-import type {
-  CodexRateLimitResetOutcome,
-  CodexRateLimitResetResult,
-  RateLimitState,
-  RateLimitRuntimeTarget
-} from '../../shared/rate-limit-types'
-import {
-  buildCodexResetCreditExpectedScope,
-  type CodexResetCreditExpectedScope
-} from '../../shared/codex-reset-credit-scope'
-import type {
-  CodexResetCreditAttemptLedger,
-  DurableCodexResetCreditAttempt
-} from '../../shared/codex-reset-credit-attempt-ledger'
-import type { CodexRuntimeHomeService } from './runtime-home-service'
-import { writeFileAtomically } from './fs-utils'
-import { rewriteRelativePathConfigValues } from '../codex/codex-config-path-reference-rewrite'
-import { stripCodexManagedHookTrustEntriesFromConfig } from '../codex/codex-managed-trust-reconciliation'
-import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
-import { getCodexManagedHookInstallMaterial } from '../codex/hook-service'
-import { syncSystemConfigIntoManagedCodexHome } from '../codex/codex-config-mirror'
-import { getSystemCodexHomePath } from '../codex/codex-home-paths'
-import { MANAGED_HOOK_TIMEOUT_SECONDS } from '../agent-hooks/installer-utils'
-import { readCodexTopLevelModelProvider } from '../codex/codex-model-provider-config'
-import { resolveCodexCommand } from '../codex-cli/command'
-import type { Store } from '../persistence'
-import type { RateLimitService } from '../rate-limits/service'
+import { execFileSync,spawn } from 'node:child_process'
+import { existsSync,readFileSync,realpathSync } from 'node:fs'
+import { dirname,join,resolve,sep } from 'node:path'
 import { parseWslUncPath } from '../../shared/wsl-paths'
+import { resolveCodexCommand } from '../codex-cli/command'
+import { getSystemCodexHomePath } from '../codex/codex-home-paths'
+import { getSpawnArgsForWindows } from '../win32-utils'
 import { toWindowsWslPath } from '../wsl'
 import { buildEncodedWslBashCommand } from '../wsl-bash-command'
+import { assertOwnedHostCodexManagedHomePath } from './host-codex-managed-home-ownership'
 import {
   buildWslCodexAvailabilityArgs,
   buildWslCodexLoginArgs,
   WSL_CODEX_AVAILABILITY_TIMEOUT_MS
 } from './wsl-codex-command'
-import {
-  getCodexSelectionTargetForAccount,
-  getSelectedCodexAccountIdForTarget,
-  normalizeCodexAccountSelectionTarget,
-  normalizeCodexRuntimeSelection,
-  pruneInvalidCodexRuntimeSelection,
-  removeCodexAccountIdFromSelection,
-  setSelectedCodexAccountIdForTarget,
-  type CodexAccountSelectionTarget
-} from './runtime-selection'
-import { assertOwnedHostCodexManagedHomePath } from './host-codex-managed-home-ownership'
 
 
-import { LOGIN_TIMEOUT_MS,
-  MAX_LOGIN_OUTPUT_CHARS,
-  WINDOWS_RM_MAX_RETRIES,
-  WINDOWS_RM_RETRY_DELAY_MS,
-  WINDOWS_LOGIN_AUTH_POLL_INTERVAL_MS,
-  WINDOWS_LOGIN_POST_AUTH_EXIT_GRACE_MS,
-  WINDOWS_LOGIN_TREE_KILL_TIMEOUT_MS,
-  type CodexOAuthCredentials,
-  type ResolvedCodexIdentity,
-  type CanonicalCodexConfig,
-  type CodexAccountAddTarget,
-  type CodexAccountServiceLifecycle,
-  type ManagedHomeLocation,
-  type CodexResetCreditRejectedBeforeProviderReason,
-  type CodexResetCreditConsumedResult,
-  type CodexResetCreditRejectedBeforeProviderResult,
-  type CodexResetCreditConsumeResult,
-  type CodexResetCreditAttempt,
-  CodexResetCreditScopeRejection,
-  resetScopeKey,
-  resetAccountScopeKey,
-  sameRateLimitTarget,
-  shellQuote,
-  removeManagedHomeTreeSync,
-  killLoginProcessTree,
-  readLoginAuthSnapshot,
-  loginAuthChanged  } from './codex-account-foundation'
 import { CodexAccountServicePhase3 } from './codex-account-auth'
+import {
+  killLoginProcessTree,
+  LOGIN_TIMEOUT_MS,
+  loginAuthChanged,
+  MAX_LOGIN_OUTPUT_CHARS,
+  readLoginAuthSnapshot,
+  removeManagedHomeTreeSync,
+  shellQuote,
+  WINDOWS_LOGIN_AUTH_POLL_INTERVAL_MS,
+  WINDOWS_LOGIN_POST_AUTH_EXIT_GRACE_MS
+} from './codex-account-foundation'
 
 export class CodexAccountServicePhase4 extends CodexAccountServicePhase3 {
   protected assertManagedHomePath(candidatePath: string, expectedAccountId?: string): string {

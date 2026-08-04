@@ -1,6 +1,6 @@
-import {
-  type JsonRpcNotification,
-  type JsonRpcRequest
+import type {
+  JsonRpcNotification,
+  JsonRpcRequest
 } from './relay-protocol'
 import {
   REQUEST_TIMEOUT_MS,

@@ -1,6 +1,5 @@
-
 // Why: must exceed agent-browser's internal timeouts (goto 30s, wait 60s) so the bridge never kills a command before its own timeout fires.
-import * as foundation from './agent-browser-command-bridge-foundation'
+import type * as foundation from './agent-browser-command-bridge-foundation'
 type EnqueueTargetedCommandOptions = foundation.EnqueueTargetedCommandOptions
 type QueuedCommand = foundation.QueuedCommand
 type ResolvedBrowserCommandTarget = foundation.ResolvedBrowserCommandTarget
@@ -39,7 +38,8 @@ function getQueueProcessors(bridge: object): Map<string, QueueProcessor> {
 }
 
 export const AgentBrowserBridgeMethods21 = {
-  async enqueueTargetedCommand<T>(this: any,
+  async enqueueTargetedCommand<T>(
+    this: any,
     worktreeId: string | undefined,
     browserPageId: string | undefined,
     execute: (sessionName: string, target: ResolvedBrowserCommandTarget) => Promise<T>,
@@ -73,7 +73,8 @@ export const AgentBrowserBridgeMethods21 = {
       this.processQueue(sessionName)
     })
   },
-  async executeWithVisibleTarget<T>(this: any,
+  async executeWithVisibleTarget<T>(
+    this: any,
     sessionName: string,
     worktreeId: string | undefined,
     target: ResolvedBrowserCommandTarget,
@@ -98,7 +99,8 @@ export const AgentBrowserBridgeMethods21 = {
       restore()
     }
   },
-  async refreshTargetAfterAutomationVisibility(this: any,
+  async refreshTargetAfterAutomationVisibility(
+    this: any,
     sessionName: string,
     worktreeId: string | undefined,
     target: ResolvedBrowserCommandTarget,

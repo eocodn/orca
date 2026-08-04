@@ -23,19 +23,6 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/account.js')).ACCOUNT_HANDLERS
   },
   {
-    name: 'automations',
-    keys: [
-      'automations list',
-      'automations show',
-      'automations create',
-      'automations edit',
-      'automations remove',
-      'automations run',
-      'automations runs'
-    ],
-    load: async () => (await import('./handlers/automations.js')).AUTOMATION_HANDLERS
-  },
-  {
     name: 'project',
     keys: [
       'project list',

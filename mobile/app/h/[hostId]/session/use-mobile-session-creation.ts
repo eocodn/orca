@@ -4,7 +4,6 @@ import * as Clipboard from 'expo-clipboard'
 import type { RpcFailure, RpcSuccess } from '../../../../src/transport/types'
 import { triggerSuccess } from '../../../../src/platform/haptics'
 import { useMobileTerminalPaste } from '../../../../src/session/use-mobile-terminal-paste'
-import { useMobileAttachmentInputLeaseGate } from '../../../../src/session/use-mobile-attachment-input-lease-gate'
 import { useMobileSessionImageAttachments } from '../../../../src/session/use-mobile-session-image-attachments'
 import {
   buildTerminalSendParams
@@ -31,11 +30,6 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     clientRef,
     deviceTokenRef,
     flushPendingLiveInputBeforeExternalSend,
-    nativeChatInputLeaseReadyRef,
-    nativeChatInputLeaseReady,
-    nativeChatScopeKey,
-    nativeChatController,
-    nativeChatSendError,
     ptyModesRef,
     showToast,
     triggerError,
@@ -128,32 +122,15 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     showToast
   })
 
-  const flushPendingLiveInputBeforeAttachmentSend = useMobileAttachmentInputLeaseGate({
-    flushPendingLiveInputBeforeExternalSend,
-    connStateRef,
-    activeHandleRef,
-    activeSessionTabTypeRef,
-    nativeChatInputLeaseReadyRef,
-    showToast
-  })
-
-  // Terminal input pastes an attached image straight into the visible terminal;
-  // native chat instead holds it as a composer chip and rides it along on submit.
-  const { attachImage, isAttaching, nativeChatImages } = useMobileSessionImageAttachments({
+  const { attachImage, isAttaching } = useMobileSessionImageAttachments({
     client,
     activeHandle,
-    activeHandleRef,
     canSend,
     connState,
     deviceTokenRef,
-    nativeChatScopeKey,
-    nativeChatInputLeaseReady,
     getActiveWorktreeConnectionId,
-    beforeTerminalSend: flushPendingLiveInputBeforeAttachmentSend,
-    nativeChatBaseSend: nativeChatController.handleNativeChatSendWithOutcome,
-    readSeededLaunchDraft: nativeChatController.readSeededLaunchDraft,
+    beforeTerminalSend: flushPendingLiveInputBeforeExternalSend,
     showToast,
-    onNativeChatSendError: nativeChatSendError.show,
     onSuccess: triggerSelection,
     onError: triggerError
   })
@@ -379,10 +356,8 @@ export function useMobileSessionCreation(context: SessionCreationContext) {
     getActiveWorktreeConnectionId,
     refreshCanPaste,
     handlePaste,
-    flushPendingLiveInputBeforeAttachmentSend,
     attachImage,
     isAttaching,
-    nativeChatImages,
     handleCreateTerminal
   }
 }

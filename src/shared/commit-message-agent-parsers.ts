@@ -1,5 +1,5 @@
-import type { TuiAgent } from './types'
-import { assertJsonTextStructureWithinLimits } from './json-text-structure-limit'
+import { assertJsonTextStructureWithinLimits } from './json-text-structure-limit';
+import type { TuiAgent } from './types';
 
 /* eslint-disable max-lines -- Why: this is the single registry for non-interactive commit-message agents, their model discovery parsers, and UI capabilities. */
 

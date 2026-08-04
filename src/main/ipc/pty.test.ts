@@ -217,8 +217,7 @@ vi.mock('../memory/pty-registry', () => ({
 
 vi.mock('../agent-hooks/migration-unsupported-pty-state', () => ({
   setMigrationUnsupportedPty: setMigrationUnsupportedPtyMock,
-  setMigrationUnsupportedPtyPersistenceListener:
-    setMigrationUnsupportedPtyPersistenceListenerMock,
+  setMigrationUnsupportedPtyPersistenceListener: setMigrationUnsupportedPtyPersistenceListenerMock,
   clearMigrationUnsupportedPty: clearMigrationUnsupportedPtyMock,
   clearMigrationUnsupportedPtysForPaneKey: clearMigrationUnsupportedPtysForPaneKeyMock
 }))
@@ -2556,10 +2555,7 @@ describe('registerPtyHandlers', () => {
     return interestCall[1] as (event: unknown, args: { id: string; interested: boolean }) => void
   }
 
-  function getPtyClearBufferListener(): (
-    event: unknown,
-    args: { id: string }
-  ) => void {
+  function getPtyClearBufferListener(): (event: unknown, args: { id: string }) => void {
     const clearBufferCall = onMock.mock.calls.find(
       (call: unknown[]) => call[0] === 'pty:clearBuffer'
     )
@@ -5783,9 +5779,7 @@ describe('registerPtyHandlers', () => {
         })
         expect(
           mainWindow.webContents.send.mock.calls.filter((call) => call[0] === 'pty:exit')
-        ).toEqual([
-          ['pty:exit', { id: 'local-pty', code: 0, incarnationId: 'known-incarnation' }]
-        ])
+        ).toEqual([['pty:exit', { id: 'local-pty', code: 0, incarnationId: 'known-incarnation' }]])
       })
 
       it('controller stopAndWait skips the synthetic exit when the provider emitted one', async () => {
@@ -7669,11 +7663,11 @@ describe('registerPtyHandlers', () => {
     let resolveListing!: (
       sessions: { id: string; incarnationId: string; cwd: string; title: string }[]
     ) => void
-    const listing = new Promise<{ id: string; incarnationId: string; cwd: string; title: string }[]>(
-      (resolve) => {
-        resolveListing = resolve
-      }
-    )
+    const listing = new Promise<
+      { id: string; incarnationId: string; cwd: string; title: string }[]
+    >((resolve) => {
+      resolveListing = resolve
+    })
     vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockReturnValue(listing)
     ptyRuntimeState.ptyOwnership.set(ptyId, null)
     ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-new')
@@ -7681,9 +7675,7 @@ describe('registerPtyHandlers', () => {
 
     try {
       const pending = handlers.get('pty:listSessions')!(null, undefined)
-      resolveListing([
-        { id: ptyId, incarnationId: 'incarnation-old', cwd: '/old', title: 'shell' }
-      ])
+      resolveListing([{ id: ptyId, incarnationId: 'incarnation-old', cwd: '/old', title: 'shell' }])
       await expect(pending).rejects.toThrow('pty_process_list_incomplete')
       expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBeNull()
     } finally {
@@ -7697,11 +7689,11 @@ describe('registerPtyHandlers', () => {
     let resolveListing!: (
       sessions: { id: string; incarnationId: string; cwd: string; title: string }[]
     ) => void
-    const listing = new Promise<{ id: string; incarnationId: string; cwd: string; title: string }[]>(
-      (resolve) => {
-        resolveListing = resolve
-      }
-    )
+    const listing = new Promise<
+      { id: string; incarnationId: string; cwd: string; title: string }[]
+    >((resolve) => {
+      resolveListing = resolve
+    })
     vi.spyOn(getLocalPtyProvider(), 'listProcesses').mockReturnValue(listing)
     ptyRuntimeState.ptyOwnership.set(ptyId, 'ssh-old')
     ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-old')
@@ -7711,9 +7703,7 @@ describe('registerPtyHandlers', () => {
       const pending = handlers.get('pty:listSessions')!(null, undefined)
       ptyRuntimeState.ptyOwnership.set(ptyId, 'ssh-new')
       ptyRuntimeState.ptyIncarnationById.set(ptyId, 'incarnation-new')
-      resolveListing([
-        { id: ptyId, incarnationId: 'incarnation-old', cwd: '/old', title: 'shell' }
-      ])
+      resolveListing([{ id: ptyId, incarnationId: 'incarnation-old', cwd: '/old', title: 'shell' }])
 
       await expect(pending).rejects.toThrow('pty_process_list_incomplete')
       expect(ptyRuntimeState.ptyOwnership.get(ptyId)).toBe('ssh-new')
@@ -8276,7 +8266,9 @@ describe('registerPtyHandlers', () => {
       hasChildProcesses: false,
       unavailable: true
     })
-    await expect(handlers.get('pty:confirmForegroundProcess')!(null, { id: ptyId })).resolves.toBeNull()
+    await expect(
+      handlers.get('pty:confirmForegroundProcess')!(null, { id: ptyId })
+    ).resolves.toBeNull()
     expect(provider.hasChildProcesses).not.toHaveBeenCalled()
     expect(provider.getForegroundProcess).not.toHaveBeenCalled()
     expect(provider.confirmForegroundProcess).not.toHaveBeenCalled()
@@ -17268,10 +17260,9 @@ describe('registerPtyHandlers', () => {
         await Promise.resolve()
 
         expect(daemon.clearBuffer).toHaveBeenCalledWith(result.id)
-        expect(mainWindow.webContents.send).toHaveBeenCalledWith(
-          'pty:clearBuffer:request',
-          { ptyId: result.id }
-        )
+        expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:clearBuffer:request', {
+          ptyId: result.id
+        })
       } finally {
         vi.useRealTimers()
       }
@@ -17306,10 +17297,9 @@ describe('registerPtyHandlers', () => {
         expect(
           mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:data')
         ).toHaveLength(0)
-        expect(mainWindow.webContents.send).toHaveBeenCalledWith(
-          'pty:clearBuffer:request',
-          { ptyId: result.id }
-        )
+        expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:clearBuffer:request', {
+          ptyId: result.id
+        })
       } finally {
         vi.useRealTimers()
       }
@@ -17354,10 +17344,9 @@ describe('registerPtyHandlers', () => {
         expect(
           mainWindow.webContents.send.mock.calls.filter(([channel]) => channel === 'pty:data')
         ).toHaveLength(0)
-        expect(mainWindow.webContents.send).toHaveBeenCalledWith(
-          'pty:clearBuffer:request',
-          { ptyId }
-        )
+        expect(mainWindow.webContents.send).toHaveBeenCalledWith('pty:clearBuffer:request', {
+          ptyId
+        })
       } finally {
         vi.useRealTimers()
       }

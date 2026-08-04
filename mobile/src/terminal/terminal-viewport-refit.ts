@@ -23,8 +23,6 @@ type TerminalViewportRefitOptions = {
   terminalFrameHeightRef: RefObject<number>
   viewportRef: RefObject<TerminalViewportDims | null>
   viewportMeasuredRef: RefObject<boolean>
-  // Why: while native chat covers the active terminal, a refit would push phone dims into a PTY nobody on this device is viewing.
-  nativeChatCoveredRef: RefObject<boolean>
   clientRef: RefObject<RpcClient | null>
   deviceTokenRef: RefObject<string | null>
   initializedHandlesRef: RefObject<Set<string>>
@@ -53,7 +51,6 @@ export function useTerminalViewportRefit(
     terminalFrameHeightRef,
     viewportRef,
     viewportMeasuredRef,
-    nativeChatCoveredRef,
     clientRef,
     deviceTokenRef,
     initializedHandlesRef,
@@ -102,10 +99,6 @@ export function useTerminalViewportRefit(
         if (!handle) {
           return
         }
-        // Why: the trigger already marked the viewport stale, and the return-to-terminal resubscribe re-measures — refitting now would resize a covered PTY.
-        if (nativeChatCoveredRef.current) {
-          return
-        }
         const ref = terminalRefs.current.get(handle)
         if (!ref) {
           return
@@ -116,7 +109,6 @@ export function useTerminalViewportRefit(
             expectedHandle: handle,
             currentRef: terminalRefs.current.get(handle),
             expectedRef: ref,
-            nativeChatCovered: nativeChatCoveredRef.current,
             disposed: disposedRef.current,
             runSeq,
             currentRunSeq: refitRunSeqRef.current
@@ -179,7 +171,6 @@ export function useTerminalViewportRefit(
       terminalFrameHeightRef,
       viewportRef,
       viewportMeasuredRef,
-      nativeChatCoveredRef,
       clientRef,
       deviceTokenRef,
       initializedHandlesRef,

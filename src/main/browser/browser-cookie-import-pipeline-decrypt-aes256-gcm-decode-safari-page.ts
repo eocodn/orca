@@ -1,6 +1,6 @@
 import { createDecipheriv } from 'node:crypto'
 
-import { type ValidatedCookie } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
+import type { ValidatedCookie } from './browser-cookie-import-pipeline-select-browser-profile-chromium-same-site'
 import { stripHmac } from './browser-cookie-import-pipeline-chromium-cookie-hmac-len-decrypt-cookie-value-raw'
 import { decodeSafariCookie } from './browser-cookie-import-pipeline-decode-safari-cookie-import-cookies-from-safari'
 
@@ -25,7 +25,6 @@ export function decryptAes256Gcm(payload: Buffer, key: Buffer): Buffer | null {
 // ---------------------------------------------------------------------------
 // Safari binary cookie parser
 // ---------------------------------------------------------------------------
-
 
 export function decodeSafariBinaryCookies(buffer: Buffer): ValidatedCookie[] {
   if (buffer.length < 8) {
@@ -55,14 +54,15 @@ export function decodeSafariBinaryCookies(buffer: Buffer): ValidatedCookie[] {
   return cookies
 }
 
-
-export function appendSafariCookies(target: ValidatedCookie[], cookies: readonly ValidatedCookie[]): void {
+export function appendSafariCookies(
+  target: ValidatedCookie[],
+  cookies: readonly ValidatedCookie[]
+): void {
   // Why: pages can hold large cookie lists; push per-item to avoid exceeding the spread argument limit.
   for (const cookie of cookies) {
     target.push(cookie)
   }
 }
-
 
 export function decodeSafariPage(page: Buffer): ValidatedCookie[] {
   if (page.length < 16) {

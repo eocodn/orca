@@ -33,7 +33,7 @@ import { shouldUseShellReadyStartupDelivery } from '../../../shared/codex-startu
 import { isMainTerminalSideEffectAuthorityForPty } from '@/components/terminal-pane/terminal-side-effect-facts-handler'
 import { resolveLocalWindowsAgentStartupShell } from '../../../shared/windows-terminal-shell'
 import { runBestEffortAgentBackgroundCleanups } from '@/lib/agent-background-session-cleanup'
-import type { bindAutomationTerminal } from '@/lib/automation-terminal-ownership'
+import type { bindAgentTerminal } from '@/lib/agent-terminal-ownership'
 import {
   adoptAgentBackgroundSessionTab,
   reserveAgentBackgroundSessionIdentity
@@ -131,7 +131,7 @@ export async function launchAgentBackgroundSession(
   let tab: ReturnType<typeof store.createTab> | null = null
   let exitHandled = false,
     eagerPtyBuffer: EagerPtyHandle | null = null
-  let terminalOwnership: ReturnType<typeof bindAutomationTerminal> = null
+  let terminalOwnership: ReturnType<typeof bindAgentTerminal> = null
   let unsubscribeExit = (): void => {},
     unsubscribeData = (): void => {}
   const handleExit = (exitPtyId: string, code: number): void => {

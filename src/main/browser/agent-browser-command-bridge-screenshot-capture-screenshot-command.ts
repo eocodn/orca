@@ -1,13 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { BrowserError } from './cdp-bridge'
-import type {
-  BrowserScreenshotResult,
-} from '../../shared/runtime-types'
+import type { BrowserScreenshotResult } from '../../shared/runtime-types'
 
 // Why: must exceed agent-browser's internal timeouts (goto 30s, wait 60s) so the bridge never kills a command before its own timeout fires.
 
 export const AgentBrowserBridgeMethods13 = {
-  async screenshot(this: any,
+  async screenshot(
+    this: any,
     format?: string,
     worktreeId?: string,
     browserPageId?: string
@@ -22,7 +21,8 @@ export const AgentBrowserBridgeMethods13 = {
       { ensureVisible: false }
     )
   },
-  async fullPageScreenshot(this: any,
+  async fullPageScreenshot(
+    this: any,
     format?: string,
     worktreeId?: string,
     browserPageId?: string
@@ -52,7 +52,8 @@ export const AgentBrowserBridgeMethods13 = {
     const data = readFileSync(parsed.path).toString('base64')
     return { data, format: format === 'jpeg' ? 'jpeg' : 'png' } as BrowserScreenshotResult
   },
-  async captureScreenshotCommand(this: any,
+  async captureScreenshotCommand(
+    this: any,
     sessionName: string,
     commandArgs: string[],
     settleMs: number,

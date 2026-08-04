@@ -1,11 +1,11 @@
 import { WebSocket } from 'ws'
 
-
 export const CdpWsProxyMethods5 = {
   isActiveClient(this: any, client: WebSocket): boolean {
     return this.client === client && client.readyState === WebSocket.OPEN
   },
-  sendDebuggerCommand(this: any,
+  sendDebuggerCommand(
+    this: any,
     method: string,
     params: Record<string, unknown>,
     sessionId?: string
@@ -15,7 +15,8 @@ export const CdpWsProxyMethods5 = {
       : this.webContents.debugger.sendCommand(method, params)
     return Promise.resolve(command)
   },
-  forwardCommand(this: any,
+  forwardCommand(
+    this: any,
     client: WebSocket,
     clientId: number,
     method: string,
@@ -39,7 +40,8 @@ export const CdpWsProxyMethods5 = {
       this.sendError(clientId, err instanceof Error ? err.message : String(err), client)
     }
   },
-  async navigateWithLifecycle(this: any,
+  async navigateWithLifecycle(
+    this: any,
     client: WebSocket,
     clientId: number,
     params: Record<string, unknown>,

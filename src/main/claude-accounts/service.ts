@@ -1,1 +1,1 @@
-export * from './claude-account-lifecycle.ts'
+export * from './claude-account-lifecycle'

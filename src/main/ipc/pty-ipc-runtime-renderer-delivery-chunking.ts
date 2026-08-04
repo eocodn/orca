@@ -18,7 +18,7 @@ export function splitPtyPendingDataChunk(
   }
 
   const chunk = pending.data.slice(0, chunkChars)
-  const remainder = preservePtyIncarnationId(
+  const remainder = preservePtyIncarnationId<PendingPtyData>(
     { data: pending.data.slice(chunkChars) },
     pending.incarnationId
   )

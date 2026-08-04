@@ -1,12 +1,12 @@
-import { execFile,type ExecFileOptions } from 'node:child_process'
+import { execFile, type ExecFileOptions } from 'node:child_process'
 import * as path from 'node:path'
 import { promisify } from 'node:util'
 import { GitCapabilityCache } from '../shared/git-capability-cache'
 import { InFlightPromiseDedupe } from '../shared/in-flight-promise-dedupe'
 import { endSubprocessStdin } from '../shared/subprocess-stdin-write'
 import type { RelayContext } from './context'
-import type { RelayDispatcher,RequestContext } from './dispatcher'
-import { createSubmodulePathsCache,type SubmodulePathsCache } from './git-handler-submodule-ops'
+import type { RelayDispatcher, RequestContext } from './dispatcher'
+import { createSubmodulePathsCache, type SubmodulePathsCache } from './git-handler-submodule-ops'
 import { GitResponseStreamRegistry } from './git-response-stream'
 import type { RelayFilesystemWatchRegistry } from './relay-filesystem-watch-registry'
 
@@ -164,5 +164,4 @@ export abstract class GitHandler {
     // Why: a detached client's git.responseAck frames never arrive; wake any pump parked on the ack window so it re-checks staleness and exits.
     this.dispatcher.onClientDetached?.(() => this.responseStreams.wakeAll())
   }
-
 }

@@ -11,7 +11,6 @@ import {
   type LinearIssueSummary,
   type RuntimeTerminalWait,
   type RuntimeTerminalWaitCondition,
-  type RuntimeNativeChatLaunchDraftResolution,
   type RuntimeTerminalDriverState,
   type PtyIncarnationId,
   hasCommitObjectViaGitExec,
@@ -210,11 +209,6 @@ export type MobileNotificationEvent =
 //      `clientId` is the most recent mobile actor for this PTY.
 export type DriverState = RuntimeTerminalDriverState
 
-export type NativeChatLaunchDraftResolutionTombstone = RuntimeNativeChatLaunchDraftResolution & {
-  worktreeId: string
-}
-
-export const MAX_NATIVE_CHAT_LAUNCH_DRAFT_RESOLUTION_TOMBSTONES = 200
 export const MAX_DELETED_FOLDER_TERMINAL_RETIREMENT_FENCES = 4096
 export const MAX_TERMINAL_SURFACE_RETIREMENT_FENCES = 4096
 

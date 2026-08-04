@@ -22,7 +22,7 @@ import { createAgentSessionCreateOperation, withAgentSessionCreateOperationId } 
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 import { recordWebSessionFocusIntent } from './web-session-focus-intent'
 import { toHostSessionTabId, toWebTerminalSurfaceTabId } from './web-terminal-surface-id'
-import { deliverLaunchPromptToAgentTab, seedNativeChatLaunchDraftForAgentTab } from '../lib/agent-launch-prompt-delivery'
+import { deliverLaunchPromptToAgentTab } from '../lib/agent-launch-prompt-delivery'
 import { runRemoteAgentSessionLaunch } from './remote-agent-session-launch'
 import { translate } from '../i18n/i18n'
 import { parsePaneKey } from '../../../shared/stable-pane-id'
@@ -140,11 +140,7 @@ export async function createWebRuntimeAgentSessionTerminal(
   return { outcome: created.outcome, promptDelivered }
 }
 
-/**
- * Launch a web-host agent terminal whose draft already rode in on the launch
- * command (argv prefill). No post-ready paste runs for that delivery, so seed
- * the chat-composer copy here once the mirrored host tab id is known.
- */
+/** Launch a web-host agent terminal whose draft already rode in on the launch command. */
 export async function createWebRuntimeAgentSessionTerminalWithLaunchDraft(
   args: CreateWebRuntimeSessionTerminalArgs & {
     agent: TuiAgent
@@ -152,13 +148,6 @@ export async function createWebRuntimeAgentSessionTerminalWithLaunchDraft(
   }
 ): Promise<WebRuntimeTerminalCreateOutcome> {
   const created = await createWebRuntimeSessionTerminalResult(args)
-  if (created.outcome.status !== 'failed' && created.hostTabId) {
-    seedNativeChatLaunchDraftForAgentTab({
-      tabId: toWebTerminalSurfaceTabId(created.hostTabId),
-      agent: args.agent,
-      text: args.launchDraft
-    })
-  }
   return created.outcome
 }
 

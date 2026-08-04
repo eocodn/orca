@@ -2,8 +2,6 @@ import type {
   PreloadApi,
   PreflightStatus,
   RefreshAgentsResult,
-  NativeChatApi,
-  NativeChatAppendedMessages
 } from '../../../preload/api-types'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { parseHostAccessLink } from '../../../shared/remote-pairing-address'
@@ -13,7 +11,6 @@ import type {
   AiVaultPrepareSessionResumeArgs,
   AiVaultPrepareSessionResumeResult
 } from '../../../shared/ai-vault-resume-preparation'
-import { buildNativeChatUnsubscribe } from '../../../shared/native-chat-stream-unsubscribe'
 import type {
   ComputerUsePermissionSetupResult,
   ComputerUsePermissionStatusResult
@@ -130,10 +127,6 @@ import { normalizeContextualTourIds, type ContextualTourId } from '../../../shar
 import { translate } from '@/i18n/i18n'
 import { translateHostAccessLinkError } from '@/lib/remote-pairing-copy'
 import { getDefaultCreateProjectParent } from '@/components/sidebar/create-project-defaults'
-import {
-  parseRuntimeNativeChatReadSessionResult,
-  parseRuntimeNativeChatTurnLifecycle
-} from '@/components/native-chat/native-chat-runtime-contract'
 import { createWebFileMutationMethods } from './web-file-mutation-methods'
 
 import { createWebKeybindingsApi } from './web-preload-keybindings'
@@ -176,7 +169,6 @@ import {
   installWebPreloadApi,
   writeWebClipboardText,
   createWebPreloadApi,
-  createNativeChatApi,
   createRuntimeApi,
   createRuntimeEnvironmentsApi,
   createAiVaultApi,

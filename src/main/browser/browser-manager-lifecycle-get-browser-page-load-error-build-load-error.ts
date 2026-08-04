@@ -1,16 +1,7 @@
-
 import { webContents } from 'electron'
-import {
-  redactKagiSessionToken,
-} from '../../shared/browser-url'
-import type {
-  BrowserCertificateFailure,
-  BrowserLoadError
-} from '../../shared/types'
-import {
-  type ManagedBrowserGuestContext
-} from './browser-certificate-trust-controller'
-
+import { redactKagiSessionToken } from '../../shared/browser-url'
+import type { BrowserCertificateFailure, BrowserLoadError } from '../../shared/types'
+import type { ManagedBrowserGuestContext } from './browser-certificate-trust-controller'
 
 export const BrowserManagerMethods7 = {
   getBrowserPageLoadError(this: any, browserPageId: string): BrowserLoadError | null {
@@ -19,10 +10,16 @@ export const BrowserManagerMethods7 = {
       ? null
       : (this.loadErrorsByGuestId.get(webContentsId) ?? null)
   },
-  getBrowserPageCertificateFailure(this: any, browserPageId: string): BrowserCertificateFailure | null {
+  getBrowserPageCertificateFailure(
+    this: any,
+    browserPageId: string
+  ): BrowserCertificateFailure | null {
     return this.certificateTrustController?.getFailure(browserPageId) ?? null
   },
-  getManagedBrowserGuestContext(this: any, webContentsId: number): ManagedBrowserGuestContext | null {
+  getManagedBrowserGuestContext(
+    this: any,
+    webContentsId: number
+  ): ManagedBrowserGuestContext | null {
     if (this.popupOwnerContextByGuestId.has(webContentsId)) {
       return null
     }

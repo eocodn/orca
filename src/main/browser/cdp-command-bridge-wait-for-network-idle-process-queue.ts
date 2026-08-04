@@ -1,60 +1,6 @@
-import { webContents } from 'electron'
-import type {
-  BrowserCaptureStartResult,
-  BrowserCaptureStopResult,
-  BrowserCheckResult,
-  BrowserClearResult,
-  BrowserClickResult,
-  BrowserConsoleEntry,
-  BrowserConsoleResult,
-  BrowserCookie,
-  BrowserCookieDeleteResult,
-  BrowserCookieGetResult,
-  BrowserCookieSetResult,
-  BrowserDragResult,
-  BrowserEvalResult,
-  BrowserFillResult,
-  BrowserFocusResult,
-  BrowserGeolocationResult,
-  BrowserGotoResult,
-  BrowserHoverResult,
-  BrowserInterceptDisableResult,
-  BrowserInterceptEnableResult,
-  BrowserInterceptedRequest,
-  BrowserKeypressResult,
-  BrowserNetworkEntry,
-  BrowserNetworkLogResult,
-  BrowserPdfResult,
-  BrowserScreenshotResult,
-  BrowserScrollResult,
-  BrowserSelectAllResult,
-  BrowserSelectResult,
-  BrowserSnapshotResult,
-  BrowserTabInfo,
-  BrowserTabListResult,
-  BrowserTabSwitchResult,
-  BrowserTypeResult,
-  BrowserUploadResult,
-  BrowserViewportResult,
-  BrowserWaitResult
-} from '../../shared/runtime-types'
-import {
-  buildSnapshot,
-  type CdpCommandSender,
-  type RefEntry,
-  type SnapshotResult
-} from './snapshot-engine'
-import { insertTextThroughCdp } from './browser-text-insertion'
-import type { BrowserManager } from './browser-manager'
-import { ANTI_DETECTION_SCRIPT } from './anti-detection'
-
-import * as foundation from './cdp-command-bridge-foundation'
-const { BrowserError, CAPTURE_LOG_LIMIT } = foundation
-type QueuedCommand = foundation.QueuedCommand
-type TabState = foundation.TabState
-
 export const CdpBridgeMethods16 = {
-  waitForNetworkIdle(this: any,
+  waitForNetworkIdle(
+    this: any,
     guest: Electron.WebContents,
     timeoutMs: number,
     idleMs: number
@@ -103,7 +49,7 @@ export const CdpBridgeMethods16 = {
       guest.debugger.on('message', onMessage)
       checkIdle()
     })
-  }
+  },
   invalidateRefMap(this: any, webContentsId: number): void {
     const tabId = this.resolveTabIdSafe(webContentsId)
     if (tabId) {
@@ -113,7 +59,7 @@ export const CdpBridgeMethods16 = {
         state.navigationId = null
       }
     }
-  }
+  },
   async enqueueCommand<T>(this: any, execute: () => Promise<T>): Promise<T> {
     const guest = this.getActiveGuest()
     const tabId = this.resolveTabId(guest.id)
@@ -131,7 +77,7 @@ export const CdpBridgeMethods16 = {
       })
       this.processQueue(tabId)
     })
-  }
+  },
   async processQueue(this: any, tabId: string): Promise<void> {
     if (this.processingQueues.has(tabId)) {
       return

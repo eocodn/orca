@@ -3,7 +3,7 @@ import { supportsMode2031UnsubscribeFact, type DaemonEvent, type ListSessionsRes
 import type { IPtyProvider, PtyBackgroundStreamEvent } from '../providers/types'
 
 
-import { type DaemonRespawnReason } from './daemon-pty-adapter-foundation'
+import type { DaemonRespawnReason } from './daemon-pty-adapter-foundation'
 import { DaemonPtyAdapterPhase5 } from './daemon-pty-adapter-events'
 
 export class DaemonPtyAdapterPhase6 extends DaemonPtyAdapterPhase5 implements IPtyProvider {

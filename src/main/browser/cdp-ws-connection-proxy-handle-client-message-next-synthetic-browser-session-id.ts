@@ -1,5 +1,4 @@
-import { WebSocket } from 'ws'
-
+import type { WebSocket } from 'ws'
 
 export const CdpWsProxyMethods4 = {
   handleClientMessage(this: any, client: WebSocket, raw: string): void {

@@ -1,7 +1,6 @@
 import type { RpcAnyMethod } from '../core'
 import { STATUS_METHODS } from './status'
 import { AI_VAULT_METHODS } from './ai-vault'
-import { AUTOMATION_METHODS } from './automations'
 import { REPO_METHODS } from './repo'
 import { WORKTREE_METHODS } from './worktree'
 import { TERMINAL_METHODS } from './terminal'
@@ -17,7 +16,6 @@ import { PREFLIGHT_METHODS } from './preflight'
 import { COMPUTER_METHODS } from './computer'
 import { SESSION_TAB_METHODS } from './session-tabs'
 import { SESSION_CONTROL_METHODS } from './session-control'
-import { NATIVE_CHAT_METHODS } from './native-chat'
 import { FILE_METHODS } from './files'
 import { GIT_METHODS } from './git'
 import { GITHUB_METHODS } from './github'
@@ -45,7 +43,6 @@ import { AGENT_SESSION_METHODS } from './agent-session'
 export const ALL_RPC_METHODS: readonly RpcAnyMethod[] = [
   ...STATUS_METHODS,
   ...AI_VAULT_METHODS,
-  ...AUTOMATION_METHODS,
   ...REPO_METHODS,
   ...WORKTREE_METHODS,
   ...AGENT_SESSION_METHODS,
@@ -62,7 +59,6 @@ export const ALL_RPC_METHODS: readonly RpcAnyMethod[] = [
   ...COMPUTER_METHODS,
   ...SESSION_TAB_METHODS,
   ...SESSION_CONTROL_METHODS,
-  ...NATIVE_CHAT_METHODS,
   ...FILE_METHODS,
   ...GIT_METHODS,
   ...GITHUB_METHODS,

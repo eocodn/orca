@@ -5,7 +5,20 @@ import { join } from 'node:path'
 import type { LinearViewer, LinearWorkspace } from '../../shared/types'
 
 // ── Concurrency limiter — max 4 parallel Linear API calls ────────────
-import { LEGACY_WORKSPACE_ID, type LinearWorkspaceFile, cachedTokens, credentialErrors, cachedLegacyViewer, legacyViewerLoadedFromDisk, cachedWorkspaceFile, workspaceFileLoadedFromDisk, setCachedLegacyViewer, setLegacyViewerLoaded, setCachedWorkspaceFile, setWorkspaceFileLoaded } from './linear-client-limiter'
+import {
+  LEGACY_WORKSPACE_ID,
+  type LinearWorkspaceFile,
+  cachedTokens,
+  credentialErrors,
+  cachedLegacyViewer,
+  legacyViewerLoadedFromDisk,
+  cachedWorkspaceFile,
+  workspaceFileLoadedFromDisk,
+  setCachedLegacyViewer,
+  setLegacyViewerLoaded,
+  setCachedWorkspaceFile,
+  setWorkspaceFileLoaded
+} from './linear-client-limiter'
 import { hasStoredToken } from './linear-client-workspaces'
 function getOrcaDir(): string {
   return join(homedir(), '.orca')
@@ -280,4 +293,25 @@ function saveWorkspaceToken(workspaceId: string, apiKey: string): void {
 
 // Backward-compatible export for the legacy single-workspace storage path.
 
-export { getOrcaDir, getLegacyTokenPath, getLegacyViewerPath, getWorkspaceFilePath, getWorkspaceTokenDir, getWorkspaceTokenPath, ensureOrcaDir, ensureWorkspaceTokenDir, readLegacyViewerFromDisk, getLegacyViewer, normalizeWorkspace, emptyWorkspaceFile, readWorkspaceFileFromDisk, getWorkspaceFile, writeWorkspaceFile, getLegacyWorkspace, getWorkspaceState, clearLegacyViewerOnDisk, writeEncryptedToken, saveWorkspaceToken }
+export {
+  getOrcaDir,
+  getLegacyTokenPath,
+  getLegacyViewerPath,
+  getWorkspaceFilePath,
+  getWorkspaceTokenDir,
+  getWorkspaceTokenPath,
+  ensureOrcaDir,
+  ensureWorkspaceTokenDir,
+  readLegacyViewerFromDisk,
+  getLegacyViewer,
+  normalizeWorkspace,
+  emptyWorkspaceFile,
+  readWorkspaceFileFromDisk,
+  getWorkspaceFile,
+  writeWorkspaceFile,
+  getLegacyWorkspace,
+  getWorkspaceState,
+  clearLegacyViewerOnDisk,
+  writeEncryptedToken,
+  saveWorkspaceToken
+}
