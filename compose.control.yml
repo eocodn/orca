@@ -241,6 +241,7 @@ services:
       - config/scripts/feature-wall-completion-orchestration-removal-contract.test.mjs
       - config/scripts/feature-wall-orchestration-surface-removal-contract.test.mjs
       - config/scripts/orca-cli-feature-tip-removal-contract.test.mjs
+      - config/scripts/cli-orchestration-runtime-removal-contract.test.mjs
       - src/shared/feature-tips.test.ts
     init: true
     network_mode: host
@@ -309,7 +310,6 @@ services:
       - src/cli/runtime/client.ts
       - src/cli/runtime/execution-host.ts
       - src/cli/runtime/execution-host.test.ts
-      - src/cli/runtime/mutation-recovery.ts
       - src/main/persistence.test.ts
       - src/main/persistence.ts
       - src/cli/specs/core.ts

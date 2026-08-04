@@ -1,5 +1,4 @@
 import type { RuntimeRpcFailure } from '../../shared/runtime-rpc-envelope'
-import { redactOrchestrationCompatibilitySecrets } from '../../shared/orchestration-compatibility-evidence'
 
 export type {
   RuntimeRpcFailure,
@@ -16,7 +15,7 @@ export class RuntimeClientError extends Error {
   constructor(code: string, message: string, data?: unknown) {
     super(message)
     this.code = code
-    this.data = redactOrchestrationCompatibilitySecrets(data)
+    this.data = data
   }
 }
 

@@ -1,10 +1,4 @@
-import { randomUUID } from 'node:crypto'
 import type { CliStatusResult, RuntimeStatus } from '../../shared/runtime-types'
-import type { RuntimeOrchestrationEnvelope } from '../../shared/runtime-rpc-envelope'
-import {
-  isOrchestrationMutation,
-  orchestrationMigrationData
-} from '../../shared/orchestration-rpc-contract'
 import type { PairingOffer } from '../../shared/pairing'
 import { launchOrcaApp } from './launch'
 import { getDefaultUserDataPath, readMetadata } from './metadata'
@@ -14,16 +8,12 @@ import { RuntimeClientError, RuntimeRpcFailureError, type RuntimeRpcSuccess } fr
 import type { sendWebSocketRequest } from './websocket-transport'
 import { markEnvironmentUsed } from './environments'
 import { resolveRuntimeClientSelection } from './execution-host'
-import { attachMutationRecovery } from './mutation-recovery'
 import { describeRuntimeCompatBlock, evaluateRuntimeCompat } from '../../shared/protocol-compat'
 import {
   MIN_COMPATIBLE_RUNTIME_SERVER_VERSION,
-  ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY,
-  ORCHESTRATION_CONTRACT_VERSION,
   RUNTIME_PROTOCOL_VERSION
 } from '../../shared/protocol-version'
-import { createOrchestrationCompatibilityEnvelope } from './orchestration-compatibility-envelope'
-import { getTimeoutMsParam, isWaitingCheck } from './runtime-request-timeout'
+import { getTimeoutMsParam } from './runtime-request-timeout'
 
 // Why: for long-poll methods the caller's method-level
 // `params.timeoutMs` is the inner waiter budget; we extend the client-side
@@ -47,10 +37,6 @@ export class RuntimeClient {
   private readonly remotePairing: PairingOffer | null
   private readonly environmentSelector: string | null
   private remoteCompatChecked = false
-  private orchestrationContractCheck: Promise<void> | null = null
-  private readonly orchestrationCompatibility = createOrchestrationCompatibilityEnvelope(
-    process.env
-  )
 
   // Why: browser commands trigger first-time session init (agent-browser connect +
   // CDP proxy setup) which can take 15-30s. 60s accommodates cold start without
@@ -80,48 +66,21 @@ export class RuntimeClient {
   async call<TResult>(
     method: string,
     params?: unknown,
-    options?: { timeoutMs?: number } & RuntimeOrchestrationEnvelope
+    options?: { timeoutMs?: number }
   ): Promise<RuntimeRpcSuccess<TResult>> {
     const effectiveTimeoutMs = options?.timeoutMs ?? this.resolveMethodTimeoutMs(method, params)
-    const orchestrationMutation = isOrchestrationMutation(method, params)
-    if (orchestrationMutation) {
-      await this.ensureOrchestrationContractCompatible(effectiveTimeoutMs)
-    }
-    const orchestrationRequestId = orchestrationMutation
-      ? (options?.orchestrationRequestId ?? randomUUID())
-      : undefined
-    const compatibilityEnvelope = method.startsWith('orchestration.')
-      ? {
-          ...this.orchestrationCompatibility,
-          compatibilityInvocationId:
-            orchestrationRequestId ?? this.orchestrationCompatibility.compatibilityInvocationId
-        }
-      : {}
-    const envelope = {
-      orchestrationCapability: options?.orchestrationCapability,
-      orchestrationContractVersion: method.startsWith('orchestration.')
-        ? ORCHESTRATION_CONTRACT_VERSION
-        : undefined,
-      orchestrationRequestId,
-      ...compatibilityEnvelope
-    }
     if (this.remotePairing) {
       if (method !== 'status.get') {
         await this.ensureRemoteRuntimeCompatible(effectiveTimeoutMs)
       }
       const sendWebSocketRequest = await loadSendWebSocketRequest()
       let response
-      try {
-        response = await sendWebSocketRequest<TResult>(
-          this.remotePairing,
-          method,
-          params,
-          effectiveTimeoutMs,
-          envelope
-        )
-      } catch (error) {
-        throw attachMutationRecovery(error, orchestrationRequestId)
-      }
+      response = await sendWebSocketRequest<TResult>(
+        this.remotePairing,
+        method,
+        params,
+        effectiveTimeoutMs
+      )
       if (response.ok === false) {
         throw new RuntimeRpcFailureError(response)
       }
@@ -133,12 +92,7 @@ export class RuntimeClient {
       return response
     }
     const metadata = readMetadata(this.userDataPath)
-    let response
-    try {
-      response = await sendRequest<TResult>(metadata, method, params, effectiveTimeoutMs, envelope)
-    } catch (error) {
-      throw attachMutationRecovery(error, orchestrationRequestId)
-    }
+    const response = await sendRequest<TResult>(metadata, method, params, effectiveTimeoutMs)
     if (response.ok === false) {
       throw new RuntimeRpcFailureError(response)
     }
@@ -151,10 +105,7 @@ export class RuntimeClient {
   // to resolve. Without this, a 5 min wait would still die at the 60 s default.
   // See design doc §3.1.
   private resolveMethodTimeoutMs(method: string, params?: unknown): number {
-    if (
-      (method === 'orchestration.check' && isWaitingCheck(params)) ||
-      method === 'terminal.wait'
-    ) {
+    if (method === 'terminal.wait') {
       const inner = Number(getTimeoutMsParam(params))
       if (Number.isFinite(inner) && inner > 0) {
         return Math.max(inner + LONG_POLL_CLIENT_GRACE_MS, this.requestTimeoutMs)
@@ -225,28 +176,6 @@ export class RuntimeClient {
       markEnvironmentUsed(this.userDataPath, this.environmentSelector, {
         runtimeId: response._meta.runtimeId
       })
-    }
-  }
-
-  private async ensureOrchestrationContractCompatible(timeoutMs: number): Promise<void> {
-    if (!this.orchestrationContractCheck) {
-      this.orchestrationContractCheck = this.checkOrchestrationContractCompatibility(timeoutMs)
-    }
-    await this.orchestrationContractCheck
-  }
-
-  private async checkOrchestrationContractCompatibility(timeoutMs: number): Promise<void> {
-    const response = await this.call<RuntimeStatus>('status.get', undefined, { timeoutMs })
-    if (this.remotePairing) {
-      this.assertRemoteRuntimeStatusCompatible(response.result)
-      this.remoteCompatChecked = true
-    }
-    if (!response.result.capabilities?.includes(ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY)) {
-      throw new RuntimeClientError(
-        'orchestration_migration_required',
-        'The connected Orca runtime does not support the current orchestration contract. No effects were applied.',
-        orchestrationMigrationData('runtime_capability_missing')
-      )
     }
   }
 
