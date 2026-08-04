@@ -4,6 +4,7 @@
 // main process to serialize a specific terminal's buffer.
 
 import type { IDisposable } from '@xterm/xterm'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export type SerializeOpts = {
   scrollbackRows?: number
@@ -121,25 +122,25 @@ function ensureSerializerListener(): void {
   }
   listenerAttached = true
 
-  window.api.pty.onClearBufferRequest((request) => {
+  getClientRuntime().terminal.onClearBufferRequest((request) => {
     // Why: mobile clear is a terminal action, not a PTY byte. Clearing the
     // renderer-owned xterm keeps future mobile snapshots from rehydrating
     // scrollback that the user explicitly removed.
     serializersByPtyId.get(request.ptyId)?.clear?.()
   })
 
-  window.api.pty.onSerializeBufferRequest((request) => {
+  getClientRuntime().terminal.onSerializeBufferRequest((request) => {
     const entry = serializersByPtyId.get(request.ptyId)
     void Promise.resolve(entry?.fn(request.opts) ?? null)
       .then((result) => {
         // Why: cold parking and remounts can replace the serializer while its
         // parse wait is in flight; never publish a fossil from the old xterm.
         if (serializersByPtyId.get(request.ptyId) !== entry) {
-          window.api.pty.sendSerializedBuffer(request.requestId, null)
+          getClientRuntime().terminal.sendSerializedBuffer(request.requestId, null)
           return
         }
         if (!result) {
-          window.api.pty.sendSerializedBuffer(request.requestId, null)
+          getClientRuntime().terminal.sendSerializedBuffer(request.requestId, null)
           return
         }
         const titleEntry = lastTitleByPtyId.get(request.ptyId)
@@ -157,10 +158,10 @@ function ensureSerializerListener(): void {
         } else if (result.lastTitle !== undefined) {
           payload.lastTitle = result.lastTitle
         }
-        window.api.pty.sendSerializedBuffer(request.requestId, payload)
+        getClientRuntime().terminal.sendSerializedBuffer(request.requestId, payload)
       })
       .catch(() => {
-        window.api.pty.sendSerializedBuffer(request.requestId, null)
+        getClientRuntime().terminal.sendSerializedBuffer(request.requestId, null)
       })
   })
 }

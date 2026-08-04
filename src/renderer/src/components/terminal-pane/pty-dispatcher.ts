@@ -32,6 +32,7 @@ import {
   ptyReplayHandlers
 } from './pty-shutdown-data-suspension'
 import { markCommittedPtyShutdowns } from './pty-shutdown-exit-deferral'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export {
   ptyDataHandlers,
@@ -113,7 +114,7 @@ export function ensurePtyDispatcher(): void {
 function attachPtyPushListeners(): void {
   const unsubscribes = pushListenerUnsubscribes
   unsubscribes.push(
-    window.api.pty.onData((payload) => {
+    getClientRuntime().terminal.onData((payload) => {
       // Why: e2e-only wedge simulation — drop the chunk exactly like the field failure (no receive count, ACK, or dispatch).
       if (isPtyPushDeliveryBlackholed()) {
         return
@@ -207,14 +208,16 @@ function handleDispatchedPtyData(payload: {
 }
 
 function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
-  const unsubscribeWriteUnavailable = window.api.pty.onWriteUnavailable?.((payload) => {
-    ptyWriteUnavailableHandlers.get(payload.id)?.()
-  })
+  const unsubscribeWriteUnavailable = getClientRuntime().terminal.onWriteUnavailable?.(
+    (payload) => {
+      ptyWriteUnavailableHandlers.get(payload.id)?.()
+    }
+  )
   if (unsubscribeWriteUnavailable) {
     unsubscribes.push(unsubscribeWriteUnavailable)
   }
   unsubscribes.push(
-    window.api.pty.onReplay((payload) => {
+    getClientRuntime().terminal.onReplay((payload) => {
       const activeIncarnation = activePtyIncarnationById.get(payload.id)
       if (payload.incarnationId !== undefined) {
         if (retiredPtyIncarnationById.get(payload.id)?.has(payload.incarnationId)) {
@@ -234,7 +237,7 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
     })
   )
   unsubscribes.push(
-    window.api.pty.onExit((payload) => {
+    getClientRuntime().terminal.onExit((payload) => {
       const activeIncarnation = activePtyIncarnationById.get(payload.id)
       if (
         (payload.incarnationId !== undefined &&
@@ -279,8 +282,8 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
     })
   )
   // Why: main probes on suspected lost ACKs; replying with processed totals lets it reconcile instead of resetting blindly.
-  const unsubscribeResync = window.api.pty.onDeliveryResyncRequest?.((payload) => {
-    window.api.pty.respondDeliveryResync?.({
+  const unsubscribeResync = getClientRuntime().terminal.onDeliveryResyncRequest?.((payload) => {
+    getClientRuntime().terminal.respondDeliveryResync?.({
       requestId: payload.requestId,
       processedCharsByPty: getProcessedPtyCharTotals()
     })
@@ -289,7 +292,7 @@ function attachPtySecondaryPushListeners(unsubscribes: (() => void)[]): void {
     unsubscribes.push(unsubscribeResync)
   }
   // Why: tell main the pty:data listener is live; until it fires, bytes to a listener-less page are dropped-but-counted and pin the delivery gate.
-  window.api.pty.rendererDispatcherReady?.()
+  getClientRuntime().terminal.rendererDispatcherReady?.()
 }
 
 export function subscribeToPtyExit(
