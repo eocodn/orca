@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -181,7 +182,7 @@ export function createWorktreeSliceMarkWorktreesDeletingActions6(set: SliceSet, 
     try {
       const target = getActiveRuntimeTarget(settingsForWorktreeOwner(get(), worktreeId))
       const result = await (target.kind === 'local'
-        ? window.api.worktrees.forceDeletePreservedBranch({
+        ? getClientRuntime().workspace.worktrees.forceDeletePreservedBranch({
             worktreeId,
             branchName,
             expectedHead

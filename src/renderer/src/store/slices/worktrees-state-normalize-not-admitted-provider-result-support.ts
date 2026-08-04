@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -392,7 +393,7 @@ async function listWorktreeLineageForRuntime(
           workspaceLineageByChildKey: {}
         }
   if (target.kind === 'local') {
-    return normalizeLineageResponse(await window.api.worktrees.listLineage())
+    return normalizeLineageResponse(await getClientRuntime().workspace.worktrees.listLineage())
   }
   return normalizeLineageResponse(
     await callRuntimeRpc<{
@@ -444,7 +445,7 @@ async function setWorktreeLineageForRuntime(
   if (target.kind === 'local') {
     return {
       target,
-      lineage: await window.api.worktrees.updateLineage({ worktreeId, ...args })
+      lineage: await getClientRuntime().workspace.worktrees.updateLineage({ worktreeId, ...args })
     }
   }
   const result = await callRuntimeRpc<{ worktree: WorktreeWithLineage }>(

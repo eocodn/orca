@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -224,8 +225,8 @@ export function createWorktreeSliceCreateWorktreeActions4(set: SliceSet, get: Sl
           }
           const result =
             target.kind === 'local'
-              ? await window.api.worktrees.create(createArgs)
-              : await callRuntimeRpc<Awaited<ReturnType<typeof window.api.worktrees.create>>>(
+              ? await getClientRuntime().workspace.worktrees.create(createArgs)
+              : await callRuntimeRpc<Awaited<ReturnType<typeof getClientRuntime().workspace.worktrees.create>>>(
                   target,
                   'worktree.create',
                   {

@@ -38,6 +38,7 @@ describe('ClientRuntime service boundary', () => {
       repos: workspace.repos,
       projects: workspace.projects,
       projectGroups: workspace.projectGroups,
+      worktrees: workspace.worktrees,
       runtimeEnvironments: remoteHost,
       fs: file,
       pty: terminal
@@ -77,6 +78,7 @@ describe('ClientRuntime service boundary', () => {
         repos: workspace.repos,
         projects: workspace.projects,
         projectGroups: workspace.projectGroups,
+        worktrees: workspace.worktrees,
         runtimeEnvironments: remoteHost,
         fs: file,
         pty: terminal

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -319,8 +320,8 @@ export function rejectedDetectedWorktreeProviderResult(
 async function startDetectedWorktreeProviderRequest(
   request: ListDetectedWorktreesArgs
 ): Promise<HostQualifiedDetectedWorktreeResult> {
-  const worktreesApi = window.api.worktrees as typeof window.api.worktrees & {
-    listDetected?: typeof window.api.worktrees.listDetected
+  const worktreesApi = getClientRuntime().workspace.worktrees as typeof getClientRuntime().workspace.worktrees & {
+    listDetected?: typeof getClientRuntime().workspace.worktrees.listDetected
   }
   if (typeof worktreesApi.listDetected !== 'function') {
     if (request.executionHostId !== LOCAL_EXECUTION_HOST_ID) {
@@ -354,7 +355,7 @@ async function startDetectedWorktreeProviderRequest(
 export const detectedWorktreeRefreshLeaseRegistry = createDetectedWorktreeRefreshLeaseRegistry({
   startProviderRequest: startDetectedWorktreeProviderRequest,
   cancelProviderRequest: async (request) => {
-    await window.api.worktrees.cancelListDetected?.({
+    await getClientRuntime().workspace.worktrees.cancelListDetected?.({
       providerRequestId: request.providerRequestId
     })
   }

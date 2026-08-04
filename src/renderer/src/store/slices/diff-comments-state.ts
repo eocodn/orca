@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 /* eslint-disable max-lines -- Why: keeps note mutation, rollback, persistence ordering, and sent-state transitions under shared queue/rollback invariants. */
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
@@ -95,7 +96,7 @@ async function persist(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(settings)
   if (target.kind === 'local') {
-    await window.api.worktrees.updateMeta({
+    await getClientRuntime().workspace.worktrees.updateMeta({
       worktreeId,
       updates: { diffComments }
     })

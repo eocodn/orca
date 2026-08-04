@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import { parseExecutionHostId } from '../../../shared/execution-host'
 import type { WorktreeRuntimeOwnerState } from './worktree-runtime-owner'
@@ -29,7 +30,7 @@ export function persistWorktreeSortOrderByHost(
     }
 
     ignoreSortOrderPersistenceFailure(
-      window.api.worktrees.persistSortOrder({ orderedIds: group.orderedIds })
+      getClientRuntime().workspace.worktrees.persistSortOrder({ orderedIds: group.orderedIds })
     )
   }
 }

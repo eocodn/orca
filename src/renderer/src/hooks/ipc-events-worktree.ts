@@ -42,7 +42,7 @@ unsubs.push(
 )
 
 unsubs.push(
-  window.api.worktrees.onChanged(
+  getClientRuntime().workspace.worktrees.onChanged(
     async (data: {
       repoId: string
       renamed?: { oldWorktreeId: string; newWorktreeId: string }
@@ -59,9 +59,9 @@ unsubs.push(
   )
 )
 
-if (window.api.worktrees.onHeadIdentitiesChanged) {
+if (getClientRuntime().workspace.worktrees.onHeadIdentitiesChanged) {
   unsubs.push(
-    window.api.worktrees.onHeadIdentitiesChanged((data) => {
+    getClientRuntime().workspace.worktrees.onHeadIdentitiesChanged((data) => {
       if (isRuntimeEnvironmentActive()) {
         // Why: local worktree events carry local repo ids; the local-pinned list
         // refresh (onChanged) covers local rows while a runtime is active.
@@ -77,7 +77,7 @@ if (window.api.worktrees.onHeadIdentitiesChanged) {
 }
 
 unsubs.push(
-  window.api.worktrees.onBaseStatus((event) => {
+  getClientRuntime().workspace.worktrees.onBaseStatus((event) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -86,7 +86,7 @@ unsubs.push(
 )
 
 unsubs.push(
-  window.api.worktrees.onRemoteBranchConflict((event) => {
+  getClientRuntime().workspace.worktrees.onRemoteBranchConflict((event) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -96,7 +96,7 @@ unsubs.push(
 
 // Why: route main's two-phase creation progress to each pending entry by correlation id (?. guards stale preload).
 unsubs.push(
-  window.api.worktrees.onCreateProgress?.((data) => {
+  getClientRuntime().workspace.worktrees.onCreateProgress?.((data) => {
     if (!data.creationId) {
       return
     }

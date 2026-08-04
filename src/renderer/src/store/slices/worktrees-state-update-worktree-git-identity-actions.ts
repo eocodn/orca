@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -315,7 +316,7 @@ export function createWorktreeSliceUpdateWorktreeGitIdentityActions3(set: SliceS
     try {
       const target = getActiveRuntimeTarget(settingsForRepoOwner(get(), repoId))
       if (target.kind === 'local') {
-        await window.api.worktrees.prefetchCreateBase({
+        await getClientRuntime().workspace.worktrees.prefetchCreateBase({
           repoId,
           ...(baseBranch ? { baseBranch } : {})
         })

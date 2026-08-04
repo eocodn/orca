@@ -12,8 +12,7 @@ export type ClientRuntimeWorkspaceService = {
   repos: PreloadApi['repos']
   projects: PreloadApi['projects']
   projectGroups: PreloadApi['projectGroups']
-  projects: PreloadApi['projects']
-  projectGroups: PreloadApi['projectGroups']
+  worktrees: PreloadApi['worktrees']
 }
 export type ClientRuntimeTerminalService = PreloadApi['pty']
 
@@ -40,6 +39,9 @@ type ClientRuntimeHostAdapter = {
   ssh: ClientRuntimeSshService
   browser: ClientRuntimeBrowserService
   repos: PreloadApi['repos']
+  projects: PreloadApi['projects']
+  projectGroups: PreloadApi['projectGroups']
+  worktrees: PreloadApi['worktrees']
   pty: ClientRuntimeTerminalService
 }
 
@@ -58,7 +60,8 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
     workspace: {
       repos: adapter.repos,
       projects: adapter.projects,
-      projectGroups: adapter.projectGroups
+      projectGroups: adapter.projectGroups,
+      worktrees: adapter.worktrees
     },
     terminal: adapter.pty
   }

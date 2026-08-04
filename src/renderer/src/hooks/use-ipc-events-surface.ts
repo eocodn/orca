@@ -145,7 +145,7 @@ export function useIpcEvents(): void {
       listLineage: (authority) => {
         const executionHostId = toSshExecutionHostId(authority.targetId)
         return (
-          window.api.worktrees.listLineageForHost?.({
+          getClientRuntime().workspace.worktrees.listLineageForHost?.({
             executionHostId,
             expectedAuthority: authority
           }) ??

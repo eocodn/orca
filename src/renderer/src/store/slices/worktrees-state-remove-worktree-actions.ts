@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -187,10 +188,10 @@ export function createWorktreeSliceRemoveWorktreeActions5(set: SliceSet, get: Sl
             : { activeRuntimeEnvironmentId: null }
       )
       const removalResult = await (forgetLocalOnly
-        ? window.api.worktrees.forgetLocal({ worktreeId, hostId })
+        ? getClientRuntime().workspace.worktrees.forgetLocal({ worktreeId, hostId })
         : target.kind === 'local'
           ? (removalGenerationGuard?.assertCurrent(),
-            window.api.worktrees.remove({ worktreeId, hostId, force, skipArchive }))
+            getClientRuntime().workspace.worktrees.remove({ worktreeId, hostId, force, skipArchive }))
           : (removalGenerationGuard?.assertCurrent(),
             callRuntimeRpc<RemoveWorktreeResult>(
               target,

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -270,7 +271,7 @@ async function persistWorktreeMeta(
 ): Promise<void> {
   const target = getActiveRuntimeTarget(settings)
   if (target.kind === 'local') {
-    await window.api.worktrees.updateMeta({ worktreeId, updates })
+    await getClientRuntime().workspace.worktrees.updateMeta({ worktreeId, updates })
     return
   }
   // Why: same gate as worktree.create — an older paired runtime would drop the Jira link silently.
@@ -346,7 +347,7 @@ async function resolveGitHubReviewPushTarget(
     const target = getActiveRuntimeTarget(settings)
     const result =
       target.kind === 'local'
-        ? await window.api.worktrees.resolvePrBase({ repoId, prNumber })
+        ? await getClientRuntime().workspace.worktrees.resolvePrBase({ repoId, prNumber })
         : await callRuntimeRpc<GitHubPrStartPoint | { error: string }>(
             target,
             'worktree.resolvePrBase',
@@ -376,7 +377,7 @@ async function resolveGitLabReviewPushTarget(
     const target = getActiveRuntimeTarget(settings)
     const result =
       target.kind === 'local'
-        ? await window.api.worktrees.resolveMrBase({ repoId, mrIid })
+        ? await getClientRuntime().workspace.worktrees.resolveMrBase({ repoId, mrIid })
         : await callRuntimeRpc<
             | { baseBranch: string; compareBaseRef?: string; pushTarget?: GitPushTarget }
             | {

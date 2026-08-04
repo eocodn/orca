@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Check, Copy } from 'lucide-react'
 import {
@@ -53,7 +54,7 @@ export function AutoRenameFailedDialog({
     }
     let stale = false
     setFullOutput(null)
-    window.api.worktrees
+    getClientRuntime().workspace.worktrees
       .getBranchRenameFailureOutput({ worktreeId })
       .then((output) => {
         if (!stale) {

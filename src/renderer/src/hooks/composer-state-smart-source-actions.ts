@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
@@ -230,7 +231,7 @@ export function useComposerSmartSourceActions(context: any) {
       const target = getActiveRuntimeTarget(itemRepoSettings)
       const resolveMrBase =
         target.kind === 'local'
-          ? window.api.worktrees.resolveMrBase({
+          ? getClientRuntime().workspace.worktrees.resolveMrBase({
               repoId: runRepo.id,
               mrIid: item.number,
               ...(item.branchName ? { sourceBranch: item.branchName } : {}),

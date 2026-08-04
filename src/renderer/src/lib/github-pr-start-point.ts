@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import type { GitHubPrStartPoint, GlobalSettings } from '../../../shared/types'
 
@@ -29,7 +30,7 @@ export async function resolveGitHubPrStartPointForRepo({
   }
   const result =
     target.kind === 'local'
-      ? await window.api.worktrees.resolvePrBase({ repoId, ...prFields })
+      ? await getClientRuntime().workspace.worktrees.resolvePrBase({ repoId, ...prFields })
       : await callRuntimeRpc<GitHubPrStartPoint | { error: string }>(
           target,
           'worktree.resolvePrBase',
