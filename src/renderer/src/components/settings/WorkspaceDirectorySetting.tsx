@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { FolderOpen, RotateCcw } from 'lucide-react'
 import type { GlobalSettings } from '../../../../shared/types'
@@ -127,7 +128,7 @@ export function WorkspaceDirectorySetting({
 
   const handleBrowse = async (): Promise<void> => {
     try {
-      const path = await window.api.repos.pickFolder()
+      const path = await getClientRuntime().workspace.repos.pickFolder()
       if (path) {
         setDraft(path)
         writeValue(path)

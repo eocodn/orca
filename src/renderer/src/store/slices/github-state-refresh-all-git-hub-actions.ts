@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -306,7 +307,7 @@ export function createGitHubSliceRefreshAllGitHubActions10(set: SliceSet, get: S
       // Why: route to the repo's owner host (like updateRepo) so the write lands where the repo lives, not the focused runtime.
       const target = getActiveRuntimeTarget(getSettingsForRepoRuntimeOwner(get(), repoId))
       await (target.kind === 'local'
-        ? window.api.repos.update({ repoId, updates })
+        ? getClientRuntime().workspace.repos.update({ repoId, updates })
         : callRuntimeRpc(target, 'repo.update', { repo: repoId, updates }, { timeoutMs: 15_000 }))
     } catch (err) {
       console.error('Failed to persist issue-source preference:', err)

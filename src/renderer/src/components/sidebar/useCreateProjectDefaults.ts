@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 // Default-driven create-project state for AddRepoDialog: resolves the default
 // parent (local/runtime host home) and probes Git
 // availability, guarding against stale async results when the target changes.
@@ -155,7 +156,7 @@ export function useCreateProjectDefaults({
       return
     }
     setCreateDefaultParent('')
-    void window.api.repos
+    void getClientRuntime().workspace.repos
       .getDefaultCreateProjectParent()
       .then((parent) => {
         if (
@@ -273,7 +274,7 @@ export function useCreateProjectDefaults({
           undefined,
           { timeoutMs: RUNTIME_GIT_AVAILABILITY_TIMEOUT_MS }
         ).then((result) => result.available)
-      : window.api.repos.isGitAvailable()
+      : getClientRuntime().workspace.repos.isGitAvailable()
     const timeoutMs = runtimeEnvironmentId
       ? RUNTIME_GIT_AVAILABILITY_TIMEOUT_MS
       : LOCAL_GIT_AVAILABILITY_TIMEOUT_MS

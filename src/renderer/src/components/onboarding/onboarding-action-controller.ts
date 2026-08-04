@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 // Concrete onboarding flow orchestration.
 // Concrete surface implementation for use-onboarding-flow.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -254,14 +255,14 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         return
       }
       track('onboarding_step4_path_clicked', { path: 'open_folder' })
-      const path = await window.api.repos.pickFolder()
+      const path = await getClientRuntime().workspace.repos.pickFolder()
       if (!path) {
         track('onboarding_step4_path_failed', { path: 'open_folder', reason: 'cancelled' })
         return
       }
       setBusyLabel('Opening project…')
       try {
-        let result = await window.api.repos.add({ path })
+        let result = await getClientRuntime().workspace.repos.add({ path })
         if ('error' in result && result.error.includes('Not a valid git repository')) {
           setBusyLabel('Scanning for repositories...')
           const attemptId = createNestedRepoTelemetryAttemptId()
@@ -299,7 +300,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
             showNestedRepoReview(scan, attemptId, 'local', false, scanId)
             return
           }
-          result = await window.api.repos.add({ path, kind: 'folder' })
+          result = await getClientRuntime().workspace.repos.add({ path, kind: 'folder' })
         }
         if ('error' in result) {
           throw new Error(result.error)
@@ -462,7 +463,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
                 { timeoutMs: 10 * 60_000 }
               )
             ).repo
-          : await window.api.repos.clone({
+          : await getClientRuntime().workspace.repos.clone({
               url: trimmed,
               destination
             })

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -131,7 +132,7 @@ export function createRepoSliceUpdateRepoActions8(set: SliceSet, get: SliceGet) 
         const target = ownerTarget
         const updatedRepo =
           target.kind === 'local'
-            ? await window.api.repos.update({
+            ? await getClientRuntime().workspace.repos.update({
                 repoId: projectId,
                 updates: sanitizedUpdates,
                 ...(ownerHasExplicitHost ? { hostId: ownerHostId } : {})
@@ -256,7 +257,7 @@ export function createRepoSliceUpdateRepoActions8(set: SliceSet, get: SliceGet) 
                 ? ({ kind: 'environment', environmentId: parsed.environmentId } as const)
                 : ({ kind: 'local' } as const)
             return target.kind === 'local'
-              ? window.api.repos.reorderForHost({
+              ? getClientRuntime().workspace.repos.reorderForHost({
                   hostId: group.hostId,
                   orderedIds: group.orderedIds
                 })

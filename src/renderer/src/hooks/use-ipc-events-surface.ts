@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect } from 'react'
 import { useAppStore } from '../store'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
@@ -130,7 +131,7 @@ export function useIpcEvents(): void {
       listRepos: (authority) => {
         const executionHostId = toSshExecutionHostId(authority.targetId)
         return (
-          window.api.repos.listForExecutionHost?.({
+          getClientRuntime().workspace.repos.listForExecutionHost?.({
             executionHostId,
             expectedAuthority: authority
           }) ??

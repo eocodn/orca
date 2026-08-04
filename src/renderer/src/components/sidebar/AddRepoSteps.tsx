@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
@@ -182,7 +183,7 @@ export function useRemoteRepo(
         return
       }
       setRemoteNestedScanId(null)
-      const result = await window.api.repos.addRemote({
+      const result = await getClientRuntime().workspace.repos.addRemote({
         connectionId: selectedTargetId,
         remotePath: trimmedRemotePath
       })

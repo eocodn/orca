@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../store'
 import { applyWorktreeHeadIdentities } from './worktree-head-identity-apply'
 
@@ -22,7 +23,7 @@ export function registerWorktreeEvents(context: WorktreeSurfaceContext): void {
     worktreeChangeRefreshQueue
   } = context
 unsubs.push(
-  window.api.repos.onChanged(() => {
+  getClientRuntime().workspace.repos.onChanged(() => {
     const state = useAppStore.getState()
     if (isRuntimeEnvironmentActive()) {
       // Why: the all-host sidebar shows local repos even under a runtime; refresh the local slice, keep runtime slices.

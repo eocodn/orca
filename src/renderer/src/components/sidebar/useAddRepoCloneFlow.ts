@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
@@ -66,7 +67,7 @@ export function useAddRepoCloneFlow({
     if (!isCloning) {
       return
     }
-    return window.api.repos.onCloneProgress(setCloneProgress)
+    return getClientRuntime().workspace.repos.onCloneProgress(setCloneProgress)
   }, [isCloning])
 
   const cloneDestinationAutoFill = getCloneDestinationAutoFill({
@@ -108,7 +109,7 @@ export function useAddRepoCloneFlow({
       return
     }
     const gen = cloneGenRef.current
-    const dir = await window.api.repos.pickDirectory()
+    const dir = await getClientRuntime().workspace.repos.pickDirectory()
     if (dir && gen === cloneGenRef.current) {
       setCloneDestination(dir)
       setCloneError(null)
@@ -133,7 +134,7 @@ export function useAddRepoCloneFlow({
             activeRuntimeEnvironmentId: null
           })
       const repo = sshTargetId?.trim()
-        ? await window.api.repos.cloneRemote({
+        ? await getClientRuntime().workspace.repos.cloneRemote({
             connectionId: sshTargetId.trim(),
             url: trimmedUrl,
             destination: cloneDestination.trim()
@@ -150,7 +151,7 @@ export function useAddRepoCloneFlow({
                 { timeoutMs: 10 * 60_000 }
               )
             ).repo
-          : ((await window.api.repos.clone({
+          : ((await getClientRuntime().workspace.repos.clone({
               url: trimmedUrl,
               destination: cloneDestination.trim()
             })) as Repo)

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 // Create-project flow hook for AddRepoDialog (orca#763), split from
 // AddRepoCreateStep so the create-state machine stays scoped and testable.
 import { useCallback, useRef, useState } from 'react'
@@ -74,7 +75,7 @@ export function useCreateRepo(
       return null
     }
     const gen = createGenRef.current
-    const dir = await window.api.repos.pickDirectory()
+    const dir = await getClientRuntime().workspace.repos.pickDirectory()
     if (dir && gen === createGenRef.current && mountedRef.current) {
       setCreateParent(dir)
       setCreateError(null)
@@ -104,7 +105,7 @@ export function useCreateRepo(
       // existing add-folder flows instead of this path.
       const createKind = 'git' as const
       const result = options.sshTargetId
-        ? await window.api.repos.createRemote({
+        ? await getClientRuntime().workspace.repos.createRemote({
             connectionId: options.sshTargetId,
             parentPath,
             name,
@@ -121,7 +122,7 @@ export function useCreateRepo(
               },
               { timeoutMs: 60_000 }
             )
-          : await window.api.repos.create({
+          : await getClientRuntime().workspace.repos.create({
               parentPath,
               name,
               kind: createKind

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback, useState } from 'react'
 import { useAppStore } from '@/store'
 import { useRemoteRepo } from './AddRepoSteps'
@@ -209,7 +210,7 @@ export default React.memo(function AddRepoDialog({
   const resetState = useCallback(() => {
     // Why: kill the git clone process if one is running, so backing out
     // or closing the dialog doesn't leave a clone running on disk.
-    void window.api.repos.cloneAbort()
+    void getClientRuntime().workspace.repos.cloneAbort()
     resetLocalFolderFlow()
     setStep('add')
     setIsAdding(false)

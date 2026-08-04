@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -129,8 +130,8 @@ export function createRepoSliceRemoveProjectActions7(set: SliceSet, get: SliceGe
       )
       await (target.kind === 'local'
         ? idExistsOnOtherHost
-          ? window.api.repos.removeForHost({ repoId: projectId, hostId: ownerHostId })
-          : window.api.repos.remove({ repoId: projectId })
+          ? getClientRuntime().workspace.repos.removeForHost({ repoId: projectId, hostId: ownerHostId })
+          : getClientRuntime().workspace.repos.remove({ repoId: projectId })
         : callRuntimeRpc(target, 'repo.rm', { repo: projectId }, { timeoutMs: 15_000 }))
 
       get().clearOrcaHookTrustForRepo(projectId)
@@ -162,7 +163,7 @@ export function createRepoSliceRemoveProjectActions7(set: SliceSet, get: SliceGe
           killedTabIds.add(tab.id)
           for (const ptyId of get().ptyIdsByTabId[tab.id] ?? []) {
             if (!ptyId.startsWith('remote:')) {
-              window.api.pty.kill(ptyId)
+              getClientRuntime().terminal.kill(ptyId)
             }
           }
         }

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -164,13 +165,13 @@ export function createRepoSliceDeleteProjectHostSetupActions6(set: SliceSet, get
       }
       const repo =
         parsedHost?.kind === 'ssh'
-          ? await window.api.repos.cloneRemote({
+          ? await getClientRuntime().workspace.repos.cloneRemote({
               connectionId: parsedHost.targetId,
               url: args.url,
               destination: args.destination
             })
           : target.kind === 'local'
-            ? await window.api.repos.clone({
+            ? await getClientRuntime().workspace.repos.clone({
                 url: args.url,
                 destination: args.destination
               })
@@ -215,7 +216,7 @@ export function createRepoSliceDeleteProjectHostSetupActions6(set: SliceSet, get
       )
       return null
     }
-    const path = await window.api.repos.pickFolder()
+    const path = await getClientRuntime().workspace.repos.pickFolder()
     if (!path) {
       return null
     }

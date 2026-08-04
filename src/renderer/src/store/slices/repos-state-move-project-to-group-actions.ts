@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -155,7 +156,7 @@ export function createRepoSliceMoveProjectToGroupActions5(set: SliceSet, get: Sl
       let repo: Repo
       try {
         if (target.kind === 'local') {
-          const result = await window.api.repos.add({ path, kind })
+          const result = await getClientRuntime().workspace.repos.add({ path, kind })
           if ('error' in result) {
             throw new Error(result.error)
           }

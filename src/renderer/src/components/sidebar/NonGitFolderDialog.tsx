@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback } from 'react'
 import { toast } from 'sonner'
 import {
@@ -54,7 +55,7 @@ const NonGitFolderDialog = React.memo(function NonGitFolderDialog() {
       void (async () => {
         try {
           const stateBeforeAdd = useAppStore.getState()
-          const result = await window.api.repos.addRemote({
+          const result = await getClientRuntime().workspace.repos.addRemote({
             connectionId,
             remotePath: folderPath,
             kind: 'folder'

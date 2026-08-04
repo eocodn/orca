@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { track } from '@/lib/telemetry'
@@ -295,7 +296,7 @@ export function useAddRepoLocalFolderFlow({
     setIsAdding(true)
     setAddProjectBusyLabel('Choose a folder...')
     try {
-      const paths = await window.api.repos.pickFolders()
+      const paths = await getClientRuntime().workspace.repos.pickFolders()
       if (paths.length === 0 || gen !== localAddGenRef.current) {
         return
       }
