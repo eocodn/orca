@@ -10,6 +10,7 @@ import {
   type ClientRuntimeBrowserService,
   type ClientRuntimeIntegrationService,
   type ClientRuntimePreviewService,
+  type ClientRuntimeDeviceService,
   type ClientRuntimeTerminalService,
   type ClientRuntimeWorkspaceService
 } from './client-runtime'
@@ -38,6 +39,7 @@ describe('ClientRuntime service boundary', () => {
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
     const preview = {} as ClientRuntimePreviewService
+    const device = {} as ClientRuntimeDeviceService
 
     const clientRuntime = createClientRuntime({
       runtime,
@@ -54,6 +56,7 @@ describe('ClientRuntime service boundary', () => {
       fs: file,
       pty: terminal,
       terminalPreview: preview,
+      mobile: device,
       gh: integration.github,
       gl: integration.gitlab,
       linear: integration.linear,
@@ -79,6 +82,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.file).toBe(file)
     expect(clientRuntime.terminal).toBe(terminal)
     expect(clientRuntime.preview).toBe(preview)
+    expect(clientRuntime.device).toBe(device)
   })
 
   it('reads the current host adapter when a renderer entry point asks for it', () => {
@@ -101,6 +105,7 @@ describe('ClientRuntime service boundary', () => {
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
     const preview = {} as ClientRuntimePreviewService
+    const device = {} as ClientRuntimeDeviceService
     vi.stubGlobal('window', {
       api: {
         runtime,
@@ -122,7 +127,8 @@ describe('ClientRuntime service boundary', () => {
         runtimeEnvironments: remoteHost,
         fs: file,
         pty: terminal,
-        terminalPreview: preview
+        terminalPreview: preview,
+        mobile: device
       }
     })
 
@@ -138,5 +144,6 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().file).toBe(file)
     expect(getClientRuntime().terminal).toBe(terminal)
     expect(getClientRuntime().preview).toBe(preview)
+    expect(getClientRuntime().device).toBe(device)
   })
 })

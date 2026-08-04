@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../../store'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import {
@@ -132,7 +133,7 @@ export function MobilePane(): React.JSX.Element {
     async (opts: { notifyOnError?: boolean } = {}) => {
       setRefreshingNetworkInterfaces(true)
       try {
-        const result = await window.api.mobile.listNetworkInterfaces()
+        const result = await getClientRuntime().device.listNetworkInterfaces()
         if (mountedRef.current) {
           setNetworkInterfaces(result.interfaces)
           const nextAddress = selectRefreshedNetworkAddress(
@@ -182,7 +183,7 @@ export function MobilePane(): React.JSX.Element {
       setLoading(true)
       setQrError(false)
       try {
-        const result = await window.api.mobile.getPairingQR({
+        const result = await getClientRuntime().device.getPairingQR({
           ...(selectedAddress ? { address: selectedAddress } : {}),
           connectionMode: preferredMode,
           ...(opts.rotate || rotateNextQr ? { rotate: true } : {})
@@ -366,7 +367,7 @@ export function MobilePane(): React.JSX.Element {
 
   async function revokeDevice(deviceId: string) {
     try {
-      const { revoked } = await window.api.mobile.revokeDevice({ deviceId })
+      const { revoked } = await getClientRuntime().device.revokeDevice({ deviceId })
       // Why: the backend can resolve revoked=false without removing the device;
       // surface that as an error instead of a false "Device revoked".
       if (!revoked) {

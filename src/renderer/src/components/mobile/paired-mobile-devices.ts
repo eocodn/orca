@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { getClientRuntime } from '@/runtime/client-runtime'
 
 export type PairedMobileDevice = {
   deviceId: string
@@ -91,8 +92,8 @@ export function refreshPairedMobileDevices({
   latestRequestId = requestId
   publish({ ...snapshot, loading: true })
 
-  const promise = window.api.mobile
-    .listDevices()
+  const promise = getClientRuntime()
+    .device.listDevices()
     .then((result) => {
       const devices = [...result.devices]
       if (requestId !== latestRequestId) {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useMountedRef } from '@/hooks/useMountedRef'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { RuntimeAccessGrant } from '../../../../shared/runtime-access-grants'
 import { Label } from '../ui/label'
 import { RuntimeAccessGrantList } from './RuntimeAccessGrantList'
@@ -76,7 +77,7 @@ export function RuntimePairingUrlGenerator({
         setIsLoadingAccessGrants(true)
       }
       try {
-        const result = await window.api.mobile.listRuntimeAccessGrants()
+        const result = await getClientRuntime().device.listRuntimeAccessGrants()
         if (mountedRef.current && loadId === accessGrantLoadIdRef.current) {
           setRuntimeAccessGrants(result.grants)
         }
@@ -112,7 +113,7 @@ export function RuntimePairingUrlGenerator({
         setRefreshingNetworkInterfaces(true)
       }
       try {
-        const result = await window.api.mobile.listNetworkInterfaces()
+        const result = await getClientRuntime().device.listNetworkInterfaces()
         if (mountedRef.current && loadId === networkInterfaceLoadIdRef.current) {
           setNetworkInterfaces(result.interfaces)
         }
@@ -185,7 +186,7 @@ export function RuntimePairingUrlGenerator({
     }
     setIsGeneratingPairing(true)
     try {
-      const result = await window.api.mobile.getRuntimePairingUrl({
+      const result = await getClientRuntime().device.getRuntimePairingUrl({
         address,
         rotate: true
       })
@@ -248,7 +249,9 @@ export function RuntimePairingUrlGenerator({
   const revokeRuntimeAccess = async (grant: RuntimeAccessGrant): Promise<void> => {
     setRevokingGrantId(grant.deviceId)
     try {
-      const result = await window.api.mobile.revokeRuntimeAccess({ deviceId: grant.deviceId })
+      const result = await getClientRuntime().device.revokeRuntimeAccess({
+        deviceId: grant.deviceId
+      })
       if (!result.revoked) {
         if (mountedRef.current) {
           toast.error(

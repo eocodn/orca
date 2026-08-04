@@ -186,6 +186,17 @@ const previewFiles = [
   'src/renderer/src/components/dashboard-popout/preview-grid-claim.ts',
   'src/renderer/src/components/dashboard-popout/preview-terminal-paste.ts'
 ]
+const deviceFiles = [
+  'src/renderer/src/components/mobile/MobilePage.tsx',
+  'src/renderer/src/components/mobile/paired-mobile-devices.ts',
+  'src/renderer/src/components/mobile/use-mobile-page-paired-devices.ts',
+  'src/renderer/src/components/mobile/use-mobile-pairing-generation.ts',
+  'src/renderer/src/components/mobile/WindowsFirewallNotice.tsx',
+  'src/renderer/src/components/settings/MobilePairingConnectionOptions.tsx',
+  'src/renderer/src/components/settings/MobilePane.tsx',
+  'src/renderer/src/components/settings/RuntimePairingUrlGenerator.tsx',
+  'src/renderer/src/hooks/ipc-events-ui.ts'
+]
 
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
@@ -270,6 +281,17 @@ describe('ClientRuntime renderer boundary', () => {
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.terminalPreview/)
+    }
+  })
+
+  it('routes device calls through the device adapter', async () => {
+    const sources = await Promise.all(deviceFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.mobile/)
     }
   })
 })

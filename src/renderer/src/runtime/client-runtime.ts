@@ -16,6 +16,7 @@ export type ClientRuntimeWorkspaceService = {
 }
 export type ClientRuntimeTerminalService = PreloadApi['pty']
 export type ClientRuntimePreviewService = PreloadApi['terminalPreview']
+export type ClientRuntimeDeviceService = PreloadApi['mobile']
 export type ClientRuntimeIntegrationService = {
   github: PreloadApi['gh']
   gitlab: PreloadApi['gl']
@@ -37,6 +38,7 @@ export type ClientRuntime = {
   workspace: ClientRuntimeWorkspaceService
   terminal: ClientRuntimeTerminalService
   preview: ClientRuntimePreviewService
+  device: ClientRuntimeDeviceService
   integration: ClientRuntimeIntegrationService
 }
 
@@ -55,6 +57,7 @@ type ClientRuntimeHostAdapter = {
   worktrees: PreloadApi['worktrees']
   pty: ClientRuntimeTerminalService
   terminalPreview: ClientRuntimePreviewService
+  mobile: ClientRuntimeDeviceService
   gh: PreloadApi['gh']
   gl: PreloadApi['gl']
   linear: PreloadApi['linear']
@@ -83,6 +86,7 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
     },
     terminal: adapter.pty,
     preview: adapter.terminalPreview,
+    device: adapter.mobile,
     integration: {
       github: adapter.gh,
       gitlab: adapter.gl,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { useAppStore } from '@/store'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { Platform, StepIndex } from './MobileHero'
 import type { IosChannel } from './mobile-platform-copy'
 import {
@@ -142,7 +143,7 @@ export default function MobilePage(): React.JSX.Element {
       setRefreshingNetworkInterfaces(true)
     }
     try {
-      const result = await window.api.mobile.listNetworkInterfaces()
+      const result = await getClientRuntime().device.listNetworkInterfaces()
       if (mountedRef.current) {
         setNetworkInterfaces(result.interfaces)
       }
@@ -211,7 +212,7 @@ export default function MobilePage(): React.JSX.Element {
         return true
       }
       try {
-        const result = await window.api.mobile.getPairingQR({ address, connectionMode })
+        const result = await getClientRuntime().device.getPairingQR({ address, connectionMode })
         return result.available && result.qrDataUrl !== null
       } catch {
         return false

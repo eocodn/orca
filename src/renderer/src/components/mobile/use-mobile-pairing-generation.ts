@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { translate } from '@/i18n/i18n'
 import {
   canMintMobilePairingOffer,
@@ -65,7 +66,7 @@ export function useMobilePairingGeneration(params: {
       }
       try {
         const address = addressOverride ?? selectedAddress
-        const result = await window.api.mobile.getPairingQR({
+        const result = await getClientRuntime().device.getPairingQR({
           ...(address ? { address } : {}),
           connectionMode: preferredMode,
           ...(rotate ? { rotate: true } : {})

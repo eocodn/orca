@@ -5,6 +5,7 @@ import { Button } from '../ui/button'
 import { translate } from '../../i18n/i18n'
 import { useAppStore } from '../../store'
 import { cn } from '@/lib/utils'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { MobileRelayStatus } from '../../../../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../../../../shared/mobile-pairing-connection-mode'
 
@@ -165,14 +166,14 @@ export function MobilePairingConnectionOptions({
   useEffect(() => {
     let receivedEvent = false
     let active = true
-    const unsubscribe = window.api.mobile.onRelayStatusChanged((status) => {
+    const unsubscribe = getClientRuntime().device.onRelayStatusChanged((status) => {
       receivedEvent = true
       if (active) {
         setRelayStatus(status)
       }
     })
-    void window.api.mobile
-      .getRelayStatus()
+    void getClientRuntime()
+      .device.getRelayStatus()
       .then(({ status }) => {
         if (active && !receivedEvent) {
           setRelayStatus(status)

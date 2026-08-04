@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { toast } from 'sonner'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { useMobilePairingDevicePolling } from '../settings/mobile-pairing-device-polling'
 import type { PairedDevice, StepIndex } from './MobileHero'
@@ -136,7 +137,7 @@ export function useMobilePagePairedDevices({
         return
       }
       try {
-        const { revoked } = await window.api.mobile.revokeDevice({ deviceId })
+        const { revoked } = await getClientRuntime().device.revokeDevice({ deviceId })
         // Why: the backend can resolve revoked=false without removing anything;
         // treat it as a failure BEFORE refreshing or routing, so a revoke that
         // didn't happen can't flash a success toast or drop the user to intro.
