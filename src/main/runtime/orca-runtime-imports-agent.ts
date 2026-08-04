@@ -99,10 +99,6 @@ export {
   createSetupCompletionScanner
 } from './orchestration/setup-completion-signal'
 export type { TerminalRevealIdentity } from '../../shared/terminal-reveal-identity'
-export type {
-  OrchestrationCompatibilityEvidence,
-  OrchestrationCompatibilityHostStamp
-} from '../../shared/orchestration-compatibility-evidence'
 export type { Automation, AutomationRun } from '../../shared/automations-types'
 export type {
   AutomationWorkspaceProvenance,

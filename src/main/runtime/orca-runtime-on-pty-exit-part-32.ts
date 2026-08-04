@@ -1,4 +1,12 @@
-import { parsePaneKey, type PtyIncarnationId, advertisedUrlWatcher, type RetiredTerminalSurface, notifyRuntimeListeners, type DriverState, makePtyDurableRetirementKey } from './orca-runtime-symbols'
+import {
+  parsePaneKey,
+  type PtyIncarnationId,
+  advertisedUrlWatcher,
+  type RetiredTerminalSurface,
+  notifyRuntimeListeners,
+  type DriverState,
+  makePtyDurableRetirementKey
+} from './orca-runtime-symbols'
 import { OrcaRuntimeOnClientDisconnectedPart31 } from './orca-runtime-on-client-disconnected-part-31'
 
 export class OrcaRuntimeOnPtyExitPart32 extends OrcaRuntimeOnClientDisconnectedPart31 {
@@ -89,9 +97,7 @@ export class OrcaRuntimeOnPtyExitPart32 extends OrcaRuntimeOnClientDisconnectedP
       pty?.connectionId ?? null,
       exitCode
     )
-    if (preservesAbnormalSshSurface) {
-      this.restoredOrchestrationAuthorityByPtyId.delete(ptyId)
-    } else {
+    if (!preservesAbnormalSshSurface) {
       this.retirePtyAgentLaunchAuthority(ptyId)
     }
     const incarnationId =

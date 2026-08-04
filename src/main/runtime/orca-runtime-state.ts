@@ -1,4 +1,4 @@
-import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, type AgentHookAuthorityAttestation, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeAutomationCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
+import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeAutomationCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
 import { OrcaRuntimeStatePart3 } from './orca-runtime-state-part-3'
 
 export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
@@ -22,12 +22,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
        *  only carrier of the provider session a transcript is addressed by. */
       getAgentProviderSessionSnapshot?: () => AgentStatusIpcPayload[]
       getAgentProviderSessionRowsForPane?: (paneKey: string) => AgentStatusIpcPayload[]
-      attestAgentHookCompatibilityAuthority?: (candidate: {
-        paneKey: string
-        launchTokenHash: string
-        connectionId: string | null
-        terminalProvenance: 'current_runtime' | 'restored'
-      }) => AgentHookAuthorityAttestation | null
       retireAgentHookCompatibilityAuthority?: (paneKey: string) => void
       canRecoverPersistentLocalPtys?: () => boolean
       // Why: codex-home paths for the Agent Session History scan must be sourced
@@ -80,8 +74,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
     this.getAgentProviderSessionSnapshotFn =
       deps?.getAgentProviderSessionSnapshot ?? deps?.getAgentStatusSnapshot ?? null
     this.getAgentProviderSessionRowsForPaneFn = deps?.getAgentProviderSessionRowsForPane ?? null
-    this.attestAgentHookCompatibilityAuthorityFn =
-      deps?.attestAgentHookCompatibilityAuthority ?? null
     this.retireAgentHookCompatibilityAuthorityFn =
       deps?.retireAgentHookCompatibilityAuthority ?? null
     this.canRecoverPersistentLocalPtysFn = deps?.canRecoverPersistentLocalPtys ?? (() => true)

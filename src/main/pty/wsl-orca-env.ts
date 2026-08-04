@@ -3,7 +3,7 @@ import {
   ORCHESTRATION_COMPATIBILITY_HOST_ID_ENV,
   ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION_ENV,
   ORCHESTRATION_COMPATIBILITY_HOST_KIND_ENV
-} from '../../shared/orchestration-compatibility-evidence'
+} from '../../shared/orchestration-compatibility-environment'
 
 const WSLENV_ENTRY_SEPARATOR = ':'
 

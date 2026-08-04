@@ -371,8 +371,6 @@ export async function initializeReadyFoundation(): Promise<void> {
       getAgentProviderSessionSnapshot: () => startupDeps.agentHookServer.getStatusSnapshot(),
       getAgentProviderSessionRowsForPane: (paneKey) =>
         startupDeps.agentHookServer.getStatusSnapshotForPane(paneKey),
-      attestAgentHookCompatibilityAuthority: (candidate) =>
-        startupDeps.agentHookServer.attestCompatibilityAuthority(candidate),
       retireAgentHookCompatibilityAuthority: (paneKey) =>
         startupDeps.agentHookServer.retirePaneAuthority(paneKey),
       canRecoverPersistentLocalPtys: () => startupDeps.getDaemonProvider() !== null,

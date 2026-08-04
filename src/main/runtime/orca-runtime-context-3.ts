@@ -1,7 +1,6 @@
 import {
   gitExecFileAsync,
   resolveWorktreeAddBaseRef,
-  type OrchestrationCompatibilityHostStamp,
   type GitWorktreeInfo,
   type Repo,
   type Worktree,
@@ -29,42 +28,6 @@ export type TerminalHandleRecord = {
   ptyId: string | null
   ptyGeneration: number
 }
-
-export type OrchestrationCompatibilityTerminalAuthority = {
-  runtimeId: string
-  terminalHandle: string
-  ptyId: string
-  worktreeId: string
-  processIncarnation: string | null
-  paneKey: string | null
-  launchTokenHash: string | null
-  hostScope:
-    | { kind: 'local'; hostId: 'local' }
-    | { kind: 'wsl'; hostId: 'local'; distro: string }
-    | { kind: 'ssh'; targetId: string }
-}
-
-export type OrchestrationCompatibilityCallerAuthority = Readonly<{
-  hostScope: OrchestrationCompatibilityTerminalAuthority['hostScope']
-  paneKey: string
-  terminalHandle: string
-  processIncarnation: string
-  launchTokenHash: string
-}>
-
-export type RestoredOrchestrationAuthorityReceipt = Readonly<{
-  ptyId: string
-  worktreeId: string
-  terminalHandle: string
-  paneKey: string
-  processIncarnation: string
-  hostScope: OrchestrationCompatibilityTerminalAuthority['hostScope']
-}>
-
-export type OrchestrationCompatibilitySshAttachmentAuthority = Extract<
-  OrchestrationCompatibilityHostStamp,
-  { kind: 'ssh' }
->
 
 export type TerminalWaiter = {
   handle: string

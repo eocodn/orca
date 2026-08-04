@@ -1,4 +1,25 @@
-import { LOCAL_EXECUTION_HOST_ID, toSshExecutionHostId, type ExecutionHostId, isTerminalLeafId, makePaneKey, parseAppSshPtyId, isPtyIncarnationId, type PtyIncarnationId, FLOATING_TERMINAL_WORKTREE_ID, findResolvedWorktreeIdForPath, indexPersistedPtySurfaceBindings, indexPersistedPtyWorktreeBindings, inferWorktreeIdFromPtyId, runtimeWorktreeIdsEqual, withTimeoutResult, PTY_CONTROLLER_LIST_TIMEOUT_MS, type RuntimePtyWorktreeRecord, type PtyControllerTerminalIdentity, type PtyControllerInventory, type ResolvedWorktree } from './orca-runtime-symbols'
+import {
+  LOCAL_EXECUTION_HOST_ID,
+  toSshExecutionHostId,
+  type ExecutionHostId,
+  isTerminalLeafId,
+  makePaneKey,
+  parseAppSshPtyId,
+  isPtyIncarnationId,
+  type PtyIncarnationId,
+  FLOATING_TERMINAL_WORKTREE_ID,
+  findResolvedWorktreeIdForPath,
+  indexPersistedPtySurfaceBindings,
+  indexPersistedPtyWorktreeBindings,
+  inferWorktreeIdFromPtyId,
+  runtimeWorktreeIdsEqual,
+  withTimeoutResult,
+  PTY_CONTROLLER_LIST_TIMEOUT_MS,
+  type RuntimePtyWorktreeRecord,
+  type PtyControllerTerminalIdentity,
+  type PtyControllerInventory,
+  type ResolvedWorktree
+} from './orca-runtime-symbols'
 import { OrcaRuntimeListStoredSshWorktreesForResolutionPart72 } from './orca-runtime-list-stored-ssh-worktrees-for-resolution-part-72'
 
 export class OrcaRuntimeRefreshPtyWorktreeRecordsWithControllerInventoryPart73 extends OrcaRuntimeListStoredSshWorktreesForResolutionPart72 {
@@ -170,13 +191,8 @@ export class OrcaRuntimeRefreshPtyWorktreeRecordsWithControllerInventoryPart73 e
         targetWorktreeId &&
         (!worktreeId || !runtimeWorktreeIdsEqual(worktreeId, targetWorktreeId))
       ) {
-        const receipt = this.restoredOrchestrationAuthorityByPtyId.get(session.id)
-        if (receipt && runtimeWorktreeIdsEqual(receipt.worktreeId, targetWorktreeId)) {
-          this.restoredOrchestrationAuthorityByPtyId.delete(session.id)
-        }
         continue
       }
-      this.restoredOrchestrationAuthorityByPtyId.delete(session.id)
       if (worktreeId) {
         const pty = this.recordAuthoritativePtyWorktree(session.id, worktreeId, {
           ...(incarnationId ? { incarnationId } : {}),
@@ -187,33 +203,12 @@ export class OrcaRuntimeRefreshPtyWorktreeRecordsWithControllerInventoryPart73 e
             ? { tabId: persistedSurface.tabId, paneKey: persistedSurface.paneKey }
             : {})
         })
-        if (restoresExactSurface && controllerIdentity) {
-          this.rememberRestoredOrchestrationAuthority(
-            pty,
-            controllerIdentity.handle,
-            controllerIdentity.incarnationId
-          )
-        } else {
-          this.restoredOrchestrationAuthorityByPtyId.delete(session.id)
-        }
         pty.controllerTitle = session.title?.trim() || null
       }
       // Why: fire-and-forget so this listing hot path doesn't serialize a relay round-trip per session and a throw can't abort the sweep below.
       this.refreshPtyForegroundAgent(session.id)
       this.ptyInventoryOverlapGraceById.delete(session.id)
     }
-    for (const [ptyId, receipt] of this.restoredOrchestrationAuthorityByPtyId) {
-      const inScope =
-        connectionId === undefined ||
-        (connectionId === null && receipt.hostScope.kind !== 'ssh') ||
-        (typeof connectionId === 'string' &&
-          receipt.hostScope.kind === 'ssh' &&
-          receipt.hostScope.targetId === connectionId)
-      if (inScope && !allLivePtyIds.has(ptyId)) {
-        this.restoredOrchestrationAuthorityByPtyId.delete(ptyId)
-      }
-    }
-
     for (const pty of this.ptysById.values()) {
       if (connectionId !== undefined && pty.connectionId !== connectionId) {
         continue
