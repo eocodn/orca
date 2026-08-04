@@ -87,4 +87,30 @@ describe('runtime orchestration storage removal contract', () => {
       expect(source).not.toContain('selectExactWorkerProviderSession')
     }
   })
+
+  it('does not retain the orchestration RPC long-poll path', () => {
+    for (const relativePath of [
+      'src/main/runtime/runtime-rpc-support.ts',
+      'src/main/runtime/runtime-rpc-base.ts',
+      'src/main/runtime/runtime-rpc-dispatch.ts',
+      'src/main/ssh/ssh-remote-cli-host-passthrough.ts',
+      'src/relay/remote-cli-timeout.ts'
+    ]) {
+      const source = readProjectFile(relativePath)
+      expect(source).not.toContain('orchestration.ask')
+      expect(source).not.toContain('orchestration.check')
+      expect(source).not.toContain('ASK_LONG_POLL_SHARE')
+      expect(source).not.toContain('clampOrchestrationAskTimeoutMs')
+    }
+    expect(existsSync(resolve(projectRoot, 'src/shared/orchestration-ask-timeout.ts'))).toBe(false)
+  })
+
+  it('does not retain the unused runtime message waiter module', () => {
+    expect(existsSync(resolve(projectRoot, 'src/main/runtime/runtime-message-waiters.ts'))).toBe(
+      false
+    )
+    expect(readProjectFile('src/main/runtime/orca-runtime-context-1.ts')).not.toContain(
+      'MessageWaitResult'
+    )
+  })
 })

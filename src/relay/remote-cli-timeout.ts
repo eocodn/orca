@@ -1,8 +1,6 @@
-import { clampOrchestrationAskTimeoutMs } from '../shared/orchestration-ask-timeout'
 import {
   isSafeTimerDelayMs,
-  parsePositiveSafeIntegerNumericText,
-  parsePositiveSafeIntegerText
+  parsePositiveSafeIntegerNumericText
 } from '../shared/timer-delay'
 
 // Why: the host bridges the full Orca CLI over the relay (#7716), so mutation
@@ -14,8 +12,6 @@ import {
 const REMOTE_CLI_DEFAULT_TIMEOUT_MS = 5 * 60_000
 const REMOTE_CLI_WAIT_TIMEOUT_MS = 10 * 60_000
 const REMOTE_CLI_TIMEOUT_GRACE_MS = 60_000
-const ORCHESTRATION_ASK_RELAY_GRACE_MS = 3 * 60_000
-const ORCHESTRATION_ASK_RELAY_BASE_MS = 11 * 60_000
 
 const REMOTE_TIMEOUT_BOOLEAN_FLAGS = new Set([
   'all',
@@ -39,12 +35,6 @@ export function remoteCliRequestTimeoutMs(params: Record<string, unknown>): numb
   }
   const commandPath = parseRemoteCommandPath(argv)
   const timeoutFlag = findLastTimeoutMsFlag(argv)
-  if (commandPath[0] === 'orchestration' && commandPath[1] === 'ask') {
-    const parsed =
-      timeoutFlag?.raw === undefined ? null : parsePositiveSafeIntegerText(timeoutFlag.raw)
-    const effective = clampOrchestrationAskTimeoutMs(parsed ?? undefined)
-    return Math.max(ORCHESTRATION_ASK_RELAY_BASE_MS, effective + ORCHESTRATION_ASK_RELAY_GRACE_MS)
-  }
   const base = isWaitStyleCliRequest(argv, commandPath)
     ? REMOTE_CLI_WAIT_TIMEOUT_MS
     : REMOTE_CLI_DEFAULT_TIMEOUT_MS
@@ -64,8 +54,7 @@ function isWaitStyleCliRequest(argv: string[], commandPath: string[]): boolean {
     return true
   }
   return (
-    (commandPath[0] === 'terminal' && commandPath[1] === 'wait') ||
-    (commandPath[0] === 'orchestration' && commandPath[1] === 'ask')
+    commandPath[0] === 'terminal' && commandPath[1] === 'wait'
   )
 }
 

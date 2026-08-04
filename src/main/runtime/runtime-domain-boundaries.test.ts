@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RuntimeJiraCommands } from './orca-runtime-jira-commands'
-import { RuntimeMessageWaiters } from './runtime-message-waiters'
 import { RuntimeNotificationRegistry } from './runtime-notification-registry'
 import { RuntimeClientSettingsCommands } from './runtime-client-settings-commands'
 import { RuntimeAutomationCommands } from './runtime-automation-commands'
@@ -15,25 +14,6 @@ import {
 } from './runtime-worktree-summary'
 
 describe('runtime domain boundaries', () => {
-  it('keeps orchestration message waiter lifecycle state inside its owner', async () => {
-    const waiters = new RuntimeMessageWaiters(1000)
-
-    const pending = waiters.wait('handle-1')
-    waiters.notify('handle-1', 'worker_done')
-
-    await expect(pending).resolves.toBe('notified')
-    expect(waiters.cancel('handle-1')).toBe(0)
-  })
-
-  it('rejects an exclusive duplicate without touching the existing waiter', async () => {
-    const waiters = new RuntimeMessageWaiters(1000)
-    const first = waiters.wait('handle-1', { exclusive: true })
-
-    await expect(waiters.wait('handle-1', { exclusive: true })).resolves.toBe('waiter_exists')
-    waiters.cancel('handle-1')
-    await expect(first).resolves.toBe('cancelled')
-  })
-
   it('assigns replay watermarks at the notification boundary', () => {
     const notifications = new RuntimeNotificationRegistry()
     let observedSeq: number | undefined

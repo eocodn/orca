@@ -14,20 +14,21 @@ import type { RpcRequest, RpcResponse } from './rpc/core'
 
 
 
-import { DeviceRegistry, type DeviceScope } from './device-registry'
-import { type E2EEKeypair } from './e2ee-keypair'
+import type { DeviceRegistry} from './device-registry';
+import { type DeviceScope } from './device-registry'
+import type { E2EEKeypair } from './e2ee-keypair'
 
-import {
-  type MobileSocketTransportMetadata
+import type {
+  MobileSocketTransportMetadata
 } from './rpc/mobile-socket-wiring'
 import type { PairingRelay } from '../../shared/mobile-relay-pairing-offer'
 import type { MobilePairingConnectionMode } from '../../shared/mobile-pairing-connection-mode'
-import {
-  type MobileRelayMintFailure
+import type {
+  MobileRelayMintFailure
 } from '../../shared/mobile-relay-mint-failure'
-import {
-  type RelayDeviceBinding,
-  type RelayRevokeOutboxItem
+import type {
+  RelayDeviceBinding,
+  RelayRevokeOutboxItem
 } from './relay/relay-revoke-outbox'
 import type {
   DeviceCredentialInstalled,
@@ -128,12 +129,6 @@ export const KEEPALIVE_INTERVAL_MS = 10_000
 
 // Why: cap long-polls at half the 32-slot connection budget so they can't starve short RPCs; overflow → runtime_busy. See §7 risk #2.
 export const LONG_POLL_CAP = 16
-
-// Why: orchestration.ask blocks on a human/agent reply for minutes, an order of
-// magnitude longer than terminal.wait or check --wait, so a fleet of asking
-// workers would otherwise hold every slot and starve the mobile/web/CLI/relay
-// clients sharing this runtime. Reserve half the budget for the other classes.
-export const ASK_LONG_POLL_SHARE = 0.5
 
 export function createWebClientUrl(endpoint: string, pairingUrl: string): string {
   const url = new URL(endpoint)
@@ -414,25 +409,12 @@ export const MOBILE_RPC_METHOD_ALLOWLIST = new Set([
   'worktree.sleep'
 ])
 
-// Why: 'ask' is metered separately from 'wait' — same keepalive/abort wiring, its own sub-cap.
-export type LongPollClass = 'ask' | 'wait'
+export type LongPollClass = 'wait'
 
 // Why: single classifier for long-poll requests (handlers that block on an external event), shared by counter/abort/keepalive. See §3.1.
 export function longPollClassOf(request: RpcRequest): LongPollClass | null {
   if (request.method === 'terminal.wait') {
     return 'wait'
-  }
-  // Why: orchestration.ask blocks unconditionally (default 600 s) holding the
-  // RPC open until a reply lands or the deadline passes, so it needs the same
-  // keepalive as check --wait or the 30 s socket idle timer tears it down. It
-  // also relies on the abort signal (only wired for long-polls) to release the
-  // waiter when the asking client disconnects.
-  if (request.method === 'orchestration.ask') {
-    return 'ask'
-  }
-  if (request.method === 'orchestration.check') {
-    const params = request.params as { wait?: unknown } | undefined
-    return params?.wait === true ? 'wait' : null
   }
   return null
 }

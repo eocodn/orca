@@ -10,14 +10,14 @@ import type { RpcRequest, RpcResponse } from './rpc/core'
 import { errorResponse } from './rpc/errors'
 import type { RpcMessageContext} from './rpc/transport'
 
-import { WebSocketTransport } from './rpc/ws-transport'
+import type { WebSocketTransport } from './rpc/ws-transport'
 
 import type { WebSocket } from 'ws'
 
 
 
-import {
-  type AuthenticatedMobileSocket} from './rpc/mobile-socket-wiring'
+import type {
+  AuthenticatedMobileSocket} from './rpc/mobile-socket-wiring'
 
 
 
@@ -32,7 +32,10 @@ import type {
 
 import { RuntimeRpcTransportServer } from "./runtime-rpc-transport"
 import {
-  MOBILE_RPC_METHOD_ALLOWLIST, injectDeviceScope, longPollClassOf, type LongPollClass
+  MOBILE_RPC_METHOD_ALLOWLIST,
+  injectDeviceScope,
+  longPollClassOf,
+  type LongPollClass
 } from "./runtime-rpc-support"
 
 export class RuntimeRpcDispatchServer extends RuntimeRpcTransportServer {
@@ -71,8 +74,7 @@ export class RuntimeRpcDispatchServer extends RuntimeRpcTransportServer {
     }
   }
 
-  // Why: one fence for both transports — the total cap protects short RPCs, the ask
-  // sub-cap protects terminal.wait / check --wait from slow reply-blocked asks.
+  // Why: one fence for both transports — long-poll requests cannot starve short RPCs.
   // Returns the rejection message, or null once the slot is reserved.
   protected admitLongPoll(longPoll: LongPollClass | null): string | null {
     if (!longPoll) {
@@ -81,13 +83,7 @@ export class RuntimeRpcDispatchServer extends RuntimeRpcTransportServer {
     if (this.activeLongPolls >= this.longPollCap) {
       return 'long-poll capacity reached; retry with backoff'
     }
-    if (longPoll === 'ask' && this.activeAskLongPolls >= this.askLongPollCap) {
-      return 'orchestration.ask capacity reached; retry with backoff'
-    }
     this.activeLongPolls += 1
-    if (longPoll === 'ask') {
-      this.activeAskLongPolls += 1
-    }
     return null
   }
 
@@ -96,9 +92,6 @@ export class RuntimeRpcDispatchServer extends RuntimeRpcTransportServer {
       return
     }
     this.activeLongPolls = Math.max(0, this.activeLongPolls - 1)
-    if (longPoll === 'ask') {
-      this.activeAskLongPolls = Math.max(0, this.activeAskLongPolls - 1)
-    }
   }
 
   protected parseAndAuth(rawMessage: string): { request: RpcRequest } | { error: RpcResponse } {

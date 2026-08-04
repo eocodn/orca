@@ -16,10 +16,10 @@ import type { RpcTransport } from './rpc/transport'
 
 
 import type { WebSocket } from 'ws'
-import { DeviceRegistry} from './device-registry'
-import { type E2EEKeypair } from './e2ee-keypair'
-import { UnpairedDeviceAuthThrottle } from './rpc/unpaired-device-auth-throttle'
-import {
+import type { DeviceRegistry} from './device-registry'
+import type { E2EEKeypair } from './e2ee-keypair'
+import type { UnpairedDeviceAuthThrottle } from './rpc/unpaired-device-auth-throttle'
+import type {
   MobileSocketWiring} from './rpc/mobile-socket-wiring'
 
 
@@ -32,14 +32,19 @@ import {
 
 
 
-import {
-  type TerminalStreamFrame
+import type {
+  TerminalStreamFrame
 } from '../../shared/terminal-stream-protocol'
 
 import {
-  DEFAULT_WS_PORT, LONG_POLL_CAP, type OrcaRuntimeRpcServerOptions, ASK_LONG_POLL_SHARE,
-  KEEPALIVE_INTERVAL_MS, type MobilePairingOffer, type MobileRelayPairingProvider,
-  type PairingOfferUnavailable} from "./runtime-rpc-support"
+  DEFAULT_WS_PORT,
+  LONG_POLL_CAP,
+  type OrcaRuntimeRpcServerOptions,
+  KEEPALIVE_INTERVAL_MS,
+  type MobilePairingOffer,
+  type MobileRelayPairingProvider,
+  type PairingOfferUnavailable
+} from './runtime-rpc-support'
 
 export class RuntimeRpcBaseServer {
   protected readonly runtime: OrcaRuntimeService
@@ -55,7 +60,6 @@ export class RuntimeRpcBaseServer {
   protected readonly keepaliveIntervalMs: number
   protected readonly longPollCap: number
   protected readonly metadataOwnershipPollMs: number
-  protected readonly askLongPollCap: number
   protected readonly relayRevokeOutbox: RelayRevokeOutbox
   protected deviceRegistry: DeviceRegistry | null = null
   protected e2eeKeypair: E2EEKeypair | null = null
@@ -86,8 +90,6 @@ export class RuntimeRpcBaseServer {
   >()
   // Why: separate from server.maxConnections — count only long-running dispatches, not short RPCs. See §3.1 + §7 risk #2.
   protected activeLongPolls = 0
-  // Why: subset of activeLongPolls held by orchestration.ask, fenced by askLongPollCap.
-  protected activeAskLongPolls = 0
 
   constructor({
     runtime,
@@ -114,8 +116,6 @@ export class RuntimeRpcBaseServer {
     this.keepaliveIntervalMs = keepaliveIntervalMs
     this.longPollCap = longPollCap
     this.metadataOwnershipPollMs = metadataOwnershipPollMs
-    // Why: derived, not configurable — the reservation must hold for whatever cap a caller picks.
-    this.askLongPollCap = Math.max(1, Math.floor(longPollCap * ASK_LONG_POLL_SHARE))
     this.relayRevokeOutbox = new RelayRevokeOutbox(userDataPath)
   }
 

@@ -8,12 +8,10 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { getCanonicalUserDataPath } from '../persistence'
 import { parseRemoteCliArgs } from './ssh-remote-cli-args'
-import { clampOrchestrationAskTimeoutMs } from '../../shared/orchestration-ask-timeout'
 import {
   MAX_TIMER_DELAY_MS,
   isSafeTimerDelayMs,
-  parsePositiveSafeIntegerNumericText,
-  parsePositiveSafeIntegerText
+  parsePositiveSafeIntegerNumericText
 } from '../../shared/timer-delay'
 export type RemoteOrcaCliRequest = {
   argv: string[]
@@ -74,20 +72,11 @@ export function resolveHostCliEntryPath(app: {
     : join(app.appPath, 'out', 'cli', 'index.js')
 }
 
-/** Kill timer for the host CLI subprocess. Long-poll commands carry their wait
- * budget in `--timeout-ms`; extend past it so the CLI's own timeout fires
- * first and produces a proper error message. */
+/** Kill timer for the host CLI subprocess. Extend past the CLI wait budget so
+ * the CLI's own timeout fires first and produces a proper error message. */
 export function resolveHostCliKillTimeoutMs(argv: string[]): number {
   const parsed = parseRemoteCliArgs(argv)
   const rawTimeout = parsed.flags.get('timeout-ms')
-  if (parsed.commandPath[0] === 'orchestration' && parsed.commandPath[1] === 'ask') {
-    const explicit =
-      typeof rawTimeout === 'string' ? parsePositiveSafeIntegerText(rawTimeout) : null
-    return Math.max(
-      DEFAULT_KILL_TIMEOUT_MS,
-      clampOrchestrationAskTimeoutMs(explicit ?? undefined) + KILL_TIMEOUT_GRACE_MS
-    )
-  }
   const explicit =
     typeof rawTimeout === 'string' ? parsePositiveSafeIntegerNumericText(rawTimeout) : null
   // Why: this feeds the kill timer directly, so a post-grace budget outside the
