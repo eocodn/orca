@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect, useState } from 'react'
 import { FolderOpen } from 'lucide-react'
 import type { FloatingTerminalTriggerLocation, GlobalSettings } from '../../../../shared/types'
@@ -39,7 +40,7 @@ export function FloatingWorkspacePane({
 
   useEffect(() => {
     let cancelled = false
-    void window.api.app
+    void getClientRuntime().app
       .getFloatingTerminalCwd({
         path: settings.floatingTerminalCwd
       })
@@ -59,7 +60,7 @@ export function FloatingWorkspacePane({
   }, [settings.floatingTerminalCwd])
 
   const pickFloatingWorkspaceDirectory = async (): Promise<void> => {
-    const path = await window.api.app.pickFloatingWorkspaceDirectory()
+    const path = await getClientRuntime().app.pickFloatingWorkspaceDirectory()
     if (!path) {
       return
     }

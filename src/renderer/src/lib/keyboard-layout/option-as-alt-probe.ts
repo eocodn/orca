@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 /**
  * Runtime probe for the active macOS keyboard layout.
  *
@@ -56,7 +57,7 @@ export type OptionAsAltProbe = {
 
 type CreateProbeOptions = {
   /** Injectable reader for the macOS input source ID. Defaults to the
-   *  preload `window.api.app.getKeyboardInputSourceId` when available.
+   *  preload `getClientRuntime().app.getKeyboardInputSourceId` when available.
    *  Tests pass a stub to exercise the compose override deterministically. */
   readInputSourceId?: InputSourceIdReader
 }

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { recordTerminalWebglDiagnostic } from '../../../../shared/terminal-webgl-diagnostics'
 import {
   forEachLivePaneForDesyncSentinel,
@@ -246,7 +247,7 @@ async function persistEvidenceThenRecover(
     if (!pngDataUrl || bufferText == null) {
       throw new Error('Render-desync evidence payload was released before persistence')
     }
-    const persisted = await window.api.app.writeTerminalRenderDesyncEvidence({
+    const persisted = await getClientRuntime().app.writeTerminalRenderDesyncEvidence({
       captureId: entry.captureId,
       phase: 'corrupt',
       pngDataUrl,
@@ -276,7 +277,7 @@ async function persistEvidenceThenRecover(
   resetAndRefreshAllTerminalWebglAtlases()
   const timeoutId = setTimeout(() => {
     healedCaptureTimeoutIds.delete(timeoutId)
-    void window.api.app
+    void getClientRuntime().app
       .writeTerminalRenderDesyncEvidence({
         captureId: entry.captureId,
         phase: 'healed',

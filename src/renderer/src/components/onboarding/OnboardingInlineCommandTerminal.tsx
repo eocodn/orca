@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import TerminalPane from '@/components/terminal-pane/TerminalPane'
@@ -107,7 +108,7 @@ export function OnboardingInlineCommandTerminal({
 
   useEffect(() => {
     let cancelled = false
-    void window.api.app.getFloatingTerminalCwd({ path: '~' }).then((nextCwd) => {
+    void getClientRuntime().app.getFloatingTerminalCwd({ path: '~' }).then((nextCwd) => {
       if (!cancelled) {
         setCwd(nextCwd)
       }

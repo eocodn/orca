@@ -481,17 +481,17 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
 
           // Why: main overlaps daemon/hook startup with hydration, but restored terminals need those services ready before they spawn/reconnect PTYs.
           await timeRendererStartupStep('first-window-services-await', () =>
-            window.api.app.awaitFirstWindowStartupServices()
+            getClientRuntime().app.awaitFirstWindowStartupServices()
           )
           await timeRendererStartupStep('recover-legacy-worker-terminals-pre-reconnect', () =>
-            window.api.app.recoverLegacyWorkerTerminalsForRendererStartup()
+            getClientRuntime().app.recoverLegacyWorkerTerminalsForRendererStartup()
           )
           reconnectStarted = true
           await timeRendererStartupStep('reconnect-terminals', () =>
             actions.reconnectPersistedTerminals(abortController.signal)
           )
           await timeRendererStartupStep('recover-legacy-worker-terminals-post-reconnect', () =>
-            window.api.app.recoverLegacyWorkerTerminalsForRendererStartup()
+            getClientRuntime().app.recoverLegacyWorkerTerminalsForRendererStartup()
           )
           syncZoomCSSVar()
           // Why (issue #1158): unlock the session writer only after hydration and all dependent steps succeeded, so a mid-startup throw can't serialize partially-mutated state to disk.
@@ -559,17 +559,17 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
             action: {
               label: translate('auto.App.caea5b51b9', 'Restart now'),
               onClick: () => {
-                void window.api.app.relaunch()
+                void getClientRuntime().app.relaunch()
               }
             }
           })
           // Why: reconnect flips workspaceSessionReady so the UI mounts, but hydrationSucceeded stays false so the session writer can't overwrite the file we failed to load.
           if (!reconnectStarted) {
             try {
-              await window.api.app.awaitFirstWindowStartupServices()
-              await window.api.app.recoverLegacyWorkerTerminalsForRendererStartup()
+              await getClientRuntime().app.awaitFirstWindowStartupServices()
+              await getClientRuntime().app.recoverLegacyWorkerTerminalsForRendererStartup()
               await actions.reconnectPersistedTerminals(abortController.signal)
-              await window.api.app.recoverLegacyWorkerTerminalsForRendererStartup()
+              await getClientRuntime().app.recoverLegacyWorkerTerminalsForRendererStartup()
             } catch (reconnectErr) {
               console.error(
                 '[startup] reconnectPersistedTerminals failed in error path:',

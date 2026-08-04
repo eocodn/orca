@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { createUntitledMarkdownFileWithTemplateSelection } from '@/lib/create-untitled-markdown'
@@ -102,7 +103,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
   const openFloatingMarkdownTab = useCallback(() => {
     void (async () => {
       try {
-        const document = await window.api.app.pickFloatingMarkdownDocument()
+        const document = await getClientRuntime().app.pickFloatingMarkdownDocument()
         if (!document) return
         openFile({
           filePath: document.filePath,

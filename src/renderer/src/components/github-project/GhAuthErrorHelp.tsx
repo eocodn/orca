@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 /**
  * Inline guidance for `auth_required` / `scope_missing` errors from gh.
  *
@@ -41,7 +42,7 @@ function refreshCommandForHost(host: string | null | undefined): string {
 const IS_WINDOWS = typeof navigator !== 'undefined' && /Win(dows|32|64)/i.test(navigator.userAgent)
 
 function reloadOrcaRenderer(): void {
-  const reload = window.api.app.reload
+  const reload = getClientRuntime().app.reload
   if (typeof reload !== 'function') {
     window.location.reload()
     return

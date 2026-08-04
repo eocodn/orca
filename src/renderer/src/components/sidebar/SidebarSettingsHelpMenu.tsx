@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useState } from 'react'
 import {
   BookOpen,
@@ -136,7 +137,7 @@ export function SidebarSettingsHelpMenu(): React.JSX.Element {
     toast.info(
       translate('auto.components.sidebar.SidebarSettingsHelpMenu.5161eef55d', 'Restarting Orca…')
     )
-    void window.api.app.restart().catch((error) => {
+    void getClientRuntime().app.restart().catch((error) => {
       if (mountedRef.current) {
         setIsRestartingOrca(false)
         toast.error(

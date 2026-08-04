@@ -381,7 +381,7 @@ export function useAppShellPageSessionEffects(context: Record<string, unknown>) 
         : []
       // Why: one blocking checkpoint closes the immediate-quit race for both
       // the narrow view preference and the larger session recovery snapshots.
-      window.api.app.persistBeforeUnloadSync({
+      getClientRuntime().app.persistBeforeUnloadSync({
         sessions: sessionSnapshots,
         ui: buildActiveViewUnloadPatch(freshState)
       })

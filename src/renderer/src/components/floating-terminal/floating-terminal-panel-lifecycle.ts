@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect } from 'react'
 import { consumeFloatingTerminalOpenMaximizedIntent } from '@/lib/floating-terminal'
 import { useFloatingTerminalPanelState } from './floating-terminal-panel-state'
@@ -19,7 +20,7 @@ export function useFloatingTerminalPanelLifecycle(state: PanelState, bounds: Bou
 
   useEffect(() => {
     let cancelled = false
-    void window.api.app.getFloatingTerminalCwd({ path: floatingTerminalCwd }).then((nextCwd) => {
+    void getClientRuntime().app.getFloatingTerminalCwd({ path: floatingTerminalCwd }).then((nextCwd) => {
       if (!cancelled) setCwd(nextCwd)
     })
     return () => { cancelled = true }
@@ -27,7 +28,7 @@ export function useFloatingTerminalPanelLifecycle(state: PanelState, bounds: Bou
 
   useEffect(() => {
     let cancelled = false
-    void window.api.app.getFloatingMarkdownDirectory().then((nextMarkdownCwd) => {
+    void getClientRuntime().app.getFloatingMarkdownDirectory().then((nextMarkdownCwd) => {
       if (!cancelled) setMarkdownCwd(nextMarkdownCwd)
     })
     return () => { cancelled = true }

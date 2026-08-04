@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../shared/constants'
 import type { BrowserTab, TerminalTab } from '../../../shared/types'
 import { createUntitledMarkdownFileWithTemplateSelection } from './create-untitled-markdown'
@@ -57,7 +58,7 @@ export async function createFloatingWorkspaceMarkdownTab(
 ): Promise<void> {
   const targetGroupId = store.activeGroupIdByWorktree[FLOATING_TERMINAL_WORKTREE_ID]
   const floatingMarkdownDirectory =
-    markdownDirectory ?? (await window.api.app.getFloatingMarkdownDirectory())
+    markdownDirectory ?? (await getClientRuntime().app.getFloatingMarkdownDirectory())
   if (!floatingMarkdownDirectory) {
     return
   }

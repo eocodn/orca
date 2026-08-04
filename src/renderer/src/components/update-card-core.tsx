@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { useAppStore } from '../store'
@@ -219,7 +220,7 @@ export function UpdateCard() {
     setCompatibilitySetupError(null)
     void window.api.settings
       .set({ electronHttp1CompatibilityMode: true })
-      .then(() => window.api.app.relaunch())
+      .then(() => getClientRuntime().app.relaunch())
       .catch((error) => {
         const message = String((error as Error)?.message ?? error)
         console.error('[updates] failed to enable HTTP/1.1 compatibility:', error)

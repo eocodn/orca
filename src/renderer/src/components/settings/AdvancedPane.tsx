@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useRef, useState } from 'react'
 import { Info, Loader2, RotateCw } from 'lucide-react'
 import type { GlobalSettings } from '../../../../shared/types'
@@ -32,7 +33,7 @@ export function AdvancedPane({ settings, updateSettings }: AdvancedPaneProps): R
 
   const handleHttp1CompatibilityRelaunch = (): void => {
     setHttp1CompatibilityRelaunching(true)
-    void window.api.app.relaunch().catch((error) => {
+    void getClientRuntime().app.relaunch().catch((error) => {
       console.error('[settings] failed to relaunch for HTTP/1.1 compatibility:', error)
       if (mountedRef.current) {
         setHttp1CompatibilityRelaunching(false)
