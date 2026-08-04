@@ -13,7 +13,6 @@ import {
   Lock,
   Mic,
   MousePointerClick,
-  Network,
   Palette,
   PanelsTopLeft,
   Play,
@@ -46,7 +45,6 @@ import { getTerminalPaneSearchEntries } from '@/components/settings/terminal-sea
 import { getQuickCommandsPaneSearchEntries } from '@/components/settings/quick-commands-search'
 import { getBrowserPaneCombinedSearchEntries } from '@/components/settings/browser-pane-search'
 import { getNotificationsPaneSearchEntries } from '@/components/settings/notifications-search'
-import { getOrchestrationPaneSearchEntries } from '@/components/settings/orchestration-search'
 import { getLinearAgentSkillPaneSearchEntries } from '@/components/settings/linear-agent-skill-search'
 import {
   getRuntimeEnvironmentsSearchEntry,
@@ -156,17 +154,6 @@ export function buildSettingsNavigationMetadata({
       searchEntries: getAccountsPaneSearchEntries(),
       group: 'capabilities',
       badge: translate('auto.hooks.useSettingsNavigationMetadata.7c79d3b7bf', 'Optional')
-    },
-    {
-      id: 'orchestration',
-      title: translate('auto.hooks.useSettingsNavigationMetadata.58a868e8e4', 'Orchestration'),
-      description: translate(
-        'auto.hooks.useSettingsNavigationMetadata.cd50cec5d7',
-        'Coordinate multiple coding agents through Orca.'
-      ),
-      icon: Network,
-      searchEntries: getOrchestrationPaneSearchEntries(),
-      group: 'capabilities'
     },
     // Why: only surfaced once Linear is connected — a capability that needs a
     // linked provider before the agent skill has anything to act on.

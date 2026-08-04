@@ -1,4 +1,4 @@
-// Concrete settings page view and orchestration.
+// Concrete settings page navigation.
 // Concrete surface implementation for Settings.tsx
 import {
   Suspense,
@@ -37,8 +37,7 @@ import type {
 } from '@/lib/settings-navigation-types'
 import {
   COMPUTER_USE_SKILL_NAME,
-  LINEAR_AGENT_SKILL_NAMES,
-  ORCHESTRATION_SKILL_NAME
+  LINEAR_AGENT_SKILL_NAMES
 } from '@/lib/agent-feature-install-commands'
 import {
   getAgentSkillNavInstallStatus,
@@ -89,7 +88,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     isWebClient,
     showDesktopOnlySettings,
     linearConnected,
-    orchestrationSkill,
     linearSkill,
     computerUseSkill,
     skillFreshnessApplies,
@@ -116,8 +114,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
 
   const displayedGitUsername = repos[0]?.gitUsername ?? ''
   const baseNavSections = useSettingsNavigationMetadata()
-  const { installed: orchestrationSkillInstalled, loading: orchestrationSkillLoading } =
-    orchestrationSkill
   const {
     installed: linearSkillInstalled,
     loading: linearSkillLoading,
@@ -127,17 +123,7 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     computerUseSkill
   const capabilityInstallStatusBySectionId = useMemo(() => {
     const applicableFreshnessInventory = skillFreshnessApplies ? skillFreshnessInventory : null
-    const next = new Map<string, SettingsNavInstallStatus>([
-      [
-        'orchestration',
-        getAgentSkillNavInstallStatus({
-          name: ORCHESTRATION_SKILL_NAME,
-          installed: orchestrationSkillInstalled,
-          loading: orchestrationSkillLoading,
-          inventory: applicableFreshnessInventory
-        })
-      ]
-    ])
+    const next = new Map<string, SettingsNavInstallStatus>()
     if (linearConnected) {
       next.set(
         'linear',
@@ -179,8 +165,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     linearSkillLoading,
     linearSkills,
     modelStates,
-    orchestrationSkillInstalled,
-    orchestrationSkillLoading,
     settings,
     showDesktopOnlySettings,
     skillFreshnessApplies,

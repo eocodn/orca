@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import { useShortcutKeyDetails } from '@/hooks/useShortcutLabel'
-import { useMountedRef } from '@/hooks/useMountedRef'
 import { useAppStore } from '@/store'
 import type { OpenFile } from '@/store/slices/editor'
 import { useTerminalTabColdParking } from '@/components/terminal-pane/use-terminal-tab-cold-parking'
@@ -23,7 +22,6 @@ import { resolveUnifiedTabLabel } from '../../../../shared/tab-title-resolution'
 import type { TerminalPaneHandle } from '@/components/terminal-pane/TerminalPane'
 import { ModifierDoubleTapDetector } from '../../../../shared/modifier-double-tap-detector'
 import { selectFloatingTerminalPanelInputs } from './floating-terminal-panel-inputs'
-import { hasOrchestrationSetupMarker, isOrchestrationSetupDismissed } from '@/lib/orchestration-setup-state'
 
 const NO_ACTIVITY_TERMINAL_PORTALS: never[] = []
 
@@ -100,10 +98,6 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
   )
   const [bounds, setBounds] = useState(initialBoundsStateRef.current.renderedBounds)
   const [maximized, setMaximized] = useState(false)
-  const [orchestrationDialogOpen, setOrchestrationDialogOpen] = useState(false)
-  const [showOrchestrationSetup, setShowOrchestrationSetup] = useState(
-    () => !hasOrchestrationSetupMarker() && !isOrchestrationSetupDismissed()
-  )
   const restoreBoundsRef = useRef<FloatingTerminalPanelBoundsState | null>(null)
   const stagedBoundsRef = useRef<FloatingTerminalPanelBounds | null>(null)
   const lastPersistedBoundsRef = useRef<FloatingTerminalPanelCommittedBounds | null>(
@@ -128,7 +122,6 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
     helper: HTMLElement
     leafId: string | null
   } | null>(null)
-  const mountedRef = useMountedRef()
   const dragRef = useRef<{
     pointerId: number
     startX: number
@@ -255,11 +248,10 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
     generatedTabTitlesEnabled, newTerminalShortcut, newBrowserShortcut, newMarkdownShortcut,
     openMarkdownShortcut, closeShortcut, cwd, setCwd, markdownCwd, setMarkdownCwd,
     initialBoundsStateRef, boundsSourceRef, committedBoundsRef, bounds, setBounds, maximized,
-    setMaximized, orchestrationDialogOpen, setOrchestrationDialogOpen, showOrchestrationSetup,
-    setShowOrchestrationSetup, restoreBoundsRef, stagedBoundsRef, lastPersistedBoundsRef,
+    setMaximized, restoreBoundsRef, stagedBoundsRef, lastPersistedBoundsRef,
     pendingEditorCloseQueueRef, pendingReclaimArmByFileIdRef, saveDialogFileIdRef, panelRef,
     terminalPaneRegistry, doubleTapDetectorRef, shortcutFocusFrameRef, shortcutFocusTimeoutRef,
-    reclaimTerminalInputOnWindowFocusRef, mountedRef, dragRef, activeGroup, groupTabs, activeTab,
+    reclaimTerminalInputOnWindowFocusRef, dragRef, activeGroup, groupTabs, activeTab,
     activeTerminalId, activeBrowserId, activeEditorUnifiedId, activeEditorFileId, terminalTabById,
     terminalAssignments, parkedTerminalTabIds, terminalItems, browserItems, editorItems,
     simulatorItems, hasVisibleFloatingTabs, visibleFloatingItemCount, activeClosableTab,

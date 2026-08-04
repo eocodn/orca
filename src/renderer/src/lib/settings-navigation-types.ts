@@ -37,12 +37,10 @@ const SETTINGS_NAV_TARGETS = [
   'experimental',
   'plugins',
   'agents',
-  'orchestration',
   'linear',
   'setup-guide',
   'servers',
   'mobile',
-  'mobile-emulator',
   'repo'
 ] as const
 

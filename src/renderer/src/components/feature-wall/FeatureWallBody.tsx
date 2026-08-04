@@ -16,7 +16,6 @@ import { BrowserAnimatedVisual } from './BrowserAnimatedVisual'
 import { AgentsOrchestrationVisual } from './AgentsOrchestrationVisual'
 import { ReviewAnimatedVisual } from './ReviewAnimatedVisual'
 import { GitHubRow, LinearRow } from '../onboarding/IntegrationsStep'
-import { OrchestrationSetupCard } from '../settings/OrchestrationSetupCard'
 import { BrowserUseSkillSetupCard } from './BrowserUseSkillSetupCard'
 import { UsageAccountsCard } from './agents-orchestration/UsageAccountsCard'
 import { AiCommitPrSettingsCard } from './AiCommitPrSettingsCard'
@@ -33,7 +32,6 @@ export function FeatureWallBody(props: {
   agentsActiveStep: AgentsStep | null
   workbenchActiveStep: WorkbenchStep | null
   reviewActiveStep: ReviewStep | null
-  orchestrationSkill: InstalledAgentSkillState
   browserUseSkill: InstalledAgentSkillState
   onUsageAccountStateChange: () => void | Promise<void>
   settings: GlobalSettings | null
@@ -49,7 +47,6 @@ export function FeatureWallBody(props: {
     agentsActiveStep,
     workbenchActiveStep,
     reviewActiveStep,
-    orchestrationSkill,
     browserUseSkill,
     onUsageAccountStateChange
   } = props
@@ -128,11 +125,7 @@ export function FeatureWallBody(props: {
   ) : isAgentsUsage ? (
     <UsageAccountsCard onAccountStateChange={onUsageAccountStateChange} />
   ) : isAgentsOrchestration ? (
-    <OrchestrationSetupCard
-      compact
-      terminalHeightPx={setupTerminalHeightPx}
-      skill={orchestrationSkill}
-    />
+    null
   ) : isWorkbenchBrowser ? (
     <BrowserUseSkillSetupCard
       compact

@@ -1,4 +1,4 @@
-// Concrete settings state and orchestration; the public import remains settings-page-state.tsx.
+// Concrete settings state; the public import remains settings-page-state.tsx.
 import { useCallback, useMemo } from 'react'
 import type { ProjectHostSetup } from '../../../../shared/types'
 import { useAppStore } from '../../store'
@@ -80,7 +80,6 @@ function Settings(): React.JSX.Element {
     isWindows,
     isMac,
     linearConnected,
-    orchestrationSkill,
     linearSkill,
     computerUseSkill,
     skillFreshnessApplies,
@@ -210,7 +209,6 @@ function Settings(): React.JSX.Element {
     isWebClient,
     showDesktopOnlySettings,
     linearConnected,
-    orchestrationSkill,
     linearSkill,
     computerUseSkill,
     skillFreshnessApplies,

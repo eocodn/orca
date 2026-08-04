@@ -1,7 +1,6 @@
 import { translate } from '@/i18n/i18n'
 import { AgentsPane } from './AgentsPane'
 import { AccountsPane } from './AccountsPane'
-import { OrchestrationPane } from './OrchestrationPane'
 import { LinearAgentSkillPane } from './LinearAgentSkillPane'
 import { ComputerUsePane } from './ComputerUsePane'
 import { VoicePane } from './VoicePane'
@@ -98,18 +97,6 @@ export function SettingsPagePrimarySections({
                       accountOwnerPlatform={windowsTerminalCapabilities.hostPlatform}
                     />
                   ) : null}
-                </SettingsSection>
-
-                <SettingsSection
-                  id="orchestration"
-                  title={translate('auto.components.settings.Settings.00c3a7950d', 'Orchestration')}
-                  description={translate(
-                    'auto.components.settings.Settings.475980f53d',
-                    'Coordinate multiple coding agents through Orca.'
-                  )}
-                  searchEntries={getSectionSearchEntries('orchestration')}
-                >
-                  {isSectionMounted('orchestration') ? <OrchestrationPane /> : null}
                 </SettingsSection>
 
                 {linearConnected ? (

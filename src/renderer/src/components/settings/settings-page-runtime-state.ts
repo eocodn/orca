@@ -14,8 +14,7 @@ import { useWarpThemeImport } from './useWarpThemeImport'
 import { getInitialMountedSectionIds } from './settings-load-performance'
 import {
   COMPUTER_USE_SKILL_NAME,
-  LINEAR_AGENT_SKILL_NAMES,
-  ORCHESTRATION_SKILL_NAME
+  LINEAR_AGENT_SKILL_NAMES
 } from '@/lib/agent-feature-install-commands'
 import {
   GLOBAL_AGENT_SKILL_SOURCE_KINDS,
@@ -43,10 +42,6 @@ export function useSettingsPageRuntimeState({
   const isMac = isMacUserAgent()
   const linearConnected = useLinearProviderConnected()
   const activeSkillRuntime = useActiveProjectSkillRuntime()
-  const orchestrationSkill = useInstalledAgentSkill(ORCHESTRATION_SKILL_NAME, {
-    discoveryTarget: activeSkillRuntime.discoveryTarget,
-    sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
-  })
   const linearSkill = useInstalledAgentSkillNames(LINEAR_AGENT_SKILL_NAMES, {
     enabled: linearConnected,
     discoveryTarget: activeSkillRuntime.discoveryTarget,
@@ -107,7 +102,6 @@ export function useSettingsPageRuntimeState({
     isWindows,
     isMac,
     linearConnected,
-    orchestrationSkill,
     linearSkill,
     computerUseSkill,
     skillFreshnessApplies,
