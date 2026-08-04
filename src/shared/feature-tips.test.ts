@@ -26,7 +26,6 @@ describe('feature tips', () => {
     const tips = getOrderedUnseenFeatureTips({
       seenTipIds: new Set<FeatureTipId>(['cmd-j-palette']),
       completedTipIds: getCompletedFeatureTipIds({
-        cliInstalled: true,
         voiceDictationEnabled: true
       })
     })
@@ -38,7 +37,6 @@ describe('feature tips', () => {
     const tips = getOrderedUnseenFeatureTips({
       seenTipIds: new Set<FeatureTipId>(),
       completedTipIds: getCompletedFeatureTipIds({
-        cliInstalled: false,
         voiceDictationEnabled: false,
         featureInteractions: {
           'voice-dictation': { firstInteractedAt: 100, interactionCount: 1 }

@@ -55,7 +55,6 @@ export default function FeatureTipsModal(): JSX.Element | null {
   const modalData = useAppStore((s) => s.modalData)
   const isOpen = activeModal === 'feature-tips'
   const currentTip = getFeatureTipForModal({
-    cliInstalled: true,
     modalData,
     seenTipIds,
     featureInteractions,

@@ -243,6 +243,7 @@ services:
       - config/scripts/orca-cli-feature-tip-removal-contract.test.mjs
       - config/scripts/cli-orchestration-runtime-removal-contract.test.mjs
       - config/scripts/cli-feature-tip-telemetry-removal-contract.test.mjs
+      - config/scripts/cli-feature-tip-startup-gate-removal-contract.test.mjs
       - src/shared/feature-tips.test.ts
     init: true
     network_mode: host
