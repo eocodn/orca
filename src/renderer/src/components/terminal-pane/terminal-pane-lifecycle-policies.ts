@@ -5,7 +5,7 @@ import type { PtyTransport } from './pty-transport'
 import type { PaneCwdMap } from './resolve-split-cwd'
 import { PRIMARY_SELECTION_MAX_LENGTH } from '@/lib/primary-selection'
 import { resolveLocalhostHttpLinkDisplayUrl } from '@/lib/http-link-routing'
-import { getClientRuntime } from '@/runtime/client-runtime'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export function extractUncHost(value: string | undefined): string | null {
   const match = /^(?:\\\\|\/\/)([^\\/]+)/.exec(value ?? '')
@@ -21,7 +21,7 @@ export function reportActiveRendererPtyForPane(
     if (!ptyId || ptyId.startsWith('remote:')) {
       continue
     }
-    window.api.pty.setActiveRendererPty?.(ptyId, activePaneId === paneId)
+    getClientRuntime().terminal.setActiveRendererPty?.(ptyId, activePaneId === paneId)
   }
 }
 

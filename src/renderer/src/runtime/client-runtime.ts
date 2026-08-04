@@ -8,10 +8,7 @@ export type ClientRuntimeRemoteHostService = Pick<
 export type ClientRuntimeFileService = PreloadApi['fs']
 export type ClientRuntimeGitService = PreloadApi['git']
 export type ClientRuntimeSessionService = PreloadApi['session']
-export type ClientRuntimeTerminalService = Pick<
-  PreloadApi['pty'],
-  'inspectProcess' | 'confirmForegroundProcess' | 'write' | 'writeAccepted'
->
+export type ClientRuntimeTerminalService = PreloadApi['pty']
 
 export type ClientRuntime = {
   runtime: ClientRuntimeRuntimeService

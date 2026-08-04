@@ -31,6 +31,13 @@ const sessionFiles = [
   'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-policies.ts'
 ]
 
+const terminalFiles = [
+  'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
+  'src/renderer/src/components/terminal-pane/resolve-split-cwd.ts',
+  'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-effects.ts',
+  'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-policies.ts'
+]
+
 async function readRuntimeFile(relativePath) {
   return readFile(path.join(root, relativePath), 'utf8')
 }
@@ -41,7 +48,7 @@ describe('ClientRuntime renderer boundary', () => {
 
     for (const source of sources) {
       expect(source).toMatch(
-        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.(?:runtime(?:Environments)?|fs|pty|git|session)/)
     }
@@ -62,9 +69,20 @@ describe('ClientRuntime renderer boundary', () => {
 
     for (const source of sources) {
       expect(source).toMatch(
-        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.session/)
+    }
+  })
+
+  it('routes terminal transport and lifecycle calls through the terminal adapter', async () => {
+    const sources = await Promise.all(terminalFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.pty/)
     }
   })
 })

@@ -3,6 +3,7 @@ import { createPtyOutputProcessor } from './pty-agent-output-processor'
 import type { IpcPtyTransportOptions, PtyTransport } from './pty-transport-types'
 import { writeAcceptedPtyInput } from './pty-ipc-input-writer'
 import { createTerminalInputDelivery } from './terminal-input-delivery'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export type PtyIpcCallbacks = Parameters<PtyTransport['connect']>[0]['callbacks']
 
@@ -35,7 +36,7 @@ export function createPtyIpcTransportContext(
   }
   const inputWriteQueue = createPtyInputWriteQueue({
     isWritable: (id) => state.connected && state.ptyId === id,
-    write: (id, data) => window.api.pty.write(id, data)
+    write: (id, data) => getClientRuntime().terminal.write(id, data)
   })
   const terminalInputDelivery = createTerminalInputDelivery({
     tabId: options.tabId,
@@ -59,7 +60,7 @@ export function createPtyIpcTransportContext(
               id,
               data,
               isCurrent: () => state.connected && state.ptyId === id,
-              write: (writeId, chunk) => window.api.pty.writeAccepted(writeId, chunk)
+              write: (writeId, chunk) => getClientRuntime().terminal.writeAccepted(writeId, chunk)
             })
           }
         })

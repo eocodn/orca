@@ -3,7 +3,8 @@
 // `/proc`-or-lsof-backed IPC fallback for shells that never emit OSC 7 (agent
 // TUIs, minimal sh). Both layers can legitimately come back empty, so the
 // helper always finishes by returning the caller's worktree-root fallback.
-import { isRemoteRuntimePtyId } from '@/runtime/runtime-terminal-inspection'
+import { getClientRuntime } from '../../runtime/client-runtime'
+import { isRemoteRuntimePtyId } from '../../runtime/runtime-terminal-inspection'
 
 export type PaneCwdEntry = { cwd: string; confirmed: boolean }
 
@@ -36,7 +37,9 @@ export async function resolveSplitCwd(args: {
   if (sourcePtyId && !isRemoteRuntimePtyId(sourcePtyId)) {
     try {
       const ipcCwd = await Promise.race<string | null>([
-        window.api.pty.getCwd(sourcePtyId).catch(() => null),
+        getClientRuntime()
+          .terminal.getCwd(sourcePtyId)
+          .catch(() => null),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), GET_CWD_TIMEOUT_MS))
       ])
       if (ipcCwd) {

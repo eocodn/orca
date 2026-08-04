@@ -4,7 +4,10 @@ import {
   WAKE_HIBERNATED_AGENTS_WORKTREE_EVENT,
   type WakeHibernatedAgentsWorktreeDetail
 } from '@/constants/terminal'
-import { reconcileMissingSessions, type ReconcilableBinding } from './terminal-dead-session-reconcile'
+import {
+  reconcileMissingSessions,
+  type ReconcilableBinding
+} from './terminal-dead-session-reconcile'
 import { installMouseHideWhileTyping } from './mouse-hide-while-typing'
 import {
   getPreviousVisibleForTerminalPane,
@@ -12,6 +15,7 @@ import {
 } from './terminal-pane-lifecycle-policies'
 import type { TerminalPaneLifecycleSetupContext } from './terminal-pane-lifecycle-contracts'
 import { applyTerminalScrollbackRowsToMountedPanes } from './terminal-pane-lifecycle-support'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export function installTerminalPaneLifecycleEffects(
   context: TerminalPaneLifecycleSetupContext
@@ -32,7 +36,8 @@ export function installTerminalPaneLifecycleEffects(
       }
     }
     window.addEventListener(WAKE_HIBERNATED_AGENTS_WORKTREE_EVENT, onWakeHibernatedAgents)
-    return () => window.removeEventListener(WAKE_HIBERNATED_AGENTS_WORKTREE_EVENT, onWakeHibernatedAgents)
+    return () =>
+      window.removeEventListener(WAKE_HIBERNATED_AGENTS_WORKTREE_EVENT, onWakeHibernatedAgents)
   }, [d.worktreeId, d.panePtyBindingsRef])
 
   useEffect(() => {
@@ -59,13 +64,20 @@ export function installTerminalPaneLifecycleEffects(
       bindingWithVisibility.syncProcessTracking?.()
       if (resumedFromHidden) bindingWithVisibility.noteVisibilityResume?.()
     }
-    if (resumedFromHidden && typeof window.api.pty.hasPty === 'function') {
+    if (resumedFromHidden && typeof getClientRuntime().terminal.hasPty === 'function') {
       reconcileMissingSessions({
         bindings: d.panePtyBindingsRef.current.values() as Iterable<ReconcilableBinding>,
-        hasPty: window.api.pty.hasPty
+        hasPty: getClientRuntime().terminal.hasPty
       })
     }
-  }, [d.cwd, d.isVisible, d.isVisibleRef, d.panePtyBindingsRef, d.tabId, refs.previousVisibleForReconcileRef])
+  }, [
+    d.cwd,
+    d.isVisible,
+    d.isVisibleRef,
+    d.panePtyBindingsRef,
+    d.tabId,
+    refs.previousVisibleForReconcileRef
+  ])
 
   useEffect(() => {
     if (!d.isActive || !d.isVisible || typeof window === 'undefined') return
