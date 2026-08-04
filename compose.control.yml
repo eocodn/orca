@@ -240,6 +240,8 @@ services:
       - config/scripts/orchestration-onboarding-removal-contract.test.mjs
       - config/scripts/feature-wall-completion-orchestration-removal-contract.test.mjs
       - config/scripts/feature-wall-orchestration-surface-removal-contract.test.mjs
+      - config/scripts/orca-cli-feature-tip-removal-contract.test.mjs
+      - src/shared/feature-tips.test.ts
     init: true
     network_mode: host
 
