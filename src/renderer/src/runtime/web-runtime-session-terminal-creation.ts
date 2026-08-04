@@ -18,7 +18,10 @@ import type { TuiAgent } from '../../../shared/types'
 import { AGENT_SESSION_OMP_RESUME_PATH_RUNTIME_CAPABILITY } from '../../../shared/protocol-version'
 import { useAppStore } from '../store'
 import { unwrapRuntimeRpcResult } from './runtime-rpc-client'
-import { createAgentSessionCreateOperation, withAgentSessionCreateOperationId } from './agent-session-create-operation'
+import {
+  createAgentSessionCreateOperation,
+  withAgentSessionCreateOperationId
+} from './agent-session-create-operation'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 import { recordWebSessionFocusIntent } from './web-session-focus-intent'
 import { toHostSessionTabId, toWebTerminalSurfaceTabId } from './web-terminal-surface-id'
@@ -32,6 +35,7 @@ import {
   selectWebRuntimeSessionWorktree
 } from './web-runtime-session-transport'
 import { getRuntimeEnvironmentRevision } from './runtime-environment-revision'
+import { getClientRuntime } from './client-runtime'
 import type { WebSessionIntentOwner } from './web-session-intent-owner'
 
 export type WebRuntimeTerminalCreateOutcome =
@@ -50,7 +54,7 @@ export function captureRuntimeEnvironmentCall(
   timeoutMs?: number
 }) => Promise<RuntimeRpcResponse<unknown>> {
   return (args) =>
-    window.api.runtimeEnvironments.call({
+    getClientRuntime().remoteHost.call({
       selector: environmentId,
       ...args,
       expectedEnvironmentPairingRevision

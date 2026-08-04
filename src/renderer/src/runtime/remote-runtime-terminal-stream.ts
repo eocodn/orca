@@ -1,8 +1,40 @@
-import { exposeE2eRemoteTerminalMultiplexAckGate, resetE2eRemoteTerminalMultiplexersState } from './remote-runtime-terminal-e2e-gate'
-import { handleRemoteTerminalResponse, handleRemoteTerminalBinary, detectRemoteTerminalOutputGap } from './remote-runtime-terminal-frame-handlers'
-import { requestRemoteTerminalResyncSnapshot, sendDeferredRemoteTerminalResyncSnapshot, sendRemoteTerminalResyncSnapshot, scheduleRemoteTerminalResyncRetry, startRemoteTerminalResyncTimer, requestRemoteTerminalSnapshot, allocateRemoteTerminalSnapshotRequestId } from './remote-runtime-terminal-snapshot'
-import { acknowledgeRemoteTerminalOutput, sendRemoteTerminalInput, setRemoteTerminalOutputPaused, probeRemoteTerminalCommandResponse, recoverRemoteTerminalStalledStream, queueRemoteTerminalOutputAcknowledgement, flushRemoteTerminalOutputAcknowledgement, getRemoteTerminalStreamsForE2e, releaseRemoteTerminalHeldAcksForE2e, sendRemoteTerminalInputForE2e } from './remote-runtime-terminal-flow-control'
-import { sendRemoteTerminalFrame, resolveRemoteTerminalReadyIfConnected, failRemoteTerminalConnection, handleRemoteTerminalClose, closeRemoteTerminalIfIdle } from './remote-runtime-terminal-lifecycle'
+import {
+  exposeE2eRemoteTerminalMultiplexAckGate,
+  resetE2eRemoteTerminalMultiplexersState
+} from './remote-runtime-terminal-e2e-gate'
+import {
+  handleRemoteTerminalResponse,
+  handleRemoteTerminalBinary,
+  detectRemoteTerminalOutputGap
+} from './remote-runtime-terminal-frame-handlers'
+import {
+  requestRemoteTerminalResyncSnapshot,
+  sendDeferredRemoteTerminalResyncSnapshot,
+  sendRemoteTerminalResyncSnapshot,
+  scheduleRemoteTerminalResyncRetry,
+  startRemoteTerminalResyncTimer,
+  requestRemoteTerminalSnapshot,
+  allocateRemoteTerminalSnapshotRequestId
+} from './remote-runtime-terminal-snapshot'
+import {
+  acknowledgeRemoteTerminalOutput,
+  sendRemoteTerminalInput,
+  setRemoteTerminalOutputPaused,
+  probeRemoteTerminalCommandResponse,
+  recoverRemoteTerminalStalledStream,
+  queueRemoteTerminalOutputAcknowledgement,
+  flushRemoteTerminalOutputAcknowledgement,
+  getRemoteTerminalStreamsForE2e,
+  releaseRemoteTerminalHeldAcksForE2e,
+  sendRemoteTerminalInputForE2e
+} from './remote-runtime-terminal-flow-control'
+import {
+  sendRemoteTerminalFrame,
+  resolveRemoteTerminalReadyIfConnected,
+  failRemoteTerminalConnection,
+  handleRemoteTerminalClose,
+  closeRemoteTerminalIfIdle
+} from './remote-runtime-terminal-lifecycle'
 
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../shared/remote-runtime-client-error-classification'
@@ -19,6 +51,7 @@ import { e2eConfig, e2eDisableRemoteTerminalStallRecovery } from '@/lib/e2e-conf
 import { recordRendererCrashBreadcrumb } from '@/lib/crash-breadcrumb-recorder'
 import { deliverTerminalDataWithDeferredCredit } from '@/lib/pane-manager/terminal-delivery-credit'
 import { unwrapRuntimeRpcResult } from './runtime-rpc-client'
+import { getClientRuntime } from './client-runtime'
 import { getRuntimeEnvironmentRevision } from './runtime-environment-revision'
 import {
   TERMINAL_MULTIPLEX_ACK_BATCH_BYTES,
@@ -171,7 +204,6 @@ export const REMOTE_TERMINAL_RESYNC_RETRY_MAX_MS = 5_000
 // skipped but live output continues, so it must not surface a fatal red banner.
 export const REMOTE_TERMINAL_SNAPSHOT_TOO_LARGE =
   'Remote terminal snapshot exceeded the 2 MiB replay limit; live output will continue.'
-
 
 export class RemoteRuntimeTerminalMultiplexer {
   readonly streams = new Map<number, RemoteRuntimeMultiplexedTerminalState>()
@@ -361,8 +393,8 @@ export class RemoteRuntimeTerminalMultiplexer {
     const connectPromise = new Promise<void>((resolve, reject) => {
       this.readyResolver = resolve
       this.readyRejecter = reject
-      void window.api.runtimeEnvironments
-        .subscribe(
+      void getClientRuntime()
+        .remoteHost.subscribe(
           {
             selector: this.environmentId,
             method: 'terminal.multiplex',
@@ -413,7 +445,11 @@ export class RemoteRuntimeTerminalMultiplexer {
   handleBinary(bytes: Uint8Array<ArrayBufferLike>) {
     handleRemoteTerminalBinary(this, bytes)
   }
-  detectOutputGap(stream: RemoteRuntimeMultiplexedTerminalState, seq: number | undefined, rawLength: number) {
+  detectOutputGap(
+    stream: RemoteRuntimeMultiplexedTerminalState,
+    seq: number | undefined,
+    rawLength: number
+  ) {
     detectRemoteTerminalOutputGap(this, stream, seq, rawLength)
   }
   requestResyncSnapshot(stream: RemoteRuntimeMultiplexedTerminalState) {
@@ -431,7 +467,10 @@ export class RemoteRuntimeTerminalMultiplexer {
   startResyncTimer(stream: RemoteRuntimeMultiplexedTerminalState) {
     startRemoteTerminalResyncTimer(this, stream)
   }
-  requestSnapshot(stream: RemoteRuntimeMultiplexedTerminalState, opts?: { scrollbackRows?: number }) {
+  requestSnapshot(
+    stream: RemoteRuntimeMultiplexedTerminalState,
+    opts?: { scrollbackRows?: number }
+  ) {
     return requestRemoteTerminalSnapshot(this, stream, opts)
   }
   allocateSnapshotRequestId() {
@@ -467,7 +506,11 @@ export class RemoteRuntimeTerminalMultiplexer {
   sendInputForE2e(terminal: string, text: string) {
     return sendRemoteTerminalInputForE2e(this, terminal, text)
   }
-  sendFrame(streamId: number, opcode: TerminalStreamOpcode, payload: Uint8Array<ArrayBufferLike> = new Uint8Array()) {
+  sendFrame(
+    streamId: number,
+    opcode: TerminalStreamOpcode,
+    payload: Uint8Array<ArrayBufferLike> = new Uint8Array()
+  ) {
     return sendRemoteTerminalFrame(this, streamId, opcode, payload)
   }
   resolveReadyIfConnected() {

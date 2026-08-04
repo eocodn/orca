@@ -10,6 +10,7 @@ import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 import { isWebTerminalSurfaceTabId, toHostSessionTabId } from './web-terminal-surface-id'
 import { captureRuntimeEnvironmentCall } from './web-runtime-session-terminal-creation'
 import { isWebRuntimeSessionActive } from './web-runtime-session-transport'
+import { getClientRuntime } from './client-runtime'
 
 const pendingWebRuntimeSplitMirrorTelemetry = new Map<string, Set<string>>()
 const WEB_RUNTIME_SPLIT_MIRROR_SUPPRESSION_TTL_MS = 30_000
@@ -35,8 +36,8 @@ export function splitWebRuntimeTerminal(
     direction,
     pendingMirrorSuppressionId
   )
-  void window.api.runtimeEnvironments
-    .call({
+  void getClientRuntime()
+    .remoteHost.call({
       selector: environmentId,
       method: 'terminal.split',
       params: {
@@ -145,8 +146,8 @@ export function closeWebRuntimeTerminal(ptyId: string | null | undefined): boole
   }
 
   // Why: host owns the real pane graph; close the host terminal first so later snapshots can't resurrect the removed pane.
-  void window.api.runtimeEnvironments
-    .call({
+  void getClientRuntime()
+    .remoteHost.call({
       selector: environmentId,
       method: 'terminal.close',
       params: {
@@ -263,8 +264,8 @@ export function clearWebRuntimeTerminalBuffer(ptyId: string | null | undefined):
   if (!remote || !environmentId || !isWebRuntimeSessionActive(environmentId)) {
     return false
   }
-  void window.api.runtimeEnvironments
-    .call({
+  void getClientRuntime()
+    .remoteHost.call({
       selector: environmentId,
       method: 'terminal.clearBuffer',
       params: { terminal: remote.handle },
