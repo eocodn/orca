@@ -15,6 +15,7 @@ function readProjectFile(relativePath) {
 describe('CLI orchestration runtime removal contract', () => {
   it('removes CLI-only orchestration transport modules', () => {
     for (const relativePath of [
+      'src/cli/runtime/mutation-recovery.ts',
       'src/cli/runtime/orchestration-compatibility-envelope.ts',
       'src/cli/runtime/types.test.ts'
     ]) {
