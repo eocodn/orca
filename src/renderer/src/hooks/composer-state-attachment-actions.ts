@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type RefObject, type SetStateAction } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
@@ -207,8 +208,8 @@ export function useComposerAttachmentActions({
       const folderPaths: string[] = []
       for (const filePath of paths) {
         try {
-          await window.api.fs.authorizeExternalPath({ targetPath: filePath })
-          const stat = await window.api.fs.stat({ filePath })
+          await getClientRuntime().file.authorizeExternalPath({ targetPath: filePath })
+          const stat = await getClientRuntime().file.stat({ filePath })
           if (stat.isDirectory) {
             folderPaths.push(filePath)
           } else {

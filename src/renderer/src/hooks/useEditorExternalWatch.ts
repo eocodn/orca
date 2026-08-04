@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { normalizeRuntimePathForComparison } from '../../../shared/cross-platform-path'
@@ -43,7 +44,7 @@ export function useEditorExternalWatch(): void {
         remoteUnsubscribe()
         remoteWatchUnsubsRef.current.delete(key)
       } else {
-        void window.api.fs.unwatchWorktree({
+        void getClientRuntime().file.unwatchWorktree({
           worktreePath: target.worktreePath,
           connectionId: target.connectionId
         })
@@ -86,7 +87,7 @@ export function useEditorExternalWatch(): void {
           })
         continue
       }
-      void window.api.fs
+      void getClientRuntime().file
         .watchWorktree({
           worktreePath: target.worktreePath,
           connectionId: target.connectionId
@@ -112,7 +113,7 @@ export function useEditorExternalWatch(): void {
             t.runtimeEnvironmentId === runtimeEnvironmentId
         )
     )
-    const unsubscribe = window.api.fs.onFsChanged((payload) => handleFsChanged(payload, null))
+    const unsubscribe = getClientRuntime().file.onFsChanged((payload) => handleFsChanged(payload, null))
     fsChangedHandlerRef.current = handleFsChanged
 
     return () => {
@@ -126,7 +127,7 @@ export function useEditorExternalWatch(): void {
         if (remoteUnsubscribe) {
           remoteUnsubscribe()
         } else {
-          void window.api.fs.unwatchWorktree({
+          void getClientRuntime().file.unwatchWorktree({
             worktreePath: target.worktreePath,
             connectionId: target.connectionId
           })

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import { extractIpcErrorMessage } from '@/lib/ipc-error'
@@ -46,8 +47,8 @@ export async function downloadRemoteFile(
   try {
     const result = typeof connectionIdOrRuntimeContext === 'string'
       ? node.isDirectory
-        ? await window.api.fs.downloadFolder({ dirPath: node.path, connectionId: connectionIdOrRuntimeContext })
-        : await window.api.fs.downloadFile({ filePath: node.path, connectionId: connectionIdOrRuntimeContext })
+        ? await getClientRuntime().file.downloadFolder({ dirPath: node.path, connectionId: connectionIdOrRuntimeContext })
+        : await getClientRuntime().file.downloadFile({ filePath: node.path, connectionId: connectionIdOrRuntimeContext })
       : await downloadRuntimeFile(connectionIdOrRuntimeContext, node.path, node.name)
     if (result.canceled) return
     toast.success(

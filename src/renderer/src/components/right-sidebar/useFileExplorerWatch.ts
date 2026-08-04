@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { FsChangedPayload } from '../../../../shared/types'
 import type { DirCache, FileExplorerOperationOwner } from './file-explorer-types'
@@ -201,7 +202,7 @@ export function useFileExplorerWatch({
           })
         })
     } else {
-      unsubscribeListener = window.api.fs.onFsChanged(handleFsChanged)
+      unsubscribeListener = getClientRuntime().file.onFsChanged(handleFsChanged)
     }
 
     return () => {

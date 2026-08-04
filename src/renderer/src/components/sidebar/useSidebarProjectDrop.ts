@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -79,8 +80,8 @@ export function useSidebarProjectDrop(): {
 
       setIsHandlingDrop(true)
       try {
-        await window.api.fs.authorizeExternalPath({ targetPath: pathResolution.path })
-        const stat = await window.api.fs.stat({ filePath: pathResolution.path })
+        await getClientRuntime().file.authorizeExternalPath({ targetPath: pathResolution.path })
+        const stat = await getClientRuntime().file.stat({ filePath: pathResolution.path })
         if (!mountedRef.current) {
           return
         }

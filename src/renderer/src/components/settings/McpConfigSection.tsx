@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, FileCode2, LoaderCircle, Plus, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -198,7 +199,7 @@ export function McpConfigSection({ repo }: McpConfigSectionProps): React.JSX.Ele
         : {}
       // Why: v1 only creates the root workspace config so we do not need to
       // guess per-agent directory layouts or mutate agent-specific files.
-      await window.api.fs.writeFile({
+      await getClientRuntime().file.writeFile({
         filePath: target,
         content: MCP_STARTER_CONFIG,
         connectionId,

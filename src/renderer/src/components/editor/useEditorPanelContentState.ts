@@ -1,6 +1,7 @@
 /* oxlint-disable max-lines -- Why: content loading, retry, and external-change
    subscriptions share in-flight caches and state setters; splitting them would
    make the hook coordination harder to audit. */
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { OpenFile } from '@/store/slices/editor'
 import { getConnectionIdForFile, isWorktreeConnectionResolved } from '@/lib/connection-context'
@@ -168,7 +169,7 @@ export function useEditorPanelContentState({
           if (!externalSshOwnerId) {
             // Why: client-local external tabs need their main-process path grant
             // refreshed because that authorization is only held in memory.
-            await window.api.fs.authorizeExternalPath({ targetPath: filePath })
+            await getClientRuntime().file.authorizeExternalPath({ targetPath: filePath })
             // Why: that grant covers the client path, so this read must stay off the
             // worktree's SSH host.
             readConnectionId = undefined

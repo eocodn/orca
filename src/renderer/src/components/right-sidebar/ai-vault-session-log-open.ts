@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import type { AppState } from '@/store/types'
@@ -88,7 +89,7 @@ export async function openAiVaultSessionLogInOrca(session: AiVaultLogSession): P
     try {
       // The exact scanned path is the authorization oracle; the user click is the
       // trust gesture. Reuses Orca's existing external R/W open grant.
-      await window.api.fs.authorizeExternalPath({ targetPath: filePath })
+      await getClientRuntime().file.authorizeExternalPath({ targetPath: filePath })
     } catch {
       toast.error(
         translate(

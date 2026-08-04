@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { detectLanguage } from '@/lib/language-detect'
 import { joinPath } from '@/lib/path'
 import { getRendererAppPlatform } from '@/lib/renderer-app-platform'
@@ -281,7 +282,7 @@ export async function openTabBarEntry(args: TabCreateEntryArgs): Promise<void> {
       isWebRuntimeSessionActive,
       openFile: state.openFile,
       statRuntimePath,
-      authorizeExternalPath: window.api.fs.authorizeExternalPath,
+      authorizeExternalPath: getClientRuntime().file.authorizeExternalPath,
       assertAbsolutePathAllowed: () => {
         if (!getTabEntryAllowAbsolutePaths(useAppStore.getState(), args.worktreeId)) {
           throw new Error(TAB_ENTRY_ABSOLUTE_PATH_REMOTE_BLOCKED_MESSAGE)

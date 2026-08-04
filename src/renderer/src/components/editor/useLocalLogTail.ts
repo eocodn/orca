@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { LocalLogTailChangedPayload } from '../../../../shared/local-log-tail-types'
 import type { OpenFile } from '@/store/slices/editor'
@@ -53,7 +54,7 @@ function stopTailSession(session: TailSession): void {
   // Why: start IPC can still be resolving when a tab closes. Stop only after
   // start settles so a late-created main-process watcher cannot escape cleanup.
   void session.startPromise
-    .then(() => window.api.fs.stopLocalLogTail({ subscriptionId: session.subscriptionId }))
+    .then(() => getClientRuntime().file.stopLocalLogTail({ subscriptionId: session.subscriptionId }))
     .catch(() => {})
 }
 
@@ -97,7 +98,7 @@ export function useLocalLogTail({
         do {
           session.pendingRead = false
           for (;;) {
-            const result = await window.api.fs.readLocalLogTail({
+            const result = await getClientRuntime().file.readLocalLogTail({
               filePath: session.filePath,
               fromByteOffset: session.decoder.nextByteOffset,
               expectedIdentity: session.decoder.expectedIdentity
@@ -115,7 +116,7 @@ export function useLocalLogTail({
               session.limited = true
               void session.startPromise
                 .then(() =>
-                  window.api.fs.stopLocalLogTail({ subscriptionId: session.subscriptionId })
+                  getClientRuntime().file.stopLocalLogTail({ subscriptionId: session.subscriptionId })
                 )
                 .catch(() => {})
               console.warn('[ai-vault] stopped live tail at the editor file-size limit')
@@ -154,7 +155,7 @@ export function useLocalLogTail({
     if (!hasLocalLiveTailFile) {
       return
     }
-    const unsubscribe = window.api.fs.onLocalLogTailChanged(
+    const unsubscribe = getClientRuntime().file.onLocalLogTailChanged(
       ({ subscriptionId, eventType }: LocalLogTailChangedPayload) => {
         const session = Array.from(sessionsRef.current.values()).find(
           (candidate) => candidate.subscriptionId === subscriptionId
@@ -211,7 +212,7 @@ export function useLocalLogTail({
         })
       }
 
-      session.startPromise = window.api.fs.startLocalLogTail({
+      session.startPromise = getClientRuntime().file.startLocalLogTail({
         filePath: file.filePath,
         subscriptionId
       })

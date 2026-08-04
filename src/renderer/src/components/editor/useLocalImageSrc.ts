@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect, useState } from 'react'
 import { resolveImageAbsolutePath } from './markdown-preview-links'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client'
@@ -340,7 +341,7 @@ function readImagePreview(
 ) {
   try {
     if (!runtimeContext) {
-      return window.api.fs.readFile({
+      return getClientRuntime().file.readFile({
         filePath: absolutePath,
         connectionId: connectionId ?? undefined
       })

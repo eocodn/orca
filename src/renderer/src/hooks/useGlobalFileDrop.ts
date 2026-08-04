@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { detectLanguage } from '@/lib/language-detect'
@@ -162,7 +163,7 @@ export function useGlobalFileDrop(): void {
             const isRemoteRuntimePath = isRemoteRuntimeFileOperation(fileContext, filePath)
             // Why: remote paths don't need local auth — the relay/runtime is the security boundary.
             if (!connectionId && !isRemoteRuntimePath) {
-              await window.api.fs.authorizeExternalPath({ targetPath: filePath })
+              await getClientRuntime().file.authorizeExternalPath({ targetPath: filePath })
             }
             const stat = await statRuntimePath(fileContext, filePath)
             if (stat.isDirectory) {

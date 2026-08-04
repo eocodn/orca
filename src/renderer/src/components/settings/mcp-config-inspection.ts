@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import {
   getMcpConfigCandidateParentDir,
   getMcpConfigParentDirs,
@@ -20,7 +21,7 @@ export async function loadMcpConfigInspections(
   connectionId: string | undefined
 ): Promise<LoadedMcpConfigInspection[]> {
   const entriesByRelativeDir = new Map<string, readonly McpConfigDirectoryEntry[]>()
-  const rootEntries = await window.api.fs.readDir({ dirPath: targetRootPath, connectionId })
+  const rootEntries = await getClientRuntime().file.readDir({ dirPath: targetRootPath, connectionId })
   entriesByRelativeDir.set('', rootEntries)
 
   const rootDirectoryNames = new Set(
@@ -33,7 +34,7 @@ export async function loadMcpConfigInspections(
         return
       }
       try {
-        const entries = await window.api.fs.readDir({
+        const entries = await getClientRuntime().file.readDir({
           dirPath: joinPath(targetRootPath, relativeDir),
           connectionId
         })
@@ -74,7 +75,7 @@ export async function loadMcpConfigInspections(
       }
 
       try {
-        const result = await window.api.fs.readFile({ filePath: absolutePath, connectionId })
+        const result = await getClientRuntime().file.readFile({ filePath: absolutePath, connectionId })
         const inspection = inspectMcpConfigContent(candidate, result.isBinary ? '' : result.content)
         return { ...inspection, absolutePath }
       } catch (error) {
