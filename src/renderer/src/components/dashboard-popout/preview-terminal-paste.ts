@@ -1,5 +1,6 @@
 import type { Terminal } from '@xterm/xterm'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import {
   executeTerminalPastePlan,
   planTerminalPasteWithYield
@@ -54,7 +55,7 @@ export function createPreviewClipboardPaster(deps: {
     await executeTerminalPastePlan(plan, {
       // Why: stream large pastes so the renderer never emits one huge IPC payload.
       pasteText: (pasteText) => pasteTerminal.paste(pasteText),
-      writePty: (data) => window.api.terminalPreview.input(deps.ptyId, data),
+      writePty: (data) => getClientRuntime().preview.input(deps.ptyId, data),
       isTargetCurrent: targetIsCurrent,
       // Why: if focus changes mid-bracketed paste, the closing marker must still reach the live PTY.
       canContinue: () => true

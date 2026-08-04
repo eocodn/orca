@@ -181,6 +181,11 @@ const integrationFiles = [
   'src/renderer/src/runtime/runtime-jira-summary-client.ts',
   'src/renderer/src/runtime/local-jira-search-cancellation.ts'
 ]
+const previewFiles = [
+  'src/renderer/src/components/dashboard-popout/AgentTerminalPreview.tsx',
+  'src/renderer/src/components/dashboard-popout/preview-grid-claim.ts',
+  'src/renderer/src/components/dashboard-popout/preview-terminal-paste.ts'
+]
 
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
@@ -254,6 +259,17 @@ describe('ClientRuntime renderer boundary', () => {
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.(?:hooks|linear|jira)/)
+    }
+  })
+
+  it('routes terminal preview calls through the preview adapter', async () => {
+    const sources = await Promise.all(previewFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.terminalPreview/)
     }
   })
 })

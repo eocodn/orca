@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
+import { getClientRuntime, type ClientRuntimePreviewService } from '@/runtime/client-runtime'
 import { subscribeToTerminalUserInput } from '@/components/terminal-pane/terminal-user-input-signal'
 import { composeActiveTerminalTheme } from '@/components/terminal-pane/terminal-appearance'
 import { useSystemPrefersDark } from '@/components/terminal-pane/use-system-prefers-dark'
@@ -186,7 +187,7 @@ export function AgentTerminalPreview({
         payload.data,
         () => {
           if (!disposed) {
-            void window.api.terminalPreview.ack(ptyId, payload.bytes)
+            void getClientRuntime().preview.ack(ptyId, payload.bytes)
           }
         },
         true
@@ -259,12 +260,12 @@ export function AgentTerminalPreview({
         if (userInputDisposable ? !signaledUserInput : replayDepth > 0) {
           return
         }
-        void window.api.terminalPreview.input(ptyId, data)
+        void getClientRuntime().preview.input(ptyId, data)
       })
     }
 
     const replayConnection = (
-      connection: Awaited<ReturnType<typeof window.api.terminalPreview.connect>>,
+      connection: Awaited<ReturnType<ClientRuntimePreviewService['connect']>>,
       replaceExisting: boolean,
       requestRefresh: () => void
     ): void => {
@@ -348,7 +349,7 @@ export function AgentTerminalPreview({
         return
       }
       refreshInFlight = true
-      const connection = await window.api.terminalPreview.connect(ptyId, {
+      const connection = await getClientRuntime().preview.connect(ptyId, {
         scrollbackRows: PREVIEW_SCROLLBACK_ROWS
       })
       if (disposed) {
@@ -370,7 +371,7 @@ export function AgentTerminalPreview({
         terminal?.dispose()
         terminal = null
         terminalRef.current = null
-        void window.api.terminalPreview.unsubscribe(ptyId)
+        void getClientRuntime().preview.unsubscribe(ptyId)
         return
       }
       refreshInFlight = false
@@ -391,7 +392,7 @@ export function AgentTerminalPreview({
       }
     })
 
-    offData = window.api.terminalPreview.onData((payload) => {
+    offData = getClientRuntime().preview.onData((payload) => {
       if (payload.ptyId !== ptyId) {
         return
       }
@@ -417,7 +418,7 @@ export function AgentTerminalPreview({
       disposeImeNativeTextBridge()
       disposeTerminalCompatibility?.()
       disposeKeyHandler?.()
-      void window.api.terminalPreview.unsubscribe(ptyId)
+      void getClientRuntime().preview.unsubscribe(ptyId)
       terminal?.dispose()
       terminalRef.current = null
     }

@@ -9,6 +9,7 @@ import {
   type ClientRuntimeSshService,
   type ClientRuntimeBrowserService,
   type ClientRuntimeIntegrationService,
+  type ClientRuntimePreviewService,
   type ClientRuntimeTerminalService,
   type ClientRuntimeWorkspaceService
 } from './client-runtime'
@@ -36,6 +37,7 @@ describe('ClientRuntime service boundary', () => {
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
+    const preview = {} as ClientRuntimePreviewService
 
     const clientRuntime = createClientRuntime({
       runtime,
@@ -51,6 +53,7 @@ describe('ClientRuntime service boundary', () => {
       runtimeEnvironments: remoteHost,
       fs: file,
       pty: terminal,
+      terminalPreview: preview,
       gh: integration.github,
       gl: integration.gitlab,
       linear: integration.linear,
@@ -75,6 +78,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.remoteHost).toBe(remoteHost)
     expect(clientRuntime.file).toBe(file)
     expect(clientRuntime.terminal).toBe(terminal)
+    expect(clientRuntime.preview).toBe(preview)
   })
 
   it('reads the current host adapter when a renderer entry point asks for it', () => {
@@ -96,6 +100,7 @@ describe('ClientRuntime service boundary', () => {
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
+    const preview = {} as ClientRuntimePreviewService
     vi.stubGlobal('window', {
       api: {
         runtime,
@@ -116,7 +121,8 @@ describe('ClientRuntime service boundary', () => {
         worktrees: workspace.worktrees,
         runtimeEnvironments: remoteHost,
         fs: file,
-        pty: terminal
+        pty: terminal,
+        terminalPreview: preview
       }
     })
 
@@ -131,5 +137,6 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
     expect(getClientRuntime().file).toBe(file)
     expect(getClientRuntime().terminal).toBe(terminal)
+    expect(getClientRuntime().preview).toBe(preview)
   })
 })
