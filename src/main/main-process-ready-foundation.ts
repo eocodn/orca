@@ -1,12 +1,17 @@
 import * as startupDeps from './main-process-startup-dependencies'
 import { startupState } from './main-process-startup-state'
-import { updateGpuAccelerationAboutPanel, getDesktopWindowStatus } from './main-process-process-configuration'
+import {
+  updateGpuAccelerationAboutPanel,
+  getDesktopWindowStatus
+} from './main-process-process-configuration'
 import { syncMacMenuBarIcon } from './main-process-window-startup-lifecycle'
 import { prepareCodexRuntimeHomeForLaunch } from './main-process-runtime-startup-preparation'
 
 export async function initializeReadyFoundation(): Promise<void> {
   startupDeps.logStartupMilestone('app-ready')
-  startupDeps.installMainThreadHangWatchdog({ userDataPath: startupDeps.getCanonicalUserDataPath() })
+  startupDeps.installMainThreadHangWatchdog({
+    userDataPath: startupDeps.getCanonicalUserDataPath()
+  })
   const hangDetection = startupDeps.consumeHangDetectionMarker(
     startupDeps.hangDetectionMarkerPath(startupDeps.getCanonicalUserDataPath())
   )
@@ -39,11 +44,12 @@ export async function initializeReadyFoundation(): Promise<void> {
 
   // Why: managed WSL launchers live outside the Windows app bundle, so keep their launcher/bridge contract synced across app updates.
   startupState.managedWslCliReconciliationStatus = 'pending'
-  startupState.managedWslCliReconciliationReady = startupDeps.reconcileManagedWslCliRegistrations({
-    isPackaged: startupDeps.app.isPackaged,
-    userDataPath: startupDeps.getCanonicalUserDataPath(),
-    appVersion: startupDeps.app.getVersion()
-  })
+  startupState.managedWslCliReconciliationReady = startupDeps
+    .reconcileManagedWslCliRegistrations({
+      isPackaged: startupDeps.app.isPackaged,
+      userDataPath: startupDeps.getCanonicalUserDataPath(),
+      appVersion: startupDeps.app.getVersion()
+    })
     .then((results) => {
       for (const result of results) {
         if (result.outcome === 'failed') {
@@ -63,16 +69,21 @@ export async function initializeReadyFoundation(): Promise<void> {
         error instanceof Error ? error.message : String(error)
       )
     })
-  startupState.managedWslCliStartupBarrierReady = startupDeps.createWslCliReconciliationStartupBarrier(
-    startupState.managedWslCliReconciliationReady
-  )
+  startupState.managedWslCliStartupBarrierReady =
+    startupDeps.createWslCliReconciliationStartupBarrier(
+      startupState.managedWslCliReconciliationReady
+    )
 
   const activeOrcaProfile = startupDeps.ensureActiveOrcaProfile()
   startupState.store = new startupDeps.Store({ dataFile: activeOrcaProfile.dataFile })
-  startupDeps.wslHookRelayManager.setManagedHookSettingsResolver(() => startupState.store?.getSettings() ?? null)
+  startupDeps.wslHookRelayManager.setManagedHookSettingsResolver(
+    () => startupState.store?.getSettings() ?? null
+  )
   startupDeps.logStartupMilestone('store-loaded')
   // Why: apply initial fallback WSL distro from store settings for global git/CLI calls.
-  startupDeps.setDefaultWslDistroOverride(startupState.store.getSettings().terminalWindowsWslDistro ?? null)
+  startupDeps.setDefaultWslDistroOverride(
+    startupState.store.getSettings().terminalWindowsWslDistro ?? null
+  )
   startupState.store.onSettingsChanged((updates, settings) => {
     if ('terminalWindowsWslDistro' in updates) {
       // Why: synchronize fallback WSL distro updates to runner.
@@ -115,11 +126,15 @@ export async function initializeReadyFoundation(): Promise<void> {
   })
   startupState.unsubscribeSystemResumeBroadcast = startupDeps.registerSystemResumeBroadcast()
   startupState.agentAwakeService = new startupDeps.AgentAwakeService()
-  startupState.agentAwakeService.setEnabled(startupState.store.getSettings().keepComputerAwakeWhileAgentsRun)
+  startupState.agentAwakeService.setEnabled(
+    startupState.store.getSettings().keepComputerAwakeWhileAgentsRun
+  )
   // Why: start from empty — disk-hydrated status rows are UI continuity only; only this runtime's hook events keep the computer awake.
   startupState.agentAwakeService.setStatuses([])
   const collectChangedProviderSessionWorktrees = startupDeps.createHookProviderSessionInvalidator()
-  const publishProviderSessionChanges = (identities: startupDeps.AgentHookProviderSessionIdentity[]): void => {
+  const publishProviderSessionChanges = (
+    identities: startupDeps.AgentHookProviderSessionIdentity[]
+  ): void => {
     const ownedIdentities = identities.map((identity) => ({
       ...identity,
       worktreeId:
@@ -131,15 +146,16 @@ export async function initializeReadyFoundation(): Promise<void> {
       startupState.runtime?.notifyMobileSessionTabsChanged(worktreeId)
     }
   }
-  const unsubscribeStatusChanges = startupDeps.agentHookServer.subscribeStatusChanges((statuses) => {
-    startupState.agentAwakeService?.setStatuses(statuses)
-  })
-  const unsubscribeProviderSessionChanges = startupDeps.agentHookServer.subscribeProviderSessionChanges(
-    (sessions) => {
-      // Healthy session.tabs streams need a push when transcript identity changes.
-      publishProviderSessionChanges(sessions)
+  const unsubscribeStatusChanges = startupDeps.agentHookServer.subscribeStatusChanges(
+    (statuses) => {
+      startupState.agentAwakeService?.setStatuses(statuses)
     }
   )
+  const unsubscribeProviderSessionChanges =
+    startupDeps.agentHookServer.subscribeProviderSessionChanges((sessions) => {
+      // Healthy session.tabs streams need a push when transcript identity changes.
+      publishProviderSessionChanges(sessions)
+    })
   startupState.unsubscribeAgentAwakeStatusChanges = () => {
     unsubscribeStatusChanges()
     unsubscribeProviderSessionChanges()
@@ -159,16 +175,18 @@ export async function initializeReadyFoundation(): Promise<void> {
   // Why: the trust-grant module is bundled into plain-node CLI entries where
   // the telemetry client cannot load, so the tracker is injected here instead
   // of imported there.
-  startupDeps.setCodexTrustGrantTelemetry(({ outcome, hostKind, lane, reason, errorClass, verifyClass }) => {
-    startupDeps.track('codex_trust_grant', {
-      outcome,
-      host_kind: hostKind,
-      lane,
-      ...(reason !== undefined ? { fallback_reason: reason } : {}),
-      ...(errorClass !== undefined ? { error_class: errorClass } : {}),
-      ...(verifyClass !== undefined ? { verify_class: verifyClass } : {})
-    })
-  })
+  startupDeps.setCodexTrustGrantTelemetry(
+    ({ outcome, hostKind, lane, reason, errorClass, verifyClass }) => {
+      startupDeps.track('codex_trust_grant', {
+        outcome,
+        host_kind: hostKind,
+        lane,
+        ...(reason !== undefined ? { fallback_reason: reason } : {}),
+        ...(errorClass !== undefined ? { error_class: errorClass } : {}),
+        ...(verifyClass !== undefined ? { verify_class: verifyClass } : {})
+      })
+    }
+  )
   // Why: the error-tracking lane (telemetry-error-tracking.md) is its own
   // composition root — independent of product telemetry — and must
   // initialize before any IPC handler / runtime span is created so the
@@ -191,7 +209,9 @@ export async function initializeReadyFoundation(): Promise<void> {
   startupState.codexRuntimeHome = new startupDeps.CodexRuntimeHomeService(startupState.store)
   // Why: an incapable trust-grant host must fall back to the managed home for
   // every consumer (PTY env, rate limits, commit messages) in one place.
-  startupState.codexRuntimeHome.setRealHomeLaneGate(() => startupDeps.isRealHomeCodexHookLaneUsable())
+  startupState.codexRuntimeHome.setRealHomeLaneGate(() =>
+    startupDeps.isRealHomeCodexHookLaneUsable()
+  )
   // Why: while the real-home lane owns ~/.codex/hooks.json, the legacy
   // system-home sweep inside managed installs would delete the entry the
   // real-home installer just appended. Flag OFF, hooks off, or an incapable
@@ -210,21 +230,34 @@ export async function initializeReadyFoundation(): Promise<void> {
     startBackfill: startupDeps.startCodexSessionBackfillInBackground,
     startIndexHeal: startupDeps.startCodexSessionIndexHealInBackground
   })
-  startupState.codexAccounts = new startupDeps.CodexAccountService(startupState.store, startupState.rateLimits, startupState.codexRuntimeHome, {
-    onHostSystemDefaultSelected: codexSessionMigration.requestRun
-  })
+  startupState.codexAccounts = new startupDeps.CodexAccountService(
+    startupState.store,
+    startupState.rateLimits,
+    startupState.codexRuntimeHome,
+    {
+      onHostSystemDefaultSelected: codexSessionMigration.requestRun
+    }
+  )
   // Why: one-time per-host backfill makes historical Orca-managed Codex
   // sessions visible to the user's own resume picker and app history (#4444,
   // #8612). Deferred so startup and first PTY spawns never compete with the
   // sessions tree walk.
   codexSessionMigration.scheduleInitialRun()
   startupState.claudeRuntimeAuth = new startupDeps.ClaudeRuntimeAuthService(startupState.store)
-  startupState.claudeAccounts = new startupDeps.ClaudeAccountService(startupState.store, startupState.rateLimits, startupState.claudeRuntimeAuth)
+  startupState.claudeAccounts = new startupDeps.ClaudeAccountService(
+    startupState.store,
+    startupState.rateLimits,
+    startupState.claudeRuntimeAuth
+  )
   startupState.rateLimits.setCodexHomePathResolver((target) =>
     startupState.codexRuntimeHome!.prepareForRateLimitFetch(target)
   )
-  startupState.rateLimits.setCodexFetchTarget(startupDeps.getInitialCodexRateLimitTarget(startupState.store.getSettings()))
-  startupState.rateLimits.setClaudeFetchTarget(startupDeps.getInitialClaudeRateLimitTarget(startupState.store.getSettings()))
+  startupState.rateLimits.setCodexFetchTarget(
+    startupDeps.getInitialCodexRateLimitTarget(startupState.store.getSettings())
+  )
+  startupState.rateLimits.setClaudeFetchTarget(
+    startupDeps.getInitialClaudeRateLimitTarget(startupState.store.getSettings())
+  )
   const syncAccountRuntimeTargets = startupDeps.createAccountRuntimeTargetSettingsSync(
     startupState.rateLimits,
     startupState.store.getSettings()
@@ -257,7 +290,9 @@ export async function initializeReadyFoundation(): Promise<void> {
       models: settings.minimaxUsageModels
     }
   })
-  startupState.rateLimits.setGeminiCliOAuthEnabledResolver(() => startupState.store!.getSettings().geminiCliOAuthEnabled)
+  startupState.rateLimits.setGeminiCliOAuthEnabledResolver(
+    () => startupState.store!.getSettings().geminiCliOAuthEnabled
+  )
   startupState.rateLimits.setNetworkProxySettingsResolver(() => startupState.store!.getSettings())
   startupState.keybindings = new startupDeps.KeybindingService({
     homePath: startupDeps.app.getPath('home'),
@@ -304,7 +339,10 @@ export async function initializeReadyFoundation(): Promise<void> {
   })
   const orchestrationEnvironmentTransport: startupDeps.OrchestrationEnvironmentTransport = {
     resolve: (selector) => {
-      const environment = startupDeps.resolveEnvironment(startupDeps.app.getPath('userData'), selector)
+      const environment = startupDeps.resolveEnvironment(
+        startupDeps.app.getPath('userData'),
+        selector
+      )
       const pairing = startupDeps.getPreferredPairingOffer(environment)
       return {
         environmentId: environment.id,
@@ -312,65 +350,77 @@ export async function initializeReadyFoundation(): Promise<void> {
         peerFingerprint: startupDeps.fingerprintOrchestrationPeer(pairing.publicKeyB64)
       }
     },
-    call: (selector, method, params, timeoutMs, envelope) =>
+    call: (selector, method, params, timeoutMs) =>
       startupDeps.callRuntimeEnvironment(
         startupDeps.app.getPath('userData'),
         selector,
         method,
         params,
         timeoutMs,
-        undefined,
-        envelope
+        undefined
       )
   }
-  const runtimeService = new startupDeps.OrcaRuntimeService(startupState.store, startupState.stats, {
-    agentSessionClaimSigner: startupDeps.loadAgentSessionClaimSigner(
-      startupDeps.getProfileUserDataPath(),
-      startupDeps.getProfileUserDataPath()
-    ),
-    // Why: resolve the PTY provider lazily — a daemon swap happens later, so an eager reference would freeze the pre-daemon provider (design §4.3).
-    getLocalProvider: () => startupDeps.getLocalPtyProvider(),
-    // Why: SSH relay providers register after construction and may reconnect, so destructive cleanup must resolve the current generation.
-    getSshProvider: (connectionId) => startupDeps.getSshPtyProvider(connectionId),
-    onPtyStopped: startupDeps.clearProviderPtyState,
-    onTerminalAgentStatus: (event) => {
-      startupDeps.agentHookServer.ingestTerminalStatus(event)
-    },
-    // Why: serve can be promoted in place, so wire the listener from startup; runtime enables desktop-only scanners only for a ready renderer.
-    onTerminalSideEffects: (batch: startupDeps.TerminalSideEffectBatch) => {
-      if (startupState.mainWindow && !startupState.mainWindow.isDestroyed()) {
-        startupState.mainWindow.webContents.send('pty:sideEffect', batch)
-      }
-    },
-    getDesktopWindowStatus: getDesktopWindowStatus,
-    // Why: worktree.ps pulls hook-reported agent status (same source as the desktop sidebar) at query time so mobile shows the same agents.
-    getAgentStatusSnapshot: () =>
-      startupDeps.agentHookServer.getStatusSnapshot().filter((entry) => entry.providerSessionOnly !== true),
-    // Why: the filter above hides resume-identity rows from the live-agent views, but
-    // those rows carry the provider session mobile native chat addresses transcripts
-    // by — Pi publishes identity that way and would otherwise be unreachable.
-    getAgentProviderSessionSnapshot: () => startupDeps.agentHookServer.getStatusSnapshot(),
-    getAgentProviderSessionRowsForPane: (paneKey) =>
-      startupDeps.agentHookServer.getStatusSnapshotForPane(paneKey),
-    attestAgentHookCompatibilityAuthority: (candidate) =>
-      startupDeps.agentHookServer.attestCompatibilityAuthority(candidate),
-    retireAgentHookCompatibilityAuthority: (paneKey) =>
-      startupDeps.agentHookServer.retirePaneAuthority(paneKey),
-    canRecoverPersistentLocalPtys: () => startupDeps.getDaemonProvider() !== null,
-    // Why: source codex-home here (runs in window AND serve) so aiVault.listSessions includes managed-Codex sessions; registerCoreHandlers is window-only.
-    getAdditionalAiVaultCodexHomePaths: () =>
-      startupState.codexRuntimeHome ? startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery() : [],
-    prepareAiVaultSessionResume: (args) =>
-      startupDeps.prepareLegacySharedCodexSessionResume(args, {
-        isHostSystemDefaultRealHome: () => startupState.codexRuntimeHome?.isHostSystemDefaultRealHome() === true,
-        getSelectedHostAccountCodexHomePath: () =>
-          startupState.codexRuntimeHome?.getSelectedHostAccountCodexHomePath() ?? null,
-        systemCodexHomePath: startupDeps.resolveHostCodexSessionSourceHome(startupState.store!.getSettings())
-      }),
-    buildAgentHookPtyEnv: () =>
-      startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings()) ? startupDeps.agentHookServer.buildPtyEnv() : {},
-    orchestrationEnvironmentTransport
-  })
+  const runtimeService = new startupDeps.OrcaRuntimeService(
+    startupState.store,
+    startupState.stats,
+    {
+      agentSessionClaimSigner: startupDeps.loadAgentSessionClaimSigner(
+        startupDeps.getProfileUserDataPath(),
+        startupDeps.getProfileUserDataPath()
+      ),
+      // Why: resolve the PTY provider lazily — a daemon swap happens later, so an eager reference would freeze the pre-daemon provider (design §4.3).
+      getLocalProvider: () => startupDeps.getLocalPtyProvider(),
+      // Why: SSH relay providers register after construction and may reconnect, so destructive cleanup must resolve the current generation.
+      getSshProvider: (connectionId) => startupDeps.getSshPtyProvider(connectionId),
+      onPtyStopped: startupDeps.clearProviderPtyState,
+      onTerminalAgentStatus: (event) => {
+        startupDeps.agentHookServer.ingestTerminalStatus(event)
+      },
+      // Why: serve can be promoted in place, so wire the listener from startup; runtime enables desktop-only scanners only for a ready renderer.
+      onTerminalSideEffects: (batch: startupDeps.TerminalSideEffectBatch) => {
+        if (startupState.mainWindow && !startupState.mainWindow.isDestroyed()) {
+          startupState.mainWindow.webContents.send('pty:sideEffect', batch)
+        }
+      },
+      getDesktopWindowStatus: getDesktopWindowStatus,
+      // Why: worktree.ps pulls hook-reported agent status (same source as the desktop sidebar) at query time so mobile shows the same agents.
+      getAgentStatusSnapshot: () =>
+        startupDeps.agentHookServer
+          .getStatusSnapshot()
+          .filter((entry) => entry.providerSessionOnly !== true),
+      // Why: the filter above hides resume-identity rows from the live-agent views, but
+      // those rows carry the provider session mobile native chat addresses transcripts
+      // by — Pi publishes identity that way and would otherwise be unreachable.
+      getAgentProviderSessionSnapshot: () => startupDeps.agentHookServer.getStatusSnapshot(),
+      getAgentProviderSessionRowsForPane: (paneKey) =>
+        startupDeps.agentHookServer.getStatusSnapshotForPane(paneKey),
+      attestAgentHookCompatibilityAuthority: (candidate) =>
+        startupDeps.agentHookServer.attestCompatibilityAuthority(candidate),
+      retireAgentHookCompatibilityAuthority: (paneKey) =>
+        startupDeps.agentHookServer.retirePaneAuthority(paneKey),
+      canRecoverPersistentLocalPtys: () => startupDeps.getDaemonProvider() !== null,
+      // Why: source codex-home here (runs in window AND serve) so aiVault.listSessions includes managed-Codex sessions; registerCoreHandlers is window-only.
+      getAdditionalAiVaultCodexHomePaths: () =>
+        startupState.codexRuntimeHome
+          ? startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery()
+          : [],
+      prepareAiVaultSessionResume: (args) =>
+        startupDeps.prepareLegacySharedCodexSessionResume(args, {
+          isHostSystemDefaultRealHome: () =>
+            startupState.codexRuntimeHome?.isHostSystemDefaultRealHome() === true,
+          getSelectedHostAccountCodexHomePath: () =>
+            startupState.codexRuntimeHome?.getSelectedHostAccountCodexHomePath() ?? null,
+          systemCodexHomePath: startupDeps.resolveHostCodexSessionSourceHome(
+            startupState.store!.getSettings()
+          )
+        }),
+      buildAgentHookPtyEnv: () =>
+        startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
+          ? startupDeps.agentHookServer.buildPtyEnv()
+          : {},
+      orchestrationEnvironmentTransport
+    }
+  )
   startupState.runtime = runtimeService
   runtimeService.prepareLegacyWorkerTerminalRecovery()
   publishProviderSessionChanges(startupDeps.agentHookServer.getProviderSessionIdentities())
@@ -378,8 +428,8 @@ export async function initializeReadyFoundation(): Promise<void> {
     runtimeService.notifyMobileSessionTabsChanged(worktreeId)
   })
   startupState.automations = new startupDeps.AutomationService(startupState.store, {
-    startupState.claudeUsage,
-    startupState.codexUsage,
+    claudeUsage: startupState.claudeUsage,
+    codexUsage: startupState.codexUsage,
     // Why: desktop clients mirror remote-host automations, but only a server process should execute remote_host_service-owned schedules.
     allowRemoteHostScheduling: startupState.isServeMode,
     headlessDispatcher: startupState.isServeMode
@@ -394,7 +444,7 @@ export async function initializeReadyFoundation(): Promise<void> {
 
           if (automation.workspaceMode === 'new_per_run') {
             const created = await runtimeService.createManagedWorktree({
-              ...buildHeadlessAutomationWorktreeCreateArgs({
+              ...startupDeps.buildHeadlessAutomationWorktreeCreateArgs({
                 automation,
                 run,
                 repo: target.repo
@@ -478,6 +528,7 @@ export async function initializeReadyFoundation(): Promise<void> {
   runtimeService.setCommitMessageAgentEnvironmentResolvers({
     // Why: Codex hooks/auth live in Orca's managed runtime home even for the default path, so every launch must resolve CODEX_HOME via runtime-home.
     prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch,
-    prepareForClaudeLaunch: (target) => startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target)
+    prepareForClaudeLaunch: (target) =>
+      startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target)
   })
 }

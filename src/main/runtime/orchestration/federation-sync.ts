@@ -100,8 +100,7 @@ export async function syncFederatedDispatch(
       federated.environment_id,
       'orchestration.federationAck',
       { dispatchId, throughSequence: cursor },
-      15_000,
-      { orchestrationRequestId: `relay_ack_${dispatchId}_${cursor}` }
+      15_000
     )
   }
   const toWorker =
@@ -113,10 +112,7 @@ export async function syncFederatedDispatch(
       federated.environment_id,
       'orchestration.federationImport',
       { dispatchId, items: toWorker },
-      15_000,
-      {
-        orchestrationRequestId: `relay_import_${dispatchId}_${toWorker.at(-1)?.sequence ?? 0}`
-      }
+      15_000
     )) as { acknowledgedThrough: number }
     db.acknowledgeFederationRelay({
       dispatchId,

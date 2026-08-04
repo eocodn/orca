@@ -1,4 +1,33 @@
-import { OrchestrationError, type RuntimeOrchestrationEnvelope, isOrchestrationMutation, orchestrationMigrationData, syncFederatedDispatch, type WorkspaceSessionState, LOCAL_EXECUTION_HOST_ID, getRepoExecutionHostId, getWorktreeExecutionHostId, toSshExecutionHostId, type ExecutionHostId, type RuntimeClientEvent, type RuntimeStatus, getRepoIdFromWorktreeId, parseWorkspaceKey, BROWSER_HEADLESS_RUNTIME_CAPABILITY, BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY, MIN_COMPATIBLE_RUNTIME_CLIENT_VERSION, ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY, ORCHESTRATION_CONTRACT_VERSION, REMOTE_RUNTIME_SHARED_CONTROL_CAPABILITY, RUNTIME_CAPABILITIES, RUNTIME_PROTOCOL_VERSION, TERMINAL_PAIRED_PARKING_RUNTIME_CAPABILITY, type RuntimeCapability, listAiVaultSessions, type AiVaultListArgs, type AiVaultListResult, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, notifyRuntimeListeners, type RuntimePtyController, type RuntimeNotifier } from './orca-runtime-symbols'
+import {
+  OrchestrationError,
+  syncFederatedDispatch,
+  type WorkspaceSessionState,
+  LOCAL_EXECUTION_HOST_ID,
+  getRepoExecutionHostId,
+  getWorktreeExecutionHostId,
+  toSshExecutionHostId,
+  type ExecutionHostId,
+  type RuntimeClientEvent,
+  type RuntimeStatus,
+  getRepoIdFromWorktreeId,
+  parseWorkspaceKey,
+  BROWSER_HEADLESS_RUNTIME_CAPABILITY,
+  BROWSER_CERTIFICATE_TRUST_RUNTIME_CAPABILITY,
+  MIN_COMPATIBLE_RUNTIME_CLIENT_VERSION,
+  REMOTE_RUNTIME_SHARED_CONTROL_CAPABILITY,
+  RUNTIME_CAPABILITIES,
+  RUNTIME_PROTOCOL_VERSION,
+  TERMINAL_PAIRED_PARKING_RUNTIME_CAPABILITY,
+  type RuntimeCapability,
+  listAiVaultSessions,
+  type AiVaultListArgs,
+  type AiVaultListResult,
+  type AiVaultPrepareSessionResumeArgs,
+  type AiVaultPrepareSessionResumeResult,
+  notifyRuntimeListeners,
+  type RuntimePtyController,
+  type RuntimeNotifier
+} from './orca-runtime-symbols'
 import { OrcaRuntimeReconcileLegacyWorkerTerminalsNowPart3 } from './orca-runtime-reconcile-legacy-worker-terminals-now-part-3'
 import type { OrcaRuntimeService } from './orca-runtime'
 
@@ -7,8 +36,7 @@ export class OrcaRuntimeCallOrchestrationWorkerServerPart4 extends OrcaRuntimeRe
     selector: string,
     method: string,
     params: unknown,
-    timeoutMs?: number,
-    envelope?: RuntimeOrchestrationEnvelope
+    timeoutMs?: number
   ): Promise<unknown> {
     if (!this.orchestrationEnvironmentTransport) {
       throw new OrchestrationError(
@@ -16,37 +44,11 @@ export class OrcaRuntimeCallOrchestrationWorkerServerPart4 extends OrcaRuntimeRe
         'Connected-server orchestration is unavailable in this runtime.'
       )
     }
-    if (isOrchestrationMutation(method, params)) {
-      const statusResponse = await this.orchestrationEnvironmentTransport.call(
-        selector,
-        'status.get',
-        undefined,
-        timeoutMs
-      )
-      if (statusResponse.ok === false) {
-        throw new OrchestrationError(
-          statusResponse.error.code,
-          statusResponse.error.message,
-          statusResponse.error.data
-        )
-      }
-      const status = statusResponse.result as RuntimeStatus
-      if (!status.capabilities?.includes(ORCHESTRATION_CONTRACT_RUNTIME_CAPABILITY)) {
-        throw new OrchestrationError(
-          'orchestration_migration_required',
-          'The connected worker server does not support the current orchestration contract. No effects were applied.',
-          orchestrationMigrationData('runtime_capability_missing')
-        )
-      }
-    }
     const response = await this.orchestrationEnvironmentTransport.call(
       selector,
       method,
       params,
-      timeoutMs,
-      method.startsWith('orchestration.')
-        ? { ...envelope, orchestrationContractVersion: ORCHESTRATION_CONTRACT_VERSION }
-        : envelope
+      timeoutMs
     )
     if (response.ok === false) {
       throw new OrchestrationError(response.error.code, response.error.message, response.error.data)
@@ -144,7 +146,10 @@ export class OrcaRuntimeCallOrchestrationWorkerServerPart4 extends OrcaRuntimeRe
       null
     )
   }
-  protected setWorkspaceSessionForWorktree(worktreeId: string, session: WorkspaceSessionState): void {
+  protected setWorkspaceSessionForWorktree(
+    worktreeId: string,
+    session: WorkspaceSessionState
+  ): void {
     this.store?.setWorkspaceSession?.(
       session,
       this.getWorkspaceSessionHostIdForWorktree(worktreeId)

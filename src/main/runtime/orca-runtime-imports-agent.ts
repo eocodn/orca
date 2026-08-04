@@ -106,7 +106,6 @@ export {
   buildObservedSetupCommand,
   createSetupCompletionScanner
 } from './orchestration/setup-completion-signal'
-export type { RuntimeOrchestrationEnvelope } from '../../shared/runtime-rpc-envelope'
 export type { TerminalRevealIdentity } from '../../shared/terminal-reveal-identity'
 export type {
   OrchestrationCompatibilityEvidence,

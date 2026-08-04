@@ -1,9 +1,6 @@
 import { getPreferredPairingOffer } from '../../shared/runtime-environments'
 import { resolveEnvironment, markEnvironmentUsed } from '../../shared/runtime-environment-store'
-import type {
-  RuntimeOrchestrationEnvelope,
-  RuntimeRpcResponse
-} from '../../shared/runtime-rpc-envelope'
+import type { RuntimeRpcResponse } from '../../shared/runtime-rpc-envelope'
 import type { RuntimeStatus } from '../../shared/runtime-types'
 import {
   sendRemoteRuntimeRequest,
@@ -81,8 +78,7 @@ export async function callRuntimeEnvironment(
   method: string,
   params: unknown,
   timeoutMs?: number,
-  expectedEnvironmentPairingRevision?: number,
-  envelope?: RuntimeOrchestrationEnvelope
+  expectedEnvironmentPairingRevision?: number
 ): Promise<RuntimeRpcResponse<unknown>> {
   const environment = resolveEnvironment(userDataPath, selector)
   // Why: connection failures reject (they don't resolve as ok:false), so the
@@ -105,17 +101,6 @@ export async function callRuntimeEnvironment(
       const pairing = getPreferredPairingOffer(currentEnvironment)
       endpoint = pairing.endpoint
       const effectiveTimeoutMs = timeoutMs ?? DEFAULT_REMOTE_RUNTIME_TIMEOUT_MS
-      if (envelope) {
-        const response = await sendRemoteRuntimeRequest(
-          pairing,
-          method,
-          params,
-          effectiveTimeoutMs,
-          envelope
-        )
-        markEnvironmentUsedFromResponse(userDataPath, currentEnvironment.id, response)
-        return response
-      }
       if (shouldUseCachedRequestConnection(method)) {
         const response = await sendRemoteRuntimeConnectionRequest(
           currentEnvironment.id,

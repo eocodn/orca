@@ -1,8 +1,5 @@
 import { createHash } from 'node:crypto'
-import type {
-  RuntimeOrchestrationEnvelope,
-  RuntimeRpcResponse
-} from '../../../shared/runtime-rpc-envelope'
+import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 
 export type OrchestrationWorkerServer = {
   environmentId: string
@@ -16,8 +13,7 @@ export type OrchestrationEnvironmentTransport = {
     selector: string,
     method: string,
     params: unknown,
-    timeoutMs?: number,
-    envelope?: RuntimeOrchestrationEnvelope
+    timeoutMs?: number
   ): Promise<RuntimeRpcResponse<unknown>>
 }
 
