@@ -81,34 +81,6 @@ Terminals:
   terminal focus            Alias for terminal switch
   terminal close            Close a terminal pane/session, or its whole tab with --tab
 
-Orchestration:
-  orchestration run-create  Create and bind a lightweight orchestration Run
-  orchestration run-use     Bind this coordinator terminal to an existing Run
-  orchestration run-current Show this terminal's bound Run
-  orchestration run-list    List lightweight orchestration Runs
-  orchestration run-show    Show one lightweight orchestration Run
-  orchestration send        Send an inter-agent message
-  orchestration check       Check the bound Run mailbox
-  orchestration ask         Ask the coordinator a blocking question
-  orchestration reply       Reply to a message
-  orchestration inbox       Show all messages across recipients
-  orchestration task-create Create an orchestration task
-  orchestration task-list   List orchestration tasks
-  orchestration task-update Update a task status
-  orchestration dispatch    Dispatch a task to a terminal
-  orchestration dispatch-show Show dispatch context for a task
-  orchestration worker-start Start a supervised worker locally or on a connected Orca server
-  orchestration worker-show Inspect one supervised worker
-  orchestration worker-read Read bounded output from one supervised worker
-  orchestration worker-stop Stop one supervised worker
-  orchestration worker-abandon Fence an uncertain worker without claiming it stopped
-  orchestration coordinator-start Start the legacy automatic coordinator loop
-  orchestration coordinator-stop Stop the legacy automatic coordinator loop
-  orchestration gate-create Create a decision gate blocking a task
-  orchestration gate-resolve Resolve a pending decision gate
-  orchestration gate-list   List decision gates
-  orchestration reset       Reset orchestration state
-
 Computer Use:
   computer capabilities     Show computer-use provider capabilities
   computer permissions      Show or open computer-use permission setup

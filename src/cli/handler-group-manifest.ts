@@ -107,38 +107,6 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
   },
   ...BROWSER_HANDLER_GROUPS,
   {
-    name: 'orchestration',
-    keys: [
-      'orchestration run-create',
-      'orchestration run-use',
-      'orchestration run-current',
-      'orchestration run-list',
-      'orchestration run-show',
-      'orchestration send',
-      'orchestration check',
-      'orchestration reply',
-      'orchestration inbox',
-      'orchestration task-create',
-      'orchestration task-list',
-      'orchestration task-update',
-      'orchestration worker-start',
-      'orchestration worker-show',
-      'orchestration worker-read',
-      'orchestration worker-stop',
-      'orchestration worker-abandon',
-      'orchestration dispatch',
-      'orchestration ask',
-      'orchestration dispatch-show',
-      'orchestration coordinator-start',
-      'orchestration coordinator-stop',
-      'orchestration gate-create',
-      'orchestration gate-resolve',
-      'orchestration gate-list',
-      'orchestration reset'
-    ],
-    load: async () => (await import('./handlers/orchestration.js')).ORCHESTRATION_HANDLERS
-  },
-  {
     name: 'computer',
     keys: [
       'computer capabilities',

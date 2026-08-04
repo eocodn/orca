@@ -195,10 +195,6 @@ describe('command aliases', () => {
 })
 
 describe('supportsBrowserPageFlag', () => {
-  it('does not expose browser page targeting on orchestration commands', () => {
-    expect(supportsBrowserPageFlag(['orchestration', 'send'])).toBe(false)
-  })
-
   it('does not expose browser page targeting on local agent discovery', () => {
     expect(supportsBrowserPageFlag(['agent-context'])).toBe(false)
   })

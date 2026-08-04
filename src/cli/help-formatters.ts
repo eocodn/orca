@@ -88,9 +88,6 @@ function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   if (command === 'linear list-issues' && flag === 'cursor') {
     return '--cursor <cursor>      Opaque cursor returned by a previous list-issues page'
   }
-  if (command === 'orchestration worker-read' && flag === 'cursor') {
-    return '--cursor <cursor>      Opaque cursor returned by a previous worker-read page'
-  }
   if (command === 'linear list-issues' && flag === 'workspace') {
     return '--workspace <id|all>  Connected Linear workspace id, or all'
   }
@@ -132,12 +129,6 @@ function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   }
   if (command === 'worktree create' && flag === 'parent-worktree') {
     return '--parent-worktree <selector> Parent selector such as active/current, id:<repo-id>::<path>, branch:<branch>, issue:<number>, path:<path>, folder:<id>, or worktree:<worktreeId>'
-  }
-  if (command === 'orchestration task-create' && flag === 'task-title') {
-    return '--task-title <text>  Concise title for the orchestration task'
-  }
-  if (command === 'orchestration task-create' && flag === 'display-name') {
-    return '--display-name <text> UI label shown for dispatched worker rows'
   }
   // Why: the shared --agent help describes launching a TUI agent in a terminal,
   // which is the wrong meaning here — this selects the account provider.
@@ -206,12 +197,6 @@ export function formatFlagHelp(flag: string): string {
     terminal: '--terminal <handle>  Runtime-issued terminal handle',
     text: '--text <text>          Text payload to send or type',
     'text-stdin': '--text-stdin          Read text payload from stdin',
-    'task-id': '--task-id <id>        Task id to include in orchestration payload JSON',
-    'task-title': '--task-title <text>    Concise title for an orchestration task',
-    'dispatch-id': '--dispatch-id <id>    Dispatch id to include in orchestration payload JSON',
-    'files-modified': '--files-modified <csv> Comma-separated files for orchestration payload JSON',
-    'report-path': '--report-path <path>  Report path to include in orchestration payload JSON',
-    phase: '--phase <text>        Worker phase to include in orchestration payload JSON',
     'timeout-ms': '--timeout-ms <ms>     Maximum wait time before timing out',
     'to-element-index': '--to-element-index <n> Destination element index from get-app-state',
     'to-x': '--to-x <x>             Destination window-local x coordinate',
