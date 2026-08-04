@@ -6,6 +6,7 @@ import type {
 import type { RateLimitState } from '../../../shared/rate-limit-types'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { callRuntimeRpc, getActiveRuntimeTarget, RuntimeRpcCallError } from './runtime-rpc-client'
+import { getClientRuntime } from './client-runtime'
 
 // Mirrors OrcaRuntime.getAccountsSnapshot() / the accounts.subscribe payload.
 export type ProviderAccountsSnapshot = {
@@ -146,8 +147,8 @@ export function watchProviderAccounts(
     }
   }, REMOTE_ACCOUNTS_FIRST_SNAPSHOT_TIMEOUT_MS)
 
-  void window.api.runtimeEnvironments
-    .subscribe(
+  void getClientRuntime()
+    .remoteHost.subscribe(
       {
         selector: target.environmentId,
         method: 'accounts.subscribe',

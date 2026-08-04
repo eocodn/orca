@@ -1,6 +1,6 @@
 import type { PreloadApi } from '../../../preload/api-preload-surface'
 
-export type ClientRuntimeRuntimeService = Pick<PreloadApi['runtime'], 'call'>
+export type ClientRuntimeRuntimeService = Pick<PreloadApi['runtime'], 'call' | 'syncWindowGraph'>
 export type ClientRuntimeRemoteHostService = Pick<
   PreloadApi['runtimeEnvironments'],
   'call' | 'subscribe'

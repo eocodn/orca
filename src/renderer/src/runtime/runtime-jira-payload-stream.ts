@@ -4,6 +4,7 @@ import {
   JIRA_PAYLOAD_MAX_CHARS
 } from '../../../shared/jira-payload-stream'
 import { RuntimeRpcCallError } from './runtime-rpc-client'
+import { getClientRuntime } from './client-runtime'
 
 type RuntimeJiraPayloadTarget = { kind: 'environment'; environmentId: string }
 
@@ -48,8 +49,8 @@ export async function readRuntimeJiraPayload<TResult>(
       }
     }
 
-    void window.api.runtimeEnvironments
-      .subscribe(
+    void getClientRuntime()
+      .remoteHost.subscribe(
         {
           selector: target.environmentId,
           method,

@@ -45,7 +45,41 @@ import {
   stableHashString
 } from './runtime-graph-mobile-surface-builders'
 
-import { registeredTabs, tabRegisteredAt, NO_TRANSPORT_GRACE_MS, EMPTY_LAYOUT_BY_WORKTREE, RUNTIME_GRAPH_SYNC_COALESCE_MS, syncScheduled, syncInFlight, syncPendingAfterFlight, syncEnabled, syncTimer, getStoreState, mobileSessionSnapshotVersion, mobileSessionSnapshotCacheByWorktree, jsonContentEquals, cachedEditorDraftsSource, cachedEditorDraftVersionByFileId, mobileSessionPublicationEpoch, setRuntimeGraphStoreStateGetter, hasRegisteredRuntimeTerminalTab, registerRuntimeTerminalTab, focusRuntimeTerminalSurface, setRuntimeGraphSyncEnabled, clearScheduledRuntimeGraphSync, scheduleRuntimeGraphSync, runRuntimeGraphSync, buildMobileSessionTabSnapshots, isEditorSurfaceTab, getEditorDraftVersionByFileId, type RegisteredTerminalTab, type OpenFileByWorktreeAndId, type OpenFileIndexes, type FallbackEditorTabTarget } from './runtime-graph-sync'
+import {
+  registeredTabs,
+  tabRegisteredAt,
+  NO_TRANSPORT_GRACE_MS,
+  EMPTY_LAYOUT_BY_WORKTREE,
+  RUNTIME_GRAPH_SYNC_COALESCE_MS,
+  syncScheduled,
+  syncInFlight,
+  syncPendingAfterFlight,
+  syncEnabled,
+  syncTimer,
+  getStoreState,
+  mobileSessionSnapshotVersion,
+  mobileSessionSnapshotCacheByWorktree,
+  jsonContentEquals,
+  cachedEditorDraftsSource,
+  cachedEditorDraftVersionByFileId,
+  mobileSessionPublicationEpoch,
+  setRuntimeGraphStoreStateGetter,
+  hasRegisteredRuntimeTerminalTab,
+  registerRuntimeTerminalTab,
+  focusRuntimeTerminalSurface,
+  setRuntimeGraphSyncEnabled,
+  clearScheduledRuntimeGraphSync,
+  scheduleRuntimeGraphSync,
+  runRuntimeGraphSync,
+  buildMobileSessionTabSnapshots,
+  isEditorSurfaceTab,
+  getEditorDraftVersionByFileId,
+  type RegisteredTerminalTab,
+  type OpenFileByWorktreeAndId,
+  type OpenFileIndexes,
+  type FallbackEditorTabTarget
+} from './runtime-graph-sync'
+import { getClientRuntime } from './client-runtime'
 
 export async function syncRuntimeGraph(): Promise<void> {
   if (!syncEnabled || !getStoreState) {
@@ -173,7 +207,7 @@ export async function syncRuntimeGraph(): Promise<void> {
   }
 
   try {
-    const result = await window.api.runtime.syncWindowGraph(graph)
+    const result = await getClientRuntime().runtime.syncWindowGraph(graph)
     const currentState = getStoreState()
     currentState?.setRuntimeAgentOrchestrationByPaneKey?.(result?.agentOrchestrationByPaneKey ?? {})
   } catch (error) {

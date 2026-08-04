@@ -12,6 +12,7 @@ import {
   buildWebTerminalOrphanTopologyProposal,
   type WebTerminalOrphanTopologyState
 } from './web-session-terminal-orphan-topology'
+import { getClientRuntime } from './client-runtime'
 
 type TerminalOrphanRecoveryState = WebTerminalOrphanTopologyState & {
   tabsByWorktree: Record<string, TerminalTab[]>
@@ -181,7 +182,7 @@ export function recoverWebSessionTerminalOrphansBeforeApply(
   state: TerminalOrphanRecoveryState,
   snapshot: RuntimeMobileSessionTabsResult,
   environmentId: string,
-  call: RuntimeCall = (args) => window.api.runtimeEnvironments.call(args)
+  call: RuntimeCall = (args) => getClientRuntime().remoteHost.call(args)
 ): Promise<RuntimeMobileSessionTabsResult | null> {
   const key = recoveryKey(environmentId, snapshot.worktree)
   const existing = inFlightRecoveryByWorktree.get(key)
