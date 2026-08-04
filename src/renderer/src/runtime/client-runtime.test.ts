@@ -5,7 +5,8 @@ import {
   type ClientRuntimeFileService,
   type ClientRuntimeGitService,
   type ClientRuntimeSessionService,
-  type ClientRuntimeTerminalService
+  type ClientRuntimeTerminalService,
+  type ClientRuntimeWorkspaceService
 } from './client-runtime'
 
 describe('ClientRuntime service boundary', () => {
@@ -16,6 +17,7 @@ describe('ClientRuntime service boundary', () => {
     }
     const git = {} as ClientRuntimeGitService
     const session = {} as ClientRuntimeSessionService
+    const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
@@ -24,6 +26,7 @@ describe('ClientRuntime service boundary', () => {
       runtime,
       git,
       session,
+      repos: workspace.repos,
       runtimeEnvironments: remoteHost,
       fs: file,
       pty: terminal
@@ -32,6 +35,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.runtime).toBe(runtime)
     expect(clientRuntime.git).toBe(git)
     expect(clientRuntime.session).toBe(session)
+    expect(clientRuntime.workspace.repos).toBe(workspace.repos)
     expect(clientRuntime.remoteHost).toBe(remoteHost)
     expect(clientRuntime.file).toBe(file)
     expect(clientRuntime.terminal).toBe(terminal)
@@ -41,16 +45,26 @@ describe('ClientRuntime service boundary', () => {
     const runtime = { call: vi.fn(), getStatus: vi.fn() }
     const git = {} as ClientRuntimeGitService
     const session = {} as ClientRuntimeSessionService
+    const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
     vi.stubGlobal('window', {
-      api: { runtime, git, session, runtimeEnvironments: remoteHost, fs: file, pty: terminal }
+      api: {
+        runtime,
+        git,
+        session,
+        repos: workspace.repos,
+        runtimeEnvironments: remoteHost,
+        fs: file,
+        pty: terminal
+      }
     })
 
     expect(getClientRuntime().runtime).toBe(runtime)
     expect(getClientRuntime().git).toBe(git)
     expect(getClientRuntime().session).toBe(session)
+    expect(getClientRuntime().workspace.repos).toBe(workspace.repos)
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
     expect(getClientRuntime().file).toBe(file)
     expect(getClientRuntime().terminal).toBe(terminal)

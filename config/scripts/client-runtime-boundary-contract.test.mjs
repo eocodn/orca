@@ -13,6 +13,7 @@ const runtimeFiles = [
   'src/renderer/src/runtime/runtime-rpc-client.ts',
   'src/renderer/src/runtime/runtime-rpc-environment-call.ts',
   'src/renderer/src/runtime/runtime-terminal-inspection.ts',
+  'src/renderer/src/runtime/runtime-repo-client.ts',
   'src/renderer/src/runtime/runtime-git-ai-client.ts',
   'src/renderer/src/runtime/runtime-git-read-client.ts',
   'src/renderer/src/runtime/runtime-git-remote-links.ts',
@@ -50,7 +51,9 @@ describe('ClientRuntime renderer boundary', () => {
       expect(source).toMatch(
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
-      expect(source).not.toMatch(/window\.api\.(?:runtime(?:Environments)?|fs|pty|git|session)/)
+      expect(source).not.toMatch(
+        /window\.api\.(?:runtime(?:Environments)?|fs|pty|git|session|repos)/
+      )
     }
   })
 

@@ -3,6 +3,7 @@ import { legacyBaseRefSearchResult } from '../../../shared/base-ref-search-resul
 import { callRuntimeRpc, getActiveRuntimeTarget } from './runtime-rpc-client'
 import { isRuntimeRepoRefSearchQueryWithinLimit } from './runtime-repo-search-bounds'
 import type { ExecutionHostId } from '../../../shared/execution-host'
+import { getClientRuntime } from './client-runtime'
 
 export type RuntimeRepoBaseRefDefault = {
   defaultBaseRef: string | null
@@ -16,7 +17,10 @@ export async function getRuntimeRepoBaseRefDefault(
 ): Promise<RuntimeRepoBaseRefDefault> {
   const target = getActiveRuntimeTarget(settings)
   if (target.kind !== 'environment') {
-    return window.api.repos.getBaseRefDefault({ repoId, ...(hostId ? { hostId } : {}) })
+    return getClientRuntime().workspace.repos.getBaseRefDefault({
+      repoId,
+      ...(hostId ? { hostId } : {})
+    })
   }
   return callRuntimeRpc<RuntimeRepoBaseRefDefault>(
     target,
@@ -38,7 +42,12 @@ export async function searchRuntimeRepoBaseRefs(
   }
   const target = getActiveRuntimeTarget(settings)
   if (target.kind !== 'environment') {
-    return window.api.repos.searchBaseRefs({ repoId, query, limit, ...(hostId ? { hostId } : {}) })
+    return getClientRuntime().workspace.repos.searchBaseRefs({
+      repoId,
+      query,
+      limit,
+      ...(hostId ? { hostId } : {})
+    })
   }
   const result = await callRuntimeRpc<{ refs: string[]; truncated: boolean }>(
     target,
@@ -61,7 +70,7 @@ export async function searchRuntimeRepoBaseRefDetails(
   }
   const target = getActiveRuntimeTarget(settings)
   if (target.kind !== 'environment') {
-    return window.api.repos.searchBaseRefDetails({
+    return getClientRuntime().workspace.repos.searchBaseRefDetails({
       repoId,
       query,
       limit,
