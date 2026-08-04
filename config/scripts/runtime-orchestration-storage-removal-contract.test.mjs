@@ -113,4 +113,56 @@ describe('runtime orchestration storage removal contract', () => {
       'MessageWaitResult'
     )
   })
+
+  it('removes the retired orchestration database and federation modules', () => {
+    for (const relativePath of [
+      'src/main/runtime/orchestration/cli-command.ts',
+      'src/main/runtime/orchestration/coordinator.ts',
+      'src/main/runtime/orchestration/db.ts',
+      'src/main/runtime/orchestration/db-coordinator.ts',
+      'src/main/runtime/orchestration/db-deliveries.ts',
+      'src/main/runtime/orchestration/db-dispatch-context.ts',
+      'src/main/runtime/orchestration/db-federation.ts',
+      'src/main/runtime/orchestration/db-federation-remote-lifecycle.ts',
+      'src/main/runtime/orchestration/db-foundation.ts',
+      'src/main/runtime/orchestration/db-migrations.ts',
+      'src/main/runtime/orchestration/db-migrations-schema.ts',
+      'src/main/runtime/orchestration/db-questions.ts',
+      'src/main/runtime/orchestration/db-questions-legacy.ts',
+      'src/main/runtime/orchestration/db-relay.ts',
+      'src/main/runtime/orchestration/db-runs.ts',
+      'src/main/runtime/orchestration/db-tasks.ts',
+      'src/main/runtime/orchestration/db-worker-dispatch.ts',
+      'src/main/runtime/orchestration/federation-control-message.ts',
+      'src/main/runtime/orchestration/federation-sync.ts',
+      'src/main/runtime/orchestration/formatter.ts',
+      'src/main/runtime/orchestration/groups.ts',
+      'src/main/runtime/orchestration/lifecycle-reconciliation.ts',
+      'src/main/runtime/orchestration/orchestration-error.ts',
+      'src/main/runtime/orchestration/orchestration-schema-version-skew.ts',
+      'src/main/runtime/orchestration/preamble.ts',
+      'src/main/runtime/orchestration/types.ts',
+      'src/main/runtime/orchestration/worker-output-cursor.ts',
+      'src/main/runtime/orchestration/worker-transcript-payload.ts',
+      'src/main/runtime/orchestration/worker-transcript-read.ts'
+    ]) {
+      expect(existsSync(resolve(projectRoot, relativePath))).toBe(false)
+    }
+    expect(
+      existsSync(resolve(projectRoot, 'src/main/runtime/orchestration/setup-completion-signal.ts'))
+    ).toBe(true)
+  })
+
+  it('removes the obsolete orchestration RPC contract and output adapters', () => {
+    for (const relativePath of [
+      'src/shared/orchestration-check-output.ts',
+      'src/shared/orchestration-rpc-contract.ts',
+      'src/shared/orchestration-message-wait-timeout.ts'
+    ]) {
+      expect(existsSync(resolve(projectRoot, relativePath))).toBe(false)
+    }
+    expect(readProjectFile('src/main/persistence-state-migrations.ts')).not.toContain(
+      'orchestrationRunId'
+    )
+  })
 })
