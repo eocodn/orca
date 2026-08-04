@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type { GlobalSettings } from '../../../../shared/types'
@@ -125,7 +126,7 @@ async function verifyRuntimeEnvironmentReachable(environmentId: string | null): 
   if (!environmentId) {
     return
   }
-  const response = await window.api.runtimeEnvironments.getStatus({
+  const response = await getClientRuntime().remoteHost.getStatus({
     selector: environmentId,
     timeoutMs: 15_000
   })

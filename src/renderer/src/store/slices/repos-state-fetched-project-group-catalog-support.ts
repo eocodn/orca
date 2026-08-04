@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -134,7 +135,7 @@ async function fetchRepoCatalogForTarget(
 ): Promise<FetchedRepoCatalog> {
   const fetchedRepos =
     target.kind === 'local'
-      ? await window.api.repos.list()
+      ? await getClientRuntime().workspace.repos.list()
       : (
           await callRuntimeRpc<{ repos: Repo[] }>(target, 'repo.list', undefined, {
             timeoutMs: 15_000,
@@ -388,7 +389,7 @@ async function reconcileFailedFolderWorkspaceUpdate(args: {
 
 async function listRuntimeEnvironmentsForAllHostLoad(): Promise<{ id: string }[]> {
   try {
-    return (await window.api.runtimeEnvironments.list()) ?? []
+    return (await getClientRuntime().remoteHost.list()) ?? []
   } catch (err) {
     console.warn('Failed to list runtime environments for all-host load:', err)
     return []

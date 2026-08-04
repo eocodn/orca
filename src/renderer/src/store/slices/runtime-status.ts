@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type { PublicKnownRuntimeEnvironment } from '../../../../shared/runtime-environments'
@@ -214,7 +215,7 @@ export const createRuntimeStatusSlice: StateCreator<AppState, [], [], RuntimeSta
 
   refreshRuntimeEnvironmentStatus: async (environmentId, timeoutMs = 10_000) => {
     try {
-      const response = await window.api.runtimeEnvironments.getStatus({
+      const response = await getClientRuntime().remoteHost.getStatus({
         selector: environmentId,
         timeoutMs
       })
@@ -235,7 +236,7 @@ export const createRuntimeStatusSlice: StateCreator<AppState, [], [], RuntimeSta
   hydrateRuntimeEnvironmentStatuses: async () => {
     let environments: PublicKnownRuntimeEnvironment[]
     try {
-      environments = await window.api.runtimeEnvironments.list()
+      environments = await getClientRuntime().remoteHost.list()
     } catch (err) {
       console.error('Failed to list runtime environments for status hydration:', err)
       // Why: settled, not hydrated. Skill discovery must stop waiting and fall

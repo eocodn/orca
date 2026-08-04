@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { RuntimeStatus } from '../../../../shared/runtime-types'
 import { unwrapRuntimeRpcResult } from '@/runtime/runtime-rpc-client'
 import { useAppStore } from '../../store'
@@ -8,7 +9,7 @@ export async function connectRuntimeEnvironmentAndRecordStatus(
 ): Promise<boolean> {
   const setStatus = useAppStore.getState().setRuntimeEnvironmentStatus
   try {
-    const response = await window.api.runtimeEnvironments.connect({
+    const response = await getClientRuntime().remoteHost.connect({
       selector: environmentId,
       timeoutMs
     })

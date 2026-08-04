@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 /* eslint-disable max-lines */
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: BrowserPane synchronizes Electron webviews, remote browser drivers, streams, downloads, and annotation overlays; those external lifecycles cannot be derived during render. */
 import {
@@ -838,7 +839,7 @@ export default function BrowserPane({
     if (!activeBrowserPageId) {
       return
     }
-    await window.api.runtime.reclaimBrowserForDesktop(activeBrowserPageId)
+    await getClientRuntime().runtime.reclaimBrowserForDesktop(activeBrowserPageId)
   }, [activeBrowserPageId])
 
   if (activeBrowserRuntimeEnvironmentId) {
@@ -1682,7 +1683,7 @@ function RemoteBrowserPagePane({
       streamGenerationRef.current = token.generation
       activeStreamTokenRef.current = token
       try {
-        const subscription = await window.api.runtimeEnvironments.subscribe(
+        const subscription = await getClientRuntime().remoteHost.subscribe(
           {
             selector: target.environmentId,
             method: 'browser.screencast',
@@ -4566,7 +4567,7 @@ function BrowserPagePane({
               connectionId: undefined
             }
             if (!isRemoteRuntimeFileOperation(fileContext, notebookPath)) {
-              await window.api.fs.authorizeExternalPath({ targetPath: notebookPath })
+              await getClientRuntime().file.authorizeExternalPath({ targetPath: notebookPath })
             }
             const stat = await statRuntimePath(fileContext, notebookPath)
             if (stat.isDirectory) {

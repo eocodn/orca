@@ -1,8 +1,9 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { toRuntimeExecutionHostId, type ExecutionHostId } from '../../shared/execution-host'
 
 export async function listRuntimeSessionHostIdsForStartup(): Promise<ExecutionHostId[]> {
   try {
-    return (await window.api.runtimeEnvironments.list()).map((environment) =>
+    return (await getClientRuntime().remoteHost.list()).map((environment) =>
       toRuntimeExecutionHostId(environment.id)
     )
   } catch (err) {

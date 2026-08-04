@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type { RemoteServerUpdaterSnapshot } from '../../../../shared/remote-server-update'
@@ -23,14 +24,14 @@ function callRemoteUpdater<TResult>(
   params?: unknown,
   timeoutMs = 15_000
 ): Promise<TResult> {
-  return window.api.runtimeEnvironments
+  return getClientRuntime().remoteHost
     .call({ selector: environmentId, method, params, timeoutMs })
     .then((response) => unwrapRuntimeRpcResult(response as RuntimeRpcResponse<TResult>))
 }
 
 const transport: RemoteServerUpdateTransport = {
   getRuntimeStatus: (environmentId, timeoutMs) =>
-    window.api.runtimeEnvironments
+    getClientRuntime().remoteHost
       .getStatus({ selector: environmentId, timeoutMs })
       .then((response) => unwrapRuntimeRpcResult<RuntimeStatus>(response)),
   getUpdaterStatus: (environmentId) =>
@@ -89,7 +90,7 @@ export const createRemoteServerUpdatesSlice: StateCreator<
       ...(checkOptions ? { remoteServerUpdateCheckOptions: checkOptions } : {})
     })
     try {
-      const listed = await window.api.runtimeEnvironments.list()
+      const listed = await getClientRuntime().remoteHost.list()
       const environments = listed.filter(isUserManagedRuntimeEnvironment)
       get().setRuntimeEnvironments(listed)
       const previous = get().remoteServerUpdates

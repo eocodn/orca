@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect } from 'react'
 import { useAppStore } from '@/store'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
@@ -153,7 +154,7 @@ export function useRemoteBrowserSurfaceRuntime(base: RemoteSurfaceBase) {
     streamGenerationRef.current = token.generation
     activeStreamTokenRef.current = token
     try {
-      const subscription = await window.api.runtimeEnvironments.subscribe({ selector: target.environmentId, method: 'browser.screencast', params: withBrowserPaneUiRuntimeRpcSource({ worktree: runtimeWorktree, page: pageId, format: 'jpeg', quality: 70, maxWidth: 3840, maxHeight: 2160, viewportWidth: viewportSize?.width, viewportHeight: viewportSize?.height, deviceScaleFactor: getRemoteBrowserDeviceScaleFactor(), everyNthFrame: 2 }), timeoutMs: 15_000 }, {
+      const subscription = await getClientRuntime().remoteHost.subscribe({ selector: target.environmentId, method: 'browser.screencast', params: withBrowserPaneUiRuntimeRpcSource({ worktree: runtimeWorktree, page: pageId, format: 'jpeg', quality: 70, maxWidth: 3840, maxHeight: 2160, viewportWidth: viewportSize?.width, viewportHeight: viewportSize?.height, deviceScaleFactor: getRemoteBrowserDeviceScaleFactor(), everyNthFrame: 2 }), timeoutMs: 15_000 }, {
         onResponse: (response) => {
           if (!isCurrentRemoteStreamToken(token)) return
           if (response.ok === false) {

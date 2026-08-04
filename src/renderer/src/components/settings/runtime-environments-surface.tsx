@@ -1,6 +1,7 @@
 // Concrete surface implementation for RuntimeEnvironmentsPane.tsx
    server selection, saved server mutation, and confirmation dialogs together so
    the state transitions stay auditable. */
+import { getClientRuntime } from '@/runtime/client-runtime'
 import {
   AlertTriangle,
   ChevronDown,
@@ -151,7 +152,7 @@ export function RuntimeEnvironmentsPane({
         setIsLoading(true)
       }
       try {
-        const nextEnvironments = await window.api.runtimeEnvironments.list()
+        const nextEnvironments = await getClientRuntime().remoteHost.list()
         const visibleEnvironments = nextEnvironments.filter(isUserManagedRuntimeEnvironment)
         // Why: drop store status for servers no longer saved so stale hosts don't
         // linger in the sidebar registry.
@@ -190,7 +191,7 @@ export function RuntimeEnvironmentsPane({
             .filter((environment) => environment.id !== verified?.environmentId)
             .map(async (environment) => {
               try {
-                const response = await window.api.runtimeEnvironments.getStatus({
+                const response = await getClientRuntime().remoteHost.getStatus({
                   selector: environment.id,
                   timeoutMs: 10_000
                 })
@@ -314,7 +315,7 @@ export function RuntimeEnvironmentsPane({
     setAddServerFailure(null)
     setIsSaving(true)
     try {
-      const result = await window.api.runtimeEnvironments.verifyAndAddFromPairingCode({
+      const result = await getClientRuntime().remoteHost.verifyAndAddFromPairingCode({
         name: trimmedName,
         pairingCode: trimmedPairingCode,
         allowLoopback
@@ -336,7 +337,7 @@ export function RuntimeEnvironmentsPane({
       if (!allowLocalRuntime) {
         const connected = await connectEnvironment(result.environment)
         if (!connected) {
-          await window.api.runtimeEnvironments.remove({ selector: result.environment.id })
+          await getClientRuntime().remoteHost.remove({ selector: result.environment.id })
           await loadEnvironments()
           return
         }
@@ -389,7 +390,7 @@ export function RuntimeEnvironmentsPane({
         }
         return false
       }
-      await window.api.runtimeEnvironments.remove({ selector: environment.id })
+      await getClientRuntime().remoteHost.remove({ selector: environment.id })
       await loadEnvironments()
       if (mountedRef.current) {
         toast.success(
@@ -422,7 +423,7 @@ export function RuntimeEnvironmentsPane({
     setDisconnectingId(environment.id)
     setSwitchError(null)
     try {
-      await window.api.runtimeEnvironments.disconnect({ selector: environment.id })
+      await getClientRuntime().remoteHost.disconnect({ selector: environment.id })
       // Why: disconnect is non-destructive; keep the saved server but show the
       // user that this live client is no longer attached to it.
       useAppStore.getState().setRuntimeEnvironmentStatus(environment.id, {
@@ -468,7 +469,7 @@ export function RuntimeEnvironmentsPane({
     setConnectingId(environment.id)
     setSwitchError(null)
     try {
-      const response = await window.api.runtimeEnvironments.connect({
+      const response = await getClientRuntime().remoteHost.connect({
         selector: environment.id,
         timeoutMs: 15_000
       })

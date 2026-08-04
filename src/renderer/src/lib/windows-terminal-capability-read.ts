@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { callRuntimeRpc, type RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
 import type { RuntimeStatus } from '../../../shared/runtime-types'
 import type { WindowsTerminalCapabilities } from './windows-terminal-capabilities'
@@ -55,7 +56,7 @@ export async function readWindowsTerminalCapabilities(
         window.api.wsl.listDistros().catch(() => []),
         window.api.pwsh.isAvailable().catch(() => false),
         window.api.gitBash.isAvailable().catch(() => false),
-        window.api.runtime
+        getClientRuntime().runtime
           .getStatus()
           .then((status) => status.hostPlatform ?? null)
           .catch(() => null)

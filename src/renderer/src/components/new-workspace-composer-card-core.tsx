@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -304,7 +305,7 @@ export default function NewWorkspaceComposerCard({
           return
         }
 
-        const response = await window.api.runtimeEnvironments.getStatus({
+        const response = await getClientRuntime().remoteHost.getStatus({
           selector: action.environmentId,
           timeoutMs: 15_000
         })

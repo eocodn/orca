@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback, useMemo } from 'react'
 import { AlertTriangle, Loader2, MonitorSmartphone, Server, ServerOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -253,7 +254,7 @@ export function SshStatusSegment({
   const disconnectRuntimeHost = useCallback(
     async (environmentId: string): Promise<void> => {
       try {
-        await window.api.runtimeEnvironments.disconnect({ selector: environmentId })
+        await getClientRuntime().remoteHost.disconnect({ selector: environmentId })
         setRuntimeEnvironmentStatus(environmentId, { status: null, checkedAt: Date.now() })
         recordFeatureInteraction('ssh')
       } catch (err) {

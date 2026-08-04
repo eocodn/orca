@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../store'
 import type {
   RuntimeBrowserDriverState,
@@ -70,7 +71,7 @@ const enqueuePendingMobileStateEvent = (event: PendingMobileStateEvent): void =>
 }
 
 unsubs.push(
-  window.api.runtime.onTerminalFitOverrideChanged((event) => {
+  getClientRuntime().runtime.onTerminalFitOverrideChanged((event) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -84,7 +85,7 @@ unsubs.push(
 
 unsubs.push(
   // Why: mirror presence-lock driver state so TerminalPane / pty-connection guards know which PTYs are mobile-driven. See docs/mobile-presence-lock.md.
-  window.api.runtime.onTerminalDriverChanged((event) => {
+  getClientRuntime().runtime.onTerminalDriverChanged((event) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -97,7 +98,7 @@ unsubs.push(
 )
 
 unsubs.push(
-  window.api.runtime.onBrowserDriverChanged((event) => {
+  getClientRuntime().runtime.onBrowserDriverChanged((event) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -112,9 +113,9 @@ unsubs.push(
 // Why: subscribe before the snapshot round trip and buffer live events; otherwise an older snapshot could overwrite a newer live lock and hide the overlay.
 if (!isRuntimeEnvironmentActive()) {
   void Promise.all([
-    window.api.runtime.getTerminalFitOverrides(),
-    window.api.runtime.getTerminalDrivers(),
-    window.api.runtime.getBrowserDrivers()
+    getClientRuntime().runtime.getTerminalFitOverrides(),
+    getClientRuntime().runtime.getTerminalDrivers(),
+    getClientRuntime().runtime.getBrowserDrivers()
   ])
     .then(([overrides, drivers, browserDrivers]) => {
       if (mobileStateHydrationDisposed) {

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback, useState } from 'react'
 import {
   AlertTriangle,
@@ -136,7 +137,7 @@ export function HostSectionHeaderMenu({ row }: { row: HostHeaderRow }): React.JS
     // version skew instead of trusting the prior pass.
     clearRuntimeCompatibilityCache(parsed.environmentId)
     try {
-      const response = await window.api.runtimeEnvironments.getStatus({
+      const response = await getClientRuntime().remoteHost.getStatus({
         selector: parsed.environmentId,
         timeoutMs: 10_000
       })

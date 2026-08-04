@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -223,7 +224,7 @@ export function AddRemoteHostDialog({
 
     setIsSaving(true)
     try {
-      const result = await window.api.runtimeEnvironments.verifyAndAddFromPairingCode({
+      const result = await getClientRuntime().remoteHost.verifyAndAddFromPairingCode({
         name: trimmedName,
         pairingCode: trimmedPairingCode,
         allowLoopback
@@ -239,7 +240,7 @@ export function AddRemoteHostDialog({
         )
         return
       }
-      const environments = await window.api.runtimeEnvironments.list()
+      const environments = await getClientRuntime().remoteHost.list()
       setRuntimeEnvironments(environments)
       setRuntimeEnvironmentStatus(result.environment.id, {
         status: result.runtimeStatus,

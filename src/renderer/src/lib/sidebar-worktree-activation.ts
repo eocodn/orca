@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import {
   activateAndRevealFolderWorkspace,
   activateAndRevealWorktree
@@ -28,7 +29,7 @@ export async function activateWorktreeFromSidebar(
       const runtime = await window.api.ephemeralVm.resumeWorkspace({ workspaceId: worktreeId })
       if (runtime?.runtimeEnvironmentId) {
         const store = (await import('@/store')).useAppStore
-        store.getState().setRuntimeEnvironments(await window.api.runtimeEnvironments.list())
+        store.getState().setRuntimeEnvironments(await getClientRuntime().remoteHost.list())
         await store.getState().refreshRuntimeEnvironmentStatus(runtime.runtimeEnvironmentId)
       }
     } catch (error) {
