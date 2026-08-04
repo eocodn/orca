@@ -56,12 +56,6 @@ jobs:
       - name: Enforce source line limit
         run: pnpm run check:source-lines
 
-      - name: Verify bundled skill guides
-        run: pnpm run verify:bundled-skill-guides
-
-      - name: Verify skill freshness manifest
-        run: pnpm run verify:skill-bundle-manifest
-
       - name: Verify localization catalog
         run: pnpm run verify:localization-catalog
 

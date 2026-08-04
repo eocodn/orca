@@ -70,9 +70,6 @@ export function formatGroupHelp(specs: CommandSpec[], group: string): string {
 
 function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   const command = commandPath.join(' ')
-  if (command === 'skills install' && flag === 'agent') {
-    return '--agent <names>        Comma-separated install targets; default is detected agents'
-  }
   if (command === 'terminal close' && flag === 'tab') {
     return '--tab                  Close the whole tab and wait for durable persistence'
   }
@@ -188,7 +185,6 @@ export function formatFlagHelp(flag: string): string {
     key: '--key <key>            Key argument for this command',
     limit: '--limit <n>            Maximum number of rows to return',
     local: '--local                Target the current project instead of the global install',
-    skill: '--skill <name>         Bundled skill to act on; repeat for several',
     mode: '--mode <mode>          Mode such as edit, diff, or both',
     'mouse-button': '--mouse-button <btn>   Mouse button: left, right, or middle',
     modifiers: '--modifiers <chord>  Modifier keys held only for this click',

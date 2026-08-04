@@ -3,8 +3,6 @@ import { execFile } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import assert from 'node:assert/strict'
-
 const execFileAsync = promisify(execFile)
 
 function readAppDirArg(argv) {
@@ -50,30 +48,7 @@ try {
     })
 
   await run(['--help'])
-  const list = JSON.parse((await run(['skills', 'list', '--json'])).stdout)
-  assert(list.topics.some((topic) => topic.name === 'orca-cli'))
-  assert.match((await run(['skills', 'get', 'orca-cli'])).stdout, /name: orca-cli/)
-  assert.match((await run(['skills', 'get', 'computer-use'])).stdout, /name: computer-use/)
-  const install = JSON.parse(
-    (
-      await run([
-        'skills',
-        'install',
-        '--skill',
-        'orca-cli',
-        '--agent',
-        'codex',
-        '--dry-run',
-        '--json'
-      ])
-    ).stdout
-  )
-  const update = JSON.parse(
-    (await run(['skills', 'update', '--skill', 'orca-cli', '--dry-run', '--json'])).stdout
-  )
-  assert.equal(install.executed, false)
-  assert.equal(update.executed, false)
-  console.log(`[packaged-cli-smoke] help and skills commands passed via ${cliPath}`)
+  console.log(`[packaged-cli-smoke] help passed via ${cliPath}`)
 } catch (error) {
   smokeFailure = error
 }

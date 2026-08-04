@@ -233,6 +233,7 @@ services:
       - config/scripts/verify-cli-bin.test.mjs
       - config/scripts/ios-runtime-removal-contract.test.mjs
       - config/scripts/emulator-product-control-removal-contract.test.mjs
+      - config/scripts/public-orca-cli-skills-removal-contract.test.mjs
     init: true
     network_mode: host
 

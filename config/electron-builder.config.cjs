@@ -14,7 +14,6 @@ const {
 const { verifyLinuxGlibcFloor } = require('./scripts/verify-linux-glibc-floor.cjs')
 const { writeMacBuildCompatibility } = require('./scripts/mac-build-compatibility.cjs')
 const { verifyPackagedPluginResources } = require('./scripts/verify-packaged-plugin-resources.cjs')
-const { verifySkillsCliRuntime } = require('./scripts/verify-skills-cli-runtime.cjs')
 const {
   chmodMacServeSimHelpers,
   chmodUnixCliLaunchers,
@@ -35,12 +34,6 @@ const featureWallResources = {
   from: 'resources/onboarding/feature-wall',
   to: 'onboarding/feature-wall'
 }
-// Why: freshness detection needs immutable identity metadata from this exact
-// app build, but never needs the skill package bytes or a runtime network read.
-const skillFreshnessResources = {
-  from: 'resources/skills',
-  to: 'skills'
-}
 // Why: SSH relay deploy resolves bundles from process.resourcesPath in packaged
 // apps. Keeping relay assets as extraResources makes them real directories
 // instead of paths hidden inside app.asar.
@@ -58,7 +51,7 @@ const bundledPluginResources = {
 // from package directories where pnpm's symlink farm is absent. Copy the exact
 // runtime dependency closure to Resources/node_modules so bare require() calls
 // do not fall through to a developer checkout's node_modules.
-const commonExtraResources = [relayExtraResource, bundledPluginResources, skillFreshnessResources]
+const commonExtraResources = [relayExtraResource, bundledPluginResources]
 const macSpeechNativeResource = {
   from: 'node_modules/sherpa-onnx-darwin-${arch}',
   to: 'node_modules/sherpa-onnx-darwin-${arch}'
@@ -93,11 +86,6 @@ module.exports = {
     '!docs{,/**/*}',
     '!mobile{,/**/*}',
     '!native{,/**/*}',
-    '!skills{,/**/*}',
-    // Why: guide/stub authoring sources are compiled into runtime artifacts; shipping
-    // either source tree would duplicate content without a runtime consumer.
-    '!skill-guides{,/**/*}',
-    '!skill-stubs{,/**/*}',
     '!tests{,/**/*}',
     // Why: examples/ is plugin authoring documentation with no runtime consumer —
     // bundled plugins ship via extraResources from resources/plugins/launch/. It also
@@ -120,7 +108,6 @@ module.exports = {
     // Why: feature-wall media is copied via extraResources so runtime can read
     // it from process.resourcesPath; exclude the source copy from app.asar.
     '!resources/onboarding/feature-wall/**',
-    '!resources/skills/**',
     // Why: bundled plugins ship via extraResources to resources/plugins/launch;
     // packing the source tree into app.asar would duplicate those exact bytes.
     '!resources/plugins/launch/**',
@@ -225,14 +212,6 @@ module.exports = {
     const archEnumByNodeArch = { ia32: 0, x64: 1, armv7l: 2, arm64: 3 }
     const hostArchEnum = archEnumByNodeArch[process.arch]
     const canExecuteTargetArch = context.arch === hostArchEnum || context.arch === 4
-    verifySkillsCliRuntime(join(resourcesDir, 'app.asar.unpacked', 'out'), resourcesDir, {
-      executeCommands: canExecuteTargetArch
-    })
-    if (!canExecuteTargetArch) {
-      console.log(
-        `[verify-skills-cli-runtime] skipped command probes on cross-arch slice (target ${context.arch}, host ${process.arch})`
-      )
-    }
     if (canExecuteTargetArch) {
       verifyPackagedDaemonEntryBoots(resourcesDir)
     } else {

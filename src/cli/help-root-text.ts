@@ -17,12 +17,6 @@ Accounts:
   account add               Add a managed Claude or Codex account on this Orca host
   account list              List managed Claude and Codex accounts on this Orca host
 
-Skills:
-  skills list               List version-matched skill guides bundled with this Orca CLI
-  skills get                Print a version-matched skill guide as Markdown
-  skills install            Install bundled Orca skills globally via the community skills CLI
-  skills update             Update already-installed Orca skills via the community skills CLI
-
 Environments:
   environment add           Save a remote Orca runtime from a pairing code
   environment list          List saved remote Orca runtimes

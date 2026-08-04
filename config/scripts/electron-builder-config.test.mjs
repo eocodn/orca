@@ -67,10 +67,6 @@ describe('electron-builder config', () => {
         '!docs{,/**/*}',
         '!mobile{,/**/*}',
         '!native{,/**/*}',
-        '!skills{,/**/*}',
-        '!skill-guides{,/**/*}',
-        '!skill-stubs{,/**/*}',
-        '!resources/skills/**',
         '!tests{,/**/*}',
         '!examples{,/**/*}',
         '!pr-evidence{,/**/*}',
@@ -111,10 +107,6 @@ describe('electron-builder config', () => {
       to: 'plugins/launch'
     })
     for (const platform of ['mac', 'linux', 'win']) {
-      expect(electronBuilderConfig[platform].extraResources).toContainEqual({
-        from: 'resources/skills',
-        to: 'skills'
-      })
       expect(electronBuilderConfig[platform].extraResources).toEqual(
         expect.arrayContaining([bundledPluginResources])
       )
@@ -594,19 +586,6 @@ describe('electron-builder config', () => {
         await writeFile(
           join(unpackedMainDir, 'daemon-entry.js'),
           'console.error("Usage: daemon-entry <socket>"); process.exit(1)\n',
-          'utf8'
-        )
-        const unpackedCliDir = join(resourcesDir, 'app.asar.unpacked', 'out', 'cli')
-        await mkdir(join(unpackedCliDir, 'handlers'), { recursive: true })
-        await writeFile(join(unpackedCliDir, 'handlers', 'skills.js'), '', 'utf8')
-        await writeFile(
-          join(unpackedCliDir, 'index.js'),
-          [
-            'const args = process.argv.slice(2)',
-            "if (args[1] === 'list') console.log(JSON.stringify({ topics: [{ name: 'orca-cli' }, { name: 'computer-use' }] }))",
-            "else if (args[1] === 'get') console.log(`---\\nname: ${args[2]}\\n---`)",
-            'else console.log(JSON.stringify({ executed: false }))'
-          ].join('\n'),
           'utf8'
         )
         await writeFile(launcherPath, '#!/usr/bin/env bash\n', { encoding: 'utf8', mode: 0o644 })

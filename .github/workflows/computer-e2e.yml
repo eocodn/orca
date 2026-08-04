@@ -32,7 +32,6 @@ on:
       - 'native/computer-use-linux/**'
       - 'native/computer-use-windows/**'
       - 'native/windows-cli-launcher/**'
-      - 'skills/computer-use/SKILL.md'
       - 'src/cli/**'
       - 'src/main/computer/**'
       - 'src/main/runtime/rpc/dispatcher.ts'

@@ -215,10 +215,5 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     name: 'vm',
     keys: ['vm recipe doctor'],
     load: async () => (await import('./handlers/vm.js')).VM_HANDLERS
-  },
-  {
-    name: 'skills',
-    keys: ['skills list', 'skills get', 'skills install', 'skills update'],
-    load: async () => (await import('./handlers/skills.js')).SKILL_HANDLERS
   }
 ]

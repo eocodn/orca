@@ -14,7 +14,6 @@ import { DIAGNOSTICS_COMMAND_SPECS } from './diagnostics'
 import { INTROSPECTION_COMMAND_SPECS } from './introspection'
 import { LINEAR_COMMAND_SPECS } from './linear'
 import { VM_COMMAND_SPECS } from './vm'
-import { SKILL_COMMAND_SPECS } from './skills'
 import { FOLDER_WORKSPACE_COMMAND_SPECS } from './folder-workspace'
 import { SESSION_COMMAND_SPECS } from './session'
 
@@ -35,6 +34,5 @@ export const COMMAND_SPECS: CommandSpec[] = [
   ...INTROSPECTION_COMMAND_SPECS,
   ...ENVIRONMENT_COMMAND_SPECS,
   ...LINEAR_COMMAND_SPECS,
-  ...VM_COMMAND_SPECS,
-  ...SKILL_COMMAND_SPECS
+  ...VM_COMMAND_SPECS
 ]
