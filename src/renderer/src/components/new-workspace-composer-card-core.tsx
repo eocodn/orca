@@ -301,7 +301,7 @@ export default function NewWorkspaceComposerCard({
           // Why: ssh.connect has no built-in timeout; a stalled connect would otherwise leave the
           // row's spinner/disabled state stuck forever. Bound the UI wait — the backend keeps
           // connecting and the picker updates from store SSH state if it later succeeds.
-          await withUiConnectTimeout(window.api.ssh.connect({ targetId: action.targetId }))
+          await withUiConnectTimeout(getClientRuntime().ssh.connect({ targetId: action.targetId }))
           return
         }
 

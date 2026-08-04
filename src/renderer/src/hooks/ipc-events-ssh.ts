@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../store'
 import type { AppState } from '../store/types'
 import type { DirectSshAuthority, SshConnectionState } from '../../../shared/ssh-types'
@@ -57,13 +58,13 @@ const hydrateSshPorts = (targetId: string, authority: DirectSshAuthority): void 
   const isHydrationAuthorityCurrent = (): boolean =>
     !isEffectStopped() &&
     directSshAuthoritiesEqual(currentDirectSshAuthority(targetId), authority)
-  const forwardHydration = window.api.ssh.listPortForwards({ targetId }).then((forwards) => {
+  const forwardHydration = getClientRuntime().ssh.listPortForwards({ targetId }).then((forwards) => {
     // Why: if the session disconnected while awaiting the snapshot, applying it would resurrect a dead session's ports.
     if (isHydrationAuthorityCurrent() && !pendingPortHydration.receivedForwardPush) {
       useAppStore.getState().setPortForwards(targetId, forwards)
     }
   })
-  const detectedHydration = window.api.ssh.listDetectedPorts({ targetId }).then((detected) => {
+  const detectedHydration = getClientRuntime().ssh.listDetectedPorts({ targetId }).then((detected) => {
     if (isHydrationAuthorityCurrent() && !pendingPortHydration.receivedDetectedPush) {
       useAppStore.getState().setDetectedPorts(targetId, detected)
     }
@@ -84,14 +85,14 @@ let applySshConnectionStateChange!: (
 // Why: hydrate initial SSH state for all targets so worktree cards show correct connect state on launch.
 void (async () => {
   try {
-    const targets = await window.api.ssh.listTargets()
+    const targets = await getClientRuntime().ssh.listTargets()
     if (isEffectStopped()) {
       return
     }
     useAppStore.getState().setSshTargetsMetadata(targets)
     // Why: ghost-host UI (removed target still referenced by a workspace) shows a tombstone name instead of the raw id.
     try {
-      const removedLabels = await window.api.ssh.listRemovedTargetLabels()
+      const removedLabels = await getClientRuntime().ssh.listRemovedTargetLabels()
       if (isEffectStopped()) {
         return
       }
@@ -101,7 +102,7 @@ void (async () => {
     }
     for (const target of targets) {
       const hydrationWatermark = sshStateWatermarkByTargetId.get(target.id) ?? 0
-      const state = await window.api.ssh.getState({ targetId: target.id })
+      const state = await getClientRuntime().ssh.getState({ targetId: target.id })
       if (
         !isEffectStopped() &&
         state &&
@@ -120,19 +121,19 @@ void (async () => {
 })()
 
 unsubs.push(
-  window.api.ssh.onCredentialRequest((data) => {
+  getClientRuntime().ssh.onCredentialRequest((data) => {
     useAppStore.getState().enqueueSshCredentialRequest(data)
   })
 )
 
 unsubs.push(
-  window.api.ssh.onCredentialResolved(({ requestId }) => {
+  getClientRuntime().ssh.onCredentialResolved(({ requestId }) => {
     useAppStore.getState().removeSshCredentialRequest(requestId)
   })
 )
 
 unsubs.push(
-  window.api.ssh.onPortForwardsChanged(({ targetId, forwards }) => {
+  getClientRuntime().ssh.onPortForwardsChanged(({ targetId, forwards }) => {
     const pendingPortHydration = pendingPortHydrationByTargetId.get(targetId)
     if (pendingPortHydration) {
       pendingPortHydration.receivedForwardPush = true
@@ -142,7 +143,7 @@ unsubs.push(
 )
 
 unsubs.push(
-  window.api.ssh.onDetectedPortsChanged(({ targetId, ports }) => {
+  getClientRuntime().ssh.onDetectedPortsChanged(({ targetId, ports }) => {
     const pendingPortHydration = pendingPortHydrationByTargetId.get(targetId)
     if (pendingPortHydration) {
       pendingPortHydration.receivedDetectedPush = true
@@ -164,7 +165,7 @@ const reconcileSshAuthority = (
     pendingDeadline = { timer, settle }
     authorityReconciliationDeadlines.add(pendingDeadline)
   })
-  void Promise.race([window.api.ssh.getState({ targetId }).catch(() => null), deadline])
+  void Promise.race([getClientRuntime().ssh.getState({ targetId }).catch(() => null), deadline])
     .then((latest) => {
       if (
         isEffectStopped() ||
@@ -295,10 +296,10 @@ handleSshStateChangedEvent = (data: { targetId: string; state: unknown }): void 
   latestSshTargetStateEventByTargetId.set(data.targetId, stateEventId)
   if (!store.sshTargetLabels.has(data.targetId)) {
     // Why: unknown target id could be a post-boot add or a removed target racing disconnect; confirm with main first.
-    window.api.ssh
+    getClientRuntime().ssh
       .listTargets()
       // Why: refresh doubles as a deletion guard; retry once so a transient IPC failure doesn't drop a real added-target event.
-      .catch(() => window.api.ssh.listTargets())
+      .catch(() => getClientRuntime().ssh.listTargets())
       .then((targets) => {
         if (latestSshTargetStateEventByTargetId.get(data.targetId) !== stateEventId) {
           return
@@ -332,7 +333,7 @@ handleSshStateChangedEvent = (data: { targetId: string; state: unknown }): void 
   applySshConnectionStateChange(data.targetId, state, 'push')
 }
 
-unsubs.push(window.api.ssh.onStateChanged(handleSshStateChangedEvent))
+unsubs.push(getClientRuntime().ssh.onStateChanged(handleSshStateChangedEvent))
 unsubs.push(
   registerDirectSshWakeRouting({
     getConnectionStates: () => useAppStore.getState().sshConnectionStates ?? [],

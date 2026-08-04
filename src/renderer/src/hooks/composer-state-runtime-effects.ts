@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
@@ -285,7 +286,7 @@ export function useComposerRuntimeEffects(context: any) {
     }
 
     try {
-      await window.api.ssh.connect({ targetId })
+      await getClientRuntime().ssh.connect({ targetId })
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -306,7 +307,7 @@ export function useComposerRuntimeEffects(context: any) {
       return
     }
     try {
-      await window.api.ssh.connect({ targetId: folderTargetConnectionId })
+      await getClientRuntime().ssh.connect({ targetId: folderTargetConnectionId })
     } catch (error) {
       toast.error(
         error instanceof Error

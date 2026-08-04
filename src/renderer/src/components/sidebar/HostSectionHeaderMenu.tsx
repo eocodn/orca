@@ -103,7 +103,7 @@ export function HostSectionHeaderMenu({ row }: { row: HostHeaderRow }): React.JS
       }
       setBusy(true)
       try {
-        await window.api.ssh[action]({ targetId: parsed.targetId })
+        await getClientRuntime().ssh[action]({ targetId: parsed.targetId })
       } catch (err) {
         toast.error(
           err instanceof Error

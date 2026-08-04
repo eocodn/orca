@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useState } from 'react'
 import { Loader2, Server, ServerOff } from 'lucide-react'
 import { toast } from 'sonner'
@@ -98,7 +99,7 @@ export function TerminalSshReconnectOverlay({
         // Bucket state is written inside the helper, mirroring the local path.
         await connectRuntimeEnvironmentSshTarget(sshOwnerEnvironmentId, targetId)
       } else {
-        const connectState = await window.api.ssh.connect({ targetId })
+        const connectState = await getClientRuntime().ssh.connect({ targetId })
         if (connectState) {
           // Why: ssh.connect can resolve before the global state-change IPC lands;
           // the waiting deferred PTY reattach path keys off this renderer store.
@@ -123,9 +124,9 @@ export function TerminalSshReconnectOverlay({
         void resyncRuntimeEnvironmentSshTargets(sshOwnerEnvironmentId).catch(() => {})
       } else {
         void (async () => {
-          const targets = await window.api.ssh.listTargets()
+          const targets = await getClientRuntime().ssh.listTargets()
           useAppStore.getState().setSshTargetsMetadata(targets)
-          const removedLabels = await window.api.ssh.listRemovedTargetLabels()
+          const removedLabels = await getClientRuntime().ssh.listRemovedTargetLabels()
           useAppStore.getState().setRemovedSshTargetLabels(removedLabels)
         })().catch(() => {})
       }

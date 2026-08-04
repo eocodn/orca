@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Upload } from 'lucide-react'
@@ -49,7 +50,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
   const loadTargets = useCallback(
     async (opts?: { signal?: AbortSignal }) => {
       try {
-        const result = (await window.api.ssh.listTargets()) as SshTarget[]
+        const result = (await getClientRuntime().ssh.listTargets()) as SshTarget[]
         if (opts?.signal?.aborted || !mountedRef.current) {
           return
         }
@@ -73,7 +74,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
     // a sync failure must not block listing the already-known targets.
     void (async () => {
       try {
-        const result = await window.api.ssh.importConfig()
+        const result = await getClientRuntime().ssh.importConfig()
         useAppStore.getState().recordSshRepoReadoptions(result.repoReadoptions)
       } catch {
         // Surfaced on demand via the explicit Import button; ignore here.
@@ -104,9 +105,9 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
 
     try {
       if (editingId) {
-        await window.api.ssh.updateTarget({ id: editingId, updates: savePayload.payload.updates })
+        await getClientRuntime().ssh.updateTarget({ id: editingId, updates: savePayload.payload.updates })
       } else {
-        const result = await window.api.ssh.addTarget({ target: savePayload.payload.target })
+        const result = await getClientRuntime().ssh.addTarget({ target: savePayload.payload.target })
         useAppStore.getState().recordSshRepoReadoptions(result.repoReadoptions)
       }
       recordFeatureInteraction('ssh')
@@ -135,7 +136,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
 
   const terminateSessionsWithReconnect = async (targetId: string): Promise<void> => {
     try {
-      await window.api.ssh.terminateSessions({ targetId })
+      await getClientRuntime().ssh.terminateSessions({ targetId })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       if (!message.includes(SSH_TERMINATE_RECONNECT_REQUIRED)) {
@@ -143,8 +144,8 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
       }
       // Why: disconnect is now non-destructive, so preserved remote PTYs may
       // require a fresh relay attachment before they can be explicitly killed.
-      await window.api.ssh.connect({ targetId })
-      await window.api.ssh.terminateSessions({ targetId })
+      await getClientRuntime().ssh.connect({ targetId })
+      await getClientRuntime().ssh.terminateSessions({ targetId })
     }
   }
 
@@ -169,7 +170,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
 
   const handleRemove = async (id: string): Promise<void> => {
     try {
-      await removeSshTargetWithBestEffortCleanup(window.api.ssh, id)
+      await removeSshTargetWithBestEffortCleanup(getClientRuntime().ssh, id)
       // Why: a deleted passphrase-gated target may still have deferred
       // reconnect metadata; clear it so focused SSH tabs stop retrying it.
       clearRemovedSshTargetState(id)
@@ -196,7 +197,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
 
   const handleConnect = async (targetId: string): Promise<void> => {
     try {
-      await window.api.ssh.connect({ targetId })
+      await getClientRuntime().ssh.connect({ targetId })
       recordFeatureInteraction('ssh')
     } catch (err) {
       toast.error(
@@ -209,7 +210,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
 
   const handleDisconnect = async (targetId: string): Promise<void> => {
     try {
-      await window.api.ssh.disconnect({ targetId })
+      await getClientRuntime().ssh.disconnect({ targetId })
       recordFeatureInteraction('ssh')
     } catch (err) {
       toast.error(
@@ -240,7 +241,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
 
   const handleResetRelay = async (targetId: string): Promise<void> => {
     try {
-      await window.api.ssh.resetRelay({ targetId })
+      await getClientRuntime().ssh.resetRelay({ targetId })
       if (mountedRef.current) {
         toast.success(
           translate('auto.components.settings.SshPane.db2e48975e', 'Remote relay reset')
@@ -264,7 +265,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
   const handleTest = async (targetId: string): Promise<void> => {
     setTestingIds((prev) => new Set(prev).add(targetId))
     try {
-      const result = await window.api.ssh.testConnection({ targetId })
+      const result = await getClientRuntime().ssh.testConnection({ targetId })
       recordFeatureInteraction('ssh')
       if (mountedRef.current) {
         if (result.success) {
@@ -302,7 +303,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
       // Why: the explicit Import action re-adopts every ~/.ssh/config host,
       // including ones the user previously deleted — clear tombstones so a
       // deliberate re-import can bring them back.
-      const result = await window.api.ssh.importConfig({ reAdopt: true })
+      const result = await getClientRuntime().ssh.importConfig({ reAdopt: true })
       useAppStore.getState().recordSshRepoReadoptions(result.repoReadoptions)
       recordFeatureInteraction('ssh')
       if (mountedRef.current) {

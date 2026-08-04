@@ -78,7 +78,7 @@ export function AddRemoteHostDialog({
   }
 
   const refreshSshTargetMetadata = async () => {
-    const targets = (await window.api.ssh.listTargets()) as SshTarget[]
+    const targets = (await getClientRuntime().ssh.listTargets()) as SshTarget[]
     setSshTargetsMetadata(targets)
   }
 
@@ -133,7 +133,7 @@ export function AddRemoteHostDialog({
 
     setIsSaving(true)
     try {
-      const result = await window.api.ssh.addTarget({ target })
+      const result = await getClientRuntime().ssh.addTarget({ target })
       recordSshRepoReadoptions(result.repoReadoptions)
       await refreshSshTargetMetadata()
       recordFeatureInteraction('ssh')
@@ -159,7 +159,7 @@ export function AddRemoteHostDialog({
   const importSshConfig = async () => {
     setIsImporting(true)
     try {
-      const result = await window.api.ssh.importConfig()
+      const result = await getClientRuntime().ssh.importConfig()
       const synced = result.targets
       recordSshRepoReadoptions(result.repoReadoptions)
       await refreshSshTargetMetadata()

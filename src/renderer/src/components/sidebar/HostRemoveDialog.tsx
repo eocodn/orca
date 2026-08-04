@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useMemo, useState } from 'react'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -77,7 +78,7 @@ export function HostRemoveDialog({
   }
 
   const removeSshTarget = async (targetId: string): Promise<void> => {
-    await removeSshTargetWithBestEffortCleanup(window.api.ssh, targetId)
+    await removeSshTargetWithBestEffortCleanup(getClientRuntime().ssh, targetId)
     // Why: clear deferred reconnect metadata so focused SSH tabs stop retrying
     // the deleted target — mirrors the SSH settings pane removal flow.
     useAppStore.getState().clearRemovedSshTargetState(targetId)

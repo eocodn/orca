@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import { toast } from 'sonner'
@@ -121,12 +122,12 @@ export function useAddRepoHostSelection({
       })
 
       try {
-        const connectResult = (await window.api.ssh.connect({
+        const connectResult = (await getClientRuntime().ssh.connect({
           targetId: parsed.targetId
         })) as SshConnectionState | null | undefined
         const state =
           connectResult ??
-          ((await window.api.ssh.getState({
+          ((await getClientRuntime().ssh.getState({
             targetId: parsed.targetId
           })) as SshConnectionState | null)
         if (state) {

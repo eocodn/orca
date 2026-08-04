@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useState } from 'react'
 import { AlertTriangle, Cloud, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -67,7 +68,7 @@ export function SshTargetStatusRow({
   const handleConnect = useCallback(async () => {
     setBusy(true)
     try {
-      await window.api.ssh.connect({ targetId })
+      await getClientRuntime().ssh.connect({ targetId })
       recordFeatureInteraction('ssh')
     } catch (err) {
       toast.error(
@@ -85,7 +86,7 @@ export function SshTargetStatusRow({
   const handleDisconnect = useCallback(async () => {
     setBusy(true)
     try {
-      await window.api.ssh.disconnect({ targetId })
+      await getClientRuntime().ssh.disconnect({ targetId })
       recordFeatureInteraction('ssh')
     } catch (err) {
       toast.error(

@@ -407,7 +407,7 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
             try {
               const SSH_RECONNECT_TIMEOUT_MS = 15_000
               const allTargets = await timeRendererStartupStep('ssh-list-targets', () =>
-                window.api.ssh.listTargets()
+                getClientRuntime().ssh.listTargets()
               )
               const targetMap = new Map(allTargets.map((t) => [t.id, t]))
               const targets = connectionIds.map((targetId) => ({
@@ -432,7 +432,7 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
                       const result = await reconnectSshTargetForRendererStartup({
                         targetId,
                         timeoutMs: SSH_RECONNECT_TIMEOUT_MS,
-                        connect: (id) => window.api.ssh.connect({ targetId: id }),
+                        connect: (id) => getClientRuntime().ssh.connect({ targetId: id }),
                         publishState: actions.setSshConnectionState,
                         onFailure: (id, error) => {
                           console.warn(`SSH auto-reconnect failed for ${id}:`, error)
@@ -461,7 +461,7 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
                   continue
                 }
                 try {
-                  const state = await window.api.ssh.getState({ targetId })
+                  const state = await getClientRuntime().ssh.getState({ targetId })
                   console.warn(
                     `[ssh-restore] Polled state for ${targetId}: status=${state?.status}`
                   )

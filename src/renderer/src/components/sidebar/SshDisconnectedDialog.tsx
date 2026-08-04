@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Server, ServerOff } from 'lucide-react'
@@ -73,7 +74,7 @@ export function SshDisconnectedDialog({
   const handleReconnect = useCallback(async () => {
     setConnecting(true)
     try {
-      await window.api.ssh.connect({ targetId })
+      await getClientRuntime().ssh.connect({ targetId })
       if (mountedRef.current) {
         onOpenChange(false)
       }

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -66,7 +67,7 @@ export function SshPassphraseDialog(): React.JSX.Element | null {
     }
     setSubmitting(true)
     try {
-      await window.api.ssh.submitCredential({ requestId: request.requestId, value })
+      await getClientRuntime().ssh.submitCredential({ requestId: request.requestId, value })
       removeRequest(request.requestId)
     } catch (err) {
       toast.error(
@@ -85,7 +86,7 @@ export function SshPassphraseDialog(): React.JSX.Element | null {
     if (request) {
       setSubmitting(true)
       try {
-        await window.api.ssh.submitCredential({ requestId: request.requestId, value: null })
+        await getClientRuntime().ssh.submitCredential({ requestId: request.requestId, value: null })
         removeRequest(request.requestId)
       } catch (err) {
         toast.error(

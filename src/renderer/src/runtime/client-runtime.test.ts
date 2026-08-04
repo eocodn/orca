@@ -6,6 +6,7 @@ import {
   type ClientRuntimeFileService,
   type ClientRuntimeGitService,
   type ClientRuntimeSessionService,
+  type ClientRuntimeSshService,
   type ClientRuntimeTerminalService,
   type ClientRuntimeWorkspaceService
 } from './client-runtime'
@@ -19,6 +20,7 @@ describe('ClientRuntime service boundary', () => {
     const git = {} as ClientRuntimeGitService
     const session = {} as ClientRuntimeSessionService
     const app = {} as ClientRuntimeAppService
+    const ssh = {} as ClientRuntimeSshService
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
@@ -29,6 +31,7 @@ describe('ClientRuntime service boundary', () => {
       git,
       session,
       app,
+      ssh,
       repos: workspace.repos,
       runtimeEnvironments: remoteHost,
       fs: file,
@@ -39,6 +42,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.git).toBe(git)
     expect(clientRuntime.session).toBe(session)
     expect(clientRuntime.app).toBe(app)
+    expect(clientRuntime.ssh).toBe(ssh)
     expect(clientRuntime.workspace.repos).toBe(workspace.repos)
     expect(clientRuntime.remoteHost).toBe(remoteHost)
     expect(clientRuntime.file).toBe(file)
@@ -50,6 +54,7 @@ describe('ClientRuntime service boundary', () => {
     const git = {} as ClientRuntimeGitService
     const session = {} as ClientRuntimeSessionService
     const app = {} as ClientRuntimeAppService
+    const ssh = {} as ClientRuntimeSshService
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
@@ -60,6 +65,7 @@ describe('ClientRuntime service boundary', () => {
         git,
         session,
         app,
+        ssh,
         repos: workspace.repos,
         runtimeEnvironments: remoteHost,
         fs: file,
@@ -71,6 +77,7 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().git).toBe(git)
     expect(getClientRuntime().session).toBe(session)
     expect(getClientRuntime().app).toBe(app)
+    expect(getClientRuntime().ssh).toBe(ssh)
     expect(getClientRuntime().workspace.repos).toBe(workspace.repos)
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
     expect(getClientRuntime().file).toBe(file)

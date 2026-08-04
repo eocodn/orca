@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Server, ServerOff } from 'lucide-react'
@@ -66,7 +67,7 @@ export function ForgetSshWorkspaceDialog(): React.JSX.Element | null {
     }
     setBusy('reconnect')
     try {
-      await window.api.ssh.connect({ targetId: resolution.targetId })
+      await getClientRuntime().ssh.connect({ targetId: resolution.targetId })
     } catch (err) {
       if (mountedRef.current) {
         setBusy(null)
