@@ -210,7 +210,25 @@ services:
           src/main/ssh/ssh-port-forward.test.ts \
           src/relay/pty-handler.test.ts \
           src/main/project-groups/folder-workspace-path-status.test.ts \
-          src/main/persistence.test.ts
+          src/main/persistence.test.ts \
+          config/scripts/ade-control-bin-contract.test.mjs
+    init: true
+    network_mode: host
+
+  control-cli-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - pnpm
+      - exec
+      - vitest
+      - run
+      - --maxWorkers=1
+      - --config
+      - config/vitest.config.ts
+      - config/scripts/ade-control-bin-contract.test.mjs
+      - config/scripts/verify-cli-bin.test.mjs
     init: true
     network_mode: host
 
