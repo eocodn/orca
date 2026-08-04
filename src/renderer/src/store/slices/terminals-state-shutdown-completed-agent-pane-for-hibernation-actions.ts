@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -291,7 +292,7 @@ export function createTerminalSliceShutdownCompletedAgentPaneForHibernationActio
       // Why: pty.kill can flush final data before exit; unregister first so stale handlers can't fire phantom notifications during hibernation.
       const handlerSnapshots = unregisterPtyDataHandlers(rendererShutdownPtyIds) ?? []
       try {
-        await window.api.pty.kill(opts.ptyId, { keepHistory: true })
+        await getClientRuntime().terminal.kill(opts.ptyId, { keepHistory: true })
       } catch (err) {
         restorePtyDataHandlersAfterFailedShutdown(handlerSnapshots)
         rollbackTargetShutdownState()

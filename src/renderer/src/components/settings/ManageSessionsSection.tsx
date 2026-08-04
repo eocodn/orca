@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { PtyManagementSession } from '../../../../preload/api-types'
@@ -71,7 +72,7 @@ export function ManageSessionsSection(): React.JSX.Element {
   const refresh = useCallback(async (): Promise<PtyManagementSession[]> => {
     setIsRefreshing(true)
     try {
-      const result = await window.api.pty.management.listSessions()
+      const result = await getClientRuntime().terminal.management.listSessions()
       if (!isMounted.current || mutationInFlight.current) {
         return result.sessions
       }
@@ -131,7 +132,7 @@ export function ManageSessionsSection(): React.JSX.Element {
       setBusyKind('killOne')
       mutationInFlight.current = true
       try {
-        const { success } = await window.api.pty.management.killOne({
+        const { success } = await getClientRuntime().terminal.management.killOne({
           sessionId: session.sessionId
         })
         if (success) {

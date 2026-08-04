@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 /*    enrichment, dismissals, and destructive preflight/delete orchestration share
    one store state contract. */
 import type { StateCreator } from 'zustand'
@@ -472,8 +473,8 @@ async function probeTerminalLiveness(
   for (const { tab, ptyId } of ptyChecks) {
     try {
       const [hasChildProcesses, foregroundProcess] = await Promise.all([
-        window.api.pty.hasChildProcesses(ptyId),
-        window.api.pty.getForegroundProcess(ptyId)
+        getClientRuntime().terminal.hasChildProcesses(ptyId),
+        getClientRuntime().terminal.getForegroundProcess(ptyId)
       ])
       const processName = normalizeProcessName(foregroundProcess)
       if (!hasChildProcesses && (!processName || SHELL_PROCESS_NAMES.has(processName))) {

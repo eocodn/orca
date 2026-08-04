@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import {
@@ -55,7 +56,7 @@ export function useResourceSessionInventory(ready: boolean): ResourceSessionInve
     const generation = ++refreshGenerationRef.current
     const lifecycleRevision = lifecycleRevisionRef.current
     try {
-      const sessions = await window.api.pty.listSessions()
+      const sessions = await getClientRuntime().terminal.listSessions()
       // Why: an exit or newer refresh can land while the global provider list
       // is in flight; stale results must not resurrect dead sessions.
       if (!mountedRef.current || generation !== refreshGenerationRef.current) {
@@ -157,7 +158,7 @@ export function useResourceSessionInventory(ready: boolean): ResourceSessionInve
         })
       }, 0)
     }
-    const unsubscribeSpawned = window.api.pty.onSpawned(({ id }) => {
+    const unsubscribeSpawned = getClientRuntime().terminal.onSpawned(({ id }) => {
       // Why: reattach emits the same lifecycle signal; known IDs must not turn remounts into global inventory scans.
       if (knownSessionIdsRef.current.has(id)) {
         return
@@ -166,7 +167,7 @@ export function useResourceSessionInventory(ready: boolean): ResourceSessionInve
       // Why: serialize slow provider-wide lists; retry once only when a result missed a later spawn.
       scheduleLifecycleRefresh()
     })
-    const unsubscribeExit = window.api.pty.onExit(({ id }) => {
+    const unsubscribeExit = getClientRuntime().terminal.onExit(({ id }) => {
       pendingSpawnIds.delete(id)
       if (pendingSpawnIds.size === 0 && refreshTimer !== null) {
         window.clearTimeout(refreshTimer)

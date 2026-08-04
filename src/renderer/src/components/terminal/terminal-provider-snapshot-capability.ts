@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 type SnapshotCapability = { id: string; authoritative: boolean | null }
 
 const authoritativeSnapshotByPtyId = new Map<string, boolean>()
@@ -48,7 +49,7 @@ export function synchronizeTerminalProviderSnapshotCapabilities(
       !authoritativeSnapshotByPtyId.has(id) &&
       (unknownCapabilityRetryAtByPtyId.get(id) ?? 0) <= nowMs
   )
-  const resolve = resolveCapabilities ?? window.api.pty.getAuthoritativeBufferSnapshotCapabilities
+  const resolve = resolveCapabilities ?? getClientRuntime().terminal.getAuthoritativeBufferSnapshotCapabilities
   if (!resolve) {
     for (const id of missing) {
       unknownCapabilityRetryAtByPtyId.set(id, nowMs + UNKNOWN_CAPABILITY_RETRY_MS)

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '@/store'
 import { buildAgentStartupPlan } from '@/lib/tui-agent-startup'
 import type {
@@ -119,7 +120,7 @@ export async function launchAgentBackgroundSession(
         command: startupPlan.launchCommand,
         startupCommandDelivery: startupPlan.startupCommandDelivery
       }),
-    write: (ptyId, data) => window.api.pty.write(ptyId, data)
+    write: (ptyId, data) => getClientRuntime().terminal.write(ptyId, data)
   })
   // Route by the worktree's owner host, not the focused runtime.
   const runtimeTarget = getActiveRuntimeTarget(
@@ -195,7 +196,7 @@ export async function launchAgentBackgroundSession(
       runtimeTerminalHandle = created.terminal.handle
       ptyId = toRemoteRuntimePtyId(runtimeTerminalHandle, runtimeTarget.environmentId)
     } else {
-      const result = await window.api.pty.spawn({
+      const result = await getClientRuntime().terminal.spawn({
         cols: 120,
         rows: 40,
         cwd: worktree.path,

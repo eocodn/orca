@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '@/store'
 import { callRuntimeRpc, type RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
 import { isTerminalTabPresent } from '@/store/slices/terminal-tab-retirement'
@@ -37,7 +38,7 @@ export async function retireProvider(args: {
         terminal: args.runtimeTerminalHandle
       })
     } else if (args.runtimeTarget.kind === 'local') {
-      await window.api.pty.kill(args.ptyId)
+      await getClientRuntime().terminal.kill(args.ptyId)
     }
   } catch {
     // Best-effort provider teardown; the retired tab must not be recreated.

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import React, { useCallback, useState } from 'react'
 import { LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -143,7 +144,7 @@ export function useDaemonActions(callbacks?: DaemonActionCallbacks): DaemonActio
   const runRestart = useCallback(async () => {
     setBusyKind('restart')
     try {
-      const { success } = await window.api.pty.management.restart()
+      const { success } = await getClientRuntime().terminal.management.restart()
       if (success) {
         toast.success(
           translate('auto.components.shared.useDaemonActions.0e9da1b98e', 'Daemon restarted.')

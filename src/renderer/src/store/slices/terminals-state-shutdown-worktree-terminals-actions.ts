@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -227,7 +228,7 @@ export function createTerminalSliceShutdownWorktreeTerminalsActions10(set: Slice
     }> => {
       const localPtyIds = rendererShutdownPtyIds.filter((ptyId) => !ptyId.startsWith('remote:'))
       const results = await Promise.allSettled(
-        localPtyIds.map((ptyId) => window.api.pty.kill(ptyId, { keepHistory: keepIdentifiers }))
+        localPtyIds.map((ptyId) => getClientRuntime().terminal.kill(ptyId, { keepHistory: keepIdentifiers }))
       )
       const stoppedPtyIds = [
         ...(runtimeEnvironmentId

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import {
   registerEagerPtyBuffer,
   type EagerPtyHandle
@@ -134,7 +135,7 @@ async function spawnPane(args: {
   command?: string
   env?: Record<string, string>
 }): Promise<string> {
-  const result = await window.api.pty.spawn({
+  const result = await getClientRuntime().terminal.spawn({
     cols: 120,
     rows: 40,
     cwd: args.worktree.path,

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore, type AppState } from '@/store'
 import {
   closeTerminalTab,
@@ -126,9 +127,9 @@ function getNextTerminalId(ids: ReadonlySet<string>, closingId: string): string 
 function createDefaultDependencies(): KillAllTerminalSurfaceDependencies {
   return {
     getState: useAppStore.getState,
-    killDaemonSessions: () => window.api.pty.management.killAll(),
+    killDaemonSessions: () => getClientRuntime().terminal.management.killAll(),
     closeSurface: closeTerminalTab,
-    killPty: (ptyId) => window.api.pty.kill(ptyId),
+    killPty: (ptyId) => getClientRuntime().terminal.kill(ptyId),
     now: () => globalThis.performance?.now() ?? Date.now(),
     yieldToRenderer: () =>
       new Promise((resolve) => {

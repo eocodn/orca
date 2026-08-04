@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -164,7 +165,7 @@ export function createTerminalSliceCloseTabActions3(set: SliceSet, get: SliceGet
         : { runtimeEnvironmentId: null }
       const retirementTasks: Promise<unknown>[] = opts?.localPtyTeardownOwnedExternally
         ? []
-        : retirementPlan.localOrSshPtyIds.map(async (ptyId) => window.api.pty.kill(ptyId))
+        : retirementPlan.localOrSshPtyIds.map(async (ptyId) => getClientRuntime().terminal.kill(ptyId))
       const localOrSshTaskCount = retirementTasks.length
       if (!opts?.remoteCloseOwnedByHost) {
         for (const terminal of retirementPlan.runtimeTerminals) {

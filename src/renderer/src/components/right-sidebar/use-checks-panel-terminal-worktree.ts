@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '@/store'
@@ -114,7 +115,7 @@ export function useChecksPanelTerminalWorktree(args: {
     }
     const refresh = async (): Promise<void> => {
       try {
-        const cwd = (await window.api.pty.getCwd(activeTerminalPtyId)).trim()
+        const cwd = (await getClientRuntime().terminal.getCwd(activeTerminalPtyId)).trim()
         if (cwd) {
           commit(cwd)
         } else {
