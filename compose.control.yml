@@ -245,6 +245,7 @@ services:
       - config/scripts/cli-feature-tip-telemetry-removal-contract.test.mjs
       - config/scripts/cli-feature-tip-startup-gate-removal-contract.test.mjs
       - config/scripts/runtime-orchestration-rpc-removal-contract.test.mjs
+      - config/scripts/ssh-orchestration-removal-contract.test.mjs
       - src/shared/feature-tips.test.ts
     init: true
     network_mode: host

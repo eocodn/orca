@@ -1,64 +1,48 @@
 #!/usr/bin/env node
 
-
-
-
 // Orca Relay — lightweight daemon deployed to remote hosts over SCP and launched via an SSH exec channel.
 // Communicates over stdin/stdout using the framed JSON-RPC protocol.
 // On client disconnect it enters a grace period, keeping PTYs alive on a Unix domain socket; a later launch
 // reconnects via `relay.js --connect`, bridging the new SSH channel's stdio to the existing relay's socket.
 
-import { createServer, createConnection, type Socket, type Server } from 'node:net'
+import { chmodSync, existsSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
-import { unlinkSync, existsSync, statSync, readFileSync, chmodSync } from 'node:fs'
-import {
-  RELAY_SENTINEL,
-  FrameDecoder,
-  MessageType,
-  encodeJsonRpcFrame,
-  parseJsonRpcMessage,
-  type DecodedFrame,
-  type JsonRpcResponse
-} from './protocol'
-import { readLaunchVersion, runConnectHandshake, setupDaemonHandshake } from './relay-handshake'
-import { RelayDispatcher } from './dispatcher'
-import { RelayContext, expandTilde } from './context'
-import { PtyHandler } from './pty-handler'
-import { FsHandler } from './fs-handler'
-import { installRelayLogRotation } from './rotating-log-writer'
-import { GitHandler } from './git-handler'
-import { PreflightHandler } from './preflight-handler'
-import { ExternalAutomationsHandler } from './external-automations-handler'
-import { PortScanHandler } from './port-scan-handler'
-import { AgentExecHandler } from './agent-exec-handler'
-import { WorkspaceSessionHandler } from './workspace-session-handler'
-import { endpointDirForRelaySocket, RelayAgentHookServer } from './agent-hook-server'
-import { PluginOverlayManager } from './plugin-overlay'
 import {
   AGENT_HOOK_INSTALL_PLUGINS_METHOD,
   AGENT_HOOK_NOTIFICATION_METHOD,
   AGENT_HOOK_REQUEST_REPLAY_METHOD
 } from '../shared/agent-hook-relay'
 import {
-  DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
-  SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
-} from '../shared/ssh-types'
-import { assertPluginSourceUnderByteCap } from './plugin-source-limit'
-import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
-import {
   detectExplicitPiAgentKindFromCommand,
   isPiCompatibleAgentType
 } from '../shared/pi-agent-kind'
 import { resolveSetupAgentSequenceLaunchCommand } from '../shared/setup-agent-sequencing'
-import { pickRemoteCliEnv } from './remote-cli-env'
-import { relayLogLine } from './relay-diagnostic-log'
-import { remoteCliRequestTimeoutMs } from './remote-cli-timeout'
-import { shouldReadRemoteCliStdin } from './remote-cli-stdin'
+import {
+  DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
+  SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
+} from '../shared/ssh-types'
+import { AgentExecHandler } from './agent-exec-handler'
+import { endpointDirForRelaySocket, RelayAgentHookServer } from './agent-hook-server'
+import { expandTilde, RelayContext } from './context'
+import { RelayDispatcher } from './dispatcher'
+import { ExternalAutomationsHandler } from './external-automations-handler'
+import { FsHandler } from './fs-handler'
+import { GitHandler } from './git-handler'
 import { registerManagedHookInstaller } from './managed-hook-installer'
 import { registerRelayPluginHostCallHandlers } from './plugin-host-call-handler'
-import { DispatcherClientWriter } from './dispatcher-client-writer'
-import { SshPtyConsumerSessionAdapter } from './ssh-pty-consumer-session-adapter'
+import { PluginOverlayManager } from './plugin-overlay'
+import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
+import { assertPluginSourceUnderByteCap } from './plugin-source-limit'
+import { PortScanHandler } from './port-scan-handler'
+import { PreflightHandler } from './preflight-handler'
+import { PtyHandler } from './pty-handler'
+import { relayLogLine } from './relay-diagnostic-log'
+import { readLaunchVersion } from './relay-handshake'
 import { RelayPtySourcePublication } from './relay-pty-source-publication'
+import { remoteCliRequestTimeoutMs } from './remote-cli-timeout'
+import { installRelayLogRotation } from './rotating-log-writer'
+import { SshPtyConsumerSessionAdapter } from './ssh-pty-consumer-session-adapter'
+import { WorkspaceSessionHandler } from './workspace-session-handler'
 
 import { runConnectMode, runOrcaCliMode } from './relay-startup-connect'
 import { runRelaySocketLifecycle } from './relay-startup-socket'
@@ -218,7 +202,10 @@ async function main(): Promise<void> {
     installRelayLogRotation(logFile)
   }
 
-  const socketOwnership = { ownsSocketPath: false, ownedSocketIdentity: null as SocketIdentity | null }
+  const socketOwnership = {
+    ownsSocketPath: false,
+    ownedSocketIdentity: null as SocketIdentity | null
+  }
   const ownsCurrentSocketPath = (): boolean => {
     if (isWindowsNamedPipePath(sockPath)) {
       return socketOwnership.ownsSocketPath
@@ -374,13 +361,6 @@ async function main(): Promise<void> {
       timeoutMs: remoteCliRequestTimeoutMs(params)
     })
   })
-  dispatcher.onRequest('orca.cli.postOutput', async (params, context) => {
-    return await dispatcher.requestAnyClient('orca.cli.postOutput', params, {
-      excludeClientId: context.clientId,
-      timeoutMs: remoteCliRequestTimeoutMs(params)
-    })
-  })
-
   function configureRelayGraceTime(params: Record<string, unknown>): { graceTimeMs: number } {
     const seconds = Number(params.graceTimeSeconds)
     if (Number.isFinite(seconds) && seconds >= 0) {
@@ -525,9 +505,22 @@ async function main(): Promise<void> {
   })
 
   await runRelaySocketLifecycle({
-    dispatcher, detached, graceTimeMs, sockPath, endpointCredential, launchVersion,
-    ptyHandler, ptyConsumerSessionAdapter, ptySourcePublication, fsHandler, gitHandler,
-    hookServer, transportState, socketOwnership, ownsCurrentSocketPath, cleanupOwnedSocket
+    dispatcher,
+    detached,
+    graceTimeMs,
+    sockPath,
+    endpointCredential,
+    launchVersion,
+    ptyHandler,
+    ptyConsumerSessionAdapter,
+    ptySourcePublication,
+    fsHandler,
+    gitHandler,
+    hookServer,
+    transportState,
+    socketOwnership,
+    ownsCurrentSocketPath,
+    cleanupOwnedSocket
   })
 }
 

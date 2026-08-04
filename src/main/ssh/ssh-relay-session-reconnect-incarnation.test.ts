@@ -374,15 +374,7 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
       .mockReturnValueOnce(winningIncarnation)
       .mockReturnValue(staleIncarnation)
     const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
-    const runtime = {
-      registerOrchestrationCompatibilitySshAttachment: vi.fn(
-        (_targetId: string, connectionIncarnation: string) => ({
-          attachmentId: `attachment-${connectionIncarnation}`,
-          connectionIncarnation
-        })
-      ),
-      releaseOrchestrationCompatibilitySshAttachment: vi.fn()
-    }
+    const runtime = { getRuntimeId: () => 'runtime-test' }
     const session = new SshRelaySession(
       'target-1',
       getMainWindow,
@@ -404,10 +396,6 @@ describe('SshRelaySession reconnect incarnation ordering', () => {
     expect(winningCliHandler).toBeDefined()
     await winningCliHandler?.({ argv: ['status'], cwd: '/', env: {} })
 
-    expect(runtime.registerOrchestrationCompatibilitySshAttachment).toHaveBeenCalledWith(
-      'target-1',
-      winningIncarnation
-    )
     expect(randomUUID).toHaveBeenCalledTimes(3)
   })
 

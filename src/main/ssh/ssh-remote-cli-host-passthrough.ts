@@ -1,9 +1,7 @@
 // Why: the SSH relay shim (`~/.orca-relay/bin/orca`) forwards CLI invocations
 // to the host app. Instead of re-implementing every command in a hand-rolled
-// switch (the cause of "Unsupported SSH Orca CLI command", #7716), the host
-// runs the real bundled `orca` CLI entry in Electron node mode — the same
-// entry the local shell command uses — so remote invocations get the full
-// command surface (orchestration, worktree, terminal, ...) by construction.
+// switch, the host runs the real bundled `orca` CLI entry in Electron node
+// mode — the same entry the local shell command uses.
 import { app } from 'electron'
 import { spawn as nodeSpawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -17,48 +15,18 @@ import {
   parsePositiveSafeIntegerNumericText,
   parsePositiveSafeIntegerText
 } from '../../shared/timer-delay'
-import {
-  ORCHESTRATION_COMPATIBILITY_ATTACHMENT_ENV,
-  ORCHESTRATION_COMPATIBILITY_HOST_ID_ENV,
-  ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION_ENV,
-  ORCHESTRATION_COMPATIBILITY_HOST_KIND_ENV
-} from '../../shared/orchestration-compatibility-evidence'
-
-export type SshCliRuntimeAuthority = {
-  kind: 'ssh'
-  targetId: string
-  connectionIncarnation: string
-  attachmentId: string
-}
-
 export type RemoteOrcaCliRequest = {
   argv: string[]
   cwd: string
   env: Record<string, string>
   stdin?: string
-  runtimeAuthority?: SshCliRuntimeAuthority
 }
 
 export type RemoteOrcaCliResult = {
   stdout: string
   stderr: string
   exitCode: number
-  postOutput?: RemoteOrcaCliPostOutput
 }
-
-export type RemoteOrcaCliPostOutput =
-  | {
-      kind: 'legacy_check_ack'
-      terminal: string
-      messageIds: string[]
-      types?: string[]
-    }
-  | {
-      kind: 'legacy_question_ack'
-      terminal: string
-      questionId: string
-      answerMessageId: string
-    }
 
 export type HostCliPassthroughOptions = {
   execPath?: string
@@ -136,7 +104,6 @@ export function buildHostCliEnv(args: {
   remoteEnv: Record<string, string>
   userDataPath: string
   remoteCwd: string
-  runtimeAuthority?: SshCliRuntimeAuthority
 }): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...args.hostEnv }
   for (const key of REMOTE_CONTEXT_ENV_VARS) {
@@ -158,17 +125,6 @@ export function buildHostCliEnv(args: {
   env.ORCA_NODE_REPL_EXTERNAL_MODULE = args.hostEnv.NODE_REPL_EXTERNAL_MODULE ?? ''
   delete env.NODE_OPTIONS
   delete env.NODE_REPL_EXTERNAL_MODULE
-  delete env[ORCHESTRATION_COMPATIBILITY_HOST_KIND_ENV]
-  delete env[ORCHESTRATION_COMPATIBILITY_HOST_ID_ENV]
-  delete env[ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION_ENV]
-  delete env[ORCHESTRATION_COMPATIBILITY_ATTACHMENT_ENV]
-  if (args.runtimeAuthority) {
-    env[ORCHESTRATION_COMPATIBILITY_HOST_KIND_ENV] = 'ssh'
-    env[ORCHESTRATION_COMPATIBILITY_HOST_ID_ENV] = args.runtimeAuthority.targetId
-    env[ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION_ENV] =
-      args.runtimeAuthority.connectionIncarnation
-    env[ORCHESTRATION_COMPATIBILITY_ATTACHMENT_ENV] = args.runtimeAuthority.attachmentId
-  }
   env.ELECTRON_RUN_AS_NODE = '1'
   return env
 }
@@ -219,8 +175,7 @@ export async function runHostOrcaCliPassthrough(
     hostEnv,
     remoteEnv: request.env,
     userDataPath,
-    remoteCwd: request.cwd,
-    runtimeAuthority: request.runtimeAuthority
+    remoteCwd: request.cwd
   })
 
   return await new Promise<RemoteOrcaCliResult>((resolve, reject) => {
