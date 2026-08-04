@@ -60,10 +60,6 @@ export { resolveConsent } from './telemetry/consent'
 export { triggerStartupNotificationRegistration } from './ipc/notifications'
 export { OrcaRuntimeService, type RuntimeWorktreeLifecycleEvent } from './runtime/orca-runtime'
 export { loadAgentSessionClaimSigner } from './runtime/agent-session-claim-identity'
-export {
-  fingerprintOrchestrationPeer,
-  type OrchestrationEnvironmentTransport
-} from './runtime/orchestration/environment-transport'
 export { callRuntimeEnvironment } from './ipc/runtime-environment-transport-routing'
 export { resolveEnvironment } from '../shared/runtime-environment-store'
 export { getPreferredPairingOffer } from '../shared/runtime-environments'
@@ -141,7 +137,6 @@ export {
 export { maybeRedirectAppImageCliLaunch } from './startup/appimage-cli-redirect'
 export { maybeRedirectPackagedCliEntryLaunch } from './startup/packaged-cli-entry-redirect'
 export { startFirstWindowStartupServices } from './startup/first-window-startup-services'
-export { recoverLegacyWorkerTerminalsForRendererStartup } from './startup/legacy-worker-renderer-recovery'
 export { createWslCliReconciliationStartupBarrier } from './startup/wsl-cli-reconciliation-startup-barrier'
 export { getDevInstanceIdentity } from './startup/dev-instance-identity'
 export { hydrateShellPath, mergePathSegments } from './startup/hydrate-shell-path'

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -60,5 +60,17 @@ describe('runtime orchestration storage removal contract', () => {
     ]) {
       expect(readProjectFile(relativePath)).not.toContain('orchestrationContext')
     }
+  })
+
+  it('does not retain startup-only legacy recovery modules', () => {
+    expect(readProjectFile('src/main/main-process-startup-dependencies.ts')).not.toContain(
+      'recoverLegacyWorkerTerminalsForRendererStartup'
+    )
+    expect(
+      existsSync(resolve(projectRoot, 'src/main/startup/legacy-worker-renderer-recovery.ts'))
+    ).toBe(false)
+    expect(
+      existsSync(resolve(projectRoot, 'src/main/runtime/orchestration/environment-transport.ts'))
+    ).toBe(false)
   })
 })

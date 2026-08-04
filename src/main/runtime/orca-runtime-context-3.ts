@@ -44,13 +44,6 @@ export type OrchestrationCompatibilityTerminalAuthority = {
     | { kind: 'ssh'; targetId: string }
 }
 
-export type LegacyWorkerTerminalRecoveryResult = {
-  blockedPaneCount: number
-  adoptedDispatchIds: string[]
-  exitedDispatchIds: string[]
-  deferredDispatchIds: string[]
-}
-
 export type OrchestrationCompatibilityCallerAuthority = Readonly<{
   hostScope: OrchestrationCompatibilityTerminalAuthority['hostScope']
   paneKey: string
