@@ -28,6 +28,7 @@ import {
   resolveTerminalDropWorktreePath
 } from './terminal-drop-worktree-path'
 import { captureRuntimeTerminalDropOwner } from './terminal-drop-runtime-owner'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 export type NativeTerminalFileDropArgs = {
   manager: PaneManager
@@ -226,10 +227,11 @@ async function pasteLocalDropPaths(
   // dropped paths must use the distro-aware resolver before terminal paste.
   if (isWslUncPath(args.worktreePath)) {
     try {
-      const { resolvedPaths, skipped, failed } = await window.api.fs.resolveDroppedPathsForAgent({
-        paths: args.dataPaths,
-        worktreePath: args.worktreePath
-      })
+      const { resolvedPaths, skipped, failed } =
+        await getClientRuntime().file.resolveDroppedPathsForAgent({
+          paths: args.dataPaths,
+          worktreePath: args.worktreePath
+        })
       await pasteResolvedDropPaths({ ...args, paths: resolvedPaths, targetShell: 'posix' })
       reportTerminalDropUploadSkipsAndFailures(skipped, failed)
     } catch (err) {
@@ -258,14 +260,15 @@ async function uploadRemoteDropPaths(
     )
   )
   try {
-    const { resolvedPaths, skipped, failed } = await window.api.fs.resolveDroppedPathsForAgent({
-      paths: args.dataPaths,
-      worktreePath: args.worktreePath,
-      connectionId: args.connectionId,
-      expectedExecutionHostId: args.expectedExecutionHostId,
-      expectedSshTargetId: args.expectedSshTargetId,
-      expectedSshConnectionGeneration: args.expectedSshConnectionGeneration
-    })
+    const { resolvedPaths, skipped, failed } =
+      await getClientRuntime().file.resolveDroppedPathsForAgent({
+        paths: args.dataPaths,
+        worktreePath: args.worktreePath,
+        connectionId: args.connectionId,
+        expectedExecutionHostId: args.expectedExecutionHostId,
+        expectedSshTargetId: args.expectedSshTargetId,
+        expectedSshConnectionGeneration: args.expectedSshConnectionGeneration
+      })
     await pasteResolvedDropPaths({ ...args, paths: resolvedPaths, targetShell: args.targetShell })
     reportTerminalDropUploadSkipsAndFailures(skipped, failed)
   } catch (err) {

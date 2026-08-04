@@ -6,6 +6,7 @@ import {
 import type { RuntimeStatus } from '../../../../shared/runtime-types'
 import { TERMINAL_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY } from '../../../../shared/protocol-version'
 import { unwrapRuntimeRpcResult } from '../../runtime/runtime-rpc-client'
+import { getClientRuntime } from '../../runtime/client-runtime'
 import { REMOTE_RUNTIME_AUTO_RECOVERY_TIMEOUT_MS } from './remote-runtime-pty-recovery-state'
 import type {
   RemoteAgentSessionLaunchResult,
@@ -23,7 +24,7 @@ export function installRemoteRuntimePtyCreationRecovery(
     params?: unknown,
     timeoutMs = 15_000
   ): Promise<TResult> => {
-    const response = await window.api.runtimeEnvironments.call({
+    const response = await getClientRuntime().remoteHost.call({
       selector: environmentId,
       method,
       params,
@@ -62,7 +63,10 @@ export function installRemoteRuntimePtyCreationRecovery(
   }
   context.terminalCreateRecoveryCutoffReached = () =>
     context.recovery.currentPhase === 'disconnected'
-  context.closeRemoteTerminal = async (handleOverride, environmentId = context.currentRuntimeEnvironmentId) => {
+  context.closeRemoteTerminal = async (
+    handleOverride,
+    environmentId = context.currentRuntimeEnvironmentId
+  ) => {
     const targetHandle = handleOverride ?? context.handle
     if (!targetHandle) return
     try {
@@ -131,7 +135,8 @@ export function installRemoteRuntimePtyCreationRecovery(
             remainingMs <= 0 ||
             context.terminalCreateRecoveryCutoffReached() ||
             !(await context.waitForTerminalCreateRetry(Math.min(statusDelayMs, remainingMs)))
-          ) break
+          )
+            break
           continue
         }
         if (!status.capabilities?.includes(TERMINAL_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY)) {
@@ -143,7 +148,8 @@ export function installRemoteRuntimePtyCreationRecovery(
         context.destroyed ||
         context.lifecycleEpoch !== expectedLifecycleEpoch ||
         (recoveryDeadlineAt !== null && recoveryDeadlineAt - Date.now() <= 0)
-      ) break
+      )
+        break
       const createRemainingMs = recoveryDeadlineAt === null ? null : recoveryDeadlineAt - Date.now()
       if (createRemainingMs !== null && createRemainingMs <= 0) break
       try {

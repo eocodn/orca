@@ -12,6 +12,7 @@ import { useAppStore } from '@/store'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { resolveKnownWorktreeRootPathLink } from './terminal-worktree-path-link'
 import { parseWslUncPath } from '../../../../shared/wsl-paths'
+import { getClientRuntime } from '../../runtime/client-runtime'
 
 type TerminalFileOpenDeps = {
   worktreeId: string
@@ -130,7 +131,7 @@ export function openDetectedFilePath(
     try {
       // Why: remote paths don't need local auth — the relay/runtime is the security boundary.
       if (canOpenWithSystemDefault) {
-        await window.api.fs.authorizeExternalPath({ targetPath: mappedFilePath })
+        await getClientRuntime().file.authorizeExternalPath({ targetPath: mappedFilePath })
       }
       statResult = await statRuntimePath(fileContext, mappedFilePath)
     } catch {

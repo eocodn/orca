@@ -1,4 +1,5 @@
 import { useAppStore } from '@/store'
+import { getClientRuntime } from '../../runtime/client-runtime'
 import { recordRendererCrashBreadcrumb } from '@/lib/crash-breadcrumb-recorder'
 import {
   _resetTerminalInputQuarantineForTests,
@@ -238,7 +239,7 @@ export async function requestTerminalPaneRecovery(request: RecoveryRequest): Pro
       return false
     }
     try {
-      const live = await window.api.pty.hasPty(request.ptyId)
+      const live = await getClientRuntime().terminal.hasPty(request.ptyId)
       if (live === false) {
         return false
       }

@@ -41,6 +41,7 @@ import { translate } from '@/i18n/i18n'
 import { recordTerminalUserInputForLeaf } from './terminal-input-activity'
 import { copyTerminalHandleForPane } from './terminal-handle-copy'
 import { runCopyPaneId, runTerminalCopy } from './terminal-copy-rejection-guards'
+import { getClientRuntime } from '../../runtime/client-runtime'
 import { copyTerminalSelection } from './terminal-selection-copy'
 import type { TerminalMenuState } from './terminal-pane-context-menu-state'
 import {
@@ -257,7 +258,7 @@ export function useTerminalPaneContextMenu({
       await copyTerminalHandleForPane({
         tabId,
         leafId: pane.leafId,
-        callRuntime: window.api.runtime.call,
+        callRuntime: getClientRuntime().runtime.call,
         writeClipboardText: window.api.ui.writeTerminalClipboardText
       })
       toast.success(

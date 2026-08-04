@@ -2,6 +2,7 @@ import type { GlobalSettings } from '../../../../shared/types'
 import { mapWithConcurrency } from '../../../../shared/map-with-concurrency'
 import { TERMINAL_FIT_RESTORE_DEADLINE_MS } from '../../../../shared/terminal-fit-restore-deadline'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
+import { getClientRuntime } from '../../runtime/client-runtime'
 import {
   getRemoteRuntimePtyEnvironmentId,
   getRemoteRuntimeTerminalHandle
@@ -59,7 +60,7 @@ async function restoreTerminalFitToDesktopWithinDeadline(
           { terminal: remoteHandle },
           { timeoutMs }
         ).catch(restoreFailedResult)
-      : window.api.runtime.restoreTerminalFit(ptyId).catch(restoreFailedResult)
+      : getClientRuntime().runtime.restoreTerminalFit(ptyId).catch(restoreFailedResult)
   const result = await withRestoreFitTimeout(pending, timeoutMs)
 
   return result.restored

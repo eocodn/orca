@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { getClientRuntime } from '../../runtime/client-runtime'
 import {
   FOCUS_TERMINAL_PANE_EVENT,
   PASTE_TERMINAL_TEXT_EVENT,
@@ -192,8 +193,8 @@ export function useTerminalPaneGlobalEffects({
     // Why: main uses this as a scheduler hint only, so the foreground pane's
     // renderer output gets first chance at the bounded ACK reserve. The cleanup
     // reports the old PTY inactive before the effect re-runs for a rebind.
-    window.api.pty.setActiveRendererPty?.(ptyId, true)
-    return () => window.api.pty.setActiveRendererPty?.(ptyId, false)
+    getClientRuntime().terminal.setActiveRendererPty?.(ptyId, true)
+    return () => getClientRuntime().terminal.setActiveRendererPty?.(ptyId, false)
   }, [isActive, isVisible, isWorktreeActive, activeLeafPtyId])
 
   useEffect(() => {
