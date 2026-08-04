@@ -165,4 +165,28 @@ describe('runtime orchestration storage removal contract', () => {
       'orchestrationRunId'
     )
   })
+
+  it('does not retain orchestration-only runtime inheritance names', () => {
+    expect(
+      existsSync(
+        resolve(
+          projectRoot,
+          'src/main/runtime/orca-runtime-call-orchestration-worker-server-part-4.ts'
+        )
+      )
+    ).toBe(false)
+    expect(
+      existsSync(
+        resolve(
+          projectRoot,
+          'src/main/runtime/orca-runtime-reconcile-legacy-worker-terminals-now-part-3.ts'
+        )
+      )
+    ).toBe(false)
+    expect(
+      existsSync(
+        resolve(projectRoot, 'src/main/runtime/orca-runtime-session-persistence-part-3.ts')
+      )
+    ).toBe(true)
+  })
 })

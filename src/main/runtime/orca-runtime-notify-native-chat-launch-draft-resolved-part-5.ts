@@ -1,7 +1,27 @@
-import { type CreateWorktreeResult, type WorktreeStartupLaunch, type WorkspaceSessionState, type ExecutionHostId, toRuntimeActivateWorktreeEvent, type SshConnectionState, getPublicSshState, HEADLESS_RUNTIME_WINDOW_ID, type RuntimeMobileSessionTerminalTab, type RuntimeMobileSessionTabsSnapshot, splitWorktreeId, parsePaneKey, type AgentBrowserBridge, type BrowserBackend, runtimeWorktreeIdsEqual, type RuntimePtyWorktreeRecord, type RuntimeWorktreeLifecycleEvent, type NativeChatLaunchDraftResolutionTombstone, MAX_NATIVE_CHAT_LAUNCH_DRAFT_RESOLUTION_TOMBSTONES } from './orca-runtime-symbols'
-import { OrcaRuntimeCallOrchestrationWorkerServerPart4 } from './orca-runtime-call-orchestration-worker-server-part-4'
+import {
+  type CreateWorktreeResult,
+  type WorktreeStartupLaunch,
+  type WorkspaceSessionState,
+  type ExecutionHostId,
+  toRuntimeActivateWorktreeEvent,
+  type SshConnectionState,
+  getPublicSshState,
+  HEADLESS_RUNTIME_WINDOW_ID,
+  type RuntimeMobileSessionTerminalTab,
+  type RuntimeMobileSessionTabsSnapshot,
+  splitWorktreeId,
+  parsePaneKey,
+  type AgentBrowserBridge,
+  type BrowserBackend,
+  runtimeWorktreeIdsEqual,
+  type RuntimePtyWorktreeRecord,
+  type RuntimeWorktreeLifecycleEvent,
+  type NativeChatLaunchDraftResolutionTombstone,
+  MAX_NATIVE_CHAT_LAUNCH_DRAFT_RESOLUTION_TOMBSTONES
+} from './orca-runtime-symbols'
+import { OrcaRuntimeSessionPersistencePart3 } from './orca-runtime-session-persistence-part-3'
 
-export class OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 extends OrcaRuntimeCallOrchestrationWorkerServerPart4 {
+export class OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 extends OrcaRuntimeSessionPersistencePart3 {
   notifyNativeChatLaunchDraftResolved(
     handle: string,
     resolution: { text: string; createdAt: number }
