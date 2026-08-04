@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -105,7 +106,7 @@ export function createBrowserSliceFocusBrowserTabInWorktreeActions4(set: SliceSe
       typeof window !== 'undefined' &&
       window.api?.browser
     ) {
-      window.api.browser.notifyActiveTabChanged({ browserPageId }).catch(() => {})
+      getClientRuntime().browser.notifyActiveTabChanged({ browserPageId }).catch(() => {})
     }
 
     // Why: sync the unified-tab strip's active entry; activateTab only mutates per-worktree slices, so it's cross-worktree-safe.

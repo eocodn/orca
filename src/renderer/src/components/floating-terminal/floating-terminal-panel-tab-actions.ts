@@ -61,7 +61,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
         (tab) => tab.id === item.entityId
       )
       if (workspace?.activePageId && window.api?.browser) {
-        void window.api.browser.notifyActiveTabChanged({ browserPageId: workspace.activePageId })
+        void getClientRuntime().browser.notifyActiveTabChanged({ browserPageId: workspace.activePageId })
       }
     }
   }, [activateTab, groupTabs, setActiveTab])

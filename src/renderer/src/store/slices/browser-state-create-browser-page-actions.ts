@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -293,7 +294,7 @@ export function createBrowserSliceCreateBrowserPageActions3(set: SliceSet, get: 
       typeof window !== 'undefined' &&
       window.api?.browser
     ) {
-      window.api.browser.notifyActiveTabChanged({ browserPageId: pageId }).catch(() => {})
+      getClientRuntime().browser.notifyActiveTabChanged({ browserPageId: pageId }).catch(() => {})
     }
     if (!workspace) {
       return

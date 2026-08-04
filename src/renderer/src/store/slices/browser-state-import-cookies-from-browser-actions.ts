@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -124,7 +125,7 @@ export function createBrowserSliceImportCookiesFromBrowserActions7(set: SliceSet
       })
     )
     try {
-      const result = (await window.api.browser.sessionImportFromBrowser({
+      const result = (await getClientRuntime().browser.sessionImportFromBrowser({
         profileId,
         browserFamily,
         browserProfile
@@ -188,7 +189,7 @@ export function createBrowserSliceImportCookiesFromBrowserActions7(set: SliceSet
       }
     }
     try {
-      const ok = await window.api.browser.sessionClearDefaultCookies()
+      const ok = await getClientRuntime().browser.sessionClearDefaultCookies()
       if (ok && getBrowserSettingsHostId(get()) === hostId) {
         get().recordFeatureInteraction?.('cookie-import')
         await get().fetchBrowserSessionProfiles()

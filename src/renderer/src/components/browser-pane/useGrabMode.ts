@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
   BrowserGrabPayload,
@@ -87,8 +88,8 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
       const grabTabId = grabTabIdRef.current
       if (grabTabId) {
         armGenerationRef.current += 1
-        void window.api.browser.setGrabMode({ browserPageId: grabTabId, enabled: false })
-        void window.api.browser.cancelGrab({ browserPageId: grabTabId })
+        void getClientRuntime().browser.setGrabMode({ browserPageId: grabTabId, enabled: false })
+        void getClientRuntime().browser.cancelGrab({ browserPageId: grabTabId })
         grabTabIdRef.current = null
         activeOpIdRef.current = null
       }
@@ -102,7 +103,7 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
     setState('armed')
 
     // Enable grab mode — injects the overlay
-    const setResult = await window.api.browser.setGrabMode({
+    const setResult = await getClientRuntime().browser.setGrabMode({
       browserPageId: tabId,
       enabled: true
     })
@@ -115,8 +116,8 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
       const supersededBySameTab =
         armGenerationRef.current !== armGeneration && grabTabIdRef.current === tabId
       if (!supersededBySameTab) {
-        void window.api.browser.setGrabMode({ browserPageId: tabId, enabled: false })
-        void window.api.browser.cancelGrab({ browserPageId: tabId })
+        void getClientRuntime().browser.setGrabMode({ browserPageId: tabId, enabled: false })
+        void getClientRuntime().browser.cancelGrab({ browserPageId: tabId })
         if (grabTabIdRef.current === tabId) {
           grabTabIdRef.current = null
         }
@@ -135,7 +136,7 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
     activeOpIdRef.current = opId
 
     setState('awaiting')
-    const result = await window.api.browser.awaitGrabSelection({
+    const result = await getClientRuntime().browser.awaitGrabSelection({
       browserPageId: tabId,
       opId
     })
@@ -151,7 +152,7 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
       // Capture screenshot for the selected element
       let screenshot: BrowserGrabScreenshot | null = null
       try {
-        const ssResult = await window.api.browser.captureSelectionScreenshot({
+        const ssResult = await getClientRuntime().browser.captureSelectionScreenshot({
           browserPageId: tabId,
           rect: result.payload.target.rectViewport
         })
@@ -193,12 +194,12 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
       // Disable grab mode
       const targetTabId = grabTabIdRef.current ?? browserTabIdRef.current
       armGenerationRef.current += 1
-      void window.api.browser.setGrabMode({
+      void getClientRuntime().browser.setGrabMode({
         browserPageId: targetTabId,
         enabled: false
       })
       if (activeOpIdRef.current) {
-        void window.api.browser.cancelGrab({
+        void getClientRuntime().browser.cancelGrab({
           browserPageId: targetTabId
         })
         activeOpIdRef.current = null
@@ -214,12 +215,12 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
   const cancel = useCallback(() => {
     const targetTabId = grabTabIdRef.current ?? browserTabIdRef.current
     armGenerationRef.current += 1
-    void window.api.browser.setGrabMode({
+    void getClientRuntime().browser.setGrabMode({
       browserPageId: targetTabId,
       enabled: false
     })
     if (activeOpIdRef.current) {
-      void window.api.browser.cancelGrab({
+      void getClientRuntime().browser.cancelGrab({
         browserPageId: targetTabId
       })
       activeOpIdRef.current = null
@@ -248,7 +249,7 @@ export function useGrabMode(browserPageId: string): GrabModeHook {
   const exit = useCallback(() => {
     const targetTabId = grabTabIdRef.current ?? browserTabIdRef.current
     armGenerationRef.current += 1
-    void window.api.browser.setGrabMode({
+    void getClientRuntime().browser.setGrabMode({
       browserPageId: targetTabId,
       enabled: false
     })

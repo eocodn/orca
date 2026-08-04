@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -85,7 +86,7 @@ export function createBrowserSliceCreateBrowserSessionProfileActions6(set: Slice
       }
     }
     try {
-      const profile = (await window.api.browser.sessionCreateProfile({
+      const profile = (await getClientRuntime().browser.sessionCreateProfile({
         scope,
         label
       })) as BrowserSessionProfile | null
@@ -136,7 +137,7 @@ export function createBrowserSliceCreateBrowserSessionProfileActions6(set: Slice
       }
     }
     try {
-      const ok = await window.api.browser.sessionDeleteProfile({ profileId })
+      const ok = await getClientRuntime().browser.sessionDeleteProfile({ profileId })
       if (ok) {
         set((s) => ({
           ...profileListByHostUpdate(
@@ -188,7 +189,7 @@ export function createBrowserSliceCreateBrowserSessionProfileActions6(set: Slice
       })
     )
     try {
-      const result = (await window.api.browser.sessionImportCookies({
+      const result = (await getClientRuntime().browser.sessionImportCookies({
         profileId
       })) as BrowserCookieImportResult
       if (result.ok) {
@@ -264,7 +265,7 @@ export function createBrowserSliceCreateBrowserSessionProfileActions6(set: Slice
       return
     }
     try {
-      const browsers = (await window.api.browser.sessionDetectBrowsers()) as {
+      const browsers = (await getClientRuntime().browser.sessionDetectBrowsers()) as {
         family: string
         label: string
         profiles: { name: string; directory: string }[]

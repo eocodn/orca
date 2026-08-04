@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -325,7 +326,7 @@ export function createBrowserSliceCloseBrowserTabActions2(set: SliceSet, get: Sl
       typeof window !== 'undefined' &&
       window.api?.browser
     ) {
-      window.api.browser
+      getClientRuntime().browser
         .notifyActiveTabChanged({ browserPageId: workspace.activePageId })
         .catch(() => {})
     }

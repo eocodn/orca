@@ -7,6 +7,7 @@ import {
   type ClientRuntimeGitService,
   type ClientRuntimeSessionService,
   type ClientRuntimeSshService,
+  type ClientRuntimeBrowserService,
   type ClientRuntimeTerminalService,
   type ClientRuntimeWorkspaceService
 } from './client-runtime'
@@ -21,6 +22,7 @@ describe('ClientRuntime service boundary', () => {
     const session = {} as ClientRuntimeSessionService
     const app = {} as ClientRuntimeAppService
     const ssh = {} as ClientRuntimeSshService
+    const browser = {} as ClientRuntimeBrowserService
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
@@ -32,6 +34,7 @@ describe('ClientRuntime service boundary', () => {
       session,
       app,
       ssh,
+      browser,
       repos: workspace.repos,
       runtimeEnvironments: remoteHost,
       fs: file,
@@ -43,6 +46,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.session).toBe(session)
     expect(clientRuntime.app).toBe(app)
     expect(clientRuntime.ssh).toBe(ssh)
+    expect(clientRuntime.browser).toBe(browser)
     expect(clientRuntime.workspace.repos).toBe(workspace.repos)
     expect(clientRuntime.remoteHost).toBe(remoteHost)
     expect(clientRuntime.file).toBe(file)
@@ -55,6 +59,7 @@ describe('ClientRuntime service boundary', () => {
     const session = {} as ClientRuntimeSessionService
     const app = {} as ClientRuntimeAppService
     const ssh = {} as ClientRuntimeSshService
+    const browser = {} as ClientRuntimeBrowserService
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
     const file = {} as ClientRuntimeFileService
@@ -66,6 +71,7 @@ describe('ClientRuntime service boundary', () => {
         session,
         app,
         ssh,
+        browser,
         repos: workspace.repos,
         runtimeEnvironments: remoteHost,
         fs: file,
@@ -78,6 +84,7 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().session).toBe(session)
     expect(getClientRuntime().app).toBe(app)
     expect(getClientRuntime().ssh).toBe(ssh)
+    expect(getClientRuntime().browser).toBe(browser)
     expect(getClientRuntime().workspace.repos).toBe(workspace.repos)
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
     expect(getClientRuntime().file).toBe(file)

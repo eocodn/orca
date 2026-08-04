@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../shared/constants'
 import type { BrowserTab, TabGroup } from '../../../shared/types'
 import { getGroupVisibleTabOrder } from '@/components/tab-bar/group-tab-order'
@@ -172,7 +173,7 @@ function activateFloatingWorkspaceCyclableTab(
   if (next.type === 'browser') {
     const workspace = getFloatingWorkspaceBrowserTab(store, next.id)
     if (workspace?.activePageId && typeof window !== 'undefined' && window.api?.browser) {
-      void window.api.browser.notifyActiveTabChanged({ browserPageId: workspace.activePageId })
+      void getClientRuntime().browser.notifyActiveTabChanged({ browserPageId: workspace.activePageId })
     }
   }
 }

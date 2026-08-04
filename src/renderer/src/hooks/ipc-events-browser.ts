@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../store'
 import { toast } from 'sonner'
 import type { UpdateStatus } from '../../../shared/types'
@@ -52,7 +53,7 @@ unsubs.push(
 )
 
 unsubs.push(
-  window.api.browser.onGuestLoadFailed(({ browserPageId, loadError }) => {
+  getClientRuntime().browser.onGuestLoadFailed(({ browserPageId, loadError }) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -65,7 +66,7 @@ unsubs.push(
   })
 )
 
-const unsubscribeCertificateFailure = window.api.browser.onCertificateFailureChanged?.(
+const unsubscribeCertificateFailure = getClientRuntime().browser.onCertificateFailureChanged?.(
   ({ browserPageId, failure }) => {
     if (isRuntimeEnvironmentActive()) {
       return
@@ -79,7 +80,7 @@ if (unsubscribeCertificateFailure) {
 
 // Why: agent-browser navigates via CDP so did-navigate never fires; this IPC pushes live URL/title to the stale store.
 unsubs.push(
-  window.api.browser.onNavigationUpdate(({ browserPageId, url, title }) => {
+  getClientRuntime().browser.onNavigationUpdate(({ browserPageId, url, title }) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -91,7 +92,7 @@ unsubs.push(
 
 // Why: webviews start their guest only when shown; sent pre-automation so hidden tabs mount without moving the active pane.
 unsubs.push(
-  window.api.browser.onActivateView(({ worktreeId, browserPageId }) => {
+  getClientRuntime().browser.onActivateView(({ worktreeId, browserPageId }) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -102,7 +103,7 @@ unsubs.push(
 // Why: `orca tab switch --focus` must NOT call setActiveWorktree — a global focus from one agent's parallel-worktree switch would steal the user's view.
 // focusBrowserTabInWorktree updates per-worktree state in place; globals flip only when the user is already on the targeted worktree.
 unsubs.push(
-  window.api.browser.onPaneFocus(({ worktreeId, browserPageId }) => {
+  getClientRuntime().browser.onPaneFocus(({ worktreeId, browserPageId }) => {
     if (isRuntimeEnvironmentActive()) {
       return
     }
@@ -117,7 +118,7 @@ unsubs.push(
 )
 
 unsubs.push(
-  window.api.browser.onOpenLinkInOrcaTab(({ browserPageId, url }) => {
+  getClientRuntime().browser.onOpenLinkInOrcaTab(({ browserPageId, url }) => {
     const store = useAppStore.getState()
     const sourcePage = Object.values(store.browserPagesByWorkspace)
       .flat()

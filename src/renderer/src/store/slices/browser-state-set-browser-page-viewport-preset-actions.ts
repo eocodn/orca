@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type {
@@ -340,7 +341,7 @@ export function createBrowserSliceSetBrowserPageViewportPresetActions5(set: Slic
       return
     }
     try {
-      const profiles = (await window.api.browser.sessionListProfiles()) as BrowserSessionProfile[]
+      const profiles = (await getClientRuntime().browser.sessionListProfiles()) as BrowserSessionProfile[]
       set((s) => profileListByHostUpdate(s, profiles, hostId))
     } catch {
       /* best-effort — stale profile list is preferable to a crash */

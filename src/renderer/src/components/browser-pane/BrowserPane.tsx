@@ -3172,7 +3172,7 @@ function BrowserPagePane({
   }, [browserTab.id])
 
   useEffect(() => {
-    return window.api.browser.onPermissionDenied((event) => {
+    return getClientRuntime().browser.onPermissionDenied((event) => {
       if (event.browserPageId !== browserTab.id) {
         return
       }
@@ -3181,7 +3181,7 @@ function BrowserPagePane({
   }, [browserTab.id])
 
   useEffect(() => {
-    return window.api.browser.onPopup((event) => {
+    return getClientRuntime().browser.onPopup((event) => {
       if (event.browserPageId !== browserTab.id) {
         return
       }
@@ -3190,7 +3190,7 @@ function BrowserPagePane({
   }, [browserTab.id])
 
   useEffect(() => {
-    return window.api.browser.onContextMenuRequested((event) => {
+    return getClientRuntime().browser.onContextMenuRequested((event) => {
       if (event.browserPageId !== browserTab.id) {
         return
       }
@@ -3219,7 +3219,7 @@ function BrowserPagePane({
   }, [browserTab.id])
 
   useEffect(() => {
-    return window.api.browser.onContextMenuDismissed((event) => {
+    return getClientRuntime().browser.onContextMenuDismissed((event) => {
       if (event.browserPageId !== browserTab.id) {
         return
       }
@@ -3274,7 +3274,7 @@ function BrowserPagePane({
   }, [contextMenu])
 
   useEffect(() => {
-    return window.api.browser.onDownloadRequested((event) => {
+    return getClientRuntime().browser.onDownloadRequested((event) => {
       if (event.browserPageId !== browserTab.id) {
         return
       }
@@ -3308,7 +3308,7 @@ function BrowserPagePane({
   }, [browserTab.id])
 
   useEffect(() => {
-    return window.api.browser.onDownloadProgress((event: BrowserDownloadProgressEvent) => {
+    return getClientRuntime().browser.onDownloadProgress((event: BrowserDownloadProgressEvent) => {
       setDownloadStates((current) =>
         current.map((download) =>
           download.downloadId === event.downloadId
@@ -3325,7 +3325,7 @@ function BrowserPagePane({
   }, [])
 
   useEffect(() => {
-    return window.api.browser.onDownloadFinished((event: BrowserDownloadFinishedEvent) => {
+    return getClientRuntime().browser.onDownloadFinished((event: BrowserDownloadFinishedEvent) => {
       if (event.browserPageId && event.browserPageId !== browserTab.id) {
         return
       }
@@ -3668,7 +3668,7 @@ function BrowserPagePane({
       rectViewport: annotation.payload.target.rectViewport
     }))
     const enabled = isActiveRef.current && (pendingAnnotationPayload !== null || markers.length > 0)
-    void window.api.browser
+    void getClientRuntime().browser
       .setAnnotationViewportBridge({
         browserPageId: browserTab.id,
         emitViewport: pendingAnnotationPayload !== null,
@@ -3739,7 +3739,7 @@ function BrowserPagePane({
       if (registrationInFlight?.webContentsId === webContentsId) {
         return registrationInFlight.promise
       }
-      const promise = window.api.browser
+      const promise = getClientRuntime().browser
         .registerGuest({
           browserPageId: browserTab.id,
           workspaceId,
@@ -3793,7 +3793,7 @@ function BrowserPagePane({
       const presetId = viewportPresetIdRef.current
       const preset = getBrowserViewportPreset(presetId)
       // Why: reapply even null so CDP matches store state; setDeviceMetricsOverride persists across same-origin nav and would leave a stale viewport.
-      void window.api.browser.setViewportOverride({
+      void getClientRuntime().browser.setViewportOverride({
         browserPageId: browserTab.id,
         override: preset ? browserViewportPresetToOverride(preset) : null
       })
@@ -4221,7 +4221,7 @@ function BrowserPagePane({
 
   // Why: a focused guest gets Cmd/Ctrl+C inside Chromium; main forwards it back only when the page wouldn't use it for native copy.
   useEffect(() => {
-    return window.api.browser.onGrabModeToggle((tabId) => {
+    return getClientRuntime().browser.onGrabModeToggle((tabId) => {
       if (tabId === browserTab.id) {
         startGrabIntent('copy')
       }
@@ -4272,7 +4272,7 @@ function BrowserPagePane({
       } else {
         // armed/awaiting — extract hovered element via IPC without clicking
         void (async () => {
-          const result = await window.api.browser.extractHoverPayload({
+          const result = await getClientRuntime().browser.extractHoverPayload({
             browserPageId: browserTabIdRef.current
           })
           if (!result.ok) {
@@ -4283,7 +4283,7 @@ function BrowserPagePane({
 
           if (key === 's') {
             try {
-              const ssResult = await window.api.browser.captureSelectionScreenshot({
+              const ssResult = await getClientRuntime().browser.captureSelectionScreenshot({
                 browserPageId: browserTabIdRef.current,
                 rect: payload.target.rectViewport
               })
@@ -4330,7 +4330,7 @@ function BrowserPagePane({
     if (grab.state === 'idle' || grab.state === 'error') {
       return
     }
-    return window.api.browser.onGrabActionShortcut(({ browserPageId, key }) => {
+    return getClientRuntime().browser.onGrabActionShortcut(({ browserPageId, key }) => {
       if (browserPageId !== browserTab.id) {
         return
       }
@@ -4924,7 +4924,7 @@ function BrowserPagePane({
                   role="menuitem"
                   className="relative flex w-full cursor-default items-center gap-2 rounded-[7px] px-2 py-0.5 text-[12px] leading-5 font-medium outline-none select-none hover:bg-black/8 dark:hover:bg-white/14"
                   onClick={() => {
-                    void window.api.browser.openDevTools({ browserPageId: browserTab.id })
+                    void getClientRuntime().browser.openDevTools({ browserPageId: browserTab.id })
                     setContextMenu(null)
                   }}
                 >
@@ -5077,7 +5077,7 @@ function BrowserPagePane({
             size="icon"
             variant="ghost"
             className="h-7 w-7"
-            onClick={() => void window.api.browser.openDevTools({ browserPageId: browserTab.id })}
+            onClick={() => void getClientRuntime().browser.openDevTools({ browserPageId: browserTab.id })}
             title={translate(
               'auto.components.browser.pane.BrowserPane.ec75d0c412',
               'Open browser devtools'
@@ -5179,7 +5179,7 @@ function BrowserPagePane({
                         variant="ghost"
                         className="h-6 shrink-0"
                         onClick={() => {
-                          void window.api.browser.cancelDownload({
+                          void getClientRuntime().browser.cancelDownload({
                             downloadId: download.downloadId
                           })
                         }}
@@ -5454,7 +5454,7 @@ function BrowserPagePane({
                   certificateFailure={certificateFailure}
                   expectedBrowserPageId={browserTab.id}
                   onProceedCertificate={(challengeId) =>
-                    window.api.browser.proceedCertificate({
+                    getClientRuntime().browser.proceedCertificate({
                       browserPageId: browserTab.id,
                       challengeId
                     })

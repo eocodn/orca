@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { clearLiveBrowserUrl } from './browser-runtime'
 import { removeBrowserPageViewport } from './browser-page-viewport'
 import { forgetExplicitBrowserPageZoomLevel } from './browser-page-zoom'
@@ -202,7 +203,7 @@ export function destroyPersistentWebview(browserTabId: string): void {
     clearLiveBrowserUrl(browserTabId)
     return
   }
-  void window.api.browser.unregisterGuest({ browserPageId: browserTabId })
+  void getClientRuntime().browser.unregisterGuest({ browserPageId: browserTabId })
   moveFocusToRendererBeforeWebviewDetach(webview)
   webview.remove()
   unregisterPersistentWebview(browserTabId)

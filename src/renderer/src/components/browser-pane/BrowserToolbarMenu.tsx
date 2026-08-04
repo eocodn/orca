@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { useLayoutEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { emitBrowserCookieImportToast } from '@/lib/browser-cookie-import-toast'
@@ -56,7 +57,7 @@ export function BrowserToolbarMenu({
     setBrowserPageViewportPreset(browserPageId, nextId)
     const preset = getBrowserViewportPreset(nextId)
     const override = preset ? browserViewportPresetToOverride(preset) : null
-    void window.api.browser.setViewportOverride({ browserPageId, override })
+    void getClientRuntime().browser.setViewportOverride({ browserPageId, override })
   }
 
   const [newProfileDialogOpen, setNewProfileDialogOpen] = useState(false)
