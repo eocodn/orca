@@ -20,4 +20,10 @@ describe('orchestration skill install removal contract', () => {
     expect(source).toContain('ORCA_CLI_SKILL_INSTALL_COMMAND')
     expect(source).not.toContain('ORCA_CLI_ORCHESTRATION_SKILL_INSTALL_COMMAND')
   })
+
+  it('does not mark orchestration setup from generic skill discovery', () => {
+    const source = readProjectFile('src/renderer/src/hooks/useInstalledAgentSkills.ts')
+    expect(source).not.toContain('isOrchestrationSkillName')
+    expect(source).not.toContain('markOrchestrationSetupComplete')
+  })
 })
