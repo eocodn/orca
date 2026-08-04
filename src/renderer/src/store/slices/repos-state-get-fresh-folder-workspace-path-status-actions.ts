@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -160,7 +161,7 @@ export function createRepoSliceGetFreshFolderWorkspacePathStatusActions3(set: Sl
       if (target.kind === 'local') {
         const unsubscribe =
           controls?.scanId && controls.onProgress
-            ? window.api.projectGroups.onNestedScanProgress(({ scanId, scan }) => {
+            ? getClientRuntime().workspace.projectGroups.onNestedScanProgress(({ scanId, scan }) => {
                 if (scanId === controls.scanId) {
                   controls.onProgress?.(normalizeNestedRepoScanResult(scan))
                 }
@@ -168,7 +169,7 @@ export function createRepoSliceGetFreshFolderWorkspacePathStatusActions3(set: Sl
             : undefined
         try {
           return normalizeNestedRepoScanResult(
-            await window.api.projectGroups.scanNested({
+            await getClientRuntime().workspace.projectGroups.scanNested({
               path,
               connectionId,
               scanId: controls?.scanId
@@ -200,7 +201,7 @@ export function createRepoSliceGetFreshFolderWorkspacePathStatusActions3(set: Sl
       if (target.kind !== 'local') {
         return false
       }
-      return await window.api.projectGroups.cancelNestedScan({ scanId })
+      return await getClientRuntime().workspace.projectGroups.cancelNestedScan({ scanId })
     } catch (err) {
       console.error('Failed to cancel nested repo scan:', err)
       return false
@@ -213,7 +214,7 @@ export function createRepoSliceGetFreshFolderWorkspacePathStatusActions3(set: Sl
       )
       const result =
         target.kind === 'local'
-          ? await window.api.projectGroups.importNested(args)
+          ? await getClientRuntime().workspace.projectGroups.importNested(args)
           : await callRuntimeRpc<ProjectGroupImportResult>(
               target,
               'projectGroup.importNested',
@@ -253,7 +254,7 @@ export function createRepoSliceGetFreshFolderWorkspacePathStatusActions3(set: Sl
       const target = getActiveRuntimeTarget(get().settings)
       const group =
         target.kind === 'local'
-          ? await window.api.projectGroups.create({
+          ? await getClientRuntime().workspace.projectGroups.create({
               name,
               createdFrom: 'manual'
             })

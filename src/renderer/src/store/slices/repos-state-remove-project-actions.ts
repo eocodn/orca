@@ -282,7 +282,7 @@ export function createRepoSliceRemoveProjectActions7(set: SliceSet, get: SliceGe
       const target = getProjectUpdateRuntimeTarget(get(), projectId)
       const updatedProject =
         target.kind === 'local'
-          ? await window.api.projects.update({ projectId, updates })
+          ? await getClientRuntime().workspace.projects.update({ projectId, updates })
           : (
               await callRuntimeRpc<{ project: Project }>(
                 target,

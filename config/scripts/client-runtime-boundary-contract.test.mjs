@@ -135,6 +135,8 @@ const runtimeFiles = [
   'src/renderer/src/store/slices/browser-state-focus-browser-tab-in-worktree-actions.ts',
   'src/renderer/src/store/slices/browser-state-import-cookies-from-browser-actions.ts',
   'src/renderer/src/store/slices/browser-state-set-browser-page-viewport-preset-actions.ts',
+  'src/renderer/src/store/slices/repos-state-get-fresh-folder-workspace-path-status-actions.ts',
+  'src/renderer/src/store/slices/repos-state-update-folder-workspace-actions.ts',
   'src/renderer/src/components/shared/useDaemonActions.tsx',
   'src/renderer/src/components/shared/kill-all-terminal-surfaces.ts',
   'src/renderer/src/components/status-bar/resource-usage-status-surface.tsx',

@@ -1,3 +1,4 @@
+import { getClientRuntime } from '@/runtime/client-runtime'
  import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
 import type { AppState } from '../types'
@@ -242,7 +243,7 @@ export function createRepoSliceUpdateFolderWorkspaceActions4(set: SliceSet, get:
       const target = getActiveRuntimeTarget(get().settings)
       const updated =
         target.kind === 'local'
-          ? await window.api.projectGroups.update({ groupId, updates })
+          ? await getClientRuntime().workspace.projectGroups.update({ groupId, updates })
           : (
               await callRuntimeRpc<{ group: ProjectGroup | null }>(
                 target,
@@ -271,7 +272,7 @@ export function createRepoSliceUpdateFolderWorkspaceActions4(set: SliceSet, get:
       const target = getActiveRuntimeTarget(get().settings)
       const deleted =
         target.kind === 'local'
-          ? await window.api.projectGroups.delete({ groupId })
+          ? await getClientRuntime().workspace.projectGroups.delete({ groupId })
           : (
               await callRuntimeRpc<{ deleted: boolean }>(
                 target,

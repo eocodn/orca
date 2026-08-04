@@ -112,7 +112,7 @@ export function createRepoSliceMoveProjectToGroupActions5(set: SliceSet, get: Sl
       const target = getActiveRuntimeTarget(settingsForRepoOwner(get(), projectId))
       const moved =
         target.kind === 'local'
-          ? await window.api.projectGroups.moveProject({
+          ? await getClientRuntime().workspace.projectGroups.moveProject({
               projectId,
               groupId,
               order
@@ -266,7 +266,7 @@ export function createRepoSliceMoveProjectToGroupActions5(set: SliceSet, get: Sl
       const setupArgs = projectProviderIdentity ? { ...args, projectProviderIdentity } : args
       const result =
         target.kind === 'local'
-          ? await window.api.projects.setupExistingFolder(setupArgs)
+          ? await getClientRuntime().workspace.projects.setupExistingFolder(setupArgs)
           : (
               await callRuntimeRpc<{ result: ProjectHostSetupResult }>(
                 target,
@@ -318,7 +318,7 @@ export function createRepoSliceMoveProjectToGroupActions5(set: SliceSet, get: Sl
       await assertProjectHostSetupMutationRuntimeCapabilities(target)
       const result =
         target.kind === 'local'
-          ? await window.api.projects.createHostSetup(args)
+          ? await getClientRuntime().workspace.projects.createHostSetup(args)
           : (
               await callRuntimeRpc<{ result: ProjectHostSetupCreateResult }>(
                 target,
@@ -356,7 +356,7 @@ export function createRepoSliceMoveProjectToGroupActions5(set: SliceSet, get: Sl
       await assertProjectHostSetupMutationRuntimeCapabilities(target)
       const result =
         target.kind === 'local'
-          ? await window.api.projects.updateHostSetup(args)
+          ? await getClientRuntime().workspace.projects.updateHostSetup(args)
           : (
               await callRuntimeRpc<{ result: ProjectHostSetupUpdateResult }>(
                 target,

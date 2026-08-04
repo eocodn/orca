@@ -8,7 +8,13 @@ export type ClientRuntimeSessionService = PreloadApi['session']
 export type ClientRuntimeAppService = PreloadApi['app']
 export type ClientRuntimeSshService = PreloadApi['ssh']
 export type ClientRuntimeBrowserService = PreloadApi['browser']
-export type ClientRuntimeWorkspaceService = { repos: PreloadApi['repos'] }
+export type ClientRuntimeWorkspaceService = {
+  repos: PreloadApi['repos']
+  projects: PreloadApi['projects']
+  projectGroups: PreloadApi['projectGroups']
+  projects: PreloadApi['projects']
+  projectGroups: PreloadApi['projectGroups']
+}
 export type ClientRuntimeTerminalService = PreloadApi['pty']
 
 export type ClientRuntime = {
@@ -49,7 +55,11 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
     app: adapter.app,
     ssh: adapter.ssh,
     browser: adapter.browser,
-    workspace: { repos: adapter.repos },
+    workspace: {
+      repos: adapter.repos,
+      projects: adapter.projects,
+      projectGroups: adapter.projectGroups
+    },
     terminal: adapter.pty
   }
 }

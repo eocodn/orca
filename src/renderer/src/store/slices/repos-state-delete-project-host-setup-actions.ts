@@ -113,7 +113,7 @@ export function createRepoSliceDeleteProjectHostSetupActions6(set: SliceSet, get
       await assertProjectHostSetupMutationRuntimeCapabilities(target)
       const result =
         target.kind === 'local'
-          ? await window.api.projects.deleteHostSetup(args)
+          ? await getClientRuntime().workspace.projects.deleteHostSetup(args)
           : (
               await callRuntimeRpc<{ result: ProjectHostSetupDeleteResult }>(
                 target,

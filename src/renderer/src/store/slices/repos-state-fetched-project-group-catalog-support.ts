@@ -260,7 +260,7 @@ async function fetchProjectGroupCatalogForTarget(
 ): Promise<FetchedProjectGroupCatalog> {
   const fetchedGroups =
     target.kind === 'local'
-      ? await window.api.projectGroups.list()
+      ? await getClientRuntime().workspace.projectGroups.list()
       : (
           await callRuntimeRpc<{ groups: ProjectGroup[] }>(target, 'projectGroup.list', undefined, {
             timeoutMs: 15_000,
