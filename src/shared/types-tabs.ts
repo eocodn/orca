@@ -25,9 +25,8 @@ export type TabContentType =
   | 'conflict-review'
   | 'check-details'
   | 'browser'
-  | 'simulator'
 
-export type WorkspaceVisibleTabType = 'terminal' | 'editor' | 'browser' | 'simulator'
+export type WorkspaceVisibleTabType = 'terminal' | 'editor' | 'browser'
 export type CtrlTabOrderMode = 'mru' | 'sequential'
 
 export type Tab = {

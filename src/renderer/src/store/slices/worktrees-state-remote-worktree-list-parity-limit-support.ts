@@ -374,7 +374,7 @@ export function areDetectedWorktreeResultsEqual(
   )
 }
 export function toVisibleTabType(contentType: string): WorkspaceVisibleTabType {
-  if (contentType === 'browser' || contentType === 'terminal' || contentType === 'simulator') {
+  if (contentType === 'browser' || contentType === 'terminal') {
     return contentType
   }
   return 'editor'

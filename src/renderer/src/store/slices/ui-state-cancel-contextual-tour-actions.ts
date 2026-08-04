@@ -267,24 +267,6 @@ export function createUISliceCancelContextualTourActions4(set: SliceSet, get: Sl
       window.api.ui.set({ browserImportHintHidden: hidden }).catch(console.error)
       return { browserImportHintHidden: hidden }
     }),
-  mobileEmulatorTabIntroDismissed: false,
-  dismissMobileEmulatorTabIntro: () =>
-    set((s) => {
-      if (s.mobileEmulatorTabIntroDismissed) {
-        return s
-      }
-      window.api.ui.set({ mobileEmulatorTabIntroDismissed: true }).catch(console.error)
-      return { mobileEmulatorTabIntroDismissed: true }
-    }),
-  mobileEmulatorAgentSetupDismissed: false,
-  dismissMobileEmulatorAgentSetup: () =>
-    set((s) => {
-      if (s.mobileEmulatorAgentSetupDismissed) {
-        return s
-      }
-      window.api.ui.set({ mobileEmulatorAgentSetupDismissed: true }).catch(console.error)
-      return { mobileEmulatorAgentSetupDismissed: true }
-    }),
   projectOrderManualDefaultNoticeDismissed: true,
   dismissProjectOrderManualDefaultNotice: () =>
     set((s) => {

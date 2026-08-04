@@ -4,7 +4,6 @@ import {
   computerErrorData,
   errorResponse,
   mapBrowserError,
-  mapEmulatorError,
   mapRuntimeError
 } from './errors'
 
@@ -35,9 +34,6 @@ export function mapDispatcherError(
   }
   if (request.method.startsWith('browser.')) {
     return mapBrowserError(request.id, meta, error)
-  }
-  if (request.method.startsWith('emulator.')) {
-    return mapEmulatorError(request.id, meta, error)
   }
   return mapRuntimeError(request.id, meta, error)
 }

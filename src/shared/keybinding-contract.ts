@@ -1,5 +1,4 @@
 import type { TuiAgent } from './types'
-import { ALL_TUI_AGENTS, TUI_AGENT_DISPLAY_NAMES } from './tui-agent-display-names'
 
 export type KeybindingScope =
   | 'global'
@@ -60,7 +59,6 @@ export type KeybindingActionId =
   | 'tab.newAgent'
   | AgentTabActionId
   | 'tab.newBrowser'
-  | 'tab.newSimulator'
   | 'tab.newMarkdown'
   | 'tab.openMarkdown'
   | 'tab.close'
@@ -197,4 +195,3 @@ export type FindKeybindingConflictOptions = {
   ignoredActionIds?: Iterable<KeybindingActionId>
   relevantActionIds?: Iterable<KeybindingActionId>
 }
-

@@ -1,9 +1,7 @@
 import * as startupDeps from './main-process-startup-dependencies'
 import { startupState } from './main-process-startup-state'
 
-function emitPluginWorktreeLifecycle(
-  event: startupDeps.RuntimeWorktreeLifecycleEvent
-): void {
+function emitPluginWorktreeLifecycle(event: startupDeps.RuntimeWorktreeLifecycleEvent): void {
   startupState.pluginService?.emitEvent(
     event.kind === 'created' ? 'worktree.created' : 'worktree.removed',
     event.kind === 'created'
@@ -40,7 +38,8 @@ export async function initializeReadyPlugins(): Promise<void> {
     marketplace: startupState.pluginMarketplaceService,
     userDataPath: startupDeps.app.getPath('userData'),
     hostVersion: startupDeps.app.getVersion(),
-    blockedPluginReason: (pluginKey) => startupState.pluginKillListService?.reason(pluginKey) ?? null
+    blockedPluginReason: (pluginKey) =>
+      startupState.pluginKillListService?.reason(pluginKey) ?? null
   })
   startupState.pluginService = new startupDeps.PluginService({
     userDataPath: startupDeps.app.getPath('userData'),
@@ -48,12 +47,19 @@ export async function initializeReadyPlugins(): Promise<void> {
     // Feature flag: with the setting off, discovery returns nothing and no
     // plugin code path runs at all.
     isPluginSystemEnabled: () => startupState.store?.getSettings().pluginSystemEnabled === true,
-    getDisabledPlugins: () => startupDeps.normalizePluginIdList(startupState.store?.getSettings().disabledPlugins),
-    getPluginConsents: () => startupDeps.normalizePluginConsents(startupState.store?.getSettings().pluginConsents),
-    getDevPluginPaths: () => startupDeps.normalizePluginIdList(startupState.store?.getSettings().devPluginPaths),
+    getDisabledPlugins: () =>
+      startupDeps.normalizePluginIdList(startupState.store?.getSettings().disabledPlugins),
+    getPluginConsents: () =>
+      startupDeps.normalizePluginConsents(startupState.store?.getSettings().pluginConsents),
+    getDevPluginPaths: () =>
+      startupDeps.normalizePluginIdList(startupState.store?.getSettings().devPluginPaths),
     getKeybindings: () => startupState.keybindings?.getOverrides() ?? {},
-    getPluginKillListEntry: (pluginKey) => startupState.pluginKillListService?.find(pluginKey) ?? null,
-    hostEntryPath: startupDeps.resolvePluginHostEntryPath(startupDeps.app.getAppPath(), startupDeps.app.isPackaged)
+    getPluginKillListEntry: (pluginKey) =>
+      startupState.pluginKillListService?.find(pluginKey) ?? null,
+    hostEntryPath: startupDeps.resolvePluginHostEntryPath(
+      startupDeps.app.getAppPath(),
+      startupDeps.app.isPackaged
+    )
   })
   const bundledPluginBootstrap = new startupDeps.PluginBundledBootstrapCoordinator({
     root: startupDeps.resolveBundledPluginRoot({
@@ -64,7 +70,8 @@ export async function initializeReadyPlugins(): Promise<void> {
     userDataPath: startupDeps.app.getPath('userData'),
     hostVersion: startupDeps.app.getVersion(),
     isEnabled: () => startupState.store?.getSettings().pluginSystemEnabled === true,
-    blockedPluginReason: (pluginKey) => startupState.pluginKillListService?.reason(pluginKey) ?? null,
+    blockedPluginReason: (pluginKey) =>
+      startupState.pluginKillListService?.reason(pluginKey) ?? null,
     refreshPlugins: () => startupState.pluginService?.refresh() ?? Promise.resolve()
   })
   const requestBundledPluginBootstrap = (): void => {
@@ -126,7 +133,10 @@ export async function initializeReadyPlugins(): Promise<void> {
     .catch((error) => {
       console.warn('[plugins] failed to initialize plugin service:', error)
     })
-  if (startupDeps.app.isPackaged && startupState.store?.getSettings().pluginSystemEnabled === true) {
+  if (
+    startupDeps.app.isPackaged &&
+    startupState.store?.getSettings().pluginSystemEnabled === true
+  ) {
     void startupState.pluginKillListService.refresh().catch((error) => {
       console.warn('[plugins] failed to refresh plugin safety list; using cached state:', error)
     })
@@ -134,9 +144,13 @@ export async function initializeReadyPlugins(): Promise<void> {
   startupState.pluginService.onChanged((event) => {
     if (
       event.contentPacksChanged &&
-      startupDeps.setMainPluginLanguagePacks(startupState.pluginService?.contentPacks.languagePacks.list() ?? [])
+      startupDeps.setMainPluginLanguagePacks(
+        startupState.pluginService?.contentPacks.languagePacks.list() ?? []
+      )
     ) {
-      void startupDeps.setMainUiLanguage(startupState.store!.getSettings().uiLanguage).then(() => startupDeps.rebuildAppMenu())
+      void startupDeps
+        .setMainUiLanguage(startupState.store!.getSettings().uiLanguage)
+        .then(() => startupDeps.rebuildAppMenu())
     }
     for (const window of startupDeps.BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
@@ -164,14 +178,11 @@ export async function initializeReadyPlugins(): Promise<void> {
   startupState.starNag.registerIpcHandlers()
   startupState.runtime!.setAgentBrowserBridge(
     new startupDeps.AgentBrowserBridge(startupDeps.browserManager, {
-      onTabsChanged: (worktreeId) => startupState.runtime!.notifyMobileSessionTabsChanged(worktreeId)
+      onTabsChanged: (worktreeId) =>
+        startupState.runtime!.notifyMobileSessionTabsChanged(worktreeId)
     })
   )
 
-  // Emulator bridge (serve-sim). macOS-only feature (gated in CLI/runtime); always ship like agent-browser.
-  // Why: externally started serve-sim processes must stay independent — only Orca-managed/attached helpers belong to a workspace.
-  const emulatorBridge = new startupDeps.EmulatorBridge()
-  startupState.runtime!.setEmulatorBridge(emulatorBridge)
   startupDeps.nativeTheme.themeSource = store.getSettings().theme ?? 'system'
   if (codexRuntimeHome.isHostSystemDefaultRealHomeSelected()) {
     // Why: establish capability before managed-hook reconciliation so an
@@ -185,16 +196,21 @@ export async function initializeReadyPlugins(): Promise<void> {
     // Why: check the persisted off switch before any auto-install so removed hooks don't silently reappear on launch.
     if (startupDeps.isAgentStatusHooksEnabled(store.getSettings())) {
       const managedHookStore = store
-      void startupDeps.applyAgentStatusHooksEnabled(true, managedHookStore.getSettings(), {
-        shouldHydrateShellPath: startupDeps.app.isPackaged && process.platform !== 'win32',
-        onInstallError: startupDeps.recordManagedHookInstallFailure,
-        shouldContinue: (agent) => {
-          const settings = managedHookStore.getSettings()
-          return startupDeps.isAgentStatusHooksEnabled(settings) && !settings.disabledTuiAgents.includes(agent)
-        }
-      }).catch((error) => {
-        console.warn('[agent-hooks] failed to reconcile managed hooks on startup:', error)
-      })
+      void startupDeps
+        .applyAgentStatusHooksEnabled(true, managedHookStore.getSettings(), {
+          shouldHydrateShellPath: startupDeps.app.isPackaged && process.platform !== 'win32',
+          onInstallError: startupDeps.recordManagedHookInstallFailure,
+          shouldContinue: (agent) => {
+            const settings = managedHookStore.getSettings()
+            return (
+              startupDeps.isAgentStatusHooksEnabled(settings) &&
+              !settings.disabledTuiAgents.includes(agent)
+            )
+          }
+        })
+        .catch((error) => {
+          console.warn('[agent-hooks] failed to reconcile managed hooks on startup:', error)
+        })
     } else {
       startupDeps.removeManagedAgentHooks()
     }

@@ -313,8 +313,6 @@ export function createUISliceHydratePersistedUiActions6(set: SliceSet, get: Slic
         setupGuideBrowserMilestoneLegacyComplete:
           ui.setupGuideBrowserMilestoneLegacyComplete === true,
         browserImportHintHidden: ui.browserImportHintHidden === true,
-        mobileEmulatorTabIntroDismissed: ui.mobileEmulatorTabIntroDismissed === true,
-        mobileEmulatorAgentSetupDismissed: ui.mobileEmulatorAgentSetupDismissed === true,
         projectOrderManualDefaultNoticeDismissed:
           ui.projectOrderManualDefaultNoticeDismissed === true,
         // Why: treat only explicit true as dismissed so a false from migration still surfaces.

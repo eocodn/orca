@@ -52,8 +52,6 @@ export {
   advanceTerminalTopologyRevision,
   hasHostAuthoritativeTerminalMembership
 } from './workspace-session-terminal-membership-authority'
-export { RuntimeEmulatorCommands, setEmulatorBridge } from './orca-runtime-emulator'
-export type { EmulatorBridge } from '../emulator/emulator-bridge'
 export { RuntimeFileCommands } from './orca-runtime-files'
 export { RuntimeGitCommands } from './orca-runtime-git'
 export {

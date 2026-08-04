@@ -283,8 +283,6 @@ const UiUpdateFields = z
     setupGuideBrowserMilestoneMigrated: z.boolean().optional(),
     setupGuideBrowserMilestoneLegacyComplete: z.boolean().optional(),
     browserImportHintHidden: z.boolean().optional(),
-    mobileEmulatorTabIntroDismissed: z.boolean().optional(),
-    mobileEmulatorAgentSetupDismissed: z.boolean().optional(),
     projectOrderManualDefaultNoticeDismissed: z.boolean().optional(),
     usagePercentageDisplayChangeNoticeDismissed: z.boolean().optional(),
     usageEmptyStateDismissed: z.boolean().optional(),

@@ -12,7 +12,6 @@ import {
 import type { FeatureInteractionId } from '../../../shared/feature-interactions'
 import { errorResponse, successResponse } from './errors'
 import { ALL_RPC_METHODS } from './methods'
-import { emulatorProbe, emulatorProbeError } from '../../emulator/emulator-probe'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import {
   authenticatedCallerFingerprint,
@@ -72,9 +71,6 @@ export class RpcDispatcher {
       )
     }
 
-    if (request.method.startsWith('emulator.')) {
-      emulatorProbe(`rpc ${request.method}`, request.params)
-    }
     try {
       const compatibility = await this.legacyOrchestration.tryHandle(
         request,
@@ -122,9 +118,6 @@ export class RpcDispatcher {
       )
       return successResponse(request.id, meta, result)
     } catch (error) {
-      if (request.method.startsWith('emulator.')) {
-        emulatorProbeError(`rpc ${request.method}`, error, { params: request.params })
-      }
       return mapDispatcherError(request, meta, error)
     }
   }

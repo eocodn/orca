@@ -1,4 +1,4 @@
-import { type CreateWorktreeResult, type WorktreeStartupLaunch, type WorkspaceSessionState, type ExecutionHostId, toRuntimeActivateWorktreeEvent, type SshConnectionState, getPublicSshState, HEADLESS_RUNTIME_WINDOW_ID, type RuntimeMobileSessionTerminalTab, type RuntimeMobileSessionTabsSnapshot, splitWorktreeId, parsePaneKey, setEmulatorBridge, type EmulatorBridge, type AgentBrowserBridge, type BrowserBackend, runtimeWorktreeIdsEqual, type RuntimePtyWorktreeRecord, type RuntimeWorktreeLifecycleEvent, type NativeChatLaunchDraftResolutionTombstone, MAX_NATIVE_CHAT_LAUNCH_DRAFT_RESOLUTION_TOMBSTONES } from './orca-runtime-symbols'
+import { type CreateWorktreeResult, type WorktreeStartupLaunch, type WorkspaceSessionState, type ExecutionHostId, toRuntimeActivateWorktreeEvent, type SshConnectionState, getPublicSshState, HEADLESS_RUNTIME_WINDOW_ID, type RuntimeMobileSessionTerminalTab, type RuntimeMobileSessionTabsSnapshot, splitWorktreeId, parsePaneKey, type AgentBrowserBridge, type BrowserBackend, runtimeWorktreeIdsEqual, type RuntimePtyWorktreeRecord, type RuntimeWorktreeLifecycleEvent, type NativeChatLaunchDraftResolutionTombstone, MAX_NATIVE_CHAT_LAUNCH_DRAFT_RESOLUTION_TOMBSTONES } from './orca-runtime-symbols'
 import { OrcaRuntimeCallOrchestrationWorkerServerPart4 } from './orca-runtime-call-orchestration-worker-server-part-4'
 
 export class OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 extends OrcaRuntimeCallOrchestrationWorkerServerPart4 {
@@ -293,13 +293,6 @@ export class OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 extends OrcaRun
   }
   getOffscreenBrowserBackend(): BrowserBackend | null {
     return this.offscreenBrowserBackend
-  }
-  setEmulatorBridge(bridge: EmulatorBridge | null): void {
-    this.emulatorBridge = bridge
-    setEmulatorBridge(bridge)
-  }
-  getEmulatorBridge(): EmulatorBridge | null {
-    return this.emulatorBridge
   }
   attachWindow(windowId: number): void {
     if (this.authoritativeWindowId === HEADLESS_RUNTIME_WINDOW_ID) {

@@ -28,7 +28,6 @@ export type FeatureInteractionId =
   | 'agent-orchestration-setup'
   | 'agent-orchestration'
   | 'ephemeral-vm-setup'
-  | 'mobile-emulator-agent-setup'
   | 'ai-commit-generation'
   | 'ai-pr-generation'
   | 'claude-account-switching'
@@ -103,10 +102,6 @@ export const FEATURE_INTERACTIONS = [
     interaction: 'Agent Orchestration setup enabled or opened'
   },
   { id: 'agent-orchestration', interaction: 'agent orchestration runtime method used' },
-  {
-    id: 'mobile-emulator-agent-setup',
-    interaction: 'Mobile Emulator agent CLI or skill setup opened'
-  },
   {
     id: 'ai-commit-generation',
     interaction: 'AI commit message generation enabled or used'

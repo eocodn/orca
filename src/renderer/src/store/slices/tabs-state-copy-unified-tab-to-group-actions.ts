@@ -201,9 +201,6 @@ export function createTabsSliceCopyUnifiedTabToGroupActions5(set: SliceSet, get:
       if (tab.contentType === 'browser') {
         return liveBrowserIds.has(tab.entityId)
       }
-      if (tab.contentType === 'simulator') {
-        return true
-      }
       return liveEditorIds.has(tab.entityId)
     }
 

@@ -62,7 +62,6 @@ startupDeps.app.on('will-quit', (e) => {
   // Why: headless offscreen browser windows are main-process owned; tear them down explicitly on quit.
   startupState.runtime?.getOffscreenBrowserBackend()?.destroyAll?.()
   startupDeps.browserManager.setBrowserGuestStateChangedListener(null)
-  const emulatorShutdown = startupState.runtime?.getEmulatorBridge()?.destroyAllSessions() ?? Promise.resolve()
   startupDeps.killAllPty()
   const durableRetirementsFlushed = startupState.runtime?.flushPendingPtyDurableRetirements() ?? true
   if (!durableRetirementsFlushed) {
@@ -113,7 +112,6 @@ startupDeps.app.on('will-quit', (e) => {
       { name: 'daemon', promise: daemonTeardown },
       { name: 'runtime-rpc', promise: rpcStopAndClear },
       { name: 'watchers', promise: watcherShutdown },
-      { name: 'emulator', promise: emulatorShutdown },
       { name: 'plugin-hosts', promise: pluginHostShutdown },
       { name: 'usage-cache', promise: usageCacheFlush }
     ])

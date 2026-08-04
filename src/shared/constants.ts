@@ -344,8 +344,6 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     terminalMacOptionAsAltMigrated: false,
     terminalJISYenToBackslash: false,
     experimentalMobile: false,
-    mobileEmulatorEnabled: true,
-    mobileEmulatorDefaultDeviceUdid: null,
     androidSdkPath: null,
     // Why: indefinite hold — the "Restore" banner is the explicit return action, no wall-clock guess. See docs/mobile-fit-hold.md.
     mobileAutoRestoreFitMs: null,
@@ -505,8 +503,6 @@ export function getDefaultUIState(): PersistedUIState {
     trayMinimizeNoticeShown: false,
     // Why: fresh profiles start on the new default, so nothing was overridden to report.
     osc52ClipboardDefaultOnNoticePending: false,
-    mobileEmulatorTabIntroDismissed: false,
-    mobileEmulatorAgentSetupDismissed: false,
     // Why: only upgraded profiles saw the old ordering, so only they get the one-time notice.
     projectOrderManualDefaultNoticeDismissed: true,
     // Why: only upgraded profiles saw the old default, so only they get the one-time change notice.

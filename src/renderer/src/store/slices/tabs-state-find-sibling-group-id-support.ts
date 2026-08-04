@@ -110,7 +110,7 @@ export function collapseGroupLayout(
   }
 }
 export function toVisibleTabType(contentType: TabContentType): WorkspaceVisibleTabType {
-  if (contentType === 'browser' || contentType === 'terminal' || contentType === 'simulator') {
+  if (contentType === 'browser' || contentType === 'terminal') {
     return contentType
   }
   return 'editor'

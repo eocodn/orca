@@ -134,17 +134,6 @@ Computer Use:
 Linear:
   linear                    Read Linear ticket context for agents
 
-Mobile Emulator (iOS Simulator):
-  emulator list             List available/running emulators (Orca-managed + raw serve-sim)
-  emulator attach <device>  Attach/start helper and make active for the worktree
-  emulator tap <x> <y>      Tap at normalized 0..1 coords (preferred for single taps)
-  emulator type <text>      Type text (US ASCII only)
-  emulator gesture <json>   Send begin/move/end touch points
-  emulator button <name>    Hardware button (home, side_button, etc.)
-  emulator rotate <o>       Rotate device (portrait|landscape_left|...)
-  emulator exec --command   Raw serve-sim subcommand passthrough (no "serve-sim" prefix)
-  emulator kill             Stop helper for device
-
 Browser Automation:
   tab create                Create a new browser tab (navigates to --url)
   tab list                  List open browser tabs
@@ -190,7 +179,7 @@ Browser Automation:
   mouse up                  Release mouse button
   mouse wheel               Scroll wheel --dy [--dx]
   find                      Find element by locator (--locator role|text|label --value <v>)
-  set device                Emulate device (--name "iPhone 12")
+  set device                Emulate device (--name "Pixel 8")
   set offline               Toggle offline mode (--state on|off)
   set headers               Set HTTP headers (--headers '{"key":"val"}')
   set credentials           Set HTTP auth (--user <u> --pass <p>)

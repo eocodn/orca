@@ -1,4 +1,4 @@
-import { RuntimeBrowserCommands, RuntimeGithubProjectCommands, RuntimeJiraCommands, RuntimeLinearQueryCommands, RuntimeEmulatorCommands } from './orca-runtime-symbols'
+import { RuntimeBrowserCommands, RuntimeGithubProjectCommands, RuntimeJiraCommands, RuntimeLinearQueryCommands } from './orca-runtime-symbols'
 import { OrcaRuntimeRefetchLinearIssueAfterDuplicatePart85 } from './orca-runtime-refetch-linear-issue-after-duplicate-part-85'
 
 export class OrcaRuntimeNotifyLinearLinkedIssueUpdatedPart86 extends OrcaRuntimeRefetchLinearIssueAfterDuplicatePart85 {
@@ -170,13 +170,6 @@ export class OrcaRuntimeNotifyLinearLinkedIssueUpdatedPart86 extends OrcaRuntime
     getOffscreenBrowserBackend: () => this.offscreenBrowserBackend,
     // Why: bind directly, not a wrapper arrow — a hand-listed wrapper dropped targetGroupId, so a right-split browser landed in the left.
     markHeadlessBrowserSessionTabActive: this.markHeadlessBrowserSessionTabActive.bind(this)
-  })
-
-  protected readonly emulatorCommands = new RuntimeEmulatorCommands({
-    getEmulatorBridge: () => this.emulatorBridge,
-    resolveWorktreeSelector: (selector) => this.resolveWorktreeSelector(selector),
-    getAuthoritativeWindow: () => this.getAuthoritativeWindow(),
-    getSettings: () => this.requireStore().getSettings()
   })
 
   browserSnapshot: RuntimeBrowserCommands['browserSnapshot'] =

@@ -211,7 +211,9 @@ services:
           src/relay/pty-handler.test.ts \
           src/main/project-groups/folder-workspace-path-status.test.ts \
           src/main/persistence.test.ts \
-          config/scripts/ade-control-bin-contract.test.mjs
+          config/scripts/ade-control-bin-contract.test.mjs \
+          config/scripts/ios-runtime-removal-contract.test.mjs \
+          config/scripts/emulator-product-control-removal-contract.test.mjs
     init: true
     network_mode: host
 
@@ -229,6 +231,8 @@ services:
       - config/vitest.config.ts
       - config/scripts/ade-control-bin-contract.test.mjs
       - config/scripts/verify-cli-bin.test.mjs
+      - config/scripts/ios-runtime-removal-contract.test.mjs
+      - config/scripts/emulator-product-control-removal-contract.test.mjs
     init: true
     network_mode: host
 
@@ -244,6 +248,24 @@ services:
       - sh
       - -euc
       - pnpm exec tsc --noEmit -p config/tsconfig.node.json && pnpm exec tsc --noEmit -p config/tsconfig.tc.cli.json
+    init: true
+    network_mode: host
+
+  control-web-typecheck:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - timeout
+      - --signal=TERM
+      - --kill-after=30s
+      - 10m
+      - pnpm
+      - exec
+      - tsc
+      - --noEmit
+      - -p
+      - config/tsconfig.tc.web.json
     init: true
     network_mode: host
 

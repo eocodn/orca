@@ -1,6 +1,5 @@
 export type { ShellOpenExternalEditorRequest, ShellOpenExternalEditorResult, ShellOpenLocalPathResult } from "../shared/shell-open-types"
 export * from "./api-base"
-export * from "./api-browser-emulator"
 export * from "./api-usage-chat"
 export * from "./api-plugins"
 export * from "./api-preload"

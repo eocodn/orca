@@ -21,7 +21,6 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
-  TabletSmartphone,
   SquareTerminal,
   TextCursorInput,
   UserCog,
@@ -55,7 +54,6 @@ import {
 } from '@/components/settings/runtime-environments-search'
 import { getSshPaneSearchEntries } from '@/components/settings/ssh-search'
 import { getMobileSettingsPaneSearchEntries } from '@/components/settings/mobile-settings-search'
-import { getMobileEmulatorSearchEntries } from '@/components/settings/mobile-emulator-search'
 import { getComputerUsePaneSearchEntries } from '@/components/settings/computer-use-search'
 import { getVoicePaneSearchEntries } from '@/components/settings/voice-pane-search'
 import { getDeveloperPermissionsPaneSearchEntries } from '@/components/settings/developer-permissions-search'
@@ -347,24 +345,6 @@ export function buildSettingsNavigationMetadata({
             ),
             icon: Globe,
             searchEntries: getBrowserPaneCombinedSearchEntries(),
-            group: 'workflows'
-          }
-        ]
-      : []),
-    ...(showDesktopOnlySettings
-      ? [
-          {
-            id: 'mobile-emulator',
-            title: translate(
-              'auto.hooks.useSettingsNavigationMetadata.1e761cff2b',
-              'Mobile Emulator'
-            ),
-            description: translate(
-              'auto.hooks.useSettingsNavigationMetadata.3d65d3f1b9',
-              'Configure mobile emulator support for Orca and coding agents.'
-            ),
-            icon: TabletSmartphone,
-            searchEntries: getMobileEmulatorSearchEntries(),
             group: 'workflows'
           }
         ]

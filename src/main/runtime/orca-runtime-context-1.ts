@@ -209,8 +209,6 @@ export type RuntimeStore = {
     terminalQuickCommands?: GlobalSettings['terminalQuickCommands']
     gitlabProjects?: GlobalSettings['gitlabProjects']
     mobileAutoRestoreFitMs?: number | null
-    mobileEmulatorEnabled?: boolean
-    mobileEmulatorDefaultDeviceUdid?: string | null
     voice?: VoiceSettings
     claudeAgentTeamsMode?: GlobalSettings['claudeAgentTeamsMode']
     // Why: Phase-5 query responder kill switches — read per chunk in
