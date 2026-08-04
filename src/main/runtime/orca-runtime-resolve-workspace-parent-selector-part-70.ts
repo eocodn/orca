@@ -1,8 +1,24 @@
-import { OrchestrationDb, type WorktreeLineage, type WorktreeLineageWarning, folderWorkspaceKey, parseWorkspaceKey, worktreeWorkspaceKey, sharesResolvedWorktreeLineageBoundary, type ResolvedWorktree, type WorktreeLineageInput, type ResolvedWorkspaceParent, type WorktreeLineageResolution, type WorktreeLineageCandidate, extractOrchestrationTaskId, RuntimeLineageError, WorktreeIdRequiresFullPathError } from './orca-runtime-symbols'
+import {
+  type WorktreeLineage,
+  type WorktreeLineageWarning,
+  folderWorkspaceKey,
+  parseWorkspaceKey,
+  worktreeWorkspaceKey,
+  sharesResolvedWorktreeLineageBoundary,
+  type ResolvedWorktree,
+  type WorktreeLineageInput,
+  type ResolvedWorkspaceParent,
+  type WorktreeLineageResolution,
+  type WorktreeLineageCandidate,
+  RuntimeLineageError,
+  WorktreeIdRequiresFullPathError
+} from './orca-runtime-symbols'
 import { OrcaRuntimeGetLivePtyIdsForWorktreePart69 } from './orca-runtime-get-live-pty-ids-for-worktree-part-69'
 
 export class OrcaRuntimeResolveWorkspaceParentSelectorPart70 extends OrcaRuntimeGetLivePtyIdsForWorktreePart69 {
-  protected async resolveWorkspaceParentSelector(selector: string): Promise<ResolvedWorkspaceParent> {
+  protected async resolveWorkspaceParentSelector(
+    selector: string
+  ): Promise<ResolvedWorkspaceParent> {
     const rawSelector = selector.startsWith('id:') ? selector.slice('id:'.length) : selector
     const parsed = parseWorkspaceKey(rawSelector)
     if (parsed?.type === 'folder') {
@@ -171,61 +187,16 @@ export class OrcaRuntimeResolveWorkspaceParentSelectorPart70 extends OrcaRuntime
       }
     }
 
-    if (input.orchestrationContext?.parentWorktreeId) {
-      try {
-        const parent = await this.resolveWorktreeSelector(
-          `id:${input.orchestrationContext.parentWorktreeId}`
-        )
-        candidates.push({
-          source: 'orchestration-context',
-          parent: {
-            type: 'worktree',
-            workspaceKey: worktreeWorkspaceKey(parent.id),
-            worktree: parent,
-            instanceId: parent.instanceId ?? null
-          }
-        })
-      } catch {
-        // Keep creation recoverable; the warning below covers missing inferred context.
-      }
-    }
-
-    const commentTaskId = extractOrchestrationTaskId(input.comment)
-    if (commentTaskId) {
-      const candidate = await this.resolveLineageCandidateForTaskId(commentTaskId)
-      if (candidate) {
-        candidates.push(candidate)
-      }
-    }
-
     if (input.callerTerminalHandle) {
       try {
         const terminal = await this.showTerminal(input.callerTerminalHandle)
         const terminalParent = await this.resolveWorkspaceParentSelector(
           `id:${terminal.worktreeId}`
         )
-        const activeDispatch = this._orchestrationDb?.getActiveDispatchForTerminal(
-          input.callerTerminalHandle
-        )
-        const activeRun = this._orchestrationDb?.getActiveCoordinatorRun()
-        if (activeDispatch) {
-          candidates.push({
-            source: 'orchestration-context',
-            parent: terminalParent,
-            taskId: activeDispatch.task_id,
-            ...(activeRun
-              ? {
-                  orchestrationRunId: activeRun.id,
-                  coordinatorHandle: activeRun.coordinator_handle
-                }
-              : {})
-          })
-        } else {
-          candidates.push({
-            source: 'terminal-context',
-            parent: terminalParent
-          })
-        }
+        candidates.push({
+          source: 'terminal-context',
+          parent: terminalParent
+        })
         terminalContextResolved = true
       } catch {
         // Why: a stale terminal handle (reload/SSH reconnect) shouldn't drop lineage; keep resolving other inferred candidates.
@@ -278,126 +249,25 @@ export class OrcaRuntimeResolveWorkspaceParentSelectorPart70 extends OrcaRuntime
               terminalParentWorkspaceKey: candidates.find((c) => c.source === 'terminal-context')
                 ?.parent.workspaceKey,
               envParentWorkspaceKey: candidates.find((c) => c.source === 'env-workspace')?.parent
-                .workspaceKey,
-              orchestrationParentWorkspaceKey: candidates.find(
-                (c) => c.source === 'orchestration-context'
-              )?.parent.workspaceKey
+                .workspaceKey
             }
           }
         ]
       }
     }
 
-    const preferred =
-      candidates.find((candidate) => candidate.source === 'env-workspace') ??
-      candidates.find((candidate) => candidate.source === 'orchestration-context') ??
-      first
+    const preferred = candidates.find((candidate) => candidate.source === 'env-workspace') ?? first
     return {
       kind: 'lineage',
       parent: preferred.parent,
-      origin: preferred.source === 'orchestration-context' ? 'orchestration' : 'cli',
+      origin: 'cli',
       capture: { source: preferred.source, confidence: 'inferred' },
-      ...((preferred.orchestrationRunId ?? input.orchestrationContext?.orchestrationRunId)
-        ? {
-            orchestrationRunId:
-              preferred.orchestrationRunId ?? input.orchestrationContext?.orchestrationRunId
-          }
-        : {}),
-      ...((preferred.taskId ?? input.orchestrationContext?.taskId)
-        ? { taskId: preferred.taskId ?? input.orchestrationContext?.taskId }
-        : {}),
-      ...((preferred.coordinatorHandle ?? input.orchestrationContext?.coordinatorHandle)
-        ? {
-            coordinatorHandle:
-              preferred.coordinatorHandle ?? input.orchestrationContext?.coordinatorHandle
-          }
-        : {}),
       ...(terminalContextResolved && input.callerTerminalHandle
         ? { createdByTerminalHandle: input.callerTerminalHandle }
         : {})
     }
   }
-  protected async resolveLineageCandidateForTaskId(
-    taskId: string
-  ): Promise<WorktreeLineageCandidate | null> {
-    const db = this.getOrchestrationDbIfAvailable()
-    const dispatch = db?.getDispatchContext(taskId)
-    // Why: agent-created tasks may never be dispatched, but the creating terminal still identifies the parent workspace.
-    const parentHandle =
-      dispatch?.assignee_handle ?? db?.getTask(taskId)?.created_by_terminal_handle
-    if (!parentHandle) {
-      return null
-    }
-    try {
-      const terminal = await this.showTerminal(parentHandle)
-      const parent = await this.resolveWorktreeSelector(`id:${terminal.worktreeId}`)
-      return {
-        source: 'orchestration-context',
-        parent: {
-          type: 'worktree',
-          workspaceKey: worktreeWorkspaceKey(parent.id),
-          worktree: parent,
-          instanceId: parent.instanceId ?? null
-        },
-        taskId
-      }
-    } catch {
-      return null
-    }
-  }
-  protected getOrchestrationDbIfAvailable(): OrchestrationDb | null {
-    try {
-      return this._orchestrationDb ?? this.getOrchestrationDb()
-    } catch {
-      return this._orchestrationDb
-    }
-  }
-  async hydrateInferredWorktreeLineage(): Promise<void> {
-    const store = this.store
-    if (
-      !store ||
-      typeof store.getWorktreeLineage !== 'function' ||
-      typeof store.setWorktreeLineage !== 'function'
-    ) {
-      return
-    }
-
-    const worktrees = await this.listResolvedWorktrees()
-    for (const worktree of worktrees) {
-      if (store.getWorktreeLineage(worktree.id) || !worktree.instanceId) {
-        continue
-      }
-      const taskId = extractOrchestrationTaskId(worktree.comment)
-      if (!taskId) {
-        continue
-      }
-      const candidate = await this.resolveLineageCandidateForTaskId(taskId)
-      if (
-        !candidate?.parent.instanceId ||
-        candidate.parent.type !== 'worktree' ||
-        candidate.parent.worktree.id === worktree.id
-      ) {
-        continue
-      }
-      try {
-        this.validateLineageParent(worktree, candidate.parent.worktree)
-      } catch {
-        continue
-      }
-      store.setWorktreeLineage(worktree.id, {
-        worktreeId: worktree.id,
-        worktreeInstanceId: worktree.instanceId,
-        parentWorktreeId: candidate.parent.worktree.id,
-        parentWorktreeInstanceId: candidate.parent.instanceId,
-        origin: 'orchestration',
-        capture: { source: 'orchestration-context', confidence: 'inferred' },
-        taskId,
-        createdAt: Date.now()
-      })
-    }
-  }
   async listWorktreeLineage(): Promise<Record<string, WorktreeLineage>> {
-    await this.hydrateInferredWorktreeLineage()
     return this.store?.getAllWorktreeLineage?.() ?? {}
   }
 }

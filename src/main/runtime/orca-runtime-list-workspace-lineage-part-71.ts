@@ -1,9 +1,40 @@
-import { randomUUID, type GitWorktreeInfo, type Repo, type WorkspaceLineage, type WorkspaceKey, getRepoExecutionHostId, splitWorktreeIdForFilesystem, isFolderRepo, isPathInsideOrEqual, isWorkspaceKey, parseWorkspaceKey, worktreeWorkspaceKey, projectResolvedWorktreeLineage, getLocalProjectWorktreeGitOptionsForRuntime, resolveLocalProjectRuntimeForRepo, resolveLocalProjectRuntimesForRepos, type ProjectExecutionRuntimeResolution, listRepoWorktrees, type Store, mergeWorktree, areWorktreePathsEqual, getSshGitProvider, getSshGitProviderGeneration, resolveWorktreeScanCacheTtlMs, runtimePathsEqual, withTimeout, listRuntimeFolderWorkspaces, getAgentLaunchPlatformForRepo, type ResolvedWorktree, type RuntimeWorktreeScanResult, type ResolvedWorktreeSnapshot } from './orca-runtime-symbols'
+import {
+  randomUUID,
+  type GitWorktreeInfo,
+  type Repo,
+  type WorkspaceLineage,
+  type WorkspaceKey,
+  getRepoExecutionHostId,
+  splitWorktreeIdForFilesystem,
+  isFolderRepo,
+  isPathInsideOrEqual,
+  isWorkspaceKey,
+  parseWorkspaceKey,
+  worktreeWorkspaceKey,
+  projectResolvedWorktreeLineage,
+  getLocalProjectWorktreeGitOptionsForRuntime,
+  resolveLocalProjectRuntimeForRepo,
+  resolveLocalProjectRuntimesForRepos,
+  type ProjectExecutionRuntimeResolution,
+  listRepoWorktrees,
+  type Store,
+  mergeWorktree,
+  areWorktreePathsEqual,
+  getSshGitProvider,
+  getSshGitProviderGeneration,
+  resolveWorktreeScanCacheTtlMs,
+  runtimePathsEqual,
+  withTimeout,
+  listRuntimeFolderWorkspaces,
+  getAgentLaunchPlatformForRepo,
+  type ResolvedWorktree,
+  type RuntimeWorktreeScanResult,
+  type ResolvedWorktreeSnapshot
+} from './orca-runtime-symbols'
 import { OrcaRuntimeResolveWorkspaceParentSelectorPart70 } from './orca-runtime-resolve-workspace-parent-selector-part-70'
 
 export class OrcaRuntimeListWorkspaceLineagePart71 extends OrcaRuntimeResolveWorkspaceParentSelectorPart70 {
   async listWorkspaceLineage(): Promise<Record<WorkspaceKey, WorkspaceLineage>> {
-    await this.hydrateInferredWorktreeLineage()
     return this.store?.getAllWorkspaceLineage?.() ?? {}
   }
 
@@ -347,4 +378,7 @@ export class OrcaRuntimeListWorkspaceLineagePart71 extends OrcaRuntimeResolveWor
     }
   }
 }
-import { RESOLVED_WORKTREE_CACHE_TTL_MS, RESOLVED_WORKTREE_REPO_TIMEOUT_MS } from './orca-runtime-tail-constants'
+import {
+  RESOLVED_WORKTREE_CACHE_TTL_MS,
+  RESOLVED_WORKTREE_REPO_TIMEOUT_MS
+} from './orca-runtime-tail-constants'

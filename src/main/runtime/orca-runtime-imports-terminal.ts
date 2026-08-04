@@ -33,7 +33,6 @@ export { RuntimeLinearConnectionCommands } from './orca-runtime-linear-connectio
 export { RuntimeReviewQueryCommands } from './orca-runtime-review-query-commands'
 export { RuntimeReviewMutationCommands } from './orca-runtime-review-mutation-commands'
 export { RuntimeRepoWorkItemCommands } from './orca-runtime-repo-work-item-commands'
-export { RuntimeMessageWaiters, type MessageWaitResult } from './runtime-message-waiters'
 export {
   buildHeadlessTabGroupMove,
   buildHeadlessTabGroupSplit

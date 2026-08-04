@@ -28901,7 +28901,7 @@ describe('OrcaRuntimeService', () => {
       getSession: () => WorkspaceSessionState
       kill: ReturnType<typeof vi.fn>
       closeTerminal: ReturnType<typeof vi.fn>
-      processes: Array<{ id: string; cwd: string; title: string }>
+      processes: { id: string; cwd: string; title: string }[]
     } {
       const layout = makeHeadlessTerminalLayout({
         [HEADLESS_LEAF_ID]: 'serve-left',
@@ -35581,7 +35581,7 @@ describe('OrcaRuntimeService', () => {
 
   it('worktree scan cache: keeps lineage shaping outside the raw scan cache', async () => {
     vi.mocked(listWorktrees).mockClear()
-    const paths = ['orchestration', 'cli', 'manual']
+    const paths = ['cli', 'manual']
     const metaById: Record<string, WorktreeMeta> = {}
     const lineageById: Record<string, WorktreeLineage> = {}
     const worktrees = paths.flatMap((origin, index) => {
@@ -35596,7 +35596,7 @@ describe('OrcaRuntimeService', () => {
         worktreeInstanceId: `child-${index}`,
         parentWorktreeId: parentId,
         parentWorktreeInstanceId: `parent-${index}`,
-        origin: origin === 'orchestration' ? 'orchestration' : origin === 'cli' ? 'cli' : 'manual',
+        origin: origin === 'cli' ? 'cli' : 'manual',
         capture: { source: 'manual-action', confidence: 'explicit' },
         createdAt: 1
       }
@@ -35822,23 +35822,15 @@ describe('OrcaRuntimeService', () => {
       name: 'worker-child',
       lineage: {
         callerTerminalHandle: 'term_stale',
-        orchestrationContext: {
-          parentWorktreeId: parentId,
-          orchestrationRunId: 'run-1',
-          taskId: 'task-1',
-          coordinatorHandle: 'term_coord'
-        }
+        parentWorktree: `id:${parentId}`
       }
     })
 
     expect(result.lineage).toMatchObject({
       worktreeId: childId,
       parentWorktreeId: parentId,
-      origin: 'orchestration',
-      capture: { source: 'orchestration-context', confidence: 'inferred' },
-      orchestrationRunId: 'run-1',
-      taskId: 'task-1',
-      coordinatorHandle: 'term_coord'
+      origin: 'cli',
+      capture: { source: 'explicit-cli-flag', confidence: 'explicit' }
     })
     expect(result.lineage).not.toHaveProperty('createdByTerminalHandle')
     expect(result.warnings).toEqual([])
@@ -42823,7 +42815,7 @@ describe('OrcaRuntimeService', () => {
     it('serializes exact resizes through readback without coalescing requests', async () => {
       const { runtime, handle } = await setupTerminal()
       let applied = { cols: 80, rows: 24 }
-      const mutations: Array<{ cols: number; rows: number }> = []
+      const mutations: { cols: number; rows: number }[] = []
       runtime.setPtyController({
         write: () => true,
         kill: () => true,
@@ -42862,7 +42854,7 @@ describe('OrcaRuntimeService', () => {
       const firstReadback = makeDeferred()
       let applied = { cols: 80, rows: 24 }
       let readbackCount = 0
-      const mutations: Array<{ cols: number; rows: number }> = []
+      const mutations: { cols: number; rows: number }[] = []
       runtime.setPtyController({
         write: () => true,
         kill: () => true,
@@ -42907,7 +42899,7 @@ describe('OrcaRuntimeService', () => {
       const oldReadback = makeDeferred()
       let applied = { cols: 80, rows: 24 }
       let readbackCount = 0
-      const mutations: Array<{ cols: number; rows: number }> = []
+      const mutations: { cols: number; rows: number }[] = []
       runtime.setPtyController({
         write: () => true,
         kill: () => true,
@@ -43074,7 +43066,7 @@ describe('OrcaRuntimeService', () => {
       })
       let casCalls = 0
       let applied = { cols: 80, rows: 24 }
-      const resizeEvents: Array<{ cols: number; rows: number }> = []
+      const resizeEvents: { cols: number; rows: number }[] = []
       runtime.setPtyController({
         write: () => true,
         kill: () => true,

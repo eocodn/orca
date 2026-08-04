@@ -1,5 +1,4 @@
-import type { OrchestrationDb, AgentDetector, RuntimeClientSettingsCommands} from './orca-runtime-symbols';
-import { type RemoteTerminalSourceRangeConsumerHooks, randomUUID, type OrchestrationEnvironmentTransport, type RuntimeClientEvent, type RuntimeGraphStatus, type RuntimeWorktreeTerminalSleepResult, type RuntimeTerminalResolvePane, type RuntimeSyncedTab, type RuntimeMobileSessionCreateTerminalResult, type RuntimeMobileSessionTabsResult, type RuntimeMobileSessionTabsSnapshot, type PtyIncarnationId, RemoteRuntimeTerminalCreateIdempotency, TerminalOutputState, WorktreeResolutionState, RuntimeTerminalInputCommands, RuntimeMessageWaiters, type RetiredTerminalSurface, ClientSessionTabSelectionStore, type AgentBrowserBridge, type BrowserBackend, RuntimeNotificationRegistry, createMobileSessionTabsNotifyCoalescer, type MobileSessionTabsNotifyCoalescer, type RuntimeStore, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, type PtyForegroundAgentRefresh, type RuntimeHeadlessTerminal, type RuntimePtyController, type RuntimeNotifier, type TerminalHandleRecord, type TerminalWaiter, type RuntimeWorktreeScanResult, type ResolvedWorktreeSnapshot, type RuntimeWorktreeLifecycleEvent, type DriverState, type NativeChatLaunchDraftResolutionTombstone } from './orca-runtime-symbols'
+import { type RemoteTerminalSourceRangeConsumerHooks, randomUUID, type RuntimeClientEvent, type RuntimeGraphStatus, type RuntimeWorktreeTerminalSleepResult, type RuntimeTerminalResolvePane, type RuntimeSyncedTab, type RuntimeMobileSessionCreateTerminalResult, type RuntimeMobileSessionTabsResult, type RuntimeMobileSessionTabsSnapshot, type PtyIncarnationId, RemoteRuntimeTerminalCreateIdempotency, TerminalOutputState, WorktreeResolutionState, RuntimeTerminalInputCommands, type RetiredTerminalSurface, ClientSessionTabSelectionStore, type AgentBrowserBridge, type BrowserBackend, RuntimeNotificationRegistry, createMobileSessionTabsNotifyCoalescer, type MobileSessionTabsNotifyCoalescer, type RuntimeStore, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, type PtyForegroundAgentRefresh, type RuntimeHeadlessTerminal, type RuntimePtyController, type RuntimeNotifier, type TerminalHandleRecord, type TerminalWaiter, type RuntimeWorktreeScanResult, type ResolvedWorktreeSnapshot, type RuntimeWorktreeLifecycleEvent, type DriverState, type NativeChatLaunchDraftResolutionTombstone, type AgentDetector, type RuntimeClientSettingsCommands } from './orca-runtime-symbols'
 import { OrcaRuntimeMethodSurface } from './orca-runtime-state-surface'
 
 export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
@@ -9,10 +8,6 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   protected clientSettingsCommands!: RuntimeClientSettingsCommands
   protected managedHookReconciliationGeneration = 0
   protected managedHookReconciliationTail: Promise<void> = Promise.resolve()
-  protected orchestrationEnvironmentTransport!: OrchestrationEnvironmentTransport | null
-  protected readonly orchestrationFederationTimers = new Map<string, ReturnType<typeof setInterval>>()
-  protected readonly orchestrationFederationSyncs = new Map<string, Promise<void>>()
-  protected readonly orchestrationFederationWarnings = new Set<string>()
   protected rendererGraphEpoch = 0
   protected graphStatus: RuntimeGraphStatus = 'unavailable'
   protected authoritativeWindowId: number | null = null
@@ -145,8 +140,6 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   protected agentDetector: AgentDetector | null = null
   protected ptyForegroundAgentRefreshes = new Map<string, PtyForegroundAgentRefresh>()
   protected ptyDelayedForegroundSnapshotTitleObservations = new Map<string, number>()
-  protected _orchestrationDb: OrchestrationDb | null = null
-  protected readonly messageWaiters = new RuntimeMessageWaiters()
   // Why: mobile clients subscribe to terminal output via terminal.subscribe.
   // These listeners fire on every onPtyData call, enabling real-time streaming
   // without polling. Keyed by ptyId for O(1) lookup per data event.

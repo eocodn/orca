@@ -1,4 +1,5 @@
-import { type TerminalOscLinkRange, type TerminalTitleTracker, type TerminalSideEffectFact, type ParsedAgentStatusPayload, type AgentSessionClaimedSpawnResult, type AgentSessionExecutionClaim, type AgentSessionSurfaceBinding, type RuntimeCreateAgentSessionResult, type TerminalRevealIdentity, type CreateWorktreeResult, type Repo, type WorktreeBaseStatusEvent, type WorktreeRemoteBranchConflictEvent, type WorktreeStartupLaunch, type TuiAgent, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeTerminalPresentation, type RuntimeMarkdownReadTabResult, type RuntimeMarkdownSaveTabResult, type RuntimeMobileSessionTabMove, type RuntimeBrowserDriverState, type RuntimeTerminalDriverState, type TerminalPaneSplitSource, type PtyIncarnationId, isWindowsAbsolutePathLike, type PtyProviderBufferSnapshot, type PtyProcessInfo, type ProjectExecutionRuntimeResolution, HeadlessEmulator } from './orca-runtime-imports'
+import type { HeadlessEmulator } from './orca-runtime-imports';
+import { type TerminalOscLinkRange, type TerminalTitleTracker, type TerminalSideEffectFact, type ParsedAgentStatusPayload, type AgentSessionClaimedSpawnResult, type AgentSessionExecutionClaim, type AgentSessionSurfaceBinding, type RuntimeCreateAgentSessionResult, type TerminalRevealIdentity, type CreateWorktreeResult, type Repo, type WorktreeBaseStatusEvent, type WorktreeRemoteBranchConflictEvent, type WorktreeStartupLaunch, type TuiAgent, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeTerminalPresentation, type RuntimeMarkdownReadTabResult, type RuntimeMarkdownSaveTabResult, type RuntimeMobileSessionTabMove, type RuntimeBrowserDriverState, type RuntimeTerminalDriverState, type TerminalPaneSplitSource, type PtyIncarnationId, isWindowsAbsolutePathLike, type PtyProviderBufferSnapshot, type PtyProcessInfo, type ProjectExecutionRuntimeResolution } from './orca-runtime-imports'
 
 
 export type RuntimePtyTitleTrackerEntry = {
@@ -321,11 +322,6 @@ export type RuntimeNotifier = {
     | Promise<{ tabId: string; title?: string | null; identity?: TerminalRevealIdentity }>
     | { tabId: string; title?: string | null; identity?: TerminalRevealIdentity }
     | void
-  resolveLegacyWorkerTerminalRecovery?(
-    paneKey: string,
-    resolution: 'adopted' | 'exited' | 'rolled_back',
-    ptyId?: string
-  ): void
   splitTerminal(
     tabId: string,
     paneRuntimeId: number,

@@ -1,206 +1,54 @@
-import { ipcMain, type BrowserWindow } from 'electron'
-import { readFile, stat } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
-import type { Store } from '../persistence'
-import { isFolderRepo } from '../../shared/repo-kind'
-import { readBranchRenameFailureOutputForDisplay } from '../agent-hooks/branch-rename-failure-output'
-import {
-  isWorkspaceKey,
-  parseWorkspaceKey,
-  worktreeWorkspaceKey
-} from '../../shared/workspace-scope'
-import { inspectSetupScriptImportCandidates } from '../../shared/setup-script-imports'
-import { getProjectHostSetupWorktreeMeta } from '../../shared/project-host-setup-projection'
-import { TaskSourceContextSchema } from '../../shared/task-source-context-schema'
-import { WorkspaceLinkedItemSchema } from '../../shared/workspace-linked-item-schema'
-import { isWorkspaceLinkedItemSourceContextMatch } from '../../shared/workspace-linked-item-source-context'
-import { getProjectGroupSubtreeIds } from '../../shared/project-groups'
-import { projectResolvedWorktreeLineage } from '../../shared/resolved-worktree-lineage'
-import { isPathInsideOrEqual, isWindowsAbsolutePathLike } from '../../shared/cross-platform-path'
-import { deleteWorktreeHistoryDir } from '../terminal-history-deletion'
-import type {
-  AutomationWorkspaceProvenance,
-  CliWorkspaceProvenance,
-  CreateWorktreeArgs,
-  CreateWorktreeResult,
-  DetectedWorktree,
-  DetectedWorktreeListResult,
-  ForceDeleteWorktreeBranchResult,
-  GitHubPrStartPoint,
-  GitPushTarget,
-  GitWorktreeInfo,
-  OrcaHooks,
-  Repo,
-  RemoveWorktreeResult,
-  Worktree,
-  WorktreeLineage,
-  WorkspaceLineage,
-  WorktreeMeta
-} from '../../shared/types'
-import { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'
-import {
-  getRepoExecutionHostId,
-  LOCAL_EXECUTION_HOST_ID,
-  parseExecutionHostId,
-  toSshExecutionHostId,
-  type ExecutionHostId
-} from '../../shared/execution-host'
 import {
   PROVIDER_REQUEST_ID_MAX_UTF8_BYTES,
   type DirectSshDetectedWorktreeRequest,
   type HostQualifiedDetectedWorktreeResult,
-  type ListDetectedWorktreesArgs,
-  type ProviderRequestId
+  type ListDetectedWorktreesArgs
 } from '../../shared/detected-worktree-provider-contract'
+import { LOCAL_EXECUTION_HOST_ID, parseExecutionHostId } from '../../shared/execution-host'
 import type {
   HostLineageSnapshot,
   ListDesktopLineageForHostArgs
 } from '../../shared/host-lineage-contract'
-import { isAdmissibleDirectSshAuthority } from '../../shared/ssh-retained-payload-admission'
-import {
-  applyMetadataFallbackVisibility,
-  buildKnownOrcaWorkspaceLayouts,
-  isLegacyRepoForExternalWorktreeVisibility,
-  toDetectedWorktree
-} from '../../shared/worktree-ownership'
-import { createAgentScratchWorktreePathMatcher } from '../../shared/agent-scratch-worktrees'
-import {
-  assertWorktreeCleanForRemoval,
-  forceDeleteLocalBranch,
-  listWorktreesStrict as listGitWorktreesStrict,
-  removeWorktree
-} from '../git/worktree'
-import { gitExecFileAsync } from '../git/runner'
-import { withWorktreeRemoveStageSpan, withWorktreeSpan } from '../observability/instrumentation'
-import { resolveGitHubPrStartPoint } from '../github/pr-start-point'
-import {
-  fetchGitHubPullRequestHeadRef,
-  fetchPrHeadTrackingRef
-} from '../github/pr-head-tracking-ref'
-import { pruneWorktreePRRefreshAliases } from '../github/pr-refresh-coordinator'
-import { resolveGitHubReviewHeadRemote } from '../github/review-head-remote'
-import { listRepoWorktrees } from '../repo-worktrees'
-import { getSshGitProvider, requireSshGitProvider } from '../providers/ssh-git-dispatch'
-import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import {
-  createIssueCommandRunnerScript,
-  getEffectiveHooks,
-  getEffectiveHooksFromConfig,
-  getSetupRunnerEnvVars,
-  loadHooks,
-  parseOrcaYaml,
-  readIssueCommand,
-  runHook,
-  hasHooksFile,
-  hasUnrecognizedOrcaYamlKeys,
-  writeIssueCommand
-} from '../hooks'
-import {
-  mergeWorktree,
-  parseWorktreeId,
-  areWorktreePathsEqual,
-  formatWorktreeRemovalError,
-  isOrphanCompatiblePreflightError,
-  isOrphanedWorktreeError
-} from './worktree-logic'
-import { dedupeWorktreesByPath } from './worktree-path-comparison'
-import { joinWorktreeRelativePath } from '../runtime/runtime-relative-paths'
-import {
-  createLocalWorktree,
-  createRemoteWorktree,
-  cleanupUnusedWorktreePushTargetRemote,
-  cleanupUnusedWorktreePushTargetRemoteSsh,
-  notifyWorktreesChanged
-} from './worktree-remote'
-import { registerWorktreeChangeInvalidator } from './worktree-change-invalidators'
-import {
-  invalidateAuthorizedRootsCache,
-  isENOENT,
-  registerWorktreeRootsForRepo
-} from './filesystem-auth'
-import type { OrcaRuntimeService, RuntimeWorktreeLifecycleEvent } from '../runtime/orca-runtime'
-import { killAllProcessesForWorktree } from '../runtime/worktree-teardown'
-import { clearProviderPtyState, getLocalPtyProvider, getSshPtyProvider } from './pty'
-import { findExistingWorktreeSymlinkPaths, removeWorktreeLinkedPaths } from './worktree-symlinks'
-import { getWorktreeSharedLinkPaths } from '../git/worktree-shared-directories'
-import { track } from '../telemetry/client'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
-import { workspaceSourceSchema, type WorkspaceSource } from '../../shared/telemetry-events'
-import {
-  finishAutomationWorkspaceProvenanceRequest,
-  releaseAutomationWorkspaceProvenanceRequest,
-  resolveAutomationWorkspaceProvenance
-} from '../automations/workspace-provenance'
-import { shouldEmitBoundedWarning } from './bounded-warning-dedupe'
-import {
-  getSshProviderAuthority,
-  isCurrentSshProviderAuthority,
-  registerSshProviderRequestAbort
-} from '../ssh/ssh-provider-authority'
-import { createSenderScopedRequestCancellations } from './sender-scoped-request-cancellation'
-import { LINEAGE_HYDRATION_TIMEOUT_MS } from './worktree-ipc-creation'
+import type { Store } from '../persistence'
+import { getSshGitProvider } from '../providers/ssh-git-dispatch'
+import { isCurrentSshProviderAuthority } from '../ssh/ssh-provider-authority'
 
-import { hasValidDirectSshAuthority,
-  hasValidLineageSshAuthority,
-  type LineageOwner,
-  type LineageFolder,
-  type LineageGroup,
-  type LineageResolutionContext,
-  indexLineageEntriesById,
-  createLineageResolutionContext,
-  resolveRepoLineageOwner,
-  resolveWorktreeLineageOwner,
-  getFolderLineageCandidateRepos,
-  resolveFolderLineageOwner,
-  resolveWorkspaceLineageOwner,
-  filterLineageForHost } from './worktree-ipc-metadata'
 import {
   findExactRepoOwner,
   isCapturedRepoCurrent,
   listDetectedWorktreesForCapturedRepo,
-  resolveRepoOwnershipEvidence } from './worktree-ipc-local'
-export { hasValidDirectSshAuthority,
-  hasValidLineageSshAuthority,
-  type LineageOwner,
-  type LineageFolder,
-  type LineageGroup,
-  type LineageResolutionContext,
-  indexLineageEntriesById,
-  createLineageResolutionContext,
-  resolveRepoLineageOwner,
-  resolveWorktreeLineageOwner,
-  getFolderLineageCandidateRepos,
-  resolveFolderLineageOwner,
-  resolveWorkspaceLineageOwner,
-  filterLineageForHost } from './worktree-ipc-metadata'
-export { findExactRepoOwner,
+  resolveRepoOwnershipEvidence
+} from './worktree-ipc-local'
+import {
+  filterLineageForHost,
+  hasValidDirectSshAuthority,
+  hasValidLineageSshAuthority
+} from './worktree-ipc-metadata'
+export {
+  findExactRepoOwner,
   isCapturedRepoCurrent,
   listDetectedWorktreesForCapturedRepo,
-  resolveRepoOwnershipEvidence } from './worktree-ipc-local'
-
-export async function hydrateLineageWithinDeadline(runtime: OrcaRuntimeService): Promise<boolean> {
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  const hydration = Promise.resolve()
-    .then(() => runtime.hydrateInferredWorktreeLineage())
-    .then(
-      () => true,
-      () => false
-    )
-  const deadline = new Promise<false>((resolve) => {
-    timeout = setTimeout(() => resolve(false), LINEAGE_HYDRATION_TIMEOUT_MS)
-  })
-  try {
-    return await Promise.race([hydration, deadline])
-  } finally {
-    if (timeout) {
-      clearTimeout(timeout)
-    }
-  }
-}
+  resolveRepoOwnershipEvidence
+} from './worktree-ipc-local'
+export {
+  createLineageResolutionContext,
+  filterLineageForHost,
+  getFolderLineageCandidateRepos,
+  hasValidDirectSshAuthority,
+  hasValidLineageSshAuthority,
+  indexLineageEntriesById,
+  resolveFolderLineageOwner,
+  resolveRepoLineageOwner,
+  resolveWorkspaceLineageOwner,
+  resolveWorktreeLineageOwner,
+  type LineageFolder,
+  type LineageGroup,
+  type LineageOwner,
+  type LineageResolutionContext
+} from './worktree-ipc-metadata'
 
 export async function listDesktopLineageForHost(
   store: Store,
-  runtime: OrcaRuntimeService,
   args: ListDesktopLineageForHostArgs
 ): Promise<HostLineageSnapshot> {
   const parsedHost = parseExecutionHostId(args?.executionHostId)
@@ -237,9 +85,6 @@ export async function listDesktopLineageForHost(
     if (!provider) {
       return rejected('unavailable')
     }
-  }
-  if (!(await hydrateLineageWithinDeadline(runtime))) {
-    return rejected('unavailable')
   }
   if (
     parsedHost.kind === 'ssh' &&

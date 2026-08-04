@@ -265,14 +265,13 @@ export type DetectedWorktreeListResult = {
   worktrees: DetectedWorktree[]
 }
 
-export type WorktreeLineageOrigin = 'orchestration' | 'cli' | 'manual'
+export type WorktreeLineageOrigin = 'cli' | 'manual'
 export type WorktreeLineageCaptureConfidence = 'explicit' | 'inferred'
 export type WorktreeLineageCaptureSource =
   | 'explicit-cli-flag'
   | 'env-workspace'
   | 'cwd-context'
   | 'terminal-context'
-  | 'orchestration-context'
   | 'active-workspace'
   | 'manual-action'
 
@@ -288,9 +287,6 @@ export type WorktreeLineage = {
   parentWorktreeInstanceId: string
   origin: WorktreeLineageOrigin
   capture: WorktreeLineageCapture
-  orchestrationRunId?: string
-  taskId?: string
-  coordinatorHandle?: string
   createdByTerminalHandle?: string
   createdAt: number
 }
@@ -302,9 +298,6 @@ export type WorkspaceLineage = {
   parentInstanceId?: string | null
   origin: WorktreeLineageOrigin
   capture: WorktreeLineageCapture
-  taskId?: string
-  orchestrationRunId?: string
-  coordinatorHandle?: string
   createdByTerminalHandle?: string
   createdAt: number
 }

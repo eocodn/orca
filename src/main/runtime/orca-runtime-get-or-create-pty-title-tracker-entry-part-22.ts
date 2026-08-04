@@ -178,7 +178,6 @@ export class OrcaRuntimeGetOrCreatePtyTitleTrackerEntryPart22 extends OrcaRuntim
       // which isn't a task-completion signal.
       if (agentStatus === 'idle' && prevStatus !== 'idle') {
         this.resolveTuiIdleWaiters(leaf)
-        this.deliverPendingMessages(leaf)
       }
     }
     return ptyRecordChanged

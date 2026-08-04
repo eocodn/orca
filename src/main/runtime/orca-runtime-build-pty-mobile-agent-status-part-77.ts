@@ -1,4 +1,23 @@
-import { AGENT_STATUS_STALE_AFTER_MS, type AgentStatusIpcPayload, type AgentStatusOrchestrationContext, type AgentStatusEntry, normalizeCompatibleAgentStatusEntryForOwner, normalizeCompatibleAgentTitleForOwner, resolvePaneAgentOwner, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeMobileSessionTerminalTab, FIRST_PANE_ID, isTerminalLeafId, makePaneKey, classifyAgentTitle, getLatestAgentCandidateTitle, getLatestPtyTitle, copySleepingAgentLaunchConfig, type RuntimePtyWorktreeRecord, type RuntimeAgentRowSnapshot } from './orca-runtime-symbols'
+import {
+  AGENT_STATUS_STALE_AFTER_MS,
+  type AgentStatusIpcPayload,
+  type AgentStatusEntry,
+  normalizeCompatibleAgentStatusEntryForOwner,
+  normalizeCompatibleAgentTitleForOwner,
+  resolvePaneAgentOwner,
+  type AgentProviderSessionMetadata,
+  type SleepingAgentLaunchConfig,
+  type RuntimeMobileSessionTerminalTab,
+  FIRST_PANE_ID,
+  isTerminalLeafId,
+  makePaneKey,
+  classifyAgentTitle,
+  getLatestAgentCandidateTitle,
+  getLatestPtyTitle,
+  copySleepingAgentLaunchConfig,
+  type RuntimePtyWorktreeRecord,
+  type RuntimeAgentRowSnapshot
+} from './orca-runtime-symbols'
 import { OrcaRuntimeToMobileSessionTabsResultPart76 } from './orca-runtime-to-mobile-session-tabs-result-part-76'
 
 export class OrcaRuntimeBuildPtyMobileAgentStatusPart77 extends OrcaRuntimeToMobileSessionTabsResultPart76 {
@@ -247,15 +266,6 @@ export class OrcaRuntimeBuildPtyMobileAgentStatusPart77 extends OrcaRuntimeToMob
       return null
     }
   }
-  getAgentStatusOrchestrationContextForPaneKey(
-    paneKey: string
-  ): AgentStatusOrchestrationContext | undefined {
-    const handle = this.getTerminalHandleForPaneKey(paneKey)
-    if (!handle) {
-      return undefined
-    }
-    return this.getAgentStatusOrchestrationContextForHandle(handle)
-  }
   getAgentStatusTerminalHandleForPaneKey(paneKey: string): string | undefined {
     return this.getTerminalHandleForPaneKey(paneKey) ?? undefined
   }
@@ -271,43 +281,5 @@ export class OrcaRuntimeBuildPtyMobileAgentStatusPart77 extends OrcaRuntimeToMob
       return undefined
     }
     return copySleepingAgentLaunchConfig(pty.launchConfig)
-  }
-  protected buildAgentOrchestrationByPaneKey():
-    | Record<string, AgentStatusOrchestrationContext>
-    | undefined {
-    const db = this.getOrchestrationDbIfAvailable()
-    if (!db) {
-      return undefined
-    }
-    // Why: this runs on every 16ms graph publish (title/status churn). With no
-    // dispatch rows — the overwhelming majority who never orchestrate — the
-    // per-terminal query fan-out below can only ever yield an empty result, so
-    // skip it wholesale via the DB's cached emptiness probe. Optional call so
-    // partial test-injected DBs without the probe fall through to the scan.
-    if (db.hasAnyDispatchContexts?.() === false) {
-      return undefined
-    }
-    const contexts: Record<string, AgentStatusOrchestrationContext> = {}
-    for (const leaf of this.leaves.values()) {
-      if (!leaf.ptyId) {
-        continue
-      }
-      const handle = this.issueHandle(leaf)
-      const context = this.getAgentStatusOrchestrationContextForHandle(handle, db)
-      if (context) {
-        contexts[this.makeRuntimePaneKey(leaf)] = context
-      }
-    }
-    for (const pty of this.ptysById.values()) {
-      if (!pty.paneKey || contexts[pty.paneKey]) {
-        continue
-      }
-      const handle = this.issuePtyHandle(pty)
-      const context = this.getAgentStatusOrchestrationContextForHandle(handle, db)
-      if (context) {
-        contexts[pty.paneKey] = context
-      }
-    }
-    return Object.keys(contexts).length > 0 ? contexts : undefined
   }
 }

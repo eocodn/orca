@@ -418,12 +418,6 @@ function registerRuntimeWindowLifecycle(
           ...(opts.focus !== undefined ? { focus: opts.focus } : {})
         })
       }),
-    resolveLegacyWorkerTerminalRecovery: (paneKey, resolution, ptyId) =>
-      send('agentStatus:legacyWorkerTerminalRecovery', {
-        paneKey,
-        resolution,
-        ...(ptyId ? { ptyId } : {})
-      }),
     splitTerminal: (tabId, paneRuntimeId, opts) => {
       send('ui:splitTerminal', {
         tabId,

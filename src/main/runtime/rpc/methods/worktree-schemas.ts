@@ -150,14 +150,6 @@ export const WorktreeCreate = z
     cwdParentWorktree: OptionalString,
     noParent: OptionalBoolean,
     callerTerminalHandle: OptionalString,
-    orchestrationContext: z
-      .object({
-        parentWorktreeId: OptionalString,
-        orchestrationRunId: OptionalString,
-        taskId: OptionalString,
-        coordinatorHandle: OptionalString
-      })
-      .optional(),
     setupDecision: z
       .unknown()
       .transform((v) =>

@@ -1,5 +1,4 @@
 export type { ProjectExecutionRuntimeResolution } from '../../shared/project-execution-runtime'
-export { resolveTerminalOrchestrationCliCommand } from './orchestration/cli-command'
 export {
   getLocalWorktreePathAccess,
   removeLocalWorktreePath,

@@ -37,7 +37,6 @@ export {
   isFreshNonDoneAgentStatus,
   type AgentStatusIpcPayload,
   type ParsedAgentStatusPayload,
-  type AgentStatusOrchestrationContext,
   type AgentStatusEntry
 } from '../../shared/agent-status-types'
 export { indexAgentStatusRowsByPaneKey } from '../agent-hooks/agent-status-pane-index'
@@ -74,7 +73,6 @@ export {
   createAgentStatusOscProcessor,
   type ProcessedAgentStatusChunk
 } from '../../shared/agent-status-osc'
-export { buildOrchestrationTaskDisplayMetadata } from '../../shared/orchestration-task-display'
 export { assertTerminalDimensions } from '../../shared/terminal-dimensions'
 export {
   AGENT_PROMPT_SUBMIT,
@@ -96,12 +94,6 @@ export { isAbsolute, join, resolve } from 'node:path'
 export { mkdir, readdir, rm, stat } from 'node:fs/promises'
 export { resolveWorktreeCreateBase } from '../worktree-create-base'
 export { resolveWorktreeAddBaseRef } from '../../shared/worktree-base-ref'
-export { OrchestrationDb } from './orchestration/db'
-export { OrchestrationError } from './orchestration/orchestration-error'
-export {
-  planLegacyWorkerTerminalRecovery,
-  type LegacyWorkerTerminalRecoveryPlan
-} from './orchestration/orchestration-legacy-worker-terminal-recovery'
 export {
   buildObservedSetupCommand,
   createSetupCompletionScanner
@@ -111,16 +103,6 @@ export type {
   OrchestrationCompatibilityEvidence,
   OrchestrationCompatibilityHostStamp
 } from '../../shared/orchestration-compatibility-evidence'
-export {
-  isOrchestrationMutation,
-  orchestrationMigrationData
-} from '../../shared/orchestration-rpc-contract'
-export type {
-  OrchestrationEnvironmentTransport,
-  OrchestrationWorkerServer
-} from './orchestration/environment-transport'
-export { syncFederatedDispatch } from './orchestration/federation-sync'
-export { formatMessagesForInjection } from './orchestration/formatter'
 export { selectExactWorkerProviderSession } from './orchestration/worker-provider-session'
 export type { Automation, AutomationRun } from '../../shared/automations-types'
 export type {

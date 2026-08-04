@@ -1,4 +1,23 @@
-import { randomUUID, type AutomationWorkspaceProvenance, type CliWorkspaceProvenance, type CreateWorktreeResult, type GitPushTarget, type WorktreeStartupLaunch, type TuiAgent, type WorkspaceCreateTelemetrySource, type WorkspaceLinkedItem, type TaskSourceContext, getProjectHostSetupWorktreeMeta, isFolderRepo, isTuiAgentEnabled, getRuntimeFolderWorkspaceInstanceId, mergeRuntimeFolderWorkspace, type WorktreeStartupDraftPaste, ownerSurfacing, type WorktreeLineageInput } from './orca-runtime-symbols'
+import {
+  randomUUID,
+  type AutomationWorkspaceProvenance,
+  type CliWorkspaceProvenance,
+  type CreateWorktreeResult,
+  type GitPushTarget,
+  type WorktreeStartupLaunch,
+  type TuiAgent,
+  type WorkspaceCreateTelemetrySource,
+  type WorkspaceLinkedItem,
+  type TaskSourceContext,
+  getProjectHostSetupWorktreeMeta,
+  isFolderRepo,
+  isTuiAgentEnabled,
+  getRuntimeFolderWorkspaceInstanceId,
+  mergeRuntimeFolderWorkspace,
+  type WorktreeStartupDraftPaste,
+  ownerSurfacing,
+  type WorktreeLineageInput
+} from './orca-runtime-symbols'
 import { prepareLocalManagedWorktreeCreation } from './orca-runtime-create-managed-worktree-local'
 import { completeManagedWorktreeCreation } from './orca-runtime-create-managed-worktree-finalization'
 import { OrcaRuntimePasteStartupDraftWhenReadyPart52 } from './orca-runtime-paste-startup-draft-when-ready-part-52'
@@ -219,8 +238,7 @@ export class OrcaRuntimeCreateManagedWorktreePart53 extends OrcaRuntimePasteStar
         ...(warning ? { warning } : {})
       }
     }
-    const lineageInput =
-      args.lineage || args.comment ? { ...args.lineage, comment: args.comment } : undefined
+    const lineageInput = args.lineage
     const lineageResolution = await this.resolveLineageForWorktreeCreate(lineageInput)
     if (repo.connectionId) {
       const result = await this.createManagedRemoteWorktree(repo, {
@@ -256,12 +274,7 @@ export class OrcaRuntimeCreateManagedWorktreePart53 extends OrcaRuntimePasteStar
           : {})
       }
     }
-    const prepared = await prepareLocalManagedWorktreeCreation(
-      this,
-      args,
-      repo,
-      createSettings
-    )
+    const prepared = await prepareLocalManagedWorktreeCreation(this, args, repo, createSettings)
     return completeManagedWorktreeCreation(this, {
       args,
       repo,
@@ -273,6 +286,5 @@ export class OrcaRuntimeCreateManagedWorktreePart53 extends OrcaRuntimePasteStar
       effectiveDraftPaste,
       ...prepared
     })
-
   }
 }

@@ -1,4 +1,5 @@
-import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, type AgentHookAuthorityAttestation, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type AutomationService, type IPtyProvider, ClaudeAgentTeamsService, type StatsCollector, type CommitMessageAgentEnvironmentResolvers, RuntimeAutomationCommands, PtyLayoutQueue, type PtyLayoutState, PtyGenerationReferenceCount, RuntimeRepoHookCommands, type PreservedBranchCleanupTarget, type RuntimeWorktreeRemovalInFlight, type RuntimeAccountServices, type RemoteFetchResult, type RuntimeTerminalAgentStatusEvent, type AgentSessionCreateOperation, type RestoredOrchestrationAuthorityReceipt, type OrchestrationCompatibilitySshAttachmentAuthority } from './orca-runtime-symbols'
+import type { RuntimeAutomationCommands, RuntimeRepoHookCommands} from './orca-runtime-symbols';
+import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, type AgentHookAuthorityAttestation, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type AutomationService, type IPtyProvider, ClaudeAgentTeamsService, type StatsCollector, type CommitMessageAgentEnvironmentResolvers, PtyLayoutQueue, type PtyLayoutState, PtyGenerationReferenceCount, type PreservedBranchCleanupTarget, type RuntimeWorktreeRemovalInFlight, type RuntimeAccountServices, type RemoteFetchResult, type RuntimeTerminalAgentStatusEvent, type AgentSessionCreateOperation, type RestoredOrchestrationAuthorityReceipt, type OrchestrationCompatibilitySshAttachmentAuthority } from './orca-runtime-symbols'
 import { OrcaRuntimeStatePart2 } from './orca-runtime-state-part-2'
 
 export class OrcaRuntimeStatePart3 extends OrcaRuntimeStatePart2 {
@@ -116,18 +117,6 @@ export class OrcaRuntimeStatePart3 extends OrcaRuntimeStatePart2 {
     OrchestrationCompatibilitySshAttachmentAuthority
   >()
   protected sshRelayRecoveryGenerationByTargetId = new Map<string, number>()
-  protected legacyWorkerTerminalRecoveryQueue: Promise<void> = Promise.resolve()
-  protected legacyWorkerTerminalRecoveryRetries = new Map<
-    string,
-    {
-      attempt: number
-      connectionId?: string
-      materializeRenderer: boolean
-      timer: ReturnType<typeof setTimeout> | null
-    }
-  >()
-  protected legacyWorkerTerminalReceiptEpochByPane = new Map<string, number>()
-  protected legacyWorkerRecoveredPtys = new Set<string>()
   protected restoredOrchestrationAuthorityByPtyId = new Map<
     string,
     RestoredOrchestrationAuthorityReceipt

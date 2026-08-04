@@ -158,8 +158,7 @@ export const WORKTREE_METHODS: RpcMethod[] = [
               parentWorktree: params.parentWorktree,
               ...(params.cwdParentWorktree ? { cwdParentWorktree: params.cwdParentWorktree } : {}),
               noParent: params.noParent === true,
-              callerTerminalHandle: params.callerTerminalHandle,
-              orchestrationContext: params.orchestrationContext
+              callerTerminalHandle: params.callerTerminalHandle
             }
           })
           finishAutomationWorkspaceProvenanceRequest(params.automationProvenanceRequest)

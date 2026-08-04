@@ -375,7 +375,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
         return
       }
       maybeAutoRenameBranchOnFirstWorkFromHook({ paneKey, tabId, worktreeId, payload, isReplay })
-      const orchestration = startupState.runtime?.getAgentStatusOrchestrationContextForPaneKey(paneKey)
       const terminalHandle = startupState.runtime?.getAgentStatusTerminalHandleForPaneKey(paneKey)
       startupState.mainWindow?.webContents.send('agentStatus:set', {
         ...payload,
@@ -389,7 +388,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
         stateStartedAt,
         ...(providerSession ? { providerSession } : {}),
         ...(promptInteractionKey ? { promptInteractionKey } : {}),
-        ...(orchestration ? { orchestration } : {})
       })
       recordAgentStateCrashBreadcrumb(payload.agentType ?? 'unknown', payload.state)
       // Why: native OSC titles miss some idle/permission frames, so inject hook-derived ones to keep the renderer title tracker in sync.

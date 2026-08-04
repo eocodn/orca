@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto'
-import { isCursorAgentTitle } from '../../shared/agent-detection'
 import { isTuiAgentEnabled } from '../../shared/tui-agent-selection'
 import { getTuiAgentLaunchCommand, TUI_AGENT_CONFIG } from '../../shared/tui-agent-config'
 import type { TuiAgent } from '../../shared/types'
@@ -35,13 +34,6 @@ export function normalizeSparsePresetDirectoriesForSave(directories: string[]): 
     throw new Error('Preset must have at least one directory.')
   }
   return normalized
-}
-
-export function isCursorAgentOrchestrationTarget(
-  leaf: { lastOscTitle: string | null; paneTitle?: string | null },
-  tabTitle: string | null | undefined
-): boolean {
-  return [leaf.lastOscTitle, leaf.paneTitle, tabTitle].some(isCursorAgentTitle)
 }
 
 export function mergeTerminalEnvDeletionKeys(

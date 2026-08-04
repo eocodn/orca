@@ -70,7 +70,6 @@ export class OrcaRuntimeAttachAgentRowsToSummariesPart45 extends OrcaRuntimeGetW
     if (rowSources.size === 0) {
       return
     }
-    const orchestrationByPaneKey = this.buildAgentOrchestrationByPaneKey()
     const rowsByWorktree = new Map<string, RuntimeWorktreeAgentRow[]>()
     const now = Date.now()
     for (const src of rowSources.values()) {
@@ -91,16 +90,14 @@ export class OrcaRuntimeAttachAgentRowsToSummariesPart45 extends OrcaRuntimeGetW
       if (!summary) {
         continue
       }
-      const taskTitle = orchestrationByPaneKey?.[src.paneKey]?.taskTitle ?? null
-      const displayName = orchestrationByPaneKey?.[src.paneKey]?.displayName ?? null
       const row: RuntimeWorktreeAgentRow = {
         paneKey: src.paneKey,
-        parentPaneKey: orchestrationByPaneKey?.[src.paneKey]?.parentPaneKey ?? null,
+        parentPaneKey: null,
         state: src.state,
         agentType: src.agentType,
         prompt: src.prompt,
-        taskTitle,
-        displayName,
+        taskTitle: null,
+        displayName: null,
         lastAssistantMessage: src.lastAssistantMessage,
         toolName: src.toolName,
         toolInput: src.toolInput,

@@ -1,4 +1,4 @@
-import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, type AgentHookAuthorityAttestation, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type OrchestrationEnvironmentTransport, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeAutomationCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
+import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, type AgentHookAuthorityAttestation, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeAutomationCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
 import { OrcaRuntimeStatePart3 } from './orca-runtime-state-part-3'
 
 export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
@@ -41,7 +41,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
       buildAgentHookPtyEnv?: () => Record<string, string>
       getDesktopWindowStatus?: () => RuntimeDesktopWindowStatus
       agentSessionClaimSigner?: AgentSessionClaimSigner
-      orchestrationEnvironmentTransport?: OrchestrationEnvironmentTransport
     }
   ) {
     super()
@@ -73,7 +72,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
     this.clientSessionTabSelections.setPersistListener((state) => {
       this.store?.setMobileClientTabSelections?.(state)
     })
-    this.orchestrationEnvironmentTransport = deps?.orchestrationEnvironmentTransport ?? null
     if (stats) {
       this.stats = stats
       this.agentDetector = new AgentDetector(stats)

@@ -190,21 +190,6 @@ startupDeps.ipcMain.handle('app:awaitFirstWindowStartupServices', async () => {
   await Promise.all([startupState.firstWindowStartupServicesReady, startupState.managedWslCliStartupBarrierReady])
 })
 
-startupDeps.ipcMain.handle('app:recoverLegacyWorkerTerminalsForRendererStartup', () =>
-  startupDeps.recoverLegacyWorkerTerminalsForRendererStartup({
-    firstWindowStartupServicesReady: startupState.firstWindowStartupServicesReady,
-    managedWslCliStartupBarrierReady: startupState.managedWslCliStartupBarrierReady,
-    localPtyProviderStartupReady: startupState.localPtyProviderStartupReady,
-    reconcile: async () => {
-      await startupState.runtime?.refreshRestoredOrchestrationAuthority()
-      return startupState.runtime?.reconcileLegacyWorkerTerminals({ materializeRenderer: true })
-    },
-    onDeferredRecoveryError: (error) => {
-      console.warn('[orchestration] legacy worker provider-ready recovery failed', error)
-    }
-  })
-)
-
 // Why: the renderer pulls this once its ui:openSettings listener attaches, so a Settings request queued before mount isn't lost.
 startupDeps.ipcMain.handle('ui:consumePendingOpenSettings', (event) =>
   startupState.pendingOpenSettings.matches(event.sender.id, { consume: true })

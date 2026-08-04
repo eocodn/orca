@@ -247,6 +247,7 @@ services:
       - config/scripts/runtime-orchestration-rpc-removal-contract.test.mjs
       - config/scripts/ssh-orchestration-removal-contract.test.mjs
       - config/scripts/runtime-rpc-envelope-orchestration-removal-contract.test.mjs
+      - config/scripts/runtime-orchestration-storage-removal-contract.test.mjs
       - src/shared/feature-tips.test.ts
     init: true
     network_mode: host

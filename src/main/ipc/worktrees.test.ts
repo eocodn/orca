@@ -270,7 +270,6 @@ const ORIGIN_REMOTE_URL = 'git@github.com:org/repo.git'
 const ORIGIN_HEAD_COMPONENT = reviewHeadRemoteRefComponent('origin', ORIGIN_REMOTE_URL)
 import {
   DETECTED_WORKTREE_PROVIDER_TIMEOUT_MS,
-  LINEAGE_HYDRATION_TIMEOUT_MS,
   __getDetectedWorktreeScanCacheStatsForTests,
   __resetDetectedWorktreeScanCacheForTests,
   registerWorktreeHandlers
@@ -3314,71 +3313,6 @@ describe('registerWorktreeHandlers', () => {
       reason: 'ambiguous-owner'
     })
     expect(store.removeWorktreeLineage).not.toHaveBeenCalled()
-  })
-
-  it('rejects runtime lineage reads and stale SSH authority after hydration', async () => {
-    await expect(
-      handlers['worktrees:listLineageForHost'](ipcEvent, {
-        executionHostId: 'runtime:environment-a'
-      })
-    ).resolves.toMatchObject({ authoritative: false, reason: 'rejected' })
-    expect(runtimeStub.hydrateInferredWorktreeLineage).not.toHaveBeenCalled()
-
-    let finishHydration: () => void = () => {}
-    runtimeStub.hydrateInferredWorktreeLineage.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finishHydration = resolve
-        })
-    )
-    getSshGitProviderMock.mockReturnValue({ listWorktrees: vi.fn() })
-    const authority = getSshProviderAuthority('target-a')
-    const pending = handlers['worktrees:listLineageForHost'](ipcEvent, {
-      executionHostId: toSshExecutionHostId('target-a'),
-      expectedAuthority: authority
-    })
-    await Promise.resolve()
-    rotateSshProviderAuthority('target-a')
-    finishHydration()
-
-    await expect(pending).resolves.toMatchObject({ authoritative: false, reason: 'stale' })
-    expect(store.removeWorktreeLineage).not.toHaveBeenCalled()
-  })
-
-  it('bounds noncooperative lineage hydration and permits a later same-authority read', async () => {
-    vi.useFakeTimers()
-    try {
-      runtimeStub.hydrateInferredWorktreeLineage.mockReturnValue(new Promise<void>(() => {}))
-      getSshGitProviderMock.mockReturnValue({ listWorktrees: vi.fn() })
-      const authority = getSshProviderAuthority('target-a')
-      const pending = handlers['worktrees:listLineageForHost'](ipcEvent, {
-        executionHostId: toSshExecutionHostId('target-a'),
-        expectedAuthority: authority
-      })
-      await vi.advanceTimersByTimeAsync(LINEAGE_HYDRATION_TIMEOUT_MS - 1)
-      let settled = false
-      void Promise.resolve(pending).finally(() => {
-        settled = true
-      })
-      await Promise.resolve()
-      expect(settled).toBe(false)
-      await vi.advanceTimersByTimeAsync(1)
-      await expect(pending).resolves.toMatchObject({
-        authoritative: false,
-        reason: 'unavailable'
-      })
-      expect(vi.getTimerCount()).toBe(0)
-
-      runtimeStub.hydrateInferredWorktreeLineage.mockResolvedValue(undefined)
-      await expect(
-        handlers['worktrees:listLineageForHost'](ipcEvent, {
-          executionHostId: toSshExecutionHostId('target-a'),
-          expectedAuthority: authority
-        })
-      ).resolves.toMatchObject({ authoritative: true })
-    } finally {
-      vi.useRealTimers()
-    }
   })
 
   it('hydrates detected worktrees with instance-validated legacy lineage after an update', async () => {

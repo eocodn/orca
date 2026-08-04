@@ -193,14 +193,12 @@ export class OrcaRuntimeSyncWindowGraphPart6 extends OrcaRuntimeNotifyNativeChat
       cb()
     }
 
-    const agentOrchestrationByPaneKey = this.buildAgentOrchestrationByPaneKey()
     const nativeChatLaunchDraftResolutions =
       this.getNativeChatLaunchDraftResolutionClientEventSnapshot().map(
         ({ tabId, text, createdAt }) => ({ tabId, text, createdAt })
       )
     return {
       ...this.getStatus(),
-      ...(agentOrchestrationByPaneKey ? { agentOrchestrationByPaneKey } : {}),
       ...(nativeChatLaunchDraftResolutions.length > 0 ? { nativeChatLaunchDraftResolutions } : {})
     }
   }

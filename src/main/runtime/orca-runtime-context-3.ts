@@ -1,6 +1,23 @@
-import { gitExecFileAsync, resolveWorktreeAddBaseRef, type OrchestrationCompatibilityHostStamp, type GitWorktreeInfo, type Repo, type Worktree, type WorktreeLineage, type WorkspaceKey, type WorktreeLineageWarning, type FolderWorkspace, type LinearIssueSummary, type RuntimeTerminalWait, type RuntimeTerminalWaitCondition, type RuntimeNativeChatLaunchDraftResolution, type RuntimeTerminalDriverState, type PtyIncarnationId, hasCommitObjectViaGitExec, hasWorktreeBaseCommitRef } from './orca-runtime-imports'
-
-
+import {
+  gitExecFileAsync,
+  resolveWorktreeAddBaseRef,
+  type OrchestrationCompatibilityHostStamp,
+  type GitWorktreeInfo,
+  type Repo,
+  type Worktree,
+  type WorktreeLineage,
+  type WorkspaceKey,
+  type WorktreeLineageWarning,
+  type FolderWorkspace,
+  type LinearIssueSummary,
+  type RuntimeTerminalWait,
+  type RuntimeTerminalWaitCondition,
+  type RuntimeNativeChatLaunchDraftResolution,
+  type RuntimeTerminalDriverState,
+  type PtyIncarnationId,
+  hasCommitObjectViaGitExec,
+  hasWorktreeBaseCommitRef
+} from './orca-runtime-imports'
 
 export type TerminalHandleRecord = {
   handle: string
@@ -133,13 +150,6 @@ export type WorktreeLineageInput = {
   cwdParentWorktree?: string
   noParent?: boolean
   callerTerminalHandle?: string
-  comment?: string
-  orchestrationContext?: {
-    parentWorktreeId?: string
-    orchestrationRunId?: string
-    taskId?: string
-    coordinatorHandle?: string
-  }
 }
 
 export type ResolvedWorkspaceParent =
@@ -162,9 +172,6 @@ export type WorktreeLineageResolution =
       parent: ResolvedWorkspaceParent
       origin: WorktreeLineage['origin']
       capture: WorktreeLineage['capture']
-      orchestrationRunId?: string
-      taskId?: string
-      coordinatorHandle?: string
       createdByTerminalHandle?: string
     }
   | {
@@ -177,15 +184,8 @@ export type RuntimeWorktreeScanResult =
   | { ok: false; worktrees: GitWorktreeInfo[] }
 
 export type WorktreeLineageCandidate = {
-  source: 'env-workspace' | 'cwd-context' | 'terminal-context' | 'orchestration-context'
+  source: 'env-workspace' | 'cwd-context' | 'terminal-context'
   parent: ResolvedWorkspaceParent
-  orchestrationRunId?: string
-  taskId?: string
-  coordinatorHandle?: string
-}
-
-export function extractOrchestrationTaskId(text?: string): string | undefined {
-  return text?.match(/\btask_[A-Za-z0-9]+\b/)?.[0]
 }
 
 export class RuntimeLineageError extends Error {
@@ -282,7 +282,9 @@ export async function hasLocalWorktreeBaseRef(
   )
 }
 
-export function makePtyDurableRetirementKey(ptyId: string, incarnationId: PtyIncarnationId): string {
+export function makePtyDurableRetirementKey(
+  ptyId: string,
+  incarnationId: PtyIncarnationId
+): string {
   return JSON.stringify([ptyId, incarnationId])
 }
-

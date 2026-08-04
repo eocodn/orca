@@ -154,7 +154,7 @@ export class OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 extends OrcaRun
     this.bumpSshRelayRecoveryGeneration(targetId)
     this.invalidateSshWorktreeScanCache(targetId)
     if (state.status !== 'connected') {
-      this.cancelLegacyWorkerTerminalRecoveryRetry(`ssh:${targetId}`)
+      this.invalidateSshWorktreeScanCache(targetId)
     }
     this.emitClientEvent({ type: 'sshStateChanged', targetId, state: getPublicSshState(state)! })
   }
@@ -174,26 +174,7 @@ export class OrcaRuntimeNotifyNativeChatLaunchDraftResolvedPart5 extends OrcaRun
     }
     const initialPublication = publish()
     void initialPublication
-    void this.refreshRestoredOrchestrationAuthority(targetId)
-      .then(() =>
-        this.reconcileLegacyWorkerTerminals({
-          connectionId: targetId,
-          materializeRenderer: this.notifier !== null
-        })
-      )
-      .then(async () => {
-        await initialPublication
-        await publish()
-      })
-      .catch((error) => {
-        if (this.sshRelayRecoveryGenerationByTargetId.get(targetId) !== generation) {
-          return
-        }
-        console.warn('[orchestration] legacy worker reconcile failed on relay ready', {
-          targetId,
-          error
-        })
-      })
+    void initialPublication.then(publish)
   }
   protected bumpSshRelayRecoveryGeneration(targetId: string): number {
     const generation = (this.sshRelayRecoveryGenerationByTargetId.get(targetId) ?? 0) + 1

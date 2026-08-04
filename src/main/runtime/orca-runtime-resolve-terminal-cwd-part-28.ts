@@ -1,4 +1,4 @@
-import { RECENT_PTY_OUTPUT_LIMIT, appendRecentPtyPathCandidates, recentTerminalOutputIncludesPath, recentTerminalPathCandidatesIncludePath, Notification, resolveLocalProjectRuntimeForWorktreeId, type ProjectExecutionRuntimeResolution, resolveTerminalOrchestrationCliCommand, type ReplayableMobileNotification, type CommitMessageAgentEnvironmentResolvers, type RuntimeAccountServices, type RuntimePtyWorktreeRecord, type MobileNotificationEvent } from './orca-runtime-symbols'
+import { RECENT_PTY_OUTPUT_LIMIT, appendRecentPtyPathCandidates, recentTerminalOutputIncludesPath, recentTerminalPathCandidatesIncludePath, Notification, resolveLocalProjectRuntimeForWorktreeId, type ProjectExecutionRuntimeResolution, type ReplayableMobileNotification, type CommitMessageAgentEnvironmentResolvers, type RuntimeAccountServices, type RuntimePtyWorktreeRecord, type MobileNotificationEvent } from './orca-runtime-symbols'
 import { OrcaRuntimeReadHeadlessVisibleTerminalStatePart27 } from './orca-runtime-read-headless-visible-terminal-state-part-27'
 
 export class OrcaRuntimeResolveTerminalCwdPart28 extends OrcaRuntimeReadHeadlessVisibleTerminalStatePart27 {
@@ -92,26 +92,6 @@ export class OrcaRuntimeResolveTerminalCwdPart28 extends OrcaRuntimeReadHeadless
     return this.store && worktreeId
       ? resolveLocalProjectRuntimeForWorktreeId(this.requireStore(), worktreeId)
       : undefined
-  }
-  getTerminalOrchestrationCliCommand(handle: string): 'orca' | 'orca-ide' {
-    let pty: RuntimePtyWorktreeRecord | null = null
-    try {
-      const ptyId = this.resolveLeafForHandle(handle)?.ptyId
-      pty = ptyId ? (this.ptysById.get(ptyId) ?? null) : null
-    } catch {
-      return 'orca'
-    }
-    if (!pty) {
-      return 'orca'
-    }
-    return resolveTerminalOrchestrationCliCommand({
-      connectionId: pty.connectionId,
-      isWsl: pty.isWsl,
-      worktreeId: pty.worktreeId,
-      projectRuntime: this.store
-        ? resolveLocalProjectRuntimeForWorktreeId(this.requireStore(), pty.worktreeId)
-        : undefined
-    })
   }
   hasRecentTerminalOutputPath(handle: string, pathText: string, absolutePath: string): boolean {
     // Why: safety net for any query path that never saw a mobile onReady —

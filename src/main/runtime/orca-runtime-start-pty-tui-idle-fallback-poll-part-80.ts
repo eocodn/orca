@@ -1,8 +1,37 @@
-import { isShellProcess, type AgentStatus, formatMessagesForInjection, type LinearProjectListResult, type LinearIssueRequest, type LinearTeamLabelsResult, type LinearTeamListResult, type LinearTeamMembersResult, type LinearTeamStatesResult, type RuntimeTerminalWait, clampLinearSearchLimit, RuntimeLinearConnectionCommands, detectTerminalWaitBlockedReason, isKnownReadyPromptPreview, buildTerminalWaitText, TUI_IDLE_POLL_INTERVAL_MS, TUI_IDLE_QUIESCENCE_MS, buildPtyTerminalWaitResult, buildPtyTerminalWaitBlockedResult, detectExplicitIdleStatusFromTitle, readLinearIssueContext, sanitizeLinearErrorMessage, getLinearTeamMembersOrThrow, listLinearTeamsForAgent, isCursorAgentOrchestrationTarget, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, type TerminalWaiter } from './orca-runtime-symbols'
+import {
+  isShellProcess,
+  type AgentStatus,
+  type LinearProjectListResult,
+  type LinearIssueRequest,
+  type LinearTeamLabelsResult,
+  type LinearTeamListResult,
+  type LinearTeamMembersResult,
+  type LinearTeamStatesResult,
+  type RuntimeTerminalWait,
+  clampLinearSearchLimit,
+  RuntimeLinearConnectionCommands,
+  detectTerminalWaitBlockedReason,
+  isKnownReadyPromptPreview,
+  buildTerminalWaitText,
+  TUI_IDLE_POLL_INTERVAL_MS,
+  TUI_IDLE_QUIESCENCE_MS,
+  buildPtyTerminalWaitResult,
+  buildPtyTerminalWaitBlockedResult,
+  detectExplicitIdleStatusFromTitle,
+  readLinearIssueContext,
+  sanitizeLinearErrorMessage,
+  getLinearTeamMembersOrThrow,
+  listLinearTeamsForAgent,
+  type RuntimePtyWorktreeRecord,
+  type TerminalWaiter
+} from './orca-runtime-symbols'
 import { OrcaRuntimeGetLivePtyForHandlePart79 } from './orca-runtime-get-live-pty-for-handle-part-79'
 
 export class OrcaRuntimeStartPtyTuiIdleFallbackPollPart80 extends OrcaRuntimeGetLivePtyForHandlePart79 {
-  protected startPtyTuiIdleFallbackPoll(waiter: TerminalWaiter, pty: RuntimePtyWorktreeRecord): void {
+  protected startPtyTuiIdleFallbackPoll(
+    waiter: TerminalWaiter,
+    pty: RuntimePtyWorktreeRecord
+  ): void {
     let foregroundPollInFlight = false
     waiter.pollInterval = setInterval(async () => {
       if (!waiter.pollInterval) {
@@ -84,62 +113,6 @@ export class OrcaRuntimeStartPtyTuiIdleFallbackPollPart80 extends OrcaRuntimeGet
     return null
   }
 
-  // Why: push-on-idle delivery is event-driven (no polling) because the runtime owns both the message store and terminal status detection.
-  protected deliverPendingMessages(leaf: RuntimeLeafRecord): void {
-    if (!this._orchestrationDb) {
-      return
-    }
-
-    const handle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-    if (!handle) {
-      return
-    }
-
-    const unread = this._orchestrationDb.getUndeliveredUnreadMessages(handle)
-    if (unread.length === 0) {
-      return
-    }
-
-    if (!leaf.writable || !leaf.ptyId) {
-      return
-    }
-
-    const payload = formatMessagesForInjection(unread)
-    const wrote = this.ptyController?.write(leaf.ptyId, payload) ?? false
-    if (!wrote) {
-      return
-    }
-
-    // The active coordinator prompt is user-owned input, so push-on-idle must not synthesize Enter.
-    if (this._orchestrationDb.getActiveCoordinatorRun()?.coordinator_handle === handle) {
-      this._orchestrationDb.markAsDelivered(unread.map((m) => m.id))
-      return
-    }
-
-    const tabTitle = this.tabs.get(leaf.tabId)?.title
-    if (isCursorAgentOrchestrationTarget(leaf, tabTitle)) {
-      // Why: Cursor Agent treats injected PTY text as editable prompt input, so submitting must stay under user control.
-      this._orchestrationDb.markAsDelivered(unread.map((m) => m.id))
-      return
-    }
-
-    // Why: Claude Code treats a large PTY write as a paste and swallows a \r in the same write; send Enter separately after a delay, stamping delivered_at only once \r is confirmed.
-    // Important (design doc §3.2, feedback #2): stamp delivered_at, not read — read means "a check-caller consumed this"; flipping it would hide the message from check --unread.
-    const ptyId = leaf.ptyId
-    setTimeout(() => {
-      try {
-        if (!leaf.writable) {
-          return
-        }
-        const submitted = this.ptyController?.write(ptyId, '\r') ?? false
-        if (submitted) {
-          this._orchestrationDb?.markAsDelivered(unread.map((m) => m.id))
-        }
-      } catch {
-        // Terminal may have closed during the delay — messages stay queued (delivered_at NULL) and re-deliver on next idle.
-      }
-    }, 500)
-  }
   protected resolveWaiter(waiter: TerminalWaiter, result: RuntimeTerminalWait): void {
     this.removeWaiter(waiter)
     waiter.resolve(result)

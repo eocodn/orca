@@ -10,12 +10,23 @@ import { isENOENT } from './filesystem-auth'
 import { parseWorktreeId } from './worktree-logic'
 import { notifyWorktreesChanged } from './worktree-remote'
 import { getRepoIdFromWorktreeId } from '../../shared/worktree-id'
-import { readIssueCommand, writeIssueCommand, createIssueCommandRunnerScript, hasHooksFile, loadHooks, parseOrcaYaml, hasUnrecognizedOrcaYamlKeys } from '../hooks'
+import {
+  readIssueCommand,
+  writeIssueCommand,
+  createIssueCommandRunnerScript,
+  hasHooksFile,
+  loadHooks,
+  parseOrcaYaml,
+  hasUnrecognizedOrcaYamlKeys
+} from '../hooks'
 import { getRepoForWorktreeRemoval, normalizeLinkedWorkItemFields } from './worktree-ipc-foundation'
 import { listDesktopLineageForHost } from './worktree-ipc-events'
 import { stripOrcaProvenanceMetaUpdates } from '../worktree-removal-safety'
 import type { ExecutionHostId } from '../../shared/execution-host'
-import type { HostLineageSnapshot, ListDesktopLineageForHostArgs } from '../../shared/host-lineage-contract'
+import type {
+  HostLineageSnapshot,
+  ListDesktopLineageForHostArgs
+} from '../../shared/host-lineage-contract'
 import type { WorktreeIpcRegistrationContext } from './worktree-ipc-registration-context'
 import type { WorktreeMeta } from '../../shared/types'
 
@@ -47,7 +58,6 @@ export function registerWorktreeMetadataHandlers({
   )
 
   ipcMain.handle('worktrees:listLineage', async () => {
-    await runtime.hydrateInferredWorktreeLineage()
     return {
       lineage: store.getAllWorktreeLineage(),
       workspaceLineage: store.getAllWorkspaceLineage()
@@ -57,7 +67,7 @@ export function registerWorktreeMetadataHandlers({
   ipcMain.handle(
     'worktrees:listLineageForHost',
     (_event, args: ListDesktopLineageForHostArgs): Promise<HostLineageSnapshot> =>
-      listDesktopLineageForHost(store, runtime, args)
+      listDesktopLineageForHost(store, args)
   )
 
   ipcMain.handle(
@@ -353,5 +363,4 @@ export function registerWorktreeMetadataHandlers({
       writeIssueCommand(repo.path, args.content)
     }
   )
-
 }

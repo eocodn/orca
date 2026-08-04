@@ -273,7 +273,6 @@ export class OrcaRuntimeOnPtyExitPart32 extends OrcaRuntimeOnClientDisconnectedP
       leaf.lastExitCode = exitCode
       this.resolveExitWaiters(leaf)
       if (!preservesAbnormalSshSurface) {
-        this.failActiveDispatchOnExit(leaf, exitCode)
       }
     }
     this.pruneDisconnectedPtyRecords()

@@ -1,4 +1,37 @@
-import { type Repo, type Worktree, type WorktreeLineage, type WorkspaceLineage, type WorktreeLineageWarning, type WorktreeStartupLaunch, type TuiAgent, getRepoExecutionHostId, navigationTargetsClients, navigationTargetsHost, type RuntimeNavigationTarget, buildAgentDraftLaunchPlan, buildAgentStartupPlan, repoIsRemote, isTuiAgentEnabled, pickTuiAgent, resolveTuiAgentLaunchArgs, resolveTuiAgentLaunchEnv, resolveLocalWindowsAgentStartupShell, isTuiAgent, TUI_AGENT_CONFIG, detectInstalledAgentsWithShellPathHydration, detectRemoteAgents, markCodexProjectTrusted, markCopilotFolderTrusted, markCursorWorkspaceTrusted, markRemoteAgentWorkspaceTrusted, worktreeWorkspaceKey, type WorktreeStartupDraftPaste, type WorktreeStartupFollowup, type WorktreeLineageResolution, type WorkspaceSessionState } from './orca-runtime-symbols'
+import {
+  type Repo,
+  type Worktree,
+  type WorktreeLineage,
+  type WorkspaceLineage,
+  type WorktreeLineageWarning,
+  type WorktreeStartupLaunch,
+  type TuiAgent,
+  getRepoExecutionHostId,
+  navigationTargetsClients,
+  navigationTargetsHost,
+  type RuntimeNavigationTarget,
+  buildAgentDraftLaunchPlan,
+  buildAgentStartupPlan,
+  repoIsRemote,
+  isTuiAgentEnabled,
+  pickTuiAgent,
+  resolveTuiAgentLaunchArgs,
+  resolveTuiAgentLaunchEnv,
+  resolveLocalWindowsAgentStartupShell,
+  isTuiAgent,
+  TUI_AGENT_CONFIG,
+  detectInstalledAgentsWithShellPathHydration,
+  detectRemoteAgents,
+  markCodexProjectTrusted,
+  markCopilotFolderTrusted,
+  markCursorWorkspaceTrusted,
+  markRemoteAgentWorkspaceTrusted,
+  worktreeWorkspaceKey,
+  type WorktreeStartupDraftPaste,
+  type WorktreeStartupFollowup,
+  type WorktreeLineageResolution,
+  type WorkspaceSessionState
+} from './orca-runtime-symbols'
 import { OrcaRuntimeGetGitLabRepoWorkItemByPathPart50 } from './orca-runtime-get-git-lab-repo-work-item-by-path-part-50'
 
 export class OrcaRuntimeActivateManagedWorktreePart51 extends OrcaRuntimeGetGitLabRepoWorkItemByPathPart50 {
@@ -70,8 +103,11 @@ export class OrcaRuntimeActivateManagedWorktreePart51 extends OrcaRuntimeGetGitL
           // only the local partition would miss slept agents on SSH-host
           // worktrees and skip the headless warning for them.
           Object.values(
-            (this.store?.getWorkspaceSession?.(getRepoExecutionHostId(repo)) as WorkspaceSessionState | null)
-              ?.sleepingAgentSessionsByPaneKey ?? {}
+            (
+              this.store?.getWorkspaceSession?.(
+                getRepoExecutionHostId(repo)
+              ) as WorkspaceSessionState | null
+            )?.sleepingAgentSessionsByPaneKey ?? {}
           ).some((record) => record.worktreeId === worktree.id)
         ) {
           // Why: headless is only degraded when this worktree actually has a
@@ -305,13 +341,6 @@ export class OrcaRuntimeActivateManagedWorktreePart51 extends OrcaRuntimeGetGitL
         parentWorktreeInstanceId: parentInstanceId,
         origin: lineageResolution.origin,
         capture: lineageResolution.capture,
-        ...(lineageResolution.orchestrationRunId
-          ? { orchestrationRunId: lineageResolution.orchestrationRunId }
-          : {}),
-        ...(lineageResolution.taskId ? { taskId: lineageResolution.taskId } : {}),
-        ...(lineageResolution.coordinatorHandle
-          ? { coordinatorHandle: lineageResolution.coordinatorHandle }
-          : {}),
         ...(lineageResolution.createdByTerminalHandle
           ? { createdByTerminalHandle: lineageResolution.createdByTerminalHandle }
           : {}),
@@ -337,13 +366,6 @@ export class OrcaRuntimeActivateManagedWorktreePart51 extends OrcaRuntimeGetGitL
         parentInstanceId,
         origin: lineageResolution.origin,
         capture: lineageResolution.capture,
-        ...(lineageResolution.taskId ? { taskId: lineageResolution.taskId } : {}),
-        ...(lineageResolution.orchestrationRunId
-          ? { orchestrationRunId: lineageResolution.orchestrationRunId }
-          : {}),
-        ...(lineageResolution.coordinatorHandle
-          ? { coordinatorHandle: lineageResolution.coordinatorHandle }
-          : {}),
         ...(lineageResolution.createdByTerminalHandle
           ? { createdByTerminalHandle: lineageResolution.createdByTerminalHandle }
           : {}),

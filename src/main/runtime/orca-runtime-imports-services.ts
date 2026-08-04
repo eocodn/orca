@@ -192,7 +192,6 @@ export {
   deterministicAgentSessionUuid,
   inferCapturedClaudeAgentTeamsMode,
   isAgentSessionOperationOutcomeUnknown,
-  isCursorAgentOrchestrationTarget,
   mergeTerminalEnvDeletionKeys,
   normalizeSparsePresetDirectoriesForSave,
   normalizeSparsePresetName,

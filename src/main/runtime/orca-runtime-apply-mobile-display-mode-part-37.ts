@@ -194,45 +194,4 @@ export class OrcaRuntimeApplyMobileDisplayModePart37 extends OrcaRuntimeHandleMo
     notifyRuntimeListeners(listeners, (listener) => listener(event), 'pty-resize')
   }
 
-  // Why: Section 7.2 — the runtime detects agent exit directly and updates
-  // dispatch contexts immediately, rather than waiting for the coordinator's
-  // next poll cycle. This catches agent crashes and unexpected exits within
-  // milliseconds. The task is set back to 'pending' so it can be re-dispatched.
-  protected failActiveDispatchOnExit(leaf: RuntimeLeafRecord, exitCode: number): void {
-    if (!this._orchestrationDb) {
-      return
-    }
-
-    const handle = this.handleByLeafKey.get(this.getLeafKey(leaf.tabId, leaf.leafId))
-    if (!handle) {
-      return
-    }
-
-    const dispatch = this._orchestrationDb.getActiveDispatchForTerminal(handle)
-    if (!dispatch) {
-      return
-    }
-
-    const errorContext = `Agent exited with code ${exitCode}`
-    this._orchestrationDb.failDispatch(dispatch.id, errorContext)
-
-    // Why: create an escalation message so the coordinator is notified about
-    // the unexpected exit on its next check cycle, even if the circuit breaker
-    // hasn't tripped yet.
-    const run = this._orchestrationDb.getActiveCoordinatorRun()
-    if (run) {
-      this._orchestrationDb.insertMessage({
-        from: handle,
-        to: run.coordinator_handle,
-        subject: `Agent exited unexpectedly (code ${exitCode})`,
-        type: 'escalation',
-        priority: 'high',
-        payload: JSON.stringify({
-          taskId: dispatch.task_id,
-          exitCode,
-          handle
-        })
-      })
-    }
-  }
 }

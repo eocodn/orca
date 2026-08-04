@@ -1,66 +1,7 @@
-import { detectAgentStatusFromTitle, isClaudeManagementTitle, AGENT_STATUS_STALE_AFTER_MS, type AgentStatusOrchestrationContext, buildOrchestrationTaskDisplayMetadata, OrchestrationDb, type RuntimeTerminalSummary, isTerminalLeafId, makePaneKey, parsePaneKey, isAgentForegroundWrapperProcess, isExpectedAgentProcess, recognizeAgentProcess, type MessageWaitResult, isKnownReadyPromptPreview, buildTerminalWaitText, classifyAgentTitle, classifyLatestAgentTitle, getLatestAgentCandidateTitle, getLatestLeafTitle, getLatestPtyTitle, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, FOREGROUND_AGENT_WRAPPER_RETRY_INTERVAL_MS, FOREGROUND_AGENT_WRAPPER_RETRY_TIMEOUT_MS, type TerminalHandleRecord, type ResolvedWorktree } from './orca-runtime-symbols'
+import { detectAgentStatusFromTitle, isClaudeManagementTitle, type RuntimeTerminalSummary, isTerminalLeafId, makePaneKey, parsePaneKey, isAgentForegroundWrapperProcess, isExpectedAgentProcess, recognizeAgentProcess, isKnownReadyPromptPreview, buildTerminalWaitText, classifyAgentTitle, classifyLatestAgentTitle, getLatestAgentCandidateTitle, getLatestLeafTitle, getLatestPtyTitle, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, FOREGROUND_AGENT_WRAPPER_RETRY_INTERVAL_MS, FOREGROUND_AGENT_WRAPPER_RETRY_TIMEOUT_MS, type TerminalHandleRecord, type ResolvedWorktree } from './orca-runtime-symbols'
 import { OrcaRuntimeBuildPtyMobileAgentStatusPart77 } from './orca-runtime-build-pty-mobile-agent-status-part-77'
 
 export class OrcaRuntimeGetAgentStatusOrchestrationContextForHandlePart78 extends OrcaRuntimeBuildPtyMobileAgentStatusPart77 {
-  protected getAgentStatusOrchestrationContextForHandle(
-    handle: string,
-    db = this.getOrchestrationDbIfAvailable()
-  ): AgentStatusOrchestrationContext | undefined {
-    // Why: active dispatch is authoritative for reused terminals; completed context stale-groups future work once its done row is gone.
-    const dispatch =
-      db?.getActiveDispatchForTerminal?.(handle) ??
-      this.getRecentCompletedDispatchForTerminal(handle, db)
-    if (!dispatch) {
-      return undefined
-    }
-    const task = db?.getTask?.(dispatch.task_id)
-    const display =
-      typeof task?.spec === 'string'
-        ? buildOrchestrationTaskDisplayMetadata({
-            spec: task.spec,
-            taskTitle: task.task_title,
-            displayName: task.display_name
-          })
-        : { taskTitle: '', displayName: '' }
-    const activeRun = dispatch.status === 'completed' ? undefined : db?.getActiveCoordinatorRun?.()
-    const parentTerminalHandle =
-      task?.created_by_terminal_handle ??
-      (activeRun?.coordinator_handle && activeRun.coordinator_handle !== handle
-        ? activeRun.coordinator_handle
-        : undefined)
-    const parentPaneKey = parentTerminalHandle
-      ? this.getPaneKeyForTerminalHandle(parentTerminalHandle)
-      : undefined
-
-    return {
-      taskId: dispatch.task_id,
-      dispatchId: dispatch.id,
-      ...(display.taskTitle ? { taskTitle: display.taskTitle } : {}),
-      ...(display.displayName ? { displayName: display.displayName } : {}),
-      ...(parentTerminalHandle ? { parentTerminalHandle } : {}),
-      ...(parentPaneKey ? { parentPaneKey } : {}),
-      ...(activeRun?.coordinator_handle ? { coordinatorHandle: activeRun.coordinator_handle } : {}),
-      ...(activeRun?.id ? { orchestrationRunId: activeRun.id } : {})
-    }
-  }
-  protected getRecentCompletedDispatchForTerminal(
-    handle: string,
-    db = this.getOrchestrationDbIfAvailable()
-  ): ReturnType<OrchestrationDb['getLatestDispatchForTerminal']> {
-    const dispatch = db?.getLatestDispatchForTerminal?.(handle)
-    if (dispatch?.status !== 'completed' || !dispatch.completed_at) {
-      return undefined
-    }
-    const completedAtMs = Date.parse(
-      dispatch.completed_at.includes('T')
-        ? dispatch.completed_at
-        : `${dispatch.completed_at.replace(' ', 'T')}Z`
-    )
-    if (!Number.isFinite(completedAtMs)) {
-      return undefined
-    }
-    return Date.now() - completedAtMs <= AGENT_STATUS_STALE_AFTER_MS ? dispatch : undefined
-  }
   protected getTerminalHandleForPaneKey(paneKey: string): string | null {
     const parsed = parsePaneKey(paneKey)
     const leaf = parsed ? this.leaves.get(this.getLeafKey(parsed.tabId, parsed.leafId)) : undefined
@@ -286,35 +227,6 @@ export class OrcaRuntimeGetAgentStatusOrchestrationContextForHandlePart78 extend
   }
   protected getPrimaryLeafForPty(ptyId: string): RuntimeLeafRecord | null {
     return this.getLeavesForPty(ptyId)[0] ?? null
-  }
-  deliverPendingMessagesForHandle(handle: string): void {
-    try {
-      const { leaf } = this.getLiveLeafForHandle(handle)
-      if (leaf.lastAgentStatus === 'idle') {
-        this.deliverPendingMessages(leaf)
-      }
-    } catch {
-      // Unknown/stale handles can't be pushed now; the persisted message stays available via explicit check or future idle delivery.
-    }
-  }
-
-  // Why: wake blocking orchestration.check --wait calls on this handle so they return the new message immediately instead of polling.
-  notifyMessageArrived(handle: string, messageType?: string): void {
-    this.messageWaiters.notify(handle, messageType)
-  }
-  waitForMessage(
-    handle: string,
-    options?: {
-      typeFilter?: string[]
-      timeoutMs?: number
-      signal?: AbortSignal
-      exclusive?: boolean
-    }
-  ): Promise<MessageWaitResult> {
-    return this.messageWaiters.wait(handle, options)
-  }
-  cancelMessageWaiters(handle: string): void {
-    this.messageWaiters.cancel(handle)
   }
   protected buildPtyTerminalSummary(
     pty: RuntimePtyWorktreeRecord,

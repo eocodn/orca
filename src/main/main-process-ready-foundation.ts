@@ -337,29 +337,6 @@ export async function initializeReadyFoundation(): Promise<void> {
       .filter((account) => !activeIds.has(account.id))
       .map((account) => ({ id: account.id, managedHomePath: account.managedHomePath }))
   })
-  const orchestrationEnvironmentTransport: startupDeps.OrchestrationEnvironmentTransport = {
-    resolve: (selector) => {
-      const environment = startupDeps.resolveEnvironment(
-        startupDeps.app.getPath('userData'),
-        selector
-      )
-      const pairing = startupDeps.getPreferredPairingOffer(environment)
-      return {
-        environmentId: environment.id,
-        name: environment.name,
-        peerFingerprint: startupDeps.fingerprintOrchestrationPeer(pairing.publicKeyB64)
-      }
-    },
-    call: (selector, method, params, timeoutMs) =>
-      startupDeps.callRuntimeEnvironment(
-        startupDeps.app.getPath('userData'),
-        selector,
-        method,
-        params,
-        timeoutMs,
-        undefined
-      )
-  }
   const runtimeService = new startupDeps.OrcaRuntimeService(
     startupState.store,
     startupState.stats,
@@ -418,11 +395,9 @@ export async function initializeReadyFoundation(): Promise<void> {
         startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
           ? startupDeps.agentHookServer.buildPtyEnv()
           : {},
-      orchestrationEnvironmentTransport
     }
   )
   startupState.runtime = runtimeService
-  runtimeService.prepareLegacyWorkerTerminalRecovery()
   publishProviderSessionChanges(startupDeps.agentHookServer.getProviderSessionIdentities())
   startupDeps.browserManager.setBrowserGuestStateChangedListener((worktreeId) => {
     runtimeService.notifyMobileSessionTabsChanged(worktreeId)

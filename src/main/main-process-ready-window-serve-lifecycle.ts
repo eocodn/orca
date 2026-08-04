@@ -189,8 +189,6 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
       store,
       prepareCodexSessionResumeForLaunch
     )
-    await runtime.refreshRestoredOrchestrationAuthority()
-    await runtime.reconcileLegacyWorkerTerminals()
     // Why: headless servers can't mount <webview> panes; use offscreen WebContents, gated on a real display so browser.headless.v1 stays honest.
     if (startupState.headlessBrowserDisplayAvailable) {
       runtime.setOffscreenBrowserBackend(new startupDeps.OffscreenBrowserBackend(startupDeps.browserManager))
