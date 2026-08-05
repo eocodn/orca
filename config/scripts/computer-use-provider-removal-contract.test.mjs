@@ -52,4 +52,23 @@ describe('Computer Use provider removal contract', () => {
     expect(rendererCommands).not.toMatch(/COMPUTER_USE|computer-use/)
     expect(existsSync(resolve(projectRoot, 'src/renderer/src/components/settings/BrowserPane.tsx'))).toBe(true)
   })
+
+  it('removes provider translation keys and override rules', () => {
+    for (const locale of ['en', 'es', 'ja', 'ko', 'zh']) {
+      expect(readProjectFile(`src/renderer/src/i18n/locales/${locale}.json`), locale).not.toMatch(
+        /computer.?use/i
+      )
+    }
+    for (const relativePath of [
+      'config/scripts/locale-key-overrides-catalog-first.mjs',
+      'config/scripts/locale-ko-key-overrides.json',
+      'config/scripts/locale-phrase-fixes.mjs',
+      'config/scripts/locale-ja-phrase-fixes.mjs',
+      'config/scripts/locale-ko-phrase-fixes.mjs',
+      'config/scripts/locale-value-overrides.mjs',
+      'config/scripts/locale-ko-value-overrides.mjs'
+    ]) {
+      expect(readProjectFile(relativePath), relativePath).not.toMatch(/computer.?use/i)
+    }
+  })
 })

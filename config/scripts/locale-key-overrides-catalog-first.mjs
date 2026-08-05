@@ -267,16 +267,6 @@ export default {  // "Open in" is a submenu header for "open in <app>"; bare で
     zh: '复制参考 ID',
     ja: '参照 ID をコピー'
   },
-  'auto.components.settings.ComputerUsePane.4b65070096': {
-    ko: 'darwin',
-    zh: 'darwin',
-    ja: 'darwin'
-  },
-  'auto.components.settings.ComputerUsePane.bf51e4a542': {
-    ko: 'USB 장치',
-    zh: 'USB 设备',
-    ja: 'USB デバイス'
-  },
   'auto.components.settings.OrchestrationSkillAgentCoverage.ffe13e36fb': {
     ko: '누락',
     zh: '缺失',

@@ -763,7 +763,6 @@
         "8ac3de82f5": "Dictado local de voz a texto con modelos en el dispositivo.",
         "6a50cdcd7c": "Voz",
         "0059bd17f3": "Permite que los agentes controlen cualquier app en tu computadora.",
-        "b35e92364b": "Computer Use",
         "cd50cec5d7": "Coordina múltiples coding agents a través de Orca.",
         "58a868e8e4": "Orquestación",
         "7c79d3b7bf": "Opcional",
@@ -5496,11 +5495,6 @@
           "b4e9d3f2a1c5": "Se importaron {{value0}} cookies de {{value1}} a {{value2}}.",
           "c5a273a809": "Desde {{value0}}"
         },
-        "BrowserUseComputerUseNotice": {
-          "15b5e680ba": "Abrir Computer Use",
-          "79209b37b9": "Si importar cookies no encaja, Computer Use puede controlar apps locales y usar sesiones de navegador existentes donde aplique. Instala el skill Computer Use; macOS también requiere permisos de privacidad.",
-          "333984cf90": "Usar una sesión de navegador existente"
-        },
         "BrowserUseEnableSwitch": {
           "aea3f45349": "Activar Agent Browser Use"
         },
@@ -5638,27 +5632,6 @@
           "407d28bde6": "cli",
           "54038660e0": "comando",
           "25350d670f": "personalizado"
-        },
-        "ComputerUsePane": {
-          "1735461723": "Permite a los agents inspeccionar y operar apps de escritorio locales.",
-          "93255aaf18": "Skill Computer Use",
-          "45f8e22c2e": "Abrir",
-          "d95d1cfab8": "Actualizar",
-          "0c29da5805": "Listo",
-          "3383ea1aab": "No se pudieron restablecer los permisos de Computer Use",
-          "f189f448a3": "Restablecer acceso de Computer Use",
-          "5c45349665": "No se pudieron abrir los permisos de Computer Use",
-          "7801ac08ec": "Los permisos de Computer Use solo se requieren en macOS",
-          "740766c291": "La configuración de Computer Use ya está completa",
-          "697005758f": "Se abrió Privacidad y seguridad de macOS",
-          "2168fa5ab0": "No se pudieron cargar los permisos de Computer Use",
-          "0c9a33f468": "Captura ventanas de apps para que los agents puedan inspeccionar el estado visual.",
-          "07bbe4c4cb": "Capturas de pantalla",
-          "4d03dec2d0": "Lee árboles de interfaz de apps y realiza las acciones solicitadas.",
-          "6b5a2cd3a5": "Accesibilidad",
-          "6b17602073": "Restablecer acceso",
-          "506f2acf7a": "Restableciendo acceso...",
-          "4b65070096": "darwin"
         },
         "DeveloperPermissionsPane": {
           "4c17304beb": "Actualizar",
@@ -6785,7 +6758,6 @@
           "eb1176a14e": "Dictado local de voz a texto con modelos en el dispositivo.",
           "5063bb47a5": "Voz",
           "7118953f14": "Permite que los agentes controlen cualquier app en tu computadora.",
-          "c9841721cb": "Computer Use",
           "475980f53d": "Coordina varios agentes de codificación a través de Orca.",
           "00c3a7950d": "Orquestación",
           "21f09426ea": "Opcional. Orca funciona con tus inicios de sesión de proveedores existentes; agrega cuentas solo si quieres que Orca te ayude a cambiar entre ellas.",
@@ -7771,7 +7743,6 @@
               "59968bb9b4": "navegador autenticado",
               "62e2a790c0": "sesión existente",
               "63a66da648": "navegador del sistema",
-              "20c1323d1e": "uso de la computadora",
               "ab349a2dd0": "Arc",
               "2e1b09897b": "Edge",
               "088e7a9012": "Chrome",
@@ -7851,9 +7822,7 @@
               "e27f8bafbf": "captura de pantalla",
               "26c1290d83": "grabación de pantalla",
               "82f01c2d2c": "accesibilidad",
-              "fefb452f5b": "uso de la computadora",
-              "9210db582b": "Permite que los agentes inspeccionen capturas de pantalla y controlen aplicaciones locales cuando lo pidas.",
-              "442bec10fe": "Uso de la computadora"
+              "9210db582b": "Permite que los agentes inspeccionen capturas de pantalla y controlen aplicaciones locales cuando lo pidas."
             }
           }
         },
@@ -9172,19 +9141,6 @@
               }
             }
           }
-        },
-        "computerUseSummary": {
-          "permissionsRequired": "Requiere {{value0}} permiso{{value1}} antes de que los agentes puedan operar ventanas de apps.",
-          "checkingTitle": "Comprobando el acceso a Computer Use.",
-          "checkingDescription": "Orca está comprobando los permisos de privacidad de macOS para el helper de Computer Use.",
-          "unavailableTitle": "Computer Use no está disponible.",
-          "unavailableDescription": "Los permisos de Computer Use no están disponibles porque {{value0}}.",
-          "readyTitle": "Computer Use está listo.",
-          "readyDescription": "Los agentes pueden inspeccionar y operar ventanas de apps cuando se lo pidas.",
-          "permissionsTitle": "Completa la configuración para usar apps locales."
-        },
-        "computerUseSkillRuntime": {
-          "thisDevice": "Este dispositivo"
         },
         "WorkspaceDirectorySetting": {
           "1a2b3c4d5e": "Predeterminado del cliente",
@@ -11355,7 +11311,6 @@
           "77f74946f5": "Los agentes pueden enviarse mensajes entre sí, tomar tareas y coordinar handoffs.",
           "399cf885c0": "Orquestación de agentes",
           "c5292c409d": "Los agentes pueden inspeccionar ventanas de apps y operar apps locales cuando se lo pidas.",
-          "1ecfb490ac": "Uso de la computadora",
           "01426f3a23": "Los agentes pueden navegar por sitios, inspeccionar páginas y trabajar en tareas del navegador.",
           "ea85d9e628": "Uso del navegador por agentes",
           "linearTicketsTitle": "Skill de agente de Linear",
@@ -11708,7 +11663,6 @@
           "platform": {
             "copy": {
               "2a532d6fd7": "Escanea con la cámara de tu Android para descargar el APK más reciente desde GitHub Releases."
-
             }
           }
         },
@@ -11894,12 +11848,10 @@
           "AgentCapabilitiesSetupAction": {
             "b8dc9dd8a2": "Instalado",
             "1b51644c2d": "Permite que los agentes controlen el escritorio, muevan el cursor, hagan clic y escriban en cualquier app.",
-            "362a07517d": "Uso de computadora",
             "5e8fe5a72d": "Da a los agentes acceso directo al navegador de Orca para que puedan probar páginas, hacer capturas de pantalla y actuar según lo que ven.",
             "e638da007a": "Uso del navegador por agentes",
             "c61c91e642": "Permite que los agentes se coordinen a través de Orca para mantener en marcha tareas grandes de varios pasos hasta completarlas.",
             "ac07f8887f": "Orquestación de agentes",
-            "e9eb197e12": "Permisos de uso de computadora abiertos",
             "3a59452a67": "Comando de skill copiado e insertado abajo para revisarlo.",
             "c605f51f2b": "Configuración de capacidades lista",
             "1aa657d8f4": "La configuración de algunas capacidades necesita atención",
@@ -11942,21 +11894,6 @@
           "BrowserUseSkillSetupCard": {
             "cbc45022d4": "Permite a los agentes navegar y verificar páginas en el navegador de Orca.",
             "d5bb1cd4ba": "Skill Browser Use"
-          },
-          "ComputerUseAnimatedVisual": {
-            "d8401975b1": "aprobado",
-            "f27676a92c": "estado:",
-            "6804cb356f": "clic enviado",
-            "1719b28a81": "encontrado \"Aprobar\"",
-            "79445f7512": "aprobar la nota en mi aplicación",
-            "99a8624bcb": ">",
-            "2adb561b44": "Sesión de Claude Code iniciada",
-            "94787f01f8": "Claude Code",
-            "9cddfe96b2": "app local",
-            "9634d870d1": "Aprobar",
-            "3cc2df3671": "Hecho",
-            "bdd5312213": "Pendiente",
-            "c11dda000b": "Aprobado"
           },
           "EditorAnimatedVisual": {
             "7a763daf2f": "itálico",

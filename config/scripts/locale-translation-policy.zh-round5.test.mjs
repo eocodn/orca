@@ -323,14 +323,6 @@ describe('locale-translation-policy zh round 5', () => {
     ).toBe('显示 Claude Token 和成本使用情况。')
     expect(
       repairTranslatedValue({
-        key: 'auto.components.feature.wall.ComputerUseAnimatedVisual.94787f01f8',
-        enValue: 'Claude Code session started',
-        localeValue: 'Claude·科德 会话已开始',
-        locale: 'zh'
-      })
-    ).toBe('Claude Code 会话已开始')
-    expect(
-      repairTranslatedValue({
         key: 'auto.components.GitHubItemDialog.dbe5e2448e',
         enValue: 'Pull request merged',
         localeValue: 'PR已合并',
