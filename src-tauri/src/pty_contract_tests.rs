@@ -2,7 +2,6 @@ use super::{
     commit_request_result, execute_pty_request, render_result, PtyExecutionState, PtyOperation,
     PtyRequest, PtySessionEntry,
 };
-#[cfg(windows)]
 use ade_host_core::protocol::PtyStatus;
 use ade_host_core::protocol::{
     PtyExecutionTarget, PtyOperation as HostPtyOperation, PtyRequest as HostPtyRequest, PtyResponse,
@@ -121,6 +120,120 @@ fn executes_a_shared_wire_request_through_the_authoritative_registry() {
         .expect("shared requests must return shared responses");
     assert_eq!(response.operation, "start");
     assert_eq!(response.session_id, "session-1");
+}
+
+#[cfg(unix)]
+#[test]
+fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
+    let state = PtyExecutionState::default();
+    let execute = |request: HostPtyRequest| {
+        let response = super::execute_shared_pty_request(&request, &state).unwrap();
+        serde_json::from_str::<PtyResponse>(&response)
+            .expect("shared PTY operations must return shared responses")
+    };
+
+    let live_started = execute(HostPtyRequest::new(
+        "matrix-live-start",
+        "workspace-1",
+        "worker-1",
+        "matrix-live",
+        None,
+        HostPtyOperation::Start {
+            program: String::from("sh"),
+            args: vec![
+                String::from("-c"),
+                String::from("read line; printf 'got:%s' \"$line\"; sleep 30"),
+            ],
+            current_dir: None,
+            execution_target: None,
+            cols: 80,
+            rows: 24,
+        },
+    ));
+    assert_eq!(live_started.operation, "start");
+    assert_eq!(live_started.status, PtyStatus::Running);
+
+    // Wait completes and removes its session, so it uses a separate real PTY.
+    let wait_started = execute(HostPtyRequest::new(
+        "matrix-wait-start",
+        "workspace-1",
+        "worker-1",
+        "matrix-wait",
+        None,
+        HostPtyOperation::Start {
+            program: String::from("printf"),
+            args: vec![String::from("ready")],
+            current_dir: None,
+            execution_target: None,
+            cols: 80,
+            rows: 24,
+        },
+    ));
+    assert_eq!(wait_started.operation, "start");
+    assert_eq!(wait_started.status, PtyStatus::Running);
+
+    let written = execute(HostPtyRequest::new(
+        "matrix-write",
+        "workspace-1",
+        "worker-1",
+        "matrix-live",
+        Some(live_started.session_generation),
+        HostPtyOperation::Write {
+            input: String::from("input\n"),
+        },
+    ));
+    assert_eq!(written.operation, "write");
+    assert_eq!(written.status, PtyStatus::Running);
+
+    let resized = execute(HostPtyRequest::new(
+        "matrix-resize",
+        "workspace-1",
+        "worker-1",
+        "matrix-live",
+        Some(live_started.session_generation),
+        HostPtyOperation::Resize {
+            cols: 100,
+            rows: 40,
+        },
+    ));
+    assert_eq!(resized.operation, "resize");
+    assert_eq!(resized.status, PtyStatus::Running);
+
+    let polled = execute(HostPtyRequest::new(
+        "matrix-poll",
+        "workspace-1",
+        "worker-1",
+        "matrix-live",
+        Some(live_started.session_generation),
+        HostPtyOperation::Poll,
+    ));
+    assert_eq!(polled.operation, "poll");
+    assert_eq!(polled.status, PtyStatus::Running);
+
+    let waited = execute(HostPtyRequest::new(
+        "matrix-wait",
+        "workspace-1",
+        "worker-1",
+        "matrix-wait",
+        Some(wait_started.session_generation),
+        HostPtyOperation::Wait { timeout_ms: 2_000 },
+    ));
+    assert_eq!(waited.operation, "wait");
+    assert_eq!(waited.status, PtyStatus::Exited);
+    assert_eq!(waited.exit_code, Some(0));
+    assert!(waited.tail.contains("ready"));
+
+    let terminated = execute(HostPtyRequest::new(
+        "matrix-terminate",
+        "workspace-1",
+        "worker-1",
+        "matrix-live",
+        Some(live_started.session_generation),
+        HostPtyOperation::Terminate,
+    ));
+    assert_eq!(terminated.operation, "terminate");
+    assert_eq!(terminated.status, PtyStatus::Failed);
+    assert_eq!(terminated.exit_code, None);
 }
 
 #[cfg(windows)]
