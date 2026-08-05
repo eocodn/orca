@@ -105,6 +105,12 @@ export async function requestPty(
   ) {
     throw new Error('Invalid Host PTY response: correlation mismatch')
   }
+  if (
+    validatedRequest.operation.type !== 'start' &&
+    result.session_generation !== validatedRequest.session_generation
+  ) {
+    throw new Error('Invalid Host PTY response: session generation mismatch')
+  }
   return result
 }
 

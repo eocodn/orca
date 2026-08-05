@@ -162,6 +162,20 @@ describe('mobile Host PTY transport', () => {
     )
   })
 
+  it('rejects a non-start response with a stale session generation', async () => {
+    const client = {
+      sendRequest: vi.fn().mockResolvedValue({
+        id: 'rpc-1',
+        ok: true,
+        result: { ...runningResponse, session_generation: sessionIdentity.sessionGeneration + 1 }
+      })
+    }
+
+    await expect(requestPty(client, createPtyPollRequest(sessionIdentity))).rejects.toThrow(
+      'Invalid Host PTY response'
+    )
+  })
+
   it('rejects malformed and failed RPC responses', async () => {
     const malformedClient = {
       sendRequest: vi.fn().mockResolvedValue({
