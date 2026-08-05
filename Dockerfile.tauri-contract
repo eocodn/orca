@@ -22,6 +22,8 @@ COPY rust/ade-host-platform/Cargo.toml rust/ade-host-platform/Cargo.toml
 COPY rust/ade-host-platform/src rust/ade-host-platform/src
 COPY rust/ade-host-store/Cargo.toml rust/ade-host-store/Cargo.toml
 COPY rust/ade-host-store/src rust/ade-host-store/src
+COPY rust/ade-terminal/Cargo.toml rust/ade-terminal/Cargo.toml
+COPY rust/ade-terminal/src rust/ade-terminal/src
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
 COPY src-tauri/Cargo.lock src-tauri/Cargo.lock
 COPY src-tauri/build.rs src-tauri/build.rs

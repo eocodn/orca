@@ -1,3 +1,4 @@
+mod pty_contract;
 mod terminal_contract;
 
 use ade_host_core::protocol::{
@@ -12,6 +13,7 @@ use ade_host_platform::{git_worktree::GitWorktree, ExecutionTarget};
 use ade_host_store::store::{
     HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
 };
+use pty_contract::{execute_pty_request, PtyExecutionState, PtyRequest};
 use serde::Serialize;
 use terminal_contract::{execute_terminal_request, TerminalExecutionState};
 
@@ -292,6 +294,14 @@ fn terminal_request(
 }
 
 #[tauri::command]
+fn pty_request(
+    request: PtyRequest,
+    state: tauri::State<'_, PtyExecutionState>,
+) -> Result<String, String> {
+    execute_pty_request(&request, &state)
+}
+
+#[tauri::command]
 fn git_worktree_list(
     request_id: String,
     path: String,
@@ -313,13 +323,15 @@ pub fn run() {
     tauri::Builder::default()
         .manage(GitExecutionState::default())
         .manage(TerminalExecutionState::default())
+        .manage(PtyExecutionState::default())
         .invoke_handler(tauri::generate_handler![
             host_status,
             register_workspace,
             git_request,
             git_worktree_list,
             file_request,
-            terminal_request
+            terminal_request,
+            pty_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE Tauri application");
