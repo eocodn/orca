@@ -42,12 +42,25 @@ pub(crate) fn build_pty_spec(request: &crate::pty_contract::PtyRequest) -> Resul
                 return Err(String::from("empty_wsl_distro"));
             }
             let mut args = vec![String::from("--distribution"), distro.clone()];
-            if let Some(current_dir) = &request.current_dir {
-                args.extend([String::from("--cd"), wsl_current_dir(current_dir, distro)?]);
-            }
-            args.push(String::from("--"));
-            args.push(program);
-            args.extend(request.args.clone());
+            let command = std::iter::once(program.as_str())
+                .chain(request.args.iter().map(String::as_str))
+                .map(shell_quote)
+                .collect::<Vec<_>>()
+                .join(" ");
+            let script = match &request.current_dir {
+                Some(current_dir) => format!(
+                    "cd -- {} && exec {}",
+                    shell_quote(&wsl_current_dir(current_dir, distro)?),
+                    command
+                ),
+                None => format!("exec {command}"),
+            };
+            args.extend([
+                String::from("--"),
+                String::from("sh"),
+                String::from("-lc"),
+                script,
+            ]);
             (String::from("wsl.exe"), args, None)
         }
         PtyExecutionTarget::Ssh {
@@ -72,6 +85,8 @@ pub(crate) fn build_pty_spec(request: &crate::pty_contract::PtyRequest) -> Resul
                 String::from("ssh"),
                 vec![
                     String::from("-tt"),
+                    String::from("-oServerAliveInterval=5"),
+                    String::from("-oServerAliveCountMax=3"),
                     String::from("--"),
                     host.clone(),
                     format!("sh -lc {}", shell_quote(&script)),
@@ -178,12 +193,10 @@ mod tests {
             vec![
                 "--distribution",
                 "Ubuntu-24.04",
-                "--cd",
-                "/workspace/project",
                 "--",
-                "bash",
+                "sh",
                 "-lc",
-                "printf ready"
+                "cd -- '/workspace/project' && exec 'bash' '-lc' 'printf ready'"
             ]
         );
         assert!(spec.current_dir.is_none());
@@ -201,7 +214,7 @@ mod tests {
         start.rows = Some(24);
 
         let spec = build_pty_spec(&start).unwrap();
-        assert_eq!(spec.args[3], "/mnt/c/Users/Ada/project");
+        assert!(spec.args[5].contains("/mnt/c/Users/Ada/project"));
     }
 
     #[test]
@@ -218,7 +231,7 @@ mod tests {
         start.rows = Some(24);
 
         let spec = build_pty_spec(&start).unwrap();
-        assert_eq!(spec.args[3], "/home/ada/project");
+        assert!(spec.args[5].contains("/home/ada/project"));
     }
 
     #[test]
@@ -235,7 +248,7 @@ mod tests {
         start.rows = Some(24);
 
         let spec = build_pty_spec(&start).unwrap();
-        assert_eq!(spec.args[3], "/home/ada/project");
+        assert!(spec.args[5].contains("/home/ada/project"));
     }
 
     #[test]
@@ -290,10 +303,12 @@ mod tests {
         let spec = build_pty_spec(&start).unwrap();
         assert_eq!(spec.program, "ssh");
         assert_eq!(spec.args[0], "-tt");
-        assert_eq!(spec.args[1], "--");
-        assert_eq!(spec.args[2], "builder");
+        assert_eq!(spec.args[1], "-oServerAliveInterval=5");
+        assert_eq!(spec.args[2], "-oServerAliveCountMax=3");
+        assert_eq!(spec.args[3], "--");
+        assert_eq!(spec.args[4], "builder");
         assert_eq!(
-            spec.args[3],
+            spec.args[5],
             r#"sh -lc 'cd -- '\''/tmp/it'\''\'\'''\''s-project'\'' && exec '\''printf'\'' '\''it'\''\'\'''\''s-ready'\'''"#
         );
         assert!(spec.current_dir.is_none());

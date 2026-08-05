@@ -308,6 +308,8 @@ fn rejects_a_request_from_a_previous_session_incarnation() {
         execute_pty_request(&stale_write, &state),
         Err(String::from("stale_session_generation"))
     );
+    stale_write.session_generation = Some(2);
+    assert!(execute_pty_request(&stale_write, &state).is_ok());
 
     let terminate = request("terminate-2", "session-1", PtyOperation::Terminate);
     // The replacement owns a fresh incarnation; stale requests must not clean it up.
@@ -389,6 +391,7 @@ fn session_generation_overflow_does_not_leave_a_reservation() {
     assert!(registry.in_flight_requests.is_empty());
     assert!(registry.session_reservations.is_empty());
     assert!(registry.sessions.is_empty());
+    assert!(registry.committed_requests.is_empty());
 }
 
 #[test]
