@@ -17,15 +17,7 @@ import {
 import { withLinkedIssueDraftContext } from '../../shared/source-control-ai-action-variables'
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
 
-
-import {
-  commitChanges,
-  getBranchDiff,
-  getCommitDiff,
-  getStagedCommitContext} from '../git/status'
-
-
-
+import { commitChanges, getBranchDiff, getCommitDiff, getStagedCommitContext } from '../git/status'
 
 import { gitPullRebaseFromBase, gitPush } from '../git/remote'
 
@@ -34,12 +26,12 @@ import {
   SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
 } from '../providers/ssh-git-dispatch'
 
-
 import {
   generateCommitMessageFromContext,
   resolveCommitMessageSettings,
   type CommitMessageGenerationTarget,
-  type GenerateCommitMessageResult} from '../text-generation/commit-message-text-generation'
+  type GenerateCommitMessageResult
+} from '../text-generation/commit-message-text-generation'
 import type {
   CommitMessageAgentEnvironmentResolvers,
   CommitMessageAgentRuntimeTarget
@@ -50,14 +42,9 @@ import { normalizeRuntimeRelativePath } from './runtime-relative-paths'
 
 import type { GitRuntimeOptions } from '../git/git-runtime-options'
 
-
-
 type ResolvedRuntimeGitWorktree = Worktree & { git: GitWorktreeInfo }
 type RuntimeCommitMessageSettingsOverride = Partial<
-  Pick<
-    GlobalSettings,
-    'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides' | 'enableGitHubAttribution'
-  >
+  Pick<GlobalSettings, 'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides'>
 > & {
   commitMessageDiscoveryHostKey?: string
   sourceControlAiResolvedParams?: ResolvedSourceControlAiGenerationParams
@@ -348,4 +335,3 @@ export class RuntimeGitRemoteCommands extends RuntimeGitCommandsBase {
     )
   }
 }
-

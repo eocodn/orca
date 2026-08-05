@@ -4,7 +4,11 @@ import { isClaudeAuthSwitchInProgress } from '../claude-accounts/live-pty-gate'
 import { hasClaudeAuthEnvConflict, CLAUDE_AUTH_ENV_VARS } from '../claude-accounts/environment'
 import { resolveLocalWindowsTerminalRuntimeOptions } from '../../shared/local-windows-terminal-runtime'
 import { isSafePtySessionId, mintPtySessionId } from '../daemon/pty-session-id'
-import { isClaudeLaunchCommand, routesFreshSpawnsToLocalProvider, beginPtySpawnForWorktree } from './pty-ipc-runtime-spawn-routing'
+import {
+  isClaudeLaunchCommand,
+  routesFreshSpawnsToLocalProvider,
+  beginPtySpawnForWorktree
+} from './pty-ipc-runtime-spawn-routing'
 import type { PtySpawnOptions } from '../providers/types'
 import type { PtyRendererDeliveryContext } from './pty-ipc-runtime-renderer-delivery-context'
 import { createPtySpawnTiming } from './pty-spawn-timing'
@@ -16,23 +20,61 @@ import {
   type PtySpawnPreparationOutcome
 } from './pty-ipc-runtime-spawn-preparation-types'
 
-export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext & Record<string, any>): (args: Record<string, any>) => Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> {
+export function createPtyIpcSpawnPreparation(
+  state: PtyRendererDeliveryContext & Record<string, any>
+): (
+  args: Record<string, any>
+) => Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> {
   const {
-    runtime, getSettings, ptySizes, pendingPtySizes,
-    getLocalPtyStartupPromise, assertFolderWorkspacePtyPathUsable, resolvePtySpawnStartupCwd, localStartupCwdDirectoryExists,
-    capturePtyProviderIdentity, getAppPtyId, getRelayPtyId, resolveWslSessionContext, getCodexSelectionTargetForPty,
-    prepareClaudeAuth, getStartupTerminalColorQueryReplyColors, stripRemotePaneEnvWhenHooksDisabled,
-    parseValidPaneKey, makePaneKey, parseLegacyNumericPaneKey, isValidTerminalTabId, isTerminalLeafId,
-    shouldRefreshNativeClaudeAgentTeamsEnv, getSelectedCodexHomePath, prepareCodexResumeHome,
-    resolveCodexResumeLaunch, noCodexResumeLaunch, stripSequencedStartupResumeArgv, isTuiAgent,
-    getCompatibleSelectedCodexHomePath, shouldSkipCodexHomeEnvForWindowsShell, shouldStripInheritedOrcaCodexHome,
-    isAgentStatusHooksEnabled, buildPtyHostEnv, stampWslOrchestrationCompatibilityHost, promoteAgentTeamsShimPath,
-    mergePtyEnvDeletions, getInheritedAgentHookEnvKeysToDelete, getInheritedClaudeSessionStampEnvKeysToDelete,
-    removeCodexHomeDeletionRequests, deleteRequestedEnvKeys, snapshotPtyPublication, paneSpawnReservationsByPaneKey,
-    reservePaneSpawn, transitionSpawnHiddenRendererPtyDeliveryState
+    runtime,
+    getSettings,
+    ptySizes,
+    pendingPtySizes,
+    getLocalPtyStartupPromise,
+    assertFolderWorkspacePtyPathUsable,
+    resolvePtySpawnStartupCwd,
+    localStartupCwdDirectoryExists,
+    capturePtyProviderIdentity,
+    getAppPtyId,
+    getRelayPtyId,
+    resolveWslSessionContext,
+    getCodexSelectionTargetForPty,
+    prepareClaudeAuth,
+    getStartupTerminalColorQueryReplyColors,
+    stripRemotePaneEnvWhenHooksDisabled,
+    parseValidPaneKey,
+    makePaneKey,
+    parseLegacyNumericPaneKey,
+    isValidTerminalTabId,
+    isTerminalLeafId,
+    shouldRefreshNativeClaudeAgentTeamsEnv,
+    getSelectedCodexHomePath,
+    prepareCodexResumeHome,
+    resolveCodexResumeLaunch,
+    noCodexResumeLaunch,
+    stripSequencedStartupResumeArgv,
+    isTuiAgent,
+    getCompatibleSelectedCodexHomePath,
+    shouldSkipCodexHomeEnvForWindowsShell,
+    shouldStripInheritedOrcaCodexHome,
+    isAgentStatusHooksEnabled,
+    buildPtyHostEnv,
+    stampWslOrchestrationCompatibilityHost,
+    promoteAgentTeamsShimPath,
+    mergePtyEnvDeletions,
+    getInheritedAgentHookEnvKeysToDelete,
+    getInheritedClaudeSessionStampEnvKeysToDelete,
+    removeCodexHomeDeletionRequests,
+    deleteRequestedEnvKeys,
+    snapshotPtyPublication,
+    paneSpawnReservationsByPaneKey,
+    reservePaneSpawn,
+    transitionSpawnHiddenRendererPtyDeliveryState
   } = state
 
-  return async (args: Record<string, any>): Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> => {
+  return async (
+    args: Record<string, any>
+  ): Promise<PtySpawnPreparationOutcome<Record<string, any>, Record<string, any>>> => {
     const spawnTiming = createPtySpawnTiming()
     const startupPromise = getLocalPtyStartupPromise(args.connectionId)
     if (startupPromise) {
@@ -121,9 +163,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     const startupTerminalColorQueryReplyColors = getStartupTerminalColorQueryReplyColors(args)
     // Why: forward pane env to SSH only when the relay hook path is enabled, or a newer relay could emit statuses this build can't route.
     const sshSourceEnv = stripRemotePaneEnvWhenHooksDisabled(args.connectionId, args.env)
-    const baseEnvWithAuth = claudeAuth
-      ? { ...sshSourceEnv, ...claudeAuth.envPatch }
-      : sshSourceEnv
+    const baseEnvWithAuth = claudeAuth ? { ...sshSourceEnv, ...claudeAuth.envPatch } : sshSourceEnv
     const spawnPaneKey = baseEnvWithAuth?.ORCA_PANE_KEY
     const parsedSpawnPaneKey = parseValidPaneKey(spawnPaneKey)
     const verifiedPaneKey =
@@ -133,8 +173,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
       args.leafId === parsedSpawnPaneKey.leafId
         ? makePaneKey(parsedSpawnPaneKey.tabId, parsedSpawnPaneKey.leafId)
         : null
-    const verifiedLeafId =
-      verifiedPaneKey && parsedSpawnPaneKey ? parsedSpawnPaneKey.leafId : null
+    const verifiedLeafId = verifiedPaneKey && parsedSpawnPaneKey ? parsedSpawnPaneKey.leafId : null
     const metadataLeafId =
       typeof args.leafId === 'string' && isTerminalLeafId(args.leafId) ? args.leafId : null
     const metadataPaneKey =
@@ -192,9 +231,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
       }
     }
     const requestedAgentTeamsPath = baseEnv?.ORCA_AGENT_TEAMS_TEAM_ID ? baseEnv.PATH : undefined
-    const agentTeamsEnvToDelete = shouldRefreshAgentTeamsEnv
-      ? ['TERM_PROGRAM', 'ORCA_ATTRIBUTION_SHIM_DIR']
-      : undefined
+    const agentTeamsEnvToDelete = shouldRefreshAgentTeamsEnv ? ['TERM_PROGRAM'] : undefined
     if (baseEnv && stablePaneKey) {
       baseEnv.ORCA_PANE_KEY = stablePaneKey
       if (typeof args.tabId === 'string') {
@@ -288,7 +325,6 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
           selectedCodexHomePath,
           skipCodexHomeEnv,
           stripInheritedOrcaCodexHome,
-          githubAttributionEnabled: getSettings?.()?.enableGitHubAttribution ?? false,
           launchCommand,
           launchAgent: isTuiAgent(args.launchAgent) ? args.launchAgent : undefined,
           shellPath: effectiveShellOverride ?? process.env.COMSPEC,
@@ -314,9 +350,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
       }
     }
     spawnTiming.mark('host_env')
-    const spawnEnv = preAllocatedHandle
-      ? { ...env, ORCA_TERMINAL_HANDLE: preAllocatedHandle }
-      : env
+    const spawnEnv = preAllocatedHandle ? { ...env, ORCA_TERMINAL_HANDLE: preAllocatedHandle } : env
     const envToDelete = claudeAuth?.stripAuthEnv
       ? [...CLAUDE_AUTH_ENV_VARS, 'ANTHROPIC_CUSTOM_HEADERS']
       : undefined
@@ -410,11 +444,7 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     if (existingPaneSpawn) {
       return makePtySpawnDuplicatePreparationOutcome(existingPaneSpawn.promise)
     }
-    const finishTerminalInstall = beginPtySpawnForWorktree(
-      args.worktreeId,
-      cwd,
-      args.connectionId
-    )
+    const finishTerminalInstall = beginPtySpawnForWorktree(args.worktreeId, cwd, args.connectionId)
     const paneSpawnReservation = reservationPaneKey ? reservePaneSpawn(reservationPaneKey) : null
     const initiallyHidden = args.initiallyHidden === true
     // Why: daemon PTYs can emit before spawn() resolves, so the hidden mark must beat byte zero (terminal-query-authority.md §races); other providers are safe with the post-spawn mark below.
@@ -427,7 +457,73 @@ export function createPtyIpcSpawnPreparation(state: PtyRendererDeliveryContext &
     }
     return {
       kind: 'fresh',
-      prepared: { args, spawnTiming, startupPromise, allowMissingCwdFallback, didFallbackToWorkspaceRootCwd, cwd, startupCwdFallback, provider, providerIdentity, isClaudeLaunch, terminalRuntimeOptions, initialShellOverride, isDaemonHostSpawn, isMintedSessionId, effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro, initialSelectionTarget, claudeAuth, startupTerminalColorQueryReplyColors, sshSourceEnv, baseEnvWithAuth, spawnPaneKey, parsedSpawnPaneKey, verifiedPaneKey, verifiedLeafId, metadataLeafId, metadataPaneKey, legacySpawnPaneKey, migrationUnsupportedPaneKey, stablePaneKey, baseEnv, shouldRefreshAgentTeamsEnv, effectiveLaunchConfig, shouldPreAllocateTerminalHandle, preAllocatedHandle, requestedAgentTeamsPath, agentTeamsEnvToDelete, validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride, nativeWindowsConptySpawn, codexSelectionTarget, codexResumePreparation, codexResumeLaunch, codexResumeHome, launchCommand, env, selectedCodexHomePath, skipCodexHomeEnv, stripInheritedOrcaCodexHome, spawnEnv, envToDelete, combinedEnvToDelete, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach, existingPaneSpawn, finishTerminalInstall, paneSpawnReservation, initiallyHidden, preSpawnHiddenMarkId }
+      prepared: {
+        args,
+        spawnTiming,
+        startupPromise,
+        allowMissingCwdFallback,
+        didFallbackToWorkspaceRootCwd,
+        cwd,
+        startupCwdFallback,
+        provider,
+        providerIdentity,
+        isClaudeLaunch,
+        terminalRuntimeOptions,
+        initialShellOverride,
+        isDaemonHostSpawn,
+        isMintedSessionId,
+        effectiveSessionId,
+        effectiveSessionAppId,
+        effectiveSessionRelayId,
+        expectedWslDistro,
+        initialSelectionTarget,
+        claudeAuth,
+        startupTerminalColorQueryReplyColors,
+        sshSourceEnv,
+        baseEnvWithAuth,
+        spawnPaneKey,
+        parsedSpawnPaneKey,
+        verifiedPaneKey,
+        verifiedLeafId,
+        metadataLeafId,
+        metadataPaneKey,
+        legacySpawnPaneKey,
+        migrationUnsupportedPaneKey,
+        stablePaneKey,
+        baseEnv,
+        shouldRefreshAgentTeamsEnv,
+        effectiveLaunchConfig,
+        shouldPreAllocateTerminalHandle,
+        preAllocatedHandle,
+        requestedAgentTeamsPath,
+        agentTeamsEnvToDelete,
+        validatedPaneKey,
+        reservationPaneKey,
+        validatedLeafId,
+        effectiveShellOverride,
+        nativeWindowsConptySpawn,
+        codexSelectionTarget,
+        codexResumePreparation,
+        codexResumeLaunch,
+        codexResumeHome,
+        launchCommand,
+        env,
+        selectedCodexHomePath,
+        skipCodexHomeEnv,
+        stripInheritedOrcaCodexHome,
+        spawnEnv,
+        envToDelete,
+        combinedEnvToDelete,
+        spawnOptions,
+        publicationSnapshot,
+        hadSessionSizeBeforeAttach,
+        sessionSizeBeforeAttach,
+        existingPaneSpawn,
+        finishTerminalInstall,
+        paneSpawnReservation,
+        initiallyHidden,
+        preSpawnHiddenMarkId
+      }
     }
   }
 }

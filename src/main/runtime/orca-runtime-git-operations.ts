@@ -1,12 +1,5 @@
-import type {
-  GitWorktreeInfo,
-  GlobalSettings,
-  Repo,
-  Worktree
-} from '../../shared/types'
+import type { GitWorktreeInfo, GlobalSettings, Repo, Worktree } from '../../shared/types'
 import { RuntimeGitGenerationCommands } from './orca-runtime-git-generation'
-
-
 
 import {
   mergeLegacyCommitMessageAiIntoSourceControlAi,
@@ -15,7 +8,7 @@ import {
 
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
 
-import { getRemoteCommitUrl,getRemoteFileUrl } from '../git/repo'
+import { getRemoteCommitUrl, getRemoteFileUrl } from '../git/repo'
 import {
   bulkDiscardChanges,
   bulkStageFiles,
@@ -25,38 +18,24 @@ import {
   unstageFile
 } from '../git/status'
 
-
-
-
-
-
 import {
   getSshGitProvider,
   SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
 } from '../providers/ssh-git-dispatch'
 
-
 import type {
   CommitMessageAgentEnvironmentResolvers,
   CommitMessageAgentRuntimeTarget
 } from '../text-generation/commit-message-agent-environment'
-import type {
-  CommitMessageGenerationTarget
-} from '../text-generation/commit-message-text-generation'
-
+import type { CommitMessageGenerationTarget } from '../text-generation/commit-message-text-generation'
 
 import { normalizeRuntimeRelativePath } from './runtime-relative-paths'
 
 import type { GitRuntimeOptions } from '../git/git-runtime-options'
 
-
-
 type ResolvedRuntimeGitWorktree = Worktree & { git: GitWorktreeInfo }
 type RuntimeCommitMessageSettingsOverride = Partial<
-  Pick<
-    GlobalSettings,
-    'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides' | 'enableGitHubAttribution'
-  >
+  Pick<GlobalSettings, 'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides'>
 > & {
   commitMessageDiscoveryHostKey?: string
   sourceControlAiResolvedParams?: ResolvedSourceControlAiGenerationParams

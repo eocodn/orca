@@ -20,7 +20,6 @@ export const getPrivacyPaneSearchEntries = createLocalizedCatalog(() => [
       ...translateSearchKeyword('auto.components.settings.privacy.search.79c319948b', 'usage'),
       ...translateSearchKeyword('auto.components.settings.privacy.search.b021b9cb81', 'anonymous'),
       ...translateSearchKeyword('auto.components.settings.privacy.search.3922051573', 'data'),
-      ...translateSearchKeyword('auto.components.settings.privacy.search.2b5a5c312f', 'posthog'),
       ...translateSearchKeyword('auto.components.settings.privacy.search.27a27b2f63', 'opt out'),
       ...translateSearchKeyword('auto.components.settings.privacy.search.4d4bb76bf4', 'opt in')
     ]

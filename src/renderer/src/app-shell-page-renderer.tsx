@@ -55,7 +55,6 @@ import { StarNagAgentValueMomentObserver } from './components/star-nag/StarNagAg
 import { StarNagToastHost } from './components/star-nag/StarNagToastHost'
 import { SkillFreshnessNudge } from './components/skills/SkillFreshnessNudge'
 import { SkillFreshnessUpdateDialog } from './components/skills/SkillFreshnessUpdateDialog'
-import { TelemetryFirstLaunchSurface } from './components/TelemetryFirstLaunchSurface'
 import { ZoomOverlay } from './components/ZoomOverlay'
 import { onOnboardingReopened } from './components/onboarding/show-onboarding-event'
 import { shouldShowOnboarding } from './components/onboarding/should-show-onboarding'
@@ -735,7 +734,6 @@ export function AppShellPageRenderer(props: Record<string, unknown>): React.JSX.
               resetKey={settings?.telemetry?.optedIn ?? 'unknown'}
               compact
             >
-              <TelemetryFirstLaunchSurface />
             </RecoverableRenderErrorBoundary>
             <RecoverableRenderErrorBoundary
               boundaryId="overlay.zoom"

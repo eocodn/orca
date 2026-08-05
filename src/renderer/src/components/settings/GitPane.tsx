@@ -332,64 +332,6 @@ export function GitPane({
         branchPromptDiscardSignal={branchPromptDiscardSignal}
         settingsSearchQuery={searchQuery}
       />
-    ) : null,
-    matchesSettingsSearch(searchQuery, {
-      title: translate('auto.components.settings.GitPane.e02ea23a32', 'Orca Attribution'),
-      description: translate(
-        'auto.components.settings.GitPane.d2eede4c54',
-        'Add Orca attribution to commits, PRs, and issues.'
-      ),
-      keywords: [
-        translate('auto.components.settings.GitPane.32dca11189', 'github'),
-        translate('auto.components.settings.GitPane.895d3f70b8', 'gh'),
-        translate('auto.components.settings.GitPane.b4ef5428a7', 'pr'),
-        translate('auto.components.settings.GitPane.afada55042', 'issue'),
-        translate('auto.components.settings.GitPane.9838c921ed', 'co-author'),
-        translate('auto.components.settings.GitPane.b5f534717a', 'coauthored'),
-        translate('auto.components.settings.GitPane.b9b5771bb1', 'attribution'),
-        translate('auto.components.settings.GitPane.e71ce09c42', 'orca')
-      ]
-    }) ? (
-      <SearchableSetting
-        key="github-attribution"
-        title={translate('auto.components.settings.GitPane.e02ea23a32', 'Orca Attribution')}
-        description={translate(
-          'auto.components.settings.GitPane.d2eede4c54',
-          'Add Orca attribution to commits, PRs, and issues.'
-        )}
-        keywords={['github', 'gh', 'pr', 'issue', 'co-author', 'coauthored', 'attribution', 'orca']}
-        className="flex items-center justify-between gap-4 py-2"
-      >
-        <div className="space-y-0.5">
-          <Label>
-            {translate('auto.components.settings.GitPane.e02ea23a32', 'Orca Attribution')}
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            {translate(
-              'auto.components.settings.GitPane.d2eede4c54',
-              'Add Orca attribution to commits, PRs, and issues.'
-            )}
-          </p>
-        </div>
-        <button
-          role="switch"
-          aria-checked={settings.enableGitHubAttribution}
-          onClick={() =>
-            updateSettings({
-              enableGitHubAttribution: !settings.enableGitHubAttribution
-            })
-          }
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors ${
-            settings.enableGitHubAttribution ? 'bg-foreground' : 'bg-muted-foreground/30'
-          }`}
-        >
-          <span
-            className={`pointer-events-none block size-3.5 rounded-full bg-background shadow-sm transition-transform ${
-              settings.enableGitHubAttribution ? 'translate-x-4' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
-      </SearchableSetting>
     ) : null
   ].filter(Boolean)
 

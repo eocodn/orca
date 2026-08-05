@@ -1,10 +1,4 @@
-import type {
-  GitWorktreeInfo,
-  GlobalSettings,
-  Repo,
-  TuiAgent,
-  Worktree
-} from '../../shared/types'
+import type { GitWorktreeInfo, GlobalSettings, Repo, TuiAgent, Worktree } from '../../shared/types'
 import { RuntimeGitRemoteCommands } from './orca-runtime-git-remote'
 
 import { getCommitMessageModelDiscoveryHostKey } from '../../shared/commit-message-host-key'
@@ -16,19 +10,10 @@ import {
 import { withLinkedIssueDraftContext } from '../../shared/source-control-ai-action-variables'
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
 
-
-
-
-
-
-
-
-
 import {
   getSshGitProvider,
   SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE
 } from '../providers/ssh-git-dispatch'
-
 
 import type { HostedReviewProvider } from '../../shared/hosted-review'
 import type { GitRuntimeOptions } from '../git/git-runtime-options'
@@ -55,10 +40,7 @@ import { normalizeRuntimeRelativePath } from './runtime-relative-paths'
 
 type ResolvedRuntimeGitWorktree = Worktree & { git: GitWorktreeInfo }
 type RuntimeCommitMessageSettingsOverride = Partial<
-  Pick<
-    GlobalSettings,
-    'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides' | 'enableGitHubAttribution'
-  >
+  Pick<GlobalSettings, 'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides'>
 > & {
   commitMessageDiscoveryHostKey?: string
   sourceControlAiResolvedParams?: ResolvedSourceControlAiGenerationParams

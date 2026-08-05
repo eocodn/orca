@@ -15,8 +15,7 @@ import type {
   Worktree
 } from '../../shared/types'
 
-
-import type { GitHistoryOptions,GitHistoryResult } from '../../shared/git-history'
+import type { GitHistoryOptions, GitHistoryResult } from '../../shared/git-history'
 import {
   mergeLegacyCommitMessageAiIntoSourceControlAi,
   type ResolvedSourceControlAiGenerationParams
@@ -25,12 +24,12 @@ import {
 import type { SourceControlAiOperation } from '../../shared/source-control-ai-types'
 import type { GitProviderStatusOptions } from '../providers/types'
 
-import type { RuntimeGitCheckoutResult,RuntimeGitLocalBranches } from '../../shared/runtime-types'
+import type { RuntimeGitCheckoutResult, RuntimeGitLocalBranches } from '../../shared/runtime-types'
 import { checkIgnoredPaths } from '../git/check-ignored-paths'
-import { checkoutBranch,listLocalBranches } from '../git/checkout'
+import { checkoutBranch, listLocalBranches } from '../git/checkout'
 import { gitSyncForkDefaultBranch } from '../git/fork-sync'
 import { getHistory as getGitHistory } from '../git/history'
-import { gitFastForward,gitFetch,gitPull } from '../git/remote'
+import { gitFastForward, gitFetch, gitPull } from '../git/remote'
 import {
   abortMerge,
   abortRebase,
@@ -51,23 +50,15 @@ import type {
   CommitMessageAgentEnvironmentResolvers,
   CommitMessageAgentRuntimeTarget
 } from '../text-generation/commit-message-agent-environment'
-import type {
-  CommitMessageGenerationTarget
-} from '../text-generation/commit-message-text-generation'
-
+import type { CommitMessageGenerationTarget } from '../text-generation/commit-message-text-generation'
 
 import { normalizeRuntimeRelativePath } from './runtime-relative-paths'
 
 import type { GitRuntimeOptions } from '../git/git-runtime-options'
 
-
-
 export type ResolvedRuntimeGitWorktree = Worktree & { git: GitWorktreeInfo }
 type RuntimeCommitMessageSettingsOverride = Partial<
-  Pick<
-    GlobalSettings,
-    'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides' | 'enableGitHubAttribution'
-  >
+  Pick<GlobalSettings, 'commitMessageAi' | 'sourceControlAi' | 'agentCmdOverrides'>
 > & {
   commitMessageDiscoveryHostKey?: string
   sourceControlAiResolvedParams?: ResolvedSourceControlAiGenerationParams
@@ -443,6 +434,4 @@ export class RuntimeGitCommandsBase {
     await gitFastForward(target.worktree.path, pushTarget, localGitOptionsForTarget(target))
     return { ok: true }
   }
-
-
 }

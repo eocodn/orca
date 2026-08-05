@@ -10,7 +10,6 @@ inline src/main/agent-hooks/server.test.ts
 inline src/main/agent-hooks/server.ts
 inline src/main/amp/hook-service.ts
 inline src/main/antigravity/hook-service.ts
-inline src/main/attribution/terminal-attribution.ts
 inline src/main/browser/browser-cookie-import.ts
 inline src/main/browser/browser-guest-ui.ts
 inline src/main/browser/browser-manager-grab.test.ts

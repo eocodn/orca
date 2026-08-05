@@ -6,14 +6,15 @@ import { agentHookServer } from '../agent-hooks/server'
 import { wslHookRelayManager } from '../agent-hooks/wsl-hook-relay-manager'
 import { piTitlebarExtensionService } from '../pi/titlebar-extension-service'
 import { ensureLinuxTerminalOrcaCliShimDir } from '../cli/linux-terminal-orca-cli-shim'
-import { applyTerminalAttributionEnv, resolveAttributionShellFamily } from '../attribution/terminal-attribution'
 import { buildConfiguredProxyEnv } from '../../shared/network-proxy'
 import { resolveSetupAgentSequenceLaunchCommand } from '../../shared/setup-agent-sequencing'
 import { mergePersistedWindowsPath } from '../pty/windows-environment-path'
-import { isPiCompatibleAgentType, detectExplicitPiAgentKindFromCommand } from '../../shared/pi-agent-kind'
+import {
+  isPiCompatibleAgentType,
+  detectExplicitPiAgentKindFromCommand
+} from '../../shared/pi-agent-kind'
 import { AGENT_HOOK_RUNTIME_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
-import type {
-  BuildPtyHostEnvOptions} from './pty-ipc-runtime-host-env-foundation';
+import type { BuildPtyHostEnvOptions } from './pty-ipc-runtime-host-env-foundation'
 import {
   clearPiAgentShadowEnv,
   exposePiManagedExtensionEnv,
@@ -207,23 +208,6 @@ export function buildPtyHostEnv(
       baseEnv.PATH = [shimDir, ...inheritedEntries].join(delimiter)
     }
   }
-
-  // Why: PATH shims keep GitHub attribution scoped to Orca's own PTYs without rewriting user git config.
-  if (!opts.githubAttributionEnabled) {
-    delete baseEnv.ORCA_ENABLE_GIT_ATTRIBUTION
-    delete baseEnv.ORCA_GIT_COMMIT_TRAILER
-    delete baseEnv.ORCA_GH_PR_FOOTER
-    delete baseEnv.ORCA_GH_ISSUE_FOOTER
-    delete baseEnv.ORCA_ATTRIBUTION_SHIM_DIR
-  }
-  applyTerminalAttributionEnv(baseEnv, {
-    enabled: opts.githubAttributionEnabled,
-    userDataPath: opts.userDataPath,
-    shellFamily: resolveAttributionShellFamily({
-      shellPath: opts.shellPath,
-      isWsl: opts.isWsl
-    })
-  })
 
   return baseEnv
 }

@@ -198,7 +198,7 @@ export function getDiagnosticsStatus(): DiagnosticsStatus {
  *  `platform` / `arch` / `osRelease` / `orcaChannel` inputs come from main
  *  and are baked into the bundle header. NEVER pass `install_id` here —
  *  the bundle's identity is the per-bundle submission ID, not the
- *  PostHog-lane install_id (Issue 8 in the security review). */
+ *  analytics install identifier (Issue 8 in the security review). */
 export function collectDiagnosticBundle(
   meta: Pick<
     CollectBundleOptions,

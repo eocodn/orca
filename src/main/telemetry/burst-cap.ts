@@ -1,6 +1,6 @@
 // Three independent burst caps; all must pass to transmit an event or apply a consent mutation:
 //   (1) Per-event token bucket (30/min, agent_error 20/min) — caps runaway useEffects/error spam.
-//   (2) Per-session ceiling (1,000) — backstops a compromised renderer to protect the PostHog billing cap.
+//   (2) Per-session ceiling (1,000) — backstops a compromised renderer and bounds local work.
 //   (3) Consent-mutation bucket (≤5/session, shared setOptIn+acknowledgeBanner) — more is a bug or attack.
 // resetBurstCapsForSession() (on initTelemetry) clears all. Per-event refills continuously; the ceiling
 // and consent bucket intentionally don't — the point is to cap aggregate per-session volume.

@@ -11,12 +11,21 @@ import { parseWslPath } from '../wsl'
 import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
 import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-wsl-env'
 import { getSystemCodexHomePath } from '../codex/codex-home-paths'
-import { forgetCodexPaneAccount, recordCodexPaneAccount } from '../codex/codex-pane-account-registry'
+import {
+  forgetCodexPaneAccount,
+  recordCodexPaneAccount
+} from '../codex/codex-pane-account-registry'
 import { resolveCodexPaneLaunchAccount } from '../codex/codex-pane-launch-account'
 import { readShellStartupEnvVar } from '../pty/shell-startup-env'
 import type { PiAgentKind } from '../../shared/pi-agent-kind'
-import { getCommandTokenPathBasename, getFirstCommandToken } from '../../shared/command-token-scanner'
-import { AGENT_HOOK_RUNTIME_ENV_KEYS, CLAUDE_CHILD_SESSION_STAMP_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
+import {
+  getCommandTokenPathBasename,
+  getFirstCommandToken
+} from '../../shared/command-token-scanner'
+import {
+  AGENT_HOOK_RUNTIME_ENV_KEYS,
+  CLAUDE_CHILD_SESSION_STAMP_ENV_KEYS
+} from './pty-ipc-runtime-host-env-constants'
 import { isRemoteAgentHooksEnabled } from '../../shared/agent-hook-relay'
 
 // ─── Host PTY env assembly ──────────────────────────────────────────
@@ -31,7 +40,6 @@ export type BuildPtyHostEnvOptions = {
    *  and strip only an inherited Orca-owned override so nested Orca panes do not
    *  leak the parent's managed home. A user-set CODEX_HOME is preserved. */
   stripInheritedOrcaCodexHome?: boolean
-  githubAttributionEnabled: boolean
   /** Launch command the renderer chose (e.g. 'pi', 'omp', 'claude'); resolves the per-agent
    *  extension target for Pi/OMP. Undefined for bare shells → defaults to Pi. NEVER infer from
    *  disk presence (cross-agent shadowing when both dirs exist). */
@@ -119,8 +127,18 @@ export function stripRemotePaneEnvWhenHooksDisabled(
   connectionId: string | null | undefined,
   env: Record<string, string> | undefined
 ): Record<string, string> | undefined {
-  if (!connectionId || isRemoteAgentHooksEnabled()) {return env}
-  if (!env || (!('ORCA_PANE_KEY' in env) && !('ORCA_TAB_ID' in env) && !('ORCA_WORKTREE_ID' in env) && !('ORCA_AGENT_LAUNCH_TOKEN' in env))) {return env}
+  if (!connectionId || isRemoteAgentHooksEnabled()) {
+    return env
+  }
+  if (
+    !env ||
+    (!('ORCA_PANE_KEY' in env) &&
+      !('ORCA_TAB_ID' in env) &&
+      !('ORCA_WORKTREE_ID' in env) &&
+      !('ORCA_AGENT_LAUNCH_TOKEN' in env))
+  ) {
+    return env
+  }
   const stripped = { ...env }
   delete stripped.ORCA_PANE_KEY
   delete stripped.ORCA_TAB_ID
@@ -384,7 +402,9 @@ export function resolveMimocodeSourceHome(baseEnv: Record<string, string>): stri
   return configHome
 }
 
-export function resolveOpenCodeSourceConfigDir(baseEnv: Record<string, string>): string | undefined {
+export function resolveOpenCodeSourceConfigDir(
+  baseEnv: Record<string, string>
+): string | undefined {
   const sourceDir =
     baseEnv.ORCA_OPENCODE_SOURCE_CONFIG_DIR ?? process.env.ORCA_OPENCODE_SOURCE_CONFIG_DIR
   if (sourceDir) {

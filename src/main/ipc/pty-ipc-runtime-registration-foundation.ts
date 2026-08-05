@@ -6,9 +6,27 @@ import type { IPtyProvider, PtySpawnResult } from '../providers/types'
 import { app, ipcMain } from 'electron'
 import { isPwshAvailable } from '../pwsh'
 import { LocalPtyProvider } from '../providers/local-pty-provider'
-import { clearProviderPtyState, rollbackPtyIncarnation } from './pty-ipc-runtime-provider-lifecycle-state'
-import { rememberProviderClearedPtyExit, scheduleCurrentPtyCleanupReconciliation, schedulePendingPtyCleanupReconciliation, setPendingPtyCleanupForResult, restorePtyPublication, ptyCleanupAuthorityChanged, deletePendingPtyCleanupExact, type PtyCleanupAuthoritySnapshot } from './pty-ipc-runtime-cleanup-reconciliation'
-import { getCompatibleSelectedCodexHomePath, shouldStripInheritedOrcaCodexHome, type GetSelectedCodexHomePath, type PrepareCodexSessionResume, type PrepareClaudeAuth } from './pty-ipc-runtime-host-env-foundation'
+import {
+  clearProviderPtyState,
+  rollbackPtyIncarnation
+} from './pty-ipc-runtime-provider-lifecycle-state'
+import {
+  rememberProviderClearedPtyExit,
+  scheduleCurrentPtyCleanupReconciliation,
+  schedulePendingPtyCleanupReconciliation,
+  setPendingPtyCleanupForResult,
+  restorePtyPublication,
+  ptyCleanupAuthorityChanged,
+  deletePendingPtyCleanupExact,
+  type PtyCleanupAuthoritySnapshot
+} from './pty-ipc-runtime-cleanup-reconciliation'
+import {
+  getCompatibleSelectedCodexHomePath,
+  shouldStripInheritedOrcaCodexHome,
+  type GetSelectedCodexHomePath,
+  type PrepareCodexSessionResume,
+  type PrepareClaudeAuth
+} from './pty-ipc-runtime-host-env-foundation'
 import { buildPtyHostEnv } from './pty-ipc-runtime-host-env-assembly'
 import { registerRendererLifecycleResetHandlers } from './pty-ipc-runtime-renderer-lifecycle-state'
 import { isAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
@@ -16,7 +34,10 @@ import { isCurrentPtyExit } from './pty-ipc-runtime-provider-routing'
 import { addOrcaWslInteropEnv, stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
 import { markClaudePtyExited } from '../claude-accounts/live-pty-gate'
 import { ptyRuntimeState, type PtyPublicationSnapshot } from './pty-ipc-runtime-state'
-import { beginPtyRegistrationSharedState, getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
+import {
+  beginPtyRegistrationSharedState,
+  getPtyRegistrationSharedState
+} from './pty-ipc-runtime-registration-shared-state'
 import type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
 
 export type PtyRegistrationFoundationArgs = {
@@ -37,17 +58,27 @@ export type PtyRegistrationFoundationArgs = {
 export type PtyRegistrationFoundation = {
   getLocalPtyStartupPromise: (connectionId?: string | null) => Promise<void> | undefined
   getLocalPtyProviderStartupPromise: (connectionId?: string | null) => Promise<void> | undefined
-  assertPtyCleanupComplete: (ptyId: string | undefined, authority?: PtyCleanupAuthoritySnapshot | null) => void
+  assertPtyCleanupComplete: (
+    ptyId: string | undefined,
+    authority?: PtyCleanupAuthoritySnapshot | null
+  ) => void
   restorePublicationAfterExactCleanup: (
     result: PtySpawnResult,
     snapshot: PtyPublicationSnapshot | null,
     notifyRuntimeExit?: boolean,
     failedStateToken?: symbol
   ) => boolean
-  cleanUpFailedFreshSpawn: (provider: IPtyProvider, result: PtySpawnResult, snapshot: PtyPublicationSnapshot | null, runtimeExitObservedBeforeQuarantine?: boolean) => Promise<void>
+  cleanUpFailedFreshSpawn: (
+    provider: IPtyProvider,
+    result: PtySpawnResult,
+    snapshot: PtyPublicationSnapshot | null,
+    runtimeExitObservedBeforeQuarantine?: boolean
+  ) => Promise<void>
 }
 
-export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationArgs): PtyRegistrationFoundation {
+export function createPtyRegistrationFoundation(
+  args: PtyRegistrationFoundationArgs
+): PtyRegistrationFoundation {
   const { mainWindow, runtime, getSelectedCodexHomePath, getSettings, options } = args
   const registrationState = beginPtyRegistrationSharedState()
   Object.assign(registrationState, args)
@@ -281,7 +312,6 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
             skipCodexHomeEnv,
             settings: getSettings?.()
           }),
-          githubAttributionEnabled: getSettings?.()?.enableGitHubAttribution ?? false,
           launchCommand: ctx?.command,
           launchAgent: ctx?.launchAgent,
           shellPath: ctx?.shellPath,
@@ -331,7 +361,6 @@ export function createPtyRegistrationFoundation(args: PtyRegistrationFoundationA
       }
     })
   }
-
 
   const foundation = {
     getLocalPtyStartupPromise,

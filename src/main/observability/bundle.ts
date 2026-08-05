@@ -29,7 +29,7 @@ export type CollectBundleOptions = {
 }
 
 export type CollectedBundle = {
-  /** 128-bit unguessable base64url ID. NOT the install_id — bundles are join-incompatible with the PostHog lane. */
+  /** 128-bit unguessable base64url ID, intentionally independent of persisted install settings. */
   readonly bundleSubmissionId: string
   /** UTF-8 NDJSON payload — header line + N redacted span lines. */
   readonly payload: string
