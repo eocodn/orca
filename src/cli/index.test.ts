@@ -320,42 +320,6 @@ describe('orca root help', () => {
     logSpy.mockRestore()
   })
 
-  it('advertises computer-use capabilities discovery', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    await main(['--help'], '/tmp/repo')
-
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'computer capabilities     Show computer-use provider capabilities'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'computer permissions      Show or open computer-use permission setup'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'computer press-key        Press a single key such as Return or Escape'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'project setup-existing-folder Make a project available on a host by importing an existing folder'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'project setup-create      Create independent project host setup metadata'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'project setup-update      Update project host setup metadata'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'project setup-delete      Remove a project host setup'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain('Agent Sessions And Worktrees:')
-    expect(logSpy.mock.calls[0][0]).toContain(
-      '`worktree create --agent` creates a new checkout with an agent.'
-    )
-    expect(logSpy.mock.calls[0][0]).toContain(
-      'orca terminal create --worktree active --command "codex"'
-    )
-    expect(callMock).not.toHaveBeenCalled()
-  })
-
   it('progressively discloses Linear commands', async () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 

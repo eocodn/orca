@@ -16,18 +16,18 @@ describe('CLI error recovery', () => {
     expect(output).toContain('Next step: Did you mean: orca worktree rm')
   })
 
-  it('prefers structured recovery over generic computer hints in text output', () => {
+  it('preserves structured recovery in text output', () => {
     const error = new RuntimeClientError('invalid_argument', 'Unknown flag --forcce', {
       nextSteps: ['Did you mean: --force']
     })
 
-    const output = formatCliError(error, { commandPath: ['computer', 'click'] })
+    const output = formatCliError(error)
 
     expect(output).toContain('Next step: Did you mean: --force')
     expect(output).not.toContain('Fix the command flags or RPC params')
   })
 
-  it('prefers RPC recovery over generic computer hints in text output', () => {
+  it('preserves RPC recovery in text output', () => {
     const error = new RuntimeRpcFailureError({
       id: 'req_rpc_recovery',
       ok: false,
@@ -39,22 +39,9 @@ describe('CLI error recovery', () => {
       _meta: { runtimeId: 'runtime_local' }
     })
 
-    const output = formatCliError(error, { commandPath: ['computer', 'click'] })
+    const output = formatCliError(error)
 
     expect(output).toContain('Next step: Use the runtime-specific option')
     expect(output).not.toContain('Fix the command flags or RPC params')
-  })
-
-  it('keeps generic computer hints when an RPC error has no recovery data', () => {
-    const error = new RuntimeRpcFailureError({
-      id: 'req_rpc_fallback',
-      ok: false,
-      error: { code: 'invalid_argument', message: 'Invalid computer argument' },
-      _meta: { runtimeId: 'runtime_local' }
-    })
-
-    const output = formatCliError(error, { commandPath: ['computer', 'click'] })
-
-    expect(output).toContain('Fix the command flags or RPC params')
   })
 })

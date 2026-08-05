@@ -135,12 +135,6 @@ function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   if (command === 'account add' && flag === 'agent') {
     return '--agent <id>           Account provider: claude or codex (default claude)'
   }
-  if (flag === 'key' && command === 'computer hotkey') {
-    return '--key <key-combo>      Modifier chord with one key, e.g. CmdOrCtrl+A'
-  }
-  if (flag === 'key' && command === 'computer press-key') {
-    return '--key <key>            Single key, e.g. Return, Escape, Tab, Left, or PageUp'
-  }
   return formatFlagHelp(flag)
 }
 
@@ -153,17 +147,14 @@ export function formatFlagHelp(flag: string): string {
     cursor: '--cursor <n>           Line cursor from a previous read (returns only new output)',
     action: '--action <name>       Secondary accessibility action name',
     activate: '--activate             Reveal the new worktree in the Orca app',
-    app: '--app <app>            App name, bundle ID, or pid:N',
     direction:
       '--direction <dir>      Direction: up|down|left|right for scroll, horizontal|vertical for split',
     'display-name': '--display-name <name>  Override the Orca display name',
-    'element-index': '--element-index <n>   Element index from get-app-state',
     title: '--title <text>         Custom title for the terminal tab (omit to reset)',
     enter: '--enter                Append Enter after sending text',
     force: '--force                Force worktree removal when supported',
     focus: '--focus                Reveal the created terminal session in Orca',
     for: '--for exit|tui-idle    Wait condition to satisfy',
-    'from-element-index': '--from-element-index <n> Source element index from get-app-state',
     'from-x': '--from-x <x>           Source window-local x coordinate',
     'from-y': '--from-y <y>           Source window-local y coordinate',
     help: '--help                 Show this help message',
@@ -177,11 +168,8 @@ export function formatFlagHelp(flag: string): string {
     limit: '--limit <n>            Maximum number of rows to return',
     local: '--local                Target the current project instead of the global install',
     mode: '--mode <mode>          Mode such as edit, diff, or both',
-    'mouse-button': '--mouse-button <btn>   Mouse button: left, right, or middle',
-    modifiers: '--modifiers <chord>  Modifier keys held only for this click',
     name: '--name <name>          Name for the new worktree',
     'no-parent': '--no-parent            Force no parent lineage for unrelated work',
-    'no-screenshot': '--no-screenshot       Skip screenshot capture after the operation',
     pages: '--pages <n>           Number of scroll pages',
     'parent-worktree':
       '--parent-worktree <selector> Parent worktree selector such as id:<repo-id>::<path>, branch:<branch>, issue:<number>, path:<path>, or active/current',
@@ -190,15 +178,11 @@ export function formatFlagHelp(flag: string): string {
     query: '--query <text>        Search text for matching refs',
     ref: '--ref <ref>            Base ref to persist for the repo',
     repo: '--repo <selector>      Repo selector such as id:<id>, name:<name>, or path:<path>',
-    'restore-window':
-      '--restore-window     Bring the target app/window forward before the operation',
-    session: '--session <id>        Snapshot namespace for a related computer-use workflow',
     setup: '--setup run|skip|inherit Setup policy for repo-defined setup hooks',
     terminal: '--terminal <handle>  Runtime-issued terminal handle',
     text: '--text <text>          Text payload to send or type',
     'text-stdin': '--text-stdin          Read text payload from stdin',
     'timeout-ms': '--timeout-ms <ms>     Maximum wait time before timing out',
-    'to-element-index': '--to-element-index <n> Destination element index from get-app-state',
     'to-x': '--to-x <x>             Destination window-local x coordinate',
     'to-y': '--to-y <y>             Destination window-local y coordinate',
     worktree:
@@ -208,8 +192,6 @@ export function formatFlagHelp(flag: string): string {
     staged: '--staged               Open staged source-control changes',
     provider: '--provider <agent>     Agent id such as codex, claude, or gemini',
     'value-stdin': '--value-stdin         Read set-value payload from stdin',
-    'window-id': '--window-id <id>      Target a window id from list-windows',
-    'window-index': '--window-index <n>   Target a window index from list-windows',
     // Browser automation flags
     element: '--element <ref>        Element ref from snapshot (e.g. e3)',
     url: '--url <url>            URL to navigate to',

@@ -18,14 +18,6 @@ describe('isCommandGroup', () => {
 })
 
 describe('parseArgs', () => {
-  it('keeps an empty string as a flag value', () => {
-    const parsed = parseArgs(['computer', 'set-value', '--value', '', '--json'])
-
-    expect(parsed.commandPath).toEqual(['computer', 'set-value'])
-    expect(parsed.flags.get('value')).toBe('')
-    expect(parsed.flags.get('json')).toBe(true)
-  })
-
   it('accepts a flag value that starts with -- via the = form', () => {
     const parsed = parseArgs(['terminal', 'send', '--text=--help'])
 

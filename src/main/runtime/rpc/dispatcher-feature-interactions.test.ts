@@ -106,21 +106,6 @@ const METHODS = [
     handler: () => ({ cleared: false })
   }),
   defineMethod({
-    name: 'computer.permissions',
-    params: z.object({}),
-    handler: () => ({ opened: true })
-  }),
-  defineMethod({
-    name: 'computer.permissionsStatus',
-    params: z.object({}),
-    handler: () => ({ permissions: [] })
-  }),
-  defineMethod({
-    name: 'computer.click',
-    params: z.object({}),
-    handler: () => ({ clicked: true })
-  }),
-  defineMethod({
     name: 'browser.fail',
     params: z.object({}),
     handler: () => {
@@ -135,25 +120,20 @@ describe('RpcDispatcher feature interactions', () => {
     const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
 
     await dispatcher.dispatch(makeRequest('browser.click'))
-    await dispatcher.dispatch(makeRequest('computer.click'))
 
     expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('agent-browser-use')
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('computer-use')
   })
 
   it('keeps setup and cookie import separate from actual runtime use', async () => {
     const runtime = makeRuntime()
     const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
 
-    await dispatcher.dispatch(makeRequest('computer.permissions'))
-    await dispatcher.dispatch(makeRequest('computer.permissionsStatus'))
     await dispatcher.dispatch(makeRequest('browser.profileImportFromBrowser'))
     await dispatcher.dispatch(makeRequest('browser.profileList'))
     await dispatcher.dispatch(makeRequest('browser.profileClearDefaultCookies'))
 
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('computer-use-setup')
     expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('cookie-import')
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(2)
+    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(1)
   })
 
   it('does not record failed runtime methods', async () => {

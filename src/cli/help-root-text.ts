@@ -72,22 +72,6 @@ Terminals:
   terminal focus            Alias for terminal switch
   terminal close            Close a terminal pane/session, or its whole tab with --tab
 
-Computer Use:
-  computer capabilities     Show computer-use provider capabilities
-  computer permissions      Show or open computer-use permission setup
-  computer list-apps        List running apps available to computer-use
-  computer list-windows     List visible windows for a target app
-  computer get-app-state    Capture a compact accessibility snapshot of an app
-  computer click            Click an app element or window coordinate
-  computer perform-secondary-action Run an advertised accessibility action
-  computer scroll           Scroll an app element
-  computer drag             Drag between app elements or window coordinates
-  computer type-text        Type literal text at the current app focus
-  computer press-key        Press a single key such as Return or Escape
-  computer hotkey           Press a shortcut combination such as CmdOrCtrl+A
-  computer paste-text       Paste text through the native clipboard path
-  computer set-value        Set the value of a settable app element
-
 Linear:
   linear                    Read Linear ticket context for agents
 

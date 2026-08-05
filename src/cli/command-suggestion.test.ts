@@ -26,7 +26,7 @@ const specs: CommandSpec[] = [
     summary: 'Send input',
     usage: 'orca terminal send',
     allowedFlags: []
-  },
+  }
 ]
 
 describe('levenshtein', () => {
