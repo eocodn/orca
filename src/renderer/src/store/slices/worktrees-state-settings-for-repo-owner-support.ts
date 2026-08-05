@@ -1,5 +1,5 @@
 import { getClientRuntime } from '@/runtime/client-runtime'
- import type { StateCreator, StoreApi } from 'zustand'
+import type { StateCreator, StoreApi } from 'zustand'
 import type { AppState } from '../types'
 import type {
   DetectedWorktreeListResult,
@@ -124,8 +124,120 @@ import { findIndexedWorktreeOwnerForHost } from '@/lib/worktree-runtime-owner-in
 export type { WorktreeSlice, WorktreeDeleteState } from './worktree-helpers'
 
 // Why: old runtime servers only have `worktree.list`; preserve the large-list UI hydration parity used before `worktree.detectedList` existed.
-import { REMOTE_WORKTREE_LIST_PARITY_LIMIT, WORKTREE_REMOVAL_AMBIGUOUS_ERROR, ACTIVE_WORKTREE_TERMINAL_PREP_DELAY_MS, ACTIVE_WORKTREE_TERMINAL_PREP_INPUT_QUIET_MS, ACTIVE_WORKTREE_TERMINAL_PREP_IDLE_TIMEOUT_MS, FOLDER_WORKSPACE_ACTIVITY_PERSIST_INTERVAL_MS, WORKTREE_REFRESH_CONCURRENCY, pendingActivationTerminalPrepCancels, detachedHeadAutoDerivedDisplayNames, folderWorkspaceWorktreeCache, hostedReviewPushTargetLookupsInFlight, runtimeDetectedWorktreeRefreshesInFlight, folderWorkspaceActivityPersistenceByStore, getFolderWorkspaceActivityPersistence, shouldDeferActivationTerminalPrep, showLocalBaseRefRefreshToast, arraysShallowEqual, areLineageRecordsEqual, areWorktreesEqual, areDetectedWorktreeResultsEqual, toVisibleTabType, toVisibleWorktree, withRepoHostOwnership, repoHostId, repoHasExactlyOneExecutionHostOwner, toVisibleWorktrees, getProjectHostSetupForRepoHost, getHydratedSessionWorktreeIdsForRepo, repoHostSummariesByRepos, getRepoHostSummaries, unhostedWorktreesMatchRefreshHost, worktreeHostMatchOptions, worktreeMatchesHost, mergeWorktreesForHost, mergeDetectedWorktreesForHost, getKnownWorktreeIdsForPurge, getRemovedWorktreeIdsAfterAuthoritativeScan, toLegacyDetectedWorktreeResult, isRuntimeMethodNotFoundError, missingWorktreeTeardownsInFlight, RUNTIME_SCOPE_FORBIDDEN_TOAST_ID, notifyRuntimeScopeForbiddenIfNeeded, applyDetectedWorktreeUpdates, folderWorkspaceMatchesHost, findKnownWorktreeById, getFolderWorkspaceMetaUpdates, isRuntimeSelectorNotFoundError, replaceWorktreeInRepoLists, normalizeNotAdmittedProviderResult, projectWorktreeLineageToWorkspaceLineage, projectLocalWorktreeLineageUpdate, applyWorktreeLineageUpdate, getWorktreeHostId, mergeLineageForHost, mergeWorkspaceLineageForHost, getHostedReviewPushTargetLookup, HOSTED_REVIEW_LINK_KEYS, CLEARED_HOSTED_REVIEW_LINK_UPDATES, hostedReviewLinkMutationGenerationByWorktreeId, hostedReviewLinkClearTombstonesByWorktreeId, hostedReviewLinkWorktreeIdAliases, hasHostedReviewLinks, hasBranchScopedHostedReviewContext, hasHostedReviewLinkUpdates, getHostedReviewLinkMutationGeneration, bumpHostedReviewLinkMutationGeneration, pruneHostedReviewLinkMutationGenerations, resolveHostedReviewLinkWorktreeId, pruneHostedReviewLinkWorktreeAliasesForId, migrateHostedReviewLinkMutationGeneration, getHostedReviewLinkMutationGenerationForTests, getHostedReviewLinkWorktreeAliasCountForTests, resetHostedReviewLinkMutationGenerationForTests, setDetachedHeadAutoDerivedDisplayNameForTests, getDetachedHeadAutoDerivedDisplayNameForTests, hostedReviewLinksAreCleared, getHostedReviewLinkUpdates, canonicalHostedReviewBranchIdentity, rememberHostedReviewLinkClear, sanitizeHostedReviewLinksForBranchClear, sanitizeHostedReviewLinksForBranchClears, applyHostedReviewLinkClear, getPositiveHostedReviewLinkUpdateKey, clearOlderHostedReviewLinksForReplacement, getHostedReviewLinkForMetaRefresh, hasExplicitPushTargetClear, encodePushTargetClearForRuntimeRpc, WORKTREE_ID_KEYED_MAP_KEYS, buildWorktreeRenameState, buildWorktreePurgeState, directSshAuthorityIsComplete, getCurrentDirectSshAuthority, directSshAuthoritiesEqual, isCurrentDetectedWorktreeRefresh, staleDetectedWorktreeProviderResult, mergeFetchedWorktrees, acquireDirectSshDetectedWorktreeRefresh } from './worktrees-state'
-import type { WorktreeSliceGet, BackgroundRuntimeRefreshOptions, DetectedWorktreeRefreshOptions, AdmittedDetectedWorktreeRefresh, DetectedWorktreeRefreshOutcome, WorktreeWithLineage, WorktreeHostMatchOptions, RepoHostSummary, WorktreeLineageUpdateResult, HostedReviewLinkKey, RuntimeWorktreeMetaUpdates, FencedWorktreeMergeArgs, DirectSshDetectedWorktreeRefresh } from './worktrees-state'
+import {
+  REMOTE_WORKTREE_LIST_PARITY_LIMIT,
+  WORKTREE_REMOVAL_AMBIGUOUS_ERROR,
+  ACTIVE_WORKTREE_TERMINAL_PREP_DELAY_MS,
+  ACTIVE_WORKTREE_TERMINAL_PREP_INPUT_QUIET_MS,
+  ACTIVE_WORKTREE_TERMINAL_PREP_IDLE_TIMEOUT_MS,
+  FOLDER_WORKSPACE_ACTIVITY_PERSIST_INTERVAL_MS,
+  WORKTREE_REFRESH_CONCURRENCY,
+  pendingActivationTerminalPrepCancels,
+  detachedHeadAutoDerivedDisplayNames,
+  folderWorkspaceWorktreeCache,
+  hostedReviewPushTargetLookupsInFlight,
+  runtimeDetectedWorktreeRefreshesInFlight,
+  folderWorkspaceActivityPersistenceByStore,
+  getFolderWorkspaceActivityPersistence,
+  shouldDeferActivationTerminalPrep,
+  showLocalBaseRefRefreshToast,
+  arraysShallowEqual,
+  areLineageRecordsEqual,
+  areWorktreesEqual,
+  areDetectedWorktreeResultsEqual,
+  toVisibleTabType,
+  toVisibleWorktree,
+  withRepoHostOwnership,
+  repoHostId,
+  repoHasExactlyOneExecutionHostOwner,
+  toVisibleWorktrees,
+  getProjectHostSetupForRepoHost,
+  getHydratedSessionWorktreeIdsForRepo,
+  repoHostSummariesByRepos,
+  getRepoHostSummaries,
+  unhostedWorktreesMatchRefreshHost,
+  worktreeHostMatchOptions,
+  worktreeMatchesHost,
+  mergeWorktreesForHost,
+  mergeDetectedWorktreesForHost,
+  getKnownWorktreeIdsForPurge,
+  getRemovedWorktreeIdsAfterAuthoritativeScan,
+  toLegacyDetectedWorktreeResult,
+  isRuntimeMethodNotFoundError,
+  missingWorktreeTeardownsInFlight,
+  RUNTIME_SCOPE_FORBIDDEN_TOAST_ID,
+  notifyRuntimeScopeForbiddenIfNeeded,
+  applyDetectedWorktreeUpdates,
+  folderWorkspaceMatchesHost,
+  findKnownWorktreeById,
+  getFolderWorkspaceMetaUpdates,
+  isRuntimeSelectorNotFoundError,
+  replaceWorktreeInRepoLists,
+  normalizeNotAdmittedProviderResult,
+  projectWorktreeLineageToWorkspaceLineage,
+  projectLocalWorktreeLineageUpdate,
+  applyWorktreeLineageUpdate,
+  getWorktreeHostId,
+  mergeLineageForHost,
+  mergeWorkspaceLineageForHost,
+  getHostedReviewPushTargetLookup,
+  HOSTED_REVIEW_LINK_KEYS,
+  CLEARED_HOSTED_REVIEW_LINK_UPDATES,
+  hostedReviewLinkMutationGenerationByWorktreeId,
+  hostedReviewLinkClearTombstonesByWorktreeId,
+  hostedReviewLinkWorktreeIdAliases,
+  hasHostedReviewLinks,
+  hasBranchScopedHostedReviewContext,
+  hasHostedReviewLinkUpdates,
+  getHostedReviewLinkMutationGeneration,
+  bumpHostedReviewLinkMutationGeneration,
+  pruneHostedReviewLinkMutationGenerations,
+  resolveHostedReviewLinkWorktreeId,
+  pruneHostedReviewLinkWorktreeAliasesForId,
+  migrateHostedReviewLinkMutationGeneration,
+  getHostedReviewLinkMutationGenerationForTests,
+  getHostedReviewLinkWorktreeAliasCountForTests,
+  resetHostedReviewLinkMutationGenerationForTests,
+  setDetachedHeadAutoDerivedDisplayNameForTests,
+  getDetachedHeadAutoDerivedDisplayNameForTests,
+  hostedReviewLinksAreCleared,
+  getHostedReviewLinkUpdates,
+  canonicalHostedReviewBranchIdentity,
+  rememberHostedReviewLinkClear,
+  sanitizeHostedReviewLinksForBranchClear,
+  sanitizeHostedReviewLinksForBranchClears,
+  applyHostedReviewLinkClear,
+  getPositiveHostedReviewLinkUpdateKey,
+  clearOlderHostedReviewLinksForReplacement,
+  getHostedReviewLinkForMetaRefresh,
+  hasExplicitPushTargetClear,
+  encodePushTargetClearForRuntimeRpc,
+  WORKTREE_ID_KEYED_MAP_KEYS,
+  buildWorktreeRenameState,
+  buildWorktreePurgeState,
+  directSshAuthorityIsComplete,
+  getCurrentDirectSshAuthority,
+  directSshAuthoritiesEqual,
+  isCurrentDetectedWorktreeRefresh,
+  staleDetectedWorktreeProviderResult,
+  mergeFetchedWorktrees,
+  acquireDirectSshDetectedWorktreeRefresh
+} from './worktrees-state'
+import type {
+  WorktreeSliceGet,
+  BackgroundRuntimeRefreshOptions,
+  DetectedWorktreeRefreshOptions,
+  AdmittedDetectedWorktreeRefresh,
+  DetectedWorktreeRefreshOutcome,
+  WorktreeWithLineage,
+  WorktreeHostMatchOptions,
+  RepoHostSummary,
+  WorktreeLineageUpdateResult,
+  HostedReviewLinkKey,
+  RuntimeWorktreeMetaUpdates,
+  FencedWorktreeMergeArgs,
+  DirectSshDetectedWorktreeRefresh
+} from './worktrees-state'
 export function settingsForRepoOwner(
   state: Pick<AppState, 'repos' | 'settings'>,
   repoId: string,
@@ -320,9 +432,7 @@ export function rejectedDetectedWorktreeProviderResult(
 async function startDetectedWorktreeProviderRequest(
   request: ListDetectedWorktreesArgs
 ): Promise<HostQualifiedDetectedWorktreeResult> {
-  const worktreesApi = getClientRuntime().workspace.worktrees as typeof getClientRuntime().workspace.worktrees & {
-    listDetected?: typeof getClientRuntime().workspace.worktrees.listDetected
-  }
+  const worktreesApi = getClientRuntime().workspace.worktrees
   if (typeof worktreesApi.listDetected !== 'function') {
     if (request.executionHostId !== LOCAL_EXECUTION_HOST_ID) {
       return rejectedDetectedWorktreeProviderResult(request)
