@@ -3,8 +3,8 @@ mod pty_target;
 mod terminal_contract;
 
 use ade_host_core::protocol::{
-    FileOperation, FileRequest, GitOperation, GitRequest, TerminalRequest, HOST_CAPABILITIES,
-    PROTOCOL_VERSION,
+    FileOperation, FileRequest, GitOperation, GitRequest, PtyRequest as HostPtyRequest,
+    TerminalRequest, HOST_CAPABILITIES, PROTOCOL_VERSION,
 };
 use ade_host_platform::file_service::FileService;
 use ade_host_platform::git_capability::GitCapabilityRegistry;
@@ -14,7 +14,7 @@ use ade_host_platform::{git_worktree::GitWorktree, ExecutionTarget};
 use ade_host_store::store::{
     HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
 };
-use pty_contract::{execute_pty_request, PtyExecutionState, PtyRequest};
+use pty_contract::{execute_shared_pty_request, PtyExecutionState};
 use serde::Serialize;
 use terminal_contract::{execute_terminal_request, TerminalExecutionState};
 
@@ -296,10 +296,10 @@ fn terminal_request(
 
 #[tauri::command]
 fn pty_request(
-    request: PtyRequest,
+    request: HostPtyRequest,
     state: tauri::State<'_, PtyExecutionState>,
 ) -> Result<String, String> {
-    execute_pty_request(&request, &state)
+    execute_shared_pty_request(&request, &state)
 }
 
 #[tauri::command]

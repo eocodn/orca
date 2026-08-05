@@ -143,9 +143,11 @@ pub struct PtyRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PtyStatus {
+    Created,
     Running,
     Exited,
     Failed,
+    Closed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -157,6 +159,7 @@ pub struct PtyResponse {
     pub session_id: String,
     pub session_generation: u64,
     pub generation: u64,
+    pub operation: String,
     pub status: PtyStatus,
     pub exit_code: Option<i32>,
     pub output_sequence: u64,

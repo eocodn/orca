@@ -1,9 +1,10 @@
 use crate::pty_target::{build_pty_spec, PtyExecutionTarget};
 use ade_host_core::protocol::{
-    ProtocolError, PtyOperation as HostPtyOperation, PtyRequest as HostPtyRequest,
+    Capability, ProtocolEnvelope, ProtocolError, PtyOperation as HostPtyOperation,
+    PtyRequest as HostPtyRequest, PtyResponse, PtyStatus,
 };
 use ade_terminal::pty::{PtyError, PtySession};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -82,21 +83,6 @@ struct PtySessionReservation {
     request_id: String,
     owner: PtyOwner,
     session_generation: u64,
-}
-
-#[derive(Debug, Serialize)]
-struct PtyResult {
-    request_id: String,
-    capability: &'static str,
-    operation: &'static str,
-    session_id: String,
-    session_generation: u64,
-    generation: u64,
-    status: String,
-    exit_code: Option<i32>,
-    output_sequence: u64,
-    tail: String,
-    failure_reason: Option<String>,
 }
 
 pub fn execute_pty_request(
@@ -206,6 +192,109 @@ pub fn execute_pty_request(
         completed,
     )?;
     Ok(response)
+}
+
+pub fn execute_shared_pty_request(
+    request: &HostPtyRequest,
+    state: &PtyExecutionState,
+) -> Result<String, String> {
+    request.validate().map_err(shared_protocol_error_code)?;
+    execute_pty_request(&local_request(request), state)
+}
+
+fn local_request(request: &HostPtyRequest) -> PtyRequest {
+    let (operation, program, args, current_dir, execution_target, input, cols, rows, timeout_ms) =
+        match &request.operation {
+            HostPtyOperation::Start {
+                program,
+                args,
+                current_dir,
+                execution_target,
+                cols,
+                rows,
+            } => (
+                PtyOperation::Start,
+                Some(program.clone()),
+                args.clone(),
+                current_dir.clone(),
+                execution_target.clone(),
+                None,
+                Some(*cols),
+                Some(*rows),
+                None,
+            ),
+            HostPtyOperation::Write { input } => (
+                PtyOperation::Write,
+                None,
+                Vec::new(),
+                None,
+                None,
+                Some(input.clone()),
+                None,
+                None,
+                None,
+            ),
+            HostPtyOperation::Resize { cols, rows } => (
+                PtyOperation::Resize,
+                None,
+                Vec::new(),
+                None,
+                None,
+                None,
+                Some(*cols),
+                Some(*rows),
+                None,
+            ),
+            HostPtyOperation::Poll => (
+                PtyOperation::Poll,
+                None,
+                Vec::new(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+            HostPtyOperation::Wait { timeout_ms } => (
+                PtyOperation::Wait,
+                None,
+                Vec::new(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                Some(*timeout_ms),
+            ),
+            HostPtyOperation::Terminate => (
+                PtyOperation::Terminate,
+                None,
+                Vec::new(),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+        };
+    PtyRequest {
+        request_id: request.envelope.request_id.clone(),
+        workspace_id: request.workspace_id.clone(),
+        worker_id: request.worker_id.clone(),
+        session_id: request.session_id.clone(),
+        session_generation: request.session_generation,
+        operation,
+        program,
+        args,
+        current_dir,
+        execution_target,
+        input,
+        cols,
+        rows,
+        timeout_ms,
+    }
 }
 
 fn begin_request(
@@ -507,14 +596,15 @@ fn render_result(
     snapshot: ade_host_core::terminal::TerminalSnapshot,
     session_generation: u64,
 ) -> Result<String, String> {
-    serde_json::to_string(&PtyResult {
-        request_id: request.request_id.clone(),
-        capability: "pty",
-        operation: operation_name(&request.operation),
+    serde_json::to_string(&PtyResponse {
+        envelope: ProtocolEnvelope::new(request.request_id.clone(), Capability::Pty, 1),
+        workspace_id: request.workspace_id.clone(),
+        worker_id: request.worker_id.clone(),
         session_id: request.session_id.clone(),
         session_generation,
         generation: snapshot.generation,
-        status: status_name(&snapshot.status).to_string(),
+        operation: operation_name(&request.operation).to_string(),
+        status: response_status(&snapshot.status),
         exit_code: exit_code(&snapshot.status),
         output_sequence: snapshot.output_sequence,
         tail: snapshot.tail,
@@ -534,13 +624,13 @@ fn operation_name(operation: &PtyOperation) -> &'static str {
     }
 }
 
-fn status_name(status: &ade_host_core::terminal::TerminalStatus) -> &'static str {
+fn response_status(status: &ade_host_core::terminal::TerminalStatus) -> PtyStatus {
     match status {
-        ade_host_core::terminal::TerminalStatus::Created => "created",
-        ade_host_core::terminal::TerminalStatus::Running => "running",
-        ade_host_core::terminal::TerminalStatus::Exited { .. } => "exited",
-        ade_host_core::terminal::TerminalStatus::Failed { .. } => "failed",
-        ade_host_core::terminal::TerminalStatus::Closed => "closed",
+        ade_host_core::terminal::TerminalStatus::Created => PtyStatus::Created,
+        ade_host_core::terminal::TerminalStatus::Running => PtyStatus::Running,
+        ade_host_core::terminal::TerminalStatus::Exited { .. } => PtyStatus::Exited,
+        ade_host_core::terminal::TerminalStatus::Failed { .. } => PtyStatus::Failed,
+        ade_host_core::terminal::TerminalStatus::Closed => PtyStatus::Closed,
     }
 }
 

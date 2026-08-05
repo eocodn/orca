@@ -2,7 +2,9 @@ use super::{
     commit_request_result, execute_pty_request, PtyExecutionState, PtyOperation, PtyRequest,
     PtySessionEntry,
 };
-use crate::pty_target::PtyExecutionTarget;
+use ade_host_core::protocol::{
+    PtyExecutionTarget, PtyOperation as HostPtyOperation, PtyRequest as HostPtyRequest, PtyResponse,
+};
 use ade_terminal::pty::PtySession;
 #[cfg(unix)]
 use std::sync::Arc;
@@ -36,6 +38,10 @@ fn starts_writes_waits_and_replays_one_authoritative_session() {
     start.rows = Some(24);
     let started = execute_pty_request(&start, &state).unwrap();
     assert!(started.contains(r#""status":"running""#));
+    let response = serde_json::from_str::<PtyResponse>(&started)
+        .expect("PTY responses must use the shared Host wire schema");
+    assert_eq!(response.workspace_id, "workspace-1");
+    assert_eq!(response.worker_id, "worker-1");
 
     let mut write = request("write-1", "session-1", PtyOperation::Write);
     write.input = Some(String::from("ready\n"));
@@ -54,6 +60,32 @@ fn rejects_unknown_fields_during_deserialization() {
     )
     .unwrap_err();
     assert!(error.to_string().contains("unknown field"));
+}
+
+#[cfg(unix)]
+#[test]
+fn executes_a_shared_wire_request_through_the_authoritative_registry() {
+    let state = PtyExecutionState::default();
+    let request = HostPtyRequest::new(
+        "shared-start-1",
+        "workspace-1",
+        "worker-1",
+        "session-1",
+        None,
+        HostPtyOperation::Start {
+            program: String::from("printf"),
+            args: vec![String::from("ready")],
+            current_dir: None,
+            execution_target: Some(PtyExecutionTarget::WindowsNative),
+            cols: 80,
+            rows: 24,
+        },
+    );
+    let response = super::execute_shared_pty_request(&request, &state).unwrap();
+    let response = serde_json::from_str::<PtyResponse>(&response)
+        .expect("shared requests must return shared responses");
+    assert_eq!(response.operation, "start");
+    assert_eq!(response.session_id, "session-1");
 }
 
 #[test]
