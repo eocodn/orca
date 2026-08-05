@@ -1,5 +1,6 @@
 pub mod git_capability;
 pub mod git_execution;
+pub mod git_protocol_execution;
 pub mod git_repository;
 pub mod git_worktree;
 

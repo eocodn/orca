@@ -18,6 +18,8 @@ RUN rustup component add rustfmt
 WORKDIR /workspace
 COPY rust/ade-host-core/Cargo.toml rust/ade-host-core/Cargo.toml
 COPY rust/ade-host-core/src rust/ade-host-core/src
+COPY rust/ade-host-platform/Cargo.toml rust/ade-host-platform/Cargo.toml
+COPY rust/ade-host-platform/src rust/ade-host-platform/src
 COPY rust/ade-host-store/Cargo.toml rust/ade-host-store/Cargo.toml
 COPY rust/ade-host-store/src rust/ade-host-store/src
 COPY src-tauri/Cargo.toml src-tauri/Cargo.toml

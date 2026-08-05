@@ -4,4 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ade-host-core = { path = "../ade-host-core" }
 serde = { version = "1.0", features = ["derive"] }

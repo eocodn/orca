@@ -1,8 +1,17 @@
 use ade_host_core::protocol::{GitOperation, GitRequest, HOST_CAPABILITIES, PROTOCOL_VERSION};
+use ade_host_platform::git_capability::GitCapabilityRegistry;
+use ade_host_platform::git_execution::ProcessGitCommandExecutor;
+use ade_host_platform::git_protocol_execution::execute_git_request;
+use ade_host_platform::{git_worktree::GitWorktree, ExecutionTarget};
 use ade_host_store::store::{
     HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
 };
 use serde::Serialize;
+
+#[derive(Default)]
+struct GitExecutionState {
+    capability_registry: GitCapabilityRegistry,
+}
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 struct TauriHostProtocol {
@@ -53,6 +62,56 @@ pub fn render_git_request(request_id: &str, operation: &str, path: &str) -> Resu
     let request = GitRequest::new(request_id, operation, PROTOCOL_VERSION);
     request.validate().map_err(|error| format!("{error:?}"))?;
     serde_json::to_string(&request).map_err(|error| error.to_string())
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+struct TauriGitWorktreeResult {
+    request_id: String,
+    capability: &'static str,
+    operation: &'static str,
+    worktrees: Vec<GitWorktree>,
+}
+
+fn parse_git_execution_target(
+    target: &str,
+    remote_identity: Option<String>,
+) -> Result<ExecutionTarget, String> {
+    match target {
+        "windows-native" if remote_identity.is_none() => Ok(ExecutionTarget::WindowsNative),
+        "windows-native" => Err(String::from("native target cannot have a remote identity")),
+        "wsl2" => Ok(ExecutionTarget::Wsl2 {
+            distro: remote_identity.ok_or_else(|| String::from("WSL2 distro is required"))?,
+        }),
+        "ssh" => Ok(ExecutionTarget::Ssh {
+            host: remote_identity.ok_or_else(|| String::from("SSH host is required"))?,
+        }),
+        value => Err(format!("unsupported execution target: {value}")),
+    }
+}
+
+fn execute_git_worktree_request(
+    request_id: &str,
+    path: &str,
+    target: &str,
+    remote_identity: Option<String>,
+    capability_registry: &GitCapabilityRegistry,
+) -> Result<String, String> {
+    let request = GitRequest::worktree_list(request_id, path);
+    let target = parse_git_execution_target(target, remote_identity)?;
+    let worktrees = execute_git_request(
+        &request,
+        &target,
+        capability_registry,
+        &ProcessGitCommandExecutor,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    serde_json::to_string(&TauriGitWorktreeResult {
+        request_id: request_id.to_string(),
+        capability: "git",
+        operation: "worktree-list",
+        worktrees,
+    })
+    .map_err(|error| error.to_string())
 }
 
 pub fn register_host_workspace(
@@ -143,13 +202,32 @@ fn git_request(request_id: String, operation: String, path: String) -> Result<St
     render_git_request(&request_id, &operation, &path)
 }
 
+#[tauri::command]
+fn git_worktree_list(
+    request_id: String,
+    path: String,
+    execution_target: String,
+    remote_identity: Option<String>,
+    state: tauri::State<'_, GitExecutionState>,
+) -> Result<String, String> {
+    execute_git_worktree_request(
+        &request_id,
+        &path,
+        &execution_target,
+        remote_identity,
+        &state.capability_registry,
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(GitExecutionState::default())
         .invoke_handler(tauri::generate_handler![
             host_status,
             register_workspace,
-            git_request
+            git_request,
+            git_worktree_list
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE Tauri application");
@@ -158,9 +236,11 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        register_host_workspace, register_host_workspace_with_location, render_git_request,
-        render_host_status,
+        execute_git_worktree_request, parse_git_execution_target, register_host_workspace,
+        register_host_workspace_with_location, render_git_request, render_host_status,
     };
+    use ade_host_platform::git_capability::GitCapabilityRegistry;
+    use ade_host_platform::ExecutionTarget;
     use ade_host_store::store::{
         HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind,
         StoredWorkspaceLocation,
@@ -193,6 +273,43 @@ mod tests {
             render_git_request("request-7", "status", "/repo"),
             Err(String::from("unsupported git operation: status"))
         );
+    }
+
+    #[test]
+    fn parses_git_execution_targets_without_local_only_fallbacks() {
+        assert_eq!(
+            parse_git_execution_target("windows-native", None).expect("native target"),
+            ExecutionTarget::WindowsNative
+        );
+        assert_eq!(
+            parse_git_execution_target("wsl2", Some(String::from("Ubuntu-22.04")))
+                .expect("WSL2 target"),
+            ExecutionTarget::Wsl2 {
+                distro: String::from("Ubuntu-22.04")
+            }
+        );
+        assert_eq!(
+            parse_git_execution_target("ssh", Some(String::from("builder"))).expect("SSH target"),
+            ExecutionTarget::Ssh {
+                host: String::from("builder")
+            }
+        );
+        assert_eq!(
+            parse_git_execution_target("windows-native", Some(String::from("unexpected"))),
+            Err(String::from("native target cannot have a remote identity"))
+        );
+    }
+
+    #[test]
+    fn rejects_an_empty_git_path_before_process_execution() {
+        assert!(execute_git_worktree_request(
+            "request-7",
+            "  ",
+            "windows-native",
+            None,
+            &GitCapabilityRegistry::new(),
+        )
+        .is_err());
     }
 
     #[test]
