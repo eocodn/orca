@@ -35,6 +35,8 @@ describe('voice/audio product removal contract', () => {
     assert.equal(read('mobile/package.json').includes('@orca/expo-two-way-audio'), false)
     assert.equal(read('mobile/app.json').includes('RECORD_AUDIO'), false)
     assert.equal(read('mobile/app.json').includes('MODIFY_AUDIO_SETTINGS'), false)
+    assert.equal(read('electron.vite.config.ts').includes('stt-worker'), false)
+    assert.equal(read('electron.vite.config.ts').includes('src/main/speech'), false)
 
     // Terminal input and Host protocol contracts remain product-critical.
     assert.ok(existsSync(resolve(root, 'src/shared/terminal-input.ts')))
