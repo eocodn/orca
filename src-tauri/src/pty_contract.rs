@@ -1,4 +1,7 @@
 use crate::pty_target::{build_pty_spec, PtyExecutionTarget};
+use ade_host_core::protocol::{
+    ProtocolError, PtyOperation as HostPtyOperation, PtyRequest as HostPtyRequest,
+};
 use ade_terminal::pty::{PtyError, PtySession};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
@@ -325,7 +328,61 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
         }
         _ => {}
     }
-    Ok(())
+    shared_protocol_request(request)
+        .validate()
+        .map_err(shared_protocol_error_code)
+}
+
+fn shared_protocol_request(request: &PtyRequest) -> HostPtyRequest {
+    let operation = match request.operation {
+        PtyOperation::Start => HostPtyOperation::Start {
+            program: request.program.clone().unwrap_or_default(),
+            args: request.args.clone(),
+            current_dir: request.current_dir.clone(),
+            execution_target: request.execution_target.clone(),
+            cols: request.cols.unwrap_or(0),
+            rows: request.rows.unwrap_or(0),
+        },
+        PtyOperation::Write => HostPtyOperation::Write {
+            input: request.input.clone().unwrap_or_default(),
+        },
+        PtyOperation::Resize => HostPtyOperation::Resize {
+            cols: request.cols.unwrap_or(0),
+            rows: request.rows.unwrap_or(0),
+        },
+        PtyOperation::Poll => HostPtyOperation::Poll,
+        PtyOperation::Wait => HostPtyOperation::Wait {
+            timeout_ms: request.timeout_ms.unwrap_or(0),
+        },
+        PtyOperation::Terminate => HostPtyOperation::Terminate,
+    };
+    HostPtyRequest::new(
+        request.request_id.clone(),
+        request.workspace_id.clone(),
+        request.worker_id.clone(),
+        request.session_id.clone(),
+        request.session_generation,
+        operation,
+    )
+}
+
+fn shared_protocol_error_code(error: ProtocolError) -> String {
+    match error {
+        ProtocolError::UnsupportedVersion(_) => "unsupported_version",
+        ProtocolError::CapabilityDenied(_) => "capability_denied",
+        ProtocolError::EmptyRequestId => "empty_request_id",
+        ProtocolError::EmptyPtyWorkspaceId => "empty_workspace_id",
+        ProtocolError::EmptyPtyWorkerId => "empty_worker_id",
+        ProtocolError::EmptyPtySessionId => "empty_session_id",
+        ProtocolError::MissingPtySessionGeneration => "missing_session_generation",
+        ProtocolError::InvalidPtySessionGeneration => "invalid_session_generation",
+        ProtocolError::EmptyPtyProgram => "empty_program",
+        ProtocolError::InvalidPtySize => "invalid_size",
+        ProtocolError::InvalidPtyTimeout => "invalid_timeout",
+        ProtocolError::EmptyPtyExecutionTarget => "empty_execution_target",
+        _ => "invalid_request",
+    }
+    .to_string()
 }
 
 fn start_session(

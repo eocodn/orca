@@ -1,26 +1,7 @@
 use ade_terminal::pty::PtySpec;
-use serde::Deserialize;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub(crate) enum PtyExecutionTarget {
-    #[serde(rename = "windows-native", alias = "windows_native")]
-    WindowsNative,
-    Wsl2 {
-        distro: String,
-    },
-    Ssh {
-        host: String,
-        shell: PtySshShell,
-    },
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub(crate) enum PtySshShell {
-    Posix,
-}
+pub(crate) use ade_host_core::protocol::{PtyExecutionTarget, PtySshShell};
 
 pub(crate) fn build_pty_spec(request: &crate::pty_contract::PtyRequest) -> Result<PtySpec, String> {
     let program = request

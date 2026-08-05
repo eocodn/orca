@@ -10,7 +10,8 @@ mod contract_tests {
     use super::host_runtime::HostRuntime;
     use super::protocol::{
         Capability, FileRequest, GitOperation, GitRequest, ProtocolEnvelope, ProtocolError,
-        TerminalOperation, TerminalRequest, HOST_CAPABILITIES, PROTOCOL_VERSION,
+        PtyOperation, PtyRequest, TerminalOperation, TerminalRequest, HOST_CAPABILITIES,
+        PROTOCOL_VERSION,
     };
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
     use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
@@ -46,6 +47,7 @@ mod contract_tests {
                 "workspace.read",
                 "workspace.write",
                 "terminal",
+                "pty",
                 "git",
                 "file",
             ]
@@ -124,6 +126,57 @@ mod contract_tests {
             r#"{"envelope":{"request_id":"request-terminal","capability":"terminal","protocol_version":1},"terminal_id":"terminal-1","expected_generation":0,"operation":{"type":"output","sequence":1,"data":"ready","unexpected":true}}"#,
         )
         .is_err());
+    }
+
+    #[test]
+    fn pty_request_is_versioned_owned_and_strict() {
+        let request = PtyRequest::new(
+            "request-pty",
+            "workspace-1",
+            "worker-1",
+            "session-1",
+            None,
+            PtyOperation::Start {
+                program: String::from("bash"),
+                args: vec![String::from("-lc"), String::from("printf ready")],
+                current_dir: None,
+                execution_target: Some(super::protocol::PtyExecutionTarget::WindowsNative),
+                cols: 80,
+                rows: 24,
+            },
+        );
+        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(
+            serde_json::to_string(&request).expect("pty request should serialize"),
+            r#"{"envelope":{"request_id":"request-pty","capability":"pty","protocol_version":1},"workspace_id":"workspace-1","worker_id":"worker-1","session_id":"session-1","session_generation":null,"operation":{"type":"start","program":"bash","args":["-lc","printf ready"],"current_dir":null,"execution_target":{"kind":"windows-native"},"cols":80,"rows":24}}"#
+        );
+        assert!(serde_json::from_str::<PtyRequest>(
+            r#"{"envelope":{"request_id":"request-pty","capability":"pty","protocol_version":1},"workspace_id":"workspace-1","worker_id":"worker-1","session_id":"session-1","session_generation":null,"operation":{"type":"start","program":"bash","args":[],"current_dir":null,"execution_target":null,"cols":80,"rows":24,"unexpected":true}}"#
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn pty_request_rejects_stale_or_invalid_operation_boundaries() {
+        let mut request = PtyRequest::new(
+            "request-pty",
+            "workspace-1",
+            "worker-1",
+            "session-1",
+            Some(1),
+            PtyOperation::Write {
+                input: String::from("input"),
+            },
+        );
+        assert_eq!(request.validate(), Ok(()));
+        request.session_generation = None;
+        assert_eq!(
+            request.validate(),
+            Err(ProtocolError::MissingPtySessionGeneration)
+        );
+        request.session_generation = Some(1);
+        request.operation = PtyOperation::Wait { timeout_ms: 30_001 };
+        assert_eq!(request.validate(), Err(ProtocolError::InvalidPtyTimeout));
     }
 
     #[test]

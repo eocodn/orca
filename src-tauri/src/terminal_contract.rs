@@ -102,7 +102,17 @@ fn protocol_error_code(error: ProtocolError) -> String {
         ProtocolError::EmptyTerminalFailureReason => "empty_terminal_failure_reason",
         ProtocolError::InvalidTerminalGeneration => "invalid_terminal_generation",
         ProtocolError::InvalidTerminalOutputSequence => "invalid_terminal_output_sequence",
-        ProtocolError::EmptyGitPath | ProtocolError::EmptyFilePath => "invalid_request",
+        ProtocolError::EmptyGitPath
+        | ProtocolError::EmptyFilePath
+        | ProtocolError::EmptyPtyWorkspaceId
+        | ProtocolError::EmptyPtyWorkerId
+        | ProtocolError::EmptyPtySessionId
+        | ProtocolError::MissingPtySessionGeneration
+        | ProtocolError::InvalidPtySessionGeneration
+        | ProtocolError::EmptyPtyProgram
+        | ProtocolError::InvalidPtySize
+        | ProtocolError::InvalidPtyTimeout
+        | ProtocolError::EmptyPtyExecutionTarget => "invalid_request",
     }
     .to_string()
 }

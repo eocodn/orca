@@ -3,10 +3,11 @@ use serde::{Deserialize, Serialize};
 pub const PROTOCOL_VERSION: u16 = 1;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
-pub const HOST_CAPABILITIES: [Capability; 5] = [
+pub const HOST_CAPABILITIES: [Capability; 6] = [
     Capability::WorkspaceRead,
     Capability::WorkspaceWrite,
     Capability::Terminal,
+    Capability::Pty,
     Capability::Git,
     Capability::File,
 ];
@@ -19,6 +20,8 @@ pub enum Capability {
     WorkspaceWrite,
     #[serde(rename = "terminal")]
     Terminal,
+    #[serde(rename = "pty")]
+    Pty,
     #[serde(rename = "git")]
     Git,
     #[serde(rename = "file")]
@@ -31,6 +34,7 @@ impl Capability {
             Self::WorkspaceRead => "workspace.read",
             Self::WorkspaceWrite => "workspace.write",
             Self::Terminal => "terminal",
+            Self::Pty => "pty",
             Self::Git => "git",
             Self::File => "file",
         }
@@ -81,6 +85,86 @@ pub enum TerminalOperation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+pub enum PtyOperation {
+    #[serde(rename = "start")]
+    Start {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+        current_dir: Option<String>,
+        execution_target: Option<PtyExecutionTarget>,
+        cols: u16,
+        rows: u16,
+    },
+    #[serde(rename = "write")]
+    Write { input: String },
+    #[serde(rename = "resize")]
+    Resize { cols: u16, rows: u16 },
+    #[serde(rename = "poll")]
+    Poll,
+    #[serde(rename = "wait")]
+    Wait { timeout_ms: u64 },
+    #[serde(rename = "terminate")]
+    Terminate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PtyExecutionTarget {
+    #[serde(rename = "windows-native", alias = "windows_native")]
+    WindowsNative,
+    Wsl2 {
+        distro: String,
+    },
+    Ssh {
+        host: String,
+        shell: PtySshShell,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum PtySshShell {
+    Posix,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PtyRequest {
+    pub envelope: ProtocolEnvelope,
+    pub workspace_id: String,
+    pub worker_id: String,
+    pub session_id: String,
+    pub session_generation: Option<u64>,
+    pub operation: PtyOperation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PtyStatus {
+    Running,
+    Exited,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PtyResponse {
+    pub envelope: ProtocolEnvelope,
+    pub workspace_id: String,
+    pub worker_id: String,
+    pub session_id: String,
+    pub session_generation: u64,
+    pub generation: u64,
+    pub status: PtyStatus,
+    pub exit_code: Option<i32>,
+    pub output_sequence: u64,
+    pub tail: String,
+    pub failure_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TerminalRequest {
     pub envelope: ProtocolEnvelope,
@@ -112,6 +196,15 @@ pub enum ProtocolError {
     EmptyTerminalFailureReason,
     InvalidTerminalGeneration,
     InvalidTerminalOutputSequence,
+    EmptyPtyWorkspaceId,
+    EmptyPtyWorkerId,
+    EmptyPtySessionId,
+    MissingPtySessionGeneration,
+    InvalidPtySessionGeneration,
+    EmptyPtyProgram,
+    InvalidPtySize,
+    InvalidPtyTimeout,
+    EmptyPtyExecutionTarget,
 }
 
 impl ProtocolEnvelope {
@@ -288,5 +381,95 @@ impl TerminalRequest {
             }
             _ => Ok(()),
         }
+    }
+}
+
+impl PtyRequest {
+    pub fn new(
+        request_id: impl Into<String>,
+        workspace_id: impl Into<String>,
+        worker_id: impl Into<String>,
+        session_id: impl Into<String>,
+        session_generation: Option<u64>,
+        operation: PtyOperation,
+    ) -> Self {
+        Self {
+            envelope: ProtocolEnvelope::new(request_id, Capability::Pty, PROTOCOL_VERSION),
+            workspace_id: workspace_id.into(),
+            worker_id: worker_id.into(),
+            session_id: session_id.into(),
+            session_generation,
+            operation,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        self.envelope.validate()?;
+        if self.envelope.capability != Capability::Pty {
+            return Err(ProtocolError::CapabilityDenied(self.envelope.capability));
+        }
+        if self.workspace_id.trim().is_empty() {
+            return Err(ProtocolError::EmptyPtyWorkspaceId);
+        }
+        if self.worker_id.trim().is_empty() {
+            return Err(ProtocolError::EmptyPtyWorkerId);
+        }
+        if self.session_id.trim().is_empty() {
+            return Err(ProtocolError::EmptyPtySessionId);
+        }
+        if self
+            .session_generation
+            .is_some_and(|generation| generation > MAX_SAFE_INTEGER)
+        {
+            return Err(ProtocolError::InvalidPtySessionGeneration);
+        }
+        match &self.operation {
+            PtyOperation::Start {
+                program,
+                execution_target,
+                cols,
+                rows,
+                ..
+            } => {
+                if self.session_generation.is_some() {
+                    return Err(ProtocolError::InvalidPtySessionGeneration);
+                }
+                if program.trim().is_empty() {
+                    return Err(ProtocolError::EmptyPtyProgram);
+                }
+                if *cols == 0 || *rows == 0 {
+                    return Err(ProtocolError::InvalidPtySize);
+                }
+                if execution_target
+                    .as_ref()
+                    .is_some_and(|target| match target {
+                        PtyExecutionTarget::Wsl2 { distro } => distro.trim().is_empty(),
+                        PtyExecutionTarget::Ssh { host, .. } => host.trim().is_empty(),
+                        PtyExecutionTarget::WindowsNative => false,
+                    })
+                {
+                    return Err(ProtocolError::EmptyPtyExecutionTarget);
+                }
+            }
+            PtyOperation::Wait { timeout_ms } => {
+                if self.session_generation.is_none() {
+                    return Err(ProtocolError::MissingPtySessionGeneration);
+                }
+                if *timeout_ms == 0 || *timeout_ms > 30_000 {
+                    return Err(ProtocolError::InvalidPtyTimeout);
+                }
+            }
+            _ => {
+                if self.session_generation.is_none() {
+                    return Err(ProtocolError::MissingPtySessionGeneration);
+                }
+                if let PtyOperation::Resize { cols, rows } = &self.operation {
+                    if *cols == 0 || *rows == 0 {
+                        return Err(ProtocolError::InvalidPtySize);
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }

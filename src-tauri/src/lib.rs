@@ -360,7 +360,7 @@ mod tests {
         ];
         assert_eq!(
             render_host_status(&snapshot).expect("status must serialize"),
-            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","git","file"]}}"#
+            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","pty","git","file"]}}"#
         );
     }
 
