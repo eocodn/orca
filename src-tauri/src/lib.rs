@@ -1,4 +1,5 @@
 mod pty_contract;
+mod pty_target;
 mod terminal_contract;
 
 use ade_host_core::protocol::{
