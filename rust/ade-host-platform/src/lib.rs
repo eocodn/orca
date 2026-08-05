@@ -15,12 +15,61 @@ pub struct CommandSpec {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlatformError {
     EmptyCommand,
+    EmptyWorkspacePath,
     EmptyWslDistro,
     EmptySshHost,
     InvalidTransition,
     StaleGeneration { expected: u64, actual: u64 },
     EmptyFailureReason,
     GenerationOverflow,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceKind {
+    Folder,
+    GitWorktree,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceLocation {
+    kind: WorkspaceKind,
+    target: ExecutionTarget,
+    path: String,
+}
+
+impl WorkspaceLocation {
+    pub fn new(
+        kind: WorkspaceKind,
+        target: ExecutionTarget,
+        path: impl Into<String>,
+    ) -> Result<Self, PlatformError> {
+        let path = path.into();
+        if path.trim().is_empty() {
+            return Err(PlatformError::EmptyWorkspacePath);
+        }
+        match &target {
+            ExecutionTarget::Wsl2 { distro } if distro.trim().is_empty() => {
+                return Err(PlatformError::EmptyWslDistro);
+            }
+            ExecutionTarget::Ssh { host } if host.trim().is_empty() => {
+                return Err(PlatformError::EmptySshHost);
+            }
+            _ => {}
+        }
+        Ok(Self { kind, target, path })
+    }
+
+    pub fn kind(&self) -> WorkspaceKind {
+        self.kind
+    }
+
+    pub fn target(&self) -> &ExecutionTarget {
+        &self.target
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
 }
 
 pub fn build_command(
@@ -182,8 +231,71 @@ impl Default for Wsl2Lifecycle {
 #[cfg(test)]
 mod contract_tests {
     use super::{
-        build_command, CommandSpec, ExecutionTarget, PlatformError, Wsl2Lifecycle, Wsl2Status,
+        build_command, CommandSpec, ExecutionTarget, PlatformError, WorkspaceKind,
+        WorkspaceLocation, Wsl2Lifecycle, Wsl2Status,
     };
+
+    #[test]
+    fn preserves_folder_and_worktree_locations_for_each_execution_target() {
+        let native_folder = WorkspaceLocation::new(
+            WorkspaceKind::Folder,
+            ExecutionTarget::WindowsNative,
+            r"C:\workspaces\folder",
+        )
+        .expect("native folder location");
+        assert_eq!(native_folder.kind(), WorkspaceKind::Folder);
+        assert_eq!(native_folder.path(), r"C:\workspaces\folder");
+        assert_eq!(native_folder.target(), &ExecutionTarget::WindowsNative);
+
+        let wsl_worktree = WorkspaceLocation::new(
+            WorkspaceKind::GitWorktree,
+            ExecutionTarget::Wsl2 {
+                distro: String::from("Ubuntu-22.04"),
+            },
+            "/workspaces/repo",
+        )
+        .expect("wsl worktree location");
+        assert_eq!(wsl_worktree.kind(), WorkspaceKind::GitWorktree);
+        assert_eq!(wsl_worktree.path(), "/workspaces/repo");
+
+        let ssh_folder = WorkspaceLocation::new(
+            WorkspaceKind::Folder,
+            ExecutionTarget::Ssh {
+                host: String::from("dev.example"),
+            },
+            "/srv/project",
+        )
+        .expect("ssh folder location");
+        assert_eq!(ssh_folder.path(), "/srv/project");
+    }
+
+    #[test]
+    fn rejects_empty_workspace_paths_and_remote_identities() {
+        assert_eq!(
+            WorkspaceLocation::new(WorkspaceKind::Folder, ExecutionTarget::WindowsNative, "  ",),
+            Err(PlatformError::EmptyWorkspacePath)
+        );
+        assert_eq!(
+            WorkspaceLocation::new(
+                WorkspaceKind::Folder,
+                ExecutionTarget::Wsl2 {
+                    distro: String::new(),
+                },
+                "/workspace",
+            ),
+            Err(PlatformError::EmptyWslDistro)
+        );
+        assert_eq!(
+            WorkspaceLocation::new(
+                WorkspaceKind::GitWorktree,
+                ExecutionTarget::Ssh {
+                    host: String::new(),
+                },
+                "/workspace",
+            ),
+            Err(PlatformError::EmptySshHost)
+        );
+    }
 
     #[test]
     fn renders_native_wsl_and_ssh_commands_without_path_assumptions() {
