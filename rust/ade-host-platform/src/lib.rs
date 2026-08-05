@@ -88,9 +88,16 @@ pub fn build_command(
     if command.is_empty() {
         return Err(PlatformError::EmptyCommand);
     }
+    let quote_remote = matches!(target, ExecutionTarget::Ssh { .. });
     let mut command_args = args
         .iter()
-        .map(|arg| String::from(*arg))
+        .map(|arg| {
+            if quote_remote {
+                shell_quote(arg)
+            } else {
+                String::from(*arg)
+            }
+        })
         .collect::<Vec<_>>();
     let (program, prefix) = match target {
         ExecutionTarget::WindowsNative => (String::from(command), Vec::new()),
@@ -114,7 +121,7 @@ pub fn build_command(
             }
             (
                 String::from("ssh"),
-                vec![String::from("--"), host.clone(), String::from(command)],
+                vec![String::from("--"), host.clone(), shell_quote(command)],
             )
         }
     };
@@ -125,6 +132,10 @@ pub fn build_command(
         args: full_args,
         working_directory: working_directory.map(String::from),
     })
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -354,8 +365,8 @@ mod contract_tests {
                 args: vec![
                     String::from("--"),
                     String::from("dev.example"),
-                    String::from("git"),
-                    String::from("status"),
+                    String::from("'git'"),
+                    String::from("'status'"),
                 ],
                 working_directory: None,
             })
@@ -378,8 +389,33 @@ mod contract_tests {
                 args: vec![
                     String::from("--"),
                     String::from("-oProxyCommand=unexpected"),
-                    String::from("git"),
-                    String::from("status"),
+                    String::from("'git'"),
+                    String::from("'status'"),
+                ],
+                working_directory: None,
+            })
+        );
+    }
+
+    #[test]
+    fn quotes_ssh_remote_commands_and_arguments_as_one_shell_command() {
+        assert_eq!(
+            build_command(
+                &ExecutionTarget::Ssh {
+                    host: String::from("dev.example"),
+                },
+                "git",
+                &["-C", "/srv/repo; touch /tmp/pwn"],
+                None,
+            ),
+            Ok(CommandSpec {
+                program: String::from("ssh"),
+                args: vec![
+                    String::from("--"),
+                    String::from("dev.example"),
+                    String::from("'git'"),
+                    String::from("'-C'"),
+                    String::from("'/srv/repo; touch /tmp/pwn'"),
                 ],
                 working_directory: None,
             })
