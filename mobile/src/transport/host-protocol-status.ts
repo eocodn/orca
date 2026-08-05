@@ -27,9 +27,20 @@ export type MobileGitRequest = {
 
 export type MobileFileRequest = {
   envelope: MobileHostProtocolEnvelope
+  operation: { type: 'read'; path: string } | { type: 'write'; path: string; bytes: number[] }
+}
+
+export type MobileTerminalRequest = {
+  envelope: MobileHostProtocolEnvelope
+  terminal_id: string
+  expected_generation: number
   operation:
-    | { type: 'read'; path: string }
-    | { type: 'write'; path: string; bytes: number[] }
+    | { type: 'start' }
+    | { type: 'snapshot' }
+    | { type: 'output'; sequence: number; data: string }
+    | { type: 'exit'; code: number }
+    | { type: 'fail'; reason: string }
+    | { type: 'close' }
 }
 
 export function readHostProtocolStatus(value: unknown): MobileHostProtocolStatus | null {
@@ -53,7 +64,7 @@ export function readHostProtocolStatus(value: unknown): MobileHostProtocolStatus
 }
 
 export function readHostProtocolEnvelope(value: unknown): MobileHostProtocolEnvelope | null {
-  if (!value || typeof value !== 'object') {
+  if (!isRecord(value) || !hasOnlyKeys(value, ['request_id', 'capability', 'protocol_version'])) {
     return null
   }
   const candidate = value as {
@@ -89,7 +100,7 @@ export function readGitRequest(value: unknown): MobileGitRequest | null {
   if (typeof candidate.operation !== 'object') {
     return null
   }
-  const operation = candidate.operation as {
+  const operation = candidate.operation as Record<string, unknown> & {
     type?: unknown
     repository_path?: unknown
     path?: unknown
@@ -155,4 +166,107 @@ export function readFileRequest(value: unknown): MobileFileRequest | null {
     }
   }
   return null
+}
+
+export function readTerminalRequest(value: unknown): MobileTerminalRequest | null {
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(value, ['envelope', 'terminal_id', 'expected_generation', 'operation'])
+  ) {
+    return null
+  }
+  const candidate = value as {
+    envelope?: unknown
+    terminal_id?: unknown
+    expected_generation?: unknown
+    operation?: unknown
+  }
+  const envelope = readHostProtocolEnvelope(candidate.envelope)
+  if (
+    !envelope ||
+    envelope.capability !== 'terminal' ||
+    typeof candidate.terminal_id !== 'string' ||
+    candidate.terminal_id.trim().length === 0 ||
+    !isNonNegativeSafeInteger(candidate.expected_generation) ||
+    !candidate.operation ||
+    typeof candidate.operation !== 'object'
+  ) {
+    return null
+  }
+  const operation = candidate.operation as Record<string, unknown> & {
+    type?: unknown
+    sequence?: unknown
+    data?: unknown
+    code?: unknown
+    reason?: unknown
+  }
+  let parsedOperation: MobileTerminalRequest['operation']
+  switch (operation.type) {
+    case 'start':
+    case 'snapshot':
+    case 'close':
+      if (!hasOnlyKeys(operation, ['type'])) {
+        return null
+      }
+      parsedOperation = { type: operation.type }
+      break
+    case 'output':
+      if (
+        !hasOnlyKeys(operation, ['type', 'sequence', 'data']) ||
+        !Number.isSafeInteger(operation.sequence) ||
+        (operation.sequence as number) <= 0 ||
+        typeof operation.data !== 'string'
+      ) {
+        return null
+      }
+      parsedOperation = {
+        type: 'output',
+        sequence: operation.sequence as number,
+        data: operation.data
+      }
+      break
+    case 'exit':
+      if (!hasOnlyKeys(operation, ['type', 'code']) || !isI32(operation.code)) {
+        return null
+      }
+      parsedOperation = { type: 'exit', code: operation.code }
+      break
+    case 'fail':
+      if (
+        !hasOnlyKeys(operation, ['type', 'reason']) ||
+        typeof operation.reason !== 'string' ||
+        operation.reason.trim().length === 0
+      ) {
+        return null
+      }
+      parsedOperation = { type: 'fail', reason: operation.reason }
+      break
+    default:
+      return null
+  }
+  return {
+    envelope,
+    terminal_id: candidate.terminal_id,
+    expected_generation: candidate.expected_generation,
+    operation: parsedOperation
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const allowed = new Set(keys)
+  return Object.keys(value).every((key) => allowed.has(key))
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0
+}
+
+function isI32(value: unknown): value is number {
+  return (
+    Number.isInteger(value) && (value as number) >= -2147483648 && (value as number) <= 2147483647
+  )
 }

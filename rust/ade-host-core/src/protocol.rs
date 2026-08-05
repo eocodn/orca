@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u16 = 1;
+const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 pub const HOST_CAPABILITIES: [Capability; 5] = [
     Capability::WorkspaceRead,
@@ -37,6 +38,7 @@ impl Capability {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProtocolEnvelope {
     pub request_id: String,
     pub capability: Capability,
@@ -62,6 +64,32 @@ pub enum FileOperation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", deny_unknown_fields)]
+pub enum TerminalOperation {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "snapshot")]
+    Snapshot,
+    #[serde(rename = "output")]
+    Output { sequence: u64, data: String },
+    #[serde(rename = "exit")]
+    Exit { code: i32 },
+    #[serde(rename = "fail")]
+    Fail { reason: String },
+    #[serde(rename = "close")]
+    Close,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TerminalRequest {
+    pub envelope: ProtocolEnvelope,
+    pub terminal_id: String,
+    pub expected_generation: u64,
+    pub operation: TerminalOperation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileRequest {
     pub envelope: ProtocolEnvelope,
     pub operation: FileOperation,
@@ -80,6 +108,10 @@ pub enum ProtocolError {
     EmptyRequestId,
     EmptyGitPath,
     EmptyFilePath,
+    EmptyTerminalId,
+    EmptyTerminalFailureReason,
+    InvalidTerminalGeneration,
+    InvalidTerminalOutputSequence,
 }
 
 impl ProtocolEnvelope {
@@ -190,5 +222,71 @@ impl FileRequest {
             return Err(ProtocolError::EmptyFilePath);
         }
         Ok(())
+    }
+}
+
+impl TerminalRequest {
+    pub fn start(
+        request_id: impl Into<String>,
+        terminal_id: impl Into<String>,
+        expected_generation: u64,
+    ) -> Self {
+        Self::new(
+            request_id,
+            terminal_id,
+            expected_generation,
+            TerminalOperation::Start,
+        )
+    }
+
+    pub fn snapshot(
+        request_id: impl Into<String>,
+        terminal_id: impl Into<String>,
+        expected_generation: u64,
+    ) -> Self {
+        Self::new(
+            request_id,
+            terminal_id,
+            expected_generation,
+            TerminalOperation::Snapshot,
+        )
+    }
+
+    pub fn new(
+        request_id: impl Into<String>,
+        terminal_id: impl Into<String>,
+        expected_generation: u64,
+        operation: TerminalOperation,
+    ) -> Self {
+        Self {
+            envelope: ProtocolEnvelope::new(request_id, Capability::Terminal, PROTOCOL_VERSION),
+            terminal_id: terminal_id.into(),
+            expected_generation,
+            operation,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        self.envelope.validate()?;
+        if self.envelope.capability != Capability::Terminal {
+            return Err(ProtocolError::CapabilityDenied(self.envelope.capability));
+        }
+        if self.terminal_id.trim().is_empty() {
+            return Err(ProtocolError::EmptyTerminalId);
+        }
+        if self.expected_generation > MAX_SAFE_INTEGER {
+            return Err(ProtocolError::InvalidTerminalGeneration);
+        }
+        match &self.operation {
+            TerminalOperation::Output { sequence, .. }
+                if *sequence == 0 || *sequence > MAX_SAFE_INTEGER =>
+            {
+                Err(ProtocolError::InvalidTerminalOutputSequence)
+            }
+            TerminalOperation::Fail { reason } if reason.trim().is_empty() => {
+                Err(ProtocolError::EmptyTerminalFailureReason)
+            }
+            _ => Ok(()),
+        }
     }
 }

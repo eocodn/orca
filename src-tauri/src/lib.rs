@@ -1,5 +1,8 @@
+mod terminal_contract;
+
 use ade_host_core::protocol::{
-    FileOperation, FileRequest, GitOperation, GitRequest, HOST_CAPABILITIES, PROTOCOL_VERSION,
+    FileOperation, FileRequest, GitOperation, GitRequest, TerminalRequest, HOST_CAPABILITIES,
+    PROTOCOL_VERSION,
 };
 use ade_host_platform::file_service::FileService;
 use ade_host_platform::git_capability::GitCapabilityRegistry;
@@ -10,6 +13,7 @@ use ade_host_store::store::{
     HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
 };
 use serde::Serialize;
+use terminal_contract::{execute_terminal_request, TerminalExecutionState};
 
 #[derive(Default)]
 struct GitExecutionState {
@@ -280,6 +284,14 @@ fn file_request(
 }
 
 #[tauri::command]
+fn terminal_request(
+    request: TerminalRequest,
+    state: tauri::State<'_, TerminalExecutionState>,
+) -> Result<String, String> {
+    execute_terminal_request(&request, &state)
+}
+
+#[tauri::command]
 fn git_worktree_list(
     request_id: String,
     path: String,
@@ -300,12 +312,14 @@ fn git_worktree_list(
 pub fn run() {
     tauri::Builder::default()
         .manage(GitExecutionState::default())
+        .manage(TerminalExecutionState::default())
         .invoke_handler(tauri::generate_handler![
             host_status,
             register_workspace,
             git_request,
             git_worktree_list,
-            file_request
+            file_request,
+            terminal_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE Tauri application");

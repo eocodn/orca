@@ -27,6 +27,7 @@ services:
            pnpm --dir mobile exec vitest run
            src/transport/host-protocol-status.test.ts
            src/transport/host-file-transport.test.ts
+           src/transport/host-terminal-transport.test.ts
     init: true
     network_mode: host
 
@@ -173,6 +174,24 @@ services:
       - src/main/runtime/orca-runtime-tail-wait-memo.test.ts
       - src/main/runtime/retained-tail-redraw-window.equivalence.test.ts
       - src/main/runtime/orca-runtime-path-candidate-history.test.ts
+    init: true
+    network_mode: host
+
+  host-request-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - pnpm
+      - exec
+      - vitest
+      - run
+      - --maxWorkers=1
+      - --config
+      - config/vitest.config.ts
+      - src/shared/host-protocol.test.ts
+      - src/main/runtime/rpc/host-terminal-state-registry.test.ts
+      - src/main/runtime/rpc/methods/host-request.test.ts
     init: true
     network_mode: host
 

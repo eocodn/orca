@@ -9,7 +9,7 @@ mod contract_tests {
     use super::host_runtime::HostRuntime;
     use super::protocol::{
         Capability, FileRequest, GitOperation, GitRequest, ProtocolEnvelope, ProtocolError,
-        HOST_CAPABILITIES, PROTOCOL_VERSION,
+        TerminalOperation, TerminalRequest, HOST_CAPABILITIES, PROTOCOL_VERSION,
     };
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
     use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
@@ -63,6 +63,66 @@ mod contract_tests {
             FileRequest::read("request-file", "  ").validate(),
             Err(ProtocolError::EmptyFilePath)
         );
+    }
+
+    #[test]
+    fn terminal_request_serializes_and_rejects_invalid_lifecycle_state() {
+        let request = TerminalRequest::start("request-terminal", "terminal-1", 0);
+        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(
+            serde_json::to_string(&request).expect("terminal request should serialize"),
+            r#"{"envelope":{"request_id":"request-terminal","capability":"terminal","protocol_version":1},"terminal_id":"terminal-1","expected_generation":0,"operation":{"type":"start"}}"#
+        );
+        assert_eq!(
+            TerminalRequest::snapshot("request-terminal", "  ", 0).validate(),
+            Err(ProtocolError::EmptyTerminalId)
+        );
+        assert_eq!(
+            TerminalRequest::new(
+                "request-terminal",
+                "terminal-1",
+                1,
+                TerminalOperation::Fail {
+                    reason: String::from("  "),
+                },
+            )
+            .validate(),
+            Err(ProtocolError::EmptyTerminalFailureReason)
+        );
+        assert_eq!(
+            TerminalRequest::snapshot("request-terminal", "terminal-1", 9_007_199_254_740_992,)
+                .validate(),
+            Err(ProtocolError::InvalidTerminalGeneration)
+        );
+        assert_eq!(
+            TerminalRequest::new(
+                "request-terminal",
+                "terminal-1",
+                1,
+                TerminalOperation::Output {
+                    sequence: 9_007_199_254_740_992,
+                    data: String::from("overflow"),
+                },
+            )
+            .validate(),
+            Err(ProtocolError::InvalidTerminalOutputSequence)
+        );
+    }
+
+    #[test]
+    fn terminal_request_rejects_unknown_wire_fields() {
+        assert!(serde_json::from_str::<TerminalRequest>(
+            r#"{"envelope":{"request_id":"request-terminal","capability":"terminal","protocol_version":1,"unexpected":true},"terminal_id":"terminal-1","expected_generation":0,"operation":{"type":"start"}}"#,
+        )
+        .is_err());
+        assert!(serde_json::from_str::<TerminalRequest>(
+            r#"{"envelope":{"request_id":"request-terminal","capability":"terminal","protocol_version":1},"terminal_id":"terminal-1","expected_generation":0,"operation":{"type":"start"},"unexpected":true}"#,
+        )
+        .is_err());
+        assert!(serde_json::from_str::<TerminalRequest>(
+            r#"{"envelope":{"request_id":"request-terminal","capability":"terminal","protocol_version":1},"terminal_id":"terminal-1","expected_generation":0,"operation":{"type":"output","sequence":1,"data":"ready","unexpected":true}}"#,
+        )
+        .is_err());
     }
 
     #[test]

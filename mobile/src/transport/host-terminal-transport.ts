@@ -77,7 +77,22 @@ export function createTerminalCloseRequest(
 }
 
 export function readTerminalResponse(value: unknown): MobileTerminalResponse | null {
-  if (!value || typeof value !== 'object') {
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(value, [
+      'request_id',
+      'capability',
+      'protocol_version',
+      'operation',
+      'terminal_id',
+      'generation',
+      'status',
+      'exit_code',
+      'failure_reason',
+      'output_sequence',
+      'tail'
+    ])
+  ) {
     return null
   }
   const candidate = value as {
@@ -104,7 +119,7 @@ export function readTerminalResponse(value: unknown): MobileTerminalResponse | n
     !isNonNegativeSafeInteger(candidate.generation) ||
     !isTerminalStatus(candidate.status) ||
     !isValidExitCode(candidate.status, candidate.exit_code) ||
-    !isFailureReason(candidate.failure_reason) ||
+    !isValidFailureReason(candidate.status, candidate.failure_reason) ||
     !isNonNegativeSafeInteger(candidate.output_sequence) ||
     typeof candidate.tail !== 'string'
   ) {
@@ -123,6 +138,15 @@ export function readTerminalResponse(value: unknown): MobileTerminalResponse | n
     output_sequence: candidate.output_sequence,
     tail: candidate.tail
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const allowed = new Set(keys)
+  return Object.keys(value).every((key) => allowed.has(key))
 }
 
 export async function requestTerminal(
@@ -191,8 +215,14 @@ function isTerminalStatus(value: unknown): value is MobileTerminalStatus {
   )
 }
 
-function isFailureReason(value: unknown): value is string | null {
-  return value === null || (typeof value === 'string' && value.trim().length > 0)
+function isValidFailureReason(status: unknown, value: unknown): value is string | null {
+  if (status === 'failed') {
+    return typeof value === 'string' && value.trim().length > 0
+  }
+  if (status === 'closed') {
+    return value === null || (typeof value === 'string' && value.trim().length > 0)
+  }
+  return value === null
 }
 
 function isValidExitCode(status: unknown, value: unknown): value is number | null {

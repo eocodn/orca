@@ -3,7 +3,8 @@ import {
   readFileRequest,
   readGitRequest,
   readHostProtocolEnvelope,
-  readHostProtocolStatus
+  readHostProtocolStatus,
+  readTerminalRequest
 } from './host-protocol-status'
 
 describe('mobile Host protocol descriptor', () => {
@@ -40,6 +41,14 @@ describe('mobile Host protocol descriptor', () => {
         request_id: 'request-1',
         capability: 'unknown',
         protocol_version: 1
+      })
+    ).toBeNull()
+    expect(
+      readHostProtocolEnvelope({
+        request_id: 'request-1',
+        capability: 'terminal',
+        protocol_version: 1,
+        unexpected: true
       })
     ).toBeNull()
   })
@@ -99,6 +108,66 @@ describe('mobile Host protocol descriptor', () => {
       readFileRequest({
         envelope: { request_id: 'request-file', capability: 'file', protocol_version: 1 },
         operation: { type: 'write', path: '/tmp/file', bytes: [256] }
+      })
+    ).toBeNull()
+  })
+
+  it('accepts strict terminal lifecycle requests and rejects invalid state', () => {
+    expect(
+      readTerminalRequest({
+        envelope: {
+          request_id: 'request-terminal',
+          capability: 'terminal',
+          protocol_version: 1
+        },
+        terminal_id: 'terminal-1',
+        expected_generation: 1,
+        operation: { type: 'output', sequence: 1, data: 'ready' }
+      })
+    ).toEqual({
+      envelope: {
+        request_id: 'request-terminal',
+        capability: 'terminal',
+        protocol_version: 1
+      },
+      terminal_id: 'terminal-1',
+      expected_generation: 1,
+      operation: { type: 'output', sequence: 1, data: 'ready' }
+    })
+    expect(
+      readTerminalRequest({
+        envelope: {
+          request_id: 'request-terminal',
+          capability: 'terminal',
+          protocol_version: 1
+        },
+        terminal_id: 'terminal-1',
+        expected_generation: -1,
+        operation: { type: 'start' }
+      })
+    ).toBeNull()
+    expect(
+      readTerminalRequest({
+        envelope: {
+          request_id: 'request-terminal',
+          capability: 'terminal',
+          protocol_version: 1
+        },
+        terminal_id: 'terminal-1',
+        expected_generation: 1,
+        operation: { type: 'start', unexpected: true }
+      })
+    ).toBeNull()
+    expect(
+      readTerminalRequest({
+        envelope: {
+          request_id: 'request-terminal',
+          capability: 'terminal',
+          protocol_version: 1
+        },
+        terminal_id: 'terminal-1',
+        expected_generation: 1,
+        operation: { type: 'fail', reason: '  ' }
       })
     ).toBeNull()
   })

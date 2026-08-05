@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 
 const MAX_TAIL_BYTES: usize = 4096;
+const MAX_SAFE_GENERATION: u64 = 9_007_199_254_740_991;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TerminalStatus {
@@ -42,7 +43,7 @@ pub enum TerminalError {
     StateLockPoisoned,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct TerminalState {
     terminal_id: String,
     generation: u64,
@@ -91,51 +92,53 @@ impl TerminalRuntime {
             });
         }
 
+        let mut next = state.clone();
         match command {
-            TerminalCommand::Start if state.status == TerminalStatus::Created => {
-                state.status = TerminalStatus::Running;
+            TerminalCommand::Start if next.status == TerminalStatus::Created => {
+                next.status = TerminalStatus::Running;
             }
             TerminalCommand::Output { sequence, data }
-                if state.status == TerminalStatus::Running =>
+                if next.status == TerminalStatus::Running =>
             {
-                if sequence <= state.output_sequence {
+                if sequence <= next.output_sequence {
                     return Err(TerminalError::StaleOutput {
                         received: sequence,
                         actual: state.output_sequence,
                     });
                 }
-                state.output_sequence = sequence;
-                state.tail.push_str(&data);
-                trim_tail(&mut state.tail);
+                next.output_sequence = sequence;
+                next.tail.push_str(&data);
+                trim_tail(&mut next.tail);
             }
-            TerminalCommand::Exit { code } if state.status == TerminalStatus::Running => {
-                state.status = TerminalStatus::Exited { code };
+            TerminalCommand::Exit { code } if next.status == TerminalStatus::Running => {
+                next.status = TerminalStatus::Exited { code };
             }
-            TerminalCommand::Fail { reason } if state.status == TerminalStatus::Running => {
+            TerminalCommand::Fail { reason } if next.status == TerminalStatus::Running => {
                 if reason.trim().is_empty() {
                     return Err(TerminalError::EmptyFailureReason);
                 }
-                state.failure_reason = Some(reason.clone());
-                state.status = TerminalStatus::Failed { reason };
+                next.failure_reason = Some(reason.clone());
+                next.status = TerminalStatus::Failed { reason };
             }
             TerminalCommand::Close
                 if matches!(
-                    state.status,
+                    next.status,
                     TerminalStatus::Exited { .. } | TerminalStatus::Failed { .. }
                 ) =>
             {
-                state.status = TerminalStatus::Closed;
+                next.status = TerminalStatus::Closed;
             }
-            TerminalCommand::Close if state.status == TerminalStatus::Closed => {
+            TerminalCommand::Close if next.status == TerminalStatus::Closed => {
                 return Ok(snapshot(&state));
             }
             _ => return Err(TerminalError::InvalidTransition),
         }
 
-        state.generation = state
-            .generation
-            .checked_add(1)
-            .ok_or(TerminalError::GenerationOverflow)?;
+        if next.generation >= MAX_SAFE_GENERATION {
+            return Err(TerminalError::GenerationOverflow);
+        }
+        next.generation += 1;
+        *state = next;
         Ok(snapshot(&state))
     }
 
@@ -172,7 +175,9 @@ fn trim_tail(tail: &mut String) {
 
 #[cfg(test)]
 mod contract_tests {
-    use super::{TerminalCommand, TerminalError, TerminalRuntime, TerminalStatus};
+    use super::{
+        TerminalCommand, TerminalError, TerminalRuntime, TerminalStatus, MAX_SAFE_GENERATION,
+    };
     use std::sync::Arc;
     use std::thread;
 
@@ -266,6 +271,29 @@ mod contract_tests {
         assert!(output.tail.len() <= 4096);
         assert!(output.tail.ends_with('끝'));
         assert!(std::str::from_utf8(output.tail.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn terminal_generation_overflow_does_not_publish_partial_state() {
+        let terminal = TerminalRuntime::new("terminal-1").unwrap();
+        {
+            let mut state = terminal.state.write().unwrap();
+            state.status = TerminalStatus::Running;
+            state.generation = MAX_SAFE_GENERATION;
+        }
+        let before = terminal.snapshot().unwrap();
+
+        assert_eq!(
+            terminal.apply(
+                MAX_SAFE_GENERATION,
+                TerminalCommand::Output {
+                    sequence: 1,
+                    data: String::from("discarded"),
+                },
+            ),
+            Err(TerminalError::GenerationOverflow)
+        );
+        assert_eq!(terminal.snapshot().unwrap(), before);
     }
 
     #[test]

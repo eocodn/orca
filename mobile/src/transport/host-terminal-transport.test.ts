@@ -76,8 +76,18 @@ describe('mobile Host Terminal transport', () => {
       readTerminalResponse({ ...terminalResponse, status: 'exited', exit_code: 2147483648 })
     ).toBeNull()
     expect(readTerminalResponse({ ...terminalResponse, failure_reason: 3 })).toBeNull()
+    expect(readTerminalResponse({ ...terminalResponse, failure_reason: 'spawn failed' })).toBeNull()
+    expect(readTerminalResponse({ ...terminalResponse, status: 'failed' })).toBeNull()
+    expect(
+      readTerminalResponse({
+        ...terminalResponse,
+        status: 'failed',
+        failure_reason: 'spawn failed'
+      })
+    ).toMatchObject({ status: 'failed', failure_reason: 'spawn failed' })
     expect(readTerminalResponse({ ...terminalResponse, output_sequence: 1.5 })).toBeNull()
     expect(readTerminalResponse({ ...terminalResponse, tail: null })).toBeNull()
+    expect(readTerminalResponse({ ...terminalResponse, unexpected: true })).toBeNull()
   })
 
   it('sends a terminal request and validates request, terminal, and operation correlation', async () => {
