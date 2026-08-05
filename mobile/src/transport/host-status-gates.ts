@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import type { RpcClient } from './rpc-client'
 import type { ConnectionState, RpcSuccess } from './types'
 import { evaluateCompat, type CompatVerdict } from './protocol-compat'
+import { readHostProtocolStatus } from './host-protocol-status'
 import type { DesktopStatus } from '../worktree/host-worktree-rpc-types'
 
 export type HostStatusGates = {
   hostCapabilities: string[]
+  hostProtocolVersion: number | null
   floatingWorkspaceEnabled: boolean
   compatVerdict: CompatVerdict
   statusPending: boolean
@@ -47,6 +49,7 @@ export function useHostStatusGates(args: {
             hostId,
             client: requestClient,
             hostCapabilities: [],
+            hostProtocolVersion: null,
             floatingWorkspaceEnabled: false,
             compatVerdict: { kind: 'ok' },
             statusPending: false
@@ -55,7 +58,9 @@ export function useHostStatusGates(args: {
         }
         const status = (response as RpcSuccess).result as DesktopStatus & {
           capabilities?: string[]
+          hostProtocol?: unknown
         }
+        const hostProtocol = readHostProtocolStatus(status.hostProtocol)
         const verdict = evaluateCompat({
           desktopProtocolVersion: status.protocolVersion,
           desktopMinCompatibleMobileVersion: status.minCompatibleMobileVersion
@@ -64,6 +69,7 @@ export function useHostStatusGates(args: {
           hostId,
           client: requestClient,
           hostCapabilities: status.capabilities ?? [],
+          hostProtocolVersion: hostProtocol?.version ?? null,
           floatingWorkspaceEnabled: status.floatingWorkspaceEnabled === true,
           compatVerdict: verdict,
           statusPending: false
@@ -84,6 +90,7 @@ export function useHostStatusGates(args: {
             hostId,
             client: requestClient,
             hostCapabilities: [],
+            hostProtocolVersion: null,
             floatingWorkspaceEnabled: false,
             compatVerdict: { kind: 'ok' },
             statusPending: false
@@ -106,6 +113,7 @@ export function useHostStatusGates(args: {
   ) {
     return {
       hostCapabilities: EMPTY_HOST_CAPABILITIES,
+      hostProtocolVersion: null,
       floatingWorkspaceEnabled: false,
       compatVerdict: { kind: 'ok' },
       statusPending: connState === 'connected' && client !== null
@@ -113,6 +121,7 @@ export function useHostStatusGates(args: {
   }
   return {
     hostCapabilities: loaded.hostCapabilities,
+    hostProtocolVersion: loaded.hostProtocolVersion,
     floatingWorkspaceEnabled: loaded.floatingWorkspaceEnabled,
     compatVerdict: loaded.compatVerdict,
     statusPending: false

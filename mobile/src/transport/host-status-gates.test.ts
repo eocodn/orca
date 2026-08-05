@@ -90,6 +90,10 @@ describe('useHostStatusGates', () => {
       ok: true,
       result: {
         capabilities: ['browser.screencast.v1'],
+        hostProtocol: {
+          version: 1,
+          capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git']
+        },
         floatingWorkspaceEnabled: true
       }
     })
@@ -110,6 +114,7 @@ describe('useHostStatusGates', () => {
       })
       expect(gates).toMatchObject({
         hostCapabilities: ['browser.screencast.v1'],
+        hostProtocolVersion: 1,
         floatingWorkspaceEnabled: true
       })
 
