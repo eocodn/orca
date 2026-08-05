@@ -114,7 +114,7 @@ pub fn build_command(
             }
             (
                 String::from("ssh"),
-                vec![host.clone(), String::from("--"), String::from(command)],
+                vec![String::from("--"), host.clone(), String::from(command)],
             )
         }
     };
@@ -352,8 +352,32 @@ mod contract_tests {
             Ok(CommandSpec {
                 program: String::from("ssh"),
                 args: vec![
-                    String::from("dev.example"),
                     String::from("--"),
+                    String::from("dev.example"),
+                    String::from("git"),
+                    String::from("status"),
+                ],
+                working_directory: None,
+            })
+        );
+    }
+
+    #[test]
+    fn terminates_ssh_options_before_a_host_identity() {
+        assert_eq!(
+            build_command(
+                &ExecutionTarget::Ssh {
+                    host: String::from("-oProxyCommand=unexpected"),
+                },
+                "git",
+                &["status"],
+                None,
+            ),
+            Ok(CommandSpec {
+                program: String::from("ssh"),
+                args: vec![
+                    String::from("--"),
+                    String::from("-oProxyCommand=unexpected"),
                     String::from("git"),
                     String::from("status"),
                 ],
