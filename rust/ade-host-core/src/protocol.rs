@@ -1,11 +1,29 @@
 pub const PROTOCOL_VERSION: u16 = 1;
 
+pub const HOST_CAPABILITIES: [Capability; 4] = [
+    Capability::WorkspaceRead,
+    Capability::WorkspaceWrite,
+    Capability::Terminal,
+    Capability::Git,
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Capability {
     WorkspaceRead,
     WorkspaceWrite,
     Terminal,
     Git,
+}
+
+impl Capability {
+    pub const fn wire_name(self) -> &'static str {
+        match self {
+            Self::WorkspaceRead => "workspace.read",
+            Self::WorkspaceWrite => "workspace.write",
+            Self::Terminal => "terminal",
+            Self::Git => "git",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

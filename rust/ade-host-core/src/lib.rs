@@ -6,7 +6,9 @@ pub mod worker;
 #[cfg(test)]
 mod contract_tests {
     use super::host_runtime::HostRuntime;
-    use super::protocol::{Capability, ProtocolEnvelope, ProtocolError, PROTOCOL_VERSION};
+    use super::protocol::{
+        Capability, ProtocolEnvelope, ProtocolError, HOST_CAPABILITIES, PROTOCOL_VERSION,
+    };
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
     use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
     use std::sync::Arc;
@@ -27,6 +29,17 @@ mod contract_tests {
         assert_eq!(
             envelope.authorize(&[Capability::WorkspaceRead]),
             Err(ProtocolError::CapabilityDenied(Capability::WorkspaceWrite))
+        );
+    }
+
+    #[test]
+    fn protocol_capabilities_have_stable_wire_names() {
+        assert_eq!(
+            HOST_CAPABILITIES
+                .iter()
+                .map(|capability| capability.wire_name())
+                .collect::<Vec<_>>(),
+            vec!["workspace.read", "workspace.write", "terminal", "git"]
         );
     }
 
