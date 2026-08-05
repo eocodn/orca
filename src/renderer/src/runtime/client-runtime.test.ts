@@ -12,7 +12,8 @@ import {
   type ClientRuntimePreviewService,
   type ClientRuntimeDeviceService,
   type ClientRuntimeTerminalService,
-  type ClientRuntimeWorkspaceService
+  type ClientRuntimeWorkspaceService,
+  type ClientRuntimeRemoteWorkspaceService
 } from './client-runtime'
 
 describe('ClientRuntime service boundary', () => {
@@ -36,6 +37,7 @@ describe('ClientRuntime service boundary', () => {
     }
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
+    const remoteWorkspace = {} as ClientRuntimeRemoteWorkspaceService
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
     const preview = {} as ClientRuntimePreviewService
@@ -54,6 +56,7 @@ describe('ClientRuntime service boundary', () => {
       worktrees: workspace.worktrees,
       workspacePorts: workspace.ports,
       runtimeEnvironments: remoteHost,
+      remoteWorkspace,
       fs: file,
       pty: terminal,
       terminalPreview: preview,
@@ -81,6 +84,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.workspace.repos).toBe(workspace.repos)
     expect(clientRuntime.workspace.ports).toBe(workspace.ports)
     expect(clientRuntime.remoteHost).toBe(remoteHost)
+    expect(clientRuntime.remoteWorkspace).toBe(remoteWorkspace)
     expect(clientRuntime.file).toBe(file)
     expect(clientRuntime.terminal).toBe(terminal)
     expect(clientRuntime.preview).toBe(preview)
@@ -104,6 +108,7 @@ describe('ClientRuntime service boundary', () => {
     }
     const workspace = {} as ClientRuntimeWorkspaceService
     const remoteHost = { call: vi.fn(), subscribe: vi.fn(), getStatus: vi.fn() }
+    const remoteWorkspace = {} as ClientRuntimeRemoteWorkspaceService
     const file = {} as ClientRuntimeFileService
     const terminal = {} as ClientRuntimeTerminalService
     const preview = {} as ClientRuntimePreviewService
@@ -128,6 +133,7 @@ describe('ClientRuntime service boundary', () => {
         worktrees: workspace.worktrees,
         workspacePorts: workspace.ports,
         runtimeEnvironments: remoteHost,
+        remoteWorkspace,
         fs: file,
         pty: terminal,
         terminalPreview: preview,
@@ -145,6 +151,7 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().workspace.repos).toBe(workspace.repos)
     expect(getClientRuntime().workspace.ports).toBe(workspace.ports)
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
+    expect(getClientRuntime().remoteWorkspace).toBe(remoteWorkspace)
     expect(getClientRuntime().file).toBe(file)
     expect(getClientRuntime().terminal).toBe(terminal)
     expect(getClientRuntime().preview).toBe(preview)

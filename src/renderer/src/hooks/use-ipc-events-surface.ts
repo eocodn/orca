@@ -90,7 +90,12 @@ import {
   openNewWorkspaceFromShortcut,
   resolveBrowserSessionTabTarget
 } from './ipc-events-surface-model'
-export { buildNewWorkspaceShortcutModalData, openNewWorkspaceFromShortcut, resolveBrowserSessionTabTarget, isRemoteWorkspaceSnapshotApplyInProgress } from './ipc-events-surface-model'
+export {
+  buildNewWorkspaceShortcutModalData,
+  openNewWorkspaceFromShortcut,
+  resolveBrowserSessionTabTarget,
+  isRemoteWorkspaceSnapshotApplyInProgress
+} from './ipc-events-surface-model'
 import {
   createRemoteWorkspaceTargetSync,
   type RemoteWorkspaceTargetSync
@@ -181,7 +186,7 @@ export function useIpcEvents(): void {
         remoteWorkspaceTargetSync?.syncAfterConnect(token),
       onTelemetry: createDirectSshReconnectProductTelemetryAdapter()
     })
-    const remoteWorkspaceApi = window.api.remoteWorkspace
+    const remoteWorkspaceApi = getClientRuntime().remoteWorkspace
     if (remoteWorkspaceApi) {
       remoteWorkspaceTargetSync = createRemoteWorkspaceTargetSync({
         store: useAppStore,

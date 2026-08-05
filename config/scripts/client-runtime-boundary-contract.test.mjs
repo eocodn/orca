@@ -202,6 +202,11 @@ const workspacePortFiles = [
   'src/renderer/src/lib/workspace-port-actions.ts',
   'src/renderer/src/components/ports/WorkspacePortScanner.tsx'
 ]
+const remoteWorkspaceFiles = [
+  'src/renderer/src/app-shell-page-session-effects.ts',
+  'src/renderer/src/hooks/ipc-events-ssh.ts',
+  'src/renderer/src/hooks/use-ipc-events-surface.ts'
+]
 
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
@@ -308,6 +313,17 @@ describe('ClientRuntime renderer boundary', () => {
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.workspacePorts/)
+    }
+  })
+
+  it('routes remote workspace calls through the remote host adapter', async () => {
+    const sources = await Promise.all(remoteWorkspaceFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.remoteWorkspace/)
     }
   })
 })

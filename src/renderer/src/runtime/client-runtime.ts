@@ -2,6 +2,7 @@ import type { PreloadApi } from '../../../preload/api-preload-surface'
 
 export type ClientRuntimeRuntimeService = PreloadApi['runtime']
 export type ClientRuntimeRemoteHostService = PreloadApi['runtimeEnvironments']
+export type ClientRuntimeRemoteWorkspaceService = PreloadApi['remoteWorkspace']
 export type ClientRuntimeFileService = PreloadApi['fs']
 export type ClientRuntimeGitService = PreloadApi['git']
 export type ClientRuntimeSessionService = PreloadApi['session']
@@ -30,6 +31,7 @@ export type ClientRuntimeIntegrationService = {
 export type ClientRuntime = {
   runtime: ClientRuntimeRuntimeService
   remoteHost: ClientRuntimeRemoteHostService
+  remoteWorkspace: ClientRuntimeRemoteWorkspaceService
   file: ClientRuntimeFileService
   git: ClientRuntimeGitService
   session: ClientRuntimeSessionService
@@ -46,6 +48,7 @@ export type ClientRuntime = {
 type ClientRuntimeHostAdapter = {
   runtime: ClientRuntimeRuntimeService
   runtimeEnvironments: ClientRuntimeRemoteHostService
+  remoteWorkspace: ClientRuntimeRemoteWorkspaceService
   fs: ClientRuntimeFileService
   git: ClientRuntimeGitService
   session: ClientRuntimeSessionService
@@ -74,6 +77,7 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
   return {
     runtime: adapter.runtime,
     remoteHost: adapter.runtimeEnvironments,
+    remoteWorkspace: adapter.remoteWorkspace,
     file: adapter.fs,
     git: adapter.git,
     session: adapter.session,

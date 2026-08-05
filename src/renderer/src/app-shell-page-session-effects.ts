@@ -326,7 +326,9 @@ export function useAppShellPageSessionEffects(context: Record<string, unknown>) 
         )
         if (hydratedTargetIds.length > 0) {
           void localWrite
-            .then(() => window.api.remoteWorkspace?.setForConnectedTargets({ hydratedTargetIds }))
+            .then(() =>
+              getClientRuntime().remoteWorkspace?.setForConnectedTargets({ hydratedTargetIds })
+            )
             .then((results) => {
               for (const { targetId, result } of results ?? []) {
                 applyRemoteWorkspacePatchStatus(targetId, result)
