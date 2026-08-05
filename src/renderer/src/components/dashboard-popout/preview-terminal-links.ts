@@ -2,6 +2,7 @@ import type { Terminal } from '@xterm/xterm'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { installGuardedLinkProviderRegistration } from '@/lib/pane-manager/terminal-link-provider-guard'
 import { isTerminalHttpLinkActivation } from '@/components/terminal-pane/terminal-http-link-activation'
+import { getClientRuntime } from '@/runtime/client-runtime'
 
 /**
  * Makes URLs in the preview clickable under the same Mod+click gesture a pane
@@ -19,7 +20,9 @@ export function installPreviewTerminalLinks(terminal: Terminal): void {
         return
       }
       event.preventDefault()
-      void window.api.shell.openUrl(uri).catch(() => undefined)
+      void getClientRuntime()
+        .shell.openUrl(uri)
+        .catch(() => undefined)
       terminal.clearSelection()
     })
   )

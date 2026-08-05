@@ -5,6 +5,7 @@ import {
 } from '../../../shared/localhost-worktree-labels'
 import type { GlobalSettings } from '../../../shared/types'
 import type { WorkspacePort, WorkspacePortScanResult } from '../../../shared/workspace-ports'
+import { getClientRuntime } from '@/runtime/client-runtime'
 
 export type OpenHttpLinkOptions = {
   worktreeId?: string | null
@@ -134,11 +135,11 @@ export function openHttpLink(url: string, opts: OpenHttpLinkOptions = {}): void 
 
   const localhostRoute = state ? localhostLabelRouteForHttpLink(url, state, sourceOwner) : null
   if (!localhostRoute) {
-    void window.api.shell.openUrl(url)
+    void getClientRuntime().shell.openUrl(url)
     return
   }
   void openLabeledLocalhostLink(url, localhostRoute, (labeledUrl) => {
-    void window.api.shell.openUrl(labeledUrl)
+    void getClientRuntime().shell.openUrl(labeledUrl)
   })
 }
 

@@ -109,7 +109,7 @@ export async function openWorkspacePortInBrowser(args: {
   }
   if (args.openInOrcaBrowser === false && args.runtimeTarget.kind === 'local') {
     try {
-      await window.api.shell.openUrl(url)
+      await getClientRuntime().shell.openUrl(url)
       return { ok: true }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

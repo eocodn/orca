@@ -27,6 +27,7 @@ import { shouldBlockEditorTabLocalOpen } from './editor-tab-local-open-guard'
 import { translate } from '@/i18n/i18n'
 import { TabWorkspaceLayoutMenuSection } from './TabWorkspaceLayoutMenuSection'
 import { TAB_CONTEXT_MENU_CONTENT_CLASS } from './tab-context-menu-sizing'
+import { getClientRuntime } from '@/runtime/client-runtime'
 
 const isMac = navigator.userAgent.includes('Mac')
 const isLinux = navigator.userAgent.includes('Linux')
@@ -245,7 +246,7 @@ export function EditorFileTabContextMenu({
               showLocalPathOpenBlockedToast()
               return
             }
-            window.api.shell.openPath(file.filePath)
+            getClientRuntime().shell.openPath(file.filePath)
           }}
         >
           <ExternalLink className="size-3.5" />

@@ -207,6 +207,14 @@ const remoteWorkspaceFiles = [
   'src/renderer/src/hooks/ipc-events-ssh.ts',
   'src/renderer/src/hooks/use-ipc-events-surface.ts'
 ]
+const shellExternalOpenFiles = [
+  'src/renderer/src/components/dashboard-popout/preview-terminal-links.ts',
+  'src/renderer/src/components/tab-bar/EditorFileTabContextMenu.tsx',
+  'src/renderer/src/components/skills/SkillCard.tsx',
+  'src/renderer/src/components/sidebar/use-worktree-issue-link.ts',
+  'src/renderer/src/lib/http-link-routing.ts',
+  'src/renderer/src/lib/workspace-port-actions.ts'
+]
 
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
@@ -324,6 +332,17 @@ describe('ClientRuntime renderer boundary', () => {
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.remoteWorkspace/)
+    }
+  })
+
+  it('routes external URL and path opening through the shell adapter', async () => {
+    const sources = await Promise.all(shellExternalOpenFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:@\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.shell\.(?:openUrl|openPath|openInFileManager)/)
     }
   })
 })

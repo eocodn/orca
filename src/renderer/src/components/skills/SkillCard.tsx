@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { DiscoveredSkill, SkillProvider } from '../../../../shared/skills'
 import { pluralize, sourceLabels } from './skill-display-labels'
 
@@ -27,7 +28,7 @@ function formatUpdatedAt(value: number | null): string {
 
 export function SkillCard({ skill }: { skill: DiscoveredSkill }): React.JSX.Element {
   const revealSkill = async (): Promise<void> => {
-    const result = await window.api.shell.openInFileManager(skill.skillFilePath)
+    const result = await getClientRuntime().shell.openInFileManager(skill.skillFilePath)
     if (!result.ok) {
       toast.error(
         translate('auto.components.skills.SkillsPage.995fde8337', 'Could not reveal skill file')
