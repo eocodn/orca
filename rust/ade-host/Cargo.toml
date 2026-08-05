@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 ade-host-core = { path = "../ade-host-core" }
+ade-host-store = { path = "../ade-host-store" }
