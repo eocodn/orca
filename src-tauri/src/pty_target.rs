@@ -143,6 +143,8 @@ mod tests {
     fn request(request_id: &str, session_id: &str) -> PtyRequest {
         PtyRequest {
             request_id: request_id.to_string(),
+            workspace_id: String::from("workspace-1"),
+            worker_id: String::from("worker-1"),
             session_id: session_id.to_string(),
             operation: PtyOperation::Start,
             program: None,
@@ -301,6 +303,8 @@ mod tests {
         let request: PtyRequest = serde_json::from_str(
             r#"{
                 "request_id":"start-1",
+                "workspace_id":"workspace-1",
+                "worker_id":"worker-1",
                 "session_id":"session-1",
                 "operation":"start",
                 "program":"bash",

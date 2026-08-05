@@ -24,6 +24,8 @@ pub enum PtyOperation {
 #[serde(deny_unknown_fields)]
 pub struct PtyRequest {
     pub request_id: String,
+    pub workspace_id: String,
+    pub worker_id: String,
     pub session_id: String,
     pub operation: PtyOperation,
     pub program: Option<String>,
@@ -45,11 +47,27 @@ pub struct PtyExecutionState {
 
 #[derive(Default)]
 struct PtyRegistry {
-    sessions: HashMap<String, Arc<Mutex<PtySession>>>,
-    session_reservations: HashMap<String, String>,
+    sessions: HashMap<String, PtySessionEntry>,
+    session_reservations: HashMap<String, PtySessionReservation>,
     committed_requests: HashMap<String, (PtyRequest, Result<String, String>)>,
     committed_request_order: VecDeque<String>,
     in_flight_requests: HashMap<String, PtyRequest>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PtyOwner {
+    workspace_id: String,
+    worker_id: String,
+}
+
+struct PtySessionEntry {
+    owner: PtyOwner,
+    session: Arc<Mutex<PtySession>>,
+}
+
+struct PtySessionReservation {
+    request_id: String,
+    owner: PtyOwner,
 }
 
 #[derive(Debug, Serialize)]
@@ -99,7 +117,16 @@ pub fn execute_pty_request(
         },
         _ => match session_for_request(request, state) {
             Ok(session) => session,
-            Err(error) => return Err(error),
+            Err(error) => {
+                if error == "session_owner_conflict" {
+                    if let Err(commit_error) =
+                        commit_request_result(request, state, Err(error.clone()))
+                    {
+                        return Err(commit_error);
+                    }
+                }
+                return Err(error);
+            }
         },
     };
 
@@ -139,11 +166,6 @@ pub fn execute_pty_request(
         }
     };
     commit_request_result(request, state, Ok(response.clone()))?;
-    if matches!(request.operation, PtyOperation::Terminate) {
-        if let Ok(mut registry) = state.registry.lock() {
-            registry.sessions.remove(&request.session_id);
-        }
-    }
     Ok(response)
 }
 
@@ -157,6 +179,8 @@ fn should_commit_start_error(error: &str) -> bool {
             | "wsl_distro_mismatch"
             | "pty_spawn_failed"
             | "pty_terminal_failed"
+            | "session_id_conflict"
+            | "session_owner_conflict"
     )
 }
 
@@ -166,6 +190,12 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
     }
     if request.session_id.trim().is_empty() {
         return Err(String::from("empty_session_id"));
+    }
+    if request.workspace_id.trim().is_empty() {
+        return Err(String::from("empty_workspace_id"));
+    }
+    if request.worker_id.trim().is_empty() {
+        return Err(String::from("empty_worker_id"));
     }
     match request.operation {
         PtyOperation::Start => {
@@ -214,6 +244,7 @@ fn start_session(
     state: &PtyExecutionState,
 ) -> Result<Arc<Mutex<PtySession>>, String> {
     let spec = build_pty_spec(request)?;
+    let owner = owner_for_request(request);
     let mut registry = state
         .registry
         .lock()
@@ -224,21 +255,30 @@ fn start_session(
         }
         return Err(String::from("request_id_conflict"));
     }
-    if registry.sessions.contains_key(&request.session_id) {
-        return Err(String::from("session_id_conflict"));
+    if let Some(entry) = registry.sessions.get(&request.session_id) {
+        return Err(if entry.owner == owner {
+            String::from("session_id_conflict")
+        } else {
+            String::from("session_owner_conflict")
+        });
     }
-    if registry
-        .session_reservations
-        .contains_key(&request.session_id)
-    {
-        return Err(String::from("session_id_starting"));
+    if let Some(reservation) = registry.session_reservations.get(&request.session_id) {
+        return Err(if reservation.owner == owner {
+            String::from("session_id_starting")
+        } else {
+            String::from("session_owner_conflict")
+        });
     }
     registry
         .in_flight_requests
         .insert(request.request_id.clone(), request.clone());
-    registry
-        .session_reservations
-        .insert(request.session_id.clone(), request.request_id.clone());
+    registry.session_reservations.insert(
+        request.session_id.clone(),
+        PtySessionReservation {
+            request_id: request.request_id.clone(),
+            owner: owner.clone(),
+        },
+    );
     drop(registry);
 
     let session = match PtySession::spawn(request.session_id.clone(), spec) {
@@ -259,9 +299,13 @@ fn start_session(
         let _ = session.terminate();
         return Err(String::from("session_id_conflict"));
     }
-    registry
-        .sessions
-        .insert(request.session_id.clone(), Arc::clone(&session));
+    registry.sessions.insert(
+        request.session_id.clone(),
+        PtySessionEntry {
+            owner,
+            session: Arc::clone(&session),
+        },
+    );
     Ok(session)
 }
 
@@ -279,24 +323,31 @@ fn session_for_request(
         }
         return Err(String::from("request_id_conflict"));
     }
-    let session = registry
-        .sessions
-        .get(&request.session_id)
-        .cloned()
-        .ok_or_else(|| {
-            if registry
-                .session_reservations
-                .contains_key(&request.session_id)
-            {
-                String::from("session_starting")
-            } else {
-                String::from("session_not_found")
-            }
-        })?;
+    let owner = owner_for_request(request);
+    let session = if let Some(entry) = registry.sessions.get(&request.session_id) {
+        if entry.owner != owner {
+            return Err(String::from("session_owner_conflict"));
+        }
+        Arc::clone(&entry.session)
+    } else if let Some(reservation) = registry.session_reservations.get(&request.session_id) {
+        if reservation.owner != owner {
+            return Err(String::from("session_owner_conflict"));
+        }
+        return Err(String::from("session_starting"));
+    } else {
+        return Err(String::from("session_not_found"));
+    };
     registry
         .in_flight_requests
         .insert(request.request_id.clone(), request.clone());
     Ok(session)
+}
+
+fn owner_for_request(request: &PtyRequest) -> PtyOwner {
+    PtyOwner {
+        workspace_id: request.workspace_id.clone(),
+        worker_id: request.worker_id.clone(),
+    }
 }
 
 fn render_result(
@@ -359,13 +410,17 @@ fn commit_request_result(
     if registry
         .session_reservations
         .get(&request.session_id)
-        .is_some_and(|request_id| request_id == &request.request_id)
+        .is_some_and(|reservation| reservation.request_id == request.request_id)
     {
         registry.session_reservations.remove(&request.session_id);
     }
+    let remove_session = matches!(request.operation, PtyOperation::Terminate) && result.is_ok();
     registry
         .committed_requests
         .insert(request.request_id.clone(), (request.clone(), result));
+    if remove_session {
+        registry.sessions.remove(&request.session_id);
+    }
     registry
         .committed_request_order
         .push_back(request.request_id.clone());
@@ -400,7 +455,7 @@ impl Drop for PtyExecutionState {
         let sessions = registry
             .sessions
             .drain()
-            .map(|(_, session)| session)
+            .map(|(_, entry)| entry.session)
             .collect::<Vec<_>>();
         for session in sessions {
             if let Ok(mut session) = session.lock() {
@@ -420,6 +475,8 @@ mod tests {
     fn request(request_id: &str, session_id: &str, operation: PtyOperation) -> PtyRequest {
         PtyRequest {
             request_id: request_id.to_string(),
+            workspace_id: String::from("workspace-1"),
+            worker_id: String::from("worker-1"),
             session_id: session_id.to_string(),
             operation,
             program: None,
@@ -477,11 +534,35 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn rejects_a_non_owner_operation_and_replays_the_conflict() {
+        let state = PtyExecutionState::default();
+        let mut start = request("start-1", "session-1", PtyOperation::Start);
+        start.program = Some(String::from("cat"));
+        start.cols = Some(80);
+        start.rows = Some(24);
+        execute_pty_request(&start, &state).unwrap();
+
+        let mut write = request("write-1", "session-1", PtyOperation::Write);
+        write.input = Some(String::from("blocked\n"));
+        write.workspace_id = String::from("workspace-2");
+
+        let first = execute_pty_request(&write, &state);
+        assert_eq!(first, Err(String::from("session_owner_conflict")));
+        assert_eq!(execute_pty_request(&write, &state), first);
+
+        let terminate = request("terminate-1", "session-1", PtyOperation::Terminate);
+        execute_pty_request(&terminate, &state).unwrap();
+    }
+
     #[test]
     fn accepts_the_public_hyphenated_native_target_name() {
         let request: PtyRequest = serde_json::from_str(
             r#"{
                 "request_id":"start-1",
+                "workspace_id":"workspace-1",
+                "worker_id":"worker-1",
                 "session_id":"session-1",
                 "operation":"start",
                 "program":"bash",
