@@ -2,6 +2,8 @@ use super::{
     commit_request_result, execute_pty_request, PtyExecutionState, PtyOperation, PtyRequest,
     PtySessionEntry,
 };
+#[cfg(windows)]
+use ade_host_core::protocol::PtyStatus;
 use ade_host_core::protocol::{
     PtyExecutionTarget, PtyOperation as HostPtyOperation, PtyRequest as HostPtyRequest, PtyResponse,
 };
@@ -92,6 +94,51 @@ fn executes_a_shared_wire_request_through_the_authoritative_registry() {
         .expect("shared requests must return shared responses");
     assert_eq!(response.operation, "start");
     assert_eq!(response.session_id, "session-1");
+}
+
+#[cfg(windows)]
+#[test]
+fn shared_wire_wait_observes_windows_exit_code_259() {
+    let state = PtyExecutionState::default();
+    let start = HostPtyRequest::new(
+        "shared-windows-259-start",
+        "workspace-1",
+        "worker-1",
+        "session-windows-259",
+        None,
+        HostPtyOperation::Start {
+            program: String::from("cmd.exe"),
+            args: vec![
+                String::from("/C"),
+                String::from("exit"),
+                String::from("/B"),
+                String::from("259"),
+            ],
+            current_dir: None,
+            execution_target: Some(PtyExecutionTarget::WindowsNative),
+            cols: 80,
+            rows: 24,
+        },
+    );
+    let started = super::execute_shared_pty_request(&start, &state).unwrap();
+    let started = serde_json::from_str::<PtyResponse>(&started).unwrap();
+    let wait = HostPtyRequest::new(
+        "shared-windows-259-wait",
+        "workspace-1",
+        "worker-1",
+        "session-windows-259",
+        Some(started.session_generation),
+        HostPtyOperation::Wait { timeout_ms: 2_000 },
+    );
+
+    let waited = super::execute_shared_pty_request(&wait, &state).unwrap();
+    let waited = serde_json::from_str::<PtyResponse>(&waited).unwrap();
+    assert_eq!(waited.status, PtyStatus::Exited);
+    assert_eq!(waited.exit_code, Some(259));
+    assert_eq!(waited.failure_reason, None);
+    assert_eq!(waited.workspace_id, "workspace-1");
+    assert_eq!(waited.worker_id, "worker-1");
+    assert_eq!(waited.session_id, "session-windows-259");
 }
 
 #[test]
