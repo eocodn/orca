@@ -62,6 +62,7 @@ pub struct PtySession {
     master: Mutex<Option<Box<dyn MasterPty + Send>>>,
     writer: Mutex<Option<Box<dyn Write + Send>>>,
     child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
+    process_id: Option<u32>,
     process_group: Option<i32>,
     output_rx: Receiver<Result<Vec<u8>, String>>,
     reader_thread: Option<JoinHandle<()>>,
@@ -100,6 +101,7 @@ impl PtySession {
             .slave
             .spawn_command(command)
             .map_err(|error| PtyError::Spawn(error.to_string()))?;
+        let process_id = child.process_id();
         #[cfg(unix)]
         let process_group = pair.master.process_group_leader();
         #[cfg(not(unix))]
@@ -130,6 +132,7 @@ impl PtySession {
             master: Mutex::new(Some(pair.master)),
             writer: Mutex::new(Some(writer)),
             child: Arc::new(Mutex::new(child)),
+            process_id,
             process_group,
             output_rx,
             reader_thread,
@@ -248,8 +251,16 @@ impl PtySession {
 
     pub fn terminate(&mut self) -> Result<TerminalSnapshot, PtyError> {
         // Observe an already-exited child before converting termination into failure.
-        let current = self.poll()?;
-        if !matches!(current.status, TerminalStatus::Running) {
+        let current = self.terminal.snapshot().map_err(terminal_error)?;
+        let preserve_failed_state = matches!(current.status, TerminalStatus::Failed { .. });
+        if matches!(current.status, TerminalStatus::Running) {
+            let observed = self.poll()?;
+            if !matches!(observed.status, TerminalStatus::Running) {
+                return Ok(observed);
+            }
+        } else if !matches!(current.status, TerminalStatus::Failed { .. })
+            || (self.terminated && self.child_reaped)
+        {
             return Ok(current);
         }
         let termination_error = match self.terminate_running_process() {
@@ -275,10 +286,13 @@ impl PtySession {
             .as_ref()
             .map(|error| format!("pty termination cleanup failed: {error:?}"))
             .unwrap_or_else(|| String::from("pty terminated"));
-        let snapshot = self
-            .terminal
-            .fail_process("", reason)
-            .map_err(terminal_error)?;
+        let snapshot = if preserve_failed_state {
+            self.terminal.snapshot().map_err(terminal_error)?
+        } else {
+            self.terminal
+                .fail_process("", reason)
+                .map_err(terminal_error)?
+        };
         if cleanup_error.is_some() {
             Err(PtyError::Termination(String::from(
                 "pty termination cleanup failed",
@@ -316,14 +330,22 @@ impl PtySession {
             self.fail_after_backend_error(&error);
             return Err(error);
         }
-        self.terminated = true;
         if let Err(error) = self.drain_output_until_reader_closes() {
+            let _ = self.terminate_descendants();
+            if self.drain_output_until_reader_closes().is_err() {
+                self.disconnect_output_reader();
+            }
             self.fail_after_backend_error(&error);
             return Err(error);
         }
+        self.terminated = true;
         if let Err(error) = self.finish_output() {
             self.fail_after_backend_error(&error);
             return Err(error);
+        }
+        let current = self.terminal.snapshot().map_err(terminal_error)?;
+        if !matches!(current.status, TerminalStatus::Running) {
+            return Ok(current);
         }
         self.terminal
             .complete_process("", status.exit_code() as i32)
@@ -417,11 +439,14 @@ impl PtySession {
 
     fn fail_after_backend_error(&mut self, error: &PtyError) {
         let termination = self.terminate_running_process();
+        let descendants = self.terminate_descendants();
         if termination.is_ok() || self.child_reaped {
             let _ = self.reap_child();
         }
         let _ = self.close_pty_handles();
-        self.disconnect_output_reader();
+        if termination.is_err() || descendants.is_err() {
+            self.disconnect_output_reader();
+        }
         let _ = self
             .terminal
             .fail_process("", format!("pty backend failure: {error:?}"));
@@ -465,7 +490,10 @@ impl PtySession {
         let pid = child.process_id();
         if let Some(pid) = pid {
             match terminate_process_tree(self.process_group, pid)? {
-                ProcessTermination::Signalled => {}
+                ProcessTermination::Signalled => {
+                    confirm_child_exit(&mut child)?;
+                    self.child_reaped = true;
+                }
                 ProcessTermination::AlreadyExited => {
                     if let Some(status) = child
                         .try_wait()
@@ -483,6 +511,8 @@ impl PtySession {
             child
                 .kill()
                 .map_err(|error| PtyError::Termination(error.to_string()))?;
+            confirm_child_exit(&mut child)?;
+            self.child_reaped = true;
         }
         drop(child);
         self.close_pty_handles()?;
@@ -501,15 +531,35 @@ impl PtySession {
             .take();
         Ok(())
     }
+
+    #[cfg(unix)]
+    fn terminate_descendants(&self) -> Result<(), PtyError> {
+        let (Some(process_group), Some(process_id)) = (self.process_group, self.process_id) else {
+            return Ok(());
+        };
+        terminate_process_tree(Some(process_group), process_id).map(|_| ())
+    }
+
+    #[cfg(not(unix))]
+    fn terminate_descendants(&self) -> Result<(), PtyError> {
+        Ok(())
+    }
 }
 
 impl Drop for PtySession {
     fn drop(&mut self) {
         let termination = self.terminate_running_process();
+        let descendants = self.terminate_descendants();
         if termination.is_ok() || self.child_reaped {
             let _ = self.reap_child();
         }
-        self.reader_thread.take();
+        if (termination.is_ok() || self.child_reaped) && descendants.is_ok() {
+            if let Some(reader_thread) = self.reader_thread.take() {
+                let _ = reader_thread.join();
+            }
+        } else {
+            self.reader_thread.take();
+        }
     }
 }
 
@@ -538,6 +588,25 @@ fn spawn_reader(
 
 fn terminal_error(error: ade_host_core::terminal::TerminalError) -> PtyError {
     PtyError::Terminal(format!("{error:?}"))
+}
+
+fn confirm_child_exit(child: &mut Box<dyn Child + Send + Sync>) -> Result<(), PtyError> {
+    let deadline = Instant::now() + READER_CLOSE_TIMEOUT;
+    loop {
+        if child
+            .try_wait()
+            .map_err(|error| PtyError::Termination(error.to_string()))?
+            .is_some()
+        {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(PtyError::Termination(String::from(
+                "pty child did not exit after termination",
+            )));
+        }
+        thread::sleep(POLL_INTERVAL);
+    }
 }
 
 enum ProcessTermination {
@@ -619,6 +688,16 @@ mod tests {
         assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
         assert!(snapshot.output_sequence >= 1);
         assert!(snapshot.tail.contains("ready"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn natural_exit_terminates_a_descendant_holding_the_pty_open() {
+        let mut session =
+            PtySession::spawn("pty-1", spec("sh", &["-c", "sleep 5 & exit 0"])).unwrap();
+        let snapshot = session.wait(Duration::from_secs(2)).unwrap();
+
+        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
     }
 
     #[cfg(unix)]
