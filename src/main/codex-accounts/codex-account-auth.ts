@@ -17,8 +17,7 @@ import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-fl
 import { getCodexManagedHookInstallMaterial } from '../codex/hook-service'
 import { toWindowsWslPath } from '../wsl'
 import { buildEncodedWslBashCommand } from '../wsl-bash-command'
-import { writeFileAtomically } from './fs-utils'
-
+import { writeFileAtomically } from '../cross-platform-file-operations'
 
 import {
   shellQuote,
@@ -335,6 +334,4 @@ export class CodexAccountServicePhase3 extends CodexAccountServicePhase2 {
     }
     return resolvedLeft === resolvedRight
   }
-
-
 }

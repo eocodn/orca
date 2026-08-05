@@ -3,8 +3,7 @@ import {
   readFileSync,
   rmSync
 } from 'node:fs'
-import { writeFileAtomically } from './fs-utils'
-
+import { writeFileAtomically } from '../cross-platform-file-operations'
 
 import {
   type CodexRuntimeLogoutMarker,

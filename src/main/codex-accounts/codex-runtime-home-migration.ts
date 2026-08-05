@@ -25,7 +25,7 @@ import {
   codexAuthMatchesManagedAccount,
   codexAuthMatchesSystemDefaultIdentity
 } from './codex-auth-identity'
-import { writeFileAtomically } from './fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import { migrateLegacySharedAuthToPerAccountHome } from './legacy-shared-auth-migration'
 import {
   getSelectedCodexAccountIdForTarget,
@@ -34,7 +34,6 @@ import {
   setSelectedCodexAccountIdForTarget,
   type CodexAccountSelectionTarget
 } from './runtime-selection'
-
 
 import {
   prepareWslRuntimeSeedConfig,
@@ -431,6 +430,4 @@ export class CodexRuntimeHomeServicePhase2 extends CodexRuntimeHomeServicePhase1
   protected getManagedAccountsRoot(): string {
     return join(app.getPath('userData'), 'codex-accounts')
   }
-
-
 }

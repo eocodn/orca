@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 import { app } from 'electron'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 
 const MANAGED_AUTH_MARKER = '.orca-managed-claude-auth'
 

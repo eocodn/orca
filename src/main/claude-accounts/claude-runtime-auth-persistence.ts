@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { app } from 'electron'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import { readActiveClaudeKeychainCredentialsStrict } from './keychain'
 import { type ClaudeKeychainReadResult } from './claude-runtime-auth-foundation'
 import { ClaudeRuntimeAuthServicePhase3 } from './claude-runtime-auth-restore'

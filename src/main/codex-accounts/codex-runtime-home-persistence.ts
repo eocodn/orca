@@ -26,8 +26,7 @@ import {
 import {
   getSystemCodexHomePath
 } from '../codex/codex-home-paths'
-import { writeFileAtomically } from './fs-utils'
-
+import { writeFileAtomically } from '../cross-platform-file-operations'
 
 import {
   type CodexSystemDefaultSnapshot
@@ -448,6 +447,4 @@ export class CodexRuntimeHomeServicePhase3 extends CodexRuntimeHomeServicePhase2
       return false
     }
   }
-
-
 }

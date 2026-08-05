@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
-import { writeFileAtomically } from './codex-accounts/fs-utils'
+import { writeFileAtomically } from './cross-platform-file-operations'
 import { getOrcaManagedCodexHomePath } from './codex/codex-home-paths'
 import { upsertProjectTrustLevel } from './codex/config-toml-trust'
 

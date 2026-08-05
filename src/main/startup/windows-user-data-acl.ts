@@ -25,7 +25,7 @@ import { getIcaclsExePath, resolveCurrentWindowsIdentity } from '../win32-utils'
  *   matches, startup performs zero icacls spawns.
  * - When absent, the grant runs asynchronously (never blocks window creation):
  *   userData root + immediate children (`<userData>\*`). Per-write EPERM
- *   retries in codex-accounts/fs-utils and agent-hooks/installer-utils remain
+ *   retries in cross-platform-file-operations and agent-hooks/installer-utils remain
  *   the backstop during the brief async window, exactly as they already were
  *   for the (common) case where the old synchronous walk timed out.
  */

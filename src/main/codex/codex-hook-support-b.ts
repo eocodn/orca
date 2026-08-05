@@ -20,7 +20,7 @@ import {
   writeManagedScript,
   type HookDefinition
 } from '../agent-hooks/installer-utils'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
 import { getCodexManagedScriptFileName } from './codex-hook-identity'
 import {

@@ -1,18 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   copyFileWithWindowsRetry,
   renameFileWithWindowsRetry,
   writeFileAtomically
-} from './fs-utils'
+} from './cross-platform-file-operations'
 
 describe('writeFileAtomically', () => {
   let dir: string
 
   function setup(): string {
-    dir = mkdtempSync(join(tmpdir(), 'orca-fs-utils-'))
+    dir = mkdtempSync(join(tmpdir(), 'orca-file-operations-'))
     return dir
   }
 
@@ -27,7 +35,6 @@ describe('writeFileAtomically', () => {
     try {
       const target = join(dir, 'test.json')
       writeFileAtomically(target, '{"key":"value"}\n')
-
       expect(readFileSync(target, 'utf-8')).toBe('{"key":"value"}\n')
     } finally {
       cleanup()
@@ -40,7 +47,6 @@ describe('writeFileAtomically', () => {
       const target = join(dir, 'test.json')
       writeFileAtomically(target, 'old')
       writeFileAtomically(target, 'new')
-
       expect(readFileSync(target, 'utf-8')).toBe('new')
     } finally {
       cleanup()
@@ -51,14 +57,11 @@ describe('writeFileAtomically', () => {
     if (process.platform === 'win32') {
       return
     }
-
     setup()
     try {
       const target = join(dir, 'secret.json')
       writeFileAtomically(target, '{"token":"abc"}\n', { mode: 0o600 })
-
-      const mode = statSync(target).mode & 0o777
-      expect(mode).toBe(0o600)
+      expect(statSync(target).mode & 0o777).toBe(0o600)
     } finally {
       cleanup()
     }
@@ -68,13 +71,9 @@ describe('writeFileAtomically', () => {
     setup()
     try {
       const target = join(dir, 'nonexistent-dir', 'nested', 'test.json')
-
       expect(() => writeFileAtomically(target, 'data')).toThrow()
-
       const tmpFiles = existsSync(dir)
-        ? require('node:fs')
-            .readdirSync(dir)
-            .filter((f: string) => f.endsWith('.tmp'))
+        ? readdirSync(dir).filter((file) => file.endsWith('.tmp'))
         : []
       expect(tmpFiles).toHaveLength(0)
     } finally {
@@ -87,7 +86,7 @@ describe('retrying file operations', () => {
   let dir: string
 
   function setup(): string {
-    dir = mkdtempSync(join(tmpdir(), 'orca-fs-utils-'))
+    dir = mkdtempSync(join(tmpdir(), 'orca-file-operations-'))
     return dir
   }
 
@@ -101,13 +100,11 @@ describe('retrying file operations', () => {
     setup()
     try {
       const source = join(dir, 'source.txt')
-      const target = join(dir, 'target.txt')
+      const renamed = join(dir, 'renamed.txt')
       writeFileSync(source, 'data', 'utf-8')
-
-      renameFileWithWindowsRetry(source, target)
-
+      renameFileWithWindowsRetry(source, renamed)
       expect(existsSync(source)).toBe(false)
-      expect(readFileSync(target, 'utf-8')).toBe('data')
+      expect(readFileSync(renamed, 'utf-8')).toBe('data')
     } finally {
       cleanup()
     }
@@ -117,13 +114,11 @@ describe('retrying file operations', () => {
     setup()
     try {
       const source = join(dir, 'source.txt')
-      const target = join(dir, 'target.txt')
+      const copied = join(dir, 'copied.txt')
       writeFileSync(source, 'data', 'utf-8')
-
-      copyFileWithWindowsRetry(source, target)
-
+      copyFileWithWindowsRetry(source, copied)
       expect(readFileSync(source, 'utf-8')).toBe('data')
-      expect(readFileSync(target, 'utf-8')).toBe('data')
+      expect(readFileSync(copied, 'utf-8')).toBe('data')
     } finally {
       cleanup()
     }

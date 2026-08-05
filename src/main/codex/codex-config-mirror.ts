@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { readAgentStateFileSync } from '../agent-state-file-reader'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
 import { rewriteRelativePathConfigValues } from './codex-config-path-reference-rewrite'
 import { normalizeDeprecatedCodexHookFeatureFlag } from './config-toml-deprecated-hook-flag'

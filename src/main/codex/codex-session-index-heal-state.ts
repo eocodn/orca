@@ -4,7 +4,7 @@ import {
   isPathInsideOrEqual,
   normalizeRuntimePathForComparison
 } from '../../shared/cross-platform-path'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 
 // State files for the session index heal: which backfilled rollouts exist
 // (the backfill audit ledger), which thread ids this pass already processed

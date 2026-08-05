@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import type { CodexSessionBackfillSummary } from './codex-session-backfill-types'
 
 // Why: bump to re-run the backfill for every host after a layout or semantics

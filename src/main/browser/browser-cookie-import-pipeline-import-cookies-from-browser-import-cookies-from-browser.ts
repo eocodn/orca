@@ -33,7 +33,7 @@ import {
   type ChromiumCookieSnapshot
 } from './chromium-cookie-snapshot'
 import { resolveChromiumCookiesPath } from './chromium-cookie-path'
-import { copyFileWithWindowsRetry } from '../codex-accounts/fs-utils'
+import { copyFileWithWindowsRetry } from '../cross-platform-file-operations'
 
 export async function importCookiesFromBrowser(
   browser: DetectedBrowser,

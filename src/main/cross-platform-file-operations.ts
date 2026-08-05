@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { grantDirAcl, isPermissionError } from '../win32-utils'
+import { grantDirAcl, isPermissionError } from './win32-utils'
 
 export function writeFileAtomically(
   targetPath: string,
@@ -14,12 +14,7 @@ export function writeFileAtomically(
     renameFileWithWindowsRetry(tmpPath, targetPath)
   } catch (error) {
     rmSync(tmpPath, { force: true })
-    // Why: on Windows, Chromium's renderer initialization calls
-    // SetNamedSecurityInfo on the userData folder with a Protected DACL
-    // that propagates empty inherited ACEs to child directories, causing
-    // EPERM on all writes. Grant an explicit ACL on the parent directory
-    // and retry once so the write succeeds even if Chromium reset the DACL
-    // after our startup fix ran.
+    // Chromium can reset the userData DACL after startup; repair the parent once before retrying.
     if (isPermissionError(error) && process.platform === 'win32') {
       try {
         grantDirAcl(dirname(targetPath))
@@ -32,18 +27,14 @@ export function writeFileAtomically(
           rmSync(retryTmpPath, { force: true })
         }
       } catch {
-        // icacls failure is not actionable; re-throw the original EPERM
+        // Preserve the original permission error when ACL repair cannot run.
       }
     }
     throw error
   }
 }
 
-// Why: on Windows, file replacement and backup-copy operations can fail with
-// EPERM/EACCES/EBUSY if another process (antivirus, Claude CLI, Codex CLI)
-// holds the target file open. A short retry avoids transient failures without
-// masking real permission errors. Total backoff (~750ms) covers typical AV
-// scan windows seen in issue #1507.
+// Windows file replacement can race antivirus or CLI processes holding the target open.
 export function renameFileWithWindowsRetry(source: string, target: string): void {
   runFileOperationWithWindowsRetry(() => renameSync(source, target))
 }
@@ -69,8 +60,7 @@ function runFileOperationWithWindowsRetry(operation: () => void): void {
   }
 }
 
-// Why: writeFileAtomically is a sync API called from sync paths, so the retry
-// backoff must park the thread instead of burning CPU in a Date.now() loop.
+// These synchronous APIs are used by startup and backup paths, so backoff parks the thread.
 const sleepBuffer = new Int32Array(new SharedArrayBuffer(4))
 function sleepSync(ms: number): void {
   Atomics.wait(sleepBuffer, 0, 0, ms)

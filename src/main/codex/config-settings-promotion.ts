@@ -9,7 +9,7 @@ import {
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { readAgentStateFileSync } from '../agent-state-file-reader'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
 import {

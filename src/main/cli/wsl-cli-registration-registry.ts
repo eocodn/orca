@@ -1,6 +1,6 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { writeFileAtomically } from '../codex-accounts/fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import { getKeyedSerializedQueueTail, runKeyedSerializedOperation } from './keyed-promise-queue'
 import { normalizeWslDistroKey } from './wsl-cli-registration-operation'
 

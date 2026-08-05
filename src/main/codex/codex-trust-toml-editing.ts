@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
+import { renameFileWithWindowsRetry } from '../cross-platform-file-operations'
 import { writeRollingFileBackup } from '../rolling-file-backup'
 import {
   createTomlLineScanState,

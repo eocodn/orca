@@ -15,7 +15,7 @@ import {
 import { homedir, tmpdir } from 'node:os'
 import type * as Os from 'node:os'
 import { join } from 'node:path'
-import type * as CodexFsUtils from '../codex-accounts/fs-utils'
+import type * as FileOperations from '../cross-platform-file-operations'
 
 const { homedirMock, promotionTestState } = vi.hoisted(() => ({
   homedirMock: vi.fn<() => string>(),
@@ -30,8 +30,8 @@ vi.mock('node:os', async (importOriginal) => {
   }
 })
 
-vi.mock('../codex-accounts/fs-utils', async (importOriginal) => {
-  const actual = await importOriginal<typeof CodexFsUtils>()
+vi.mock('../cross-platform-file-operations', async (importOriginal) => {
+  const actual = await importOriginal<typeof FileOperations>()
   return {
     ...actual,
     writeFileAtomically: (...args: Parameters<typeof actual.writeFileAtomically>) => {

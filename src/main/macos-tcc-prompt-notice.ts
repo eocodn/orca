@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { BrowserWindow } from 'electron'
-import { writeFileAtomically } from './codex-accounts/fs-utils'
+import { writeFileAtomically } from './cross-platform-file-operations'
 import { getCanonicalUserDataPath } from './persistence'
 import { MacosTccPromptWatch } from './macos-tcc-prompt-watch'
 

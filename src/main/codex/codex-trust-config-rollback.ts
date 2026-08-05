@@ -12,7 +12,7 @@ import {
 } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { dirname, resolve } from 'node:path'
-import { renameFileWithWindowsRetry } from '../codex-accounts/fs-utils'
+import { renameFileWithWindowsRetry } from '../cross-platform-file-operations'
 
 export type CodexTrustConfigSnapshot =
   | { existed: false; restorePath?: string }

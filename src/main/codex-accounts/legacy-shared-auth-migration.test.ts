@@ -12,12 +12,12 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { CodexManagedAccount } from '../../shared/types'
-import type * as CodexAccountFs from './fs-utils'
+import type * as FileOperations from '../cross-platform-file-operations'
 
 const writeFailure = vi.hoisted(() => ({ failNextAuthWrite: false }))
 
-vi.mock('./fs-utils', async () => {
-  const actual = await vi.importActual<typeof CodexAccountFs>('./fs-utils')
+vi.mock('../cross-platform-file-operations', async () => {
+  const actual = await vi.importActual<typeof FileOperations>('../cross-platform-file-operations')
   return {
     ...actual,
     writeFileAtomically: (targetPath: string, contents: string, options?: { mode?: number }) => {

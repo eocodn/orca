@@ -16,7 +16,7 @@ import type {
   CodexManagedAccount,
   CodexRateLimitAccountsState
 } from '../../shared/types'
-import { writeFileAtomically } from './fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import {
   getCodexSelectionTargetForAccount,
   getSelectedCodexAccountIdForTarget,
@@ -25,7 +25,6 @@ import {
   setSelectedCodexAccountIdForTarget,
   type CodexAccountSelectionTarget,
 } from './runtime-selection'
-
 
 import {
   CodexAccountServiceFoundation,
@@ -349,6 +348,4 @@ export class CodexAccountServicePhase1 extends CodexAccountServiceFoundation {
     this.startQuotaRefreshInBackground(outgoingAccountId, targetSelection)
     return this.getSnapshot()
   }
-
-
 }

@@ -17,13 +17,12 @@ import {
 import {
   codexAuthMatchesManagedAccount
 } from './codex-auth-identity'
-import { writeFileAtomically } from './fs-utils'
+import { writeFileAtomically } from '../cross-platform-file-operations'
 import {
   getSelectedCodexAccountIdForTarget,
   normalizeCodexRuntimeSelection,
   type CodexAccountSelectionTarget
 } from './runtime-selection'
-
 
 import {
   CodexRuntimeHomeServiceFoundation,
@@ -389,6 +388,4 @@ export class CodexRuntimeHomeServicePhase1 extends CodexRuntimeHomeServiceFounda
     }
     return this.syncWslRuntimeForCurrentSelection(target)
   }
-
-
 }

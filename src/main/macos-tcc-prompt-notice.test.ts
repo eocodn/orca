@@ -6,7 +6,7 @@ const readTallyFile = vi.fn()
 const watchStart = vi.fn()
 const watchStop = vi.fn()
 const watchOptions: { onPrompt: () => void }[] = []
-vi.mock('./codex-accounts/fs-utils', () => ({
+vi.mock('./cross-platform-file-operations', () => ({
   writeFileAtomically: (...args: unknown[]) => writeFileAtomically(...args)
 }))
 vi.mock('./persistence', () => ({ getCanonicalUserDataPath: () => '/tmp/orca-tcc-notice-test' }))
