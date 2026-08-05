@@ -13,7 +13,6 @@ import {
 } from './codex-pane-restart-eligibility'
 import {
   getCodexAccountSwitchLaneMatcher,
-  isForeignMachineCodexPtyId,
   isLocalCodexSelectionLaneKey,
   resolveCodexPaneSelectionLane
 } from './codex-pane-selection-lane'
@@ -53,19 +52,9 @@ export type CodexPaneScanResult = {
 async function readRecordedCodexPaneLanes(
   ptyIds: readonly string[]
 ): Promise<Record<string, string>> {
-  // Why filtered: main only records daemon host spawns, so asking about a
-  // remote or SSH pane is a guaranteed miss.
-  const localPtyIds = ptyIds.filter((ptyId) => !isForeignMachineCodexPtyId(ptyId))
-  if (localPtyIds.length === 0) {
-    return {}
-  }
-  const listRecordedPaneLanes = window.api.codexAccounts.listRecordedPaneLanes
-  // Why the shape check: a preload older than this handler has no such method,
-  // and reaching that case must read as "no records", not as a scan failure.
-  if (typeof listRecordedPaneLanes !== 'function') {
-    return {}
-  }
-  return await listRecordedPaneLanes({ ptyIds: localPtyIds }).catch(() => ({}))
+  // The account registry IPC was removed; derive lanes from renderer state.
+  void ptyIds
+  return {}
 }
 
 /**
@@ -233,10 +222,9 @@ export async function markLiveCodexSessionsForRestart(args: {
  * Returns one result per inspected pane so the bind-driven sweep can tell an
  * answered pane from one whose PTY has not reported a usable process yet.
  *
- * Scoped to the local host/WSL lanes because the pane-account registry only
- * records daemon host spawns: a relay or SSH pane can never be listed stale, so
- * inspecting one is a guaranteed-fruitless RPC. listStalePanes then does the
- * host-vs-WSL check itself, against each pane's own recorded lane.
+ * The account registry backing stale-pane inspection was removed with the
+ * private account database. Keep the process scan as a no-op result so callers
+ * can safely retain their bind-driven scheduling without issuing dead IPC.
  */
 export async function markRestoredStaleCodexSessionsForRestart(args?: {
   ptyIds?: readonly string[]
@@ -246,34 +234,7 @@ export async function markRestoredStaleCodexSessionsForRestart(args?: {
     ptyIdFilter: args?.ptyIds ? new Set(args.ptyIds) : null,
     isLaneInScope: isLocalCodexSelectionLaneKey
   })
-  const liveCodexSessionPtyIds = scans.filter((scan) => scan.eligible).map((scan) => scan.ptyId)
-  if (liveCodexSessionPtyIds.length === 0) {
-    return scans
-  }
-  const stalePanes = await window.api.codexAccounts.listStalePanes({
-    ptyIds: liveCodexSessionPtyIds
-  })
-  if (stalePanes.length === 0) {
-    return scans
-  }
-
-  const resolveAccountLabel = await createCodexAccountLabelResolver()
-  const noticedPtyIds = useAppStore.getState().markCodexRestartNotices(
-    stalePanes.map((pane) => ({
-      ptyId: pane.ptyId,
-      previousAccountLabel: resolveAccountLabel(pane.launchAccountId),
-      nextAccountLabel: resolveAccountLabel(pane.activeAccountId),
-      // Why the ids: main decided staleness by id, and the labels can collide.
-      // Passing only labels hands the store a question it cannot answer.
-      previousAccountId: pane.launchAccountId,
-      nextAccountId: pane.activeAccountId
-    }))
-  )
-  // Why not every stale pane: the bind sweep suppresses a "notified" pane for the
-  // rest of the session, so a pane whose notice the store dropped must not claim
-  // one — that trades a missing prompt for a permanently missing prompt.
-  const notifiedPtyIds = new Set(noticedPtyIds)
-  return scans.map((scan) => (notifiedPtyIds.has(scan.ptyId) ? { ...scan, notified: true } : scan))
+  return scans
 }
 
 /**
@@ -300,11 +261,4 @@ export function resolveCodexRestartPromptAccountLabel(
   return sharesEmail && account.workspaceLabel
     ? `${account.email} (${account.workspaceLabel})`
     : account.email
-}
-
-async function createCodexAccountLabelResolver(): Promise<(accountId: string | null) => string> {
-  // Why: a failed roster read still yields usable prompts — the account ids are
-  // already known, only their friendly emails are missing.
-  const accounts = await window.api.codexAccounts.list().catch(() => null)
-  return (accountId) => resolveCodexRestartPromptAccountLabel(accounts?.accounts ?? [], accountId)
 }

@@ -26,7 +26,6 @@ const runtimeFiles = [
   'src/renderer/src/runtime/remote-runtime-terminal-stream.ts',
   'src/renderer/src/runtime/web-session-terminal-orphan-recovery.ts',
   'src/renderer/src/runtime/runtime-jira-payload-stream.ts',
-  'src/renderer/src/runtime/runtime-provider-accounts-client.ts',
   'src/renderer/src/components/terminal-pane/remote-runtime-pty-transport-creation-recovery.ts',
   'src/renderer/src/components/terminal-pane/terminal-fit-restore.ts',
   'src/renderer/src/components/terminal-pane/terminal-file-open-routing.ts',

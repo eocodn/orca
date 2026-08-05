@@ -65,10 +65,6 @@ import { UsageRosterPanel, getTightestUsageSection } from './UsageRosterPanel'
 import { getUsageProviderAccountsSectionId } from './usage-provider-settings-target'
 import { formatRateLimitWindowChipLabel } from '@/lib/window-label-formatter'
 import { useResetCountdownClock } from '@/hooks/useResetCountdownClock'
-import {
-  markLiveCodexSessionsForRestart,
-  resolveCodexRestartPromptAccountLabel
-} from '@/lib/codex-session-restart'
 import { UpdateStatusSegment } from './UpdateStatusSegment'
 import { SkillUpdateStatusSegment } from './SkillUpdateStatusSegment'
 import { RemoteServerUpdateStatusSegment } from './RemoteServerUpdateStatusSegment'
@@ -89,11 +85,6 @@ import {
   useWindowsTerminalCapabilities
 } from '@/lib/windows-terminal-capabilities'
 import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
-import {
-  fetchProviderAccountsSnapshot,
-  selectClaudeProviderAccount,
-  selectCodexProviderAccount
-} from '@/runtime/runtime-provider-accounts-client'
 import { translate } from '@/i18n/i18n'
 import {
   getDisplayedUsagePercentage,
@@ -198,7 +189,9 @@ export function getStatusBarPreferredWslDistro(
   return wslDistros.length === 1 ? wslDistros[0] : null
 }
 
-export function shouldIncludeSettingsWslRuntime(settings: GlobalSettings | null | undefined): boolean {
+export function shouldIncludeSettingsWslRuntime(
+  settings: GlobalSettings | null | undefined
+): boolean {
   if (!settings) {
     return false
   }
@@ -365,7 +358,9 @@ export function getCodexStatusAccountsFromSettings(
   }
 }
 
-export function getSingleConcreteClaudeWslDistro(state: ClaudeRateLimitAccountsState): string | null {
+export function getSingleConcreteClaudeWslDistro(
+  state: ClaudeRateLimitAccountsState
+): string | null {
   const keys = new Set<string>()
   for (const [key, accountId] of Object.entries(state.activeAccountIdsByRuntime?.wsl ?? {})) {
     if (accountId && key !== '__default__') {

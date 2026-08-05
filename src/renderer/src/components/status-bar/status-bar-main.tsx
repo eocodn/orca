@@ -39,16 +39,10 @@ import {
 import { useAppStore } from '../../store'
 import { selectFloatingWorkspaceHasUnread } from '../../store/selectors'
 import type {
-  ClaudeRateLimitAccountsState,
-  CodexRateLimitAccountsState,
-  GlobalSettings
-} from '../../../../shared/types'
-import type {
   ProviderRateLimits,
   RateLimitRuntimeTarget,
   RateLimitWindow
 } from '../../../../shared/rate-limit-types'
-import { resolveLocalAccountRuntimeTarget } from '../../../../shared/local-account-runtime'
 import { getRendererAppPlatform } from '../../lib/renderer-app-platform'
 import {
   ProviderIcon,
@@ -65,10 +59,6 @@ import { UsageRosterPanel, getTightestUsageSection } from './UsageRosterPanel'
 import { getUsageProviderAccountsSectionId } from './usage-provider-settings-target'
 import { formatRateLimitWindowChipLabel } from '@/lib/window-label-formatter'
 import { useResetCountdownClock } from '@/hooks/useResetCountdownClock'
-import {
-  markLiveCodexSessionsForRestart,
-  resolveCodexRestartPromptAccountLabel
-} from '@/lib/codex-session-restart'
 import { UpdateStatusSegment } from './UpdateStatusSegment'
 import { SkillUpdateStatusSegment } from './SkillUpdateStatusSegment'
 import { RemoteServerUpdateStatusSegment } from './RemoteServerUpdateStatusSegment'
@@ -88,12 +78,6 @@ import {
   getWindowsTerminalCapabilityOwnerKey,
   useWindowsTerminalCapabilities
 } from '@/lib/windows-terminal-capabilities'
-import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
-import {
-  fetchProviderAccountsSnapshot,
-  selectClaudeProviderAccount,
-  selectCodexProviderAccount
-} from '@/runtime/runtime-provider-accounts-client'
 import { translate } from '@/i18n/i18n'
 import {
   getDisplayedUsagePercentage,

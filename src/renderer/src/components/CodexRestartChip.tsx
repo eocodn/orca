@@ -117,11 +117,9 @@ export default function CodexRestartChip({
   }
 
   const handleDismiss = (): void => {
-    dismissStaleWorktreePtyIds(staleWorktreePtyIds, dismissCodexRestartNotices, (ptyIds) => {
-      void window.api.codexAccounts.forgetStalePanes({ ptyIds }).catch((err: unknown) => {
-        console.warn('Failed to forget dismissed Codex pane accounts:', err)
-      })
-    })
+    // Account-registry IPC was removed with the private account database; the
+    // renderer notice is the only remaining dismissal state.
+    dismissStaleWorktreePtyIds(staleWorktreePtyIds, dismissCodexRestartNotices, () => {})
   }
 
   return (
