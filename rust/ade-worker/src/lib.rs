@@ -1,4 +1,5 @@
 use ade_host_core::worker::{WorkerCommand, WorkerSnapshot, WorkerStatus};
+use std::fmt::Write as _;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct WorkerCliOptions {
@@ -89,8 +90,31 @@ pub fn render_heartbeat_json(snapshot: &WorkerSnapshot) -> String {
     };
     format!(
         "{{\"service\":\"ade-worker\",\"worker_id\":\"{}\",\"generation\":{},\"status\":\"{}\",\"heartbeat_sequence\":{}}}",
-        snapshot.worker_id, snapshot.generation, status, snapshot.heartbeat_sequence
+        escape_json_string(&snapshot.worker_id),
+        snapshot.generation,
+        status,
+        snapshot.heartbeat_sequence
     )
+}
+
+fn escape_json_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        match character {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\u{08}' => escaped.push_str("\\b"),
+            '\u{0C}' => escaped.push_str("\\f"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            character if character <= '\u{1F}' => {
+                write!(&mut escaped, "\\u{:04x}", character as u32).unwrap();
+            }
+            character => escaped.push(character),
+        }
+    }
+    escaped
 }
 
 pub fn render_heartbeat_text(snapshot: &WorkerSnapshot) -> String {
@@ -125,6 +149,21 @@ mod tests {
         assert_eq!(
             render_heartbeat_json(&snapshot),
             r#"{"service":"ade-worker","worker_id":"wsl-ubuntu","generation":4,"status":"ready","heartbeat_sequence":9}"#
+        );
+    }
+
+    #[test]
+    fn escapes_worker_ids_in_machine_observable_json() {
+        let snapshot = WorkerSnapshot {
+            worker_id: String::from("worker\"quoted\\path"),
+            generation: 1,
+            status: WorkerStatus::Stopped,
+            heartbeat_sequence: 0,
+        };
+
+        assert_eq!(
+            render_heartbeat_json(&snapshot),
+            r#"{"service":"ade-worker","worker_id":"worker\"quoted\\path","generation":1,"status":"stopped","heartbeat_sequence":0}"#
         );
     }
 
