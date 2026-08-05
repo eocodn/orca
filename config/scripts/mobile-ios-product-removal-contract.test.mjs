@@ -94,10 +94,11 @@ describe('mobile iOS product removal contract', () => {
       'src/renderer/src/components/mobile/use-mobile-install-qr.ts',
       'src/renderer/src/components/settings/MobileSettingsPane.tsx',
       'src/main/runtime/orca-runtime-run-create-mobile-session-terminal-part-64.ts',
-      'mobile/app/h/[hostId]/mobile-task-workspace-screen-runtime.tsx'
+      'mobile/app/h/[hostId]/mobile-task-workspace-screen-runtime.tsx',
+      'mobile/src/transport/pairing-keychain.ts'
     ]) {
       expect(readProjectFile(relativePath), relativePath).not.toMatch(
-        /\bios\b|\biphone\b|\bipad\b|\bapp[ -]?store\b|\btestflight\b/i
+        /\bios\b|\biphone\b|\bipad\b|\bapp[ -]?store\b|\btestflight\b|icloud/i
       )
     }
     for (const relativePath of [

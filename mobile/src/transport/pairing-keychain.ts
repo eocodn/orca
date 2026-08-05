@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 
-// Why: WHEN_UNLOCKED_THIS_DEVICE_ONLY keeps pairing credentials off iCloud Keychain and backup restores.
+// Why: device-only accessibility keeps pairing credentials out of backup restores.
 const BASE_OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
 }
