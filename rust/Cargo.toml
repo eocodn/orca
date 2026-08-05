@@ -7,4 +7,5 @@ members = [
     "ade-host-store",
     "ade-host-platform",
     "ade-terminal",
+    "ade-git",
 ]

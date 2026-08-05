@@ -19,6 +19,8 @@ COPY rust/ade-host-platform/Cargo.toml ade-host-platform/Cargo.toml
 COPY rust/ade-host-platform/src ade-host-platform/src
 COPY rust/ade-terminal/Cargo.toml ade-terminal/Cargo.toml
 COPY rust/ade-terminal/src ade-terminal/src
+COPY rust/ade-git/Cargo.toml ade-git/Cargo.toml
+COPY rust/ade-git/src ade-git/src
 
 RUN cargo test --workspace
 

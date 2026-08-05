@@ -72,11 +72,12 @@ mod contract_tests {
 }
 
 use crate::git_capability::{GitCapability, GitCapabilityCache, GitCapabilityRunError};
+use serde::Serialize;
 
 pub const WORKTREE_LIST_Z_ARGS: &[&str] = &["worktree", "list", "--porcelain", "-z"];
 pub const WORKTREE_LIST_ARGS: &[&str] = &["worktree", "list", "--porcelain"];
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct GitWorktree {
     pub path: String,
     pub head: String,
