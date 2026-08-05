@@ -1,5 +1,59 @@
 use ade_host_core::worker::{WorkerSnapshot, WorkerStatus};
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct WorkerCliOptions {
+    pub json: bool,
+    pub worker_id: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum WorkerCliError {
+    MissingWorkerId,
+    UnexpectedArgument(String),
+    Runtime(String),
+}
+
+pub fn parse_cli_args<I, S>(args: I) -> Result<WorkerCliOptions, WorkerCliError>
+where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let mut json = false;
+    let mut worker_id = String::from("local");
+    let mut args = args.into_iter().map(Into::into);
+    while let Some(argument) = args.next() {
+        match argument.as_str() {
+            "--json" => json = true,
+            "--worker-id" => {
+                worker_id = args.next().ok_or(WorkerCliError::MissingWorkerId)?;
+                if worker_id.trim().is_empty() {
+                    return Err(WorkerCliError::MissingWorkerId);
+                }
+            }
+            _ => return Err(WorkerCliError::UnexpectedArgument(argument)),
+        }
+    }
+    Ok(WorkerCliOptions { json, worker_id })
+}
+
+pub fn run_cli<I, S>(args: I) -> Result<String, WorkerCliError>
+where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let options = parse_cli_args(args)?;
+    let worker = ade_host_core::worker::WorkerRuntime::new(options.worker_id)
+        .map_err(|error| WorkerCliError::Runtime(format!("{error:?}")))?;
+    let snapshot = worker
+        .snapshot()
+        .map_err(|error| WorkerCliError::Runtime(format!("{error:?}")))?;
+    if options.json {
+        Ok(render_heartbeat_json(&snapshot))
+    } else {
+        Ok(render_heartbeat_text(&snapshot))
+    }
+}
+
 pub fn render_heartbeat_json(snapshot: &WorkerSnapshot) -> String {
     let status = match snapshot.status {
         WorkerStatus::Stopped => "stopped",
@@ -13,9 +67,25 @@ pub fn render_heartbeat_json(snapshot: &WorkerSnapshot) -> String {
     )
 }
 
+pub fn render_heartbeat_text(snapshot: &WorkerSnapshot) -> String {
+    let status = match snapshot.status {
+        WorkerStatus::Stopped => "stopped",
+        WorkerStatus::Starting => "starting",
+        WorkerStatus::Ready => "ready",
+        WorkerStatus::Failed => "failed",
+    };
+    format!(
+        "ade-worker id={} status={} generation={} heartbeat={}",
+        snapshot.worker_id, status, snapshot.generation, snapshot.heartbeat_sequence
+    )
+}
+
 #[cfg(test)]
 mod tests {
-    use super::render_heartbeat_json;
+    use super::{
+        parse_cli_args, render_heartbeat_json, render_heartbeat_text, run_cli, WorkerCliError,
+        WorkerCliOptions,
+    };
     use ade_host_core::worker::{WorkerSnapshot, WorkerStatus};
 
     #[test]
@@ -30,5 +100,40 @@ mod tests {
             render_heartbeat_json(&snapshot),
             r#"{"service":"ade-worker","worker_id":"wsl-ubuntu","generation":4,"status":"ready","heartbeat_sequence":9}"#
         );
+    }
+
+    #[test]
+    fn parses_worker_identity_and_json_mode_without_ignoring_unknown_arguments() {
+        assert_eq!(
+            parse_cli_args(["--json", "--worker-id", "wsl-ubuntu"]),
+            Ok(WorkerCliOptions {
+                json: true,
+                worker_id: String::from("wsl-ubuntu"),
+            })
+        );
+        assert_eq!(
+            parse_cli_args(["--legacy-mode"]),
+            Err(WorkerCliError::UnexpectedArgument(String::from(
+                "--legacy-mode"
+            )))
+        );
+    }
+
+    #[test]
+    fn renders_json_and_text_from_the_same_authoritative_snapshot() {
+        let json = run_cli(["--json", "--worker-id", "wsl-ubuntu"]).expect("json output");
+        let text = run_cli(["--worker-id", "wsl-ubuntu"]).expect("text output");
+        assert!(json.contains(r#""worker_id":"wsl-ubuntu""#));
+        assert_eq!(
+            text,
+            "ade-worker id=wsl-ubuntu status=stopped generation=0 heartbeat=0"
+        );
+        let snapshot = WorkerSnapshot {
+            worker_id: String::from("wsl-ubuntu"),
+            generation: 0,
+            status: WorkerStatus::Stopped,
+            heartbeat_sequence: 0,
+        };
+        assert_eq!(render_heartbeat_text(&snapshot), text);
     }
 }
