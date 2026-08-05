@@ -37,6 +37,24 @@ services:
     init: true
     network_mode: host
 
+  host-cli-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-control
+    command:
+      - sh
+      - -euc
+      - >-
+        state_db=/tmp/ade-host-cli-contract.db;
+        rm -f "$$state_db" "$$state_db-wal" "$$state_db-shm";
+        output="$$(cargo run --quiet --package ade-host --
+        --json --state-db "$$state_db" --register-workspace workspace-1
+        --workspace-path 'C:\\workspaces\\one' --request-id request-1)";
+        test "$$output" =
+        '{"service":"ade-host","workspace_count":1,"ready_workspaces":0,"source":"sqlite-snapshot"}'
+    init: true
+    network_mode: host
+
   runtime-model-tests:
     build:
       context: .
