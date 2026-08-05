@@ -90,10 +90,6 @@ export const getBrowserUsePaneSearchEntries = createLocalizedCatalog(() => [
       ...translateSearchKeyword('auto.components.settings.browser.use.search.2e1b09897b', 'edge'),
       ...translateSearchKeyword('auto.components.settings.browser.use.search.ab349a2dd0', 'arc'),
       ...translateSearchKeyword(
-        'auto.components.settings.browser.use.search.20c1323d1e',
-        'computer use'
-      ),
-      ...translateSearchKeyword(
         'auto.components.settings.browser.use.search.63a66da648',
         'system browser'
       ),
