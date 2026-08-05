@@ -67,6 +67,38 @@ mod contract_tests {
     }
 
     #[test]
+    fn rejects_stale_workspace_generations_without_overwriting_the_snapshot() {
+        let path = temp_database("generation");
+        let store = HostStore::open(&path).unwrap();
+        store
+            .commit_workspace(
+                StoredWorkspace::new("workspace-1", r"C:\workspaces\one", "ready", 4),
+                "request-1",
+            )
+            .unwrap();
+        assert_eq!(
+            store.commit_workspace(
+                StoredWorkspace::new("workspace-1", r"C:\workspaces\other", "failed", 4),
+                "request-2",
+            ),
+            Err(StoreError::GenerationConflict {
+                current: 4,
+                requested: 4,
+            })
+        );
+        assert_eq!(
+            store.snapshot().unwrap(),
+            vec![StoredWorkspace::new(
+                "workspace-1",
+                r"C:\workspaces\one",
+                "ready",
+                4
+            )]
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn concurrent_retries_have_one_persisted_commit() {
         let path = temp_database("concurrent");
         let store = Arc::new(HostStore::open(&path).unwrap());

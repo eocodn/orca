@@ -42,6 +42,7 @@ pub enum StoreError {
     Sql(String),
     IdempotencyConflict,
     GenerationOutOfRange,
+    GenerationConflict { current: u64, requested: u64 },
     UnsupportedSchema { version: i64, current: i64 },
 }
 
@@ -152,6 +153,24 @@ impl HostStore {
                 });
             }
             return Err(StoreError::IdempotencyConflict);
+        }
+
+        let current_generation = transaction
+            .query_row(
+                "SELECT generation FROM workspace_snapshot WHERE workspace_id = ?1",
+                params![&workspace.workspace_id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+        if let Some(current_generation) = current_generation {
+            let current_generation =
+                u64::try_from(current_generation).map_err(|_| StoreError::GenerationOutOfRange)?;
+            if current_generation >= workspace.generation {
+                return Err(StoreError::GenerationConflict {
+                    current: current_generation,
+                    requested: workspace.generation,
+                });
+            }
         }
 
         transaction.execute(
