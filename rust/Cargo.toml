@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["ade-host-core", "ade-host", "ade-worker"]
+members = ["ade-host-core", "ade-host", "ade-worker", "ade-host-store"]

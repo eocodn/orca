@@ -1,5 +1,8 @@
 FROM rust:1.85-slim-bookworm@sha256:9f841bbe9e7d8e37ceb96ed907265a3a0df7f44e3737d0b100e7907a679acb36
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends build-essential \
+  && rm -rf /var/lib/apt/lists/*
 RUN rustup component add rustfmt clippy
 
 WORKDIR /workspace/rust
@@ -10,6 +13,8 @@ COPY rust/ade-host/Cargo.toml ade-host/Cargo.toml
 COPY rust/ade-host/src ade-host/src
 COPY rust/ade-worker/Cargo.toml ade-worker/Cargo.toml
 COPY rust/ade-worker/src ade-worker/src
+COPY rust/ade-host-store/Cargo.toml ade-host-store/Cargo.toml
+COPY rust/ade-host-store/src ade-host-store/src
 
 RUN cargo test --workspace
 
