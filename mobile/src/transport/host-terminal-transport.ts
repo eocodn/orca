@@ -226,7 +226,7 @@ function isValidFailureReason(status: unknown, value: unknown): value is string 
 }
 
 function isValidExitCode(status: unknown, value: unknown): value is number | null {
-  return status === 'exited' ? isI32(value) : value === null
+  return status === 'exited' || status === 'closed' ? isI32(value) : value === null
 }
 
 function isI32(value: unknown): value is number {

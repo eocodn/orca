@@ -70,6 +70,9 @@ describe('mobile Host Terminal transport', () => {
       readTerminalResponse({ ...terminalResponse, status: 'exited', exit_code: 0 })
     ).toMatchObject({ status: 'exited', exit_code: 0 })
     expect(
+      readTerminalResponse({ ...terminalResponse, status: 'closed', exit_code: 7 })
+    ).toMatchObject({ status: 'closed', exit_code: 7 })
+    expect(
       readTerminalResponse({ ...terminalResponse, status: 'exited', exit_code: 1.5 })
     ).toBeNull()
     expect(
