@@ -58,8 +58,8 @@ assert_no_matches "Playwright specs and lifecycle hooks are gone" \
   '.*' "$root/tests/e2e" --glob '*.spec.ts' --glob 'global-setup.ts' --glob 'global-teardown.ts'
 assert_absent "Playwright ignore rule removed" tests/.gitignore
 
-if test -f "$root/tests/e2e/vitest.config.ts" && test -f "$root/tests/e2e/computer-linux.e2e.ts"; then
-  pass_absent "Vitest computer E2E surface retained"
+if test ! -e "$root/tests/e2e/vitest.config.ts" && test ! -e "$root/tests/e2e/computer-linux.e2e.ts"; then
+  pass_absent "Vitest computer E2E surface removed"
 else
   echo "not ok - Vitest computer E2E surface retained"
   failures=$((failures + 1))

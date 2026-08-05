@@ -95,7 +95,7 @@ describe('Electron runtime package contract', () => {
     expect(scripts['build:linux']).toContain('pnpm run build:desktop')
     expect(scripts['build:linux']).not.toContain('pnpm run build ')
     expect(scripts['build:linux']).not.toContain('build:computer-macos')
-    expect(scripts['build:mac']).toContain('pnpm run build:computer-macos')
+    expect(scripts['build:mac']).not.toContain('build:computer-macos')
     expect(scripts['build:release']).toContain('pnpm run build:native')
     expect(scripts['build:release']).not.toContain('build:computer-macos')
   })

@@ -72,8 +72,6 @@
     "build:mac": "pnpm run build:desktop && pnpm run build:notification-status-macos && pnpm run ensure:electron-runtime && node config/scripts/build-mac-local.mjs",
     "build:mac:release": "node config/scripts/verify-macos-release-env.mjs && ORCA_MAC_RELEASE=1 pnpm run build:desktop && ORCA_MAC_RELEASE=1 pnpm run build:notification-status-macos && pnpm run ensure:electron-runtime && ORCA_MAC_RELEASE=1 electron-builder --config config/electron-builder.config.cjs --mac",
     "build:linux": "pnpm run build:desktop && pnpm run ensure:electron-runtime && electron-builder --config config/electron-builder.config.cjs --linux AppImage deb",
-    "test:e2e:computer": "vitest run --config tests/e2e/vitest.config.ts",
-    "bench:macos-computer-helper-owner-loss": "node config/scripts/macos-computer-helper-owner-loss-benchmark.mjs",
     "bench:startup": "pnpm run ensure:electron-runtime && node tools/benchmarks/startup-time-bench.mjs",
     "bench:daemon-coldstart": "pnpm run ensure:electron-runtime && node tools/benchmarks/daemon-coldstart-bench.mjs",
     "bench:hang-watchdog-memory": "pnpm run ensure:electron-runtime && node config/scripts/hang-watchdog-memory-benchmark.mjs",
