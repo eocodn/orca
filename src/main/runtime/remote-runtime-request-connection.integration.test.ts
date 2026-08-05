@@ -731,7 +731,6 @@ describe('remote runtime request connection integration', () => {
           const mixedMethods = [
             ['runtime.clientEvents.subscribe', undefined],
             ['session.tabs.subscribe', { worktree: 'id:wt-1' }],
-            ['accounts.subscribe', undefined],
             ['notifications.subscribe', undefined],
             ['files.watch', { worktree: 'id:wt-1' }]
           ] as const

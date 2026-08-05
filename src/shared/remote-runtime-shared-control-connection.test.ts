@@ -186,31 +186,17 @@ describe('RemoteRuntimeSharedControlConnection', () => {
   it('routes multiple logical subscriptions over one socket and cleans them up explicitly', async () => {
     const server = await createServer()
     const connection = new RemoteRuntimeSharedControlConnection(server.pairing)
-    const onAccounts = vi.fn()
     const onEvents = vi.fn()
 
-    const accounts = await connection.subscribe('accounts.subscribe', null, 1000, {
-      onResponse: onAccounts,
-      onError: vi.fn()
-    })
     await connection.subscribe('runtime.clientEvents.subscribe', null, 1000, {
       onResponse: onEvents,
       onError: vi.fn()
     })
 
-    await vi.waitFor(() => expect(onAccounts).toHaveBeenCalled())
     await vi.waitFor(() => expect(onEvents).toHaveBeenCalled())
-    accounts.close()
-    await vi.waitFor(() =>
-      expect(server.requests.map((request) => request.method)).toContain('accounts.unsubscribe')
-    )
 
     expect(server.connectionCount()).toBe(1)
-    expect(server.requests.map((request) => request.method)).toEqual([
-      'accounts.subscribe',
-      'runtime.clientEvents.subscribe',
-      'accounts.unsubscribe'
-    ])
+    expect(server.requests.map((request) => request.method)).toEqual(['runtime.clientEvents.subscribe'])
 
     connection.close()
   })
@@ -356,33 +342,6 @@ describe('RemoteRuntimeSharedControlConnection', () => {
 
     await vi.waitFor(() => expect(unsafe.readyWaiters).toHaveLength(0))
     expect(unsafe.pendingRequests.size).toBe(0)
-    connection.close()
-  })
-
-  it('cleans up an id-scoped subscription closed before its ready response', async () => {
-    const server = await createServer({ delaySubscriptionReady: true })
-    const connection = new RemoteRuntimeSharedControlConnection(server.pairing)
-    const onAccounts = vi.fn()
-
-    const accounts = await connection.subscribe('accounts.subscribe', null, 1000, {
-      onResponse: onAccounts,
-      onError: vi.fn()
-    })
-    await vi.waitFor(() =>
-      expect(server.requests.map((request) => request.method)).toEqual(['accounts.subscribe'])
-    )
-
-    accounts.close()
-    server.flushDelayedResponses()
-
-    await vi.waitFor(() =>
-      expect(server.requests.map((request) => request.method)).toEqual([
-        'accounts.subscribe',
-        'accounts.unsubscribe'
-      ])
-    )
-    expect(onAccounts).not.toHaveBeenCalled()
-
     connection.close()
   })
 
