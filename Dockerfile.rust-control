@@ -6,6 +6,10 @@ WORKDIR /workspace/rust
 COPY rust/Cargo.toml rust/Cargo.lock ./
 COPY rust/ade-host-core/Cargo.toml ade-host-core/Cargo.toml
 COPY rust/ade-host-core/src ade-host-core/src
+COPY rust/ade-host/Cargo.toml ade-host/Cargo.toml
+COPY rust/ade-host/src ade-host/src
+COPY rust/ade-worker/Cargo.toml ade-worker/Cargo.toml
+COPY rust/ade-worker/src ade-worker/src
 
 RUN cargo test --workspace
 

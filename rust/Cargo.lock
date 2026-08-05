@@ -3,5 +3,19 @@
 version = 4
 
 [[package]]
+name = "ade-host"
+version = "0.1.0"
+dependencies = [
+ "ade-host-core",
+]
+
+[[package]]
 name = "ade-host-core"
 version = "0.1.0"
+
+[[package]]
+name = "ade-worker"
+version = "0.1.0"
+dependencies = [
+ "ade-host-core",
+]
