@@ -58,8 +58,8 @@ export class OrcaRuntimeBrowserScreencastPart87 extends OrcaRuntimeNotifyLinearL
   browserTabCurrent = async (params: { worktree?: string }): Promise<BrowserTabCurrentResult> =>
     this.browserPageRuntime.tabCurrent(await this.worktreeId(params.worktree))
 
-  browserTabShow = async (params: { page: string }): Promise<BrowserTabShowResult> =>
-    this.browserPageRuntime.tabShow(params.page)
+  browserTabShow = async (params: { page: string; worktree?: string }): Promise<BrowserTabShowResult> =>
+    this.browserPageRuntime.tabShow(params.page, await this.worktreeId(params.worktree))
 
   browserTabSwitch = async (params: {
     index?: number
@@ -280,6 +280,9 @@ export class OrcaRuntimeBrowserScreencastPart87 extends OrcaRuntimeNotifyLinearL
         ? tabs.find((tab) => tab.active)?.browserPageId
         : tabs[params.index]?.browserPageId)
     if (!page) return { closed: false }
+    if (!tabs.some((tab) => tab.browserPageId === page)) {
+      throw new Error(`Browser page ${page} was not found in this worktree`)
+    }
     if (!this.getAvailableAuthoritativeWindow() && this.offscreenBrowserBackend) {
       await this.offscreenBrowserBackend.closeTab(page)
       return { closed: true }
@@ -323,8 +326,12 @@ export class OrcaRuntimeBrowserScreencastPart87 extends OrcaRuntimeNotifyLinearL
 
   browserTabProfileShow = async (params: {
     page: string
+    worktree?: string
   }): Promise<BrowserTabProfileShowResult> => {
-    const tab = this.browserPageRuntime.tabShow(params.page).tab
+    const tab = this.browserPageRuntime.tabShow(
+      params.page,
+      await this.worktreeId(params.worktree)
+    ).tab
     return {
       browserPageId: tab.browserPageId,
       worktreeId: tab.worktreeId ?? null,

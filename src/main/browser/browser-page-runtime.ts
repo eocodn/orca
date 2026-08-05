@@ -99,7 +99,10 @@ export class BrowserPageRuntime {
     return { tab: tabInfo(page, true) }
   }
 
-  tabShow(page: string): BrowserTabShowResult {
+  tabShow(page: string, worktree?: string): BrowserTabShowResult {
+    if (!this.getRegisteredTabs(worktree).has(page)) {
+      throw new Error(`Browser page ${page} was not found in this worktree`)
+    }
     return { tab: tabInfo(page, true) }
   }
 
@@ -107,6 +110,9 @@ export class BrowserPageRuntime {
     const tabs = [...this.getRegisteredTabs(worktree).keys()]
     const selected = page ?? (index == null ? tabs[0] : tabs[index])
     if (!selected) throw new Error('No browser tab open in this worktree')
+    if (!tabs.includes(selected)) {
+      throw new Error(`Browser page ${selected} was not found in this worktree`)
+    }
     const owner = browserManager.getWorktreeIdForTab(selected)
     if (owner) this.activePageByWorktree.set(owner, selected)
     return { switched: Math.max(0, tabs.indexOf(selected)), browserPageId: selected }
