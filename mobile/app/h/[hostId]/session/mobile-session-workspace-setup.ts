@@ -303,10 +303,6 @@ export function useMobileSessionWorkspaceSetup() {
     activeSessionTabType: activeSessionTab?.type
   })
   const [browserScreencastSupported, setBrowserScreencastSupported] = useState<boolean | null>(null)
-  // Why: hosts without aiVault.v1 reject listSessions, so hide the header entry instead of a dead-end "update this host" panel.
-  const [agentSessionHistorySupported, setAgentSessionHistorySupported] = useState<boolean | null>(
-    null
-  )
   const [quickCommandsSupported, setQuickCommandsSupported] = useState<boolean | null>(null)
   // Why: stable callbacks (handleFileTap) read the live value via this ref, since
   // the capability probe resolves after the callbacks are created.
@@ -576,8 +572,6 @@ export function useMobileSessionWorkspaceSetup() {
     canSend,
     browserScreencastSupported,
     setBrowserScreencastSupported,
-    agentSessionHistorySupported,
-    setAgentSessionHistorySupported,
     quickCommandsSupported,
     setQuickCommandsSupported,
     browserScreencastSupportedRef,

@@ -57,7 +57,7 @@ export function useMobileSessionWorkspaceSurface(context: WorkspaceContext) {
     setActivePanel, activePanel, canDockPanel, insets, toastMessage, showToast, handleClearTerminal,
     handleCloseTerminal, handleRenameTerminal, setActionTarget, actionTarget, setRenameTarget,
     bulkCloseActions: existingBulkCloseActions, worktreeName, reconnectAttempts, lastConnectedAt,
-    forceReconnectHost, hostId, worktreeId, getDirtyMarkdownDrafts, setLeaveDrafts, router, agentSessionHistorySupported,
+    forceReconnectHost, hostId, worktreeId, getDirtyMarkdownDrafts, setLeaveDrafts, router,
     prIsGithubRepo, prRepoContextLoaded, quickCommandsSupported, setShowHeaderMoreActions,
     activeMarkdownTab, activeFileTab, activeBrowserTab, activePendingTerminalTab,
     pendingDiffNotesDelivery, setPendingDiffNotesDelivery, sendDiffNotesAgentActions, createTabAgentActions,
@@ -94,13 +94,12 @@ export function useMobileSessionWorkspaceSurface(context: WorkspaceContext) {
   const terminalSummary = terminals.length === 0 ? connectionVerdict.label : `${terminals.length} terminal${terminals.length === 1 ? '' : 's'}`
   const activeTerminalKeyboardLift = activeHandle ? terminalKeyboardMetrics.get(activeHandle)?.keyboardLift ?? 0 : 0
   const toastAnimatedStyle = { opacity: toastOpacityRef.current }
-  const showAgentSessionHistoryAction = agentSessionHistorySupported === true
   const showChecksAction = shouldShowSessionHeaderChecksAction({
     isFolderWorkspaceRoute,
     repoContextLoaded: prRepoContextLoaded,
     hostedChecksSupported: prIsGithubRepo
   })
-  const showHeaderMoreButton = showAgentSessionHistoryAction || showChecksAction
+  const showHeaderMoreButton = showChecksAction
   const handleSessionContentRowLayout = useCallback((event: any) => {
     setSessionContentRowWidth(event.nativeEvent.layout.width)
   }, [setSessionContentRowWidth])
@@ -118,12 +117,11 @@ export function useMobileSessionWorkspaceSurface(context: WorkspaceContext) {
       router.push(action.route as never)
     }
   }, [activePanel, canDockPanel, hostId, router, setActivePanel, worktreeId])
-  const openAgentSessionHistory = useCallback(() => router.push(`/h/${hostId}/agent-history` as never), [router, hostId])
   return { ...context, bulkCloseActions, closeWithBulkActions, visibleTabs,
     activeMarkdownTab: activeMarkdown, activeFileTab: activeFile, activeBrowserTab: activeBrowser,
     activePendingTerminalTab: activePendingTerminal, showLoadingState, showEmptyState, connectionVerdict,
     showConnectionRetry, terminalSummary, activeTerminalKeyboardLift, toastAnimatedStyle,
-    showAgentSessionHistoryAction, showChecksAction, showHeaderMoreButton,
-    handleSessionContentRowLayout, handlePanelTap: handlePanelTapLocal, openAgentSessionHistory,
+    showChecksAction, showHeaderMoreButton,
+    handleSessionContentRowLayout, handlePanelTap: handlePanelTapLocal,
     createTabBusy }
 }

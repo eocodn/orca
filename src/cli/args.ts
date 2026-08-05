@@ -161,7 +161,6 @@ export function isCommandGroup(commandPath: string[]): boolean {
   return (
     (commandPath.length === 1 &&
       [
-        'account',
         'project',
         'folder-workspace',
         'repo',

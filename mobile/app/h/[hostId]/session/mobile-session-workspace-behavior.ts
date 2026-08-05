@@ -26,7 +26,6 @@ import {
 } from '../../../../src/session/mobile-session-route-helpers'
 import { loadMobileNewTabAgentOptions } from '../../../../src/session/mobile-new-tab-agent-loader'
 import { resolveTabStripScrollOffset } from '../../../../src/session/tab-strip-scroll'
-import { MOBILE_AI_VAULT_CAPABILITY } from '../../../../src/agent-history/agent-history-capability'
 import { TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY } from '../../../../../src/shared/protocol-version'
 import { sendMobileTerminalQueryReply } from '../../../../src/terminal/mobile-terminal-query-reply'
 import { countTerminalGestureInputSequences } from '../../../../src/terminal/terminal-gesture-input'
@@ -92,7 +91,6 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
     terminalGestureInputQueuesRef,
     terminalGestureInputInFlightRef,
     setBrowserScreencastSupported,
-    setAgentSessionHistorySupported,
     setQuickCommandsSupported,
     setShowQuickCommands,
     startRuntimeCapabilityProbe,
@@ -304,12 +302,10 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
     terminalGestureInputQueuesRef,
     terminalGestureInputInFlightRef,
     setBrowserScreencastSupported,
-    setAgentSessionHistorySupported,
     setQuickCommandsSupported,
     setShowQuickCommands,
     setShowCustomKeyModal,
     startRuntimeCapabilityProbe,
-    MOBILE_AI_VAULT_CAPABILITY,
     supportsMobileQuickCommands,
     TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY,
     hostId,

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import { startRuntimeCapabilityProbe } from '../../../../src/transport/runtime-capability-probe'
-import { MOBILE_AI_VAULT_CAPABILITY } from '../../../../src/agent-history/agent-history-capability'
 import { supportsMobileQuickCommands } from '../../../../src/terminal/quick-commands'
 import { TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY } from '../../../../../src/shared/protocol-version'
 
@@ -13,7 +12,6 @@ export function useMobileSessionRecoveryCapabilities(context: SessionRecoveryCon
     terminalGestureInputQueuesRef,
     terminalGestureInputInFlightRef,
     setBrowserScreencastSupported,
-    setAgentSessionHistorySupported,
     setQuickCommandsSupported,
     setShowQuickCommands
   } = context
@@ -33,20 +31,17 @@ export function useMobileSessionRecoveryCapabilities(context: SessionRecoveryCon
   useEffect(() => {
     if (!client || connState !== 'connected') {
       setBrowserScreencastSupported(null)
-      setAgentSessionHistorySupported(null)
       setQuickCommandsSupported(null)
       setShowQuickCommands(false)
       hostQueryReplyInputSupportedRef.current = false
       return
     }
     setBrowserScreencastSupported(null)
-    setAgentSessionHistorySupported(null)
     setQuickCommandsSupported(null)
     setShowQuickCommands(false)
     hostQueryReplyInputSupportedRef.current = false
     return startRuntimeCapabilityProbe(client, (capabilities) => {
       setBrowserScreencastSupported(capabilities.includes('browser.screencast.v1'))
-      setAgentSessionHistorySupported(capabilities.includes(MOBILE_AI_VAULT_CAPABILITY))
       setQuickCommandsSupported(supportsMobileQuickCommands(capabilities))
       hostQueryReplyInputSupportedRef.current = capabilities.includes(
         TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY

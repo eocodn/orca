@@ -116,7 +116,6 @@ describe('mobile session startup', () => {
     expect(probeStart).toBeGreaterThanOrEqual(0)
     for (const reset of [
       'setBrowserScreencastSupported(null)',
-      'setAgentSessionHistorySupported(null)',
       'setQuickCommandsSupported(null)',
       'setShowQuickCommands(false)',
       'hostQueryReplyInputSupportedRef.current = false'

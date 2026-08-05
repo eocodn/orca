@@ -18,9 +18,7 @@ type WorkspaceContext = Record<string, any>
 export function renderMobileSessionModals(context: WorkspaceContext) {
   const {
     showHeaderMoreActions,
-    showAgentSessionHistoryAction,
     showChecksAction,
-    openAgentSessionHistory,
     handlePanelTap,
     setShowHeaderMoreActions,
     showQuickCommands,
@@ -87,9 +85,7 @@ export function renderMobileSessionModals(context: WorkspaceContext) {
     <>
       <MobileSessionHeaderMoreActionsSheet
         visible={showHeaderMoreActions}
-        showAgentSessionHistory={showAgentSessionHistoryAction}
         showChecks={showChecksAction}
-        onOpenAgentSessionHistory={openAgentSessionHistory}
         onOpenChecks={() => handlePanelTap('pr')}
         onClose={() => setShowHeaderMoreActions(false)}
       />

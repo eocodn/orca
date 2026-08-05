@@ -125,11 +125,6 @@ function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   if (command === 'worktree create' && flag === 'parent-worktree') {
     return '--parent-worktree <selector> Parent selector such as active/current, id:<repo-id>::<path>, branch:<branch>, issue:<number>, path:<path>, folder:<id>, or worktree:<worktreeId>'
   }
-  // Why: the shared --agent help describes launching a TUI agent in a terminal,
-  // which is the wrong meaning here — this selects the account provider.
-  if (command === 'account add' && flag === 'agent') {
-    return '--agent <id>           Account provider: claude or codex (default claude)'
-  }
   return formatFlagHelp(flag)
 }
 

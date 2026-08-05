@@ -14,8 +14,6 @@ Agent Discovery:
   agent-context             Print the machine-readable command schema for agents
 
 Accounts:
-  account add               Add a managed Claude or Codex account on this Orca host
-  account list              List managed Claude and Codex accounts on this Orca host
 
 Environments:
   environment add           Save a remote Orca runtime from a pairing code
@@ -78,8 +76,6 @@ Common Commands:
   orca status [--json]
   orca diagnostics memory [--json]
   orca agent-context [--json]
-  orca account add [--agent claude|codex] [--json]
-  orca account list [--json]
   orca environment add --name <name> --pairing-code <code> [--json]
   orca environment list [--json]
   orca environment show --environment <selector> [--json]

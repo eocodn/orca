@@ -1,5 +1,4 @@
 import type { CommandSpec } from '../args'
-import { ACCOUNT_COMMAND_SPECS } from './account'
 import { CORE_COMMAND_SPECS } from './core'
 import { FILE_COMMAND_SPECS } from './file'
 import { PROJECT_COMMAND_SPECS } from './project'
@@ -13,7 +12,6 @@ import { SESSION_COMMAND_SPECS } from './session'
 
 export const COMMAND_SPECS: CommandSpec[] = [
   ...CORE_COMMAND_SPECS,
-  ...ACCOUNT_COMMAND_SPECS,
   ...PROJECT_COMMAND_SPECS,
   ...FOLDER_WORKSPACE_COMMAND_SPECS,
   ...SESSION_COMMAND_SPECS,
