@@ -2,7 +2,10 @@ pub mod store;
 
 #[cfg(test)]
 mod contract_tests {
-    use super::store::{HostStore, StoreError, StoredWorkspace};
+    use super::store::{
+        HostStore, StoreError, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind,
+        StoredWorkspaceLocation,
+    };
     use std::sync::Arc;
     use std::thread;
 
@@ -21,7 +24,7 @@ mod contract_tests {
     fn migration_creates_versioned_schema_and_reopen_reads_authoritative_snapshot() {
         let path = temp_database("migration");
         let store = HostStore::open(&path).unwrap();
-        assert_eq!(store.schema_version().unwrap(), 1);
+        assert_eq!(store.schema_version().unwrap(), 2);
         store
             .commit_workspace(
                 StoredWorkspace::new("workspace-1", r"C:\workspaces\one", "ready", 4),
@@ -40,6 +43,103 @@ mod contract_tests {
                 4
             )]
         );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn migrates_a_schema_one_database_without_changing_existing_idempotency() {
+        let path = temp_database("schema-one-upgrade");
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE workspace_snapshot (
+                     workspace_id TEXT PRIMARY KEY NOT NULL,
+                     path TEXT NOT NULL,
+                     status TEXT NOT NULL,
+                     generation INTEGER NOT NULL
+                 );
+                 CREATE TABLE workspace_journal (
+                     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                     request_id TEXT NOT NULL UNIQUE,
+                     workspace_id TEXT NOT NULL,
+                     path TEXT NOT NULL,
+                     status TEXT NOT NULL,
+                     generation INTEGER NOT NULL
+                 );
+                 INSERT INTO workspace_snapshot VALUES ('workspace-1', '/legacy', 'ready', 1);
+                 INSERT INTO workspace_journal
+                     (request_id, workspace_id, path, status, generation)
+                     VALUES ('legacy-request', 'workspace-1', '/legacy', 'ready', 1);
+                 PRAGMA user_version = 1;",
+            )
+            .unwrap();
+        drop(connection);
+
+        let store = HostStore::open(&path).unwrap();
+        assert_eq!(store.schema_version().unwrap(), 2);
+        assert_eq!(
+            store.snapshot().unwrap(),
+            vec![StoredWorkspace::new("workspace-1", "/legacy", "ready", 1)]
+        );
+        assert_eq!(
+            store
+                .commit_workspace(
+                    StoredWorkspace::new("workspace-1", "/legacy", "ready", 1),
+                    "legacy-request",
+                )
+                .unwrap(),
+            super::store::CommitResult {
+                sequence: 1,
+                changed: false,
+            }
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn persists_workspace_location_across_reopen_and_replays_it_idempotently() {
+        let path = temp_database("location");
+        let store = HostStore::open(&path).unwrap();
+        let workspace = StoredWorkspace::new("workspace-1", "/workspaces/repo", "ready", 1)
+            .with_location(StoredWorkspaceLocation::new(
+                StoredWorkspaceKind::GitWorktree,
+                StoredExecutionTarget::Wsl2 {
+                    distro: String::from("Ubuntu-22.04"),
+                },
+                "/workspaces/repo",
+            ));
+        let first = store
+            .commit_workspace(workspace.clone(), "request-location")
+            .unwrap();
+        let replay = store
+            .commit_workspace(workspace.clone(), "request-location")
+            .unwrap();
+        assert!(first.changed);
+        assert!(!replay.changed);
+        drop(store);
+
+        let reopened = HostStore::open(&path).unwrap();
+        assert_eq!(reopened.snapshot().unwrap(), vec![workspace]);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn rejects_a_location_that_cannot_be_authoritative_for_the_workspace_path() {
+        let path = temp_database("invalid-location");
+        let store = HostStore::open(&path).unwrap();
+        let workspace = StoredWorkspace::new("workspace-1", "/workspaces/repo", "ready", 1)
+            .with_location(StoredWorkspaceLocation::new(
+                StoredWorkspaceKind::Folder,
+                StoredExecutionTarget::WindowsNative,
+                "/other/path",
+            ));
+        assert_eq!(
+            store.commit_workspace(workspace, "request-invalid-location"),
+            Err(StoreError::InvalidLocation(String::from(
+                "location path must equal workspace path"
+            )))
+        );
+        assert_eq!(store.journal_len().unwrap(), 0);
         std::fs::remove_file(path).unwrap();
     }
 
@@ -139,7 +239,7 @@ mod contract_tests {
             HostStore::open(&path),
             Err(StoreError::UnsupportedSchema {
                 version: 9,
-                current: 1
+                current: 2
             })
         ));
         std::fs::remove_file(path).unwrap();
