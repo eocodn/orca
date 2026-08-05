@@ -208,6 +208,7 @@ export default function NewWorkspaceComposerCardAdvancedSurface({
   visibleQuickAgents
 } = context
   return (
+    <div>
         {/* Why: keep the Advanced disclosure header grouped with the content below while preserving spacing from the Agent field above. */}
         <div className="!mb-2">
           {/* Why: -ml-2 pulls the button so its label aligns flush-left with the field labels above

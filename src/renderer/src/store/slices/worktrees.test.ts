@@ -136,11 +136,6 @@ const mockApi = {
       result: { stoppedWorktreeIds: [] }
     })
   },
-  ephemeralVm: {
-    cancelProvision: vi.fn().mockResolvedValue({ cancelled: true }),
-    cleanup: vi.fn().mockResolvedValue({}),
-    listRuntimes: vi.fn().mockResolvedValue([])
-  }
 }
 
 // @ts-expect-error -- test shim
@@ -378,8 +373,6 @@ describe('setActiveWorktree focus handling', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetRemoteRuntimeMocks()
-    mockApi.ephemeralVm.cancelProvision.mockResolvedValue({ cancelled: true })
-    mockApi.ephemeralVm.cleanup.mockResolvedValue({})
   })
 
   it('moves focus out of a registered webview before switching worktrees', () => {
@@ -4596,39 +4589,6 @@ describe('removeWorktree state cleanup', () => {
         providerSession: { key: 'session_id', id: 'surviving-session' }
       }
     })
-  })
-
-  it('purges the orphaned project that pointed at a destroyed runtime-owned SSH target', async () => {
-    const store = createTestStore()
-    const wt = makeWorktree({ id: 'repo1::/path/wt1', repoId: 'repo1', path: '/path/wt1' })
-    const orphanedSetup = {
-      id: 'setup-runtime-ssh',
-      hostId: 'ssh:runtime-ssh-orca-1'
-    } as unknown as AppState['projectHostSetups'][number]
-    const userSshSetup = {
-      id: 'setup-user-ssh',
-      hostId: 'ssh:my-server'
-    } as unknown as AppState['projectHostSetups'][number]
-    const deleteProjectHostSetup = vi.fn().mockResolvedValue(null)
-    store.setState({
-      worktreesByRepo: { repo1: [wt] },
-      projectHostSetups: [orphanedSetup, userSshSetup],
-      deleteProjectHostSetup
-    } as unknown as Partial<AppState>)
-    mockApi.ephemeralVm.listRuntimes.mockResolvedValueOnce([
-      {
-        id: 'runtime-1',
-        workspaceId: 'repo1::/path/wt1',
-        cleanupStatus: 'not_started',
-        sshTargetId: 'runtime-ssh-orca-1'
-      }
-    ])
-
-    await store.getState().removeWorktree('repo1::/path/wt1')
-
-    // Only the orphaned runtime-owned project setup is purged; the user's SSH project is untouched.
-    expect(deleteProjectHostSetup).toHaveBeenCalledTimes(1)
-    expect(deleteProjectHostSetup).toHaveBeenCalledWith({ setupId: 'setup-runtime-ssh' })
   })
 
   it('cleans up editorDrafts for files in the removed worktree', async () => {
@@ -9012,56 +8972,6 @@ describe('pending worktree creation state', () => {
 
     store.getState().removePendingWorktreeCreation('c2')
     expect(store.getState().activePendingCreationId).toBeNull()
-  })
-
-  it('removePendingWorktreeCreation cancels active VM provisioning', () => {
-    const store = createTestStore()
-    store.getState().beginPendingWorktreeCreation(
-      makePendingCreation('c1', {
-        phase: 'provisioning-vm'
-      })
-    )
-
-    store.getState().removePendingWorktreeCreation('c1')
-
-    expect(mockApi.ephemeralVm.cancelProvision).toHaveBeenCalledWith({ provisionId: 'c1' })
-    expect(store.getState().pendingWorktreeCreations.c1).toBeUndefined()
-  })
-
-  it('removePendingWorktreeCreation cleans up a provisioned VM runtime', () => {
-    const store = createTestStore()
-    store.getState().beginPendingWorktreeCreation(
-      makePendingCreation('c1', {
-        phase: 'fetching',
-        request: {
-          ...makePendingCreation('c1').request,
-          ephemeralVmRuntimeId: 'runtime-1'
-        }
-      })
-    )
-
-    store.getState().removePendingWorktreeCreation('c1')
-
-    expect(mockApi.ephemeralVm.cleanup).toHaveBeenCalledWith({ runtimeId: 'runtime-1' })
-    expect(store.getState().pendingWorktreeCreations.c1).toBeUndefined()
-  })
-
-  it('removePendingWorktreeCreation can drop a completed VM creation without cleanup', () => {
-    const store = createTestStore()
-    store.getState().beginPendingWorktreeCreation(
-      makePendingCreation('c1', {
-        phase: 'fetching',
-        request: {
-          ...makePendingCreation('c1').request,
-          ephemeralVmRuntimeId: 'runtime-1'
-        }
-      })
-    )
-
-    store.getState().removePendingWorktreeCreation('c1', { cleanupVm: false })
-
-    expect(mockApi.ephemeralVm.cleanup).not.toHaveBeenCalled()
-    expect(store.getState().pendingWorktreeCreations.c1).toBeUndefined()
   })
 
   it('setActivePendingWorktreeCreation ignores unknown ids but always accepts null', () => {

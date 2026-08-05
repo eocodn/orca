@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
     setActiveRuntimeEnvironmentPreference: vi.fn(),
     setSshConnectionState: vi.fn(),
     sshConnectionStates: new Map(),
-    runtimeEnvironments: [] as { id: string; name: string; source?: 'manual' | 'ephemeral-vm' }[]
+    runtimeEnvironments: [] as { id: string; name: string; source?: 'manual' }[]
   },
   sshConnect: vi.fn(),
   sshGetState: vi.fn()
@@ -228,30 +228,4 @@ describe('useAddRepoHostSelection', () => {
     expect(mocks.stateSetters[0]).toHaveBeenCalledWith('local')
   })
 
-  it('hides ephemeral VM runtime hosts from Add Project selection', async () => {
-    mocks.stateValues = ['runtime:env-vm', false]
-    mocks.hostOptions.push({
-      id: 'runtime:env-vm',
-      label: 'orca VM abc12345',
-      detail: 'Runtime',
-      kind: 'runtime',
-      health: 'available',
-      presence: 'project'
-    })
-    mocks.storeState.runtimeEnvironments = [
-      { id: 'env-vm', name: 'orca VM abc12345', source: 'ephemeral-vm' }
-    ]
-    const setStep = vi.fn()
-    const { useAddRepoHostSelection } = await import('./use-add-repo-host-selection')
-
-    const result = useAddRepoHostSelection({ isOpen: true, setStep })
-
-    expect(result.hostOptions.map((host) => host.id)).not.toContain('runtime:env-vm')
-    expect(result.selectedHostId).toBe('local')
-    await result.handleSelectAddProjectHost('runtime:env-vm')
-    expect(mocks.storeState.setActiveRuntimeEnvironmentPreference).not.toHaveBeenCalledWith(
-      'env-vm'
-    )
-    expect(setStep).not.toHaveBeenCalled()
-  })
 })

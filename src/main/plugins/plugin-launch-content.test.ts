@@ -54,9 +54,6 @@ describe('Phase 1 launch plugin content', () => {
       if (contributes.languagePacks.length > 0) {
         contributionKinds.add('language')
       }
-      if (contributes.vmRecipes.length > 0) {
-        contributionKinds.add('vm-recipe')
-      }
       if (contributes.commands.length > 0 && contributes.keybindings.length > 0) {
         contributionKinds.add('command-keybinding')
       }

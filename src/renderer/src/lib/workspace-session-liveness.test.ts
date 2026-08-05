@@ -216,7 +216,7 @@ describe('workspace session live PTY persistence', () => {
     )
 
     // Why: the renderer must never drive startup ssh.connect for runtime-owned
-    // (ephemeral-VM) targets — their lifecycle belongs to the runtime layer,
+    // Runtime-owned targets — their lifecycle belongs to the runtime layer,
     // and ssh.listTargets() hides them so the connect would target a host the
     // user cannot see or manage.
     expect(payload.remoteSessionIdsByTabId).toEqual({

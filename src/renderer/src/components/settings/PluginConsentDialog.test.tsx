@@ -158,44 +158,6 @@ describe('PluginConsentDialog', () => {
     expect(document.body.textContent).not.toContain('These permissions limit')
   })
 
-  it('shows every VM recipe lifecycle command verbatim', async () => {
-    await renderConsent(
-      {
-        ...plugin,
-        hasWorker: false,
-        capabilities: [],
-        vmRecipes: [
-          {
-            id: 'cloud',
-            name: 'Cloud Sandbox',
-            description: 'Creates a disposable VM.',
-            commands: [
-              { phase: 'create', command: './scripts/create.sh --exact "$VALUE"' },
-              { phase: 'suspend', command: './scripts/suspend.sh' },
-              { phase: 'resume', command: './scripts/resume.sh' },
-              { phase: 'destroy', command: 'none' }
-            ]
-          }
-        ]
-      },
-      vi.fn().mockResolvedValue(undefined)
-    )
-
-    expect(document.body.textContent).toContain('Instructional')
-    expect(document.body.textContent).toContain('Review plugin content')
-    expect(document.body.textContent).toContain(
-      'Its instructional content can still cause actions when you or an agent use it.'
-    )
-    expect(document.body.textContent).toContain('./scripts/create.sh --exact "$VALUE"')
-    expect(document.body.textContent).toContain('./scripts/suspend.sh')
-    expect(document.body.textContent).toContain('./scripts/resume.sh')
-    expect(document.body.textContent).toContain('Destroynone')
-    const commands = Array.from(document.querySelectorAll('pre'))
-    expect(commands).toHaveLength(4)
-    expect(commands[0]?.tabIndex).toBe(0)
-    expect(commands[0]?.getAttribute('aria-label')).toBe('Cloud Sandbox · Create command')
-  })
-
   it('shows plugin shortcuts and names built-in chords they replace', async () => {
     await renderConsent(
       {

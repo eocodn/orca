@@ -66,12 +66,6 @@ function renderSidebar(
                 installStatus: 'update-available'
               },
               {
-                id: 'ephemeral-vms',
-                title: 'Ephemeral VMs',
-                icon: Bot,
-                installStatus: 'needs-attention'
-              },
-              {
                 id: 'plugins',
                 title: 'Plugins',
                 icon: Puzzle

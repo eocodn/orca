@@ -57,9 +57,9 @@ describe('execution host registry', () => {
     ])
   })
 
-  it('hides runtime-owned (ephemeral VM) SSH targets from repo-derived hosts', () => {
+  it('hides runtime-owned SSH targets from repo-derived hosts', () => {
     const hosts = buildExecutionHostRegistry({
-      // A VM-backed repo carries the hidden runtime-owned target on both fields.
+      // A runtime-backed repo carries the hidden runtime-owned target on both fields.
       repos: [
         {
           connectionId: 'runtime-ssh-orca-instance-1',
@@ -69,7 +69,7 @@ describe('execution host registry', () => {
       ],
       settings: { activeRuntimeEnvironmentId: null },
       // Even if a stale label leaked in, it must still be filtered out.
-      sshTargetLabels: new Map([['runtime-ssh-orca-instance-1', 'Hidden VM']])
+      sshTargetLabels: new Map([['runtime-ssh-orca-instance-1', 'Hidden runtime']])
     })
 
     expect(hosts.some((h) => h.id.includes('runtime-ssh-orca-instance-1'))).toBe(false)
@@ -189,10 +189,10 @@ describe('execution host registry', () => {
     const hosts = buildExecutionHostRegistry({
       repos: [],
       settings: { activeRuntimeEnvironmentId: null },
-      runtimeEnvironments: [{ id: 'vm-runtime', name: 'VM Runtime', source: 'ephemeral-vm' }],
+      runtimeEnvironments: [{ id: 'runtime', name: 'Runtime', source: 'manual' }],
       runtimeStatusByEnvironmentId: new Map([
         [
-          'vm-runtime',
+          'runtime',
           {
             status: {
               runtimeId: 'runtime-vm',
@@ -212,9 +212,9 @@ describe('execution host registry', () => {
 
     expect(hosts).toContainEqual(
       expect.objectContaining({
-        id: 'runtime:vm-runtime',
+        id: 'runtime:runtime',
         kind: 'runtime',
-        source: 'ephemeral-vm'
+        source: 'manual'
       })
     )
   })

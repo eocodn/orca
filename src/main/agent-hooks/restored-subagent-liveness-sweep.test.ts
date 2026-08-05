@@ -257,9 +257,9 @@ describe('restored subagent liveness sweep', () => {
     try {
       expect(
         await sweepWith(server, {
-          executionHostId: 'runtime:ephemeral-vm-1',
+          executionHostId: 'runtime:test-runtime-1',
           probeLiveLocalPty,
-          persistedPtyIdByPaneKey: { [PANE]: 'remote:ephemeral-vm-1@@pty-1' }
+          persistedPtyIdByPaneKey: { [PANE]: 'remote:test-runtime-1@@pty-1' }
         })
       ).toBe(0)
 
@@ -498,7 +498,7 @@ describe('resolveAgentWorkspaceExecutionHostId', () => {
   const runtimeRepo = {
     id: 'runtime-repo',
     connectionId: null,
-    executionHostId: 'runtime:ephemeral-vm-1' as const
+    executionHostId: 'runtime:test-runtime-1' as const
   }
   const futureHostRepo = {
     id: 'future-repo',
@@ -526,7 +526,7 @@ describe('resolveAgentWorkspaceExecutionHostId', () => {
       {
         id: 'group-runtime',
         connectionId: null,
-        executionHostId: 'runtime:ephemeral-vm-1'
+        executionHostId: 'runtime:test-runtime-1'
       }
     ]
   }
@@ -534,10 +534,10 @@ describe('resolveAgentWorkspaceExecutionHostId', () => {
   it('positively identifies local ownership and rejects runtime hosts', () => {
     expect(resolveAgentWorkspaceExecutionHostId('local-repo::/repo', deps)).toBe('local')
     expect(resolveAgentWorkspaceExecutionHostId('runtime-repo::/repo', deps)).toBe(
-      'runtime:ephemeral-vm-1'
+      'runtime:test-runtime-1'
     )
     expect(resolveAgentWorkspaceExecutionHostId('folder:folder-runtime', deps)).toBe(
-      'runtime:ephemeral-vm-1'
+      'runtime:test-runtime-1'
     )
     expect(resolveAgentWorkspaceExecutionHostId('local-repo::/runtime-worktree', deps)).toBe(
       'runtime:worktree-owner'
@@ -548,7 +548,7 @@ describe('resolveAgentWorkspaceExecutionHostId', () => {
     expect(resolveAgentWorkspaceExecutionHostId('future-repo::/repo', deps)).toBeNull()
     expect(resolveAgentWorkspaceExecutionHostId('local-repo::/future-worktree', deps)).toBeNull()
     expect(isLocalExecutionHost('local')).toBe(true)
-    expect(isLocalExecutionHost('runtime:ephemeral-vm-1')).toBe(false)
+    expect(isLocalExecutionHost('runtime:test-runtime-1')).toBe(false)
   })
 
   it('treats missing workspace provenance as unknown', () => {

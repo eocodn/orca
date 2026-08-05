@@ -475,6 +475,7 @@ export default function NewWorkspaceComposerCardSurface({
         </div>
 
 
+      </div>
     <NewWorkspaceComposerCardAdvancedSurface context={context} />
       {createError ? (
         <div

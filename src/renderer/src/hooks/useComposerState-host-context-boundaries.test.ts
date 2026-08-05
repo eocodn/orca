@@ -18,11 +18,6 @@ const HOOK_SOURCE = [
 ]
   .map((fileName) => readFileSync(join(__dirname, fileName), 'utf8'))
   .join('\n')
-const RECIPE_OPTIONS_SOURCE = readFileSync(
-  join(__dirname, 'useEphemeralVmRecipeOptions.ts'),
-  'utf8'
-)
-
 function sourceBetween(source: string, startPattern: string, endPattern: string): string {
   const start = source.indexOf(startPattern)
   expect(start).toBeGreaterThanOrEqual(0)
@@ -810,34 +805,4 @@ describe('useComposerState host-context boundaries', () => {
     expect(section).toContain('if (!selected)')
   })
 
-  it('gates per-workspace environment recipe discovery behind the experimental setting', () => {
-    const recipeLoadSection = sourceBetween(
-      HOOK_SOURCE,
-      'const ephemeralVmsEnabled',
-      'const selectedRepoConnectionId'
-    )
-    expect(recipeLoadSection).toContain('settings?.experimentalEphemeralVms === true')
-    expect(recipeLoadSection).toContain('useEphemeralVmRecipeOptions')
-    expect(recipeLoadSection).toContain('enabled: ephemeralVmsEnabled')
-    expect(RECIPE_OPTIONS_SOURCE).toContain('args.enabled &&')
-    expect(RECIPE_OPTIONS_SOURCE).toContain('window.api.ephemeralVm')
-    expect(RECIPE_OPTIONS_SOURCE).toContain('window.api.plugins.onChanged')
-    expect(RECIPE_OPTIONS_SOURCE).toContain('requestGeneration')
-
-    const submitSection = sourceBetween(
-      HOOK_SOURCE,
-      'let ephemeralVmRecipe',
-      'const request: WorktreeCreationRequest'
-    )
-    expect(submitSection).toContain(
-      'const activeEphemeralVmRecipeId = ephemeralVmsEnabled ? selectedEphemeralVmRecipeId : null'
-    )
-    expect(submitSection).toContain('recipeId: activeEphemeralVmRecipeId')
-
-    const cardPropsSection = sourceBetween(HOOK_SOURCE, 'const cardProps', 'return {')
-    expect(cardPropsSection).toContain('ephemeralVmRecipes:')
-    expect(cardPropsSection).toContain('!ephemeralVmsEnabled')
-    expect(cardPropsSection).toContain('selectedEphemeralVmRecipeId:')
-    expect(cardPropsSection).toContain('ephemeralVmRecipeError:')
-  })
 })

@@ -38,8 +38,7 @@ describe('plugin language-pack artifacts', () => {
     // The provenance badge and install-error copy carry the trust decision.
     'PluginConsentProvenance',
     'pluginError',
-    'PluginKeybindingConsentPreview',
-    'PluginVmRecipeConsentPreview'
+    'PluginKeybindingConsentPreview'
   ])('prevents language packs from rewriting %s security copy', (component) => {
     expect(
       parsePluginLanguagePackArtifact(

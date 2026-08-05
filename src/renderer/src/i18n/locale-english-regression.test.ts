@@ -43,8 +43,7 @@ const REVERTED_KEYS = [
   'auto.App.pluginCommandFailed',
   'auto.components.WorktreeJumpPalette.pluginCommandFailed',
   'auto.hooks.useSettingsNavigationMetadata.pluginsDescription',
-  'auto.components.status.bar.resource.memory.metric.workingSetDescription',
-  'auto.components.settings.EphemeralVmsPane.recipesHelp'
+  'auto.components.status.bar.resource.memory.metric.workingSetDescription'
 ]
 
 describe('locale catalogs reverted by a stale branch base (#10770)', () => {
@@ -57,14 +56,5 @@ describe('locale catalogs reverted by a stale branch base (#10770)', () => {
       expect(localized?.trim()).not.toBe('')
       expect(localized, `${key} fell back to the English source`).not.toBe(english)
     }
-  })
-
-  // The same stale base regressed English itself: the catalog kept pre-plugins
-  // copy while EphemeralVmsPane.tsx already shipped the newer sentence, and a
-  // present catalog value wins over the source fallback.
-  it('keeps the English catalog in step with its live source string', () => {
-    expect(lookup(en, 'auto.components.settings.EphemeralVmsPane.recipesHelp')).toBe(
-      'Recipes from orca.yaml and enabled plugins show up here, ready to launch a workspace on.'
-    )
   })
 })

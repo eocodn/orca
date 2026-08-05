@@ -75,37 +75,33 @@ describe('installed plugin discovery identity', () => {
 })
 
 describe('instructional plugin discovery identity', () => {
-  it('changes dev consent when a VM recipe command changes', async () => {
+  it('changes dev consent when a declared plugin file changes', async () => {
     const pluginsDir = await tempPluginsDir()
     const devRoot = await tempPluginsDir()
-    await mkdir(join(devRoot, 'recipes'))
     await writeFile(
       join(devRoot, 'orca-plugin.json'),
       JSON.stringify({
         manifestVersion: 1,
-        id: 'recipes',
+        id: 'content',
         publisher: 'orca-samples',
-        name: 'Recipes',
+        name: 'Content',
         version: '1.0.0',
         engines: { orca: '>=1.0.0' },
         pluginApi: 1,
-        contributes: { vmRecipes: [{ path: 'recipes/cloud.json' }] },
+        contributes: { agents: [{ path: 'README.md' }] },
         capabilities: []
       })
     )
-    const recipePath = join(devRoot, 'recipes', 'cloud.json')
-    await writeFile(
-      recipePath,
-      JSON.stringify({ schemaVersion: 1, id: 'cloud', name: 'Cloud', create: 'create-v1' })
-    )
+    const contentPath = join(devRoot, 'README.md')
+    await writeFile(contentPath, 'content-v1')
     const [first] = await discoverPlugins({
       pluginsDir,
       devPluginPaths: [devRoot],
       hostVersion: '1.4.0'
     })
     await writeFile(
-      recipePath,
-      JSON.stringify({ schemaVersion: 1, id: 'cloud', name: 'Cloud', create: 'create-v2' })
+      contentPath,
+      'content-v2'
     )
     const [second] = await discoverPlugins({
       pluginsDir,

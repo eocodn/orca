@@ -52,7 +52,6 @@ describe('feature interactions', () => {
       'browser-grab',
       'markdown-file-created',
       'workspace-creation',
-      'ephemeral-vm-setup',
       'agent-orchestration-setup',
       'agent-orchestration',
       'ai-commit-generation',

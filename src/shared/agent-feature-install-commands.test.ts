@@ -5,7 +5,6 @@ import {
   ORCA_CLI_SKILL_INSTALL_COMMAND,
   buildAgentFeatureSkillUpdateArgs,
   buildAgentFeatureSkillUpdateCommand,
-  EPHEMERAL_VMS_SKILL_UPDATE_COMMAND,
   LINEAR_TICKETS_SKILL_UPDATE_COMMAND,
   ORCA_LINEAR_SKILL_UPDATE_COMMAND,
   ORCA_CLI_SKILL_UPDATE_COMMAND,
@@ -117,9 +116,6 @@ describe('agent feature skill commands', () => {
   it('exports single-skill update constants without changing install bundles', () => {
     expect(ORCA_CLI_SKILL_UPDATE_COMMAND).toBe('npx skills update orca-cli --global')
     expect(ORCHESTRATION_SKILL_UPDATE_COMMAND).toBe('npx skills update orchestration --global')
-    expect(EPHEMERAL_VMS_SKILL_UPDATE_COMMAND).toBe(
-      'npx skills update orca-per-workspace-env --global'
-    )
     expect(ORCA_LINEAR_SKILL_UPDATE_COMMAND).toBe('npx skills update orca-linear --global')
     expect(LINEAR_TICKETS_SKILL_UPDATE_COMMAND).toBe('npx skills update linear-tickets --global')
   })
