@@ -8,7 +8,8 @@ pub mod worker;
 mod contract_tests {
     use super::host_runtime::HostRuntime;
     use super::protocol::{
-        Capability, ProtocolEnvelope, ProtocolError, HOST_CAPABILITIES, PROTOCOL_VERSION,
+        Capability, GitOperation, GitRequest, ProtocolEnvelope, ProtocolError, HOST_CAPABILITIES,
+        PROTOCOL_VERSION,
     };
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
     use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
@@ -51,6 +52,30 @@ mod contract_tests {
             serde_json::to_string(&envelope).expect("protocol envelope should serialize"),
             r#"{"request_id":"request-1","capability":"workspace.write","protocol_version":1}"#
         );
+    }
+
+    #[test]
+    fn git_request_serializes_as_a_versioned_host_operation() {
+        let request = GitRequest::worktree_list("request-7", r"C:\workspaces\repo");
+
+        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(
+            serde_json::to_string(&request).expect("git request should serialize"),
+            r#"{"envelope":{"request_id":"request-7","capability":"git","protocol_version":1},"operation":{"type":"worktree_list","repository_path":"C:\\workspaces\\repo"}}"#
+        );
+    }
+
+    #[test]
+    fn git_request_rejects_empty_paths_without_normalizing_them() {
+        let request = GitRequest::new(
+            "request-8",
+            GitOperation::RepositoryGitDir {
+                path: String::from("  "),
+            },
+            PROTOCOL_VERSION,
+        );
+
+        assert_eq!(request.validate(), Err(ProtocolError::EmptyGitPath));
     }
 
     #[test]
