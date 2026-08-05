@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   getHostProtocolDescriptor,
   HOST_PROTOCOL_VERSION,
-  validateHostProtocol
+  validateHostProtocol,
+  validateHostProtocolEnvelope
 } from './host-protocol'
 
 describe('Host protocol descriptor', () => {
@@ -25,5 +26,36 @@ describe('Host protocol descriptor', () => {
       ok: false,
       reason: 'invalid-capabilities'
     })
+  })
+
+  it('validates the Rust-compatible envelope wire shape strictly', () => {
+    expect(
+      validateHostProtocolEnvelope({
+        request_id: 'request-1',
+        capability: 'workspace.write',
+        protocol_version: 1
+      })
+    ).toEqual({
+      ok: true,
+      envelope: {
+        request_id: 'request-1',
+        capability: 'workspace.write',
+        protocol_version: 1
+      }
+    })
+    expect(
+      validateHostProtocolEnvelope({
+        request_id: ' ',
+        capability: 'workspace.write',
+        protocol_version: 1
+      })
+    ).toEqual({ ok: false, reason: 'empty-request-id' })
+    expect(
+      validateHostProtocolEnvelope({
+        request_id: 'request-1',
+        capability: 'unknown',
+        protocol_version: 1
+      })
+    ).toEqual({ ok: false, reason: 'invalid-capability' })
   })
 })
