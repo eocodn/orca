@@ -100,7 +100,7 @@ describe('host.request terminal RPC method', () => {
       dispatcher.dispatch(makeRequest(terminalRequest({ type: 'close' }, 3)))
     ).resolves.toMatchObject({
       ok: true,
-      result: { operation: 'close', generation: 4, status: 'closed', exit_code: null }
+      result: { operation: 'close', generation: 4, status: 'closed', exit_code: 7 }
     })
   })
 

@@ -18,6 +18,7 @@ pub struct TerminalSnapshot {
     pub terminal_id: String,
     pub generation: u64,
     pub status: TerminalStatus,
+    pub exit_code: Option<i32>,
     pub failure_reason: Option<String>,
     pub output_sequence: u64,
     pub tail: String,
@@ -48,6 +49,7 @@ struct TerminalState {
     terminal_id: String,
     generation: u64,
     status: TerminalStatus,
+    exit_code: Option<i32>,
     failure_reason: Option<String>,
     output_sequence: u64,
     tail: String,
@@ -69,6 +71,7 @@ impl TerminalRuntime {
                 terminal_id,
                 generation: 0,
                 status: TerminalStatus::Created,
+                exit_code: None,
                 failure_reason: None,
                 output_sequence: 0,
                 tail: String::new(),
@@ -112,6 +115,7 @@ impl TerminalRuntime {
             }
             TerminalCommand::Exit { code } if next.status == TerminalStatus::Running => {
                 next.status = TerminalStatus::Exited { code };
+                next.exit_code = Some(code);
             }
             TerminalCommand::Fail { reason } if next.status == TerminalStatus::Running => {
                 if reason.trim().is_empty() {
@@ -224,6 +228,9 @@ impl TerminalRuntime {
             }
             next.failure_reason = Some(reason.clone());
         }
+        if let TerminalStatus::Exited { code } = &final_status {
+            next.exit_code = Some(*code);
+        }
         next.status = final_status;
         *state = next;
         Ok(snapshot(&state))
@@ -235,6 +242,7 @@ fn snapshot(state: &TerminalState) -> TerminalSnapshot {
         terminal_id: state.terminal_id.clone(),
         generation: state.generation,
         status: state.status.clone(),
+        exit_code: state.exit_code,
         failure_reason: state.failure_reason.clone(),
         output_sequence: state.output_sequence,
         tail: state.tail.clone(),
@@ -280,14 +288,16 @@ mod contract_tests {
         assert_eq!(output.tail, "ready\n");
 
         let exited = terminal
-            .apply(output.generation, TerminalCommand::Exit { code: 0 })
+            .apply(output.generation, TerminalCommand::Exit { code: 7 })
             .unwrap();
-        assert_eq!(exited.status, TerminalStatus::Exited { code: 0 });
+        assert_eq!(exited.status, TerminalStatus::Exited { code: 7 });
+        assert_eq!(exited.exit_code, Some(7));
 
         let closed = terminal
             .apply(exited.generation, TerminalCommand::Close)
             .unwrap();
         assert_eq!(closed.status, TerminalStatus::Closed);
+        assert_eq!(closed.exit_code, Some(7));
     }
 
     #[test]
@@ -298,6 +308,7 @@ mod contract_tests {
         let completed = terminal.complete(started.generation, "ready\n", 0).unwrap();
 
         assert_eq!(completed.status, TerminalStatus::Exited { code: 0 });
+        assert_eq!(completed.exit_code, Some(0));
         assert_eq!(completed.output_sequence, 1);
         assert_eq!(completed.tail, "ready\n");
         assert_eq!(completed.generation, started.generation + 1);

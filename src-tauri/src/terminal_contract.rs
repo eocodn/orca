@@ -140,12 +140,12 @@ fn render_terminal_result(
     request: &TerminalRequest,
     snapshot: TerminalSnapshot,
 ) -> Result<String, String> {
-    let (status, exit_code) = match snapshot.status {
-        TerminalStatus::Created => ("created", None),
-        TerminalStatus::Running => ("running", None),
-        TerminalStatus::Exited { code } => ("exited", Some(code)),
-        TerminalStatus::Failed { .. } => ("failed", None),
-        TerminalStatus::Closed => ("closed", None),
+    let status = match snapshot.status {
+        TerminalStatus::Created => "created",
+        TerminalStatus::Running => "running",
+        TerminalStatus::Exited { .. } => "exited",
+        TerminalStatus::Failed { .. } => "failed",
+        TerminalStatus::Closed => "closed",
     };
     serde_json::to_string(&TerminalResult {
         request_id: request.envelope.request_id.clone(),
@@ -155,7 +155,7 @@ fn render_terminal_result(
         terminal_id: snapshot.terminal_id,
         generation: snapshot.generation,
         status,
-        exit_code,
+        exit_code: snapshot.exit_code,
         failure_reason: snapshot.failure_reason,
         output_sequence: snapshot.output_sequence,
         tail: snapshot.tail,
@@ -202,6 +202,22 @@ mod tests {
         assert!(execute_terminal_request(&output, &state)
             .expect("terminal output should be observed")
             .contains(r#""output_sequence":1,"tail":"ready""#));
+
+        let exit = TerminalRequest::new(
+            "request-exit",
+            "terminal-1",
+            2,
+            TerminalOperation::Exit { code: 7 },
+        );
+        assert!(execute_terminal_request(&exit, &state)
+            .expect("terminal exit should be observed")
+            .contains(r#""status":"exited","exit_code":7"#));
+
+        let close =
+            TerminalRequest::new("request-close", "terminal-1", 3, TerminalOperation::Close);
+        assert!(execute_terminal_request(&close, &state)
+            .expect("terminal close should be observed")
+            .contains(r#""status":"closed","exit_code":7"#));
 
         assert_eq!(
             execute_terminal_request(

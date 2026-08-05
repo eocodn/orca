@@ -114,7 +114,6 @@ export class HostTerminalStateRegistry {
       if (next.status !== 'exited' && next.status !== 'failed') {
         throw new HostTerminalStateError('invalid_transition')
       }
-      next.exit_code = null
       next.status = 'closed'
     }
 

@@ -357,6 +357,10 @@ jobs:
       - name: Run Tauri Rust contract tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
 
+      - name: Run Rust workspace contract tests
+        working-directory: rust
+        run: cargo test --workspace --locked
+
   verify:
     if: always()
     needs:
