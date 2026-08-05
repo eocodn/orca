@@ -6,6 +6,7 @@ import {
   validateHostProtocolEnvelope,
   validateHostTerminalRequest
 } from './host-protocol'
+import { validateHostPtyRequest, validateHostPtyResponse } from './host-pty-protocol'
 
 describe('Host protocol descriptor', () => {
   it('publishes the version and capabilities shared by desktop, web, and Android clients', () => {
@@ -87,5 +88,80 @@ describe('Host protocol descriptor', () => {
       ok: false,
       reason: 'invalid-operation'
     })
+  })
+
+  it('validates the shared PTY request lifecycle and target shape strictly', () => {
+    const start = {
+      envelope: { request_id: 'pty-start', capability: 'pty', protocol_version: 1 },
+      workspace_id: 'workspace-1',
+      worker_id: 'worker-1',
+      session_id: 'session-1',
+      session_generation: null,
+      operation: {
+        type: 'start',
+        program: 'cmd.exe',
+        args: ['/C', 'exit', '/B', '259'],
+        current_dir: null,
+        execution_target: { kind: 'windows-native' },
+        cols: 80,
+        rows: 24
+      }
+    }
+
+    expect(validateHostPtyRequest(start)).toEqual({ ok: true, request: start })
+    expect(
+      validateHostPtyRequest({
+        ...start,
+        operation: {
+          ...start.operation,
+          execution_target: { kind: 'ssh', host: 'host-1', shell: 'posix' }
+        }
+      })
+    ).toMatchObject({ ok: true })
+    expect(
+      validateHostPtyRequest({
+        ...start,
+        session_generation: 1
+      })
+    ).toEqual({ ok: false, reason: 'invalid-session-generation' })
+    expect(
+      validateHostPtyRequest({
+        ...start,
+        operation: { type: 'wait', timeout_ms: 0 },
+        session_generation: 1
+      })
+    ).toEqual({ ok: false, reason: 'invalid-timeout' })
+    expect(
+      validateHostPtyRequest({
+        ...start,
+        operation: { ...start.operation, unexpected: true }
+      })
+    ).toEqual({ ok: false, reason: 'invalid-operation' })
+  })
+
+  it('validates the authoritative PTY response envelope and nullable fields', () => {
+    const response = {
+      envelope: { request_id: 'pty-poll', capability: 'pty', protocol_version: 1 },
+      workspace_id: 'workspace-1',
+      worker_id: 'worker-1',
+      session_id: 'session-1',
+      session_generation: 1,
+      generation: 2,
+      operation: 'poll',
+      status: 'running',
+      exit_code: null,
+      output_sequence: 0,
+      tail: '',
+      failure_reason: null
+    }
+
+    expect(validateHostPtyResponse(response)).toEqual({ ok: true, response })
+    expect(validateHostPtyResponse({ ...response, status: 'unknown' })).toEqual({
+      ok: false,
+      reason: 'invalid-status'
+    })
+    expect(
+      validateHostPtyResponse({ ...response, generation: Number.MAX_SAFE_INTEGER + 1 })
+    ).toEqual({ ok: false, reason: 'invalid-generation' })
   })
 })
