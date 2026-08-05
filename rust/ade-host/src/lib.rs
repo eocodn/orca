@@ -1,5 +1,7 @@
 use ade_host_core::host_runtime::HostSnapshot;
-use ade_host_store::store::StoredWorkspace;
+use ade_host_store::store::{
+    StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
+};
 use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -14,6 +16,7 @@ pub struct WorkspaceRegistration {
     pub workspace_id: String,
     pub path: String,
     pub request_id: String,
+    pub location: Option<StoredWorkspaceLocation>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -22,6 +25,13 @@ pub enum HostCliError {
     MissingWorkspaceId,
     MissingWorkspacePath,
     MissingRequestId,
+    MissingWorkspaceKind,
+    InvalidWorkspaceKind(String),
+    MissingExecutionTarget,
+    InvalidExecutionTarget(String),
+    MissingWslDistro,
+    MissingSshHost,
+    IncompleteWorkspaceLocation,
     IncompleteWorkspaceRegistration,
     RegistrationRequiresStateDb,
     UnexpectedArgument(String),
@@ -39,6 +49,10 @@ where
     let mut workspace_id = None;
     let mut workspace_path = None;
     let mut request_id = None;
+    let mut workspace_kind = None;
+    let mut execution_target = None;
+    let mut wsl_distro = None;
+    let mut ssh_host = None;
     let mut args = args.into_iter().map(Into::into);
     while let Some(argument) = args.next() {
         match argument.as_str() {
@@ -71,16 +85,79 @@ where
                 }
                 request_id = Some(request);
             }
+            "--workspace-kind" => {
+                let kind = args.next().ok_or(HostCliError::MissingWorkspaceKind)?;
+                if kind.is_empty() {
+                    return Err(HostCliError::MissingWorkspaceKind);
+                }
+                workspace_kind = Some(kind);
+            }
+            "--execution-target" => {
+                let target = args.next().ok_or(HostCliError::MissingExecutionTarget)?;
+                if target.is_empty() {
+                    return Err(HostCliError::MissingExecutionTarget);
+                }
+                execution_target = Some(target);
+            }
+            "--wsl-distro" => {
+                let distro = args.next().ok_or(HostCliError::MissingWslDistro)?;
+                if distro.trim().is_empty() {
+                    return Err(HostCliError::MissingWslDistro);
+                }
+                wsl_distro = Some(distro);
+            }
+            "--ssh-host" => {
+                let host = args.next().ok_or(HostCliError::MissingSshHost)?;
+                if host.trim().is_empty() {
+                    return Err(HostCliError::MissingSshHost);
+                }
+                ssh_host = Some(host);
+            }
             _ => return Err(HostCliError::UnexpectedArgument(argument)),
         }
     }
+    let location = match (workspace_kind, execution_target, wsl_distro, ssh_host) {
+        (None, None, None, None) => None,
+        (Some(kind), Some(target), distro, host) => {
+            let kind = match kind.as_str() {
+                "folder" => StoredWorkspaceKind::Folder,
+                "git-worktree" => StoredWorkspaceKind::GitWorktree,
+                value => return Err(HostCliError::InvalidWorkspaceKind(value.to_string())),
+            };
+            let target = match target.as_str() {
+                "windows-native" if distro.is_none() && host.is_none() => {
+                    StoredExecutionTarget::WindowsNative
+                }
+                "wsl2" if distro.is_some() && host.is_none() => StoredExecutionTarget::Wsl2 {
+                    distro: distro.ok_or(HostCliError::MissingWslDistro)?,
+                },
+                "ssh" if distro.is_none() && host.is_some() => StoredExecutionTarget::Ssh {
+                    host: host.ok_or(HostCliError::MissingSshHost)?,
+                },
+                "windows-native" | "wsl2" | "ssh" => {
+                    return Err(HostCliError::IncompleteWorkspaceLocation)
+                }
+                value => return Err(HostCliError::InvalidExecutionTarget(value.to_string())),
+            };
+            Some(StoredWorkspaceLocation::new(kind, target, ""))
+        }
+        _ => return Err(HostCliError::IncompleteWorkspaceLocation),
+    };
     let register_workspace = match (workspace_id, workspace_path, request_id) {
-        (None, None, None) => None,
-        (Some(workspace_id), Some(path), Some(request_id)) => Some(WorkspaceRegistration {
-            workspace_id,
-            path,
-            request_id,
-        }),
+        (None, None, None) if location.is_none() => None,
+        (None, None, None) => return Err(HostCliError::IncompleteWorkspaceRegistration),
+        (Some(workspace_id), Some(path), Some(request_id)) => {
+            let location = location.map(|mut location| {
+                location.path = path.clone();
+                location
+            });
+            Some(WorkspaceRegistration {
+                workspace_id,
+                path,
+                request_id,
+                location,
+            })
+        }
         _ => return Err(HostCliError::IncompleteWorkspaceRegistration),
     };
     Ok(HostCliOptions {
@@ -104,16 +181,19 @@ where
         let store = ade_host_store::store::HostStore::open(path)
             .map_err(|error| HostCliError::StateStore(format!("{error:?}")))?;
         if let Some(registration) = register_workspace {
+            let WorkspaceRegistration {
+                workspace_id,
+                path,
+                request_id,
+                location,
+            } = registration;
+            let workspace = StoredWorkspace::new(workspace_id, path, "registered", 1);
+            let workspace = match location {
+                Some(location) => workspace.with_location(location),
+                None => workspace,
+            };
             store
-                .commit_workspace(
-                    StoredWorkspace::new(
-                        registration.workspace_id,
-                        registration.path,
-                        "registered",
-                        1,
-                    ),
-                    &registration.request_id,
-                )
+                .commit_workspace(workspace, &request_id)
                 .map_err(|error| HostCliError::StateStore(format!("{error:?}")))?;
         }
         let snapshot = store
@@ -165,7 +245,9 @@ mod tests {
         HostCliOptions, WorkspaceRegistration,
     };
     use ade_host_core::host_runtime::HostSnapshot;
-    use ade_host_store::store::StoredWorkspace;
+    use ade_host_store::store::{
+        StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
+    };
     use std::path::PathBuf;
 
     #[test]
@@ -201,6 +283,45 @@ mod tests {
                     workspace_id: String::from("workspace-1"),
                     path: String::from(r"C:\workspaces\one"),
                     request_id: String::from("request-1"),
+                    location: None,
+                }),
+            })
+        );
+    }
+
+    #[test]
+    fn parses_cross_platform_workspace_location_arguments() {
+        assert_eq!(
+            parse_cli_args([
+                "--state-db",
+                r"C:\ade\state.db",
+                "--register-workspace",
+                "workspace-1",
+                "--workspace-path",
+                "/workspaces/repo",
+                "--request-id",
+                "request-1",
+                "--workspace-kind",
+                "git-worktree",
+                "--execution-target",
+                "wsl2",
+                "--wsl-distro",
+                "Ubuntu-22.04",
+            ]),
+            Ok(HostCliOptions {
+                json: false,
+                state_db: Some(PathBuf::from(r"C:\ade\state.db")),
+                register_workspace: Some(WorkspaceRegistration {
+                    workspace_id: String::from("workspace-1"),
+                    path: String::from("/workspaces/repo"),
+                    request_id: String::from("request-1"),
+                    location: Some(StoredWorkspaceLocation::new(
+                        StoredWorkspaceKind::GitWorktree,
+                        StoredExecutionTarget::Wsl2 {
+                            distro: String::from("Ubuntu-22.04"),
+                        },
+                        "/workspaces/repo",
+                    )),
                 }),
             })
         );
@@ -275,6 +396,52 @@ mod tests {
         assert_eq!(
             store.snapshot().expect("snapshot should be readable").len(),
             1
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn registers_the_requested_remote_location_in_the_authoritative_snapshot() {
+        let path = std::env::temp_dir().join(format!(
+            "ade-host-cli-location-{}-{}.db",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should be available")
+                .as_nanos()
+        ));
+        let output = run_cli([
+            "--json",
+            "--state-db",
+            path.to_str().expect("temporary path should be valid"),
+            "--register-workspace",
+            "workspace-1",
+            "--workspace-path",
+            "/workspaces/repo",
+            "--request-id",
+            "request-1",
+            "--workspace-kind",
+            "folder",
+            "--execution-target",
+            "ssh",
+            "--ssh-host",
+            "build.example",
+        ])
+        .expect("remote registration should persist");
+        assert!(output.contains("\"workspace_count\":1"));
+        let store = ade_host_store::store::HostStore::open(&path).expect("store should reopen");
+        assert_eq!(
+            store.snapshot().expect("snapshot should be readable")[0]
+                .location
+                .as_ref()
+                .expect("location should persist"),
+            &StoredWorkspaceLocation::new(
+                StoredWorkspaceKind::Folder,
+                StoredExecutionTarget::Ssh {
+                    host: String::from("build.example"),
+                },
+                "/workspaces/repo",
+            )
         );
         let _ = std::fs::remove_file(path);
     }
