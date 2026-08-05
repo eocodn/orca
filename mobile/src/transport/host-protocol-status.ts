@@ -3,6 +3,7 @@ const HOST_PROTOCOL_CAPABILITIES = new Set([
   'workspace.read',
   'workspace.write',
   'terminal',
+  'pty',
   'git',
   'file'
 ])

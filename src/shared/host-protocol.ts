@@ -4,6 +4,7 @@ export const HOST_PROTOCOL_CAPABILITIES = [
   'workspace.read',
   'workspace.write',
   'terminal',
+  'pty',
   'git',
   'file'
 ] as const

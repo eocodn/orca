@@ -92,7 +92,7 @@ describe('useHostStatusGates', () => {
         capabilities: ['browser.screencast.v1'],
         hostProtocol: {
           version: 1,
-          capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git', 'file']
+          capabilities: ['workspace.read', 'workspace.write', 'terminal', 'pty', 'git', 'file']
         },
         floatingWorkspaceEnabled: true
       }

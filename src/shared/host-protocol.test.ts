@@ -11,7 +11,7 @@ describe('Host protocol descriptor', () => {
   it('publishes the version and capabilities shared by desktop, web, and Android clients', () => {
     expect(getHostProtocolDescriptor()).toEqual({
       version: HOST_PROTOCOL_VERSION,
-      capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git', 'file']
+      capabilities: ['workspace.read', 'workspace.write', 'terminal', 'pty', 'git', 'file']
     })
   })
 
@@ -33,21 +33,21 @@ describe('Host protocol descriptor', () => {
     expect(
       validateHostProtocolEnvelope({
         request_id: 'request-1',
-        capability: 'workspace.write',
+        capability: 'pty',
         protocol_version: 1
       })
     ).toEqual({
       ok: true,
       envelope: {
         request_id: 'request-1',
-        capability: 'workspace.write',
+        capability: 'pty',
         protocol_version: 1
       }
     })
     expect(
       validateHostProtocolEnvelope({
         request_id: ' ',
-        capability: 'workspace.write',
+        capability: 'pty',
         protocol_version: 1
       })
     ).toEqual({ ok: false, reason: 'empty-request-id' })

@@ -12,11 +12,11 @@ describe('mobile Host protocol descriptor', () => {
     expect(
       readHostProtocolStatus({
         version: 1,
-        capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git', 'file']
+        capabilities: ['workspace.read', 'workspace.write', 'terminal', 'pty', 'git', 'file']
       })
     ).toEqual({
       version: 1,
-      capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git', 'file']
+      capabilities: ['workspace.read', 'workspace.write', 'terminal', 'pty', 'git', 'file']
     })
   })
 
