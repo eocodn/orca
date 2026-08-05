@@ -21,6 +21,9 @@ dependencies = [
 [[package]]
 name = "ade-host-platform"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "ade-host-store"

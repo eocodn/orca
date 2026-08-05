@@ -1,3 +1,5 @@
+pub mod git_capability;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecutionTarget {
     WindowsNative,
