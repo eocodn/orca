@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use rusqlite::{params, Connection, OptionalExtension};
 
+const CURRENT_SCHEMA_VERSION: i64 = 1;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredWorkspace {
     pub workspace_id: String,
@@ -40,6 +42,7 @@ pub enum StoreError {
     Sql(String),
     IdempotencyConflict,
     GenerationOutOfRange,
+    UnsupportedSchema { version: i64, current: i64 },
 }
 
 impl From<rusqlite::Error> for StoreError {
@@ -64,6 +67,13 @@ impl HostStore {
         let connection = Connection::open(path)?;
         connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
+        let schema_version = connection.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if schema_version > CURRENT_SCHEMA_VERSION {
+            return Err(StoreError::UnsupportedSchema {
+                version: schema_version,
+                current: CURRENT_SCHEMA_VERSION,
+            });
+        }
         connection.execute_batch(
             "BEGIN IMMEDIATE;
              CREATE TABLE IF NOT EXISTS workspace_snapshot (
@@ -80,9 +90,12 @@ impl HostStore {
                  status TEXT NOT NULL,
                  generation INTEGER NOT NULL
              );
-             PRAGMA user_version = 1;
-             COMMIT;",
+             ",
         )?;
+        if schema_version < CURRENT_SCHEMA_VERSION {
+            connection.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)?;
+        }
+        connection.execute_batch("COMMIT;")?;
         Ok(Self {
             connection: Mutex::new(connection),
         })

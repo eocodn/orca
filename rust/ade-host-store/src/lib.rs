@@ -95,4 +95,21 @@ mod contract_tests {
         assert_eq!(store.journal_len().unwrap(), 1);
         std::fs::remove_file(path).unwrap();
     }
+
+    #[test]
+    fn refuses_a_newer_schema_instead_of_rewriting_it_as_current() {
+        let path = temp_database("future-schema");
+        let connection = rusqlite::Connection::open(&path).unwrap();
+        connection.pragma_update(None, "user_version", 9).unwrap();
+        drop(connection);
+
+        assert!(matches!(
+            HostStore::open(&path),
+            Err(StoreError::UnsupportedSchema {
+                version: 9,
+                current: 1
+            })
+        ));
+        std::fs::remove_file(path).unwrap();
+    }
 }
