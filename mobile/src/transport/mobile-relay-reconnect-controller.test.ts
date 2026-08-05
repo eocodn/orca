@@ -5,7 +5,7 @@ import { RelayOuterError } from './mobile-relay-e2ee-link'
 import { RelayReconnectController } from './mobile-relay-reconnect-controller'
 import type { StableLogicalRpcClient } from './stable-logical-rpc-client'
 
-vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
+vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
 vi.mock('expo-crypto', () => ({ getRandomBytes: (length: number) => new Uint8Array(length) }))
 
 describe('relay reconnect controller', () => {

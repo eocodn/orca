@@ -6203,8 +6203,6 @@
         "MobileSettingsPane": {
           "9a3c280e49": "GitHub リリース",
           "b0088412a1": "または Android APK から",
-          "b5a2ed83ff": "アプリストア",
-          "c8491c17ef": "QR コードをスキャンしてスマートフォンから Orca を制御します。ベータ/早期プレビュー - バグや重大な変更が予想されます。 iOS アプリを次の場所から入手します。",
           "e7a3ae8c4e": "モバイル",
           "174f4a3c6d": "スマートフォンから terminals と agents を操作",
           "1de96ec8a6": "Orca Mobile ボタンを表示",
@@ -9559,7 +9557,6 @@
           "about": "Orca Relay ベータについて",
           "beta": "ベータ",
           "availability": "利用可能:",
-          "testFlight": "TestFlight",
           "androidApk": "Android APK"
         },
         "SkillUsageExampleDialog": {
@@ -11658,7 +11655,6 @@
           "7af266b80d": "QRコードをインストールする",
           "aa97420ba4": "インストールリンクをコピーする",
           "ac1eb64952": "Android",
-          "711e6f4b47": "iOS",
           "e75647ace0": "スマートフォンで QR をスキャンするか、インストール リンクを開いて Orca Mobile を取得します。",
           "0d9b33299e": "アプリを入手してください。",
           "92ddfdfa1f": "ステップ 1/2",
@@ -11677,11 +11673,6 @@
           "e59a252eca": "コードを再生成する",
           "d0b52871ce": "スマートフォンはペアリングされています。",
           "051978a785": "スマートフォンはペアリングされています。",
-          "channel": {
-            "group": "リリースチャンネル",
-            "preview": "プレビュー",
-            "stable": "安定版"
-          },
           "relayDegradedNotice": "Relay に接続できませんでした — このコードは LAN または Tailscale でのみ動作します。",
           "pairingQrError": "このペアリングコードを QR コードとして表示できませんでした。代わりに Orca Mobile にコピーしてください。"
         },
@@ -11716,14 +11707,8 @@
         "mobile": {
           "platform": {
             "copy": {
-              "2a532d6fd7": "Android カメラでスキャンして、GitHub リリースから最新の APK をダウンロードします。",
-              "432db52b73": "iPhone のカメラでスキャンして App Store を開きます。",
-              "preview": {
-                "tagline": "最新機能を毎日更新。"
-              },
-              "stable": {
-                "tagline": "一般公開版、毎週更新。"
-              }
+              "2a532d6fd7": "Android カメラでスキャンして、GitHub リリースから最新の APK をダウンロードします。"
+
             }
           }
         },

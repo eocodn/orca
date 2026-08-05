@@ -10,7 +10,7 @@ const secureStore = vi.hoisted(() => ({
   setItemAsync: vi.fn(),
   deleteItemAsync: vi.fn()
 }))
-const platform = vi.hoisted(() => ({ OS: 'ios' }))
+const platform = vi.hoisted(() => ({ OS: 'web' }))
 
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: asyncStorage }))
 vi.mock('expo-secure-store', () => ({
@@ -59,7 +59,7 @@ describe('mobile relay pairing journal store', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetMobileRelayPairingJournalStoreForTests()
-    platform.OS = 'ios'
+    platform.OS = 'web'
     metadataRaw = null
     secretRaw = null
     generationRaw = null

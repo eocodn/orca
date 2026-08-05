@@ -7,7 +7,10 @@ import { createRpcClientApi } from './rpc-client-connection-api'
 import { openRpcSocket } from './rpc-client-connection-socket'
 import { createRpcStreamRouting } from './rpc-client-connection-stream-routing'
 import { createRpcConnectionLifecycle } from './rpc-client-connection-lifecycle'
-import { createConnectionStateAccessors, createSocketSessionAccessors } from './rpc-client-connection-state'
+import {
+  createConnectionStateAccessors,
+  createSocketSessionAccessors
+} from './rpc-client-connection-state'
 import {
   createServerSubscriptionUnsubscriber,
   sendBrowserScreencastUnsubscribe
@@ -20,11 +23,12 @@ import type {
   StreamRequest,
   StreamingListener
 } from './rpc-client-connection-contracts'
-import {
-  ACTIVITY_PROBE_INTERVAL_MS,
-  GIVE_UP_AFTER_ATTEMPTS
-} from './rpc-client-connection-policy'
-export type { ConnectOptions, RpcClient, SendRequestOptions } from './rpc-client-connection-contracts'
+import { ACTIVITY_PROBE_INTERVAL_MS, GIVE_UP_AFTER_ATTEMPTS } from './rpc-client-connection-policy'
+export type {
+  ConnectOptions,
+  RpcClient,
+  SendRequestOptions
+} from './rpc-client-connection-contracts'
 export function connect(
   endpoint: string,
   deviceToken: string,
@@ -292,7 +296,6 @@ export function connect(
       }
     })
 
-
   function clearConnectTimer() {
     if (connectTimer) {
       clearTimeout(connectTimer)
@@ -321,7 +324,7 @@ export function connect(
       // Why: stale probe timers must not close a replacement socket.
       if (probeWs === ws && probeWs.readyState === WebSocket.OPEN) {
         probeWs.close()
-        // Why: React Native can omit onclose for a wedged iOS transport.
+        // Why: React Native can omit onclose for a wedged mobile transport.
         if (probeWs === ws) {
           synthesizedCloses.remember(probeWs, authenticationGeneration)
           handleSocketClosed(probeWs, { timedOut: true })
@@ -384,8 +387,6 @@ export function connect(
     }
     return false
   }
-
-
 
   const sendServerSubscriptionUnsubscribe = createServerSubscriptionUnsubscriber({
     nextId,

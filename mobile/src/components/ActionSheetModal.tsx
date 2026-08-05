@@ -125,8 +125,7 @@ export function ActionSheetModal({ visible, title, message, actions, onClose }: 
       visible={visible}
       onClose={onClose}
       onAfterClose={() => {
-        // Why: iOS cannot present a second native modal until the action
-        // sheet's native window has fully unmounted.
+        // Wait until the action sheet's native window has fully unmounted.
         const pendingAction = pendingActionRef.current
         pendingActionRef.current = null
         pendingAction?.()

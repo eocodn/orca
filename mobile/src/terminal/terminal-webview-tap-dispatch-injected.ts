@@ -90,8 +90,8 @@ export const TERMINAL_TAP_DISPATCH_JS = `
     }
 
     if (inSurface && selMode === 'select') {
-      // Why: tap-to-dismiss matches native iOS/Android — touching outside the
-      // selection clears it. We cancel immediately and latch to 'surface' so
+      // Why: touching outside the selection clears it. We cancel immediately
+      // and latch to 'surface' so
       // the same gesture still drives scroll/pan without a second touch.
       cancelSelect();
       dispatch.mode = 'surface';

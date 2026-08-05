@@ -59,7 +59,20 @@ import {
   type TaskProvider
 } from '../src/tasks/mobile-task-providers'
 import { useResponsiveLayout } from '../src/layout/responsive-layout'
-import { endpointLabel, formatDuration, clientKey, fetchStats, fetchWorktreeInfo, fetchAccountsSnapshot, fetchTaskProviders, repoColor, type StatsSummary, type WorktreeSummary, type HostWorktreeInfo, TASK_PROVIDER_LABELS } from '../src/home-screen-data'
+import {
+  endpointLabel,
+  formatDuration,
+  clientKey,
+  fetchStats,
+  fetchWorktreeInfo,
+  fetchAccountsSnapshot,
+  fetchTaskProviders,
+  repoColor,
+  type StatsSummary,
+  type WorktreeSummary,
+  type HostWorktreeInfo,
+  TASK_PROVIDER_LABELS
+} from '../src/home-screen-data'
 import { CardGap, ONBOARDING_STEPS, styles } from '../src/home-screen-styles'
 import { HomeScreenFooter } from '../src/home-screen-footer'
 import { HomeScreenDashboardEmpty } from './home-screen-dashboard-empty'
@@ -68,7 +81,7 @@ import { HomeScreenDashboardActions } from './home-screen-dashboard-actions'
 export default function HomeScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  // Why: cap/center content on wide/tablet canvases so cards don't stretch edge-to-edge on iPad.
+  // Why: cap/center content on wide/tablet canvases so cards don't stretch edge-to-edge.
   const { isWideLayout, contentMaxWidth } = useResponsiveLayout()
   const [hosts, setHosts] = useState<HostProfile[]>([])
   const [actionTarget, setActionTarget] = useState<HostProfile | null>(null)
@@ -387,7 +400,6 @@ export default function HomeScreen() {
     },
     [primaryConnectedHost, router]
   )
-
 
   async function handleRemove() {
     if (!confirmRemove) {

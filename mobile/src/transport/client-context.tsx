@@ -104,7 +104,8 @@ export function RpcClientProvider({ children }: { children: ReactNode }) {
           const hosts = await loadHosts()
           host = hosts.find((h) => h.id === hostId)
         } catch {
-          // Why: cold-start Keychain failure (iOS mid-unlock / Android Keystore race); surface 'disconnected' so the user can Reconnect.
+          // Why: cold-start secure-store failures can race native unlock; surface
+          // 'disconnected' so the user can Reconnect.
           notifyHostState(hostId, 'disconnected')
           notifyAllHosts()
           return null

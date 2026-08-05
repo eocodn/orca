@@ -25,8 +25,8 @@ export const TERMINAL_WEBGL_RECOVERY_JS = `
         try { addon.dispose(); } catch (e) {}
         refreshTerminalSurface();
         if (!allowRecovery) return;
-        // Why: one delayed retry handles transient iOS context loss without
-        // entering a GPU crash loop; a second loss stays on the DOM renderer.
+        // One delayed retry handles transient context loss without entering a
+        // GPU crash loop; a second loss stays on the DOM renderer.
         cancelWebglContextRecovery();
         var recoveryTerm = term;
         var recoveryGeneration = terminalGeneration;
@@ -53,8 +53,7 @@ export const TERMINAL_WEBGL_RECOVERY_JS = `
 
   document.addEventListener('visibilitychange', function() {
     if (document.visibilityState !== 'visible') return;
-    // Why: iOS may restore the xterm model while discarding GPU pixels/theme
-    // paint state, so visibility must rebuild the atlas and repaint every row.
+    // Rebuild the atlas and repaint every row after the WebView becomes visible.
     applyTerminalTheme(terminalThemeInput);
     try { if (webglAddon && webglAddon.clearTextureAtlas) webglAddon.clearTextureAtlas(); } catch (e) {}
     refreshTerminalSurface();

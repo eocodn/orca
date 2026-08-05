@@ -60,8 +60,8 @@ export function formatEndpoint(endpoint: string): string {
 }
 
 // Why: an unreachable 100.x/*.ts.net host almost always means the phone's
-// Tailscale tunnel is down or wedged (known iOS failure mode, fixed by
-// toggling the VPN) — point at that instead of a bare "Cannot reach".
+// Tailscale tunnel is down or wedged — point at that instead of a bare
+// "Cannot reach".
 export function unreachableHostDetail(endpoint: string): string {
   if (isTailscaleEndpoint(endpoint)) {
     return `Cannot reach ${formatEndpoint(endpoint)} — check Tailscale`

@@ -11,7 +11,7 @@ describe('buildConnectionDiagnosticsReport', () => {
       state: 'reconnecting',
       reconnectAttempts: 12,
       lastConnectedAt: NOW - 5 * 60_000,
-      platform: 'ios 26.5.1',
+      platform: 'android 15',
       appVersion: '0.0.29',
       entries: [
         {
@@ -25,7 +25,7 @@ describe('buildConnectionDiagnosticsReport', () => {
       nowMs: NOW
     })
 
-    expect(report).toContain('App: Orca Mobile 0.0.29 · ios 26.5.1')
+    expect(report).toContain('App: Orca Mobile 0.0.29 · android 15')
     expect(report).toContain('Endpoint: 100.65.9.106:6768 (Tailscale)')
     expect(report).toContain('State: reconnecting (reconnect attempts: 12)')
     expect(report).toContain('(5m 0s ago)')

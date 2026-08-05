@@ -16,7 +16,7 @@ vi.mock('expo-notifications', () => ({
 }))
 
 vi.mock('react-native', () => ({
-  Platform: { OS: 'ios', Version: 18 }
+  Platform: { OS: 'android', Version: 18 }
 }))
 
 // In-memory AsyncStorage so the persisted watermark survives across the

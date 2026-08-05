@@ -4,7 +4,7 @@ import { RelayOuterError } from './mobile-relay-physical-client'
 import { createRecoveringPairingRelayCandidate } from './pairing-relay-candidate'
 import type { MobileRelayPairingJournal } from './mobile-relay-pairing-journal'
 
-vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
+vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
 vi.mock('expo-crypto', () => ({
   getRandomBytes: (length: number) => new Uint8Array(length).fill(length)
 }))

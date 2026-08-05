@@ -71,10 +71,7 @@ export const terminal_webview_html_fragment_input = `
     var sPx = cellToViewportPx(r.start.col, r.start.row);
     var ePx = cellToViewportPx(r.end.col + 1, r.end.row);
     var cellH = getCellHeight() * getTotalScale();
-    // Why: native iOS pattern — start handle anchors at the TOP of the
-    // first selected cell (dot above, stem covers the cell going down);
-    // end handle anchors at the BOTTOM of the last selected cell (dot
-    // below, stem covers the cell going up).
+    // Handles anchor to the first and last selected cells.
     handleStart.style.left = sPx.x + 'px';
     handleStart.style.top = sPx.y + 'px';
     handleEnd.style.left = ePx.x + 'px';

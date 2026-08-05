@@ -3,9 +3,15 @@ import { useMobileSessionRecovery } from './use-mobile-session-recovery'
 import { useMobileSessionTerminalInput } from './use-mobile-session-terminal-input'
 import { useMobileSessionCreation } from './use-mobile-session-creation'
 import { useMobileSessionActions } from './use-mobile-session-actions'
-import { createBulkCloseSheetActions, createCloseWithBulkActions } from '../../../../src/session/mobile-bulk-close-sheet-actions'
+import {
+  createBulkCloseSheetActions,
+  createCloseWithBulkActions
+} from '../../../../src/session/mobile-bulk-close-sheet-actions'
 import { runAcceptedMobileSessionTabsEffects } from '../../../../src/session/mobile-session-tabs-accepted-effects'
-import { buildMobileQuickCommandLaunch, supportsMobileQuickCommands } from '../../../../src/terminal/quick-commands'
+import {
+  buildMobileQuickCommandLaunch,
+  supportsMobileQuickCommands
+} from '../../../../src/terminal/quick-commands'
 import { captureMobileFileMutationOwnership } from '../../../../src/files/mobile-file-mutation-ownership'
 import { normalizeBrowserUrl } from '../../../../src/browser/browser-url'
 import {
@@ -22,14 +28,16 @@ import { loadMobileNewTabAgentOptions } from '../../../../src/session/mobile-new
 import { resolveTabStripScrollOffset } from '../../../../src/session/tab-strip-scroll'
 import { MOBILE_AI_VAULT_CAPABILITY } from '../../../../src/agent-history/agent-history-capability'
 import { TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY } from '../../../../../src/shared/protocol-version'
-import {
-  recoverActiveTerminalAfterForeground,
-  shouldRecoverTerminalOnAppStateChange
-} from '../../../../src/terminal/terminal-foreground-recovery'
 import { sendMobileTerminalQueryReply } from '../../../../src/terminal/mobile-terminal-query-reply'
 import { countTerminalGestureInputSequences } from '../../../../src/terminal/terminal-gesture-input'
-import { buildTerminalSendParams, TERMINAL_INPUT_SEND_OPTIONS } from '../../../../src/terminal/terminal-send-request'
-import { clearTerminalLiveInputFocusTimer, scheduleTerminalLiveInputFocus } from '../../../../src/terminal/terminal-live-input'
+import {
+  buildTerminalSendParams,
+  TERMINAL_INPUT_SEND_OPTIONS
+} from '../../../../src/terminal/terminal-send-request'
+import {
+  clearTerminalLiveInputFocusTimer,
+  scheduleTerminalLiveInputFocus
+} from '../../../../src/terminal/terminal-live-input'
 import type { MobileNewTabAgentOption } from '../../../../src/session/mobile-new-tab-agent-options'
 import { terminalRecordsEqual } from '../../../../src/session/mobile-terminal-records'
 import { Bot } from 'lucide-react-native'
@@ -42,54 +50,194 @@ import {
   triggerSuccess
 } from '../../../../src/platform/haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { Keyboard, Platform } from 'react-native'
+import { Keyboard } from 'react-native'
 import { useMobileSessionWorkspaceTerminalInteractions } from './mobile-session-workspace-terminal-interactions'
 
 type WorkspaceContext = Record<string, any>
 
 export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
   const {
-    client, setMarkdownDocs, worktreeId, routeWorktreeName, setFileDocs, connState,
-    isFloatingWorkspaceRoute, setDiffComments, diffCommentsRef, diffCommentBusy, setDiffCommentBusy,
-    showToast, setPendingDiffNotesDelivery, markdownDocs, setLeaveDrafts, setDiscardMarkdownTarget,
-    discardMarkdownTarget, markdownSaveInFlightRef, markdownSaveSeqRef, sessionTabs, sessionTabsRef,
-    router, hostId, pendingBrowserFocusPageIdRef, switchSessionTabRef, closedTabTombstonesRef,
-    appliedSessionTabsRevisionRef, appliedSnapshotMarkerRef, applySessionTabs,
-    terminalDiagnosticsRef, getTerminalRef,
-    fetchTerminals, terminalGestureInputQueuesRef, terminalGestureInputInFlightRef,
-    setBrowserScreencastSupported, setAgentSessionHistorySupported, setQuickCommandsSupported,
-    setShowQuickCommands, startRuntimeCapabilityProbe, setHostEndpoint, deviceTokenRef, loadHosts,
-    loadCustomKeys, setCustomKeys, loadTerminalAccessoryLayout, setVisibleBuiltInIds, terminalRefs,
-    activeHandleRef, initializedHandlesRef, connStateRef, unsubscribeTerminal, subscribeToTerminal,
-    scheduleDelayedAction, terminalFrameHeightRef, viewportRef, viewportMeasuredRef,
-    clientRef, terminals, terminalTextScale, terminalFrameWidth, setKeyboardHeight, tabLayoutsRef,
-    tabStripViewportWidthRef, tabStripContentWidthRef, tabStripOffsetRef, tabStripRef, activeSessionTabId,
-    customKeys, saveCustomKeys, sessionTabActionSheetRequestSeqRef,
-    sessionTabActionSheetKeyboardHideSubRef, clearTerminalCache, pendingActiveSessionTabIdRef,
-    pendingActiveTerminalHandleRef, pendingTerminalActivationAttemptRef, initialSessionAutoCreateRef,
-    createInitialSessionAutoCreateState, setActiveHandle, setTerminals, terminalsRef, setSessionTabs,
-    setActiveSessionTabId, clearPendingLiveInputCommit, clearDelayedActionTimers, setTerminalsLoaded,
-    created, creating, headlessActivationNeedsHostRenderer, loadTerminalTextScale, setTerminalTextScale,
-    loadTerminalAutocompleteEnabled, setAutocompleteEnabled, loadTerminalLinkOpenMode, setTerminalLinkOpenMode,
-    creatingTerminalRef, creatingBrowser, creatingMarkdown, setCreatingMarkdown, setCreateError,
-    setCreateTabAgentLoadState, setCreateTabAgentOptions, createTabAgentLoadState, createTabAgentOptions,
-    setCreatingBrowser, browserScreencastSupportedRef,
-    handleCreateBrowserRef, renameTarget, setRenameTarget, clearTerminalLiveInputDefault,
-    activeSessionTabIdRef, activeSessionTabTypeRef, defaultTerminalHandlesToLiveInput, createError,
-    setShowCreateTabDrawer, setCreating, setCreateWarningState, setShowCreateBrowserModal,
-    setShowHeaderMoreActions, actionTarget, setActionTarget, markdownActionTarget, setMarkdownActionTarget,
-    fileActionTarget, setFileActionTarget, browserActionTarget, setBrowserActionTarget, leaveDrafts,
-    setDeleteKeyTarget, setShowCustomKeyModal, setDictationMode, dictation, input, setInput, activeHandle,
-    activeSessionTab, canSend, canCompose, liveInputEnabled, liveInputTerminalHandles, toggleTerminalLiveInput,
-    liveInputTerminalHandlesRef, sendLiveTerminalInputRef, commandInputRef, liveInputRef,
-    setLiveInputCapture, liveInputCapture, ptyModesRef, terminalGestureInputBucketsRef, terminalCwdRef,
-    sendingRef, setTerminalFrameWidth, terminalKeyboardMetrics, setTerminalKeyboardMetrics,
-    selectModeActive, setSelectModeActive, canPaste, setCanPaste, handleLiveInputChange,
-    handleLiveInputKeyPress, handleLiveInputSubmit, handleDictationToggle, handleDictationPressIn,
-    handleDictationPressOut, startDictation, cancelDictation, keyboardHeight, dictationMode, initialModesSeenRef,
-    liveInputFocusTimerRef, terminalUnsubsRef, webReadyHandlesRef, toastSeqRef, clearToastHideTimer,
-    flushPendingLiveInputBeforeExternalSend, fileDocs, measureViewportOnce, handleLiveInputAccessoryBytes,
-    pendingDiffNotesDelivery, showCreateTabDrawer, insets, toastOpacityRef,
+    client,
+    setMarkdownDocs,
+    worktreeId,
+    routeWorktreeName,
+    setFileDocs,
+    connState,
+    isFloatingWorkspaceRoute,
+    setDiffComments,
+    diffCommentsRef,
+    diffCommentBusy,
+    setDiffCommentBusy,
+    showToast,
+    setPendingDiffNotesDelivery,
+    markdownDocs,
+    setLeaveDrafts,
+    setDiscardMarkdownTarget,
+    discardMarkdownTarget,
+    markdownSaveInFlightRef,
+    markdownSaveSeqRef,
+    sessionTabs,
+    sessionTabsRef,
+    router,
+    hostId,
+    pendingBrowserFocusPageIdRef,
+    switchSessionTabRef,
+    closedTabTombstonesRef,
+    appliedSessionTabsRevisionRef,
+    appliedSnapshotMarkerRef,
+    applySessionTabs,
+    terminalDiagnosticsRef,
+    getTerminalRef,
+    fetchTerminals,
+    terminalGestureInputQueuesRef,
+    terminalGestureInputInFlightRef,
+    setBrowserScreencastSupported,
+    setAgentSessionHistorySupported,
+    setQuickCommandsSupported,
+    setShowQuickCommands,
+    startRuntimeCapabilityProbe,
+    setHostEndpoint,
+    deviceTokenRef,
+    loadHosts,
+    loadCustomKeys,
+    setCustomKeys,
+    loadTerminalAccessoryLayout,
+    setVisibleBuiltInIds,
+    terminalRefs,
+    activeHandleRef,
+    initializedHandlesRef,
+    connStateRef,
+    unsubscribeTerminal,
+    subscribeToTerminal,
+    scheduleDelayedAction,
+    terminalFrameHeightRef,
+    viewportRef,
+    viewportMeasuredRef,
+    clientRef,
+    terminals,
+    terminalTextScale,
+    terminalFrameWidth,
+    setKeyboardHeight,
+    tabLayoutsRef,
+    tabStripViewportWidthRef,
+    tabStripContentWidthRef,
+    tabStripOffsetRef,
+    tabStripRef,
+    activeSessionTabId,
+    customKeys,
+    saveCustomKeys,
+    sessionTabActionSheetRequestSeqRef,
+    sessionTabActionSheetKeyboardHideSubRef,
+    clearTerminalCache,
+    pendingActiveSessionTabIdRef,
+    pendingActiveTerminalHandleRef,
+    pendingTerminalActivationAttemptRef,
+    initialSessionAutoCreateRef,
+    createInitialSessionAutoCreateState,
+    setActiveHandle,
+    setTerminals,
+    terminalsRef,
+    setSessionTabs,
+    setActiveSessionTabId,
+    clearPendingLiveInputCommit,
+    clearDelayedActionTimers,
+    setTerminalsLoaded,
+    created,
+    creating,
+    headlessActivationNeedsHostRenderer,
+    loadTerminalTextScale,
+    setTerminalTextScale,
+    loadTerminalAutocompleteEnabled,
+    setAutocompleteEnabled,
+    loadTerminalLinkOpenMode,
+    setTerminalLinkOpenMode,
+    creatingTerminalRef,
+    creatingBrowser,
+    creatingMarkdown,
+    setCreatingMarkdown,
+    setCreateError,
+    setCreateTabAgentLoadState,
+    setCreateTabAgentOptions,
+    createTabAgentLoadState,
+    createTabAgentOptions,
+    setCreatingBrowser,
+    browserScreencastSupportedRef,
+    handleCreateBrowserRef,
+    renameTarget,
+    setRenameTarget,
+    clearTerminalLiveInputDefault,
+    activeSessionTabIdRef,
+    activeSessionTabTypeRef,
+    defaultTerminalHandlesToLiveInput,
+    createError,
+    setShowCreateTabDrawer,
+    setCreating,
+    setCreateWarningState,
+    setShowCreateBrowserModal,
+    setShowHeaderMoreActions,
+    actionTarget,
+    setActionTarget,
+    markdownActionTarget,
+    setMarkdownActionTarget,
+    fileActionTarget,
+    setFileActionTarget,
+    browserActionTarget,
+    setBrowserActionTarget,
+    leaveDrafts,
+    setDeleteKeyTarget,
+    setShowCustomKeyModal,
+    setDictationMode,
+    dictation,
+    input,
+    setInput,
+    activeHandle,
+    activeSessionTab,
+    canSend,
+    canCompose,
+    liveInputEnabled,
+    liveInputTerminalHandles,
+    toggleTerminalLiveInput,
+    liveInputTerminalHandlesRef,
+    sendLiveTerminalInputRef,
+    commandInputRef,
+    liveInputRef,
+    setLiveInputCapture,
+    liveInputCapture,
+    ptyModesRef,
+    terminalGestureInputBucketsRef,
+    terminalCwdRef,
+    sendingRef,
+    setTerminalFrameWidth,
+    terminalKeyboardMetrics,
+    setTerminalKeyboardMetrics,
+    selectModeActive,
+    setSelectModeActive,
+    canPaste,
+    setCanPaste,
+    handleLiveInputChange,
+    handleLiveInputKeyPress,
+    handleLiveInputSubmit,
+    handleDictationToggle,
+    handleDictationPressIn,
+    handleDictationPressOut,
+    startDictation,
+    cancelDictation,
+    keyboardHeight,
+    dictationMode,
+    initialModesSeenRef,
+    liveInputFocusTimerRef,
+    terminalUnsubsRef,
+    webReadyHandlesRef,
+    toastSeqRef,
+    clearToastHideTimer,
+    flushPendingLiveInputBeforeExternalSend,
+    fileDocs,
+    measureViewportOnce,
+    handleLiveInputAccessoryBytes,
+    pendingDiffNotesDelivery,
+    showCreateTabDrawer,
+    insets,
+    toastOpacityRef,
     runAcceptedMobileSessionTabsEffects: acceptedEffects = runAcceptedMobileSessionTabsEffects
   } = context
   const {
@@ -142,7 +290,6 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
     ensureSessionTabs,
     fetchPendingBrowserSessionTabs,
     hostQueryReplyInputSupportedRef,
-    pendingForegroundRecoveryRef,
     notifyTerminalFrameHeight,
     notifyKeyboardVisibility,
     scrollActiveTabIntoView,
@@ -182,9 +329,6 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
     loadTerminalAccessoryLayout,
     setVisibleBuiltInIds,
     terminalRefs,
-    shouldRecoverTerminalOnAppStateChange,
-    Platform,
-    recoverActiveTerminalAfterForeground,
     activeHandleRef,
     initializedHandlesRef,
     connStateRef,
@@ -456,12 +600,7 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
     pendingActiveSessionTabIdRef
   })
 
-  const keyboardLift =
-    keyboardHeight > 0
-      ? Platform.OS === 'ios'
-        ? Math.max(0, keyboardHeight - insets.bottom)
-        : keyboardHeight
-      : 0
+  const keyboardLift = keyboardHeight > 0 ? keyboardHeight : 0
   const toastAnimatedStyle = {
     opacity: toastOpacityRef.current,
     transform: [{ translateY: -keyboardLift }]
@@ -481,13 +620,29 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
         : createTabAgentLoadState === 'loaded'
           ? [{ label: 'No Enabled Agents', icon: Bot, disabled: true, onPress: () => {} }]
           : createTabAgentLoadState === 'error'
-            ? [{ label: 'Agent Presets Unavailable', hint: 'Check the host connection', icon: Bot, disabled: true, onPress: () => {} }]
+            ? [
+                {
+                  label: 'Agent Presets Unavailable',
+                  hint: 'Check the host connection',
+                  icon: Bot,
+                  disabled: true,
+                  onPress: () => {}
+                }
+              ]
             : []
   const sendDiffNotesAgentActions =
     pendingDiffNotesDelivery === null
       ? []
       : createTabAgentLoadState === 'loading'
-        ? [{ label: 'Detecting Agents', icon: Bot, disabled: true, loading: true, onPress: () => {} }]
+        ? [
+            {
+              label: 'Detecting Agents',
+              icon: Bot,
+              disabled: true,
+              loading: true,
+              onPress: () => {}
+            }
+          ]
         : createTabAgentOptions.length > 0
           ? createTabAgentOptions.map((option: MobileNewTabAgentOption) => ({
               label: option.label,
@@ -508,7 +663,15 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
           : createTabAgentLoadState === 'loaded'
             ? [{ label: 'No Enabled Agents', icon: Bot, disabled: true, onPress: () => {} }]
             : createTabAgentLoadState === 'error'
-              ? [{ label: 'Agent Presets Unavailable', hint: 'Copy notes instead', icon: Bot, disabled: true, onPress: () => {} }]
+              ? [
+                  {
+                    label: 'Agent Presets Unavailable',
+                    hint: 'Copy notes instead',
+                    icon: Bot,
+                    disabled: true,
+                    onPress: () => {}
+                  }
+                ]
               : []
   const createTabBusy = creating || creatingBrowser || creatingMarkdown
 
@@ -521,26 +684,85 @@ export function useMobileSessionWorkspaceBehavior(context: WorkspaceContext) {
   })
   const closeWithBulkActions = createCloseWithBulkActions(handleCloseSessionTab, bulkCloseActions)
 
-  return { ...context, ...{
-    readMarkdownTab, readFileTab, loadDiffComments, persistDiffComments, addDiffCommentForFile,
-    deleteDiffCommentForFile, copyDiffCommentsToClipboard, sendDiffCommentsToAgent, clearDeliveredDiffComments,
-    updateMarkdownLocalContent, copyMarkdownLocalContent, getDirtyMarkdownDrafts, leaveSession,
-    requestLeaveSession, discardMarkdownLocalContent, confirmDiscardMarkdown, saveMarkdownTab,
-    consumeAcceptedSessionTabs, hasSessionTabsRecoveryNeed, getSessionTabsApplicationRevision,
-    fetchSessionTabs, ensureSessionTabs, fetchPendingBrowserSessionTabs, hostQueryReplyInputSupportedRef,
-    pendingForegroundRecoveryRef, notifyTerminalFrameHeight, notifyKeyboardVisibility,
-    scrollActiveTabIntoView, handleDeleteCustomKey, handleManageShortcuts, bulkCloseActions,
-    closeWithBulkActions, handleCloseSessionTab, handleCloseTerminal, handleClearTerminal,
-    handleRenameTerminal, handleBrowserNavigationCommand, handleFileOpenStart, handleOpenedFileDiff,
-    handleCreateBrowser, handleCreateMarkdownNote, handleCreateTerminal, launchQuickCommand,
-    setTerminalWebViewRef, handleTerminalWebReady, handleSelectionMode, handleSelectionCopy,
-    handleSelectionEvicted, handleModesChanged, handleKeyboardAvoidanceMetrics, handleHaptic,
-    handleTerminalInput, handleTerminalQueryReply, handleTerminalTap, handleFileTap, handleTerminalOpenUrl,
-    handleDictationToggle, handleDictationPressIn, handleDictationPressOut, startDictation, cancelDictation,
-    handleLiveInputChange, handleLiveInputKeyPress, handleLiveInputSubmit, handleSend, handlePaste,
-    handleAccessoryKey, createTabAgentActions, sendDiffNotesAgentActions,
-    isAttaching,
-    toggleLiveInput, setMobileSessionRootRef, createTabBusy, keyboardLift, triggerSuccess, triggerError,
-    getRepoIdFromMobileWorktreeId
-  } }
+  return {
+    ...context,
+    ...{
+      readMarkdownTab,
+      readFileTab,
+      loadDiffComments,
+      persistDiffComments,
+      addDiffCommentForFile,
+      deleteDiffCommentForFile,
+      copyDiffCommentsToClipboard,
+      sendDiffCommentsToAgent,
+      clearDeliveredDiffComments,
+      updateMarkdownLocalContent,
+      copyMarkdownLocalContent,
+      getDirtyMarkdownDrafts,
+      leaveSession,
+      requestLeaveSession,
+      discardMarkdownLocalContent,
+      confirmDiscardMarkdown,
+      saveMarkdownTab,
+      consumeAcceptedSessionTabs,
+      hasSessionTabsRecoveryNeed,
+      getSessionTabsApplicationRevision,
+      fetchSessionTabs,
+      ensureSessionTabs,
+      fetchPendingBrowserSessionTabs,
+      hostQueryReplyInputSupportedRef,
+      notifyTerminalFrameHeight,
+      notifyKeyboardVisibility,
+      scrollActiveTabIntoView,
+      handleDeleteCustomKey,
+      handleManageShortcuts,
+      bulkCloseActions,
+      closeWithBulkActions,
+      handleCloseSessionTab,
+      handleCloseTerminal,
+      handleClearTerminal,
+      handleRenameTerminal,
+      handleBrowserNavigationCommand,
+      handleFileOpenStart,
+      handleOpenedFileDiff,
+      handleCreateBrowser,
+      handleCreateMarkdownNote,
+      handleCreateTerminal,
+      launchQuickCommand,
+      setTerminalWebViewRef,
+      handleTerminalWebReady,
+      handleSelectionMode,
+      handleSelectionCopy,
+      handleSelectionEvicted,
+      handleModesChanged,
+      handleKeyboardAvoidanceMetrics,
+      handleHaptic,
+      handleTerminalInput,
+      handleTerminalQueryReply,
+      handleTerminalTap,
+      handleFileTap,
+      handleTerminalOpenUrl,
+      handleDictationToggle,
+      handleDictationPressIn,
+      handleDictationPressOut,
+      startDictation,
+      cancelDictation,
+      handleLiveInputChange,
+      handleLiveInputKeyPress,
+      handleLiveInputSubmit,
+      handleSend,
+      handlePaste,
+      handleAccessoryKey,
+      createTabAgentActions,
+      sendDiffNotesAgentActions,
+      isAttaching,
+      toggleLiveInput,
+      setMobileSessionRootRef,
+      createTabBusy,
+      keyboardLift,
+      triggerSuccess,
+      triggerError,
+      getRepoIdFromMobileWorktreeId
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 
 export const styles = StyleSheet.create({
@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.bgRaised,
     borderRadius: radii.input,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.sm,
+    paddingVertical: spacing.sm,
     borderWidth: 1,
     borderColor: colors.borderSubtle
   },
@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
     color: colors.textPrimary,
     borderRadius: radii.input,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.sm,
+    paddingVertical: spacing.sm,
     fontSize: typography.bodySize,
     borderWidth: 1,
     borderColor: colors.borderSubtle
@@ -248,4 +248,3 @@ export const styles = StyleSheet.create({
     fontWeight: '600'
   }
 })
-

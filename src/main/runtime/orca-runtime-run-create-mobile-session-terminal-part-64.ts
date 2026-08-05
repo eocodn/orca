@@ -228,7 +228,7 @@ export class OrcaRuntimeRunCreateMobileSessionTerminalPart64 extends OrcaRuntime
     if (!isTuiAgentEnabled(opts.agent, settings.disabledTuiAgents)) {
       throw new Error('Selected agent is disabled. Choose an enabled agent before creating.')
     }
-    // Why: mobile may be iOS while the shell host is Windows/macOS/Linux or SSH Linux; quote for the host shell.
+    // Why: mobile and shell hosts can use different platforms; quote for the host shell.
     const platform = this.getAgentLaunchPlatformForWorkspace(workspace)
     // Why: SSH runs the CLI through the relay shim (plain `orca`), so the Linux-only `orca-ide` rename must not apply.
     const isRemote = workspace.repo ? repoIsRemote(workspace.repo) : repoIsRemote(workspace)

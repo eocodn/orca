@@ -18,7 +18,7 @@ vi.mock('expo-secure-store', () => ({
 }))
 
 vi.mock('react-native', () => ({
-  Platform: { OS: 'ios' }
+  Platform: { OS: 'android' }
 }))
 
 describe('updateHostNameAndEndpoint', () => {

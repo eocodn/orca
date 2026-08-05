@@ -3,7 +3,6 @@ import {
   View,
   Pressable,
   StyleSheet,
-  Platform,
   useWindowDimensions,
   Keyboard,
   BackHandler
@@ -238,14 +237,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: colors.borderSubtle,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: -2, height: 0 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10
-      },
-      android: { elevation: 8 }
-    })
+    elevation: 8
   }
 })

@@ -9,7 +9,7 @@
 // cancelSelect, applyXtermSelection, repositionOverlay, handleDragMove,
 // stopEdgeScroll, and dispatcherShouldBlockSurface.
 //
-// Why pointer events: a hardware mouse on Android/iPadOS raises pointer events
+// Why pointer events: a hardware mouse on Android raises pointer events
 // with pointerType 'mouse' and NO touch events, while a finger raises
 // pointerType 'touch' plus the touch events the document dispatcher owns. The
 // capture-phase mousedown/click suppression in attachSurfaceEventHandlers stays:

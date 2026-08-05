@@ -9,7 +9,7 @@ const secureStore = vi.hoisted(() => ({
   setItemAsync: vi.fn(),
   deleteItemAsync: vi.fn()
 }))
-const platform = vi.hoisted(() => ({ OS: 'ios' }))
+const platform = vi.hoisted(() => ({ OS: 'web' }))
 
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: asyncStorage }))
 vi.mock('expo-secure-store', () => ({
@@ -69,7 +69,7 @@ describe('mobile relay credential bundle', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetPairingKeychainForTests()
-    platform.OS = 'ios'
+    platform.OS = 'web'
     stored = null
     asyncStorage.getItem.mockResolvedValue(null)
     asyncStorage.setItem.mockResolvedValue(undefined)

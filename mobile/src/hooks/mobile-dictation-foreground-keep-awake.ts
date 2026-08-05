@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { AppState, Platform } from 'react-native'
+import { AppState } from 'react-native'
 import { drainMobileDictationKeepAwakeCleanup } from './mobile-dictation-keep-awake'
 import type { RefObject } from 'react'
 import type { MobileDictationKeepAwakeOwner } from './mobile-dictation-keep-awake'
@@ -34,10 +34,8 @@ export function useMobileDictationForegroundKeepAwake(
     installGlobalStaleTagForegroundDrain()
     // Android keeps FLAG_KEEP_SCREEN_ON on the Activity window, so Activity
     // recreation silently drops it mid-dictation; refresh on return to
-    // active. iOS re-applies natively on foreground.
-    if (Platform.OS !== 'android') {
-      return
-    }
+    // Android Activity recreation silently drops the keep-awake flag, so refresh
+    // it on return to the foreground.
     // A retry from an earlier foreground event can outlive a newer reacquire and
     // deactivate the recovered tag; a run token invalidated on each AppState
     // change and on unmount drops superseded retry chains.

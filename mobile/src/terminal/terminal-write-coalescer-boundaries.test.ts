@@ -55,17 +55,17 @@ describe('terminal write coalescer boundaries', () => {
     expect(view.delivered.slice(initIndex + 1)).toEqual([])
   })
 
-  it('keeps foreground recovery safe: a late timer flush lands before init in FIFO order', () => {
+  it('keeps reload recovery safe: a late timer flush lands before init in FIFO order', () => {
     vi.useFakeTimers()
     const view = createSimulatedTerminalWebView()
 
     view.coalescer.write('live')
     view.coalescer.write('buffered-mid-recovery')
-    // prepareForForegroundRecovery(): readiness invalidated before the timer fires.
+    // Readiness is invalidated before the timer fires.
     view.readiness.webReady = false
     vi.advanceTimersByTime(TERMINAL_WRITE_FLUSH_WINDOW_MS)
 
-    // Recovery re-init: coalescer.clear() cancels any pending timer synchronously,
+    // Reload re-init: coalescer.clear() cancels any pending timer synchronously,
     // so nothing can flush after this point; the queued init supersedes the flush.
     view.coalescer.clear()
     view.postMessage({ type: 'init', cols: 80, rows: 24, initialData: 'snapshot' })

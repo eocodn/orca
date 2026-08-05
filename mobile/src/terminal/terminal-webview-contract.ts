@@ -50,9 +50,6 @@ export type TerminalWebViewProps = {
 } & TerminalSelectionEvents
 
 export type TerminalWebViewHandle = {
-  // Why: iOS can preserve the native view while discarding its JS/backing-store
-  // state; foreground recovery must wait for the document to answer before replay.
-  prepareForForegroundRecovery: () => void
   write: (data: string) => void
   init: (
     cols: number,

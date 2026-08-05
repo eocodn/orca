@@ -68,7 +68,7 @@ describe('notification opt-in gate', () => {
     expect(savePushNotificationsEnabled).not.toHaveBeenCalled()
   })
 
-  it('skips the gate when iOS has already denied permission', async () => {
+  it('skips the gate when permission has already been denied', async () => {
     vi.mocked(readPushNotificationsPreference).mockResolvedValue({ value: null, loaded: true })
     vi.mocked(getNotificationPermissionState).mockResolvedValue({
       granted: false,

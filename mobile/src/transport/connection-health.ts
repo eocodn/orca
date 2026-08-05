@@ -23,8 +23,7 @@ const UNREACHABLE_ATTEMPTS = 12
 const STALE_SINCE_LAST_CONNECT_MS = 60_000
 
 // Why: a repeatedly-unreachable 100.x/*.ts.net endpoint almost always means
-// the phone's Tailscale tunnel is down or wedged (a known iOS failure mode
-// that only a manual toggle fixes) — not that the desktop moved. Say so
+// the phone's Tailscale tunnel is down or wedged — not that the desktop moved. Say so
 // instead of leaving the user staring at a generic "Can't connect".
 const TAILSCALE_HINT = 'check Tailscale'
 

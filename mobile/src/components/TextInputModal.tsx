@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Platform,
   type KeyboardTypeOptions
 } from 'react-native'
 import { colors, spacing, radii, typography } from '../theme/mobile-theme'
@@ -132,7 +131,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     borderRadius: radii.input,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.sm,
+    paddingVertical: spacing.sm,
     fontSize: typography.bodySize,
     borderWidth: 1,
     borderColor: colors.borderSubtle

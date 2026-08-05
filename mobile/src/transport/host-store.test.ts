@@ -14,7 +14,7 @@ const secureStoreMock = vi.hoisted(() => ({
 }))
 
 const scheduleCleanupMock = vi.hoisted(() => vi.fn())
-const platformMock = vi.hoisted(() => ({ OS: 'ios' }))
+const platformMock = vi.hoisted(() => ({ OS: 'web' }))
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: asyncStorageMock
@@ -72,7 +72,7 @@ describe('host-store list mutations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetHostStoreForTests()
-    platformMock.OS = 'ios'
+    platformMock.OS = 'web'
     resetMobileRelayHostOverlayStoreForTests()
     scheduleCleanupMock.mockReset()
     scheduleCleanupMock.mockResolvedValue(undefined)
@@ -182,7 +182,7 @@ describe('host-store list mutations', () => {
     expect(secureStoreMock.deleteItemAsync).not.toHaveBeenCalled()
   })
 
-  it('keeps the normal iOS save on the existing default keychain service', async () => {
+  it('keeps the normal non-Android save on the existing default keychain service', async () => {
     await saveHost({
       id: 'host-new',
       name: 'New Host',

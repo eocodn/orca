@@ -1,7 +1,6 @@
 import {
   ActivityIndicator,
   Image,
-  Platform,
   Pressable,
   Text,
   TextInput,
@@ -17,11 +16,7 @@ import type {
   BrowserTouchLayout,
   BrowserZoomState
 } from './browser-touch-geometry'
-import {
-  buttonColor,
-  styles,
-  type FrameLayer
-} from './mobile-browser-pane-support'
+import { buttonColor, styles, type FrameLayer } from './mobile-browser-pane-support'
 import {
   MobileBrowserPointerModifiers,
   type BrowserPointerModifier
@@ -140,7 +135,11 @@ export function MobileBrowserPaneView({
         >
           <ChevronRight size={15} color={buttonColor(!controlsDisabled && tab.canGoForward)} />
         </MobileBrowserToolbarIconButton>
-        <MobileBrowserToolbarIconButton disabled={controlsDisabled} label="Reload" onPress={onReload}>
+        <MobileBrowserToolbarIconButton
+          disabled={controlsDisabled}
+          label="Reload"
+          onPress={onReload}
+        >
           <RefreshCw size={15} color={buttonColor(!controlsDisabled)} />
         </MobileBrowserToolbarIconButton>
         <TextInput
@@ -154,7 +153,7 @@ export function MobileBrowserPaneView({
           selection={addressSelection}
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType={Platform.OS === 'ios' ? 'url' : 'default'}
+          keyboardType="default"
           numberOfLines={1}
           returnKeyType="go"
           placeholder="URL"
@@ -271,7 +270,10 @@ export function MobileBrowserPaneView({
               <View style={styles.dialogActions}>
                 {dialog.dialogType !== 'alert' ? (
                   <Pressable
-                    style={({ pressed }) => [styles.dialogButton, pressed && styles.dialogButtonPressed]}
+                    style={({ pressed }) => [
+                      styles.dialogButton,
+                      pressed && styles.dialogButtonPressed
+                    ]}
                     onPress={() => onDialogCommand('browser.dialogDismiss')}
                   >
                     <Text style={styles.dialogButtonText}>Cancel</Text>

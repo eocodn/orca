@@ -6181,8 +6181,6 @@
         "MobileSettingsPane": {
           "9a3c280e49": "GitHub Releases",
           "b0088412a1": "o el APK de Android desde",
-          "b5a2ed83ff": "App Store",
-          "c8491c17ef": "Controla Orca desde tu teléfono escaneando un código QR. Beta/vista previa temprana: espera errores y cambios importantes. Obtén la app para iOS en",
           "e7a3ae8c4e": "Móvil",
           "174f4a3c6d": "Controla terminales y agentes desde tu teléfono.",
           "1de96ec8a6": "Mostrar botón de Orca Mobile",
@@ -9559,7 +9557,6 @@
           "about": "Acerca de la beta de Orca Relay",
           "beta": "Beta",
           "availability": "Disponible en",
-          "testFlight": "TestFlight",
           "androidApk": "APK de Android"
         },
         "SkillUsageExampleDialog": {
@@ -11658,7 +11655,6 @@
           "7af266b80d": "Código QR de instalación",
           "aa97420ba4": "Copiar enlace de instalación",
           "ac1eb64952": "Android",
-          "711e6f4b47": "iOS",
           "e75647ace0": "Escanea el código QR con tu teléfono o abre el enlace de instalación para obtener Orca Mobile.",
           "0d9b33299e": "Obtén la aplicación.",
           "92ddfdfa1f": "Paso 1 de 2",
@@ -11677,11 +11673,6 @@
           "e59a252eca": "Regenerar código",
           "d0b52871ce": "Tus teléfonos están emparejados.",
           "051978a785": "Tu teléfono está emparejado.",
-          "channel": {
-            "group": "Canal de versión",
-            "preview": "Vista previa",
-            "stable": "Estable"
-          },
           "relayDegradedNotice": "No se pudo contactar con Relay: este código solo funciona en tu LAN o Tailscale.",
           "pairingQrError": "Este código de emparejamiento no se pudo representar como código QR. Cópialo en Orca Mobile."
         },
@@ -11716,14 +11707,8 @@
         "mobile": {
           "platform": {
             "copy": {
-              "2a532d6fd7": "Escanea con la cámara de tu Android para descargar el APK más reciente desde GitHub Releases.",
-              "432db52b73": "Escanea con la cámara de tu iPhone para abrir la App Store.",
-              "preview": {
-                "tagline": "Las funciones más recientes, actualizadas a diario."
-              },
-              "stable": {
-                "tagline": "La versión pública, actualizada semanalmente."
-              }
+              "2a532d6fd7": "Escanea con la cámara de tu Android para descargar el APK más reciente desde GitHub Releases."
+
             }
           }
         },

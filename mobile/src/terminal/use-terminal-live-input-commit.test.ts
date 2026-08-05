@@ -215,15 +215,15 @@ describe('terminal live input commit hook', () => {
     await vi.waitFor(() => expect(sent).toEqual(['a', 'b']))
   })
 
-  it('Given iOS smart-dash text When the change arrives Then the capture echoes the raw field text and the PTY gets normalized bytes', async () => {
+  it('Given smart-dash text When the change arrives Then the capture echoes the raw field text and the PTY gets normalized bytes', async () => {
     // Given
     const { captures, handlers, sent } = createTerminalLiveInputCommitHarness()
 
-    // When: iOS smart punctuation rewrote "--" into an en dash inside the field
+    // When: smart punctuation rewrote "--" into an en dash inside the field
     handlers.handleLiveInputChange('a–')
 
     // Then: writing "a--" back into the controlled value would kill an active
-    // iOS dictation/IME session, so the capture must keep what iOS produced
+    // active dictation/IME session, so the capture must keep the produced text
     expect(captures).toEqual(['a–'])
     await vi.waitFor(() => expect(sent).toEqual(['a--']))
   })
@@ -232,7 +232,7 @@ describe('terminal live input commit hook', () => {
     // Given
     const { captures, handlers, sent } = createTerminalLiveInputCommitHarness()
 
-    // When: iOS dictation replaces its hypothesis as recognition refines
+    // When: dictation replaces its hypothesis as recognition refines
     handlers.handleLiveInputChange('high')
     handlers.handleLiveInputChange('hi there')
 

@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native'
 import { colors, spacing } from '../theme/mobile-theme'
 
 export const bottomDrawerStyles = StyleSheet.create({
@@ -28,15 +28,7 @@ export const bottomDrawerStyles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: spacing.md,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10
-      },
-      android: { elevation: 8 }
-    })
+    elevation: 8
   },
   drawerFill: {
     // Why: flex children (results + dock) need a column height budget; without

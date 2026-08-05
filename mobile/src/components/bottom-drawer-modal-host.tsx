@@ -15,8 +15,7 @@ type Props = {
   children: ReactNode
 }
 
-// Why: iOS cannot reliably dismiss one native modal and present another in the same
-// beat. Flows that swap between sibling drawer modals (e.g. the Create Workspace form
+// Flows that swap between sibling drawer modals (e.g. the Create Workspace form
 // → its repository/agent pickers) dropped the incoming modal, leaving the sheet dead
 // to taps. Hosting every drawer in ONE persistent native Modal makes those swaps
 // in-window view changes instead, so no present/dismiss race can eat the transition.

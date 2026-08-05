@@ -10,8 +10,7 @@ export const TERMINAL_WHEEL_SCROLL_JS = `
   function wheelEventPixelDeltaY(e) {
     var delta = e.deltaY;
     if (typeof delta !== 'number' || !isFinite(delta) || delta === 0) return 0;
-    // DOM_DELTA_LINE / DOM_DELTA_PAGE: Android WebView reports line-mode deltas
-    // for external mouse wheels, iOS trackpads report pixels.
+    // DOM_DELTA_LINE / DOM_DELTA_PAGE: Android WebView reports line-mode deltas.
     if (e.deltaMode === 1) return delta * getCellHeight() * getTotalScale();
     if (e.deltaMode === 2) return delta * window.innerHeight;
     return delta;

@@ -6,10 +6,20 @@ const terminalWebViewSource = readFileSync(
   new URL('./TerminalWebView.tsx', import.meta.url),
   'utf8'
 )
-const terminalHtmlSource = readFileSync(
-  new URL('./terminal-webview-html.ts', import.meta.url),
-  'utf8'
-)
+const terminalHtmlSource = [
+  'terminal-webview-html.ts',
+  'terminal-webview-html-fragment-head.ts',
+  'terminal-webview-html-fragment-style.ts',
+  'terminal-webview-html-fragment-bootstrap.ts',
+  'terminal-webview-html-fragment-terminal.ts',
+  'terminal-webview-html-fragment-interaction.ts',
+  'terminal-webview-html-fragment-selection.ts',
+  'terminal-webview-html-fragment-pointer.ts',
+  'terminal-webview-html-fragment-input.ts',
+  'terminal-webview-html-fragment-events.ts'
+]
+  .map((fileName) => readFileSync(new URL(`./${fileName}`, import.meta.url), 'utf8'))
+  .join('\n')
 const terminalWebglRecoverySource = readFileSync(
   new URL('./terminal-webview-webgl-recovery-injected.ts', import.meta.url),
   'utf8'
@@ -36,24 +46,14 @@ output = chunks.map(function(chunk) { return normalizeStatusDotPresentation(chun
   return context.output ?? ''
 }
 
-function resolveTerminalFontFamily(navigatorValue: {
-  userAgent: string
-  platform: string
-  maxTouchPoints: number
-}) {
-  // Slice only the font block itself (isIOSWebView + terminalFontFamily), anchored
-  // on font-related markers so unrelated edits below it can't break this extraction.
-  const functionStart = terminalHtmlSource.indexOf('  function isIOSWebView()')
-  const declarationLine = terminalHtmlSource.indexOf('  var terminalFontFamily =', functionStart)
+function resolveTerminalFontFamily() {
+  const declarationLine = terminalHtmlSource.indexOf('  var terminalFontFamily =')
   const declarationEnd = terminalHtmlSource.indexOf('\n', declarationLine)
-  expect(functionStart).toBeGreaterThanOrEqual(0)
-  expect(declarationLine).toBeGreaterThan(functionStart)
+  expect(declarationLine).toBeGreaterThanOrEqual(0)
   expect(declarationEnd).toBeGreaterThan(declarationLine)
-  const context: { navigator: typeof navigatorValue; output?: string } = {
-    navigator: navigatorValue
-  }
+  const context: { output?: string } = {}
   new Script(`
-${terminalHtmlSource.slice(functionStart, declarationEnd)}
+${terminalHtmlSource.slice(declarationLine, declarationEnd)}
 output = terminalFontFamily;
 `).runInNewContext(context)
   return context.output ?? ''
@@ -153,52 +153,16 @@ describe('TerminalWebView text zoom', () => {
   it('uses the bundled WebGL-capable xterm stack and platform-safe font fallbacks', () => {
     expect(terminalHtmlSource).not.toContain('cdn.jsdelivr.net')
     expect(terminalWebglRecoverySource).toContain('window.WebglAddon.WebglAddon')
-    expect(terminalHtmlSource).toContain('function isIOSWebView()')
+    expect(terminalHtmlSource).not.toContain('isIOSWebView')
     expect(terminalHtmlSource).toContain('fontFamily: terminalFontFamily')
     expect(terminalHtmlSource).toContain("fontWeight: '300'")
     expect(terminalHtmlSource).toContain("fontWeightBold: '500'")
     expect(terminalWebglRecoverySource).toContain('new window.WebglAddon.WebglAddon()')
   })
 
-  const IOS_IPHONE_NAVIGATOR = {
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15',
-    platform: 'iPhone',
-    maxTouchPoints: 5
-  }
-  const ANDROID_NAVIGATOR = {
-    userAgent: 'Mozilla/5.0 (Linux; Android 16)',
-    platform: 'Linux armv8l',
-    maxTouchPoints: 5
-  }
-
-  it('starts iOS WebViews on ui-monospace, never SF Mono, still ending in a generic monospace guarantee', () => {
-    const fontFamily = resolveTerminalFontFamily(IOS_IPHONE_NAVIGATOR)
-    expect(fontFamily.startsWith('ui-monospace, "Menlo"')).toBe(true)
-    expect(fontFamily.startsWith('"SF Mono"')).toBe(false)
-    // The chain must always terminate in the generic so it can never fall back to
-    // a script/proportional system face — the actual iOS bug being fixed.
+  it('uses a generic monospace fallback chain for Android WebViews', () => {
+    const fontFamily = resolveTerminalFontFamily()
+    expect(fontFamily.startsWith('"Monaco"')).toBe(true)
     expect(fontFamily.endsWith(', monospace')).toBe(true)
-  })
-
-  it('treats touch iPadOS WebViews that report MacIntel as iOS for font fallback', () => {
-    const fontFamily = resolveTerminalFontFamily({
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_0) AppleWebKit/605.1.15',
-      platform: 'MacIntel',
-      maxTouchPoints: 5
-    })
-    expect(fontFamily.startsWith('ui-monospace, "Menlo"')).toBe(true)
-    expect(fontFamily.startsWith('"SF Mono"')).toBe(false)
-    expect(fontFamily.endsWith(', monospace')).toBe(true)
-  })
-
-  it('keeps the SF Mono lead outside iOS WebViews and shares the identical fallback tail', () => {
-    const androidFontFamily = resolveTerminalFontFamily(ANDROID_NAVIGATOR)
-    expect(androidFontFamily.startsWith('"SF Mono", "Menlo"')).toBe(true)
-    expect(androidFontFamily.endsWith(', monospace')).toBe(true)
-    // Only the lead family may differ across platforms; the rest of the chain is
-    // shared so the two platforms cannot silently drift apart.
-    const iosFontFamily = resolveTerminalFontFamily(IOS_IPHONE_NAVIGATOR)
-    const tailFrom = (family: string) => family.slice(family.indexOf('"Menlo"'))
-    expect(tailFrom(androidFontFamily)).toBe(tailFrom(iosFontFamily))
   })
 })

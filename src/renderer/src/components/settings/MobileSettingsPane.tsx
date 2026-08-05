@@ -11,7 +11,6 @@ import { useAppStore } from '@/store'
 import { MobileRelayBetaNotice } from './MobileRelayBetaNotice'
 export { getMobileSettingsPaneSearchEntries }
 
-const ORCA_IOS_APP_STORE_URL = 'https://apps.apple.com/app/orca-ide/id6766130217'
 const ORCA_ANDROID_APK_URL =
   'https://github.com/stablyai/orca/releases/download/mobile-android-v0.0.32/app-release.apk'
 
@@ -36,14 +35,6 @@ export function MobileSettingsPane(): React.JSX.Element {
               'auto.components.settings.MobileSettingsPane.installIntro',
               'Install Orca Mobile from the'
             )}{' '}
-            <button
-              type="button"
-              onClick={() => void window.api.shell.openUrl(ORCA_IOS_APP_STORE_URL)}
-              className="cursor-pointer underline underline-offset-2 hover:text-foreground"
-            >
-              {translate('auto.components.settings.MobileSettingsPane.b5a2ed83ff', 'App Store')}
-            </button>
-            {' · '}
             <button
               type="button"
               // Why: Android is moving to Google Play soon, but until then

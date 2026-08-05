@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TerminalWebView } from './TerminalWebView'
 
 vi.mock('react-native', () => ({
-  Platform: { OS: 'ios' },
+  Platform: { OS: 'android' },
   StyleSheet: {
     absoluteFillObject: {
       bottom: 0,

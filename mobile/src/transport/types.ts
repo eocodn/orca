@@ -87,8 +87,8 @@ export const HostProfileSchema = z.object({
 })
 
 // Why: persisted host record after the v0.0.3 keychain split. The
-// deviceToken is held in iOS Keychain via expo-secure-store and joined
-// in at load time; it must NOT appear in AsyncStorage anymore.
+// deviceToken is held in the platform secure store and joined in at load time;
+// it must NOT appear in AsyncStorage anymore.
 export const StoredHostProfileSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),

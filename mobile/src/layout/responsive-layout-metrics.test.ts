@@ -3,7 +3,7 @@ import { getResponsiveLayoutMetrics } from './responsive-layout-metrics'
 import { spacing } from '../theme/mobile-theme'
 
 describe('responsive layout metrics', () => {
-  it('uses capped tablet layout for iPad portrait and landscape windows', () => {
+  it('uses capped tablet layout for portrait and landscape windows', () => {
     expect(getResponsiveLayoutMetrics(820, 1180)).toMatchObject({
       isLandscape: false,
       isTabletLayout: true,
@@ -20,7 +20,7 @@ describe('responsive layout metrics', () => {
     })
   })
 
-  it('keeps narrow iPad split windows phone-like', () => {
+  it('keeps narrow split windows phone-like', () => {
     expect(getResponsiveLayoutMetrics(560, 1024)).toMatchObject({
       isTabletLayout: false,
       isWideLayout: false,

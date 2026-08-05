@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react'
-import { AndroidLogo, IosBrandIcon } from './MobileBrandIcons'
+import { AndroidLogo } from './MobileBrandIcons'
 import { translate } from '@/i18n/i18n'
 
 export function HeroIntro({ onStart }: { onStart: () => void }): React.JSX.Element {
@@ -31,10 +31,6 @@ export function HeroIntro({ onStart }: { onStart: () => void }): React.JSX.Eleme
       >
         <span className="mp-platform-label">
           {translate('auto.components.mobile.MobileHero.da1d5e5ed0', 'Available on')}
-        </span>
-        <span className="mp-platform-badge">
-          <IosBrandIcon />
-          {translate('auto.components.mobile.MobileHero.711e6f4b47', 'iOS')}
         </span>
         <span className="mp-platform-badge">
           <AndroidLogo />

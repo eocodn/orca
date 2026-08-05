@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import type { MobileComposerSource } from '../tasks/use-mobile-composer-source'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     borderRadius: radii.input,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.sm,
+    paddingVertical: spacing.sm,
     fontSize: typography.bodySize,
     borderWidth: 1,
     borderColor: colors.borderSubtle

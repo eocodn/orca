@@ -56,7 +56,7 @@ export const troubleshootCommonIssues: TroubleshootSection[] = [
     title: 'Tailscale Host Unreachable',
     steps: [
       'Host addresses like 100.x.x.x or *.ts.net connect through Tailscale — keep it ON.',
-      'iOS/Android can silently wedge the tunnel: toggle Tailscale off and back on in the Tailscale app.',
+      'The tunnel can silently wedge: toggle Tailscale off and back on in the Tailscale app.',
       'Check the desktop is awake and shows as connected in your tailnet.',
       'Update the Tailscale app — recent releases fix reconnect bugs.'
     ]

@@ -127,8 +127,8 @@ describe('pairing keychain', () => {
     )
   })
 
-  it('does not rotate on an iOS keychain failure', async () => {
-    platformMock.OS = 'ios'
+  it('does not rotate on a secure-store failure', async () => {
+    platformMock.OS = 'web'
     secureStoreMock.setItemAsync.mockRejectedValue(ENCRYPT_REJECTION)
 
     await expect(writePairingKeychainItem(TOKEN_KEY, 'token')).rejects.toBe(ENCRYPT_REJECTION)

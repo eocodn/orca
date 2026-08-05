@@ -1,5 +1,4 @@
 import * as Clipboard from 'expo-clipboard'
-import { Platform } from 'react-native'
 import { Copy, FileText, Globe, RefreshCw, SquareTerminal } from 'lucide-react-native'
 import { ActionSheetModal } from '../../../../src/components/ActionSheetModal'
 import { ConfirmModal } from '../../../../src/components/ConfirmModal'
@@ -9,28 +8,83 @@ import { MobileBrowserTabActionSheet } from '../../../../src/session/MobileBrows
 import { MobileSessionHeaderMoreActionsSheet } from '../../../../src/session/MobileSessionHeaderMoreActionsSheet'
 import { QuickCommandsSheet } from '../../../../src/session/QuickCommandsSheet'
 import { TextInputModal } from '../../../../src/components/TextInputModal'
-import { getRepoIdFromMobileWorktreeId, isTerminalPhoneDisplayMode } from '../../../../src/session/mobile-session-route-helpers'
+import {
+  getRepoIdFromMobileWorktreeId,
+  isTerminalPhoneDisplayMode
+} from '../../../../src/session/mobile-session-route-helpers'
 import { getMobileTerminalActionSheetActions } from '../../../../src/session/mobile-terminal-action-sheet-actions'
 
 type WorkspaceContext = Record<string, any>
 
 export function renderMobileSessionModals(context: WorkspaceContext) {
-  const { showHeaderMoreActions, showAgentSessionHistoryAction, showChecksAction, openAgentSessionHistory,
-    handlePanelTap, setShowHeaderMoreActions, showQuickCommands, setShowQuickCommands, client,
-    isFolderWorkspaceRoute, isFloatingWorkspaceRoute, worktreeId, worktreeName, launchQuickCommand,
-    showCreateTabDrawer, createTabAgentActions, setShowCreateTabDrawer, handleCreateTerminal,
-    browserScreencastSupported, showToast, setShowCreateBrowserModal, handleCreateMarkdownNote,
-    pendingDiffNotesDelivery, sendDiffNotesAgentActions, setPendingDiffNotesDelivery, triggerSuccess,
-    triggerError, actionTarget, sessionTabs,
-    quickCommandsSupported, toggleDisplayMode, setBrowserActionTarget, setDiscardMarkdownTarget, setDeleteKeyTarget,
-    terminalModes, handleCloseTerminal, handleClearTerminal, handleRenameTerminal,
-    handleCloseSessionTab, bulkCloseActions, setActionTarget, markdownActionTarget,
-    discardMarkdownLocalContent, setMarkdownActionTarget, closeWithBulkActions, fileActionTarget,
-    setFileActionTarget, readFileTab, browserActionTarget, handleBrowserNavigationCommand, leaveDrafts,
-    setLeaveDrafts, leaveSession, discardMarkdownTarget, confirmDiscardMarkdown,
-    renameTarget, setRenameTarget, handleCreateBrowser, showCreateBrowserModal, showCustomKeyModal,
-    setShowCustomKeyModal, setCustomKeys, handleManageShortcuts, showDictationSetup,
-    setShowDictationSetup, deleteKeyTarget, handleDeleteCustomKey
+  const {
+    showHeaderMoreActions,
+    showAgentSessionHistoryAction,
+    showChecksAction,
+    openAgentSessionHistory,
+    handlePanelTap,
+    setShowHeaderMoreActions,
+    showQuickCommands,
+    setShowQuickCommands,
+    client,
+    isFolderWorkspaceRoute,
+    isFloatingWorkspaceRoute,
+    worktreeId,
+    worktreeName,
+    launchQuickCommand,
+    showCreateTabDrawer,
+    createTabAgentActions,
+    setShowCreateTabDrawer,
+    handleCreateTerminal,
+    browserScreencastSupported,
+    showToast,
+    setShowCreateBrowserModal,
+    handleCreateMarkdownNote,
+    pendingDiffNotesDelivery,
+    sendDiffNotesAgentActions,
+    setPendingDiffNotesDelivery,
+    triggerSuccess,
+    triggerError,
+    actionTarget,
+    sessionTabs,
+    quickCommandsSupported,
+    toggleDisplayMode,
+    setBrowserActionTarget,
+    setDiscardMarkdownTarget,
+    setDeleteKeyTarget,
+    terminalModes,
+    handleCloseTerminal,
+    handleClearTerminal,
+    handleRenameTerminal,
+    handleCloseSessionTab,
+    bulkCloseActions,
+    setActionTarget,
+    markdownActionTarget,
+    discardMarkdownLocalContent,
+    setMarkdownActionTarget,
+    closeWithBulkActions,
+    fileActionTarget,
+    setFileActionTarget,
+    readFileTab,
+    browserActionTarget,
+    handleBrowserNavigationCommand,
+    leaveDrafts,
+    setLeaveDrafts,
+    leaveSession,
+    discardMarkdownTarget,
+    confirmDiscardMarkdown,
+    renameTarget,
+    setRenameTarget,
+    handleCreateBrowser,
+    showCreateBrowserModal,
+    showCustomKeyModal,
+    setShowCustomKeyModal,
+    setCustomKeys,
+    handleManageShortcuts,
+    showDictationSetup,
+    setShowDictationSetup,
+    deleteKeyTarget,
+    handleDeleteCustomKey
   } = context
   return (
     <>
@@ -267,7 +321,7 @@ export function renderMobileSessionModals(context: WorkspaceContext) {
         submitLabel="Open"
         allowEmpty
         selectTextOnFocus
-        keyboardType={Platform.OS === 'ios' ? 'url' : 'default'}
+        keyboardType="default"
         onSubmit={(value) => {
           void handleCreateBrowser(value).then((created) => {
             if (created) {

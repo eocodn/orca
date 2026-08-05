@@ -1,4 +1,4 @@
-// Why: RN can swallow onclose for a wedged iOS transport, so the client synthesizes the close.
+// Why: RN can swallow onclose for a wedged mobile transport, so the client synthesizes the close.
 // These cover the diagnostic clocks that synthesis has to keep honest, and prove synthesis
 // never costs us the auth-failed latch when the real close lands late.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

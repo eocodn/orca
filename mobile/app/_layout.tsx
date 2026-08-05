@@ -19,10 +19,7 @@ import { recoverMobileRelayPairing } from '../src/transport/mobile-relay-pairing
 SplashScreen.preventAutoHideAsync()
 
 // Why: without this, expo-notifications silently drops notifications when
-// the app is in the foreground. Setting all three to true makes iOS/Android
-// display the banner, play the sound, and show the badge even while the
-// app is active. This runs once at module load time before any notification
-// is scheduled.
+// the app is in the foreground. This runs once before any notification is scheduled.
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -43,8 +40,7 @@ export default function RootLayout() {
   }, [])
 
   // Why: route `orca://pair?...` deep links to the confirm screen so
-  // the same pairing flow runs whether the link arrived via QR scan,
-  // paste, AirDrop, Messages, or `xcrun simctl openurl`. getInitialURL
+  // the same pairing flow runs whether the link arrived via QR scan or paste. getInitialURL
   // covers cold-start (link tapped while app was closed); the listener
   // covers warm-start (link tapped while app is in memory).
   useEffect(() => {
@@ -68,9 +64,8 @@ export default function RootLayout() {
     return () => sub.remove()
   }, [router])
 
-  // Why: iOS delivers local notification taps through expo-notifications,
-  // not Linking. Route both cold-start and warm-start responses to the host
-  // and worktree that scheduled the notification.
+  // Why: local notification taps arrive through expo-notifications, not Linking.
+  // Route both cold-start and warm-start responses to their host and worktree.
   useEffect(() => {
     let disposed = false
 

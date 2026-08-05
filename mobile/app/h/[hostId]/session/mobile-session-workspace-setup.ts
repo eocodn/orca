@@ -3,7 +3,10 @@ import { Animated, Keyboard, Platform, ScrollView, TextInput } from 'react-nativ
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useHostClient, useForceReconnect } from '../../../../src/transport/client-context'
-import { useLastConnectedAt, useReconnectAttempt } from '../../../../src/transport/client-context-connection-metrics'
+import {
+  useLastConnectedAt,
+  useReconnectAttempt
+} from '../../../../src/transport/client-context-connection-metrics'
 import { useResponsiveLayout } from '../../../../src/layout/responsive-layout'
 import { useMobilePrBranchContext } from '../../../../src/session/use-mobile-pr-branch-context'
 import { isFloatingWorkspaceWorktreeId } from '../../../../src/session/floating-workspace'
@@ -12,29 +15,61 @@ import { triggerError } from '../../../../src/platform/haptics'
 import { useTerminalLiveInputModePreference } from '../../../../src/session/use-terminal-live-input-mode-preference'
 import { useTerminalLiveInputCommit } from '../../../../src/terminal/use-terminal-live-input-commit'
 import { resolveMobileTerminalInputGate } from '../../../../src/terminal/terminal-input-connection-gate'
-import { HOST_DOCK_MIN_WIDTH, type MobileTerminalLinkOpenMode, saveTerminalTextScale } from '../../../../src/storage/preferences'
-import { getDefaultTerminalAccessoryBuiltInIds, getVisibleTerminalAccessoryKeys } from '../../../../src/terminal/terminal-accessory-layout'
+import {
+  HOST_DOCK_MIN_WIDTH,
+  type MobileTerminalLinkOpenMode,
+  saveTerminalTextScale
+} from '../../../../src/storage/preferences'
+import {
+  getDefaultTerminalAccessoryBuiltInIds,
+  getVisibleTerminalAccessoryKeys
+} from '../../../../src/terminal/terminal-accessory-layout'
 import { useWorktreeSessionTabsLoaded } from '../../../../src/session/use-initial-session-terminal-autocreate'
 import { canDockSessionPanel } from '../../../../src/session/session-panel-host'
 import type { AppliedSnapshotMarker } from '../../../../src/session/session-tab-snapshot-gate'
 import { MobileTerminalDiagnostics } from '../../../../src/session/mobile-terminal-diagnostics'
 import { useLiveWorktreeName } from '../../../../src/session/use-live-worktree-name'
-import { appendBufferedDictation, routeDictationTranscript } from '../../../../src/terminal/terminal-live-dictation-routing'
-import { fetchDictationSetup, isDictationSetupRequiredError } from '../../../../src/dictation/mobile-dictation-setup'
+import {
+  appendBufferedDictation,
+  routeDictationTranscript
+} from '../../../../src/terminal/terminal-live-dictation-routing'
+import {
+  fetchDictationSetup,
+  isDictationSetupRequiredError
+} from '../../../../src/dictation/mobile-dictation-setup'
 import type { ConnectionState } from '../../../../src/transport/types'
 import type { RpcClient } from '../../../../src/transport/rpc-client'
-import type { TerminalWebViewHandle, TerminalKeyboardAvoidanceMetrics, TerminalModes } from '../../../../src/terminal/terminal-webview-contract'
+import type {
+  TerminalWebViewHandle,
+  TerminalKeyboardAvoidanceMetrics,
+  TerminalModes
+} from '../../../../src/terminal/terminal-webview-contract'
 import type { TerminalLiveInputSender } from '../../../../src/terminal/terminal-live-input-sender'
 import type { CustomKey } from '../../../../src/components/CustomKeyModal'
-import type { DiffNotesDelivery, DirtyMarkdownDraft, FileDocState, MarkdownDocState, MobileDisplayMode, MobileNewTabAgentLoadState, MobileSessionTab, MobileSessionTabType, Terminal, TerminalGestureInputBucket, TerminalGestureInputQueue } from './mobile-session-route-types'
+import type {
+  DiffNotesDelivery,
+  DirtyMarkdownDraft,
+  FileDocState,
+  MarkdownDocState,
+  MobileDisplayMode,
+  MobileNewTabAgentLoadState,
+  MobileSessionTab,
+  MobileSessionTabType,
+  Terminal,
+  TerminalGestureInputBucket,
+  TerminalGestureInputQueue
+} from './mobile-session-route-types'
 import type { DiffComment } from '../../../../../src/shared/types'
 import type { MobileNewTabAgentOption } from '../../../../src/session/mobile-new-tab-agent-options'
 import type { ActivePanel } from '../../../../src/session/session-panel-host'
 import { createInitialSessionAutoCreateState } from '../../../../src/session/use-initial-session-terminal-autocreate'
-import { createMobileSessionCreateWarningState, reconcileMobileSessionCreateWarningState } from '../../../../src/session/mobile-session-create-warning-state'
+import {
+  createMobileSessionCreateWarningState,
+  reconcileMobileSessionCreateWarningState
+} from '../../../../src/session/mobile-session-create-warning-state'
 
 export function useMobileSessionWorkspaceSetup() {
-    const {
+  const {
     hostId,
     worktreeId,
     name: routeWorktreeName,
@@ -232,7 +267,8 @@ export function useMobileSessionWorkspaceSetup() {
   const subscribingHandlesRef = useRef<Set<string>>(new Set())
   const initializedHandlesRef = useRef<Set<string>>(new Set())
   const terminalDiagnosticsRef = useRef(new MobileTerminalDiagnostics())
-  // Why: don't subscribe until the WebView fires web-ready — iOS may defer JS in hidden WebViews and init() messages would queue unrendered.
+  // Why: don't subscribe until the WebView fires web-ready so init() messages
+  // are not queued before the document can render them.
   const webReadyHandlesRef = useRef<Set<string>>(new Set())
   const activeHandleRef = useRef<string | null>(null)
   const activeSessionTabTypeRef = useRef<MobileSessionTabType | null>(null)
@@ -479,53 +515,218 @@ export function useMobileSessionWorkspaceSetup() {
   }, [diffComments])
 
   return {
-    hostId, worktreeId, routeWorktreeName, created, createdWarning, isFolderWorkspaceRoute,
-    isFloatingWorkspaceRoute, router, insets, client, connState, reconnectAttempts, lastConnectedAt,
-    forceReconnectHost, worktreeName, isWideLayout, activePanel, setActivePanel, sessionContentRowWidth,
-    setSessionContentRowWidth, canDockPanel, prIsGithubRepo, prRepoContextLoaded, initialCreateWarning,
-    terminals, setTerminals, terminalsRef, sessionTabs, setSessionTabs, sessionTabsRef,
-    appliedSnapshotMarkerRef, appliedSessionTabsRevisionRef, closedTabTombstonesRef, terminalsLoaded,
-    setTerminalsLoaded, input, setInput, terminalTextScale, setTerminalTextScale, autocompleteEnabled,
-    setAutocompleteEnabled, terminalLinkOpenMode, setTerminalLinkOpenMode, liveInputCapture,
-    setLiveInputCapture, clearTerminalLiveInputDefault, defaultTerminalHandlesToLiveInput,
-    liveInputTerminalHandles, liveInputTerminalHandlesRef, pruneTerminalHandlesFromLiveInput,
-    toggleTerminalLiveInput, activeHandle, setActiveHandle,
-    activeSessionTabId, setActiveSessionTabId, activeSessionTabIdRef, tabStripRef, tabStripOffsetRef,
-    tabStripViewportWidthRef, tabStripContentWidthRef, tabLayoutsRef, markdownDocs, setMarkdownDocs,
-    markdownDocsRef, fileDocs, setFileDocs, diffComments, setDiffComments, diffCommentsRef,
-    diffCommentBusy, setDiffCommentBusy, pendingDiffNotesDelivery, setPendingDiffNotesDelivery, creating,
-    setCreating, creatingTerminalRef, creatingBrowser, setCreatingBrowser, creatingMarkdown,
-    setCreatingMarkdown, createError, setCreateError, createWarningState, setCreateWarningState,
-    showCreateTabDrawer, setShowCreateTabDrawer, showQuickCommands, setShowQuickCommands,
-    createTabAgentLoadState, setCreateTabAgentLoadState, createTabAgentOptions, setCreateTabAgentOptions,
-    showCreateBrowserModal, setShowCreateBrowserModal, showHeaderMoreActions, setShowHeaderMoreActions,
-    actionTarget, setActionTarget, markdownActionTarget, setMarkdownActionTarget, fileActionTarget,
-    setFileActionTarget, browserActionTarget, setBrowserActionTarget, discardMarkdownTarget,
-    setDiscardMarkdownTarget, leaveDrafts, setLeaveDrafts, renameTarget, setRenameTarget, customKeys,
-    setCustomKeys, visibleBuiltInIds, setVisibleBuiltInIds, showCustomKeyModal, setShowCustomKeyModal,
-    deleteKeyTarget, setDeleteKeyTarget, visibleBuiltInAccessoryKeys, keyboardHeight, setKeyboardHeight,
-    terminalModes, setTerminalModes, terminalKeyboardMetrics, setTerminalKeyboardMetrics, selectModeActive,
-    setSelectModeActive, canPaste, setCanPaste, showDictationSetup, setShowDictationSetup, dictationMode,
-    setDictationMode, toastMessage, setToastMessage, toastOpacityRef, toastHideTimerRef, toastSeqRef,
-    ptyModesRef, terminalGestureInputBucketsRef, terminalGestureInputQueuesRef, terminalGestureInputInFlightRef,
-    terminalCwdRef, initialModesSeenRef, deviceTokenRef, hostEndpoint, setHostEndpoint, clientRef,
-    connStateRef, viewportRef, viewportMeasuredRef, terminalRefs, liveInputRef, commandInputRef,
-    liveInputFocusTimerRef, sendLiveTerminalInputRef, sessionTabActionSheetKeyboardHideSubRef,
-    sessionTabActionSheetRequestSeqRef, dictationRouteContextRef, terminalUnsubsRef, subscribingHandlesRef,
-    initializedHandlesRef, terminalDiagnosticsRef, webReadyHandlesRef, activeHandleRef,
-    activeSessionTabTypeRef, pendingActiveSessionTabIdRef, pendingActiveTerminalHandleRef,
-    pendingBrowserFocusPageIdRef, switchSessionTabRef, pendingTerminalActivationAttemptRef,
-    handleCreateBrowserRef, initialSessionAutoCreateRef, markdownSaveSeqRef, markdownSaveInFlightRef,
-    subscribeSeqRef, delayedActionTimersRef, layoutSeqRef, sendingRef, terminalFrameHeightRef,
-    terminalFrameWidth, setTerminalFrameWidth, activeSessionTab, clearPendingLiveInputCommit,
-    flushPendingLiveInputBeforeExternalSend, handleLiveInputAccessoryBytes, handleLiveInputChange,
+    hostId,
+    worktreeId,
+    routeWorktreeName,
+    created,
+    createdWarning,
+    isFolderWorkspaceRoute,
+    isFloatingWorkspaceRoute,
+    router,
+    insets,
+    client,
+    connState,
+    reconnectAttempts,
+    lastConnectedAt,
+    forceReconnectHost,
+    worktreeName,
+    isWideLayout,
+    activePanel,
+    setActivePanel,
+    sessionContentRowWidth,
+    setSessionContentRowWidth,
+    canDockPanel,
+    prIsGithubRepo,
+    prRepoContextLoaded,
+    initialCreateWarning,
+    terminals,
+    setTerminals,
+    terminalsRef,
+    sessionTabs,
+    setSessionTabs,
+    sessionTabsRef,
+    appliedSnapshotMarkerRef,
+    appliedSessionTabsRevisionRef,
+    closedTabTombstonesRef,
+    terminalsLoaded,
+    setTerminalsLoaded,
+    input,
+    setInput,
+    terminalTextScale,
+    setTerminalTextScale,
+    autocompleteEnabled,
+    setAutocompleteEnabled,
+    terminalLinkOpenMode,
+    setTerminalLinkOpenMode,
+    liveInputCapture,
+    setLiveInputCapture,
+    clearTerminalLiveInputDefault,
+    defaultTerminalHandlesToLiveInput,
+    liveInputTerminalHandles,
+    liveInputTerminalHandlesRef,
+    pruneTerminalHandlesFromLiveInput,
+    toggleTerminalLiveInput,
+    activeHandle,
+    setActiveHandle,
+    activeSessionTabId,
+    setActiveSessionTabId,
+    activeSessionTabIdRef,
+    tabStripRef,
+    tabStripOffsetRef,
+    tabStripViewportWidthRef,
+    tabStripContentWidthRef,
+    tabLayoutsRef,
+    markdownDocs,
+    setMarkdownDocs,
+    markdownDocsRef,
+    fileDocs,
+    setFileDocs,
+    diffComments,
+    setDiffComments,
+    diffCommentsRef,
+    diffCommentBusy,
+    setDiffCommentBusy,
+    pendingDiffNotesDelivery,
+    setPendingDiffNotesDelivery,
+    creating,
+    setCreating,
+    creatingTerminalRef,
+    creatingBrowser,
+    setCreatingBrowser,
+    creatingMarkdown,
+    setCreatingMarkdown,
+    createError,
+    setCreateError,
+    createWarningState,
+    setCreateWarningState,
+    showCreateTabDrawer,
+    setShowCreateTabDrawer,
+    showQuickCommands,
+    setShowQuickCommands,
+    createTabAgentLoadState,
+    setCreateTabAgentLoadState,
+    createTabAgentOptions,
+    setCreateTabAgentOptions,
+    showCreateBrowserModal,
+    setShowCreateBrowserModal,
+    showHeaderMoreActions,
+    setShowHeaderMoreActions,
+    actionTarget,
+    setActionTarget,
+    markdownActionTarget,
+    setMarkdownActionTarget,
+    fileActionTarget,
+    setFileActionTarget,
+    browserActionTarget,
+    setBrowserActionTarget,
+    discardMarkdownTarget,
+    setDiscardMarkdownTarget,
+    leaveDrafts,
+    setLeaveDrafts,
+    renameTarget,
+    setRenameTarget,
+    customKeys,
+    setCustomKeys,
+    visibleBuiltInIds,
+    setVisibleBuiltInIds,
+    showCustomKeyModal,
+    setShowCustomKeyModal,
+    deleteKeyTarget,
+    setDeleteKeyTarget,
+    visibleBuiltInAccessoryKeys,
+    keyboardHeight,
+    setKeyboardHeight,
+    terminalModes,
+    setTerminalModes,
+    terminalKeyboardMetrics,
+    setTerminalKeyboardMetrics,
+    selectModeActive,
+    setSelectModeActive,
+    canPaste,
+    setCanPaste,
+    showDictationSetup,
+    setShowDictationSetup,
+    dictationMode,
+    setDictationMode,
+    toastMessage,
+    setToastMessage,
+    toastOpacityRef,
+    toastHideTimerRef,
+    toastSeqRef,
+    ptyModesRef,
+    terminalGestureInputBucketsRef,
+    terminalGestureInputQueuesRef,
+    terminalGestureInputInFlightRef,
+    terminalCwdRef,
+    initialModesSeenRef,
+    deviceTokenRef,
+    hostEndpoint,
+    setHostEndpoint,
+    clientRef,
+    connStateRef,
+    viewportRef,
+    viewportMeasuredRef,
+    terminalRefs,
+    liveInputRef,
+    commandInputRef,
+    liveInputFocusTimerRef,
+    sendLiveTerminalInputRef,
+    sessionTabActionSheetKeyboardHideSubRef,
+    sessionTabActionSheetRequestSeqRef,
+    dictationRouteContextRef,
+    terminalUnsubsRef,
+    subscribingHandlesRef,
+    initializedHandlesRef,
+    terminalDiagnosticsRef,
+    webReadyHandlesRef,
+    activeHandleRef,
+    activeSessionTabTypeRef,
+    pendingActiveSessionTabIdRef,
+    pendingActiveTerminalHandleRef,
+    pendingBrowserFocusPageIdRef,
+    switchSessionTabRef,
+    pendingTerminalActivationAttemptRef,
+    handleCreateBrowserRef,
+    initialSessionAutoCreateRef,
+    markdownSaveSeqRef,
+    markdownSaveInFlightRef,
+    subscribeSeqRef,
+    delayedActionTimersRef,
+    layoutSeqRef,
+    sendingRef,
+    terminalFrameHeightRef,
+    terminalFrameWidth,
+    setTerminalFrameWidth,
+    activeSessionTab,
+    clearPendingLiveInputCommit,
+    flushPendingLiveInputBeforeExternalSend,
+    handleLiveInputAccessoryBytes,
+    handleLiveInputChange,
     saveTerminalTextScale,
-    handleLiveInputKeyPress, handleLiveInputSubmit, canCompose, canSend, liveInputEnabled,
-    browserScreencastSupported, setBrowserScreencastSupported, agentSessionHistorySupported,
-    setAgentSessionHistorySupported, quickCommandsSupported, setQuickCommandsSupported,
-    browserScreencastSupportedRef, reconciledCreateWarningState, createWarning, clearDelayedActionTimers,
-    scheduleDelayedAction, clearToastHideTimer, showToast, dictation,
-    startDictation, cancelDictation, handleDictationToggle, handleDictationPressIn, handleDictationPressOut,
+    handleLiveInputKeyPress,
+    handleLiveInputSubmit,
+    canCompose,
+    canSend,
+    liveInputEnabled,
+    browserScreencastSupported,
+    setBrowserScreencastSupported,
+    agentSessionHistorySupported,
+    setAgentSessionHistorySupported,
+    quickCommandsSupported,
+    setQuickCommandsSupported,
+    browserScreencastSupportedRef,
+    reconciledCreateWarningState,
+    createWarning,
+    clearDelayedActionTimers,
+    scheduleDelayedAction,
+    clearToastHideTimer,
+    showToast,
+    dictation,
+    startDictation,
+    cancelDictation,
+    handleDictationToggle,
+    handleDictationPressIn,
+    handleDictationPressOut,
     refreshDictationMode
   }
 }

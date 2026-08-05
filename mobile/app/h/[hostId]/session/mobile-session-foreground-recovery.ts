@@ -1,11 +1,7 @@
-import { useEffect, useRef } from 'react'
-import { AppState, Keyboard, Platform, type AppStateStatus, type KeyboardEvent } from 'react-native'
+import { useEffect } from 'react'
+import { AppState, Keyboard, type AppStateStatus, type KeyboardEvent } from 'react-native'
 import { loadTerminalAccessoryLayout } from '../../../../src/terminal/terminal-accessory-layout'
 import { useTerminalViewportRefit } from '../../../../src/terminal/terminal-viewport-refit'
-import {
-  recoverActiveTerminalAfterForeground,
-  shouldRecoverTerminalOnAppStateChange
-} from '../../../../src/terminal/terminal-foreground-recovery'
 
 type SessionRecoveryContext = Record<string, any>
 
@@ -16,10 +12,8 @@ export function useMobileSessionForegroundRecovery(context: SessionRecoveryConte
     terminalRefs,
     activeHandleRef,
     initializedHandlesRef,
-    connStateRef,
     unsubscribeTerminal,
     subscribeToTerminal,
-    scheduleDelayedAction,
     terminalFrameHeightRef,
     viewportRef,
     viewportMeasuredRef,
@@ -38,7 +32,6 @@ export function useMobileSessionForegroundRecovery(context: SessionRecoveryConte
     resolveTabStripScrollOffset,
     activeSessionTabId
   } = context
-  const pendingForegroundRecoveryRef = useRef(false)
 
   useEffect(() => {
     let stale = false
@@ -66,48 +59,6 @@ export function useMobileSessionForegroundRecovery(context: SessionRecoveryConte
     }
   }, [])
 
-  useEffect(() => {
-    let previousAppState: AppStateStatus | null = AppState.currentState
-    const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      const shouldRecover = shouldRecoverTerminalOnAppStateChange(
-        previousAppState,
-        nextAppState,
-        Platform.OS
-      )
-      previousAppState = nextAppState
-      if (!shouldRecover) return
-      for (const terminalRef of terminalRefs.current.values()) {
-        terminalRef.prepareForForegroundRecovery()
-      }
-      const outcome = recoverActiveTerminalAfterForeground({
-        activeHandleRef,
-        terminalRefs,
-        initializedHandlesRef,
-        connStateRef,
-        unsubscribeTerminal,
-        subscribeToTerminal,
-        schedule: scheduleDelayedAction
-      })
-      pendingForegroundRecoveryRef.current = outcome === 'deferred'
-    })
-    return () => sub.remove()
-  }, [scheduleDelayedAction, subscribeToTerminal, unsubscribeTerminal])
-
-  useEffect(() => {
-    if (connState !== 'connected' || !pendingForegroundRecoveryRef.current) return
-    pendingForegroundRecoveryRef.current = false
-    if (AppState.currentState !== 'active') return
-    recoverActiveTerminalAfterForeground({
-      activeHandleRef,
-      terminalRefs,
-      initializedHandlesRef,
-      connStateRef,
-      unsubscribeTerminal,
-      subscribeToTerminal,
-      schedule: scheduleDelayedAction
-    })
-  }, [connState, scheduleDelayedAction, subscribeToTerminal, unsubscribeTerminal])
-
   const { notifyTerminalFrameHeight, notifyKeyboardVisibility } = useTerminalViewportRefit({
     activeHandleRef,
     terminalRefs,
@@ -134,8 +85,8 @@ export function useMobileSessionForegroundRecovery(context: SessionRecoveryConte
       notifyKeyboardVisibility(false)
       setKeyboardHeight(0)
     }
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showEvent = 'keyboardDidShow'
+    const hideEvent = 'keyboardDidHide'
     const showSub = Keyboard.addListener(showEvent, onShow)
     const hideSub = Keyboard.addListener(hideEvent, onHide)
     return () => {
@@ -167,7 +118,6 @@ export function useMobileSessionForegroundRecovery(context: SessionRecoveryConte
   }, [activeSessionTabId])
 
   return {
-    pendingForegroundRecoveryRef,
     notifyTerminalFrameHeight,
     notifyKeyboardVisibility,
     scrollActiveTabIntoView

@@ -10,8 +10,7 @@ vi.mock('@/i18n/i18n', () => ({
 }))
 
 vi.mock('./MobileBrandIcons', () => ({
-  AndroidLogo: () => null,
-  IosBrandIcon: () => null
+  AndroidLogo: () => null
 }))
 
 vi.mock('./NetworkInterfacePicker', () => ({
@@ -65,12 +64,8 @@ describe('HeroFlow height', () => {
     return render(
       <HeroFlow
         stepIdx={stepIdx}
-        platform="ios"
-        onPlatformChange={vi.fn()}
         installQrUrl={null}
-        installCopy={{ ctaLabel: 'Open TestFlight', url: 'https://example.com' }}
-        iosChannel="preview"
-        onIosChannelChange={vi.fn()}
+        installCopy={{ ctaLabel: 'Download APK', url: 'https://example.com' }}
         onOpenInstallUrl={vi.fn()}
         onCopyInstallUrl={vi.fn()}
         pairQrDataUrl={null}
@@ -108,12 +103,8 @@ describe('HeroFlow height', () => {
     rerender(
       <HeroFlow
         stepIdx={1}
-        platform="ios"
-        onPlatformChange={vi.fn()}
         installQrUrl={null}
-        installCopy={{ ctaLabel: 'Open TestFlight', url: 'https://example.com' }}
-        iosChannel="preview"
-        onIosChannelChange={vi.fn()}
+        installCopy={{ ctaLabel: 'Download APK', url: 'https://example.com' }}
         onOpenInstallUrl={vi.fn()}
         onCopyInstallUrl={vi.fn()}
         pairQrDataUrl={null}

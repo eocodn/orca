@@ -1,5 +1,4 @@
 import { createElement, createRef } from 'react'
-import { Platform } from 'react-native'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TerminalWebView } from './TerminalWebView'
@@ -11,8 +10,6 @@ const nativeWebViewMethods = vi.hoisted(() => ({
 }))
 
 vi.mock('react-native', () => ({
-  AppState: { currentState: 'active' },
-  Platform: { OS: 'ios' },
   Pressable: 'Pressable',
   StyleSheet: {
     absoluteFillObject: {
@@ -215,55 +212,7 @@ describe('TerminalWebView engine errors', () => {
     }
   })
 
-  it('queues iOS foreground traffic until the current document answers its ping', () => {
-    const terminalRef = createRef<TerminalWebViewHandle>()
-    const onWebReady = vi.fn()
-    const terminalTheme = {
-      mode: 'dark',
-      theme: { background: '#111111', foreground: '#eeeeee' }
-    }
-    const { renderer } = createTerminalWebViewRenderer(vi.fn(), {
-      ref: terminalRef,
-      onWebReady,
-      terminalTheme
-    })
-    postWebViewMessage(renderer, { type: 'web-ready' })
-    nativeWebViewMethods.postMessage.mockClear()
-
-    act(() => {
-      terminalRef.current?.prepareForForegroundRecovery()
-      terminalRef.current?.write('queued output')
-    })
-
-    const ping = postedCommands()[0]
-    expect(postedCommands().map((command) => command.type)).toEqual(['ping'])
-    postWebViewMessage(renderer, { type: 'pong', pingId: Number(ping?.id) + 1 })
-    expect(postedCommands().map((command) => command.type)).toEqual(['ping'])
-
-    postWebViewMessage(renderer, { type: 'pong', pingId: ping?.id })
-    expect(postedCommands().map((command) => command.type)).toEqual(['ping', 'set-theme', 'write'])
-    expect(onWebReady).toHaveBeenCalledTimes(1)
-  })
-
-  it('keeps Android foreground traffic on the existing ready document', () => {
-    const terminalRef = createRef<TerminalWebViewHandle>()
-    const { renderer } = createTerminalWebViewRenderer(vi.fn(), { ref: terminalRef })
-    postWebViewMessage(renderer, { type: 'web-ready' })
-    nativeWebViewMethods.postMessage.mockClear()
-    const mutablePlatform = Platform as { OS: string }
-    mutablePlatform.OS = 'android'
-    try {
-      act(() => {
-        terminalRef.current?.prepareForForegroundRecovery()
-        terminalRef.current?.write('android output')
-      })
-      expect(postedCommands().map((command) => command.type)).toEqual(['write'])
-    } finally {
-      mutablePlatform.OS = 'ios'
-    }
-  })
-
-  it('reloads a terminated iOS content process and restores theme on readiness', () => {
+  it('reloads a terminated content process and restores theme on readiness', () => {
     const terminalRef = createRef<TerminalWebViewHandle>()
     const { onEngineError, renderer } = createTerminalWebViewRenderer(vi.fn(), {
       ref: terminalRef,

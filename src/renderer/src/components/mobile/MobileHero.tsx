@@ -2,8 +2,8 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Copy } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { MobileNetworkInterface } from '../settings/mobile-network-interface-selection'
-import { AndroidLogo, IosBrandIcon } from './MobileBrandIcons'
-import { getChannelTagline, type InstallCopy, type IosChannel } from './mobile-platform-copy'
+import { AndroidLogo } from './MobileBrandIcons'
+import type { InstallCopy } from './mobile-platform-copy'
 import type { MobilePairingConnectionMode } from '../../../../shared/mobile-pairing-connection-mode'
 import type { MobileRelayMintFailure } from '../../../../shared/mobile-relay-mint-failure'
 import { MobileHeroPairingStep } from './MobileHeroPairingStep'
@@ -11,17 +11,12 @@ export { HeroIntro } from './MobileHeroIntro'
 export { HeroPaired, type PairedDevice } from './MobileHeroPairedDevices'
 import { translate } from '@/i18n/i18n'
 
-export type Platform = 'ios' | 'android'
 export type StepIndex = 0 | 1
 
 type HeroFlowProps = {
   stepIdx: StepIndex
-  platform: Platform
-  onPlatformChange: (next: Platform) => void
   installQrUrl: string | null
   installCopy: InstallCopy
-  iosChannel: IosChannel
-  onIosChannelChange: (next: IosChannel) => void
   onOpenInstallUrl: () => void
   onCopyInstallUrl: () => void
   pairQrDataUrl: string | null
@@ -50,12 +45,8 @@ type HeroFlowProps = {
 
 export function HeroFlow({
   stepIdx,
-  platform,
-  onPlatformChange,
   installQrUrl,
   installCopy,
-  iosChannel,
-  onIosChannelChange,
   onOpenInstallUrl,
   onCopyInstallUrl,
   pairQrDataUrl,
@@ -133,56 +124,10 @@ export function HeroFlow({
                   'Scan the QR with your phone or open the install link to grab Orca Mobile.'
                 )}
               </p>
-              <div className="mp-tab-toggle">
-                <button
-                  type="button"
-                  className={cn(platform === 'ios' && 'is-active')}
-                  aria-pressed={platform === 'ios'}
-                  onClick={() => onPlatformChange('ios')}
-                >
-                  <IosBrandIcon />
-                  {translate('auto.components.mobile.MobileHero.711e6f4b47', 'iOS')}
-                </button>
-                <button
-                  type="button"
-                  className={cn(platform === 'android' && 'is-active')}
-                  aria-pressed={platform === 'android'}
-                  onClick={() => onPlatformChange('android')}
-                >
-                  <AndroidLogo />
-                  {translate('auto.components.mobile.MobileHero.ac1eb64952', 'Android')}
-                </button>
+              <div className="mp-platform-badge">
+                <AndroidLogo />
+                {translate('auto.components.mobile.MobileHero.ac1eb64952', 'Android')}
               </div>
-              {platform === 'ios' ? (
-                <div
-                  className="mp-channel-toggle"
-                  role="radiogroup"
-                  aria-label={translate(
-                    'auto.components.mobile.MobileHero.channel.group',
-                    'Release channel'
-                  )}
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={iosChannel === 'preview'}
-                    className={cn(iosChannel === 'preview' && 'is-active')}
-                    onClick={() => onIosChannelChange('preview')}
-                  >
-                    {translate('auto.components.mobile.MobileHero.channel.preview', 'Preview')}
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={iosChannel === 'stable'}
-                    className={cn(iosChannel === 'stable' && 'is-active')}
-                    onClick={() => onIosChannelChange('stable')}
-                  >
-                    {translate('auto.components.mobile.MobileHero.channel.stable', 'Stable')}
-                  </button>
-                  <span className="mp-channel-tagline">{getChannelTagline(iosChannel)}</span>
-                </div>
-              ) : null}
               <div className="mp-inline-actions">
                 <button type="button" className="mp-ghost-action" onClick={onOpenInstallUrl}>
                   {installCopy.ctaLabel}

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   InteractionManager,
-  Platform,
   Pressable,
   StyleSheet,
   TextInput,
@@ -12,7 +11,7 @@ import { Search, X } from 'lucide-react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 
 // Why: toolbar/list chrome paints and settles after the open tap; native
-// autoFocus alone often fails to raise the soft keyboard on iOS/Android.
+// autoFocus alone often fails to raise the soft keyboard on Android.
 const SEARCH_AUTO_FOCUS_DELAY_MS = 120
 
 type MobileSearchFieldProps = {
@@ -157,7 +156,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.input,
     paddingLeft: spacing.md,
     paddingRight: spacing.xs,
-    paddingVertical: Platform.OS === 'ios' ? spacing.sm : spacing.xs + 2
+    paddingVertical: spacing.xs + 2
   },
   shellFocused: {
     // Why: monochrome focus cue without burning the blue accent token

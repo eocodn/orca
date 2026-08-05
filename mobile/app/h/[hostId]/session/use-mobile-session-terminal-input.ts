@@ -1,11 +1,12 @@
 import { useCallback, useRef } from 'react'
-import {
-  Keyboard,
-  Platform,
-  View
-} from 'react-native'
+import { Keyboard, View } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
-import { triggerEdgeBump, triggerError, triggerSelection, triggerSuccess } from '../../../../src/platform/haptics'
+import {
+  triggerEdgeBump,
+  triggerError,
+  triggerSelection,
+  triggerSuccess
+} from '../../../../src/platform/haptics'
 import { sendMobileTerminalQueryReply } from '../../../../src/terminal/mobile-terminal-query-reply'
 import { countTerminalGestureInputSequences } from '../../../../src/terminal/terminal-gesture-input'
 import { isGestureMouseTrackingMode } from '../../../../src/session/mobile-session-route-helpers'
@@ -22,10 +23,7 @@ import type {
   TerminalKeyboardAvoidanceMetrics,
   TerminalModes
 } from '../../../../src/terminal/terminal-webview-contract'
-import type {
-  Terminal,
-  TerminalGestureInputQueue
-} from './mobile-session-route-types'
+import type { Terminal, TerminalGestureInputQueue } from './mobile-session-route-types'
 
 type SessionTerminalInputContext = Record<string, any>
 
@@ -275,7 +273,7 @@ export function useMobileSessionTerminalInput(context: SessionTerminalInputConte
     }
   }
 
-  // Why: hold-to-repeat matches iOS cadence (400ms then 45ms); non-repeatable keys fire once (holding is destructive).
+  // Why: hold-to-repeat uses a 400ms delay then 45ms cadence; non-repeatable keys fire once.
   const repeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const repeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Why: ref keeps repeat firing the current callback; else a mid-hold tab switch/reconnect routes bytes to a stale terminal.
@@ -350,10 +348,6 @@ export function useMobileSessionTerminalInput(context: SessionTerminalInputConte
       try {
         await Clipboard.setStringAsync(text)
         triggerSuccess()
-        // Why: Android 13+ shows its own system copy toast; iOS shows none, so only iOS needs our in-app toast.
-        if (Platform.OS === 'ios') {
-          showToast('Copied')
-        }
         terminalRefs.current.get(handle)?.cancelSelect()
       } catch (e) {
         triggerError()
@@ -416,7 +410,6 @@ export function useMobileSessionTerminalInput(context: SessionTerminalInputConte
       triggerEdgeBump()
     }
   }, [])
-
 
   return {
     toggleLiveInput,

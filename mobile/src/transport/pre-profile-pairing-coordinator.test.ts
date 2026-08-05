@@ -6,7 +6,7 @@ import { startPreProfilePairing } from './pre-profile-pairing-coordinator'
 import type { HostProfile, PairingOffer, RpcResponse } from './types'
 import type { RpcClient } from './rpc-client'
 
-vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
+vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
 vi.mock('expo-crypto', () => ({
   getRandomBytes: (length: number) => new Uint8Array(length).fill(length)
 }))
@@ -84,7 +84,7 @@ function dependencies(client: RpcClient, events: string[]) {
       events.push('write-credential')
     }),
     now: () => now,
-    platform: 'ios'
+    platform: 'android'
   }
 }
 

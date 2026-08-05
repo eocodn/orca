@@ -22,8 +22,7 @@ export async function shouldPresentNotificationOptIn(): Promise<boolean> {
       return false
     }
     if (permission.status === 'denied' || !permission.canAskAgain) {
-      // Why: iOS cannot show its authorization prompt again, so a blocking
-      // onboarding screen would be a dead end; Settings remains the recovery.
+      // Why: a permission prompt that cannot be shown again would dead-end onboarding.
       await savePushNotificationsEnabled(false)
       return false
     }

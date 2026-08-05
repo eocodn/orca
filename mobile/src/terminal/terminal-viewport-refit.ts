@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, type RefObject } from 'react'
-import { AppState, Platform, useWindowDimensions, type AppStateStatus } from 'react-native'
+import { useWindowDimensions } from 'react-native'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
 import type { TerminalWebViewHandle } from './TerminalWebView'
-import { shouldRecoverTerminalOnAppStateChange } from './terminal-foreground-recovery'
 import {
   isTerminalUpdateViewportApplied,
   isTerminalUpdateViewportUpdated,
@@ -254,28 +253,6 @@ export function useTerminalViewportRefit(
     (visible: boolean) => notifyFrameHeightRefitEvent({ type: 'keyboard-visibility', visible }),
     [notifyFrameHeightRefitEvent]
   )
-
-  useEffect(() => {
-    if (Platform.OS !== 'ios') {
-      return
-    }
-    let previousAppState: AppStateStatus | null = AppState.currentState
-    const sub = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      const shouldRefit = shouldRecoverTerminalOnAppStateChange(
-        previousAppState,
-        nextAppState,
-        Platform.OS
-      )
-      previousAppState = nextAppState
-      if (!shouldRefit) {
-        return
-      }
-      // Why: cached grid can match while the host PTY changed in background; reassert equal dims to converge after iOS resume.
-      viewportMeasuredRef.current = false
-      scheduleForcedViewportRefit()
-    })
-    return () => sub.remove()
-  }, [viewportMeasuredRef, scheduleForcedViewportRefit])
 
   const previousConnStateRef = useRef(connState)
   useEffect(() => {

@@ -8,7 +8,7 @@ import {
 import type { PairingCandidateClient } from './mobile-relay-physical-client'
 import type { PairingOffer, RpcResponse } from './types'
 
-vi.mock('react-native', () => ({ Platform: { OS: 'ios' } }))
+vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
 vi.mock('expo-crypto', () => ({ getRandomBytes: vi.fn() }))
 vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED' }))
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }))
@@ -108,7 +108,7 @@ function dependencies(args: {
       throw new Error('director not needed')
     }),
     now: () => now,
-    platform: 'ios'
+    platform: 'android'
   }
 }
 

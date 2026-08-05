@@ -6242,11 +6242,9 @@
         "MobileSettingsPane": {
           "9a3c280e49": "GitHub Releases",
           "b0088412a1": "or the Android APK from",
-          "b5a2ed83ff": "App Store",
           "installIntro": "Install Orca Mobile from the",
           "installOutro": ", then pair below.",
           "androidApkLabel": "Android APK",
-          "c8491c17ef": "Control Orca from your phone by scanning a QR code. Beta / early preview - expect bugs and breaking changes. Get the iOS app from the",
           "e7a3ae8c4e": "Mobile",
           "174f4a3c6d": "Control terminals and agents from your phone.",
           "1de96ec8a6": "Show Orca Mobile Button",
@@ -9572,7 +9570,6 @@
           "about": "About the Orca Relay beta",
           "beta": "Beta",
           "availability": "Available on",
-          "testFlight": "TestFlight",
           "androidApk": "Android APK"
         },
         "SkillUsageExampleDialog": {
@@ -11693,7 +11690,6 @@
           "7af266b80d": "Install QR code",
           "aa97420ba4": "Copy install link",
           "ac1eb64952": "Android",
-          "711e6f4b47": "iOS",
           "e75647ace0": "Scan the QR with your phone or open the install link to grab Orca Mobile.",
           "0d9b33299e": "Get the app.",
           "92ddfdfa1f": "Step 1 of 2",
@@ -11712,11 +11708,6 @@
           "e59a252eca": "Regenerate code",
           "d0b52871ce": "Your phones are paired.",
           "051978a785": "Your phone is paired.",
-          "channel": {
-            "group": "Release channel",
-            "preview": "Preview",
-            "stable": "Stable"
-          },
           "relayDegradedNotice": "Relay couldn’t be reached — this code only works on your LAN or Tailscale.",
           "pairingQrError": "This pairing code couldn’t be rendered as a QR code. Copy it into Orca Mobile instead.",
           "noRelayCode": "No pairing code available",
@@ -11762,14 +11753,8 @@
         "mobile": {
           "platform": {
             "copy": {
-              "2a532d6fd7": "Scan with your Android camera to download the latest APK from GitHub Releases.",
-              "432db52b73": "Scan with your iPhone camera to open the App Store.",
-              "preview": {
-                "tagline": "Newest features, updated daily."
-              },
-              "stable": {
-                "tagline": "The public release, updated weekly."
-              }
+              "2a532d6fd7": "Scan with your Android camera to download the latest APK from GitHub Releases."
+
             }
           }
         },

@@ -16,7 +16,7 @@ const CLIPBOARD_IMAGE_DATA_URL_PREFIX_RE = /^data:image\/[a-z0-9.+-]+;base64,/i
 
 // Why: clipboard images are re-encoded as lossless PNG, so high-res screenshots and
 // photos can exceed the upload byte budget; resize the raster down to fit before upload.
-// The iOS ImageManipulator loader cannot decode large base64 data URIs, so use a file.
+// Use a cache file so ImageManipulator receives a native file URI.
 const resizeMobileClipboardImage: MobileClipboardImageResizer = async (source, target) => {
   const base64 = source.replace(CLIPBOARD_IMAGE_DATA_URL_PREFIX_RE, '')
   const file = new FsFile(Paths.cache, `orca-clip-resize-${Date.now()}.png`)

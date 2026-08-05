@@ -194,15 +194,12 @@ export default function PairScanScreen() {
     processingRef.current = false
   }
 
-  // Why: bottom inset accounts for Android 3-button nav bars and iOS
-  // home-indicator areas that would otherwise overlap the 'Or paste
-  // pairing code' button at the bottom of the scan screen.
+  // Keep the pairing controls clear of Android navigation bars.
   const containerPadding = {
     paddingTop: insets.top + spacing.sm,
     paddingBottom: insets.bottom + spacing.sm
   }
-  // Why: iPad camera previews are often rectangular, but QR guides should
-  // stay square so the corners still describe the code shape.
+  // Keep the QR guide square even when the camera preview is rectangular.
   const reticleSize = Math.min(
     Math.round(Math.min(cameraBounds.width, cameraBounds.height) * SCAN_RETICLE_SCALE),
     SCAN_RETICLE_MAX_SIZE

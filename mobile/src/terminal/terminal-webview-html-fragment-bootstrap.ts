@@ -136,7 +136,7 @@ export const terminal_webview_html_fragment_bootstrap = `
     return i >= 0 && data.charAt(i) === CLAUDE_STATUS_DOT;
   }
 
-  // Why: iOS WebKit promotes Claude's record/status dot to a colorful emoji glyph.
+  // Keep Claude's record/status dot in text presentation across WebViews.
   function normalizeStatusDotPresentation(data) {
     if (typeof data !== 'string' || data.length === 0) return data;
     if (statusDotPendingSelector) {

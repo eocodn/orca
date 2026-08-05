@@ -13,13 +13,15 @@ import {
 } from './terminal-viewport-refit-state'
 
 const hookSource = readFileSync(new URL('./terminal-viewport-refit.ts', import.meta.url), 'utf8')
-const sessionSource = readFileSync(
-  new URL('../../app/h/[hostId]/session/mobile-session-foreground-recovery.ts', import.meta.url),
-  'utf8'
-) + readFileSync(
-  new URL('../../app/h/[hostId]/session/mobile-session-workspace-content.tsx', import.meta.url),
-  'utf8'
-)
+const sessionSource =
+  readFileSync(
+    new URL('../../app/h/[hostId]/session/mobile-session-foreground-recovery.ts', import.meta.url),
+    'utf8'
+  ) +
+  readFileSync(
+    new URL('../../app/h/[hostId]/session/mobile-session-workspace-content.tsx', import.meta.url),
+    'utf8'
+  )
 
 describe('terminal viewport refit', () => {
   it('refits when the window dimensions change (fold/unfold, rotation)', () => {
@@ -162,19 +164,12 @@ describe('terminal viewport refit', () => {
     )
   })
 
-  it('forces a refit on iOS foreground and connection recovery', () => {
-    const foregroundEffect = hookSource.slice(
-      hookSource.indexOf("if (Platform.OS !== 'ios')"),
-      hookSource.indexOf('const previousConnStateRef')
-    )
+  it('forces a refit on connection recovery', () => {
     const reconnectEffect = hookSource.slice(
       hookSource.indexOf('const previousConnStateRef'),
       hookSource.indexOf('disposedRef.current = false')
     )
 
-    expect(foregroundEffect).toContain("AppState.addEventListener('change'")
-    expect(foregroundEffect).toContain('viewportMeasuredRef.current = false')
-    expect(foregroundEffect).toContain('scheduleForcedViewportRefit()')
     expect(reconnectEffect).toContain("connState !== 'connected'")
     expect(reconnectEffect).toContain('viewportMeasuredRef.current = false')
     expect(reconnectEffect).toContain('scheduleForcedViewportRefit()')

@@ -1,8 +1,8 @@
 import { AppState } from 'react-native'
 import { addNetworkStateListener, getNetworkStateAsync, type NetworkState } from 'expo-network'
 
-// Why: Android/iOS suspend JS timers and silently kill sockets while the app
-// is backgrounded, and network handoffs (Wi-Fi → cellular) kill the TCP path
+// Why: Android suspends JS timers and can kill sockets while the app is
+// backgrounded, and network handoffs (Wi-Fi → cellular) kill the TCP path
 // without an onclose. Both leave clients waiting out long backoff timers or
 // parked at the reconnect give-up cap (issue #5049). Surface every "the link
 // probably just came back" OS signal as a single nudge callback.

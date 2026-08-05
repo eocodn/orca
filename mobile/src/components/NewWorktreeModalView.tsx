@@ -14,10 +14,57 @@ import { styles } from './new-worktree-modal-styles'
 type ViewProps = Record<string, any>
 
 export function NewWorktreeModalView(props: ViewProps) {
-  const { visible, drawerView, onClose, closeSetupTrust, transitionDrawer, formSheetVisible, formSheetInteractive, loading, repos, selectedRepo, repoBadgeColor, prepareSelectionPickerOpen, composer, selectedRepoIsGit, sshGate, setError, openSourceDrawer, selectedRepoConnectionId, workspaceSshStatusLabel, connectSelectedSshRepo, selectedAgent, setShowAdvanced, showAdvanced, note, setNote, setupCommand, setupSource, setupRunPolicy, setupDecisionChoice, setSetupDecisionChoice, runSetup, setRunSetup, canCreate, handleCreate, creating, sourceAvailability, client, pasteRepos, repoPickerItems, handleRepoSelected, pickerAgentOptions, setAgentOverridden, setSelectedAgent, setupTrustPrompt, approveSetupTrust, skipSetupTrust } = props
+  const {
+    visible,
+    drawerView,
+    onClose,
+    closeSetupTrust,
+    transitionDrawer,
+    formSheetVisible,
+    formSheetInteractive,
+    loading,
+    repos,
+    selectedRepo,
+    repoBadgeColor,
+    prepareSelectionPickerOpen,
+    composer,
+    selectedRepoIsGit,
+    sshGate,
+    setError,
+    openSourceDrawer,
+    selectedRepoConnectionId,
+    workspaceSshStatusLabel,
+    connectSelectedSshRepo,
+    selectedAgent,
+    setShowAdvanced,
+    showAdvanced,
+    note,
+    setNote,
+    setupCommand,
+    setupSource,
+    setupRunPolicy,
+    setupDecisionChoice,
+    setSetupDecisionChoice,
+    runSetup,
+    setRunSetup,
+    canCreate,
+    handleCreate,
+    creating,
+    sourceAvailability,
+    client,
+    pasteRepos,
+    repoPickerItems,
+    handleRepoSelected,
+    pickerAgentOptions,
+    setAgentOverridden,
+    setSelectedAgent,
+    setupTrustPrompt,
+    approveSetupTrust,
+    skipSetupTrust
+  } = props
   return (
     // Why: hosting the form and every picker in one persistent native Modal makes
-    // form → repo/agent transitions in-window view swaps, avoiding the iOS
+    // form → repo/agent transitions in-window view swaps, avoiding a
     // dismiss-then-present race that left the dropdowns unresponsive. Native back
     // closes the flow from the form, routes the trust prompt through its in-flight
     // guard, and otherwise returns to the form from a picker.
@@ -310,4 +357,3 @@ export function NewWorktreeModalView(props: ViewProps) {
     </BottomDrawerModalHost>
   )
 }
-

@@ -4,8 +4,7 @@ import { resolveNewWorktreeFormSheetVisible } from './new-worktree-form-sheet-vi
 
 export type NewWorktreeDrawerView = 'form' | 'transition' | 'source' | 'repo' | 'agent' | 'trust'
 
-// Why: iOS cannot reliably present a second native modal until the first drawer's
-// exit commits; one extra frame keeps transitions sequential on slower devices.
+// One extra frame keeps transitions sequential on slower devices.
 const NEW_WORKTREE_DRAWER_TRANSITION_MS = BOTTOM_DRAWER_HIDE_DURATION_MS + 16
 
 export function useNewWorktreeDrawerNavigation(modalVisible: boolean): {

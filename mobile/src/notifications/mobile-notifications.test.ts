@@ -21,7 +21,7 @@ vi.mock('expo-notifications', () => ({
 }))
 
 vi.mock('react-native', () => ({
-  Platform: { OS: 'ios', Version: 18 }
+  Platform: { OS: 'android', Version: 18 }
 }))
 
 // Why: mobile-notifications now persists the catch-up watermark to
@@ -39,7 +39,7 @@ vi.mock('../storage/preferences', () => ({
 }))
 
 beforeEach(() => {
-  Object.assign(Platform, { OS: 'ios', Version: 18 })
+  Object.assign(Platform, { OS: 'android', Version: 18 })
   // Why (#8591): the reconnect watermark/seen-set now live per host at module
   // scope so they survive the app's unsubscribe-on-disconnect. Reset between
   // tests so each case starts from a genuine cold open.
@@ -49,8 +49,7 @@ beforeEach(() => {
 describe('getNotificationPermissionState', () => {
   it.each([
     { os: 'android', version: 32, expected: false },
-    { os: 'android', version: 33, expected: true },
-    { os: 'ios', version: 18, expected: true }
+    { os: 'android', version: 33, expected: true }
   ])(
     'reports whether a granted $os $version authorization reflects user choice',
     async ({ os, version, expected }) => {

@@ -3,8 +3,7 @@ import { toast } from 'sonner'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { useAppStore } from '@/store'
 import { getClientRuntime } from '@/runtime/client-runtime'
-import type { Platform, StepIndex } from './MobileHero'
-import type { IosChannel } from './mobile-platform-copy'
+import type { StepIndex } from './MobileHero'
 import {
   selectRefreshedNetworkAddress,
   type MobileNetworkInterface
@@ -26,11 +25,6 @@ import type { MobileRelayMintFailure } from '../../../../shared/mobile-relay-min
 
 export default function MobilePage(): React.JSX.Element {
   const [stepIdx, setStepIdx] = useState<StepIndex>(0)
-
-  const [platform, setPlatform] = useState<Platform>('ios')
-  // Default iOS users to the preview track — it ships daily, so newcomers land
-  // on the freshest build unless they deliberately pick the public release.
-  const [iosChannel, setIosChannel] = useState<IosChannel>('preview')
 
   const [pairQrDataUrl, setPairQrDataUrl] = useState<string | null>(null)
   const [pairingUrl, setPairingUrl] = useState<string | null>(null)
@@ -62,8 +56,8 @@ export default function MobilePage(): React.JSX.Element {
     showPairedDevices,
     stage
   } = useMobilePagePairedDevices({ stepIdx, setStepIdx })
-  const installQrUrl = useMobileInstallQr(stage, platform, iosChannel)
-  const { copyInstallUrl, openInstallUrl } = useMobileInstallActions(platform, iosChannel)
+  const installQrUrl = useMobileInstallQr(stage)
+  const { copyInstallUrl, openInstallUrl } = useMobileInstallActions()
 
   const { generatePairing } = useMobilePairingGeneration({
     connectionMode,
@@ -316,8 +310,6 @@ export default function MobilePage(): React.JSX.Element {
       handleBack={handleBack}
       handleContinue={handleContinue}
       installQrUrl={installQrUrl}
-      iosChannel={iosChannel}
-      setIosChannel={setIosChannel}
       loadNetworkInterfaces={() => void loadNetworkInterfaces()}
       networkInterfaces={networkInterfaces}
       openInstallUrl={openInstallUrl}
@@ -334,12 +326,10 @@ export default function MobilePage(): React.JSX.Element {
       onUseLan={() => handleConnectionModeChange('local-only')}
       onRetryRelay={() => void generatePairing(true)}
       onCopyRelayDiagnostics={() => void copyRelayDiagnostics()}
-      platform={platform}
       refreshingNetworkInterfaces={refreshingNetworkInterfaces}
       revokeDevice={(id) => void revokeDevice(id)}
       revokingDeviceIds={revokingDeviceIds}
       selectedAddress={selectedAddress}
-      setPlatform={setPlatform}
       showMobileButton={showMobileButton}
       showPairedDevices={showPairedDevices}
       stage={stage}

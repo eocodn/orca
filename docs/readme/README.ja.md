@@ -36,7 +36,7 @@
 
 スマートフォンからエージェントを監視・操作 — エージェントの完了を通知で受け取り、どこからでもフォローアップを送信できます。
 
-[iOS App Store](https://apps.apple.com/us/app/orca-ide/id6766130217) · [Android APK](https://github.com/stablyai/orca/releases/download/mobile-android-v0.0.32/app-release.apk) · [ドキュメント →](https://www.onorca.dev/docs/mobile)
+[Android APK](https://github.com/stablyai/orca/releases/download/mobile-android-v0.0.32/app-release.apk) · [ドキュメント →](https://www.onorca.dev/docs/mobile)
 
 </td>
 <td width="50%">
@@ -222,11 +222,10 @@ brew install --cask stablyai/orca/orca
 yay -S stably-orca-bin
 ```
 
-### モバイル Companion — iOS, Android
+### モバイル Companion — Android
 
 デスクトップアプリとペアリングして、スマートフォンからエージェントを監視・操作できます。
 
-- **iOS:** [App Store からダウンロード](https://apps.apple.com/us/app/orca-ide/id6766130217)
 - **Android:** [APK をダウンロード](https://github.com/stablyai/orca/releases/download/mobile-android-v0.0.32/app-release.apk)
 
 ---

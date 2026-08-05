@@ -89,7 +89,7 @@ async function pickFromLibrary(
   createFile: MobileImageFileFactory = defaultMobileImageFileFactory
 ): Promise<PickedMobileImage | null> {
   const permission = await requestPermission()
-  // Why: `granted` covers full + limited iOS access; only a hard denial blocks us.
+  // Why: only a hard denial blocks media library access.
   if (!permission.granted) {
     throw new ImageLibraryPermissionError()
   }

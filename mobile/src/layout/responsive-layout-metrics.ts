@@ -1,6 +1,6 @@
 import { spacing } from '../theme/mobile-theme'
 
-// Use actual window size so narrow iPad splits keep phone-like layouts.
+// Use actual window size so narrow tablet layouts keep phone-like dimensions.
 const WIDE_LAYOUT_MIN_WIDTH = 700
 
 // Why: width alone catches landscape phones; capped tablet layouts need room

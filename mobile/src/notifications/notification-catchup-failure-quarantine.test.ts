@@ -15,7 +15,7 @@ vi.mock('expo-notifications', () => ({
 }))
 
 vi.mock('react-native', () => ({
-  Platform: { OS: 'ios', Version: 18 }
+  Platform: { OS: 'android', Version: 18 }
 }))
 
 const WATERMARK_KEY = 'orca:mobileNotificationsWatermark:host-1'

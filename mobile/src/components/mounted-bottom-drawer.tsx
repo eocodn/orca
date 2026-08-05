@@ -6,8 +6,7 @@ import {
   ScrollView,
   Keyboard,
   BackHandler,
-  Modal,
-  Platform
+  Modal
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -105,10 +104,8 @@ export function MountedBottomDrawer({
     }
   }, [onHidden, visible])
 
-  // Why: KeyboardAvoidingView and useAnimatedKeyboard are both unreliable
-  // inside Modal (iOS ignores KAV; Android needs adjustNothing for
-  // useAnimatedKeyboard). Keyboard event listeners work on both platforms
-  // and give us the exact height to shift the drawer by.
+  // Why: KeyboardAvoidingView and useAnimatedKeyboard are unreliable inside
+  // Modal; keyboard listeners provide the exact height for the drawer shift.
   useEffect(() => {
     // Pinned-under sheets stay visible for size but must not ride the keyboard —
     // only the top interactive sheet owns inset/lift.
@@ -122,8 +119,7 @@ export function MountedBottomDrawer({
       const inset = resolveBottomDrawerKeyboardInset({
         keyboardHeight,
         bottomInset: insets.bottom,
-        fillAvailable,
-        platform: Platform.OS
+        fillAvailable
       })
       setKeyboardInset(inset)
       if (duration > 0) {
@@ -143,8 +139,8 @@ export function MountedBottomDrawer({
       }
     }
 
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
+    const showEvent = 'keyboardDidShow'
+    const hideEvent = 'keyboardDidHide'
 
     const onShow = Keyboard.addListener(showEvent, (e) => {
       applyKeyboardHeight(e.endCoordinates.height, e.duration || 250)
@@ -386,8 +382,7 @@ export function MountedBottomDrawer({
   )
 
   // Why: inside a BottomDrawerModalHost the host owns the single native Modal;
-  // rendering our own would stack modals and reintroduce the iOS present/dismiss
-  // race the host exists to avoid. The host handles the Android back button.
+  // rendering our own would stack modals. The host handles the Android back button.
   if (insideModalHost) {
     return overlay
   }

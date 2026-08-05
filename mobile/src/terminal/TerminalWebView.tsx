@@ -1,5 +1,5 @@
 import { useRef, useCallback, forwardRef, useImperativeHandle, useEffect, useMemo } from 'react'
-import { Platform, View } from 'react-native'
+import { View } from 'react-native'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import type { TerminalOscLinkRange } from './terminal-osc-link-ranges'
 import type { TerminalWebViewHandle, TerminalWebViewProps } from './terminal-webview-contract'
@@ -247,17 +247,6 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   useImperativeHandle(
     ref,
     () => ({
-      prepareForForegroundRecovery() {
-        if (Platform.OS !== 'ios') {
-          return
-        }
-        // Why: direct ping is the only command allowed through while readiness is
-        // invalid; init/write commands queue until this exact document answers.
-        webBridgeAvailableRef.current = false
-        isWebReadyRef.current = false
-        armWebReadyWatchdog()
-        pendingPingIdRef.current = sendToWebView({ type: 'ping' })
-      },
       write(data: string) {
         writeCoalescer.write(data)
       },
@@ -392,7 +381,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         nestedScrollEnabled
         scalesPageToFit={false}
         // Why: Android WebView defaults textZoom to the system font scale, inflating
-        // xterm's DOM glyphs past its canvas-measured cell grid (#4579). iOS ignores it.
+        // xterm's DOM glyphs past its canvas-measured cell grid (#4579).
         textZoom={100}
         onLoadStart={handleLoadStart}
         onMessage={handleMessage}

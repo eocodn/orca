@@ -7,7 +7,6 @@ import {
   Pressable,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -183,10 +182,7 @@ export default function EditHostScreen() {
           <ActivityIndicator color={colors.textSecondary} />
         </View>
       ) : (
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <KeyboardAvoidingView style={styles.flex} behavior={undefined}>
           <ScrollView
             contentContainerStyle={[styles.form, { paddingBottom: insets.bottom + spacing.xl }]}
             keyboardShouldPersistTaps="handled"
@@ -326,7 +322,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: typography.bodySize,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10
+    paddingVertical: 10
   },
   hint: {
     color: colors.textMuted,
@@ -337,7 +333,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     color: colors.textSecondary,
     fontSize: typography.metaSize,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : typography.monoFamily
+    fontFamily: typography.monoFamily
   },
   previewError: {
     marginTop: spacing.sm,
