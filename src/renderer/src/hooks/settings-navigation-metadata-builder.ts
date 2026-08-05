@@ -12,7 +12,6 @@ import {
   ListChecks,
   Lock,
   Mic,
-  MousePointerClick,
   Palette,
   PanelsTopLeft,
   Play,
@@ -52,7 +51,6 @@ import {
 } from '@/components/settings/runtime-environments-search'
 import { getSshPaneSearchEntries } from '@/components/settings/ssh-search'
 import { getMobileSettingsPaneSearchEntries } from '@/components/settings/mobile-settings-search'
-import { getComputerUsePaneSearchEntries } from '@/components/settings/computer-use-search'
 import { getVoicePaneSearchEntries } from '@/components/settings/voice-pane-search'
 import { getDeveloperPermissionsPaneSearchEntries } from '@/components/settings/developer-permissions-search'
 import { getPrivacyPaneSearchEntries } from '@/components/settings/privacy-search'
@@ -174,17 +172,6 @@ export function buildSettingsNavigationMetadata({
       : []),
     ...(showDesktopOnlySettings
       ? [
-          {
-            id: 'computer-use',
-            title: translate('auto.hooks.useSettingsNavigationMetadata.b35e92364b', 'Computer Use'),
-            description: translate(
-              'auto.hooks.useSettingsNavigationMetadata.0059bd17f3',
-              'Enable agents to control any app on your computer.'
-            ),
-            icon: MousePointerClick,
-            searchEntries: getComputerUsePaneSearchEntries(),
-            group: 'capabilities'
-          },
           {
             id: 'voice',
             title: translate('auto.hooks.useSettingsNavigationMetadata.6a50cdcd7c', 'Voice'),

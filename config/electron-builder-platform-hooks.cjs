@@ -1,6 +1,6 @@
 const { chmodSync, existsSync } = require('node:fs')
 const { execFileSync } = require('node:child_process')
-const { join, resolve } = require('node:path')
+const { join } = require('node:path')
 
 const isMacHourly = process.env.ORCA_MAC_HOURLY === '1'
 const isMacRelease = process.env.ORCA_MAC_RELEASE === '1' || isMacHourly
@@ -13,28 +13,6 @@ function chmodUnixCliLaunchers(resourcesDir, electronPlatformName) {
     // Why: packaged Unix installs expose these resources as public commands.
     chmodSync(launcherPath, 0o755)
   }
-}
-
-async function signMacComputerUseHelper(helperAppPath, packager) {
-  if (!existsSync(helperAppPath)) {
-    if (isMacRelease) throw new Error(`Missing Orca Computer Use helper app at ${helperAppPath}`)
-    return
-  }
-  const codeSigningInfo =
-    isMacRelease && process.env.CSC_LINK && packager?.codeSigningInfo?.value
-      ? await packager.codeSigningInfo.value
-      : null
-  const identity =
-    process.env.ORCA_COMPUTER_MACOS_SIGN_IDENTITY ??
-    process.env.CSC_NAME ??
-    findInstalledMacSigningIdentity(codeSigningInfo?.keychainFile) ??
-    (isMacRelease ? null : '-')
-  if (!identity) throw new Error('Missing signing identity for Orca Computer Use helper app')
-  // Why: TCC grants attach to this nested app's code identity before the outer bundle is sealed.
-  execFileSync('codesign', codesignArgs(identity, helperAppPath), { stdio: 'inherit' })
-  execFileSync('codesign', ['--verify', '--deep', '--strict', helperAppPath], {
-    stdio: 'inherit'
-  })
 }
 
 async function signMacNotificationStatusHelper(helperPath, packager) {
@@ -58,21 +36,6 @@ async function signMacNotificationStatusHelper(helperPath, packager) {
   execFileSync('codesign', ['--verify', '--strict', helperPath], { stdio: 'inherit' })
 }
 
-function codesignArgs(identity, targetPath) {
-  const args = ['--force', '--deep', '--sign', identity]
-  if (isMacRelease) {
-    args.push(
-      '--options',
-      'runtime',
-      '--timestamp',
-      '--entitlements',
-      resolve(__dirname, '../resources/build/entitlements.computer-use.mac.plist')
-    )
-  }
-  args.push(targetPath)
-  return args
-}
-
 function findInstalledMacSigningIdentity(keychainFile) {
   try {
     const output = execFileSync(
@@ -91,6 +54,5 @@ function findInstalledMacSigningIdentity(keychainFile) {
 
 module.exports = {
   chmodUnixCliLaunchers,
-  signMacComputerUseHelper,
   signMacNotificationStatusHelper
 }

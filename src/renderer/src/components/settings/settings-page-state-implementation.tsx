@@ -3,9 +3,7 @@ import { useCallback, useMemo } from 'react'
 import type { ProjectHostSetup } from '../../../../shared/types'
 import { useAppStore } from '../../store'
 import { isWebClientLocation } from '@/hooks/useSettingsNavigationMetadata'
-import {
-  SCROLLBACK_PRESETS_ROWS
-} from './SettingsConstants'
+import { SCROLLBACK_PRESETS_ROWS } from './SettingsConstants'
 import {
   buildRepoIdToHostSelection,
   buildRepoIdToRepresentative,
@@ -81,7 +79,6 @@ function Settings(): React.JSX.Element {
     isMac,
     linearConnected,
     linearSkill,
-    computerUseSkill,
     skillFreshnessApplies,
     voiceModelStatesLoading,
     setVoiceModelStatesLoading,
@@ -126,7 +123,6 @@ function Settings(): React.JSX.Element {
     hasUnsavedSourceControlAiPromptChanges,
     hasUnsavedSourceControlAiPromptChangesRef
   } = runtimeState
-
 
   const lifecycle = useSettingsPageLifecycle({
     settings,
@@ -210,7 +206,6 @@ function Settings(): React.JSX.Element {
     showDesktopOnlySettings,
     linearConnected,
     linearSkill,
-    computerUseSkill,
     skillFreshnessApplies,
     voiceModelStatesLoading,
     activeSectionId,
@@ -226,7 +221,8 @@ function Settings(): React.JSX.Element {
     pendingSubsectionScrollFrameRef,
     repoHooksRequestSeqRef,
     hasUnsavedSourceControlAiPromptChanges,
-    confirmDiscardSourceControlAiPromptChanges,  })
+    confirmDiscardSourceControlAiPromptChanges
+  })
   const {
     applyTheme,
     getSectionSearchEntries,
@@ -237,8 +233,7 @@ function Settings(): React.JSX.Element {
     localWindowsRuntimeCapabilities,
     localWslSupportedPlatform,
     isWindowsTerminalHost,
-    scrollToSection,
-    openComputerUseFromBrowser
+    scrollToSection
   } = settingsNavigation
   const runtimeWslSupportedPlatform = isWindowsTerminalHost
   const displayedGitUsername = repos[0]?.gitUsername ?? ''
@@ -340,11 +335,11 @@ function Settings(): React.JSX.Element {
     localWslSupportedPlatform,
     runtimeWslSupportedPlatform,
     isWindowsTerminalHost,
-    openComputerUseFromBrowser,
     displayedGitUsername,
     isSectionMounted,
     isFocusedShortcutsPane,
-    isFocusedSetupGuidePane,  }
+    isFocusedSetupGuidePane
+  }
   return <SettingsPageRender context={settingsViewContext} />
 }
 

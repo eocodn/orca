@@ -1,13 +1,6 @@
 // Concrete settings page navigation.
 // Concrete surface implementation for Settings.tsx
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { GlobalSettings, OrcaHooks, ProjectHostSetup, Repo } from '../../../../shared/types'
 import { isFolderRepo } from '../../../../shared/repo-kind'
 import { applyDocumentTheme } from '@/lib/document-theme'
@@ -35,14 +28,8 @@ import type {
   SettingsNavSection,
   SettingsNavTarget
 } from '@/lib/settings-navigation-types'
-import {
-  COMPUTER_USE_SKILL_NAME,
-  LINEAR_AGENT_SKILL_NAMES
-} from '@/lib/agent-feature-install-commands'
-import {
-  getAgentSkillNavInstallStatus,
-  getLinearAgentSkillNavInstallStatus
-} from '@/lib/agent-skill-nav-install-status'
+import { LINEAR_AGENT_SKILL_NAMES } from '@/lib/agent-feature-install-commands'
+import { getLinearAgentSkillNavInstallStatus } from '@/lib/agent-skill-nav-install-status'
 import { deriveNeededSectionIds, getInitialMountedSectionIds } from './settings-load-performance'
 import { getProjectHostSetupProjectionFromState } from '../../store/selectors'
 import { getRepoHostIdentity } from '../../store/slices/repo-host-identity'
@@ -89,7 +76,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     showDesktopOnlySettings,
     linearConnected,
     linearSkill,
-    computerUseSkill,
     skillFreshnessApplies,
     voiceModelStatesLoading,
     activeSectionId,
@@ -105,7 +91,7 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     pendingSubsectionScrollFrameRef,
     repoHooksRequestSeqRef,
     hasUnsavedSourceControlAiPromptChanges,
-    confirmDiscardSourceControlAiPromptChanges,
+    confirmDiscardSourceControlAiPromptChanges
   } = context
 
   const applyTheme = useCallback((theme: 'system' | 'dark' | 'light') => {
@@ -119,8 +105,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     loading: linearSkillLoading,
     skills: linearSkills
   } = linearSkill
-  const { installed: computerUseSkillInstalled, loading: computerUseSkillLoading } =
-    computerUseSkill
   const capabilityInstallStatusBySectionId = useMemo(() => {
     const applicableFreshnessInventory = skillFreshnessApplies ? skillFreshnessInventory : null
     const next = new Map<string, SettingsNavInstallStatus>()
@@ -136,15 +120,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
       )
     }
     if (showDesktopOnlySettings) {
-      next.set(
-        'computer-use',
-        getAgentSkillNavInstallStatus({
-          name: COMPUTER_USE_SKILL_NAME,
-          installed: computerUseSkillInstalled,
-          loading: computerUseSkillLoading,
-          inventory: applicableFreshnessInventory
-        })
-      )
       if (settings) {
         next.set(
           'voice',
@@ -158,8 +133,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     }
     return next
   }, [
-    computerUseSkillInstalled,
-    computerUseSkillLoading,
     linearConnected,
     linearSkillInstalled,
     linearSkillLoading,
@@ -497,20 +470,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     ]
   )
 
-  const openComputerUseFromBrowser = useCallback(async () => {
-    if (!(await confirmDiscardSourceControlAiPromptChanges())) {
-      return
-    }
-    pendingNavSectionRef.current = 'computer-use'
-    pendingScrollTargetRef.current = 'computer-use'
-    if (settingsSearchQuery !== '') {
-      setSettingsSearchQuery('')
-      return
-    }
-    // Why: pending refs don't schedule a render; bump state to rerun the jump effect.
-    setPendingNavRequestTick((tick) => tick + 1)
-  }, [confirmDiscardSourceControlAiPromptChanges, setSettingsSearchQuery, settingsSearchQuery])
-
   return {
     applyTheme,
     baseNavSections,
@@ -526,6 +485,6 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     localWslSupportedPlatform,
     isWindowsTerminalHost,
     neededRepos,
-    scrollToSection,
-    openComputerUseFromBrowser,  }
+    scrollToSection
+  }
 }

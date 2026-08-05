@@ -16,7 +16,6 @@ const { writeMacBuildCompatibility } = require('./scripts/mac-build-compatibilit
 const { verifyPackagedPluginResources } = require('./scripts/verify-packaged-plugin-resources.cjs')
 const {
   chmodUnixCliLaunchers,
-  signMacComputerUseHelper,
   signMacNotificationStatusHelper
 } = require('./electron-builder-platform-hooks.cjs')
 
@@ -236,7 +235,6 @@ module.exports = {
       chmodSync(join(resourcesDir, filename), 0o755)
     }
     if (context.electronPlatformName === 'darwin') {
-      await signMacComputerUseHelper(join(resourcesDir, 'Orca Computer Use.app'), context.packager)
       await signMacNotificationStatusHelper(
         join(resourcesDir, '..', 'MacOS', 'orca-notification-status'),
         context.packager
@@ -265,10 +263,6 @@ module.exports = {
       {
         from: 'node_modules/agent-browser/bin/agent-browser-win32-x64.exe',
         to: 'agent-browser-win32-x64.exe'
-      },
-      {
-        from: 'native/computer-use-windows/runtime.ps1',
-        to: 'computer-use-windows/runtime.ps1'
       },
       featureWallResources
     ]
@@ -330,10 +324,6 @@ module.exports = {
         from: 'node_modules/agent-browser/bin/agent-browser-darwin-${arch}',
         to: 'agent-browser-darwin-${arch}'
       },
-      {
-        from: 'native/computer-use-macos/.build/release/Orca Computer Use.app',
-        to: 'Orca Computer Use.app'
-      },
       featureWallResources
     ],
     // Why: the notification-status helper must execute from Contents/MacOS —
@@ -387,10 +377,6 @@ module.exports = {
       {
         from: 'node_modules/agent-browser/bin/agent-browser-linux-${arch}',
         to: 'agent-browser-linux-${arch}'
-      },
-      {
-        from: 'native/computer-use-linux/runtime.py',
-        to: 'computer-use-linux/runtime.py'
       },
       featureWallResources
     ],

@@ -1,5 +1,70 @@
-
-import type { DashboardSnapshot, DashboardRevealAgentArgs, TerminalPreviewConnectResult, TerminalPreviewDataPayload, ReleaseChannel, LocalhostWorktreeLabelResult, LocalhostWorktreeLabelRoute, ClaudeRateLimitAccountsState, CodexRateLimitAccountsState, CustomPet, GhosttyImportPreview, GlobalSettings, IssueInfo, NotificationDispatchRequest, NotificationDispatchResult, NotificationDeliveryProbeResult, NotificationDismissResult, NotificationPermissionStatusResult, NotificationSoundResult, OnboardingState, OrcaHooks, PRInfo, ReleaseBuildListResult, UpdateCheckOptions, UpdateStatus, WorktreeSetupLaunch, WorkspaceSessionPatch, WorkspaceSessionState, WarpThemeImportPreview, WarpThemeImportSource, SetupScriptImportCandidate, PublicKnownRuntimeEnvironment, EphemeralVmRecipeDoctorResult, EphemeralVmRecipeResultWarning, EphemeralVmRuntimeRecord, ExecutionHostId, CliInstallStatus, AgentHookInstallStatus, CodexConfigSyncStatus, ShellOpenExternalEditorRequest, ShellOpenExternalEditorResult, ShellOpenLocalPathResult, SkillDiscoveryResult, SkillDiscoveryTarget, SkillFreshnessInventory, SkillUpdateRun, SkillUpdateStartResult, DeveloperPermissionId, DeveloperPermissionRequestResult, DeveloperPermissionState, ComputerUsePermissionId, ComputerUsePermissionResetResult, ComputerUsePermissionSetupResult, ComputerUsePermissionStatusResult, RemoteWorkspaceChangedEvent, RemoteWorkspaceConnectedClient, RemoteWorkspacePatchResult, RemoteWorkspaceSnapshot, KeybindingActionId, KeybindingFileSnapshot, BrowserApi, PreflightApi, StatsApi, MemoryApi, ClaudeUsageApi, CodexUsageApi, OpenCodeUsageApi, AiVaultApi } from './preload-api-contract-types';export type PreloadApiAgentHooks = {
+import type {
+  DashboardSnapshot,
+  DashboardRevealAgentArgs,
+  TerminalPreviewConnectResult,
+  TerminalPreviewDataPayload,
+  ReleaseChannel,
+  LocalhostWorktreeLabelResult,
+  LocalhostWorktreeLabelRoute,
+  ClaudeRateLimitAccountsState,
+  CodexRateLimitAccountsState,
+  CustomPet,
+  GhosttyImportPreview,
+  GlobalSettings,
+  IssueInfo,
+  NotificationDispatchRequest,
+  NotificationDispatchResult,
+  NotificationDeliveryProbeResult,
+  NotificationDismissResult,
+  NotificationPermissionStatusResult,
+  NotificationSoundResult,
+  OnboardingState,
+  OrcaHooks,
+  PRInfo,
+  ReleaseBuildListResult,
+  UpdateCheckOptions,
+  UpdateStatus,
+  WorktreeSetupLaunch,
+  WorkspaceSessionPatch,
+  WorkspaceSessionState,
+  WarpThemeImportPreview,
+  WarpThemeImportSource,
+  SetupScriptImportCandidate,
+  PublicKnownRuntimeEnvironment,
+  EphemeralVmRecipeDoctorResult,
+  EphemeralVmRecipeResultWarning,
+  EphemeralVmRuntimeRecord,
+  ExecutionHostId,
+  CliInstallStatus,
+  AgentHookInstallStatus,
+  CodexConfigSyncStatus,
+  ShellOpenExternalEditorRequest,
+  ShellOpenExternalEditorResult,
+  ShellOpenLocalPathResult,
+  SkillDiscoveryResult,
+  SkillDiscoveryTarget,
+  SkillFreshnessInventory,
+  SkillUpdateRun,
+  SkillUpdateStartResult,
+  DeveloperPermissionId,
+  DeveloperPermissionRequestResult,
+  DeveloperPermissionState,
+  RemoteWorkspaceChangedEvent,
+  RemoteWorkspaceConnectedClient,
+  RemoteWorkspacePatchResult,
+  RemoteWorkspaceSnapshot,
+  KeybindingActionId,
+  KeybindingFileSnapshot,
+  BrowserApi,
+  PreflightApi,
+  StatsApi,
+  MemoryApi,
+  ClaudeUsageApi,
+  CodexUsageApi,
+  OpenCodeUsageApi,
+  AiVaultApi
+} from './preload-api-contract-types'
+export type PreloadApiAgentHooks = {
   settings: {
     get: () => Promise<GlobalSettings>
     /** Synchronous persisted-settings read for startup decisions that can't wait for async hydration. Blocking IPC — call sparingly. */
@@ -161,13 +226,6 @@ import type { DashboardSnapshot, DashboardRevealAgentArgs, TerminalPreviewConnec
     getStatus: () => Promise<DeveloperPermissionState[]>
     request: (args: { id: DeveloperPermissionId }) => Promise<DeveloperPermissionRequestResult>
     openSettings: (args: { id: DeveloperPermissionId }) => Promise<void>
-  }
-  computerUsePermissions: {
-    getStatus: () => Promise<ComputerUsePermissionStatusResult>
-    openSetup: (args?: {
-      id?: ComputerUsePermissionId
-    }) => Promise<ComputerUsePermissionSetupResult>
-    reset: () => Promise<ComputerUsePermissionResetResult>
   }
   shell: {
     openPath: (path: string) => Promise<void>

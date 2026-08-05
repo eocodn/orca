@@ -70,12 +70,9 @@ export function BrowserAction(props: { done: boolean }): React.JSX.Element {
   )
 }
 
-// Scope the shared feature setup to just browser use — the grab→agent flow only
-// needs the Orca CLI and browser skill, not Computer Use or orchestration.
+// Scope the shared feature setup to just browser use.
 const BROWSER_ONLY_FEATURE_SETUP: OnboardingFeatureSetupSelection = {
   browserUse: true,
-  computerUse: false,
-  orchestration: false,
   linearTickets: false
 }
 

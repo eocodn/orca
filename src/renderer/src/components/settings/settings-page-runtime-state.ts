@@ -12,13 +12,9 @@ import { DEFAULT_APP_FONT_FAMILY } from '../../../../shared/constants'
 import { useGhosttyImport } from './useGhosttyImport'
 import { useWarpThemeImport } from './useWarpThemeImport'
 import { getInitialMountedSectionIds } from './settings-load-performance'
-import {
-  COMPUTER_USE_SKILL_NAME,
-  LINEAR_AGENT_SKILL_NAMES
-} from '@/lib/agent-feature-install-commands'
+import { LINEAR_AGENT_SKILL_NAMES } from '@/lib/agent-feature-install-commands'
 import {
   GLOBAL_AGENT_SKILL_SOURCE_KINDS,
-  useInstalledAgentSkill,
   useInstalledAgentSkillNames
 } from '@/hooks/useInstalledAgentSkills'
 import { useActiveProjectSkillRuntime } from '@/hooks/useActiveProjectSkillRuntime'
@@ -44,11 +40,6 @@ export function useSettingsPageRuntimeState({
   const activeSkillRuntime = useActiveProjectSkillRuntime()
   const linearSkill = useInstalledAgentSkillNames(LINEAR_AGENT_SKILL_NAMES, {
     enabled: linearConnected,
-    discoveryTarget: activeSkillRuntime.discoveryTarget,
-    sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
-  })
-  const computerUseSkill = useInstalledAgentSkill(COMPUTER_USE_SKILL_NAME, {
-    enabled: showDesktopOnlySettings,
     discoveryTarget: activeSkillRuntime.discoveryTarget,
     sourceKinds: GLOBAL_AGENT_SKILL_SOURCE_KINDS
   })
@@ -103,7 +94,6 @@ export function useSettingsPageRuntimeState({
     isMac,
     linearConnected,
     linearSkill,
-    computerUseSkill,
     skillFreshnessApplies,
     skillFreshnessInventory,
     voiceModelStatesLoading,

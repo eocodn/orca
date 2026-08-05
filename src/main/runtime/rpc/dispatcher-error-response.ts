@@ -1,24 +1,13 @@
 import { InvalidArgumentError, ZodError, formatZodError } from './core'
 import type { RpcEnvelopeMeta, RpcRequest, RpcResponse } from './core'
-import {
-  computerErrorData,
-  errorResponse,
-  mapBrowserError,
-  mapRuntimeError
-} from './errors'
+import { errorResponse, mapBrowserError, mapRuntimeError } from './errors'
 
 export function invalidArgumentResponse(
   request: RpcRequest,
   meta: RpcEnvelopeMeta,
   message: string
 ): RpcResponse {
-  return errorResponse(
-    request.id,
-    meta,
-    'invalid_argument',
-    message,
-    request.method.startsWith('computer.') ? computerErrorData('invalid_argument') : undefined
-  )
+  return errorResponse(request.id, meta, 'invalid_argument', message)
 }
 
 export function mapDispatcherError(

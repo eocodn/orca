@@ -12,9 +12,6 @@ export type FeatureWallSetupProgressInput = {
   featureInteractions: FeatureInteractionState
   hasConnectedTaskSource: boolean
   browserUseSkillInstalled: boolean
-  computerUseSkillInstalled: boolean
-  computerUsePermissionsReady: boolean
-  computerUseUnavailable?: boolean
   gitRepoCount: number
   worktreesByRepo: Record<string, Worktree[]>
   hasSetupScript: boolean
@@ -43,10 +40,7 @@ function countAvailableNonMainWorktrees(worktreesByRepo: Record<string, Worktree
 export function getFeatureWallSetupProgress(
   input: FeatureWallSetupProgressInput
 ): FeatureWallSetupProgress {
-  const agentCapabilitiesDone =
-    input.browserUseSkillInstalled &&
-    input.computerUseSkillInstalled &&
-    (input.computerUsePermissionsReady || input.computerUseUnavailable === true)
+  const agentCapabilitiesDone = input.browserUseSkillInstalled
   const stepDone: Record<FeatureWallSetupStepId, boolean> = {
     'default-agent':
       Boolean(input.settings?.defaultTuiAgent) && input.settings?.defaultTuiAgent !== 'blank',

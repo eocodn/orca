@@ -3,19 +3,13 @@ import { getDefaultAgentCapabilitySetupSelection } from './agent-capability-setu
 
 const READY_INPUT = {
   browserUseSkillInstalled: true,
-  browserUseSkillLoading: false,
-  computerUseSkillInstalled: true,
-  computerUseSkillLoading: false,
-  computerUseReady: true,
-  computerUseChecking: false,
-  computerUseUnavailable: false
+  browserUseSkillLoading: false
 }
 
 describe('getDefaultAgentCapabilitySetupSelection', () => {
   it('leaves already-ready capabilities unchecked by default', () => {
     expect(getDefaultAgentCapabilitySetupSelection(READY_INPUT)).toEqual({
       browserUse: false,
-      computerUse: false,
       linearTickets: false
     })
   })
@@ -28,34 +22,6 @@ describe('getDefaultAgentCapabilitySetupSelection', () => {
       })
     ).toEqual({
       browserUse: true,
-      computerUse: false,
-      linearTickets: false
-    })
-  })
-
-  it('keeps Computer Use selected when permissions still need setup', () => {
-    expect(
-      getDefaultAgentCapabilitySetupSelection({
-        ...READY_INPUT,
-        computerUseReady: false
-      })
-    ).toEqual({
-      browserUse: false,
-      computerUse: true,
-      linearTickets: false
-    })
-  })
-
-  it('leaves Computer Use unchecked when this build cannot enable it', () => {
-    expect(
-      getDefaultAgentCapabilitySetupSelection({
-        ...READY_INPUT,
-        computerUseReady: false,
-        computerUseUnavailable: true
-      })
-    ).toEqual({
-      browserUse: false,
-      computerUse: false,
       linearTickets: false
     })
   })

@@ -396,7 +396,6 @@ export type {
 export type { RendererHeapStatistics } from '../shared/renderer-heap-statistics'
 export type * from '../shared/mobile-markdown-document'
 export type * from '../shared/developer-permissions-types'
-export type * from '../shared/computer-use-permissions-types'
 export type * from '../shared/claude-usage-types'
 export type * from '../shared/rate-limit-types'
 export type * from '../shared/speech-types'

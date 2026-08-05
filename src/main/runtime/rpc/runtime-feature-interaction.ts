@@ -22,16 +22,6 @@ export function getRuntimeFeatureInteractionId(
   if (method.startsWith('browser.') && !method.startsWith('browser.profile')) {
     return 'agent-browser-use'
   }
-  if (method === 'computer.permissions') {
-    return 'computer-use-setup'
-  }
-  if (
-    method.startsWith('computer.') &&
-    method !== 'computer.capabilities' &&
-    method !== 'computer.permissionsStatus'
-  ) {
-    return 'computer-use'
-  }
   return method.startsWith('orchestration.') ? 'agent-orchestration' : null
 }
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Check, Globe2, MonitorCog, TicketCheck } from 'lucide-react'
+import { Check, Globe2, TicketCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type {
   OnboardingFeatureSetupId,
@@ -39,23 +39,6 @@ const FEATURE_SETUP_ROWS: readonly FeatureSetupRow[] = [
     icon: <Globe2 className="size-4" />
   },
   {
-    id: 'computerUse',
-    get title() {
-      return translate(
-        'auto.components.onboarding.FeatureSetupChecklist.1ecfb490ac',
-        'Computer Use'
-      )
-    },
-    get description() {
-      return translate(
-        'auto.components.onboarding.FeatureSetupChecklist.c5292c409d',
-        'Agents can inspect app windows and operate local apps when you ask.'
-      )
-    },
-    setupSummary: 'Registers the Orca CLI, opens permissions, and prepares the skill.',
-    icon: <MonitorCog className="size-4" />
-  },
-  {
     id: 'linearTickets',
     get title() {
       return translate(
@@ -85,7 +68,7 @@ export function FeatureSetupChecklist({
 }: FeatureSetupChecklistProps): React.JSX.Element {
   return (
     <section className="mt-6">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         {FEATURE_SETUP_ROWS.map((row) => {
           const selected = value[row.id]
           return (

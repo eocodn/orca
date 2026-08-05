@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Check, Globe2, Loader2, MonitorCog, Terminal } from 'lucide-react'
+import { Check, Globe2, Loader2, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,7 +19,6 @@ import {
   useAgentCapabilitySetupStatus,
   type AgentCapabilityInstallStatus
 } from './agent-capability-setup-status'
-import { FullDiskAccessSetupPrompt } from './FullDiskAccessSetupPrompt'
 import { translate } from '@/i18n/i18n'
 
 export function AgentCapabilitiesSetupAction(props: {
@@ -65,9 +64,6 @@ export function AgentCapabilitiesSetupAction(props: {
       if (featureSetup.browserUse) {
         recordFeatureInteraction('agent-browser-setup')
       }
-      if (featureSetup.computerUse) {
-        recordFeatureInteraction('computer-use-setup')
-      }
       const firstWarning = result.warnings[0]
       if (firstWarning) {
         toast.warning(
@@ -92,14 +88,6 @@ export function AgentCapabilitiesSetupAction(props: {
               'Skill command copied and inserted below for review.'
             )
           }
-        )
-      }
-      if (result.computerUsePermissionsOpened) {
-        toast.message(
-          translate(
-            'auto.components.feature.wall.AgentCapabilitiesSetupAction.e9eb197e12',
-            'Opened Computer Use permissions'
-          )
         )
       }
       if (result.skillInstallCommand) {
@@ -149,22 +137,6 @@ const AGENT_CAPABILITY_SETUP_ROWS: readonly AgentCapabilitySetupRow[] = [
       )
     },
     icon: <Globe2 className="size-4" />
-  },
-  {
-    id: 'computerUse',
-    get title() {
-      return translate(
-        'auto.components.feature.wall.AgentCapabilitiesSetupAction.362a07517d',
-        'Computer Use'
-      )
-    },
-    get description() {
-      return translate(
-        'auto.components.feature.wall.AgentCapabilitiesSetupAction.1b51644c2d',
-        'Let agents control the desktop, moving the cursor, clicking, and typing in any app.'
-      )
-    },
-    icon: <MonitorCog className="size-4" />
   }
 ]
 
@@ -187,7 +159,6 @@ function AgentCapabilitySetupControls(props: {
         onChange={props.onFeatureSetupChange}
         installStatus={props.installStatus}
       />
-      <FullDiskAccessSetupPrompt />
       {showSetupAction ? (
         <div className="mt-6 flex items-center">
           <Button
@@ -227,7 +198,7 @@ function AgentCapabilitySetupChecklist(props: {
 }): React.JSX.Element {
   return (
     <section className="mt-6">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         {AGENT_CAPABILITY_SETUP_ROWS.map((row) => {
           const selected = props.value[row.id]
           const installStatus = props.installStatus[row.id]

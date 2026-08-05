@@ -1,8 +1,4 @@
-import type {
-  PreloadApi,
-  PreflightStatus,
-  RefreshAgentsResult,
-} from '../../../preload/api-types'
+import type { PreloadApi, PreflightStatus, RefreshAgentsResult } from '../../../preload/api-types'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { parseHostAccessLink } from '../../../shared/remote-pairing-address'
 import { verifyRemotePairingRuntimeStatus } from '../../../shared/remote-pairing-verification'
@@ -11,10 +7,6 @@ import type {
   AiVaultPrepareSessionResumeArgs,
   AiVaultPrepareSessionResumeResult
 } from '../../../shared/ai-vault-resume-preparation'
-import type {
-  ComputerUsePermissionSetupResult,
-  ComputerUsePermissionStatusResult
-} from '../../../shared/computer-use-permissions-types'
 import type {
   DetectedWorktreeListResult,
   DirEntry,
@@ -183,7 +175,6 @@ import {
   createAgentHooksApi,
   createMacosTccPromptsApi,
   createDeveloperPermissionsApi,
-  createComputerUsePermissionsApi,
   createSkillsApi,
   createNotificationsApi,
   createRateLimitsApi,

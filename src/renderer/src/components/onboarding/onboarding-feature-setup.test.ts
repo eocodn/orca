@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CliInstallStatus } from '../../../../shared/cli-install-types'
-import type {
-  ComputerUsePermissionSetupResult,
-  ComputerUsePermissionStatusResult
-} from '../../../../shared/computer-use-permissions-types'
 import {
   buildAgentFeatureSkillInstallCommand,
-  COMPUTER_USE_SKILL_NAME,
   ORCA_CLI_SKILL_NAME,
   ORCA_LINEAR_SKILL_NAME
 } from '@/lib/agent-feature-install-commands'
@@ -24,7 +19,6 @@ import {
 
 const ALL_SKILL_INSTALL_COMMAND = buildAgentFeatureSkillInstallCommand([
   ORCA_CLI_SKILL_NAME,
-  COMPUTER_USE_SKILL_NAME,
   ORCA_LINEAR_SKILL_NAME
 ])
 
@@ -41,23 +35,6 @@ const INSTALLED_CLI_STATUS: CliInstallStatus = {
   currentTarget: '/Applications/Orca.app/Contents/MacOS/Orca',
   unsupportedReason: null,
   detail: null
-}
-
-const GRANTED_COMPUTER_USE_STATUS: ComputerUsePermissionStatusResult = {
-  platform: 'darwin',
-  helperAppPath: '/Applications/Orca Computer Use.app',
-  helperUnavailableReason: null,
-  permissions: [
-    { id: 'accessibility', status: 'granted' },
-    { id: 'screenshots', status: 'granted' }
-  ]
-}
-
-const OPENED_COMPUTER_USE_SETUP: ComputerUsePermissionSetupResult = {
-  platform: 'darwin',
-  helperAppPath: '/Applications/Orca.app',
-  openedSettings: true,
-  launchedHelper: true
 }
 
 function createDeps(
@@ -77,8 +54,6 @@ function createDeps(
     writeClipboardText: vi.fn(async (text: string) => {
       clipboardWrites.push(text)
     }),
-    getComputerUsePermissionStatus: vi.fn(async () => GRANTED_COMPUTER_USE_STATUS),
-    openComputerUsePermissionSetup: vi.fn(async () => OPENED_COMPUTER_USE_SETUP),
     setStorageItem: vi.fn((key: string, value: string) => {
       storage.set(key, value)
     }),
@@ -90,7 +65,6 @@ describe('onboarding feature setup runner', () => {
   it('defaults every setup item on so first-launch setup is ready to run', () => {
     expect(DEFAULT_ONBOARDING_FEATURE_SETUP_SELECTION).toEqual({
       browserUse: true,
-      computerUse: true,
       linearTickets: false
     })
   })
@@ -98,27 +72,24 @@ describe('onboarding feature setup runner', () => {
   it('builds one skill command for selected onboarding feature setup skills', () => {
     const text = buildOnboardingFeatureSetupClipboardText({
       browserUse: true,
-      computerUse: true,
       linearTickets: true
     })
 
     expect(text).toBe(ALL_SKILL_INSTALL_COMMAND)
     expect(text).toBe(
-      'npx skills add https://github.com/stablyai/orca --skill orca-cli --skill computer-use --skill orca-linear --global'
+      'npx skills add https://github.com/stablyai/orca --skill orca-cli --skill orca-linear --global'
     )
   })
 
   it('builds privacy-safe telemetry payloads for selected feature setup items', () => {
     const selection: OnboardingFeatureSetupSelection = {
       browserUse: true,
-      computerUse: false,
       linearTickets: true
     }
 
     expect(onboardingFeatureSetupTelemetryFeature('browserUse')).toBe('browser_use')
     expect(onboardingFeatureSetupTelemetrySelection(selection)).toEqual({
       browser_use: true,
-      computer_use: false,
       linear_tickets: true,
       selected_count: 1
     })
@@ -128,64 +99,39 @@ describe('onboarding feature setup runner', () => {
         cliTouched: true,
         skillCommandsCopied: false,
         skillInstallCommand: ALL_SKILL_INSTALL_COMMAND,
-        computerUsePermissionsOpened: false,
         warnings: [{ featureId: 'skills', message: 'Clipboard unavailable' }]
       })
     ).toEqual({
       browser_use: true,
-      computer_use: false,
       linear_tickets: true,
       selected_count: 1,
       cli_touched: true,
       skill_commands_copied: false,
       skill_install_command_prepared: true,
-      computer_use_permissions_opened: false,
       warning_count: 1
     })
   })
 
   it('runs selected feature setup through injected deps only', async () => {
-    const deps = createDeps({
-      getComputerUsePermissionStatus: vi.fn(
-        async (): Promise<ComputerUsePermissionStatusResult> => ({
-          platform: 'darwin',
-          helperAppPath: '/Applications/Orca Computer Use.app',
-          helperUnavailableReason: null,
-          permissions: [
-            { id: 'accessibility', status: 'not-granted' },
-            { id: 'screenshots', status: 'granted' }
-          ]
-        })
-      )
-    })
-
     const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: true, linearTickets: true },
-      deps
+      { browserUse: true, linearTickets: true },
+      createDeps()
     )
 
     expect(result).toEqual({
-      selectedIds: ['browserUse', 'computerUse', 'linearTickets'],
+      selectedIds: ['browserUse', 'linearTickets'],
       cliTouched: false,
       skillCommandsCopied: true,
       skillInstallCommand: ALL_SKILL_INSTALL_COMMAND,
-      computerUsePermissionsOpened: true,
       warnings: []
     })
-    expect(deps.getCliStatus).toHaveBeenCalledTimes(1)
-    expect(deps.showCliRegistrationPrompt).not.toHaveBeenCalled()
-    expect(deps.installCli).not.toHaveBeenCalled()
-    expect(deps.getComputerUsePermissionStatus).toHaveBeenCalledTimes(1)
-    expect(deps.openComputerUsePermissionSetup).toHaveBeenCalledTimes(1)
-    expect(deps.storage.get(BROWSER_USE_ENABLED_STORAGE_KEY)).toBe('1')
-    expect(deps.clipboardWrites).toEqual([ALL_SKILL_INSTALL_COMMAND])
   })
 
   it('clears feature markers when no setup items are selected', async () => {
     const deps = createDeps()
 
     const result = await runOnboardingFeatureSetup(
-      { browserUse: false, computerUse: false, linearTickets: false },
+      { browserUse: false, linearTickets: false },
       deps
     )
 
@@ -194,13 +140,11 @@ describe('onboarding feature setup runner', () => {
       cliTouched: false,
       skillCommandsCopied: false,
       skillInstallCommand: null,
-      computerUsePermissionsOpened: false,
       warnings: []
     })
     expect(deps.storage.get(BROWSER_USE_ENABLED_STORAGE_KEY)).toBe('0')
     expect(deps.getCliStatus).not.toHaveBeenCalled()
     expect(deps.showCliRegistrationPrompt).not.toHaveBeenCalled()
-    expect(deps.getComputerUsePermissionStatus).not.toHaveBeenCalled()
     expect(deps.clipboardWrites).toEqual([])
   })
 
@@ -211,10 +155,7 @@ describe('onboarding feature setup runner', () => {
       })
     })
 
-    const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: false, linearTickets: false },
-      deps
-    )
+    const result = await runOnboardingFeatureSetup({ browserUse: true, linearTickets: false }, deps)
 
     expect(result.skillCommandsCopied).toBe(false)
     expect(result.skillInstallCommand).toBe(
@@ -227,39 +168,6 @@ describe('onboarding feature setup runner', () => {
       }
     ])
     expect(deps.clipboardWrites).toEqual([])
-  })
-
-  it('skips openSetup and warns when the macOS Computer Use helper app is unavailable', async () => {
-    // Why: getComputerUsePermissionStatus reports helperUnavailableReason with
-    // all permissions set to not-granted when the helper app is missing (e.g.
-    // a dev build that never ran `pnpm build:computer-macos`). The runner must
-    // not call openSetup in that case, or the IPC handler throws.
-    const unavailableStatus: ComputerUsePermissionStatusResult = {
-      platform: 'darwin',
-      helperAppPath: null,
-      helperUnavailableReason: 'Orca Computer Use.app was not found',
-      permissions: [
-        { id: 'accessibility', status: 'not-granted' },
-        { id: 'screenshots', status: 'not-granted' }
-      ]
-    }
-    const openComputerUsePermissionSetup = vi.fn(async () => OPENED_COMPUTER_USE_SETUP)
-    const deps = createDeps({
-      getComputerUsePermissionStatus: vi.fn(async () => unavailableStatus),
-      openComputerUsePermissionSetup
-    })
-
-    const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: true, linearTickets: true },
-      deps
-    )
-
-    expect(result.computerUsePermissionsOpened).toBe(false)
-    expect(openComputerUsePermissionSetup).not.toHaveBeenCalled()
-    expect(result.warnings).toContainEqual({
-      featureId: 'computerUse',
-      message: 'Orca Computer Use.app was not found'
-    })
   })
 
   it('shows CLI registration context before installing a missing CLI during onboarding', async () => {
@@ -277,10 +185,7 @@ describe('onboarding feature setup runner', () => {
       installCli
     })
 
-    const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: false, linearTickets: false },
-      deps
-    )
+    const result = await runOnboardingFeatureSetup({ browserUse: true, linearTickets: false }, deps)
 
     expect(result.cliTouched).toBe(true)
     expect(showCliRegistrationPrompt).toHaveBeenCalledTimes(1)
@@ -299,10 +204,7 @@ describe('onboarding feature setup runner', () => {
     }
     const deps = createDeps({ getCliStatus: vi.fn(async () => unknownStatus) })
 
-    const result = await runOnboardingFeatureSetup(
-      { browserUse: true, computerUse: false, linearTickets: false },
-      deps
-    )
+    const result = await runOnboardingFeatureSetup({ browserUse: true, linearTickets: false }, deps)
 
     expect(result.cliTouched).toBe(false)
     expect(result.warnings).toContainEqual({ featureId: 'cli', message: unknownStatus.detail })

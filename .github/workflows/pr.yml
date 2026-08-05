@@ -87,9 +87,6 @@ jobs:
       - name: Check feature wall asset budget
         run: pnpm check:feature-wall-assets
 
-      - name: Verify macOS entitlements
-        run: pnpm verify:macos-entitlements
-
   typecheck:
     runs-on: ubuntu-latest
 

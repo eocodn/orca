@@ -8,8 +8,6 @@ describe('AgentFeatureSetupStep', () => {
       <AgentFeatureSetupStep
         featureSetup={{
           browserUse: true,
-          computerUse: true,
-          orchestration: true,
           linearTickets: false
         }}
         onFeatureSetupChange={vi.fn()}
@@ -21,8 +19,6 @@ describe('AgentFeatureSetupStep', () => {
     )
 
     expect(html).toContain('Agent Browser Use')
-    expect(html).toContain('Computer Use')
-    expect(html).toContain('Agent Orchestration')
     expect(html).toContain('Linear agent skill')
     expect(html).toContain('Enable capabilities')
     expect(html).toContain('role="checkbox"')

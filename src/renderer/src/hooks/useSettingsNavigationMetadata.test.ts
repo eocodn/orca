@@ -37,7 +37,6 @@ describe('settings navigation metadata', () => {
       'agents',
       'accounts',
       'orchestration',
-      'computer-use',
       'voice',
       'setup-guide',
       'general',
@@ -97,7 +96,6 @@ describe('settings navigation metadata', () => {
     expect(webIds).not.toContain('browser')
     expect(webIds).not.toContain('ssh')
     expect(webIds).not.toContain('mobile')
-    expect(webIds).not.toContain('computer-use')
     expect(webIds).not.toContain('voice')
     expect(webIds).not.toContain('advanced')
     expect(webIds).toContain('servers')
@@ -112,7 +110,6 @@ describe('settings navigation metadata', () => {
       repos: [repo]
     })
 
-    expect(sections.find((section) => section.id === 'computer-use')?.badge).toBeUndefined()
     expect(sections.find((section) => section.id === 'voice')?.badge).toBeUndefined()
   })
 

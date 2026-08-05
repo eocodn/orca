@@ -66,12 +66,6 @@ function renderSidebar(
                 installStatus: 'installed'
               },
               {
-                id: 'computer-use',
-                title: 'Computer Use',
-                icon: Bot,
-                installStatus: 'up-to-date'
-              },
-              {
                 id: 'voice-loading',
                 title: 'Voice Loading',
                 icon: Mic,
