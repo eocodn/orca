@@ -199,6 +199,10 @@ export function createStableLogicalRpcClient(
       const previousStateUnsubscribe = activeStateUnsubscribe
       const nextGeneration = generation + 1
 
+      // Why: a connected→connected cutover still invalidates renderer caches;
+      // expose a recovery edge so consumers rehydrate from the replacement.
+      publishState('disconnected')
+
       // Why: replay on the authenticated replacement before closing the old
       // session, but fence callbacks until the generation becomes current.
       for (const record of subscriptions.values()) {
@@ -217,10 +221,7 @@ export function createStableLogicalRpcClient(
         pending.reject(new LogicalClientCutoverError())
       }
       pendingRequests.clear()
-      state = nextSession.getState()
-      for (const listener of stateListeners) {
-        listener(state)
-      }
+      publishState(nextSession.getState())
       previous.close()
     },
 

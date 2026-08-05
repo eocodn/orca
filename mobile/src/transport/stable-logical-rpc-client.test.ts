@@ -127,6 +127,18 @@ describe('stable logical RPC client', () => {
     )
   })
 
+  it('publishes a recovery boundary when both physical sessions are connected', async () => {
+    const oldSession = new FakeSession('connected')
+    const nextSession = new FakeSession('connected')
+    const client = createStableLogicalRpcClient(oldSession, 'lan')
+    const states: ConnectionState[] = []
+    client.onStateChange((state) => states.push(state))
+
+    await client.migrateTo(nextSession, 'relay')
+
+    expect(states).toEqual(['disconnected', 'connected'])
+  })
+
   it('suspends one physical session and replays subscriptions on foreground replacement', async () => {
     const oldSession = new FakeSession('connected')
     const nextSession = new FakeSession('connected')
