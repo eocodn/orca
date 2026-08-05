@@ -66,6 +66,9 @@ name = "ade-worker"
 version = "0.1.0"
 dependencies = [
  "ade-host-core",
+ "ade-terminal",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

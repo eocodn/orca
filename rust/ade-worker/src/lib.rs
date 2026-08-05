@@ -1,6 +1,10 @@
 use ade_host_core::worker::{WorkerCommand, WorkerSnapshot, WorkerStatus};
 use std::fmt::Write as _;
 
+pub mod jsonl_transport;
+pub mod pty_registry;
+pub mod pty_target;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct WorkerCliOptions {
     pub json: bool,
