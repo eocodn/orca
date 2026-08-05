@@ -4,6 +4,8 @@ use std::collections::BTreeMap;
 #[cfg(unix)]
 use std::io;
 use std::io::{Read, Write};
+#[cfg(windows)]
+use std::os::windows::io::RawHandle;
 use std::path::PathBuf;
 #[cfg(windows)]
 use std::process::Stdio;
@@ -648,29 +650,89 @@ fn try_wait_child(
     child: &mut Box<dyn Child + Send + Sync>,
     expected_identity: Option<WindowsProcessIdentity>,
 ) -> Result<Option<ExitStatus>, PtyError> {
-    if let Some(pid) = child.process_id() {
-        match windows_process_has_exited(pid, expected_identity) {
-            Ok(true) => {
-                return child
-                    .wait()
-                    .map(Some)
-                    .map_err(|error| PtyError::Termination(error.to_string()));
-            }
-            Ok(false) => {}
-            Err(identity_error) => {
-                return match child
-                    .try_wait()
-                    .map_err(|error| PtyError::Termination(error.to_string()))?
-                {
-                    Some(status) => Ok(Some(status)),
-                    None => Err(identity_error),
-                };
-            }
-        }
+    let handle = child.as_raw_handle().ok_or_else(|| {
+        PtyError::Termination(String::from("Windows PTY child handle unavailable"))
+    })?;
+    if windows_child_handle_has_exited(handle, expected_identity)? {
+        return child
+            .wait()
+            .map(Some)
+            .map_err(|error| PtyError::Termination(error.to_string()));
     }
-    child
-        .try_wait()
-        .map_err(|error| PtyError::Termination(error.to_string()))
+    Ok(None)
+}
+
+#[cfg(windows)]
+fn windows_child_handle_has_exited(
+    handle: RawHandle,
+    expected_identity: Option<WindowsProcessIdentity>,
+) -> Result<bool, PtyError> {
+    use std::ffi::c_void;
+
+    const WAIT_OBJECT_0: u32 = 0;
+    const WAIT_TIMEOUT: u32 = 258;
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct FileTime {
+        low: u32,
+        high: u32,
+    }
+
+    unsafe extern "system" {
+        #[link_name = "GetProcessTimes"]
+        fn get_process_times(
+            handle: *mut c_void,
+            creation_time: *mut FileTime,
+            exit_time: *mut FileTime,
+            kernel_time: *mut FileTime,
+            user_time: *mut FileTime,
+        ) -> i32;
+        #[link_name = "WaitForSingleObject"]
+        fn wait_for_single_object(handle: *mut c_void, milliseconds: u32) -> u32;
+    }
+
+    let expected_identity = expected_identity.ok_or_else(|| {
+        PtyError::Termination(String::from("Windows PTY process identity unavailable"))
+    })?;
+    if handle.is_null() {
+        return Err(PtyError::Termination(String::from(
+            "Windows PTY child handle unavailable",
+        )));
+    }
+    let mut creation_time = FileTime::default();
+    let mut exit_time = FileTime::default();
+    let mut kernel_time = FileTime::default();
+    let mut user_time = FileTime::default();
+    let observed = unsafe {
+        get_process_times(
+            handle as *mut c_void,
+            &mut creation_time,
+            &mut exit_time,
+            &mut kernel_time,
+            &mut user_time,
+        )
+    };
+    if observed == 0 {
+        return Err(PtyError::Termination(String::from(
+            "could not observe Windows PTY child identity",
+        )));
+    }
+    let identity = WindowsProcessIdentity {
+        creation_time: (u64::from(creation_time.high) << 32) | u64::from(creation_time.low),
+    };
+    if identity != expected_identity {
+        return Err(PtyError::Termination(String::from(
+            "Windows PTY child identity changed while observing",
+        )));
+    }
+    match unsafe { wait_for_single_object(handle as *mut c_void, 0) } {
+        WAIT_OBJECT_0 => Ok(true),
+        WAIT_TIMEOUT => Ok(false),
+        _ => Err(PtyError::Termination(String::from(
+            "could not observe Windows PTY child state",
+        ))),
+    }
 }
 
 #[cfg(windows)]
@@ -743,59 +805,6 @@ fn capture_windows_process_identity(pid: u32) -> Result<WindowsProcessIdentity, 
     })
 }
 
-#[cfg(windows)]
-fn windows_process_has_exited(
-    pid: u32,
-    expected_identity: Option<WindowsProcessIdentity>,
-) -> Result<bool, PtyError> {
-    let expected_identity = expected_identity.ok_or_else(|| {
-        PtyError::Termination(String::from("Windows PTY process identity unavailable"))
-    })?;
-    if capture_windows_process_identity(pid)? != expected_identity {
-        return Err(PtyError::Termination(String::from(
-            "Windows PTY process identity changed while observing",
-        )));
-    }
-    use std::ffi::c_void;
-    use std::ptr::null_mut;
-
-    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
-    const SYNCHRONIZE: u32 = 0x0010_0000;
-    const WAIT_OBJECT_0: u32 = 0;
-    const WAIT_TIMEOUT: u32 = 258;
-
-    unsafe extern "system" {
-        #[link_name = "OpenProcess"]
-        fn open_process(desired_access: u32, inherit_handle: i32, process_id: u32) -> *mut c_void;
-        #[link_name = "WaitForSingleObject"]
-        fn wait_for_single_object(handle: *mut c_void, milliseconds: u32) -> u32;
-        #[link_name = "CloseHandle"]
-        fn close_handle(handle: *mut c_void) -> i32;
-    }
-
-    // portable-pty maps exit code 259 to `Running`; the process handle is authoritative.
-    let handle = unsafe { open_process(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, 0, pid) };
-    if handle == null_mut() {
-        return Err(PtyError::Termination(String::from(
-            "could not inspect Windows PTY process",
-        )));
-    }
-    let result = unsafe { wait_for_single_object(handle, 0) };
-    let close_result = unsafe { close_handle(handle) };
-    if close_result == 0 {
-        return Err(PtyError::Termination(String::from(
-            "could not close Windows PTY process handle",
-        )));
-    }
-    match result {
-        WAIT_OBJECT_0 => Ok(true),
-        WAIT_TIMEOUT => Ok(false),
-        _ => Err(PtyError::Termination(String::from(
-            "could not observe Windows PTY process state",
-        ))),
-    }
-}
-
 enum ProcessTermination {
     Signalled,
     AlreadyExited,
@@ -832,6 +841,7 @@ fn terminate_process_tree(
     let expected_identity = expected_identity.ok_or_else(|| {
         PtyError::Termination(String::from("Windows PTY process identity unavailable"))
     })?;
+    // The identity check fences stale PIDs, but taskkill resolves the PID again; this is not atomic.
     if capture_windows_process_identity(pid)? != expected_identity {
         return Err(PtyError::Termination(String::from(
             "Windows PTY process identity changed before termination",
@@ -998,6 +1008,59 @@ mod tests {
             super::capture_windows_process_identity(pid).unwrap(),
             expected
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn child_handle_identity_mismatch_fails_closed_before_exit_observation() {
+        let session = PtySession::spawn(
+            "pty-1",
+            spec("cmd.exe", &["/C", "ping", "-n", "2", "127.0.0.1"]),
+        )
+        .unwrap();
+        let expected = session
+            .process_identity
+            .expect("Windows PTY should capture process identity");
+        let child = session.child.lock().unwrap();
+        let handle = child
+            .as_raw_handle()
+            .expect("Windows PTY should expose its child handle");
+
+        let result = super::windows_child_handle_has_exited(
+            handle,
+            Some(super::WindowsProcessIdentity {
+                creation_time: expected.creation_time.wrapping_add(1),
+            }),
+        );
+
+        assert!(matches!(
+            result,
+            Err(PtyError::Termination(reason))
+                if reason.contains("identity changed")
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn child_handle_reconciles_exit_code_259() {
+        let mut session =
+            PtySession::spawn("pty-1", spec("cmd.exe", &["/C", "exit", "/B", "259"])).unwrap();
+        let expected = session
+            .process_identity
+            .expect("Windows PTY should capture process identity");
+        let child = session.child.lock().unwrap();
+        let handle = child
+            .as_raw_handle()
+            .expect("Windows PTY should expose its child handle");
+        drop(child);
+
+        std::thread::sleep(Duration::from_millis(100));
+
+        assert!(super::windows_child_handle_has_exited(handle, Some(expected)).unwrap());
+        let snapshot = session.wait(Duration::from_secs(2)).unwrap();
+
+        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 259 });
+        assert_eq!(snapshot.exit_code, Some(259));
     }
 
     #[cfg(unix)]
