@@ -383,6 +383,12 @@ export class OrcaRuntimeBrowserScreencastPart87 extends OrcaRuntimeNotifyLinearL
   }): Promise<BrowserProfileImportFromBrowserResult> {
     const profile = browserSessionRegistry.getProfile(params.profileId)
     if (!profile) return { ok: false, reason: 'Session profile not found.' }
+    if (
+      params.browserProfile &&
+      (/[/\\]/.test(params.browserProfile) || params.browserProfile.includes('..'))
+    ) {
+      return { ok: false, reason: 'Invalid browser profile name.' }
+    }
     const browser = detectInstalledBrowsers().find((entry) => entry.family === params.browserFamily)
     if (!browser) return { ok: false, reason: 'Browser not found on this system.' }
     const selected =
