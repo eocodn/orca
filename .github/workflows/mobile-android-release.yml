@@ -1,8 +1,7 @@
 name: Mobile Android Release
 
-# Why a separate workflow from iOS: iOS releases go through App Store review,
-# which can take days. Decoupling the triggers lets an Android release ship
-# immediately without waiting on iOS, and vice versa.
+# Why a separate workflow: Android releases use an independent tag and
+# publishing path so they can ship without coupling to unrelated release jobs.
 on:
   push:
     tags:

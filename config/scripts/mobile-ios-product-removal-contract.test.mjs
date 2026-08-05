@@ -31,6 +31,9 @@ describe('mobile iOS product removal contract', () => {
 
     const mobileWorkflow = readProjectFile('.github/workflows/mobile.yml')
     expect(mobileWorkflow).not.toMatch(/ios|fastlane|ruby/i)
+
+    const androidWorkflow = readProjectFile('.github/workflows/mobile-android-release.yml')
+    expect(androidWorkflow).not.toMatch(/ios|fastlane|ruby|xcode|app store/i)
   })
 
   it('removes iOS Expo configuration and native module sources', () => {
