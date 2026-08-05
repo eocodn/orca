@@ -41,11 +41,7 @@ export async function loadHomeSnapshot(): Promise<HomeSnapshot | null> {
       return null
     }
     const parsed = JSON.parse(raw) as HomeSnapshot
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      typeof parsed.worktreeInfo !== 'object' ||
-    ) {
+    if (typeof parsed !== 'object' || parsed === null || typeof parsed.worktreeInfo !== 'object') {
       return null
     }
     memoryCache = parsed
