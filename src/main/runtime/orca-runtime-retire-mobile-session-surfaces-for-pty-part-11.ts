@@ -234,10 +234,10 @@ export class OrcaRuntimeRetireMobileSessionSurfacesForPtyPart11 extends OrcaRunt
   protected buildHeadlessMobileSessionBrowserTabs(
     worktreeId: string
   ): RuntimeMobileSessionBrowserTab[] {
-    if (!this.offscreenBrowserBackend || !this.agentBrowserBridge?.tabList) {
+    if (!this.offscreenBrowserBackend || !this.browserTabRegistry?.tabList) {
       return []
     }
-    return this.agentBrowserBridge.tabList(worktreeId).tabs.map((tab) => {
+    return this.browserTabRegistry.tabList(worktreeId).tabs.map((tab) => {
       const persistedProps = this.getPersistedUnifiedSessionTabProps(worktreeId, tab.browserPageId)
       return {
         type: 'browser' as const,

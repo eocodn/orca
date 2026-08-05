@@ -336,10 +336,10 @@ export class OrcaRuntimeResolveManagedMrBasePart57 extends OrcaRuntimeProbeWorkt
   // outlive a worktree unless explicitly closed — removing a worktree without
   // closing its open panes leaks the windows for the life of the serve process.
   protected closeHeadlessBrowserPagesForWorktree(worktreeId: string): void {
-    if (!this.offscreenBrowserBackend || !this.agentBrowserBridge?.tabList) {
+    if (!this.offscreenBrowserBackend || !this.browserTabRegistry?.tabList) {
       return
     }
-    for (const tab of this.agentBrowserBridge.tabList(worktreeId).tabs) {
+    for (const tab of this.browserTabRegistry.tabList(worktreeId).tabs) {
       void this.offscreenBrowserBackend.closeTab(tab.browserPageId).catch(() => {})
     }
   }

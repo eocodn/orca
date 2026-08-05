@@ -38,9 +38,8 @@ export class RuntimeClient {
   private readonly environmentSelector: string | null
   private remoteCompatChecked = false
 
-  // Why: browser commands trigger first-time session init (agent-browser connect +
-  // CDP proxy setup) which can take 15-30s. 60s accommodates cold start without
-  // being so large that genuine hangs go unnoticed.
+  // Why: remote browser surfaces may require a cold runtime connection before
+  // the first navigation; allow the normal long-poll budget to cover startup.
   constructor(
     userDataPath = getDefaultUserDataPath(),
     requestTimeoutMs = 60_000,

@@ -1,26 +1,16 @@
 import type { FeatureInteractionId } from '../../../shared/feature-interactions'
-import { isBrowserPaneUiRuntimeRpcParams } from '../../../shared/runtime-rpc-feature-interaction-source'
 import type { OrcaRuntimeService } from '../orca-runtime'
 
 export function getRuntimeFeatureInteractionId(
   method: string,
   result: unknown,
-  rawParams?: unknown
+  _rawParams?: unknown
 ): FeatureInteractionId | null {
   if (method === 'browser.profileImportFromBrowser') {
     return hasBooleanResult(result, 'ok') ? 'cookie-import' : null
   }
   if (method === 'browser.profileClearDefaultCookies') {
     return hasBooleanResult(result, 'cleared') ? 'cookie-import' : null
-  }
-  if (method === 'browser.screencast.unsubscribe') {
-    return null
-  }
-  if (method.startsWith('browser.') && isBrowserPaneUiRuntimeRpcParams(rawParams)) {
-    return null
-  }
-  if (method.startsWith('browser.') && !method.startsWith('browser.profile')) {
-    return 'agent-browser-use'
   }
   return method.startsWith('orchestration.') ? 'agent-orchestration' : null
 }

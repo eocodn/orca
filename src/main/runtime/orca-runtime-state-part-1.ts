@@ -1,4 +1,41 @@
-import { type RemoteTerminalSourceRangeConsumerHooks, randomUUID, type RuntimeClientEvent, type RuntimeGraphStatus, type RuntimeWorktreeTerminalSleepResult, type RuntimeTerminalResolvePane, type RuntimeSyncedTab, type RuntimeMobileSessionCreateTerminalResult, type RuntimeMobileSessionTabsResult, type RuntimeMobileSessionTabsSnapshot, type PtyIncarnationId, RemoteRuntimeTerminalCreateIdempotency, TerminalOutputState, WorktreeResolutionState, RuntimeTerminalInputCommands, type RetiredTerminalSurface, ClientSessionTabSelectionStore, type AgentBrowserBridge, type BrowserBackend, RuntimeNotificationRegistry, createMobileSessionTabsNotifyCoalescer, type MobileSessionTabsNotifyCoalescer, type RuntimeStore, type RuntimeLeafRecord, type RuntimePtyWorktreeRecord, type PtyForegroundAgentRefresh, type RuntimeHeadlessTerminal, type RuntimePtyController, type RuntimeNotifier, type TerminalHandleRecord, type TerminalWaiter, type RuntimeWorktreeScanResult, type ResolvedWorktreeSnapshot, type RuntimeWorktreeLifecycleEvent, type DriverState, type AgentDetector, type RuntimeClientSettingsCommands } from './orca-runtime-symbols'
+import {
+  type RemoteTerminalSourceRangeConsumerHooks,
+  randomUUID,
+  type RuntimeClientEvent,
+  type RuntimeGraphStatus,
+  type RuntimeWorktreeTerminalSleepResult,
+  type RuntimeTerminalResolvePane,
+  type RuntimeSyncedTab,
+  type RuntimeMobileSessionCreateTerminalResult,
+  type RuntimeMobileSessionTabsResult,
+  type RuntimeMobileSessionTabsSnapshot,
+  type PtyIncarnationId,
+  RemoteRuntimeTerminalCreateIdempotency,
+  TerminalOutputState,
+  WorktreeResolutionState,
+  RuntimeTerminalInputCommands,
+  type RetiredTerminalSurface,
+  ClientSessionTabSelectionStore,
+  type BrowserBackend,
+  RuntimeNotificationRegistry,
+  createMobileSessionTabsNotifyCoalescer,
+  type MobileSessionTabsNotifyCoalescer,
+  type RuntimeStore,
+  type RuntimeLeafRecord,
+  type RuntimePtyWorktreeRecord,
+  type PtyForegroundAgentRefresh,
+  type RuntimeHeadlessTerminal,
+  type RuntimePtyController,
+  type RuntimeNotifier,
+  type TerminalHandleRecord,
+  type TerminalWaiter,
+  type RuntimeWorktreeScanResult,
+  type ResolvedWorktreeSnapshot,
+  type RuntimeWorktreeLifecycleEvent,
+  type DriverState,
+  type AgentDetector,
+  type RuntimeClientSettingsCommands
+} from './orca-runtime-symbols'
 import { OrcaRuntimeMethodSurface } from './orca-runtime-state-surface'
 
 export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
@@ -32,7 +69,10 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   >()
   protected readonly terminalCreateIdempotency = new RemoteRuntimeTerminalCreateIdempotency()
   // Why: concurrent clients sleeping one host workspace must share one physical teardown.
-  protected terminalSleepByWorktreeId = new Map<string, Promise<RuntimeWorktreeTerminalSleepResult>>()
+  protected terminalSleepByWorktreeId = new Map<
+    string,
+    Promise<RuntimeWorktreeTerminalSleepResult>
+  >()
   protected terminalMutationTailByWorktreeId = new Map<string, Promise<void>>()
   protected terminalSleepStateByWorktreeId = new Map<
     string,
@@ -131,8 +171,25 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   >()
   protected worktreeLifecycleListeners = new Set<(event: RuntimeWorktreeLifecycleEvent) => void>()
   protected forkBackfillStarted = false
-  protected agentBrowserBridge: AgentBrowserBridge | null = null
+  protected browserTabRegistry: {
+    tabList: (worktreeId?: string) => { tabs: Array<{ browserPageId: string }> }
+  } | null = null
   protected offscreenBrowserBackend: BrowserBackend | null = null
+
+  setOffscreenBrowserBackend(backend: BrowserBackend | null): void {
+    this.offscreenBrowserBackend = backend
+  }
+
+  getOffscreenBrowserBackend(): BrowserBackend | null {
+    return this.offscreenBrowserBackend
+  }
+
+  /** Retained for persisted-session cleanup; browser control itself uses BrowserManager directly. */
+  setAgentBrowserBridge(
+    bridge: { tabList?: (worktreeId?: string) => { tabs: Array<{ browserPageId: string }> } } | null
+  ): void {
+    this.browserTabRegistry = bridge?.tabList ? bridge : null
+  }
   protected readonly worktreeResolutionState = new WorktreeResolutionState<
     ResolvedWorktreeSnapshot,
     RuntimeWorktreeScanResult

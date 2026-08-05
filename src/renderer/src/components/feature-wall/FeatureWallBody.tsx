@@ -14,7 +14,6 @@ import { EditorAnimatedVisual } from './EditorAnimatedVisual'
 import { BrowserAnimatedVisual } from './BrowserAnimatedVisual'
 import { ReviewAnimatedVisual } from './ReviewAnimatedVisual'
 import { GitHubRow, LinearRow } from '../onboarding/IntegrationsStep'
-import { BrowserUseSkillSetupCard } from './BrowserUseSkillSetupCard'
 import { AiCommitPrSettingsCard } from './AiCommitPrSettingsCard'
 import { translate } from '@/i18n/i18n'
 
@@ -39,8 +38,7 @@ export function FeatureWallBody(props: {
     prefersReducedMotion,
     source,
     workbenchActiveStep,
-    reviewActiveStep,
-    browserUseSkill
+    reviewActiveStep
   } = props
   const isWorkspaces = selected.id === 'workspaces'
   const isTasks = selected.id === 'tasks'
@@ -75,18 +73,13 @@ export function FeatureWallBody(props: {
           ? 'max-w-[340px]'
           : 'max-w-[400px]'
         : 'max-w-[480px]'
-  const setupTerminalHeightPx = source === 'onboarding' ? 140 : 240
   const settingContent = isTasks ? (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       <LinearRow compact />
       <GitHubRow compact />
     </div>
   ) : isWorkbenchBrowser ? (
-    <BrowserUseSkillSetupCard
-      compact
-      terminalHeightPx={setupTerminalHeightPx}
-      skill={browserUseSkill}
-    />
+    null
   ) : isReviewPrView ? (
     <GitHubRow compact />
   ) : isReviewShip ? (

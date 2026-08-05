@@ -1,10 +1,6 @@
-// Why: browser pages can be backed two ways. A desktop renderer mounts an
-// Electron <webview> (renderer backend). A headless orca serve has no renderer
-// window, so it backs pages with main-process offscreen WebContents (offscreen
-// backend). Both register the page's WebContents into BrowserManager, so every
-// downstream command (agent-browser automation, screencast, input) resolves a
-// WebContents uniformly regardless of how the page was created. This interface
-// isolates the only step that actually differs: tab creation and teardown.
+// Browser pages can be backed by a renderer webview or a headless offscreen
+// WebContents. Both register with BrowserManager so navigation and input share
+// one lifecycle regardless of where the page was created.
 
 export type BrowserBackendCreateTab = {
   url: string

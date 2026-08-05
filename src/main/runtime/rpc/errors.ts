@@ -190,10 +190,8 @@ export function mapRuntimeError(id: string, meta: RpcEnvelopeMeta, error: unknow
   return errorResponse(id, meta, 'runtime_error', message)
 }
 
-// Why: browser errors carry a structured .code property (BrowserError from
-// cdp-bridge.ts) that maps directly to agent-facing error codes. We forward
-// that code rather than falling back to the runtime allowlist, because the
-// browser surface area uses its own code namespace (browser_no_tab, etc.).
+// Preserve structured browser error codes so callers can distinguish missing
+// pages, closed tabs, and navigation failures from generic runtime errors.
 export function mapBrowserError(id: string, meta: RpcEnvelopeMeta, error: unknown): RpcFailure {
   if (
     error instanceof Error &&

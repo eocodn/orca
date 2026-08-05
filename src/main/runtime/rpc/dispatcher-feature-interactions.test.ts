@@ -2,10 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { PersistedUIState } from '../../../shared/types'
 import { getDefaultUIState } from '../../../shared/constants'
-import {
-  ORCA_RUNTIME_RPC_BROWSER_UI_SOURCE,
-  ORCA_RUNTIME_RPC_FEATURE_INTERACTION_SOURCE_KEY
-} from '../../../shared/runtime-rpc-feature-interaction-source'
 import { RpcDispatcher } from './dispatcher'
 import { defineMethod, defineStreamingMethod, type RpcRequest } from './core'
 import type { OrcaRuntimeService } from '../orca-runtime'
@@ -115,15 +111,6 @@ const METHODS = [
 ]
 
 describe('RpcDispatcher feature interactions', () => {
-  it('records runtime feature use after successful runtime tool methods', async () => {
-    const runtime = makeRuntime()
-    const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
-
-    await dispatcher.dispatch(makeRequest('browser.click'))
-
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('agent-browser-use')
-  })
-
   it('keeps setup and cookie import separate from actual runtime use', async () => {
     const runtime = makeRuntime()
     const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
@@ -145,69 +132,4 @@ describe('RpcDispatcher feature interactions', () => {
     expect(runtime.recordFeatureInteraction).not.toHaveBeenCalled()
   })
 
-  it('records unmarked browser display RPCs as agent browser use', async () => {
-    const runtime = makeRuntime()
-    const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
-    const replies: string[] = []
-
-    await dispatcher.dispatch(makeRequest('browser.tabCreate'))
-    await dispatcher.dispatch(makeRequest('browser.tabShow'))
-    await dispatcher.dispatch(makeRequest('browser.screencast.unsubscribe'))
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(2)
-    expect(runtime.recordFeatureInteraction).toHaveBeenNthCalledWith(1, 'agent-browser-use')
-    expect(runtime.recordFeatureInteraction).toHaveBeenNthCalledWith(2, 'agent-browser-use')
-
-    await dispatcher.dispatchStreaming(makeRequest('browser.screencast'), (response) => {
-      replies.push(response)
-    })
-
-    expect(replies).toHaveLength(2)
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(3)
-    expect(runtime.recordFeatureInteraction).toHaveBeenLastCalledWith('agent-browser-use')
-  })
-
-  it('records binary-only browser display streams as agent browser use', async () => {
-    const runtime = makeRuntime()
-    const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
-    const replies: string[] = []
-
-    await dispatcher.dispatchStreaming(makeRequest('browser.screencast.binaryOnly'), (response) => {
-      replies.push(response)
-    })
-
-    expect(replies).toHaveLength(0)
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(1)
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('agent-browser-use')
-  })
-
-  it('does not record browser pane UI-originated browser RPCs as agent browser use', async () => {
-    const runtime = makeRuntime()
-    const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
-    const browserPaneUiParams = {
-      [ORCA_RUNTIME_RPC_FEATURE_INTERACTION_SOURCE_KEY]: ORCA_RUNTIME_RPC_BROWSER_UI_SOURCE
-    }
-
-    await dispatcher.dispatch(makeRequest('browser.viewport', browserPaneUiParams))
-    await dispatcher.dispatch(makeRequest('browser.eval', browserPaneUiParams))
-    await dispatcher.dispatchStreaming(
-      makeRequest('browser.screencast', browserPaneUiParams),
-      () => {}
-    )
-    await dispatcher.dispatch(makeRequest('browser.click'))
-
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(1)
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledWith('agent-browser-use')
-  })
-
-  it('records each successful non-streaming runtime feature interaction', async () => {
-    const runtime = makeRuntime()
-    const dispatcher = new RpcDispatcher({ runtime, methods: METHODS })
-
-    await dispatcher.dispatch(makeRequest('browser.click'))
-    await dispatcher.dispatch(makeRequest('browser.click'))
-    await dispatcher.dispatch(makeRequest('browser.screencast.unsubscribe'))
-
-    expect(runtime.recordFeatureInteraction).toHaveBeenCalledTimes(2)
-    expect(runtime.recordFeatureInteraction).toHaveBeenLastCalledWith('agent-browser-use')
-  })
 })

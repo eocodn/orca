@@ -77,7 +77,6 @@ export function BrowserUseSetup({
     setBrowserUseEnabled(value)
     localStorage.setItem(BROWSER_USE_ENABLED_STORAGE_KEY, value ? '1' : '0')
     if (value) {
-      useAppStore.getState().recordFeatureInteraction('agent-browser-setup')
     }
   }
 
@@ -284,7 +283,6 @@ export function BrowserUseSetup({
                 : window.api.cli.getInstallStatus()
             }
             onBeforeOpenTerminal={async () => {
-              useAppStore.getState().recordFeatureInteraction('agent-browser-setup')
               await (activeSkillRuntime.agentRuntime?.runtime === 'wsl'
                 ? ensureWslCliAvailableForAgentSkillTerminal(activeSkillRuntime.agentRuntime)
                 : ensureOrcaCliAvailableForAgentSkillTerminal({

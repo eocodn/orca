@@ -3,7 +3,6 @@ import { Check, Globe2, Loader2, Terminal } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useAppStore } from '@/store'
 import { FeatureSetupInlineTerminal } from '../onboarding/FeatureSetupInlineTerminal'
 import {
   DEFAULT_ONBOARDING_FEATURE_SETUP_SELECTION,
@@ -36,7 +35,6 @@ export function AgentCapabilitiesSetupAction(props: {
   const [featureSetupCommandSelection, setFeatureSetupCommandSelection] =
     useState<OnboardingFeatureSetupSelection | null>(null)
   const [setupBusyLabel, setSetupBusyLabel] = useState<string | null>(null)
-  const recordFeatureInteraction = useAppStore((s) => s.recordFeatureInteraction)
   useEffect(() => {
     onBrowserUseSkillInstalledChange(readiness.browserUseSkillInstalled)
   }, [onBrowserUseSkillInstalledChange, readiness.browserUseSkillInstalled])
@@ -61,9 +59,6 @@ export function AgentCapabilitiesSetupAction(props: {
     setSetupBusyLabel('Setting up capabilities...')
     try {
       const result = await runOnboardingFeatureSetup(featureSetup)
-      if (featureSetup.browserUse) {
-        recordFeatureInteraction('agent-browser-setup')
-      }
       const firstWarning = result.warnings[0]
       if (firstWarning) {
         toast.warning(
@@ -97,7 +92,7 @@ export function AgentCapabilitiesSetupAction(props: {
     } finally {
       setSetupBusyLabel(null)
     }
-  }, [featureSetup, featureSetupCommand, recordFeatureInteraction, setupBusyLabel])
+  }, [featureSetup, featureSetupCommand, setupBusyLabel])
 
   return (
     <div className="space-y-5">

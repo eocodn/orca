@@ -34,7 +34,6 @@ import { registerTerminalPreviewHandlers } from './terminal-preview'
 import { registerDeveloperPermissionHandlers } from './developer-permissions'
 import {
   setTrustedBrowserRendererWebContentsId,
-  setAgentBrowserBridgeRef,
   registerBrowserHandlers
 } from './browser'
 import { registerSessionHandlers } from './session'
@@ -125,7 +124,6 @@ export function registerCoreHandlers(
   setTrustedBrowserRendererWebContentsId(mainWindowWebContentsId)
   setTrustedClipboardRendererWebContentsId(mainWindowWebContentsId)
   setTrustedUIRendererWebContentsId(mainWindowWebContentsId)
-  setAgentBrowserBridgeRef(runtime.getAgentBrowserBridge())
   if (registered) {
     return
   }

@@ -1,8 +1,22 @@
 import * as startupDeps from './main-process-startup-dependencies'
 import { markExpectedRendererReload, startupState } from './main-process-startup-state'
-import { getHandleMacAppActivation, settleServeDesktopActivation } from './main-process-process-configuration'
-import { openMainWindow, openSettingsFromSystemMenu, runUserInitiatedUpdateCheck, sendOpenSetupGuide, sendOpenCrashReport, sendOpenFeatureTour } from './main-process-window-startup-lifecycle'
-import { startTerminalRuntimeStartupServices, prepareCodexRuntimeHomeForLaunch, prepareCodexSessionResumeForLaunch } from './main-process-runtime-startup-preparation'
+import {
+  getHandleMacAppActivation,
+  settleServeDesktopActivation
+} from './main-process-process-configuration'
+import {
+  openMainWindow,
+  openSettingsFromSystemMenu,
+  runUserInitiatedUpdateCheck,
+  sendOpenSetupGuide,
+  sendOpenCrashReport,
+  sendOpenFeatureTour
+} from './main-process-window-startup-lifecycle'
+import {
+  startTerminalRuntimeStartupServices,
+  prepareCodexRuntimeHomeForLaunch,
+  prepareCodexSessionResumeForLaunch
+} from './main-process-runtime-startup-preparation'
 import { recordProcessGoneCrash, handleGpuChildCrash } from './main-process-crash-lifecycle'
 
 export async function initializeReadyWindowAndServe(): Promise<void> {
@@ -46,18 +60,21 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
     onOpenSettings: openSettingsFromSystemMenu,
     onOpenSetupGuide: (targetWindow) => {
       startupDeps.recordCrashBreadcrumb('setup_guide_opened')
-      const targetBrowserWindow = targetWindow instanceof startupDeps.BrowserWindow ? targetWindow : null
+      const targetBrowserWindow =
+        targetWindow instanceof startupDeps.BrowserWindow ? targetWindow : null
       sendOpenSetupGuide(targetBrowserWindow)
     },
     onOpenCrashReport: (targetWindow) => {
       startupDeps.recordCrashBreadcrumb('crash_report_opened')
-      const targetBrowserWindow = targetWindow instanceof startupDeps.BrowserWindow ? targetWindow : null
+      const targetBrowserWindow =
+        targetWindow instanceof startupDeps.BrowserWindow ? targetWindow : null
       sendOpenCrashReport(targetBrowserWindow)
     },
     onOpenFeatureTour: (targetWindow) => {
       startupDeps.recordCrashBreadcrumb('feature_tour_opened')
       // Why: use the invoking BrowserWindow so hidden/E2E and multi-window flows route to the right renderer, not global focus.
-      const targetBrowserWindow = targetWindow instanceof startupDeps.BrowserWindow ? targetWindow : null
+      const targetBrowserWindow =
+        targetWindow instanceof startupDeps.BrowserWindow ? targetWindow : null
       sendOpenFeatureTour(targetBrowserWindow)
     },
     // Why: menu zoom must act on the window the user is looking at — routing to
@@ -189,7 +206,9 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
     )
     // Why: headless servers can't mount <webview> panes; use offscreen WebContents, gated on a real display so browser.headless.v1 stays honest.
     if (startupState.headlessBrowserDisplayAvailable) {
-      runtime.setOffscreenBrowserBackend(new startupDeps.OffscreenBrowserBackend(startupDeps.browserManager))
+      runtime.setOffscreenBrowserBackend(
+        new startupDeps.OffscreenBrowserBackend(startupDeps.browserManager)
+      )
     }
     // Why: headless servers have no renderer graph publisher; publish an explicit empty graph so status clients see a ready server.
     runtime.syncWindowGraph(startupDeps.HEADLESS_RUNTIME_WINDOW_ID, { tabs: [], leaves: [] })

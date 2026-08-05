@@ -67,7 +67,6 @@ vi.mock('../browser/browser-manager', () => ({
 
 import {
   registerBrowserHandlers,
-  setAgentBrowserBridgeRef,
   waitForAnyTabRegistration,
   waitForTabRegistration,
   waitForWorktreeTabRegistration
@@ -98,7 +97,6 @@ describe('registerBrowserHandlers', () => {
     webContentsFromIdMock.mockReturnValue({ isDestroyed: () => false })
     openDevToolsMock.mockResolvedValue(true)
     setAnnotationViewportBridgeMock.mockResolvedValue(true)
-    setAgentBrowserBridgeRef(null)
   })
 
   afterEach(() => {
@@ -263,32 +261,6 @@ describe('registerBrowserHandlers', () => {
     expect(proceedCertificateMock).not.toHaveBeenCalled()
   })
 
-  it('updates the bridge active tab for the owning worktree', async () => {
-    const onTabChangedMock = vi.fn()
-    getGuestWebContentsIdMock.mockReturnValue(4242)
-    getWorktreeIdForTabMock.mockReturnValue('wt-browser')
-
-    setAgentBrowserBridgeRef({ onTabChanged: onTabChangedMock } as never)
-    registerBrowserHandlers()
-
-    const activeTabChangedHandler = handleMock.mock.calls.find(
-      ([channel]) => channel === 'browser:activeTabChanged'
-    )?.[1] as (event: { sender: Electron.WebContents }, args: { browserPageId: string }) => boolean
-
-    const result = activeTabChangedHandler(
-      {
-        sender: {
-          isDestroyed: () => false,
-          getType: () => 'window',
-          getURL: () => 'file:///renderer/index.html'
-        } as Electron.WebContents
-      },
-      { browserPageId: 'page-1' }
-    )
-
-    expect(result).toBe(true)
-    expect(onTabChangedMock).toHaveBeenCalledWith(4242, 'wt-browser')
-  })
 
   it('resolves concurrent tab registration waiters for the same page', async () => {
     vi.useFakeTimers()

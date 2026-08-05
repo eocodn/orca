@@ -24,7 +24,7 @@ Environments:
   environment rm            Remove a saved remote Orca runtime
 
 Environment Recipes:
-  vm recipe doctor          Validate a per-workspace environment recipe
+  vm recipe doctor           Validate a per-workspace environment recipe
 
 Projects:
   project list              List durable projects known to Orca
@@ -75,70 +75,6 @@ Terminals:
 Linear:
   linear                    Read Linear ticket context for agents
 
-Browser Automation:
-  tab create                Create a new browser tab (navigates to --url)
-  tab list                  List open browser tabs
-  tab show                  Show one browser tab by page id
-  tab current               Show the current browser tab
-  tab profile list          List browser session profiles
-  tab profile create        Create a browser session profile
-  tab profile delete        Delete a browser session profile
-  tab profile set           Switch a browser tab to a different profile
-  tab profile show          Show the profile bound to a browser tab
-  tab profile use-default   Switch a browser tab back to the default profile
-  tab profile clone         Clone a browser tab into another profile
-  tab switch                Switch the active browser tab by --index or --page
-  tab close                 Close a browser tab by --index/--page or the current tab
-  snapshot                  Accessibility snapshot with element refs (e.g. @e1, @e2)
-  goto                      Navigate the active tab to --url
-  click                     Click element by --element ref
-  fill                      Clear and fill input by --element ref with --value
-  type                      Type --input text at the current focus (no element needed)
-  select                    Select dropdown option by --element ref and --value
-  hover                     Hover element by --element ref
-  keypress                  Press a key (e.g. --key Enter, --key Tab)
-  scroll                    Scroll --direction (up/down) by --amount pixels
-  back                      Navigate back in browser history
-  reload                    Reload the active browser tab
-  screenshot                Capture viewport screenshot (--format png|jpeg)
-  eval                      Evaluate --expression JavaScript in the page context
-  wait                      Wait for page idle or --timeout ms
-  check                     Check a checkbox by --element ref
-  uncheck                   Uncheck a checkbox by --element ref
-  focus                     Focus an element by --element ref
-  clear                     Clear an input by --element ref
-  drag                      Drag --from ref to --to ref
-  upload                    Upload --files to a file input by --element ref
-  dblclick                  Double-click element by --element ref
-  forward                   Navigate forward in browser history
-  scrollintoview            Scroll --element into view
-  get                       Get element property (--what: text, html, value, url, title)
-  is                        Check element state (--what: visible, enabled, checked)
-  inserttext                Insert text without key events
-  mouse move                Move mouse to --x --y coordinates
-  mouse down                Press mouse button
-  mouse up                  Release mouse button
-  mouse wheel               Scroll wheel --dy [--dx]
-  find                      Find element by locator (--locator role|text|label --value <v>)
-  set device                Emulate device (--name "Pixel 8")
-  set offline               Toggle offline mode (--state on|off)
-  set headers               Set HTTP headers (--headers '{"key":"val"}')
-  set credentials           Set HTTP auth (--user <u> --pass <p>)
-  set media                 Set color scheme (--color-scheme dark|light)
-  clipboard read            Read clipboard contents
-  clipboard write           Write --text to clipboard
-  dialog accept             Accept browser dialog (--text for prompt response)
-  dialog dismiss            Dismiss browser dialog
-  storage local get         Get localStorage value by --key
-  storage local set         Set localStorage --key --value
-  storage local clear       Clear localStorage
-  storage session get       Get sessionStorage value by --key
-  storage session set       Set sessionStorage --key --value
-  storage session clear     Clear sessionStorage
-  download                  Download file via --selector to --path
-  highlight                 Highlight --selector on page
-  exec                      Run any agent-browser command (--command "...")
-
 Common Commands:
   orca open [--json]
   orca serve [--port <port>] [--pairing-address <host>] [--mobile-pairing] [--no-pairing] [--project-root <path>] [--recipe-json] [--json]
@@ -157,32 +93,20 @@ Common Commands:
   orca worktree current [--json]
   orca worktree set --worktree <selector> [--display-name <name>] [--issue <number|null>] [--linear-issue <identifier-or-url|null>] [--comment <text>] [--workspace-status <id>] [--parent-worktree <selector>|--no-parent] [--json]
   orca worktree rm --worktree <selector> [--force] [--run-hooks] [--json]
-  orca worktree ps [--limit <n>] [--json]
+  orca worktree ps [--limit 10] [--json]
   orca file open <path> [--worktree <selector>] [--json]
   orca file diff <path> [--staged] [--worktree <selector>] [--json]
   orca file open-changed [--mode edit|diff|both] [--worktree <selector>] [--json]
   orca terminal list [--worktree <selector>] [--limit <n>] [--json]
-  orca terminal show [--terminal <handle>] [--json]
-  orca terminal read [--terminal <handle>] [--cursor <n>] [--limit <n>] [--json]
-  orca terminal send [--terminal <handle>] [--text <text>] [--enter] [--interrupt] [--json]
-  orca terminal wait [--terminal <handle>] --for exit|tui-idle [--timeout-ms <ms>] [--json]
+  orca terminal show --terminal <handle> [--json]
+  orca terminal read --terminal <handle> [--cursor <n>] [--limit <n>] [--json]
+  orca terminal send --terminal <handle> [--text <text>] [--enter] [--interrupt] [--json]
+  orca terminal wait --terminal <handle> --for exit|tui-idle [--timeout-ms <ms>] [--json]
   orca terminal stop --worktree <selector> [--json]
   orca terminal create [--worktree <selector>] [--title <name>] [--command <text>] [--focus] [--json]
-  orca terminal split [--terminal <handle>] [--direction horizontal|vertical] [--json]
-  orca terminal switch [--terminal <handle>] [--json]
-  orca terminal close [--terminal <handle>] [--tab] [--json]
-  orca project list [--json]
-  orca project setups [--project <id>] [--host <host-id>] [--json]
-  orca project setup-existing-folder --project <id> --host <host-id> --path <path> [--kind git|folder] [--display-name <name>] [--json]
-  orca project setup-clone --project <id> --host <host-id> --url <clone-url> --destination <path> [--display-name <name>] [--json]
-  orca project setup-create --project <id> --host <host-id> [--setup-id <id>] [--path <path>] [--kind git|folder] [--display-name <name>] [--worktree-base-path <path>] [--git-username <name>] [--state ready|not-set-up|setting-up|error|unsupported] [--method imported-existing-folder|cloned|provisioned] [--json]
-  orca project setup-update --setup <setup-id> [--display-name <name>] [--path <path>] [--worktree-base-path <path>] [--git-username <name>] [--kind git|folder] [--state ready|not-set-up|setting-up|error|unsupported] [--method legacy-repo|imported-existing-folder|cloned|provisioned] [--json]
-  orca project setup-delete --setup <setup-id> [--json]
-  orca repo list [--json]
-  orca repo add --path <path> [--json]
-  orca repo show --repo <selector> [--json]
-  orca repo set-base-ref --repo <selector> --ref <ref> [--json]
-  orca repo search-refs --repo <selector> --query <text> [--limit <n>] [--json]
+  orca terminal split --terminal <handle> [--direction horizontal|vertical] [--json]
+  orca terminal switch --terminal <handle> [--json]
+  orca terminal close --terminal <handle> [--tab] [--json]
 
 Selectors:
   --repo <selector>         Registered repo selector such as id:<id>, name:<name>, or path:<path>
@@ -216,67 +140,15 @@ Agent Sessions And Worktrees:
   To start a fresh agent in the current worktree, use:
     orca terminal create --worktree active --command "codex"
 
-Browser Workflow:
-  1. Create or navigate:  orca tab create --url https://example.com
-                          orca goto --url https://example.com
-  2. Inspect the page:    orca snapshot
-     (Returns an accessibility tree with element refs like e1, e2, e3)
-     For concurrent workflows, prefer: orca tab list --json
-     then reuse tabs[].browserPageId with --page <id> on later commands.
-  3. Interact:            orca click --element e2
-                          orca fill --element e5 --value "search query"
-                          orca keypress --key Enter
-  4. Re-inspect:          orca snapshot
-     (Element refs change after navigation — always re-snapshot before interacting)
-
-Browser Options:
-  --element <ref>           Element ref from snapshot (e.g. @e3)
-  --url <url>               URL to navigate to
-  --value <text>            Value to fill or select
-  --input <text>            Text to type at current focus (no element needed)
-  --expression <js>         JavaScript expression to evaluate
-  --key <key>               Key to press (Enter, Tab, Escape, Control+a, etc.)
-  --direction <dir>         Scroll direction: up or down
-  --amount <pixels>         Scroll distance in pixels (default: viewport height)
-  --index <n>               Tab index (from \`tab list\`)
-  --page <id>               Stable browser page id (preferred for concurrent workflows)
-  --profile <id>            Browser profile id
-  --show-profile            Include the tab's browser profile in text output
-  --format <png|jpeg>       Screenshot image format
-  --from <ref>              Drag source element ref
-  --to <ref>                Drag target element ref
-  --files <path,...>        Comma-separated file paths for upload
-  --timeout <ms>            Wait timeout in milliseconds
-  --worktree <selector>     Scope commands to a specific worktree's browser tabs
-
 Examples:
   $ orca open
   $ orca status --json
   $ orca diagnostics memory --json
   $ orca repo list
   $ orca worktree create --name agent-task --agent codex --prompt "hi"
-  $ orca worktree create --repo name:orca --name cli-test-1 --issue 273
-  $ orca worktree create --repo name:orca --name linear-task --linear-issue https://linear.app/stably/issue/STA-335/test-issue
-  $ orca worktree create --name linear-task --linear-issue STA-335
-  $ orca worktree show --worktree branch:Jinwoo-H/cli
   $ orca worktree current
-  $ orca worktree set --worktree active --comment "waiting on review"
-  $ orca worktree set --worktree active --linear-issue null
   $ orca worktree ps --limit 10
   $ orca file open-changed --mode diff
-  $ orca file open src/App.tsx
   $ orca terminal create --worktree active --command "codex"
-  $ orca terminal list --worktree path:/Users/me/orca/workspaces/orca/cli-test-1 --json
   $ orca terminal send --terminal term_123 --text "hi" --enter
-  $ orca terminal wait --terminal term_123 --for exit --timeout-ms 60000 --json
-  $ orca tab current --json
-  $ orca tab show --page page_123 --json
-  $ orca tab create --url https://example.com --profile work
-  $ orca tab profile clone --page page_123 --profile work --json
-  $ orca snapshot
-  $ orca click --element e3
-  $ orca fill --element e5 --value "hello"
-  $ orca goto --url https://example.com/login
-  $ orca keypress --key Enter
-  $ orca eval --expression "document.title"
-  $ orca tab list --json`
+  $ orca terminal wait --terminal term_123 --for exit --timeout-ms 60000 --json`

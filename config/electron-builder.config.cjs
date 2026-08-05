@@ -224,15 +224,6 @@ module.exports = {
     // mapping fails packaging before bundled content reaches users.
     verifyPackagedPluginResources(resourcesDir)
     chmodUnixCliLaunchers(resourcesDir, context.electronPlatformName)
-    for (const filename of readdirSync(resourcesDir)) {
-      if (!filename.startsWith('agent-browser-')) {
-        continue
-      }
-      // Why: the upstream package has inconsistent executable bits across
-      // platform binaries (notably darwin-x64). child_process.execFile needs
-      // the copied binary to be executable in packaged apps.
-      chmodSync(join(resourcesDir, filename), 0o755)
-    }
     if (context.electronPlatformName === 'darwin') {
       await signMacNotificationStatusHelper(
         join(resourcesDir, '..', 'MacOS', 'orca-notification-status'),
@@ -258,10 +249,6 @@ module.exports = {
       {
         from: 'native/windows-cli-launcher/.build/orca.exe',
         to: 'bin/orca.exe'
-      },
-      {
-        from: 'node_modules/agent-browser/bin/agent-browser-win32-x64.exe',
-        to: 'agent-browser-win32-x64.exe'
       },
       featureWallResources
     ]
@@ -319,10 +306,6 @@ module.exports = {
         from: 'resources/darwin/bin/orca',
         to: 'bin/orca'
       },
-      {
-        from: 'node_modules/agent-browser/bin/agent-browser-darwin-${arch}',
-        to: 'agent-browser-darwin-${arch}'
-      },
       featureWallResources
     ],
     // Why: the notification-status helper must execute from Contents/MacOS —
@@ -372,10 +355,6 @@ module.exports = {
       {
         from: 'resources/linux/bin/orca-ide',
         to: 'bin/orca-ide'
-      },
-      {
-        from: 'node_modules/agent-browser/bin/agent-browser-linux-${arch}',
-        to: 'agent-browser-linux-${arch}'
       },
       featureWallResources
     ],

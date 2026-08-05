@@ -145,37 +145,6 @@ export function matches(actual: string[], expected: string[]): boolean {
   )
 }
 
-export function supportsBrowserPageFlag(commandPath: string[]): boolean {
-  const joined = commandPath.join(' ')
-  if (['open', 'status'].includes(commandPath[0])) {
-    return false
-  }
-  if (
-    [
-      'account',
-      'project',
-      'repo',
-      'worktree',
-      'terminal',
-      'file',
-      'note',
-      'diagnostics',
-      'linear',
-      'agent-context'
-    ].includes(commandPath[0])
-  ) {
-    return false
-  }
-  return ![
-    'tab list',
-    'tab create',
-    'tab current',
-    'tab profile list',
-    'tab profile create',
-    'tab profile delete'
-  ].includes(joined)
-}
-
 // Why: validation and agent discovery must expose the same effective flag set.
 export function effectiveAllowedFlags(spec: CommandSpec): string[] {
   if (spec.argumentMode === 'passthrough') {
@@ -184,8 +153,7 @@ export function effectiveAllowedFlags(spec: CommandSpec): string[] {
   return [
     ...new Set([
       ...GLOBAL_FLAGS,
-      ...spec.allowedFlags,
-      ...(supportsBrowserPageFlag(spec.path) ? ['page'] : [])
+      ...spec.allowedFlags
     ])
   ]
 }
@@ -201,25 +169,13 @@ export function isCommandGroup(commandPath: string[]): boolean {
         'worktree',
         'terminal',
         'file',
-        'tab',
-        'cookie',
-        'intercept',
-        'capture',
-        'mouse',
-        'set',
-        'clipboard',
-        'dialog',
-        'storage',
         'agent',
         'environment',
         'diagnostics',
         'linear',
         'vm'
       ].includes(commandPath[0])) ||
-    (commandPath.length === 2 && commandPath[0] === 'agent' && commandPath[1] === 'hooks') ||
-    (commandPath.length === 2 &&
-      commandPath[0] === 'storage' &&
-      ['local', 'session'].includes(commandPath[1]))
+    (commandPath.length === 2 && commandPath[0] === 'agent' && commandPath[1] === 'hooks')
   )
 }
 
@@ -285,13 +241,12 @@ export function validateCommandAndFlags(specs: CommandSpec[], parsed: ParsedArgs
     )
   }
 
-  const pageAllowed = supportsBrowserPageFlag(spec.path)
   for (const [flag, value] of parsed.flags) {
     const isGlobalFlag = GLOBAL_FLAGS.includes(flag)
     if (GLOBAL_VALUE_FLAGS.has(flag) && (typeof value !== 'string' || value.length === 0)) {
       throw new RuntimeClientError('invalid_argument', `Flag --${flag} requires a value.`)
     }
-    if (!isGlobalFlag && !spec.allowedFlags.includes(flag) && !(flag === 'page' && pageAllowed)) {
+    if (!isGlobalFlag && !spec.allowedFlags.includes(flag)) {
       throw new RuntimeClientError(
         'invalid_argument',
         `Unknown flag --${flag} for command: ${spec.path.join(' ')}`,

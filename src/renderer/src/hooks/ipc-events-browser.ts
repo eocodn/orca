@@ -78,7 +78,8 @@ if (unsubscribeCertificateFailure) {
   unsubs.push(unsubscribeCertificateFailure)
 }
 
-// Why: agent-browser navigates via CDP so did-navigate never fires; this IPC pushes live URL/title to the stale store.
+// Why: remote navigation can bypass the renderer's did-navigate event; this IPC
+// pushes live URL/title updates to the browser store.
 unsubs.push(
   getClientRuntime().browser.onNavigationUpdate(({ browserPageId, url, title }) => {
     if (isRuntimeEnvironmentActive()) {

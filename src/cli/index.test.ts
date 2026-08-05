@@ -3626,30 +3626,6 @@ describe('orca cli worktree awareness', () => {
     })
   })
 
-  it('does not resolve implicit remote browser targets from client cwd', async () => {
-    queueFixtures(
-      callMock,
-      okFixture('req_tab_current', {
-        tab: {
-          browserPageId: 'page-1',
-          index: 0,
-          url: 'https://example.com',
-          title: 'Example',
-          active: true,
-          worktreeId: 'repo-1::/srv/orca/feature'
-        }
-      })
-    )
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    await main(['tab', 'current', '--pairing-code', 'remote-runtime', '--json'], '/tmp/client/src')
-
-    expect(callMock).toHaveBeenCalledTimes(1)
-    expect(callMock).toHaveBeenCalledWith('browser.tabCurrent', {
-      worktree: undefined
-    })
-  })
-
   it('creates an automation for the enclosing worktree by default', async () => {
     queueFixtures(
       callMock,

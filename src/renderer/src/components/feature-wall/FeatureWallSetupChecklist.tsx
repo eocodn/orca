@@ -14,7 +14,6 @@ import {
   WorkspacesAction
 } from './FeatureWallSetupWorkflowActions'
 import { ConnectIntegrationsList } from './ConnectIntegrationsList'
-import { BrowserAction } from './FeatureWallBrowserAction'
 import {
   SetupBrowserVisual,
   SetupMultipleReposVisual,
@@ -145,9 +144,6 @@ function SelectedStepAction(props: FeatureWallSetupChecklistProps): React.JSX.El
   }
   if (activeStep.id === 'two-worktrees') {
     return <WorkspacesAction done={activeDone} />
-  }
-  if (activeStep.id === 'browser') {
-    return <BrowserAction done={activeDone} />
   }
   if (activeStep.id === 'task-sources') {
     return <TaskSourcesAction />

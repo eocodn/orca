@@ -11,17 +11,12 @@ inline src/main/agent-hooks/server.ts
 inline src/main/amp/hook-service.ts
 inline src/main/antigravity/hook-service.ts
 inline src/main/attribution/terminal-attribution.ts
-inline src/main/browser/agent-browser-bridge.test.ts
-inline src/main/browser/agent-browser-bridge.ts
 inline src/main/browser/browser-cookie-import.ts
 inline src/main/browser/browser-guest-ui.ts
 inline src/main/browser/browser-manager-grab.test.ts
 inline src/main/browser/browser-manager.test.ts
 inline src/main/browser/browser-manager.ts
-inline src/main/browser/browser-screencast-stream.ts
 inline src/main/browser/browser-session-registry.ts
-inline src/main/browser/cdp-bridge.ts
-inline src/main/browser/cdp-ws-proxy.ts
 inline src/main/browser/grab-guest-script.ts
 inline src/main/browser/snapshot-engine.ts
 inline src/main/claude-accounts/runtime-auth-service.test.ts

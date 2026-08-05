@@ -7,7 +7,6 @@ import {
   isCommandGroup,
   normalizeCommandPositionals,
   parseArgs,
-  supportsBrowserPageFlag,
   validateCommandAndFlags
 } from './args'
 
@@ -183,17 +182,6 @@ describe('command aliases', () => {
 
     expect(normalized.commandPath).toEqual(['repo', 'show'])
     expect(normalized.flags.get('repo')).toBe('id:abc')
-  })
-})
-
-describe('supportsBrowserPageFlag', () => {
-  it('does not expose browser page targeting on local agent discovery', () => {
-    expect(supportsBrowserPageFlag(['agent-context'])).toBe(false)
-  })
-
-  it('does not expose browser page targeting on host-local account commands', () => {
-    expect(supportsBrowserPageFlag(['account', 'add'])).toBe(false)
-    expect(supportsBrowserPageFlag(['account', 'list'])).toBe(false)
   })
 })
 

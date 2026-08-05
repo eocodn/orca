@@ -215,8 +215,8 @@ function prepareDevWebClient() {
   )
 }
 
-// Why: every `pn dev` should be attachable from agent-browser/playwright-cli
-// without manual port juggling. Pick a best-effort deterministic port per
+// Why: every `pn dev` should be attachable without manual port juggling.
+// Pick a best-effort deterministic port per
 // worktree; falls back to a probe sweep if the deterministic pick or its
 // neighbors are busy (multiple worktrees may share a machine).
 function isPortFree(port) {

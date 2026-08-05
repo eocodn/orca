@@ -52,8 +52,6 @@ describe('feature interactions', () => {
       'browser-grab',
       'markdown-file-created',
       'workspace-creation',
-      'agent-browser-setup',
-      'agent-browser-use',
       'ephemeral-vm-setup',
       'agent-orchestration-setup',
       'agent-orchestration',
@@ -168,7 +166,6 @@ describe('feature interactions', () => {
     expect(FEATURE_INTERACTION_CATEGORY_BY_ID['github-tasks']).toBe('task_management')
     expect(FEATURE_INTERACTION_CATEGORY_BY_ID['jira-tasks']).toBe('task_management')
     expect(FEATURE_INTERACTION_CATEGORY_BY_ID['markdown-file-created']).toBe('notes')
-    expect(FEATURE_INTERACTION_CATEGORY_BY_ID['agent-browser-setup']).toBe('setup')
     expect(FEATURE_INTERACTION_CATEGORY_BY_ID['terminal-tabs']).toBe('terminal')
     expect(FEATURE_INTERACTION_CATEGORY_BY_ID['voice-dictation']).toBe('voice')
     expect(FEATURE_INTERACTION_CATEGORY_BY_ID['ai-commit-generation']).toBe('source_control')

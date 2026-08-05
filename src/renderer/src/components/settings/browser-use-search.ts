@@ -52,10 +52,6 @@ export const getBrowserUsePaneSearchEntries = createLocalizedCatalog(() => [
       ),
       ...translateSearchKeyword('auto.components.settings.browser.use.search.6ea88e5206', 'npx'),
       ...translateSearchKeyword(
-        'auto.components.settings.browser.use.search.a57c2172dc',
-        'agent-browser'
-      ),
-      ...translateSearchKeyword(
         'auto.components.settings.browser.use.search.cee44fb442',
         'automation'
       )

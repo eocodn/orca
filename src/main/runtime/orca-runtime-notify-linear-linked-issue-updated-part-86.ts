@@ -1,4 +1,4 @@
-import { RuntimeBrowserCommands, RuntimeGithubProjectCommands, RuntimeJiraCommands, RuntimeLinearQueryCommands } from './orca-runtime-symbols'
+import { RuntimeGithubProjectCommands, RuntimeJiraCommands, RuntimeLinearQueryCommands } from './orca-runtime-symbols'
 import { OrcaRuntimeRefetchLinearIssueAfterDuplicatePart85 } from './orca-runtime-refetch-linear-issue-after-duplicate-part-85'
 
 export class OrcaRuntimeNotifyLinearLinkedIssueUpdatedPart86 extends OrcaRuntimeRefetchLinearIssueAfterDuplicatePart85 {
@@ -160,53 +160,4 @@ export class OrcaRuntimeNotifyLinearLinkedIssueUpdatedPart86 extends OrcaRuntime
   jiraGetProjectStatusOrder: RuntimeJiraCommands['jiraGetProjectStatusOrder'] =
     this.jiraCommands.jiraGetProjectStatusOrder.bind(this.jiraCommands)
 
-  // ── Browser automation ──
-
-  protected readonly browserCommands = new RuntimeBrowserCommands({
-    getAgentBrowserBridge: () => this.agentBrowserBridge,
-    resolveWorktreeSelector: (selector) => this.resolveWorktreeSelector(selector),
-    getAuthoritativeWindow: () => this.getAuthoritativeWindow(),
-    getAvailableAuthoritativeWindow: () => this.getAvailableAuthoritativeWindow(),
-    getOffscreenBrowserBackend: () => this.offscreenBrowserBackend,
-    // Why: bind directly, not a wrapper arrow — a hand-listed wrapper dropped targetGroupId, so a right-split browser landed in the left.
-    markHeadlessBrowserSessionTabActive: this.markHeadlessBrowserSessionTabActive.bind(this)
-  })
-
-  browserSnapshot: RuntimeBrowserCommands['browserSnapshot'] =
-    this.browserCommands.browserSnapshot.bind(this.browserCommands)
-
-  browserClick: RuntimeBrowserCommands['browserClick'] = this.browserCommands.browserClick.bind(
-    this.browserCommands
-  )
-
-  browserGoto: RuntimeBrowserCommands['browserGoto'] = this.browserCommands.browserGoto.bind(
-    this.browserCommands
-  )
-
-  browserFill: RuntimeBrowserCommands['browserFill'] = this.browserCommands.browserFill.bind(
-    this.browserCommands
-  )
-
-  browserType: RuntimeBrowserCommands['browserType'] = this.browserCommands.browserType.bind(
-    this.browserCommands
-  )
-
-  browserSelect: RuntimeBrowserCommands['browserSelect'] = this.browserCommands.browserSelect.bind(
-    this.browserCommands
-  )
-
-  browserScroll: RuntimeBrowserCommands['browserScroll'] = this.browserCommands.browserScroll.bind(
-    this.browserCommands
-  )
-
-  browserBack: RuntimeBrowserCommands['browserBack'] = this.browserCommands.browserBack.bind(
-    this.browserCommands
-  )
-
-  browserReload: RuntimeBrowserCommands['browserReload'] = this.browserCommands.browserReload.bind(
-    this.browserCommands
-  )
-
-  browserScreenshot: RuntimeBrowserCommands['browserScreenshot'] =
-    this.browserCommands.browserScreenshot.bind(this.browserCommands)
 }

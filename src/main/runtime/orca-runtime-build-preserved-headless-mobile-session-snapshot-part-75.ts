@@ -259,10 +259,10 @@ export class OrcaRuntimeBuildPreservedHeadlessMobileSessionSnapshotPart75 extend
     return worktreeId
   }
   protected getLiveBrowserTabsByPageId(worktreeId: string): Map<string, BrowserTabInfo> {
-    if (!this.agentBrowserBridge?.tabList) {
+    if (!this.browserTabRegistry?.tabList) {
       return new Map()
     }
-    const liveTabs = this.agentBrowserBridge.tabList(worktreeId).tabs
+    const liveTabs = this.browserTabRegistry.tabList(worktreeId).tabs
     return new Map(liveTabs.map((tab) => [tab.browserPageId, tab]))
   }
   protected collectReturnedSessionTabIds(

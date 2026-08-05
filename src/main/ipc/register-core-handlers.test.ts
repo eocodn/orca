@@ -43,7 +43,6 @@ const {
   registerUpdaterHandlersMock,
   registerRateLimitHandlersMock,
   registerBrowserHandlersMock,
-  setAgentBrowserBridgeRefMock,
   setTrustedBrowserRendererWebContentsIdMock,
   registerFilesystemWatcherHandlersMock,
   registerAppHandlersMock,
@@ -105,7 +104,6 @@ const {
   registerUpdaterHandlersMock: vi.fn(),
   registerRateLimitHandlersMock: vi.fn(),
   registerBrowserHandlersMock: vi.fn(),
-  setAgentBrowserBridgeRefMock: vi.fn(),
   setTrustedBrowserRendererWebContentsIdMock: vi.fn(),
   registerFilesystemWatcherHandlersMock: vi.fn(),
   registerAppHandlersMock: vi.fn(),
@@ -329,7 +327,6 @@ vi.mock('../window/clipboard-ipc-handlers', () => ({
 vi.mock('./browser', () => ({
   registerBrowserHandlers: registerBrowserHandlersMock,
   setTrustedBrowserRendererWebContentsId: setTrustedBrowserRendererWebContentsIdMock,
-  setAgentBrowserBridgeRef: setAgentBrowserBridgeRefMock
 }))
 
 vi.mock('./app', () => ({
@@ -407,7 +404,6 @@ describe('registerCoreHandlers', () => {
     registerUpdaterHandlersMock.mockReset()
     registerRateLimitHandlersMock.mockReset()
     registerBrowserHandlersMock.mockReset()
-    setAgentBrowserBridgeRefMock.mockReset()
     setTrustedBrowserRendererWebContentsIdMock.mockReset()
     registerFilesystemWatcherHandlersMock.mockReset()
     registerAppHandlersMock.mockReset()
@@ -428,7 +424,7 @@ describe('registerCoreHandlers', () => {
 
   it('passes the store through to handler registrars that need it', async () => {
     const store = { marker: 'store' }
-    const runtime = { marker: 'runtime', getAgentBrowserBridge: () => null }
+    const runtime = { marker: 'runtime' }
     const stats = { marker: 'stats' }
     const claudeUsage = { marker: 'claudeUsage' }
     const codexUsage = { marker: 'codexUsage' }

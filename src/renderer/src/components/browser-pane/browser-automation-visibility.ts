@@ -129,7 +129,7 @@ async function acquireForMainProcess(browserPageId: string): Promise<string | nu
   }
   const token = acquireBrowserAutomationVisibility(browserPageId)
   // Why: the hidden pane only becomes paintable after the visibility lease
-  // exists. Wait after acquiring it so agent-browser commands do not race a
+  // exists. Wait after acquiring it so remote browser commands do not race a
   // still-hidden webview; release locally if paint never arrives.
   if (await waitForAutomationVisiblePaint()) {
     return token

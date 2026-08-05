@@ -1,11 +1,9 @@
 // Browser IPC handlers and tab lifecycle implementation.
 import { webContents } from 'electron'
 import { browserManager } from '../browser/browser-manager'
-import type { AgentBrowserBridge } from '../browser/agent-browser-bridge'
 import type { BrowserSetGrabModeResult } from '../../shared/browser-grab-types'
 
 export let trustedBrowserRendererWebContentsId: number | null = null
-export let agentBrowserBridgeRef: AgentBrowserBridge | null = null
 
 // Why: CLI-driven tab creation must wait until the renderer mounts the webview
 // and calls registerGuest, so the tab has a webContentsId and is operable by
@@ -135,10 +133,6 @@ export function waitForAnyTabRegistration(timeoutMs = 8_000): Promise<void> {
 
 export function setTrustedBrowserRendererWebContentsId(webContentsId: number | null): void {
   trustedBrowserRendererWebContentsId = webContentsId
-}
-
-export function setAgentBrowserBridgeRef(bridge: AgentBrowserBridge | null): void {
-  agentBrowserBridgeRef = bridge
 }
 
 export function isTrustedBrowserRenderer(sender: Electron.WebContents): boolean {

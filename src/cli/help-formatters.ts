@@ -1,5 +1,5 @@
 import type { CommandSpec } from './args'
-import { findCommandSpec, isCommandGroup, supportsBrowserPageFlag } from './args'
+import { findCommandSpec, isCommandGroup } from './args'
 import { unknownCommandData } from './command-suggestion'
 
 import { ROOT_HELP_TEXT } from './help-root-text'
@@ -27,12 +27,7 @@ export function printHelp(specs: CommandSpec[], commandPath: string[] = []): voi
 
 export function formatCommandHelp(spec: CommandSpec): string {
   const lines = [`orca ${spec.path.join(' ')}`, '', `Usage: ${spec.usage}`, '', spec.summary]
-  const displayedFlags =
-    spec.argumentMode === 'passthrough'
-      ? []
-      : supportsBrowserPageFlag(spec.path)
-        ? [...spec.allowedFlags, 'page']
-        : spec.allowedFlags
+  const displayedFlags = spec.argumentMode === 'passthrough' ? [] : spec.allowedFlags
 
   if (displayedFlags.length > 0) {
     lines.push('', 'Options:')
@@ -192,18 +187,6 @@ export function formatFlagHelp(flag: string): string {
     staged: '--staged               Open staged source-control changes',
     provider: '--provider <agent>     Agent id such as codex, claude, or gemini',
     'value-stdin': '--value-stdin         Read set-value payload from stdin',
-    // Browser automation flags
-    element: '--element <ref>        Element ref from snapshot (e.g. e3)',
-    url: '--url <url>            URL to navigate to',
-    value: '--value <text>         Value to fill or select',
-    input: '--input <text>         Text to type at current focus',
-    expression: '--expression <js>     JavaScript expression to evaluate',
-    amount: '--amount <pixels>      Scroll distance in pixels',
-    index: '--index <n>            Tab index to switch to',
-    page: '--page <id>            Stable browser page id from `orca tab list --json`',
-    profile: '--profile <id>        Browser profile id',
-    'show-profile': '--show-profile        Include tab profile in text output',
-    format: '--format <png|jpeg>    Screenshot image format'
   }
 
   if (flag === 'current') {

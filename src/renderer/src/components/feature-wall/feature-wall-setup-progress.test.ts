@@ -226,7 +226,6 @@ describe('getFeatureWallSetupProgress', () => {
     const progress = getFeatureWallSetupProgress(
       makeInput({
         featureInteractions: {
-          'agent-browser-setup': { firstInteractedAt: 1_700_000_000_000, interactionCount: 1 }
         }
       })
     )

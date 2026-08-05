@@ -6782,7 +6782,7 @@ describe('Store', () => {
 
     store.updateUI({
       featureInteractions: {
-        'agent-browser-use': { firstInteractedAt: 100, interactionCount: 1 }
+        'browser-grab': { firstInteractedAt: 100, interactionCount: 1 }
       }
     })
     store.updateUI({
@@ -6792,7 +6792,7 @@ describe('Store', () => {
     })
 
     expect(store.getUI().featureInteractions).toEqual({
-      'agent-browser-use': { firstInteractedAt: 100, interactionCount: 1 },
+      'browser-grab': { firstInteractedAt: 100, interactionCount: 1 },
       tasks: { firstInteractedAt: 200, interactionCount: 1 }
     })
   })

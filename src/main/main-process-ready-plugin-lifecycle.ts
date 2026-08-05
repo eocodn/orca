@@ -176,13 +176,6 @@ export async function initializeReadyPlugins(): Promise<void> {
   startupState.starNag = new startupDeps.StarNagService(store, stats)
   startupState.starNag.start()
   startupState.starNag.registerIpcHandlers()
-  startupState.runtime!.setAgentBrowserBridge(
-    new startupDeps.AgentBrowserBridge(startupDeps.browserManager, {
-      onTabsChanged: (worktreeId) =>
-        startupState.runtime!.notifyMobileSessionTabsChanged(worktreeId)
-    })
-  )
-
   startupDeps.nativeTheme.themeSource = store.getSettings().theme ?? 'system'
   if (codexRuntimeHome.isHostSystemDefaultRealHomeSelected()) {
     // Why: establish capability before managed-hook reconciliation so an
