@@ -152,6 +152,8 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(live_started.operation, "start");
     assert_eq!(live_started.status, PtyStatus::Running);
+    assert_eq!(live_started.session_generation, 1);
+    assert_eq!(live_started.exit_code, None);
 
     // Wait completes and removes its session, so it uses a separate real PTY.
     let wait_started = execute(HostPtyRequest::new(
@@ -171,6 +173,8 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(wait_started.operation, "start");
     assert_eq!(wait_started.status, PtyStatus::Running);
+    assert_eq!(wait_started.session_generation, 2);
+    assert_eq!(wait_started.exit_code, None);
 
     let written = execute(HostPtyRequest::new(
         "matrix-write",
@@ -184,6 +188,8 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(written.operation, "write");
     assert_eq!(written.status, PtyStatus::Running);
+    assert_eq!(written.session_generation, 1);
+    assert_eq!(written.exit_code, None);
 
     let resized = execute(HostPtyRequest::new(
         "matrix-resize",
@@ -198,6 +204,8 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(resized.operation, "resize");
     assert_eq!(resized.status, PtyStatus::Running);
+    assert_eq!(resized.session_generation, 1);
+    assert_eq!(resized.exit_code, None);
 
     let polled = execute(HostPtyRequest::new(
         "matrix-poll",
@@ -209,6 +217,8 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(polled.operation, "poll");
     assert_eq!(polled.status, PtyStatus::Running);
+    assert_eq!(polled.session_generation, 1);
+    assert_eq!(polled.exit_code, None);
 
     let waited = execute(HostPtyRequest::new(
         "matrix-wait",
@@ -220,6 +230,7 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(waited.operation, "wait");
     assert_eq!(waited.status, PtyStatus::Exited);
+    assert_eq!(waited.session_generation, 2);
     assert_eq!(waited.exit_code, Some(0));
     assert!(waited.tail.contains("ready"));
 
@@ -233,6 +244,7 @@ fn executes_the_shared_host_pty_operation_matrix_on_real_unix_ptys() {
     ));
     assert_eq!(terminated.operation, "terminate");
     assert_eq!(terminated.status, PtyStatus::Failed);
+    assert_eq!(terminated.session_generation, 1);
     assert_eq!(terminated.exit_code, None);
 }
 
