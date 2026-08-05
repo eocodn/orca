@@ -76,3 +76,21 @@ test('cloud and ephemeral VM production surfaces are removed', () => {
     assert.deepEqual(staleKeys, [], `${relative(root, path)}: ${staleKeys.join(', ')}`)
   }
 })
+
+test('cloud and ephemeral VM test surfaces are removed', () => {
+  const files = sourceRoots
+    .flatMap((path) => walk(join(root, path)))
+    .filter(
+      (path) =>
+        (path.includes('.test.') || path.includes('.spec.')) && !path.endsWith('.d.ts')
+    )
+  const staleReferences = files.flatMap((path) => {
+    const name = path.split('/').at(-1) ?? ''
+    const text = readFileSync(path, 'utf8')
+    return removedFileNames.some((token) => name.includes(token)) ||
+      /ephemeral[ _-]?vm|cloud[ _-]?vm|vmRecipes?|environmentRecipes|OrcaVmRecipe/i.test(text)
+      ? [relative(root, path)]
+      : []
+  })
+  assert.deepEqual(staleReferences, [], staleReferences.join('\n'))
+})
