@@ -65,6 +65,8 @@ pub struct PtySession {
     writer: Mutex<Option<Box<dyn Write + Send>>>,
     child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
     process_id: Option<u32>,
+    #[cfg(windows)]
+    process_identity: Option<WindowsProcessIdentity>,
     process_group: Option<i32>,
     output_rx: Receiver<Result<Vec<u8>, String>>,
     reader_thread: Option<JoinHandle<()>>,
@@ -104,6 +106,16 @@ impl PtySession {
             .spawn_command(command)
             .map_err(|error| PtyError::Spawn(error.to_string()))?;
         let process_id = child.process_id();
+        #[cfg(windows)]
+        let process_identity = match process_id.map(capture_windows_process_identity).transpose() {
+            Ok(identity) => identity,
+            Err(error) => {
+                let mut child = child;
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+        };
         #[cfg(unix)]
         let process_group = pair.master.process_group_leader();
         #[cfg(not(unix))]
@@ -135,6 +147,8 @@ impl PtySession {
             writer: Mutex::new(Some(writer)),
             child: Arc::new(Mutex::new(child)),
             process_id,
+            #[cfg(windows)]
+            process_identity,
             process_group,
             output_rx,
             reader_thread,
@@ -487,7 +501,12 @@ impl PtySession {
         }
         let pid = child.process_id();
         if let Some(pid) = pid {
-            match terminate_process_tree(self.process_group, pid)? {
+            #[cfg(windows)]
+            let termination =
+                terminate_process_tree(self.process_group, pid, self.process_identity)?;
+            #[cfg(not(windows))]
+            let termination = terminate_process_tree(self.process_group, pid)?;
+            match termination {
                 ProcessTermination::Signalled => {
                     confirm_child_exit(&mut child)?;
                     self.child_reaped = true;
@@ -618,6 +637,76 @@ fn try_wait_child(
 }
 
 #[cfg(windows)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WindowsProcessIdentity {
+    creation_time: u64,
+}
+
+#[cfg(windows)]
+fn capture_windows_process_identity(pid: u32) -> Result<WindowsProcessIdentity, PtyError> {
+    use std::ffi::c_void;
+    use std::ptr::null_mut;
+
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+
+    #[repr(C)]
+    #[derive(Default)]
+    struct FileTime {
+        low: u32,
+        high: u32,
+    }
+
+    unsafe extern "system" {
+        #[link_name = "OpenProcess"]
+        fn open_process(desired_access: u32, inherit_handle: i32, process_id: u32) -> *mut c_void;
+        #[link_name = "GetProcessTimes"]
+        fn get_process_times(
+            handle: *mut c_void,
+            creation_time: *mut FileTime,
+            exit_time: *mut FileTime,
+            kernel_time: *mut FileTime,
+            user_time: *mut FileTime,
+        ) -> i32;
+        #[link_name = "CloseHandle"]
+        fn close_handle(handle: *mut c_void) -> i32;
+    }
+
+    let handle = unsafe { open_process(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle == null_mut() {
+        return Err(PtyError::Termination(String::from(
+            "could not inspect Windows PTY process identity",
+        )));
+    }
+    let mut creation_time = FileTime::default();
+    let mut exit_time = FileTime::default();
+    let mut kernel_time = FileTime::default();
+    let mut user_time = FileTime::default();
+    let observed = unsafe {
+        get_process_times(
+            handle,
+            &mut creation_time,
+            &mut exit_time,
+            &mut kernel_time,
+            &mut user_time,
+        )
+    };
+    let close_result = unsafe { close_handle(handle) };
+    if observed == 0 {
+        return Err(PtyError::Termination(String::from(
+            "could not observe Windows PTY process identity",
+        )));
+    }
+    if close_result == 0 {
+        return Err(PtyError::Termination(String::from(
+            "could not close Windows PTY process identity handle",
+        )));
+    }
+    Ok(WindowsProcessIdentity {
+        creation_time: (u64::from(creation_time.high) << 32) | u64::from(creation_time.low),
+    })
+}
+
+#[cfg(windows)]
 fn windows_process_has_exited(pid: u32) -> Result<bool, PtyError> {
     use std::ffi::c_void;
     use std::ptr::null_mut;
@@ -690,7 +779,16 @@ fn terminate_process_tree(
 fn terminate_process_tree(
     _process_group: Option<i32>,
     pid: u32,
+    expected_identity: Option<WindowsProcessIdentity>,
 ) -> Result<ProcessTermination, PtyError> {
+    let expected_identity = expected_identity.ok_or_else(|| {
+        PtyError::Termination(String::from("Windows PTY process identity unavailable"))
+    })?;
+    if capture_windows_process_identity(pid)? != expected_identity {
+        return Err(PtyError::Termination(String::from(
+            "Windows PTY process identity changed before termination",
+        )));
+    }
     let mut taskkill = std::process::Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/T", "/F"])
         .stdout(Stdio::null())
