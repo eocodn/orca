@@ -596,12 +596,7 @@
         "distroMissing": "選択した WSL ディストリビューションは利用できません。利用可能なものを選ぶか、このプロジェクトを Windows に切り替えてください。",
         "wslDefault": "WSL 既定"
       },
-      "sidebarWorktreeActivation": {
-        "wakeEphemeralVmFailed": "一時的なVMワークスペースの起動に失敗しました"
-      },
-      "ephemeralVmWorkspaceTarget": {
-        "projectRootRegistrationFailed": "ランタイム上でのレシピ作成プロジェクトルートの登録に失敗しました"
-      },
+      "sidebarWorktreeActivation": {},
       "blocked": {
         "notification": {
           "fallback": {
@@ -1302,7 +1297,6 @@
         "destroyDisabled": "破壊は無効です",
         "destroyConfigured": "設定されたものを破棄する",
         "noDestroyConfigured": "破壊しない",
-        "ephemeralVm": "ワークスペースごとの環境",
         "chooseRunTarget": "ターゲットを選択",
         "noRunTargets": "このプロジェクトには実行ターゲットが準備されていません。",
         "perWorkspaceEnvHint": "レシピからオンデマンド環境をプロビジョニングする",
@@ -6674,9 +6668,7 @@
           "troubleshootStepShare": "もう一方のコンピューターで「このホストを共有」を開きます。",
           "troubleshootStepAddress": "「別のデバイス」を選び、Tailscale または LAN アドレスを選択します。",
           "troubleshootStepRegenerate": "新しいアクセスリンクを生成し、ここでは最新のリンクだけを使います。",
-          "troubleshootTunnel": "SSH ローカルフォワードを使う場合は、「ホストに接続」に戻ってループバックリンクを貼り付け、「詳細」で「SSH トンネルを使用しています」を有効にします。",
-          "cloudVmWorkflow": "クラウド VM",
-          "cloudVmWorkflowHelp": "レシピで作成したクラウドマシンを管理"
+          "troubleshootTunnel": "SSH ローカルフォワードを使う場合は、「ホストに接続」に戻ってループバックリンクを貼り付け、「詳細」で「SSH トンネルを使用しています」を有効にします。"
         },
         "RuntimePairingGeneratedUrlRows": {
           "0495f68959": "{{value0}}をコピー"
@@ -9342,69 +9334,6 @@
           "orcaCloudRefresh": "ステータスを更新",
           "orcaCloudNotConfigured": "ORCA_CLOUD_API_URLとORCA_CLOUD_CLIENT_IDを設定して、この開発ビルドでOrca Cloudのサインインをプレビューします。"
         },
-        "EphemeralVmRecipeRow": {
-          "useInWorkspace": "ワークスペースでの使用"
-        },
-        "EphemeralVmRuntimesSection": {
-          "cleanupFailed": "クリーンアップに失敗しました",
-          "cleanupRunning": "クリーンアップ実行中",
-          "cleanupDisabled": "クリーンアップが無効になっています",
-          "running": "ランニング",
-          "failed": "失敗した",
-          "loadFailed": "一時的な VM ランタイムを読み込めませんでした。",
-          "cleanupFailedToast": "一時的な VM ランタイムをクリーンアップできませんでした。",
-          "markedCleaned": "一時的な VM ランタイムをクリーン済みとしてマークしました。",
-          "cleaned": "一時的な VM ランタイムをクリーンアップしました。",
-          "copiedCleanupCommand": "クリーンアップコマンドをコピーしました。",
-          "copiedCleanupPayload": "コピーされたクリーンアップ ペイロード。",
-          "copyCleanupFailed": "クリーンアップ コマンドをコピーできませんでした。",
-          "title": "一時的な VM ランタイム",
-          "description": "レシピで作成されたランタイムはワークスペースに所有されます。クラッシュ、作成の失敗、または手動リカバリの後に、古いエントリをクリーンアップします。",
-          "refresh": "一時的な VM ランタイムを更新する",
-          "loading": "一時的な VM ランタイムを確認しています…",
-          "empty": "一時的な VM ランタイムにはクリーンアップが必要ありません。",
-          "copyCleanup": "コピーコマンド",
-          "retry": "クリーンアップを再試行します",
-          "cleanup": "クリーンアップ",
-          "cloudVmLoadFailed": "クラウド VM ランタイムを読み込めませんでした。",
-          "cloudVmCleanupFailedToast": "クラウド VM ランタイムをクリーンアップできませんでした。",
-          "cloudVmMarkedCleaned": "クラウド VM ランタイムをクリーンアップ済みとして記録しました。",
-          "cloudVmCleaned": "クラウド VM ランタイムをクリーンアップしました。",
-          "cloudVmTitle": "クラウド VM ランタイム",
-          "cloudVmRefresh": "クラウド VM ランタイムを更新",
-          "cloudVmLoading": "クラウド VM ランタイムを確認中…",
-          "cloudVmEmptyWithSetup": "クラウド VM ランタイムはまだありません。環境レシピを使用してワークスペースから作成してください。"
-        },
-        "ephemeralVms": {
-          "search": {
-            "description": "repo 所有のレシピが各ワークスペースに独自のオンデマンドの使い捨て環境を与える方法を学びましょう。",
-            "cloudVmTitle": "クラウド VM"
-          }
-        },
-        "EphemeralVmsPane": {
-          "loadError": "レシピを読み込めませんでした。",
-          "copyError": "プロンプトをコピーできませんでした。",
-          "skillDescription": "repo が所有する環境レシピをセットアップ、構築、認証、および検証します。",
-          "whatTitle": "スキルが何をするのか、あなたと一緒に",
-          "whatScaffold": "Orca サーバーまたは SSH 経由で接続されているプロバイダーのレシピとスクリプトを作成します。",
-          "whatBuild": "再利用可能な基本イメージを構築し、agent をサインインします。",
-          "whatValidate": "ワークスペースを作成できるようにそれを検証します。",
-          "promptHint": "どのワークスペースでも、agent に次のように尋ねます。",
-          "copy": "コピー",
-          "copied": "コピーされました",
-          "recipes": "レシピ",
-          "recipesHelp": "orca.yaml と有効なプラグインのレシピがここに表示され、ワークスペースを起動できます。",
-          "checking": "レシピを確認中...",
-          "none": "レシピはまだ見つかりません。",
-          "cloudVmSkillTitle": "クラウド VM セットアップスキル",
-          "cloudVmRefresh": "クラウド VM レシピを更新",
-          "cloudVmTerminalTitle": "クラウド VM のセットアップ",
-          "cloudVmTerminalAriaLabel": "クラウド VM スキルインストールターミナル"
-        },
-        "ephemeralVmsExperimentalSetting": {
-          "description": "repo が所有するオンデマンド環境のセットアップ コントロールとワークスペース実行ターゲットを示します。",
-          "cloudVmToggleLabel": "クラウド VM を切り替える"
-        },
         "SourceControlActionRepoOverrideNote": {
           "agent": "エージェント",
           "agentArgs": "CLI引数",
@@ -9733,14 +9662,6 @@
           "enableLabel": "{{value0}}を有効にする",
           "invalidPluginError": "プラグインマニフェストまたはインストールされたファイルが無効です。プラグインを修正してから更新してください。"
         },
-        "PluginVmRecipeConsentPreview": {
-          "create": "作成",
-          "suspend": "一時停止",
-          "resume": "再開",
-          "destroy": "破棄",
-          "heading": "VMレシピコマンド",
-          "commandLabel": "{{value0}} · {{value1}}個のコマンド"
-        },
         "pluginError": {
           "installManifestMissing": "読み取り可能なorca-plugin.jsonが見つかりません。プラグインのルートフォルダーを選択してください。",
           "installManifestInvalid": "orca-plugin.jsonが無効です。プラグイン作成者にマニフェストの修正を依頼してください。",
@@ -9862,13 +9783,6 @@
           "endpointKind": "接続先の種類",
           "networkConnection": "ネットワーク接続",
           "notAttempted": "未試行"
-        },
-        "CloudVmSetupGuide": {
-          "title": "クラウド VM を作成",
-          "description": "クラウド VM は、ワークスペースの作成時に環境レシピから作成されます。",
-          "setupRecipe": "クラウドプロバイダー用の環境レシピをセットアップします。",
-          "createWorkspace": "ワークスペースを作成し、「実行先」でそのレシピを選択します。",
-          "openSetup": "環境レシピをセットアップ"
         }
       },
       "right": {

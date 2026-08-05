@@ -596,12 +596,7 @@
         "distroMissing": "所选 WSL 发行版不可用。请选择可用发行版，或将此项目切换到 Windows。",
         "wslDefault": "WSL 默认"
       },
-      "sidebarWorktreeActivation": {
-        "wakeEphemeralVmFailed": "唤醒临时虚拟机工作区失败"
-      },
-      "ephemeralVmWorkspaceTarget": {
-        "projectRootRegistrationFailed": "在运行时上注册环境模板创建的项目根目录失败"
-      },
+      "sidebarWorktreeActivation": {},
       "blocked": {
         "notification": {
           "fallback": {
@@ -1302,7 +1297,6 @@
         "destroyDisabled": "已禁用销毁",
         "destroyConfigured": "已配置销毁",
         "noDestroyConfigured": "未配置销毁",
-        "ephemeralVm": "工作区专属环境",
         "chooseRunTarget": "选择目标",
         "noRunTargets": "此项目还没有可用的运行目标。",
         "perWorkspaceEnvHint": "通过环境模板按需创建环境",
@@ -6637,9 +6631,7 @@
           "troubleshootStepShare": "在另一台计算机上，打开“共享此主机”。",
           "troubleshootStepAddress": "选择“其他设备”，然后选择其 Tailscale 或 LAN 地址。",
           "troubleshootStepRegenerate": "生成新的访问链接，并仅在此处使用最新的链接。",
-          "troubleshootTunnel": "正在使用 SSH 本地转发？返回“连接到主机”，粘贴环回链接，然后在“高级”下启用“我正在使用 SSH 隧道”。",
-          "cloudVmWorkflow": "云虚拟机",
-          "cloudVmWorkflowHelp": "管理由配方创建的云端机器"
+          "troubleshootTunnel": "正在使用 SSH 本地转发？返回“连接到主机”，粘贴环回链接，然后在“高级”下启用“我正在使用 SSH 隧道”。"
         },
         "RuntimePairingGeneratedUrlRows": {
           "0495f68959": "复制 {{value0}}"
@@ -9342,69 +9334,6 @@
           "orcaCloudRefresh": "刷新状态",
           "orcaCloudNotConfigured": "设置 ORCA_CLOUD_API_URL 和 ORCA_CLOUD_CLIENT_ID 以在此开发版本中预览 Orca Cloud 登录。"
         },
-        "EphemeralVmRecipeRow": {
-          "useInWorkspace": "在工作区中使用"
-        },
-        "EphemeralVmRuntimesSection": {
-          "cleanupFailed": "清理失败",
-          "cleanupRunning": "正在清理",
-          "cleanupDisabled": "清理已禁用",
-          "running": "运行中",
-          "failed": "失败",
-          "loadFailed": "无法加载临时 VM 运行时。",
-          "cleanupFailedToast": "无法清理临时 VM 运行时。",
-          "markedCleaned": "已将临时 VM 运行时标记为已清理。",
-          "cleaned": "已清理临时 VM 运行时。",
-          "copiedCleanupCommand": "已复制清理命令。",
-          "copiedCleanupPayload": "已复制清理载荷。",
-          "copyCleanupFailed": "无法复制清理命令。",
-          "title": "临时 VM 运行时",
-          "description": "由环境模板创建的运行时归工作区所有。崩溃、创建失败或手动恢复后，请清理过期条目。",
-          "refresh": "刷新临时 VM 运行时",
-          "loading": "正在检查临时 VM 运行时…",
-          "empty": "没有需要清理的临时 VM 运行时。",
-          "copyCleanup": "复制命令",
-          "retry": "重试清理",
-          "cleanup": "清理",
-          "cloudVmLoadFailed": "无法加载云虚拟机运行时。",
-          "cloudVmCleanupFailedToast": "无法清理云虚拟机运行时。",
-          "cloudVmMarkedCleaned": "已将云虚拟机运行时标记为已清理。",
-          "cloudVmCleaned": "已清理云虚拟机运行时。",
-          "cloudVmTitle": "云虚拟机运行时",
-          "cloudVmRefresh": "刷新云虚拟机运行时",
-          "cloudVmLoading": "正在检查云虚拟机运行时…",
-          "cloudVmEmptyWithSetup": "还没有云虚拟机运行时。请在创建工作区时使用环境模板来创建。"
-        },
-        "ephemeralVms": {
-          "search": {
-            "description": "了解仓库自带的环境模板如何为每个工作区提供按需创建、可丢弃的独立环境。",
-            "cloudVmTitle": "云虚拟机"
-          }
-        },
-        "EphemeralVmsPane": {
-          "loadError": "无法加载环境模板。",
-          "copyError": "无法复制提示词。",
-          "skillDescription": "设置、构建、认证并验证仓库自带的环境模板。",
-          "whatTitle": "此技能会与你一起完成",
-          "whatScaffold": "为你的提供商编写环境模板和脚本，可通过 Orca 服务器或 SSH 连接。",
-          "whatBuild": "构建可复用的基础镜像，并让智能体完成登录。",
-          "whatValidate": "验证环境，以便你可以在其上创建工作区。",
-          "promptHint": "在任意工作区中，可以这样询问智能体：",
-          "copy": "复制",
-          "copied": "已复制",
-          "recipes": "环境模板",
-          "recipesHelp": "orca.yaml 和已启用插件中的配方会显示在这里，可用于启动工作区。",
-          "checking": "正在检查环境模板...",
-          "none": "还没有找到环境模板。",
-          "cloudVmSkillTitle": "云虚拟机设置技能",
-          "cloudVmRefresh": "刷新云虚拟机环境模板",
-          "cloudVmTerminalTitle": "云虚拟机设置",
-          "cloudVmTerminalAriaLabel": "云虚拟机技能安装终端"
-        },
-        "ephemeralVmsExperimentalSetting": {
-          "description": "显示仓库自带按需环境的设置控件和工作区运行目标。",
-          "cloudVmToggleLabel": "切换云虚拟机"
-        },
         "SourceControlActionRepoOverrideNote": {
           "agent": "智能体",
           "agentArgs": "CLI 参数",
@@ -9733,14 +9662,6 @@
           "enableLabel": "启用 {{value0}}",
           "invalidPluginError": "插件清单或安装的文件无效。请修复插件，然后刷新。"
         },
-        "PluginVmRecipeConsentPreview": {
-          "create": "创建",
-          "suspend": "挂起",
-          "resume": "恢复",
-          "destroy": "销毁",
-          "heading": "VM 配方命令",
-          "commandLabel": "{{value0}} · {{value1}} 个命令"
-        },
         "pluginError": {
           "installManifestMissing": "未找到可读的 orca-plugin.json。请选择插件的根文件夹。",
           "installManifestInvalid": "orca-plugin.json 无效。请要求插件作者修复清单。",
@@ -9862,13 +9783,6 @@
           "endpointKind": "端点类型",
           "networkConnection": "网络连接",
           "notAttempted": "未尝试"
-        },
-        "CloudVmSetupGuide": {
-          "title": "创建云虚拟机",
-          "description": "云虚拟机会在创建工作区时通过环境模板创建。",
-          "setupRecipe": "为你的云提供商设置环境模板。",
-          "createWorkspace": "创建工作区，并在“运行于”中选择该模板。",
-          "openSetup": "设置环境模板"
         }
       },
       "right": {

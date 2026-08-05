@@ -596,12 +596,7 @@
         "distroMissing": "La distro WSL seleccionada no está disponible. Elige una disponible o cambia este proyecto a Windows.",
         "wslDefault": "WSL predeterminado"
       },
-      "sidebarWorktreeActivation": {
-        "wakeEphemeralVmFailed": "Error al activar el espacio de trabajo VM efímera"
-      },
-      "ephemeralVmWorkspaceTarget": {
-        "projectRootRegistrationFailed": "Error al registrar la raíz del proyecto creada por la receta en el entorno de ejecución"
-      },
+      "sidebarWorktreeActivation": {},
       "blocked": {
         "notification": {
           "fallback": {
@@ -1302,7 +1297,6 @@
         "destroyDisabled": "destroy deshabilitado",
         "destroyConfigured": "destroy configurado",
         "noDestroyConfigured": "sin destroy",
-        "ephemeralVm": "Entorno por espacio de trabajo",
         "chooseRunTarget": "Elegir destino",
         "noRunTargets": "No hay destinos de ejecución listos para este proyecto.",
         "perWorkspaceEnvHint": "Provisiona un entorno bajo demanda a partir de una receta",
@@ -6652,9 +6646,7 @@
           "troubleshootStepShare": "En el otro equipo, abre Compartir este host.",
           "troubleshootStepAddress": "Elige Otro dispositivo y selecciona su dirección de Tailscale o LAN.",
           "troubleshootStepRegenerate": "Genera un enlace de acceso nuevo y usa aquí solo el más reciente.",
-          "troubleshootTunnel": "¿Usas un reenvío local SSH? Vuelve a Conectarse a un host, pega el enlace de bucle local y activa «Estoy usando un túnel SSH» en Avanzado.",
-          "cloudVmWorkflow": "VM en la nube",
-          "cloudVmWorkflowHelp": "Gestionar máquinas en la nube creadas mediante recetas"
+          "troubleshootTunnel": "¿Usas un reenvío local SSH? Vuelve a Conectarse a un host, pega el enlace de bucle local y activa «Estoy usando un túnel SSH» en Avanzado."
         },
         "RuntimePairingGeneratedUrlRows": {
           "0495f68959": "Copiar {{value0}}"
@@ -9342,69 +9334,6 @@
           "orcaCloudRefresh": "Actualizar estado",
           "orcaCloudNotConfigured": "Configura ORCA_CLOUD_API_URL y ORCA_CLOUD_CLIENT_ID para previsualizar el inicio de sesión de Orca Cloud en esta versión de desarrollo."
         },
-        "EphemeralVmRecipeRow": {
-          "useInWorkspace": "Usar en el espacio de trabajo"
-        },
-        "EphemeralVmRuntimesSection": {
-          "cleanupFailed": "Error al limpiar",
-          "cleanupRunning": "Limpieza en curso",
-          "cleanupDisabled": "Limpieza deshabilitada",
-          "running": "En ejecución",
-          "failed": "Con error",
-          "loadFailed": "No se pudieron cargar los runtimes de VM temporales.",
-          "cleanupFailedToast": "No se pudo limpiar el runtime de VM temporal.",
-          "markedCleaned": "Runtime de VM temporal marcado como limpio.",
-          "cleaned": "Se limpió el runtime de VM temporal.",
-          "copiedCleanupCommand": "Comando de limpieza copiado.",
-          "copiedCleanupPayload": "Payload de limpieza copiado.",
-          "copyCleanupFailed": "No se pudo copiar el comando de limpieza.",
-          "title": "Runtimes de VM temporales",
-          "description": "Los runtimes creados por recetas pertenecen al espacio de trabajo. Limpia entradas obsoletas después de cierres inesperados, creaciones fallidas o recuperación manual.",
-          "refresh": "Actualizar runtimes de VM temporales",
-          "loading": "Comprobando runtimes de VM temporales…",
-          "empty": "No hay runtimes de VM temporales que limpiar.",
-          "copyCleanup": "Copiar comando",
-          "retry": "Reintentar limpieza",
-          "cleanup": "Limpiar",
-          "cloudVmLoadFailed": "No se pudieron cargar los runtimes de VM en la nube.",
-          "cloudVmCleanupFailedToast": "No se pudo limpiar el runtime de VM en la nube.",
-          "cloudVmMarkedCleaned": "El runtime de VM en la nube se marcó como limpiado.",
-          "cloudVmCleaned": "Se limpió el runtime de VM en la nube.",
-          "cloudVmTitle": "Runtimes de VM en la nube",
-          "cloudVmRefresh": "Actualizar runtimes de VM en la nube",
-          "cloudVmLoading": "Comprobando runtimes de VM en la nube…",
-          "cloudVmEmptyWithSetup": "Aún no hay runtimes de VM en la nube. Crea uno desde un espacio de trabajo mediante una receta de entorno."
-        },
-        "ephemeralVms": {
-          "search": {
-            "description": "Aprende cómo las recetas del repositorio dan a cada espacio de trabajo su propio entorno desechable bajo demanda.",
-            "cloudVmTitle": "VM en la nube"
-          }
-        },
-        "EphemeralVmsPane": {
-          "loadError": "No se pudieron cargar las recetas.",
-          "copyError": "No se pudo copiar el prompt.",
-          "skillDescription": "Configura, construye, autentica y valida recetas de entornos del repositorio.",
-          "whatTitle": "Lo que la skill hace contigo",
-          "whatScaffold": "Escribe la receta y los scripts para tu proveedor, conectados mediante un servidor Orca o SSH.",
-          "whatBuild": "Crea una imagen base reutilizable e inicia sesión con tu agente.",
-          "whatValidate": "Valida el entorno para que puedas crear un espacio de trabajo sobre él.",
-          "promptHint": "En cualquier espacio de trabajo, pídele a tu agente:",
-          "copy": "Copiar",
-          "copied": "Copiado",
-          "recipes": "Recetas",
-          "recipesHelp": "Las recetas de orca.yaml y de los plugins activados aparecen aquí, listas para iniciar un espacio de trabajo.",
-          "checking": "Comprobando recetas…",
-          "none": "Aún no se han encontrado recetas.",
-          "cloudVmSkillTitle": "Skill de configuración de VM en la nube",
-          "cloudVmRefresh": "Actualizar recetas de VM en la nube",
-          "cloudVmTerminalTitle": "Configuración de VM en la nube",
-          "cloudVmTerminalAriaLabel": "Terminal de instalación de la skill de VM en la nube"
-        },
-        "ephemeralVmsExperimentalSetting": {
-          "description": "Muestra controles de configuración y destinos de ejecución de espacios de trabajo para entornos bajo demanda del repositorio.",
-          "cloudVmToggleLabel": "Activar o desactivar VM en la nube"
-        },
         "SourceControlActionRepoOverrideNote": {
           "agent": "Agente",
           "agentArgs": "Argumentos CLI",
@@ -9733,14 +9662,6 @@
           "enableLabel": "Activar {{value0}}",
           "invalidPluginError": "El manifiesto o los archivos instalados del plugin no son válidos. Corrige el plugin y actualiza."
         },
-        "PluginVmRecipeConsentPreview": {
-          "create": "Crear",
-          "suspend": "Suspender",
-          "resume": "Reanudar",
-          "destroy": "Destruir",
-          "heading": "Comandos de recetas de VM",
-          "commandLabel": "{{value0}} · comando de {{value1}}"
-        },
         "pluginError": {
           "installManifestMissing": "No se encontró un orca-plugin.json legible. Elige la carpeta raíz del plugin.",
           "installManifestInvalid": "orca-plugin.json no es válido. Pide al autor del plugin que corrija el manifiesto.",
@@ -9862,13 +9783,6 @@
           "endpointKind": "Tipo de destino",
           "networkConnection": "Conexión de red",
           "notAttempted": "No se intentó"
-        },
-        "CloudVmSetupGuide": {
-          "title": "Crear una VM en la nube",
-          "description": "Las VMs en la nube se crean a partir de recetas de entorno al crear un espacio de trabajo.",
-          "setupRecipe": "Configura una receta de entorno para tu proveedor de nube.",
-          "createWorkspace": "Crea un espacio de trabajo y selecciona esa receta en Ejecutar en.",
-          "openSetup": "Configurar recetas de entorno"
         }
       },
       "right": {

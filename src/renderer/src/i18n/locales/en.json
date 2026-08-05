@@ -617,12 +617,7 @@
         "distroMissing": "The selected WSL distro is unavailable. Choose an available distro or switch this project to Windows.",
         "wslDefault": "WSL default"
       },
-      "sidebarWorktreeActivation": {
-        "wakeEphemeralVmFailed": "Failed to wake ephemeral VM workspace"
-      },
-      "ephemeralVmWorkspaceTarget": {
-        "projectRootRegistrationFailed": "Failed to register the recipe-created project root on the runtime."
-      },
+      "sidebarWorktreeActivation": {},
       "blocked": {
         "notification": {
           "fallback": {
@@ -1323,7 +1318,6 @@
         "destroyDisabled": "destroy disabled",
         "destroyConfigured": "destroy configured",
         "noDestroyConfigured": "no destroy",
-        "ephemeralVm": "Per-Workspace Environment",
         "chooseRunTarget": "Choose target",
         "noRunTargets": "No run targets are ready for this project.",
         "perWorkspaceEnvHint": "Provision an on-demand environment from a recipe",
@@ -6711,9 +6705,7 @@
           "troubleshootStepShare": "On the other computer, open Share this host.",
           "troubleshootStepAddress": "Choose Another device and select its Tailscale or LAN address.",
           "troubleshootStepRegenerate": "Generate a new access link and use only the newest link here.",
-          "troubleshootTunnel": "Using an SSH local forward? Return to Connect to a host, paste the loopback link, then enable “I am using an SSH tunnel” under Advanced.",
-          "cloudVmWorkflow": "Cloud VM",
-          "cloudVmWorkflowHelp": "Manage recipe-created cloud machines"
+          "troubleshootTunnel": "Using an SSH local forward? Return to Connect to a host, paste the loopback link, then enable “I am using an SSH tunnel” under Advanced."
         },
         "RuntimePairingGeneratedUrlRows": {
           "0495f68959": "Copy {{value0}}"
@@ -9354,69 +9346,6 @@
           "orcaCloudRefresh": "Refresh status",
           "orcaCloudNotConfigured": "Set ORCA_CLOUD_API_URL and ORCA_CLOUD_CLIENT_ID to preview Orca Cloud sign-in in this dev build."
         },
-        "EphemeralVmRecipeRow": {
-          "useInWorkspace": "Use in workspace"
-        },
-        "EphemeralVmRuntimesSection": {
-          "cleanupFailed": "Cleanup failed",
-          "cleanupRunning": "Cleanup running",
-          "cleanupDisabled": "Cleanup disabled",
-          "running": "Running",
-          "failed": "Failed",
-          "loadFailed": "Couldn’t load temporary VM runtimes.",
-          "cleanupFailedToast": "Couldn’t clean up temporary VM runtime.",
-          "markedCleaned": "Marked temporary VM runtime as cleaned.",
-          "cleaned": "Cleaned up temporary VM runtime.",
-          "copiedCleanupCommand": "Copied cleanup command.",
-          "copiedCleanupPayload": "Copied cleanup payload.",
-          "copyCleanupFailed": "Couldn’t copy cleanup command.",
-          "title": "Temporary VM runtimes",
-          "description": "Recipe-created runtimes are workspace-owned. Clean up stale entries after crashes, failed creates, or manual recovery.",
-          "refresh": "Refresh temporary VM runtimes",
-          "loading": "Checking temporary VM runtimes…",
-          "empty": "No temporary VM runtimes need cleanup.",
-          "copyCleanup": "Copy command",
-          "retry": "Retry cleanup",
-          "cleanup": "Cleanup",
-          "cloudVmLoadFailed": "Couldn’t load Cloud VM runtimes.",
-          "cloudVmCleanupFailedToast": "Couldn’t clean up Cloud VM runtime.",
-          "cloudVmMarkedCleaned": "Marked Cloud VM runtime as cleaned.",
-          "cloudVmCleaned": "Cleaned up Cloud VM runtime.",
-          "cloudVmTitle": "Cloud VM runtimes",
-          "cloudVmRefresh": "Refresh Cloud VM runtimes",
-          "cloudVmLoading": "Checking Cloud VM runtimes…",
-          "cloudVmEmptyWithSetup": "No Cloud VM runtimes yet. Create one from a workspace using an environment recipe."
-        },
-        "ephemeralVms": {
-          "search": {
-            "description": "Learn how repo-owned recipes give each workspace its own on-demand, disposable environment.",
-            "cloudVmTitle": "Cloud VM"
-          }
-        },
-        "EphemeralVmsPane": {
-          "loadError": "Could not load recipes.",
-          "copyError": "Could not copy the prompt.",
-          "skillDescription": "Sets up, builds, authenticates, and validates repo-owned environment recipes.",
-          "whatTitle": "What the skill does, with you",
-          "whatScaffold": "Writes the recipe & scripts for your provider — connected over an Orca server or SSH.",
-          "whatBuild": "Builds a reusable base image and signs your agent in.",
-          "whatValidate": "Validates it so you can create a workspace on it.",
-          "promptHint": "In any workspace, ask your agent:",
-          "copy": "Copy",
-          "copied": "Copied",
-          "recipes": "Recipes",
-          "recipesHelp": "Recipes from orca.yaml and enabled plugins show up here, ready to launch a workspace on.",
-          "checking": "Checking recipes...",
-          "none": "No recipes found yet.",
-          "cloudVmSkillTitle": "Cloud VM setup skill",
-          "cloudVmRefresh": "Refresh Cloud VM recipes",
-          "cloudVmTerminalTitle": "Cloud VM setup",
-          "cloudVmTerminalAriaLabel": "Cloud VM skill install terminal"
-        },
-        "ephemeralVmsExperimentalSetting": {
-          "description": "Shows setup controls and workspace run targets for repo-owned, on-demand environments.",
-          "cloudVmToggleLabel": "Toggle Cloud VM"
-        },
         "SourceControlActionRepoOverrideNote": {
           "agent": "Agent",
           "agentArgs": "CLI arguments",
@@ -9746,14 +9675,6 @@
           "enableLabel": "Enable {{value0}}",
           "invalidPluginError": "The plugin manifest or installed files are invalid. Fix the plugin, then refresh."
         },
-        "PluginVmRecipeConsentPreview": {
-          "create": "Create",
-          "suspend": "Suspend",
-          "resume": "Resume",
-          "destroy": "Destroy",
-          "heading": "VM recipe commands",
-          "commandLabel": "{{value0}} · {{value1}} command"
-        },
         "pluginError": {
           "installManifestMissing": "No readable orca-plugin.json was found. Choose the plugin's root folder.",
           "installManifestInvalid": "orca-plugin.json is invalid. Ask the plugin author to fix the manifest.",
@@ -9877,13 +9798,6 @@
           "notAttempted": "Not attempted",
           "saveFailed": "Could not save the host",
           "saveFailedHelp": "The host was verified, but Orca could not save it. Check the name and local settings storage, then try again."
-        },
-        "CloudVmSetupGuide": {
-          "title": "Create a Cloud VM",
-          "description": "Cloud VMs are created from environment recipes when you create a workspace.",
-          "setupRecipe": "Set up an environment recipe for your cloud provider.",
-          "createWorkspace": "Create a workspace and select that recipe under Run on.",
-          "openSetup": "Set up environment recipes"
         },
         "ReleaseChannelSection": {
           "switchFailed": "Could not switch to that build.",

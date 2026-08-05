@@ -5,6 +5,23 @@ import test from 'node:test'
 
 const root = join(import.meta.dirname, '..', '..')
 const sourceRoots = ['src', 'mobile', 'packages', 'docs', '.github', 'assets']
+const localeFiles = ['en', 'es', 'ja', 'ko', 'zh'].map((locale) =>
+  join(root, 'src', 'renderer', 'src', 'i18n', 'locales', `${locale}.json`)
+)
+const removedLocaleKeys = new Set([
+  'wakeEphemeralVmFailed',
+  'ephemeralVmWorkspaceTarget',
+  'ephemeralVm',
+  'cloudVmWorkflow',
+  'cloudVmWorkflowHelp',
+  'EphemeralVmRecipeRow',
+  'EphemeralVmRuntimesSection',
+  'ephemeralVms',
+  'EphemeralVmsPane',
+  'ephemeralVmsExperimentalSetting',
+  'PluginVmRecipeConsentPreview',
+  'CloudVmSetupGuide'
+])
 const removedFileNames = [
   'ephemeral-vm',
   'cloud-vm',
@@ -44,4 +61,18 @@ test('cloud and ephemeral VM production surfaces are removed', () => {
       : []
   })
   assert.deepEqual(staleReferences, [], staleReferences.join('\n'))
+
+  for (const path of localeFiles) {
+    const locale = JSON.parse(readFileSync(path, 'utf8'))
+    const staleKeys = []
+    const visit = (value) => {
+      if (!value || typeof value !== 'object') return
+      for (const [key, child] of Object.entries(value)) {
+        if (removedLocaleKeys.has(key)) staleKeys.push(key)
+        visit(child)
+      }
+    }
+    visit(locale)
+    assert.deepEqual(staleKeys, [], `${relative(root, path)}: ${staleKeys.join(', ')}`)
+  }
 })
