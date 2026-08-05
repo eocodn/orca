@@ -4,7 +4,7 @@ import { join, relative } from 'node:path'
 import test from 'node:test'
 
 const root = join(import.meta.dirname, '..', '..')
-const sourceRoots = ['src', 'mobile', 'packages', 'docs', '.github', 'assets']
+const sourceRoots = ['src', 'mobile', 'packages', 'docs', '.github', 'assets', 'resources']
 const localeFiles = ['en', 'es', 'ja', 'ko', 'zh'].map((locale) =>
   join(root, 'src', 'renderer', 'src', 'i18n', 'locales', `${locale}.json`)
 )
