@@ -605,7 +605,7 @@ fn render_result(
         generation: snapshot.generation,
         operation: operation_name(&request.operation).to_string(),
         status: response_status(&snapshot.status),
-        exit_code: exit_code(&snapshot.status),
+        exit_code: snapshot.exit_code,
         output_sequence: snapshot.output_sequence,
         tail: snapshot.tail,
         failure_reason: snapshot.failure_reason,
@@ -631,13 +631,6 @@ fn response_status(status: &ade_host_core::terminal::TerminalStatus) -> PtyStatu
         ade_host_core::terminal::TerminalStatus::Exited { .. } => PtyStatus::Exited,
         ade_host_core::terminal::TerminalStatus::Failed { .. } => PtyStatus::Failed,
         ade_host_core::terminal::TerminalStatus::Closed => PtyStatus::Closed,
-    }
-}
-
-fn exit_code(status: &ade_host_core::terminal::TerminalStatus) -> Option<i32> {
-    match status {
-        ade_host_core::terminal::TerminalStatus::Exited { code } => Some(*code),
-        _ => None,
     }
 }
 

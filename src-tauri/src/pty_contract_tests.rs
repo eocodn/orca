@@ -1,12 +1,13 @@
 use super::{
-    commit_request_result, execute_pty_request, PtyExecutionState, PtyOperation, PtyRequest,
-    PtySessionEntry,
+    commit_request_result, execute_pty_request, render_result, PtyExecutionState, PtyOperation,
+    PtyRequest, PtySessionEntry,
 };
 #[cfg(windows)]
 use ade_host_core::protocol::PtyStatus;
 use ade_host_core::protocol::{
     PtyExecutionTarget, PtyOperation as HostPtyOperation, PtyRequest as HostPtyRequest, PtyResponse,
 };
+use ade_host_core::terminal::{TerminalCommand, TerminalRuntime};
 use ade_terminal::pty::PtySession;
 #[cfg(unix)]
 use std::sync::Arc;
@@ -62,6 +63,32 @@ fn rejects_unknown_fields_during_deserialization() {
     )
     .unwrap_err();
     assert!(error.to_string().contains("unknown field"));
+}
+
+#[test]
+fn preserves_exit_code_when_rendering_a_closed_terminal() {
+    let runtime = TerminalRuntime::new("terminal-1").unwrap();
+    runtime.apply(0, TerminalCommand::Start).unwrap();
+    let running = runtime.snapshot().unwrap();
+    runtime
+        .apply(running.generation, TerminalCommand::Exit { code: 7 })
+        .unwrap();
+    let exited = runtime.snapshot().unwrap();
+    let closed = runtime
+        .apply(exited.generation, TerminalCommand::Close)
+        .unwrap();
+
+    let response = render_result(
+        &request("closed-1", "session-1", PtyOperation::Terminate),
+        closed,
+        1,
+    )
+    .unwrap();
+    let response = serde_json::from_str::<PtyResponse>(&response).unwrap();
+
+    assert_eq!(response.status, ade_host_core::protocol::PtyStatus::Closed);
+    assert_eq!(response.exit_code, Some(7));
+    assert_eq!(response.failure_reason, None);
 }
 
 #[test]
