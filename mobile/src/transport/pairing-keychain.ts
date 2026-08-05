@@ -2,11 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
 
-// Why: device-only accessibility keeps pairing credentials out of backup restores.
-const BASE_OPTIONS: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY
-}
-
 const GENERATION_STORAGE_KEY = 'orca:pairing-keychain-generation'
 const PRESENCE_STORAGE_PREFIX = 'orca:pairing-keychain-presence:'
 const SERVICE_PREFIX = 'orca.pairing.v'
@@ -26,7 +21,7 @@ function serviceForGeneration(generation: number): string | undefined {
 
 function optionsForGeneration(generation: number): SecureStore.SecureStoreOptions {
   const keychainService = serviceForGeneration(generation)
-  return keychainService ? { ...BASE_OPTIONS, keychainService } : BASE_OPTIONS
+  return keychainService ? { keychainService } : {}
 }
 
 type LoadedGeneration =

@@ -1,8 +1,7 @@
-import { createElement, createRef } from 'react'
+import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TerminalWebView } from './TerminalWebView'
-import type { TerminalWebViewHandle } from './terminal-webview-contract'
 
 const nativeWebViewMethods = vi.hoisted(() => ({
   postMessage: vi.fn<(message: string) => void>(),
@@ -210,31 +209,5 @@ describe('TerminalWebView engine errors', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
-
-  it('reloads a terminated content process and restores theme on readiness', () => {
-    const terminalRef = createRef<TerminalWebViewHandle>()
-    const { onEngineError, renderer } = createTerminalWebViewRenderer(vi.fn(), {
-      ref: terminalRef,
-      terminalTheme: {
-        mode: 'light',
-        theme: { background: '#ffffff', foreground: '#111111' }
-      }
-    })
-    postWebViewMessage(renderer, { type: 'web-ready' })
-    nativeWebViewMethods.postMessage.mockClear()
-    const webView = renderer.root.findByType('WebView')
-
-    act(() => {
-      webView.props.onContentProcessDidTerminate({ nativeEvent: {} })
-      terminalRef.current?.write('after termination')
-    })
-
-    expect(nativeWebViewMethods.reload).toHaveBeenCalledTimes(1)
-    expect(nativeWebViewMethods.postMessage).not.toHaveBeenCalled()
-    expect(onEngineError).not.toHaveBeenCalled()
-
-    postWebViewMessage(renderer, { type: 'web-ready' })
-    expect(postedCommands().map((command) => command.type)).toEqual(['set-theme', 'write'])
   })
 })

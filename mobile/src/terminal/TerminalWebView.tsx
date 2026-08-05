@@ -221,19 +221,6 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     webViewRef.current?.reload()
   }, [clearEngineError])
 
-  const handleContentProcessDidTerminate = useCallback(() => {
-    // Why: WKWebView content-process loss is recoverable; stale commands belong
-    // to the dead document and the replacement must prove readiness before replay.
-    webBridgeAvailableRef.current = false
-    isWebReadyRef.current = false
-    pendingPingIdRef.current = null
-    pendingMessages.clear()
-    writeCoalescer.clear()
-    clearEngineError()
-    armWebReadyWatchdog()
-    webViewRef.current?.reload()
-  }, [armWebReadyWatchdog, clearEngineError, pendingMessages, writeCoalescer])
-
   useEffect(() => {
     postMessage({ type: 'set-theme', terminalTheme })
   }, [postMessage, terminalThemeKey, terminalTheme])
@@ -390,7 +377,6 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         onRenderProcessGone={(event) =>
           reportNativeEngineError('Terminal WebView render process ended', event)
         }
-        onContentProcessDidTerminate={handleContentProcessDidTerminate}
       />
       {engineError ? (
         <TerminalWebViewEngineErrorOverlay message={engineError} onReload={handleReload} />

@@ -145,14 +145,12 @@ describe('terminal write coalescer boundaries', () => {
     }
   })
 
-  it('clears the coalescer in both document-lifecycle hooks alongside pendingMessages', () => {
-    for (const hook of ['const handleLoadStart', 'const handleContentProcessDidTerminate']) {
-      const start = webViewSource.indexOf(hook)
-      expect(start).toBeGreaterThanOrEqual(0)
-      const body = webViewSource.slice(start, webViewSource.indexOf('}, [', start))
-      expect(body).toContain('pendingMessages.clear()')
-      expect(body).toContain('writeCoalescer.clear()')
-    }
+  it('clears the coalescer when a document starts loading', () => {
+    const start = webViewSource.indexOf('const handleLoadStart')
+    expect(start).toBeGreaterThanOrEqual(0)
+    const body = webViewSource.slice(start, webViewSource.indexOf('}, [', start))
+    expect(body).toContain('pendingMessages.clear()')
+    expect(body).toContain('writeCoalescer.clear()')
   })
 
   it('clears the coalescer on unmount so no timer leaks', () => {

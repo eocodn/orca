@@ -10,7 +10,7 @@ import { hashMobileRelayCredential } from './mobile-relay-credential-hash'
 import type { RpcResponse } from './types'
 
 vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
-vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'when-unlocked' }))
+vi.mock('expo-secure-store', () => ({}))
 vi.mock('expo-crypto', () => ({ getRandomBytes: (length: number) => new Uint8Array(length) }))
 
 const relay = {

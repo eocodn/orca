@@ -21,7 +21,6 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 }))
 
 vi.mock('expo-secure-store', () => ({
-  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
   ...secureStoreMock
 }))
 
@@ -182,7 +181,8 @@ describe('host-store list mutations', () => {
     expect(secureStoreMock.deleteItemAsync).not.toHaveBeenCalled()
   })
 
-  it('keeps the normal non-Android save on the existing default keychain service', async () => {
+  it('keeps the normal save on the existing default keychain service', async () => {
+    platformMock.OS = 'android'
     await saveHost({
       id: 'host-new',
       name: 'New Host',
@@ -195,9 +195,7 @@ describe('host-store list mutations', () => {
     expect(secureStoreMock.setItemAsync).toHaveBeenCalledWith(
       'orca.host-token.host-new',
       'new-token',
-      {
-        keychainAccessible: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY'
-      }
+      {}
     )
   })
 

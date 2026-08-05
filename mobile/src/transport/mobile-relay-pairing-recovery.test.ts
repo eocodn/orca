@@ -10,7 +10,7 @@ import type { PairingOffer, RpcResponse } from './types'
 
 vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
 vi.mock('expo-crypto', () => ({ getRandomBytes: vi.fn() }))
-vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED' }))
+vi.mock('expo-secure-store', () => ({}))
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: {} }))
 
 const now = Date.UTC(2026, 6, 13)

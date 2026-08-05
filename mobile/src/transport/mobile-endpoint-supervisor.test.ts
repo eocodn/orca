@@ -12,7 +12,7 @@ import type { MobileConnectionPath, StableLogicalRpcClient } from './stable-logi
 import type { ConnectionState, HostProfile, RpcResponse } from './types'
 
 vi.mock('react-native', () => ({ Platform: { OS: 'android' } }))
-vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'when-unlocked' }))
+vi.mock('expo-secure-store', () => ({}))
 vi.mock('expo-crypto', () => ({ getRandomBytes: (length: number) => new Uint8Array(length) }))
 
 class FakeSession implements RpcClient {

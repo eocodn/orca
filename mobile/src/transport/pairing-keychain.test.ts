@@ -16,7 +16,6 @@ const platformMock = vi.hoisted(() => ({ OS: 'android' }))
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: asyncStorageMock }))
 
 vi.mock('expo-secure-store', () => ({
-  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
   ...secureStoreMock
 }))
 vi.mock('react-native', () => ({ Platform: platformMock }))
