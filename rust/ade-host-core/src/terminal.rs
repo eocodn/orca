@@ -149,6 +149,85 @@ impl TerminalRuntime {
             .map_err(|_| TerminalError::StateLockPoisoned)?;
         Ok(snapshot(&state))
     }
+
+    pub fn complete(
+        &self,
+        expected_generation: u64,
+        data: &str,
+        code: i32,
+    ) -> Result<TerminalSnapshot, TerminalError> {
+        self.finish_process(
+            Some(expected_generation),
+            data,
+            TerminalStatus::Exited { code },
+        )
+    }
+
+    pub fn complete_process(
+        &self,
+        data: &str,
+        code: i32,
+    ) -> Result<TerminalSnapshot, TerminalError> {
+        self.finish_process(None, data, TerminalStatus::Exited { code })
+    }
+
+    pub fn fail_process(
+        &self,
+        data: &str,
+        reason: impl Into<String>,
+    ) -> Result<TerminalSnapshot, TerminalError> {
+        self.finish_process(
+            None,
+            data,
+            TerminalStatus::Failed {
+                reason: reason.into(),
+            },
+        )
+    }
+
+    fn finish_process(
+        &self,
+        expected_generation: Option<u64>,
+        data: &str,
+        final_status: TerminalStatus,
+    ) -> Result<TerminalSnapshot, TerminalError> {
+        let mut state = self
+            .state
+            .write()
+            .map_err(|_| TerminalError::StateLockPoisoned)?;
+        if expected_generation.is_some_and(|expected| expected != state.generation) {
+            return Err(TerminalError::StaleGeneration {
+                expected: expected_generation.unwrap(),
+                actual: state.generation,
+            });
+        }
+        if state.status != TerminalStatus::Running {
+            return Err(TerminalError::InvalidTransition);
+        }
+
+        let mut next = state.clone();
+        if !data.is_empty() {
+            next.output_sequence = next
+                .output_sequence
+                .checked_add(1)
+                .ok_or(TerminalError::GenerationOverflow)?;
+            next.tail.push_str(data);
+            trim_tail(&mut next.tail);
+        }
+        if next.generation >= MAX_SAFE_GENERATION {
+            return Err(TerminalError::GenerationOverflow);
+        }
+        next.generation += 1;
+        if let TerminalStatus::Failed { reason } = &final_status {
+            if reason.trim().is_empty() {
+                return Err(TerminalError::EmptyFailureReason);
+            }
+            next.failure_reason = Some(reason.clone());
+        }
+        next.status = final_status;
+        *state = next;
+        Ok(snapshot(&state))
+    }
 }
 
 fn snapshot(state: &TerminalState) -> TerminalSnapshot {
@@ -209,6 +288,41 @@ mod contract_tests {
             .apply(exited.generation, TerminalCommand::Close)
             .unwrap();
         assert_eq!(closed.status, TerminalStatus::Closed);
+    }
+
+    #[test]
+    fn terminal_complete_commits_output_and_exit_together() {
+        let terminal = TerminalRuntime::new("terminal-1").unwrap();
+        let started = terminal.apply(0, TerminalCommand::Start).unwrap();
+
+        let completed = terminal.complete(started.generation, "ready\n", 0).unwrap();
+
+        assert_eq!(completed.status, TerminalStatus::Exited { code: 0 });
+        assert_eq!(completed.output_sequence, 1);
+        assert_eq!(completed.tail, "ready\n");
+        assert_eq!(completed.generation, started.generation + 1);
+    }
+
+    #[test]
+    fn terminal_process_completion_observes_concurrent_output_generation() {
+        let terminal = TerminalRuntime::new("terminal-1").unwrap();
+        let started = terminal.apply(0, TerminalCommand::Start).unwrap();
+        let output = terminal
+            .apply(
+                started.generation,
+                TerminalCommand::Output {
+                    sequence: 1,
+                    data: String::from("before\n"),
+                },
+            )
+            .unwrap();
+
+        let completed = terminal.complete_process("after\n", 0).unwrap();
+
+        assert_eq!(completed.status, TerminalStatus::Exited { code: 0 });
+        assert_eq!(completed.generation, output.generation + 1);
+        assert_eq!(completed.output_sequence, 2);
+        assert_eq!(completed.tail, "before\nafter\n");
     }
 
     #[test]
@@ -291,6 +405,23 @@ mod contract_tests {
                     data: String::from("discarded"),
                 },
             ),
+            Err(TerminalError::GenerationOverflow)
+        );
+        assert_eq!(terminal.snapshot().unwrap(), before);
+    }
+
+    #[test]
+    fn terminal_complete_overflow_does_not_publish_partial_state() {
+        let terminal = TerminalRuntime::new("terminal-1").unwrap();
+        {
+            let mut state = terminal.state.write().unwrap();
+            state.status = TerminalStatus::Running;
+            state.generation = MAX_SAFE_GENERATION;
+        }
+        let before = terminal.snapshot().unwrap();
+
+        assert_eq!(
+            terminal.complete(MAX_SAFE_GENERATION, "discarded", 0),
             Err(TerminalError::GenerationOverflow)
         );
         assert_eq!(terminal.snapshot().unwrap(), before);

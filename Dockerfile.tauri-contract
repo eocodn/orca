@@ -32,4 +32,4 @@ COPY src-tauri/tauri.windows.conf.json src-tauri/tauri.windows.conf.json
 COPY resources/build/icon.png resources/build/icon.png
 
 RUN cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-RUN cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 >/dev/null
+RUN cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps --format-version 1 >/dev/null

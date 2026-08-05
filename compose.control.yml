@@ -10,8 +10,8 @@ services:
       - -euc
       - >-
         cargo fmt --manifest-path src-tauri/Cargo.toml -- --check &&
-        cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 >/dev/null &&
-        cargo test --manifest-path src-tauri/Cargo.toml --lib
+        cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps --format-version 1 >/dev/null &&
+        cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
     init: true
     network_mode: host
 
@@ -38,7 +38,7 @@ services:
     command:
       - sh
       - -euc
-      - cargo fmt --all -- --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
+      - cargo fmt --all -- --check && cargo test --workspace --locked && cargo clippy --workspace --all-targets --locked -- -D warnings
     init: true
     network_mode: host
 
@@ -52,15 +52,15 @@ services:
       - >-
         path=/tmp/ade-file-cli-contract.txt;
         rm -f "$$path";
-        write="$$(cargo run --quiet --package ade-file -- --json
+        write="$$(cargo run --locked --quiet --package ade-file -- --json
         --write "$$path" --bytes-hex 4142)";
         test "$$write" =
         '{"service":"ade-file","operation":"write","path":"/tmp/ade-file-cli-contract.txt","bytes":[],"bytes_written":2,"changed":true}';
-        repeat="$$(cargo run --quiet --package ade-file -- --json
+        repeat="$$(cargo run --locked --quiet --package ade-file -- --json
         --write "$$path" --bytes-hex 4142)";
         test "$$repeat" =
         '{"service":"ade-file","operation":"write","path":"/tmp/ade-file-cli-contract.txt","bytes":[],"bytes_written":2,"changed":false}';
-        read="$$(cargo run --quiet --package ade-file -- --json --read "$$path")";
+        read="$$(cargo run --locked --quiet --package ade-file -- --json --read "$$path")";
         test "$$read" =
         '{"service":"ade-file","operation":"read","path":"/tmp/ade-file-cli-contract.txt","bytes":[65,66],"bytes_written":0,"changed":false}'
     init: true
@@ -74,7 +74,7 @@ services:
       - sh
       - -euc
       - >-
-        test "$$(cargo run --quiet --package ade-worker -- --json --worker-id wsl-ubuntu)"
+        test "$$(cargo run --locked --quiet --package ade-worker -- --json --worker-id wsl-ubuntu)"
         =
         '{"service":"ade-worker","worker_id":"wsl-ubuntu","generation":0,"status":"stopped","heartbeat_sequence":0}'
     init: true
@@ -88,7 +88,7 @@ services:
       - sh
       - -euc
       - >-
-        output="$$(cargo run --quiet --package ade-worker --
+        output="$$(cargo run --locked --quiet --package ade-worker --
         --json --worker-id wsl-ubuntu --start --ready --heartbeat 1 --fail --stop)";
         test "$$output" =
         '{"service":"ade-worker","worker_id":"wsl-ubuntu","generation":5,"status":"stopped","heartbeat_sequence":1}'
@@ -103,11 +103,11 @@ services:
       - sh
       - -euc
       - >-
-        output="$$(cargo run --quiet --package ade-terminal --
+        output="$$(cargo run --locked --quiet --package ade-terminal --
         --json --terminal-id terminal-1 --start --output 1 ready --exit 0 --close)";
         test "$$output" =
         '{"service":"ade-terminal","terminal_id":"terminal-1","generation":4,"status":"closed","failure_reason":null,"output_sequence":1,"tail":"ready"}';
-        failure="$$(cargo run --quiet --package ade-terminal --
+        failure="$$(cargo run --locked --quiet --package ade-terminal --
         --json --terminal-id terminal-1 --start --fail 'spawn failed' --close)";
         test "$$failure" =
         '{"service":"ade-terminal","terminal_id":"terminal-1","generation":3,"status":"closed","failure_reason":"spawn failed","output_sequence":0,"tail":""}'
@@ -124,7 +124,7 @@ services:
       - >-
         state_db=/tmp/ade-host-cli-contract.db;
         rm -f "$$state_db" "$$state_db-wal" "$$state_db-shm";
-        output="$$(cargo run --quiet --package ade-host --
+        output="$$(cargo run --locked --quiet --package ade-host --
         --json --state-db "$$state_db" --register-workspace workspace-1
         --workspace-path 'C:\\workspaces\\one' --request-id request-1)";
         test "$$output" =
@@ -142,7 +142,7 @@ services:
       - >-
         state_db=/tmp/ade-host-location-cli-contract.db;
         rm -f "$$state_db" "$$state_db-wal" "$$state_db-shm";
-        output="$$(cargo run --quiet --package ade-host --
+        output="$$(cargo run --locked --quiet --package ade-host --
         --json --state-db "$$state_db" --register-workspace workspace-1
         --workspace-path /workspaces/repo --request-id request-1
         --workspace-kind folder --execution-target ssh --ssh-host build.example)";

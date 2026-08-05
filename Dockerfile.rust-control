@@ -25,6 +25,6 @@ COPY rust/ade-git/src ade-git/src
 COPY rust/ade-file/Cargo.toml ade-file/Cargo.toml
 COPY rust/ade-file/src ade-file/src
 
-RUN cargo test --workspace
+RUN cargo test --workspace --locked
 
-CMD ["sh", "-euc", "cargo fmt --all -- --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings"]
+CMD ["sh", "-euc", "cargo fmt --all -- --check && cargo test --workspace --locked && cargo clippy --workspace --all-targets --locked -- -D warnings"]
