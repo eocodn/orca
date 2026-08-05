@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "ade-host-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "ade-host-store"
 version = "0.1.0"
 dependencies = [
@@ -13,6 +20,7 @@ dependencies = [
 name = "ade-tauri"
 version = "1.4.163"
 dependencies = [
+ "ade-host-core",
  "ade-host-store",
  "serde",
  "serde_json",

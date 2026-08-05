@@ -1,5 +1,12 @@
+use ade_host_core::protocol::{HOST_CAPABILITIES, PROTOCOL_VERSION};
 use ade_host_store::store::{HostStore, StoredWorkspace};
 use serde::Serialize;
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+struct TauriHostProtocol {
+    version: u16,
+    capabilities: Vec<&'static str>,
+}
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct TauriHostStatus {
@@ -7,6 +14,8 @@ pub struct TauriHostStatus {
     workspace_count: usize,
     ready_workspaces: usize,
     source: &'static str,
+    #[serde(rename = "hostProtocol")]
+    host_protocol: TauriHostProtocol,
 }
 
 pub fn render_host_status(snapshot: &[StoredWorkspace]) -> Result<String, serde_json::Error> {
@@ -18,6 +27,13 @@ pub fn render_host_status(snapshot: &[StoredWorkspace]) -> Result<String, serde_
             .filter(|workspace| workspace.status == "ready")
             .count(),
         source: "sqlite-snapshot",
+        host_protocol: TauriHostProtocol {
+            version: PROTOCOL_VERSION,
+            capabilities: HOST_CAPABILITIES
+                .iter()
+                .map(|capability| capability.wire_name())
+                .collect(),
+        },
     };
     serde_json::to_string(&status)
 }
@@ -76,7 +92,7 @@ mod tests {
         ];
         assert_eq!(
             render_host_status(&snapshot).expect("status must serialize"),
-            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot"}"#
+            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","git"]}}"#
         );
     }
 

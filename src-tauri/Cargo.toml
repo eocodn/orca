@@ -13,6 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2.0.0" }
 
 [dependencies]
+ade-host-core = { path = "../rust/ade-host-core" }
 ade-host-store = { path = "../rust/ade-host-store" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
