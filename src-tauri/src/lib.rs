@@ -1,4 +1,4 @@
-use ade_host_core::protocol::{HOST_CAPABILITIES, PROTOCOL_VERSION};
+use ade_host_core::protocol::{GitOperation, GitRequest, HOST_CAPABILITIES, PROTOCOL_VERSION};
 use ade_host_store::store::{
     HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
 };
@@ -38,6 +38,21 @@ pub fn render_host_status(snapshot: &[StoredWorkspace]) -> Result<String, serde_
         },
     };
     serde_json::to_string(&status)
+}
+
+pub fn render_git_request(request_id: &str, operation: &str, path: &str) -> Result<String, String> {
+    let operation = match operation {
+        "worktree-list" => GitOperation::WorktreeList {
+            repository_path: String::from(path),
+        },
+        "repository-git-dir" => GitOperation::RepositoryGitDir {
+            path: String::from(path),
+        },
+        value => return Err(format!("unsupported git operation: {value}")),
+    };
+    let request = GitRequest::new(request_id, operation, PROTOCOL_VERSION);
+    request.validate().map_err(|error| format!("{error:?}"))?;
+    serde_json::to_string(&request).map_err(|error| error.to_string())
 }
 
 pub fn register_host_workspace(
@@ -123,10 +138,19 @@ fn register_workspace(
     render_host_status(&snapshot).map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn git_request(request_id: String, operation: String, path: String) -> Result<String, String> {
+    render_git_request(&request_id, &operation, &path)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![host_status, register_workspace])
+        .invoke_handler(tauri::generate_handler![
+            host_status,
+            register_workspace,
+            git_request
+        ])
         .run(tauri::generate_context!())
         .expect("error while running ADE Tauri application");
 }
@@ -134,7 +158,8 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        register_host_workspace, register_host_workspace_with_location, render_host_status,
+        register_host_workspace, register_host_workspace_with_location, render_git_request,
+        render_host_status,
     };
     use ade_host_store::store::{
         HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind,
@@ -150,6 +175,23 @@ mod tests {
         assert_eq!(
             render_host_status(&snapshot).expect("status must serialize"),
             r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","git"]}}"#
+        );
+    }
+
+    #[test]
+    fn renders_a_stable_git_request_for_mobile_and_web_hosts() {
+        assert_eq!(
+            render_git_request("request-7", "worktree-list", r"C:\workspaces\repo",)
+                .expect("git request must serialize"),
+            r#"{"envelope":{"request_id":"request-7","capability":"git","protocol_version":1},"operation":{"type":"worktree_list","repository_path":"C:\\workspaces\\repo"}}"#
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_git_operations_before_they_reach_the_host() {
+        assert_eq!(
+            render_git_request("request-7", "status", "/repo"),
+            Err(String::from("unsupported git operation: status"))
         );
     }
 

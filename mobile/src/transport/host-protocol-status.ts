@@ -12,6 +12,13 @@ export type MobileHostProtocolEnvelope = {
   protocol_version: number
 }
 
+export type MobileGitRequest = {
+  envelope: MobileHostProtocolEnvelope
+  operation:
+    | { type: 'worktree_list'; repository_path: string }
+    | { type: 'repository_git_dir'; path: string }
+}
+
 export function readHostProtocolStatus(value: unknown): MobileHostProtocolStatus | null {
   if (!value || typeof value !== 'object') {
     return null
@@ -55,4 +62,48 @@ export function readHostProtocolEnvelope(value: unknown): MobileHostProtocolEnve
     capability: candidate.capability,
     protocol_version: HOST_PROTOCOL_VERSION
   }
+}
+
+export function readGitRequest(value: unknown): MobileGitRequest | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+  const candidate = value as { envelope?: unknown; operation?: unknown }
+  const envelope = readHostProtocolEnvelope(candidate.envelope)
+  if (!envelope || envelope.capability !== 'git' || !candidate.operation) {
+    return null
+  }
+  if (typeof candidate.operation !== 'object') {
+    return null
+  }
+  const operation = candidate.operation as {
+    type?: unknown
+    repository_path?: unknown
+    path?: unknown
+  }
+  if (operation.type === 'worktree_list' && typeof operation.repository_path === 'string') {
+    if (operation.repository_path.trim().length === 0) {
+      return null
+    }
+    return {
+      envelope,
+      operation: {
+        type: 'worktree_list',
+        repository_path: operation.repository_path
+      }
+    }
+  }
+  if (operation.type === 'repository_git_dir' && typeof operation.path === 'string') {
+    if (operation.path.trim().length === 0) {
+      return null
+    }
+    return {
+      envelope,
+      operation: {
+        type: 'repository_git_dir',
+        path: operation.path
+      }
+    }
+  }
+  return null
 }

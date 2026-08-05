@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { readHostProtocolEnvelope, readHostProtocolStatus } from './host-protocol-status'
+import {
+  readGitRequest,
+  readHostProtocolEnvelope,
+  readHostProtocolStatus
+} from './host-protocol-status'
 
 describe('mobile Host protocol descriptor', () => {
   it('accepts the Rust Host descriptor advertised by status.get', () => {
@@ -35,6 +39,47 @@ describe('mobile Host protocol descriptor', () => {
         request_id: 'request-1',
         capability: 'unknown',
         protocol_version: 1
+      })
+    ).toBeNull()
+  })
+
+  it('accepts the Rust Git request wire shape for shared mobile and web transport', () => {
+    expect(
+      readGitRequest({
+        envelope: {
+          request_id: 'request-7',
+          capability: 'git',
+          protocol_version: 1
+        },
+        operation: {
+          type: 'worktree_list',
+          repository_path: 'C:\\workspaces\\repo'
+        }
+      })
+    ).toEqual({
+      envelope: {
+        request_id: 'request-7',
+        capability: 'git',
+        protocol_version: 1
+      },
+      operation: {
+        type: 'worktree_list',
+        repository_path: 'C:\\workspaces\\repo'
+      }
+    })
+  })
+
+  it('rejects non-Git capabilities and unknown operations without fallback parsing', () => {
+    expect(
+      readGitRequest({
+        envelope: { request_id: 'request-7', capability: 'terminal', protocol_version: 1 },
+        operation: { type: 'worktree_list', repository_path: '/repo' }
+      })
+    ).toBeNull()
+    expect(
+      readGitRequest({
+        envelope: { request_id: 'request-7', capability: 'git', protocol_version: 1 },
+        operation: { type: 'status', path: '/repo' }
       })
     ).toBeNull()
   })
