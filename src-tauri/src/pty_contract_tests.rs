@@ -1,5 +1,9 @@
-use super::{execute_pty_request, PtyExecutionState, PtyOperation, PtyRequest};
+use super::{
+    commit_request_result, execute_pty_request, PtyExecutionState, PtyOperation, PtyRequest,
+    PtySessionEntry,
+};
 use crate::pty_target::PtyExecutionTarget;
+use ade_terminal::pty::PtySession;
 #[cfg(unix)]
 use std::sync::Arc;
 
@@ -217,4 +221,123 @@ fn reserves_a_session_before_concurrent_starts_spawn() {
             result.is_ok()
                 || matches!(result.as_ref(), Err(error) if matches!(error.as_str(), "session_id_starting" | "session_id_conflict"))
         }));
+}
+
+#[cfg(unix)]
+#[test]
+fn stale_terminate_cannot_remove_a_replacement_session() {
+    let state = PtyExecutionState::default();
+    let mut start = request("start-1", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("cat"));
+    start.cols = Some(80);
+    start.rows = Some(24);
+    execute_pty_request(&start, &state).unwrap();
+
+    let old_session = {
+        let registry = state.registry.lock().unwrap();
+        std::sync::Arc::clone(&registry.sessions.get("session-1").unwrap().session)
+    };
+    let replacement = std::sync::Arc::new(std::sync::Mutex::new(
+        PtySession::spawn(
+            String::from("session-1"),
+            super::build_pty_spec(&start).unwrap(),
+        )
+        .unwrap(),
+    ));
+    {
+        let mut registry = state.registry.lock().unwrap();
+        registry.sessions.insert(
+            String::from("session-1"),
+            PtySessionEntry {
+                owner: super::owner_for_request(&start),
+                session: std::sync::Arc::clone(&replacement),
+            },
+        );
+    }
+
+    let terminate = request("terminate-1", "session-1", PtyOperation::Terminate);
+    commit_request_result(
+        &terminate,
+        &state,
+        Ok(String::from("terminated")),
+        Some(&old_session),
+        false,
+    )
+    .unwrap();
+
+    let registry = state.registry.lock().unwrap();
+    assert!(std::sync::Arc::ptr_eq(
+        &registry.sessions.get("session-1").unwrap().session,
+        &replacement
+    ));
+}
+
+#[test]
+fn owner_conflict_does_not_consume_a_competing_request_id() {
+    let state = PtyExecutionState::default();
+    let conflict = request("shared-request", "session-1", PtyOperation::Write);
+    let mut competing = conflict.clone();
+    competing.session_id = String::from("session-2");
+    {
+        let mut registry = state.registry.lock().unwrap();
+        registry
+            .in_flight_requests
+            .insert(conflict.request_id.clone(), competing.clone());
+    }
+
+    commit_request_result(
+        &conflict,
+        &state,
+        Err(String::from("session_owner_conflict")),
+        None,
+        false,
+    )
+    .unwrap();
+
+    let registry = state.registry.lock().unwrap();
+    assert_eq!(
+        registry.in_flight_requests.get("shared-request"),
+        Some(&competing)
+    );
+    assert!(!registry.committed_requests.contains_key("shared-request"));
+}
+
+#[cfg(unix)]
+#[test]
+fn completed_process_releases_its_session_registry_entry() {
+    let state = PtyExecutionState::default();
+    let mut start = request("start-1", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("printf"));
+    start.args = vec![String::from("ready")];
+    start.cols = Some(80);
+    start.rows = Some(24);
+    execute_pty_request(&start, &state).unwrap();
+
+    let mut wait = request("wait-1", "session-1", PtyOperation::Wait);
+    wait.timeout_ms = Some(2_000);
+    execute_pty_request(&wait, &state).unwrap();
+
+    let registry = state.registry.lock().unwrap();
+    assert!(!registry.sessions.contains_key("session-1"));
+}
+
+#[cfg(unix)]
+#[test]
+fn committed_request_id_conflicts_before_validation() {
+    let state = PtyExecutionState::default();
+    let mut start = request("shared-request", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("cat"));
+    start.cols = Some(80);
+    start.rows = Some(24);
+    execute_pty_request(&start, &state).unwrap();
+
+    let mut invalid_retry = start.clone();
+    invalid_retry.program = None;
+    assert_eq!(
+        execute_pty_request(&invalid_retry, &state),
+        Err(String::from("request_id_conflict"))
+    );
+
+    let terminate = request("terminate-1", "session-1", PtyOperation::Terminate);
+    execute_pty_request(&terminate, &state).unwrap();
 }

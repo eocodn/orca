@@ -88,7 +88,6 @@ pub fn execute_pty_request(
     request: &PtyRequest,
     state: &PtyExecutionState,
 ) -> Result<String, String> {
-    validate_request(request)?;
     {
         let registry = state
             .registry
@@ -101,13 +100,14 @@ pub fn execute_pty_request(
             return Err(String::from("request_id_conflict"));
         }
     }
+    validate_request(request)?;
     let session = match request.operation {
         PtyOperation::Start => match start_session(request, state) {
             Ok(session) => session,
             Err(error) => {
                 if should_commit_start_error(&error) {
                     if let Err(commit_error) =
-                        commit_request_result(request, state, Err(error.clone()))
+                        commit_request_result(request, state, Err(error.clone()), None, false)
                     {
                         return Err(commit_error);
                     }
@@ -120,7 +120,7 @@ pub fn execute_pty_request(
             Err(error) => {
                 if error == "session_owner_conflict" {
                     if let Err(commit_error) =
-                        commit_request_result(request, state, Err(error.clone()))
+                        commit_request_result(request, state, Err(error.clone()), None, false)
                     {
                         return Err(commit_error);
                     }
@@ -130,7 +130,7 @@ pub fn execute_pty_request(
         },
     };
 
-    let operation_result = (|| -> Result<String, String> {
+    let operation_result = (|| -> Result<(String, bool), String> {
         let mut session = session
             .lock()
             .map_err(|_| String::from("pty_session_unavailable"))?;
@@ -154,18 +154,30 @@ pub fn execute_pty_request(
                 .map_err(pty_error_code)?,
             PtyOperation::Terminate => session.terminate().map_err(pty_error_code)?,
         };
-        Ok(render_result(request, snapshot)?)
+        let completed = matches!(
+            snapshot.status,
+            ade_host_core::terminal::TerminalStatus::Exited { .. }
+        );
+        Ok((render_result(request, snapshot)?, completed))
     })();
-    let response = match operation_result {
+    let (response, completed) = match operation_result {
         Ok(response) => response,
         Err(error) => {
-            if let Err(commit_error) = commit_request_result(request, state, Err(error.clone())) {
+            if let Err(commit_error) =
+                commit_request_result(request, state, Err(error.clone()), Some(&session), false)
+            {
                 return Err(commit_error);
             }
             return Err(error);
         }
     };
-    commit_request_result(request, state, Ok(response.clone()))?;
+    commit_request_result(
+        request,
+        state,
+        Ok(response.clone()),
+        Some(&session),
+        completed,
+    )?;
     Ok(response)
 }
 
@@ -401,11 +413,20 @@ fn commit_request_result(
     request: &PtyRequest,
     state: &PtyExecutionState,
     result: Result<String, String>,
+    session: Option<&Arc<Mutex<PtySession>>>,
+    completed: bool,
 ) -> Result<(), String> {
     let mut registry = state
         .registry
         .lock()
         .map_err(|_| String::from("pty_registry_unavailable"))?;
+    if registry
+        .in_flight_requests
+        .get(&request.request_id)
+        .is_some_and(|in_flight| in_flight != request)
+    {
+        return Ok(());
+    }
     registry.in_flight_requests.remove(&request.request_id);
     if registry
         .session_reservations
@@ -414,12 +435,20 @@ fn commit_request_result(
     {
         registry.session_reservations.remove(&request.session_id);
     }
-    let remove_session = matches!(request.operation, PtyOperation::Terminate) && result.is_ok();
+    let remove_session =
+        (matches!(request.operation, PtyOperation::Terminate) && result.is_ok()) || completed;
     registry
         .committed_requests
         .insert(request.request_id.clone(), (request.clone(), result));
     if remove_session {
-        registry.sessions.remove(&request.session_id);
+        let should_remove = registry
+            .sessions
+            .get(&request.session_id)
+            .zip(session)
+            .is_some_and(|(entry, session)| Arc::ptr_eq(&entry.session, session));
+        if should_remove {
+            registry.sessions.remove(&request.session_id);
+        }
     }
     registry
         .committed_request_order
