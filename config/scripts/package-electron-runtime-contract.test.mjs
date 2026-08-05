@@ -77,7 +77,7 @@ describe('Electron runtime package contract', () => {
       'build:win',
       'build:mac',
       'build:mac:release',
-      'build:linux',
+      'build:linux'
     ]
 
     for (const scriptName of guardedScripts) {
@@ -389,3 +389,24 @@ describe('Electron runtime package contract', () => {
       'node config/scripts/smoke-packaged-cli.mjs --app-dir=dist/linux-unpacked'
     )
   })
+
+  it('runs the Windows daemon workspace-close repro after packaging', () => {
+    const prWorkflow = readFileSync(join(projectDir, '.github/workflows/pr.yml'), 'utf8')
+    const parsedWorkflow = parse(prWorkflow)
+    const steps = parsedWorkflow.jobs.package_windows.steps
+    const smokeIndex = steps.findIndex((step) => step.name === 'Smoke packaged CLI')
+    const nodeRuntimeIndex = steps.findIndex(
+      (step) => step.name === 'Prepare Node native runtime for daemon repro'
+    )
+    const reproIndex = steps.findIndex(
+      (step) => step.name === 'Reproduce Windows daemon workspace-close cleanup'
+    )
+
+    expect(nodeRuntimeIndex).toBeGreaterThan(smokeIndex)
+    expect(reproIndex).toBeGreaterThan(nodeRuntimeIndex)
+    expect(steps[reproIndex].run).toBe(
+      'node config/scripts/windows-daemon-workspace-close-repro.mjs'
+    )
+    expect(steps[reproIndex].env.ORCA_WINDOWS_DAEMON_CLOSE_ITERATIONS).toBe('10')
+  })
+})

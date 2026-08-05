@@ -322,6 +322,16 @@ jobs:
       - name: Smoke packaged CLI
         run: node config/scripts/smoke-packaged-cli.mjs --app-dir=dist/win-unpacked
 
+      - name: Prepare Node native runtime for daemon repro
+        run: node config/scripts/ensure-native-runtime.mjs --runtime=node
+
+      # Why: exercise the packaged daemon's real ConPTY cleanup path on the
+      # same Windows runner that builds the release artifact.
+      - name: Reproduce Windows daemon workspace-close cleanup
+        env:
+          ORCA_WINDOWS_DAEMON_CLOSE_ITERATIONS: '10'
+        run: node config/scripts/windows-daemon-workspace-close-repro.mjs
+
   rust_tauri_windows:
     name: Rust Tauri contract (windows)
     runs-on: windows-2022
