@@ -30,6 +30,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ade-terminal"
+version = "0.1.0"
+dependencies = [
+ "ade-host-core",
+ "serde_json",
+]
+
+[[package]]
 name = "ade-worker"
 version = "0.1.0"
 dependencies = [

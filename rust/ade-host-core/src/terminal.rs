@@ -17,6 +17,7 @@ pub struct TerminalSnapshot {
     pub terminal_id: String,
     pub generation: u64,
     pub status: TerminalStatus,
+    pub failure_reason: Option<String>,
     pub output_sequence: u64,
     pub tail: String,
 }
@@ -46,6 +47,7 @@ struct TerminalState {
     terminal_id: String,
     generation: u64,
     status: TerminalStatus,
+    failure_reason: Option<String>,
     output_sequence: u64,
     tail: String,
 }
@@ -66,6 +68,7 @@ impl TerminalRuntime {
                 terminal_id,
                 generation: 0,
                 status: TerminalStatus::Created,
+                failure_reason: None,
                 output_sequence: 0,
                 tail: String::new(),
             })),
@@ -112,6 +115,7 @@ impl TerminalRuntime {
                 if reason.trim().is_empty() {
                     return Err(TerminalError::EmptyFailureReason);
                 }
+                state.failure_reason = Some(reason.clone());
                 state.status = TerminalStatus::Failed { reason };
             }
             TerminalCommand::Close
@@ -149,6 +153,7 @@ fn snapshot(state: &TerminalState) -> TerminalSnapshot {
         terminal_id: state.terminal_id.clone(),
         generation: state.generation,
         status: state.status.clone(),
+        failure_reason: state.failure_reason.clone(),
         output_sequence: state.output_sequence,
         tail: state.tail.clone(),
     }
@@ -261,6 +266,26 @@ mod contract_tests {
         assert!(output.tail.len() <= 4096);
         assert!(output.tail.ends_with('끝'));
         assert!(std::str::from_utf8(output.tail.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn terminal_checkpoint_preserves_failure_reason_after_close() {
+        let terminal = TerminalRuntime::new("terminal-1").unwrap();
+        let started = terminal.apply(0, TerminalCommand::Start).unwrap();
+        let failed = terminal
+            .apply(
+                started.generation,
+                TerminalCommand::Fail {
+                    reason: String::from("spawn failed"),
+                },
+            )
+            .unwrap();
+        let closed = terminal
+            .apply(failed.generation, TerminalCommand::Close)
+            .unwrap();
+
+        assert_eq!(failed.failure_reason.as_deref(), Some("spawn failed"));
+        assert_eq!(closed.failure_reason.as_deref(), Some("spawn failed"));
     }
 
     #[test]

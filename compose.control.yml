@@ -55,6 +55,25 @@ services:
     init: true
     network_mode: host
 
+  terminal-cli-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-control
+    command:
+      - sh
+      - -euc
+      - >-
+        output="$$(cargo run --quiet --package ade-terminal --
+        --json --terminal-id terminal-1 --start --output 1 ready --exit 0 --close)";
+        test "$$output" =
+        '{"service":"ade-terminal","terminal_id":"terminal-1","generation":4,"status":"closed","failure_reason":null,"output_sequence":1,"tail":"ready"}';
+        failure="$$(cargo run --quiet --package ade-terminal --
+        --json --terminal-id terminal-1 --start --fail 'spawn failed' --close)";
+        test "$$failure" =
+        '{"service":"ade-terminal","terminal_id":"terminal-1","generation":3,"status":"closed","failure_reason":"spawn failed","output_sequence":0,"tail":""}'
+    init: true
+    network_mode: host
+
   host-cli-contract:
     build:
       context: .
