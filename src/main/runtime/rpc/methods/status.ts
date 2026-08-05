@@ -1,5 +1,6 @@
 import { defineMethod, type RpcMethod } from '../core'
 import { getRemoteServerUpdaterSnapshot } from '../../remote-server-updater'
+import { getHostProtocolDescriptor } from '../../../../shared/host-protocol'
 
 export const STATUS_METHODS: RpcMethod[] = [
   defineMethod({
@@ -10,7 +11,8 @@ export const STATUS_METHODS: RpcMethod[] = [
       return {
         ...runtime.getStatus(),
         appVersion: snapshot.appVersion,
-        remoteUpdateSupport: snapshot.support
+        remoteUpdateSupport: snapshot.support,
+        hostProtocol: getHostProtocolDescriptor()
       }
     }
   })
