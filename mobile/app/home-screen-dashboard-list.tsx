@@ -8,7 +8,6 @@ import { spacing } from '../src/theme/mobile-theme'
 import { formatDuration, type HostWorktreeInfo, type StatsSummary, type WorktreeSummary } from '../src/home-screen-data'
 import { CardGap, styles } from '../src/home-screen-styles'
 import { HomeScreenFooter } from '../src/home-screen-footer'
-import type { AccountsSnapshot } from '../src/components/AccountUsage'
 import type { TaskProvider } from '../src/tasks/mobile-task-providers'
 
 type ResumeWorktree = { hostId: string; worktree: WorktreeSummary } | null
@@ -24,7 +23,6 @@ type Props = {
   resumeWorktree: ResumeWorktree
   primaryConnectedHost: HostProfile | null
   primaryTaskProviders: TaskProvider[]
-  accountsHosts: Array<{ host: HostProfile; snapshot: AccountsSnapshot }>
   insets: EdgeInsets
   isWideLayout: boolean
   contentMaxWidth: number
@@ -44,7 +42,6 @@ export function HomeScreenDashboardList({
   resumeWorktree,
   primaryConnectedHost,
   primaryTaskProviders,
-  accountsHosts,
   insets,
   isWideLayout,
   contentMaxWidth,
@@ -117,7 +114,6 @@ export function HomeScreenDashboardList({
           primaryConnectedHost={primaryConnectedHost}
           primaryTaskProviders={primaryTaskProviders}
           openTasks={onOpenTasks}
-          accountsHosts={accountsHosts}
         />
       }
     />

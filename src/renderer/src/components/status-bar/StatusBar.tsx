@@ -1,7 +1,5 @@
 export * from './status-bar-surface'
 export {
-  ClaudeSwitcherMenu,
-  CodexSwitcherMenu,
   InlineUsageBars,
   ProviderDetailsMenu,
   ProviderSegment

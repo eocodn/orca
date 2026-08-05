@@ -6,9 +6,7 @@ type StatusBarProps = {
 
 
 import {
-  ClaudeSwitcherMenu,
   CodexRestartStatusPrompt,
-  CodexSwitcherMenu,
   InlineUsageBars,
   ProviderDetailsMenu,
   ProviderLetterBadge,
@@ -326,28 +324,6 @@ export function StatusBarInner({ floatingTerminalOpen }: StatusBarProps): React.
                     // Every provider drills into its detail panel (parity with the
                     // per-provider dropdowns on main); Claude/Codex additionally get
                     // the account switcher + runtime toggle + Codex reset credits.
-                    if (p.provider === 'claude') {
-                      return (
-                        <ClaudeSwitcherMenu
-                          claude={p}
-                          compact={compact}
-                          iconOnly={false}
-                          asSubmenu
-                          triggerContent={rowNode}
-                        />
-                      )
-                    }
-                    if (p.provider === 'codex') {
-                      return (
-                        <CodexSwitcherMenu
-                          codex={p}
-                          compact={compact}
-                          iconOnly={false}
-                          asSubmenu
-                          triggerContent={rowNode}
-                        />
-                      )
-                    }
                     return (
                       <ProviderDetailsMenu
                         provider={p}

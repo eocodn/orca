@@ -14,16 +14,6 @@ import {
   ListTodo
 } from 'lucide-react-native'
 import { ClaudeIcon, OpenAIIcon } from '../src/components/AgentIcons'
-import {
-  type AccountsSnapshot,
-  type ProviderKey,
-  decodeAccountsSnapshot,
-  getActiveProviderRateLimits,
-  getUsageBarState,
-  hasActiveProviderUsage,
-  hasRenderableUsage,
-  UsageBar
-} from '../src/components/AccountUsage'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { loadHosts } from '../src/transport/host-store'
 import { navigateToMobileHostEdit } from '../src/transport/host-edit-navigation'
@@ -65,7 +55,6 @@ import {
   clientKey,
   fetchStats,
   fetchWorktreeInfo,
-  fetchAccountsSnapshot,
   fetchTaskProviders,
   repoColor,
   type StatsSummary,
@@ -91,7 +80,6 @@ export default function HomeScreen() {
   const [hostLastConnected, setHostLastConnected] = useState<Record<string, number | null>>({})
   const [stats, setStats] = useState<StatsSummary | null>(null)
   const [worktreeInfo, setWorktreeInfo] = useState<Record<string, HostWorktreeInfo>>({})
-  const [accountsByHost, setAccountsByHost] = useState<Record<string, AccountsSnapshot>>({})
   const [taskProvidersByHost, setTaskProvidersByHost] = useState<Record<string, TaskProvider[]>>({})
   const [lastVisited, setLastVisited] = useState<{ hostId: string; worktreeId: string } | null>(
     null
@@ -135,7 +123,6 @@ export default function HomeScreen() {
         return
       }
       setWorktreeInfo((prev) => (Object.keys(prev).length > 0 ? prev : snap.worktreeInfo))
-      setAccountsByHost((prev) => (Object.keys(prev).length > 0 ? prev : snap.accountsByHost))
       for (const [hostId, info] of Object.entries(snap.worktreeInfo)) {
         const wt = info.lastActiveWorktree
         if (wt) {
@@ -151,15 +138,14 @@ export default function HomeScreen() {
 
   // Why: persist the merged snapshot on each update so the next cold-start has fresh seed data (cache debounces writes).
   useEffect(() => {
-    if (Object.keys(worktreeInfo).length === 0 && Object.keys(accountsByHost).length === 0) {
+    if (Object.keys(worktreeInfo).length === 0) {
       return
     }
     saveHomeSnapshot({
       worktreeInfo,
-      accountsByHost,
       savedAt: Date.now()
     })
-  }, [worktreeInfo, accountsByHost])
+  }, [worktreeInfo])
 
   useFocusEffect(
     useCallback(() => {
@@ -193,7 +179,6 @@ export default function HomeScreen() {
         if (entry.client.getState() === 'connected') {
           fetchStats(entry.client, entry.hostId, setStats, () => stale)
           fetchWorktreeInfo(entry.client, entry.hostId, setWorktreeInfo, () => stale)
-          fetchAccountsSnapshot(entry.client, entry.hostId, setAccountsByHost, () => stale)
           fetchTaskProviders(entry.client, entry.hostId, setTaskProvidersByHost, () => stale)
         }
       }
@@ -278,29 +263,11 @@ export default function HomeScreen() {
     const cleanups: Array<() => void> = []
     for (const entry of allClients) {
       let unsubNotif: (() => void) | null = null
-      let unsubAccounts: (() => void) | null = null
       let statsFetched = false
       const wireUp = (state: ConnectionState) => {
         if (state === 'connected') {
           if (!unsubNotif) {
             unsubNotif = subscribeToDesktopNotifications(entry.client, entry.hostId)
-          }
-          if (!unsubAccounts) {
-            unsubAccounts = entry.client.subscribe('accounts.subscribe', null, (payload) => {
-              if (!payload || typeof payload !== 'object') {
-                return
-              }
-              const evt = payload as { type?: string; snapshot?: unknown }
-              if (evt.type === 'ready' || evt.type === 'snapshot') {
-                try {
-                  const snapshot = decodeAccountsSnapshot(evt.snapshot)
-                  setAccountsByHost((prev) => ({ ...prev, [entry.hostId]: snapshot }))
-                } catch {
-                  // Keep the last proven snapshot; malformed remote data must
-                  // not enter render state or crash the home host cards.
-                }
-              }
-            })
           }
           if (!statsFetched) {
             statsFetched = true
@@ -313,10 +280,6 @@ export default function HomeScreen() {
             unsubNotif()
             unsubNotif = null
           }
-          if (unsubAccounts) {
-            unsubAccounts()
-            unsubAccounts = null
-          }
         }
       }
       wireUp(entry.state)
@@ -324,7 +287,6 @@ export default function HomeScreen() {
       cleanups.push(() => {
         unsubState()
         unsubNotif?.()
-        unsubAccounts?.()
       })
     }
     return () => {
@@ -363,25 +325,6 @@ export default function HomeScreen() {
     }
     return null
   }, [sortedHosts, hostStates, worktreeInfo, lastVisited])
-
-  // Why: only show Account usage for connected hosts; stale cached usage would imply live data.
-  const accountsHosts = useMemo(() => {
-    const items: Array<{ host: HostProfile; snapshot: AccountsSnapshot }> = []
-    for (const host of sortedHosts) {
-      if (hostStates[host.id] !== 'connected') {
-        continue
-      }
-      const snap = accountsByHost[host.id]
-      if (!snap) {
-        continue
-      }
-      // Why: also show hosts whose only usage is the system-default login, else those users see no usage section.
-      if (hasRenderableUsage(snap, 'claude') || hasRenderableUsage(snap, 'codex')) {
-        items.push({ host, snapshot: snap })
-      }
-    }
-    return items
-  }, [sortedHosts, hostStates, accountsByHost])
 
   const primaryConnectedHost = useMemo(
     () => sortedHosts.find((host) => hostStates[host.id] === 'connected') ?? null,
@@ -453,7 +396,6 @@ export default function HomeScreen() {
           resumeWorktree={resumeWorktree}
           primaryConnectedHost={primaryConnectedHost}
           primaryTaskProviders={primaryTaskProviders}
-          accountsHosts={accountsHosts}
           insets={insets}
           isWideLayout={isWideLayout}
           contentMaxWidth={contentMaxWidth}

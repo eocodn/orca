@@ -1,8 +1,6 @@
 import { useRouter } from 'expo-router'
 import { View, Text, Pressable } from 'react-native'
 import { ChevronRight, ListTodo, Plus, QrCode, Terminal } from 'lucide-react-native'
-import { ClaudeIcon, OpenAIIcon } from './components/AgentIcons'
-import { getActiveProviderRateLimits, getUsageBarState, hasActiveProviderUsage, type AccountsSnapshot, type ProviderKey, UsageBar } from './components/AccountUsage'
 import { TaskProviderLogo } from './components/TaskProviderLogo'
 import type { HostProfile } from './transport/types'
 import type { TaskProvider } from './tasks/mobile-task-providers'
@@ -15,10 +13,9 @@ export type HomeScreenFooterProps = {
   primaryConnectedHost: HostProfile | null
   primaryTaskProviders: TaskProvider[]
   openTasks: (provider?: TaskProvider) => void
-  accountsHosts: Array<{ host: HostProfile; snapshot: AccountsSnapshot }>
 }
 
-export function HomeScreenFooter({ resumeWorktree, primaryConnectedHost, primaryTaskProviders, openTasks, accountsHosts }: HomeScreenFooterProps) {
+export function HomeScreenFooter({ resumeWorktree, primaryConnectedHost, primaryTaskProviders, openTasks }: HomeScreenFooterProps) {
   const router = useRouter()
 const renderTaskHomeCard = () => (
   <Pressable
@@ -153,83 +150,6 @@ const renderTaskHomeCard = () => (
         </Pressable>
       </View>
 
-      {/* ─── Account usage ─── */}
-      {accountsHosts.length > 0 ? (
-        <>
-    <Text style={[styles.sectionHeading, { marginTop: spacing.xl }]}>
-      Account usage
-    </Text>
-    {accountsHosts.map(({ host, snapshot }) => {
-      const claudeActiveId = snapshot.claude.activeAccountId
-      const claudeActive =
-        snapshot.claude.accounts.find((a) => a.id === claudeActiveId) ?? null
-      const codexActiveId = snapshot.codex.activeAccountId
-      const codexActive =
-        snapshot.codex.accounts.find((a) => a.id === codexActiveId) ?? null
-      const showHostName = accountsHosts.length > 1
-      return (
-        <Pressable
-          key={host.id}
-          style={({ pressed }) => [
-            styles.accountsCard,
-            pressed && styles.hostCardPressed
-          ]}
-          onPress={() => router.push(`/h/${host.id}/accounts`)}
-        >
-          {showHostName ? (
-            <Text style={styles.accountsHostLabel} numberOfLines={1}>
-              {host.name}
-            </Text>
-          ) : null}
-          {(['claude', 'codex'] as ProviderKey[]).map((provider) => {
-            const active = provider === 'claude' ? claudeActive : codexActive
-            const accounts =
-              provider === 'claude'
-                ? snapshot.claude.accounts
-                : snapshot.codex.accounts
-            const limits = getActiveProviderRateLimits(snapshot, provider)
-            // Why: with no managed accounts, still render the row when the active target has live usage data.
-            if (accounts.length === 0 && !hasActiveProviderUsage(limits)) {
-              return null
-            }
-            const sessionBar = getUsageBarState(limits, 'session')
-            const weeklyBar = getUsageBarState(limits, 'weekly')
-            return (
-              <View key={provider} style={styles.accountsRow}>
-                <View style={styles.accountsIcon}>
-                  {provider === 'claude' ? (
-                    <ClaudeIcon size={18} />
-                  ) : (
-                    <OpenAIIcon size={18} color={colors.textPrimary} />
-                  )}
-                </View>
-                <View style={styles.accountsInfo}>
-                  <Text style={styles.accountsEmail} numberOfLines={1}>
-                    {active?.email ?? 'System default'}
-                  </Text>
-                  <View style={styles.accountsBars}>
-                    <UsageBar
-                      label="5h"
-                      usedPercent={sessionBar.usedPercent}
-                      unavailable={sessionBar.unavailable}
-                      loading={sessionBar.loading}
-                    />
-                    <UsageBar
-                      label="7d"
-                      usedPercent={weeklyBar.usedPercent}
-                      unavailable={weeklyBar.unavailable}
-                      loading={weeklyBar.loading}
-                    />
-                  </View>
-                </View>
-              </View>
-            )
-          })}
-        </Pressable>
-      )
-    })}
-        </>
-      ) : null}
     </View>
 
   )

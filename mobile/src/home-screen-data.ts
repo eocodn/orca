@@ -1,5 +1,3 @@
-import type { AccountsSnapshot, ProviderKey } from './components/AccountUsage'
-import { decodeAccountsSnapshot } from './components/AccountUsage'
 import { pickResumeWorktree } from './worktree/resume-worktree'
 import type { RpcClient } from './transport/rpc-client'
 import { sendSingleFlightRequest } from './transport/request-single-flight'
@@ -166,27 +164,6 @@ export function fetchWorktreeInfo(
     })
 }
 
-export function fetchAccountsSnapshot(
-  client: RpcClient,
-  hostId: string,
-  setSnapshots: (
-    updater: (prev: Record<string, AccountsSnapshot>) => Record<string, AccountsSnapshot>
-  ) => void,
-  disposed: () => boolean
-) {
-  sendSingleFlightRequest(client, hostId, 'accounts.list')
-    .then((response) => {
-      if (disposed()) {
-        return
-      }
-      if (response.ok) {
-        const snapshot = decodeAccountsSnapshot(response.result)
-        setSnapshots((prev) => ({ ...prev, [hostId]: snapshot }))
-      }
-    })
-    .catch(() => {})
-}
-
 export function fetchTaskProviders(
   client: RpcClient,
   hostId: string,
@@ -238,5 +215,4 @@ export function repoColor(name: string): string {
   }
   return REPO_COLORS[Math.abs(hash) % REPO_COLORS.length]
 }
-
 

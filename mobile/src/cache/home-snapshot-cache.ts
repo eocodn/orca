@@ -4,7 +4,6 @@
 // this, Resume and Account-usage cards flash empty for ~1s while the
 // WebSocket reconnects and the first responses come back.
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import type { AccountsSnapshot } from '../components/AccountUsage'
 
 const STORAGE_KEY = 'orca:home-snapshot:v1'
 
@@ -26,7 +25,6 @@ type HostWorktreeInfo = {
 
 export type HomeSnapshot = {
   worktreeInfo: Record<string, HostWorktreeInfo>
-  accountsByHost: Record<string, AccountsSnapshot>
   savedAt: number
 }
 
@@ -47,7 +45,6 @@ export async function loadHomeSnapshot(): Promise<HomeSnapshot | null> {
       typeof parsed !== 'object' ||
       parsed === null ||
       typeof parsed.worktreeInfo !== 'object' ||
-      typeof parsed.accountsByHost !== 'object'
     ) {
       return null
     }
