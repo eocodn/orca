@@ -2389,10 +2389,7 @@
             "ed2a664f8b": "No se pudo crear el worktree",
             "a3346fc6ed": "Cancelar creación del worktree",
             "532aea14ce": "Cancelar",
-            "767951265d": "Algo salió mal al crear el worktree.",
-            "vmProvisioningTitle": "Provisionando VM",
-            "cancelProvisioning": "Cancelar",
-            "vmProvisioningLogEmpty": "Esperando output de la receta..."
+            "767951265d": "Algo salió mal al crear el worktree."
           }
         }
       },

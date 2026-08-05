@@ -182,7 +182,7 @@ async function executeWorktreeCreation(
     // tab strip, rather than falling back to stale previous-workspace tabs.
     useAppStore.getState().updatePendingWorktreeCreation(creationId, {
       status: 'error',
-      error: message,
+      error: message
     })
     // Why: only toast when the panel isn't already showing this error (the user
     // navigated away), so a visible failure isn't announced twice.
@@ -319,7 +319,6 @@ export function continueBackgroundWorktreeCreation(
     status: 'creating',
     startedAt: Date.now(),
     error: undefined,
-    provisioningLog: undefined,
     request
   })
   // Why: background work-item preflight can finish after the user moved on; keep
@@ -344,8 +343,7 @@ export function retryBackgroundWorktreeCreation(creationId: string): void {
     status: 'creating',
     startedAt: Date.now(),
     phase: 'fetching',
-    error: undefined,
-    provisioningLog: undefined
+    error: undefined
   })
   store.setActivePendingWorktreeCreation(creationId)
   store.setActiveView('terminal')

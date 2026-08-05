@@ -15,8 +15,7 @@ import type { TaskSourceContext, WorkspaceRunContext } from '../../../shared/tas
 /** Two-phase status reported by the main process while a worktree is created.
  *  `preparing` covers renderer-side preflight before `createWorktree` starts;
  *  `fetching` covers the base-ref git fetch; `creating` covers `git worktree
- *  add`. Remote/runtime creates may skip git phases; VM recipes add a
- *  provider-provisioning phase before the runtime worktree exists. */
+ *  add`. Remote/runtime creates may skip git phases. */
 export type WorktreeCreationPhase = 'preparing' | 'fetching' | 'creating'
 
 export type WorktreeCreationProgressMode = 'stepped' | 'indeterminate'
@@ -106,7 +105,6 @@ export type PendingWorktreeCreation = {
    *  from create start through terminal handoff. */
   loaderVisible: boolean
   error?: string
-  provisioningLog?: string
   request: WorktreeCreationRequest
 }
 
@@ -116,9 +114,6 @@ export type PendingWorktreeCreation = {
 export function getCreationProgressLabel(
   entry: Pick<PendingWorktreeCreation, 'phase' | 'indeterminate'>
 ): string {
-  if (entry.phase === 'provisioning-vm') {
-    return 'Provisioning VM…'
-  }
   if (entry.indeterminate) {
     return 'Setting up your workspace…'
   }
