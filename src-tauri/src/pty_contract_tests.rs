@@ -62,9 +62,15 @@ fn rejects_unknown_fields_during_deserialization() {
     assert!(error.to_string().contains("unknown field"));
 }
 
-#[cfg(unix)]
 #[test]
 fn executes_a_shared_wire_request_through_the_authoritative_registry() {
+    #[cfg(unix)]
+    let (program, args) = (String::from("printf"), vec![String::from("ready")]);
+    #[cfg(windows)]
+    let (program, args) = (
+        String::from("cmd.exe"),
+        vec![String::from("/C"), String::from("exit"), String::from("0")],
+    );
     let state = PtyExecutionState::default();
     let request = HostPtyRequest::new(
         "shared-start-1",
@@ -73,8 +79,8 @@ fn executes_a_shared_wire_request_through_the_authoritative_registry() {
         "session-1",
         None,
         HostPtyOperation::Start {
-            program: String::from("printf"),
-            args: vec![String::from("ready")],
+            program,
+            args,
             current_dir: None,
             execution_target: Some(PtyExecutionTarget::WindowsNative),
             cols: 80,

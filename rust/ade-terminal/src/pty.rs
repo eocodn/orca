@@ -311,9 +311,8 @@ impl PtySession {
             .child
             .lock()
             .map_err(|_| PtyError::Terminal(String::from("pty_child_unavailable")))?;
-        let exit = child
-            .try_wait()
-            .map_err(|error| PtyError::Terminal(error.to_string()))?;
+        let exit =
+            try_wait_child(&mut child).map_err(|error| PtyError::Terminal(format!("{error:?}")))?;
         if exit.is_some() {
             self.child_reaped = true;
         }
@@ -593,11 +592,7 @@ fn terminal_error(error: ade_host_core::terminal::TerminalError) -> PtyError {
 fn confirm_child_exit(child: &mut Box<dyn Child + Send + Sync>) -> Result<(), PtyError> {
     let deadline = Instant::now() + READER_CLOSE_TIMEOUT;
     loop {
-        if child
-            .try_wait()
-            .map_err(|error| PtyError::Termination(error.to_string()))?
-            .is_some()
-        {
+        if try_wait_child(child)?.is_some() {
             return Ok(());
         }
         if Instant::now() >= deadline {
@@ -606,6 +601,65 @@ fn confirm_child_exit(child: &mut Box<dyn Child + Send + Sync>) -> Result<(), Pt
             )));
         }
         thread::sleep(POLL_INTERVAL);
+    }
+}
+
+fn try_wait_child(
+    child: &mut Box<dyn Child + Send + Sync>,
+) -> Result<Option<ExitStatus>, PtyError> {
+    #[cfg(windows)]
+    if let Some(pid) = child.process_id() {
+        if windows_process_has_exited(pid)? {
+            return child
+                .wait()
+                .map(Some)
+                .map_err(|error| PtyError::Termination(error.to_string()));
+        }
+    }
+    child
+        .try_wait()
+        .map_err(|error| PtyError::Termination(error.to_string()))
+}
+
+#[cfg(windows)]
+fn windows_process_has_exited(pid: u32) -> Result<bool, PtyError> {
+    use std::ffi::c_void;
+    use std::ptr::null_mut;
+
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+    const SYNCHRONIZE: u32 = 0x0010_0000;
+    const WAIT_OBJECT_0: u32 = 0;
+    const WAIT_TIMEOUT: u32 = 258;
+
+    unsafe extern "system" {
+        #[link_name = "OpenProcess"]
+        fn open_process(desired_access: u32, inherit_handle: i32, process_id: u32) -> *mut c_void;
+        #[link_name = "WaitForSingleObject"]
+        fn wait_for_single_object(handle: *mut c_void, milliseconds: u32) -> u32;
+        #[link_name = "CloseHandle"]
+        fn close_handle(handle: *mut c_void) -> i32;
+    }
+
+    // portable-pty maps exit code 259 to `Running`; the process handle is authoritative.
+    let handle = unsafe { open_process(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, 0, pid) };
+    if handle == null_mut() {
+        return Err(PtyError::Termination(String::from(
+            "could not inspect Windows PTY process",
+        )));
+    }
+    let result = unsafe { wait_for_single_object(handle, 0) };
+    let close_result = unsafe { close_handle(handle) };
+    if close_result == 0 {
+        return Err(PtyError::Termination(String::from(
+            "could not close Windows PTY process handle",
+        )));
+    }
+    match result {
+        WAIT_OBJECT_0 => Ok(true),
+        WAIT_TIMEOUT => Ok(false),
+        _ => Err(PtyError::Termination(String::from(
+            "could not observe Windows PTY process state",
+        ))),
     }
 }
 
@@ -753,6 +807,18 @@ mod tests {
 
         assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
         assert_eq!(snapshot.exit_code, Some(0));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn observes_windows_exit_code_259_as_a_natural_exit() {
+        let mut session =
+            PtySession::spawn("pty-1", spec("cmd.exe", &["/C", "exit", "/B", "259"])).unwrap();
+
+        let snapshot = session.wait(Duration::from_secs(2)).unwrap();
+
+        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 259 });
+        assert_eq!(snapshot.exit_code, Some(259));
     }
 
     #[cfg(unix)]
