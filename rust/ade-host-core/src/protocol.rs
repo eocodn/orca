@@ -2,11 +2,12 @@ use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u16 = 1;
 
-pub const HOST_CAPABILITIES: [Capability; 4] = [
+pub const HOST_CAPABILITIES: [Capability; 5] = [
     Capability::WorkspaceRead,
     Capability::WorkspaceWrite,
     Capability::Terminal,
     Capability::Git,
+    Capability::File,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,6 +20,8 @@ pub enum Capability {
     Terminal,
     #[serde(rename = "git")]
     Git,
+    #[serde(rename = "file")]
+    File,
 }
 
 impl Capability {
@@ -28,6 +31,7 @@ impl Capability {
             Self::WorkspaceWrite => "workspace.write",
             Self::Terminal => "terminal",
             Self::Git => "git",
+            Self::File => "file",
         }
     }
 }
@@ -49,6 +53,21 @@ pub enum GitOperation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum FileOperation {
+    #[serde(rename = "read")]
+    Read { path: String },
+    #[serde(rename = "write")]
+    Write { path: String, bytes: Vec<u8> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileRequest {
+    pub envelope: ProtocolEnvelope,
+    pub operation: FileOperation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GitRequest {
     pub envelope: ProtocolEnvelope,
     pub operation: GitOperation,
@@ -60,6 +79,7 @@ pub enum ProtocolError {
     CapabilityDenied(Capability),
     EmptyRequestId,
     EmptyGitPath,
+    EmptyFilePath,
 }
 
 impl ProtocolEnvelope {
@@ -131,6 +151,43 @@ impl GitRequest {
         };
         if path.trim().is_empty() {
             return Err(ProtocolError::EmptyGitPath);
+        }
+        Ok(())
+    }
+}
+
+impl FileRequest {
+    pub fn read(request_id: impl Into<String>, path: impl Into<String>) -> Self {
+        Self::new(request_id, FileOperation::Read { path: path.into() })
+    }
+
+    pub fn write(request_id: impl Into<String>, path: impl Into<String>, bytes: Vec<u8>) -> Self {
+        Self::new(
+            request_id,
+            FileOperation::Write {
+                path: path.into(),
+                bytes,
+            },
+        )
+    }
+
+    pub fn new(request_id: impl Into<String>, operation: FileOperation) -> Self {
+        Self {
+            envelope: ProtocolEnvelope::new(request_id, Capability::File, PROTOCOL_VERSION),
+            operation,
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        self.envelope.validate()?;
+        if self.envelope.capability != Capability::File {
+            return Err(ProtocolError::CapabilityDenied(self.envelope.capability));
+        }
+        let path = match &self.operation {
+            FileOperation::Read { path } | FileOperation::Write { path, .. } => path,
+        };
+        if path.trim().is_empty() {
+            return Err(ProtocolError::EmptyFilePath);
         }
         Ok(())
     }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  readFileRequest,
   readGitRequest,
   readHostProtocolEnvelope,
   readHostProtocolStatus
@@ -10,11 +11,11 @@ describe('mobile Host protocol descriptor', () => {
     expect(
       readHostProtocolStatus({
         version: 1,
-        capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git']
+        capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git', 'file']
       })
     ).toEqual({
       version: 1,
-      capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git']
+      capabilities: ['workspace.read', 'workspace.write', 'terminal', 'git', 'file']
     })
   })
 
@@ -80,6 +81,24 @@ describe('mobile Host protocol descriptor', () => {
       readGitRequest({
         envelope: { request_id: 'request-7', capability: 'git', protocol_version: 1 },
         operation: { type: 'status', path: '/repo' }
+      })
+    ).toBeNull()
+  })
+
+  it('accepts strict file read and write requests and rejects invalid bytes', () => {
+    expect(
+      readFileRequest({
+        envelope: { request_id: 'request-file', capability: 'file', protocol_version: 1 },
+        operation: { type: 'write', path: 'C:\\workspaces\\file.txt', bytes: [0, 255] }
+      })
+    ).toEqual({
+      envelope: { request_id: 'request-file', capability: 'file', protocol_version: 1 },
+      operation: { type: 'write', path: 'C:\\workspaces\\file.txt', bytes: [0, 255] }
+    })
+    expect(
+      readFileRequest({
+        envelope: { request_id: 'request-file', capability: 'file', protocol_version: 1 },
+        operation: { type: 'write', path: '/tmp/file', bytes: [256] }
       })
     ).toBeNull()
   })

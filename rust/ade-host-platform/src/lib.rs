@@ -1,3 +1,4 @@
+pub mod file_service;
 pub mod git_capability;
 pub mod git_execution;
 pub mod git_protocol_execution;

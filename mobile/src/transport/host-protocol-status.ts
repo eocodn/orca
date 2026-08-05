@@ -1,5 +1,11 @@
 const HOST_PROTOCOL_VERSION = 1
-const HOST_PROTOCOL_CAPABILITIES = new Set(['workspace.read', 'workspace.write', 'terminal', 'git'])
+const HOST_PROTOCOL_CAPABILITIES = new Set([
+  'workspace.read',
+  'workspace.write',
+  'terminal',
+  'git',
+  'file'
+])
 
 export type MobileHostProtocolStatus = {
   version: number
@@ -17,6 +23,13 @@ export type MobileGitRequest = {
   operation:
     | { type: 'worktree_list'; repository_path: string }
     | { type: 'repository_git_dir'; path: string }
+}
+
+export type MobileFileRequest = {
+  envelope: MobileHostProtocolEnvelope
+  operation:
+    | { type: 'read'; path: string }
+    | { type: 'write'; path: string; bytes: number[] }
 }
 
 export function readHostProtocolStatus(value: unknown): MobileHostProtocolStatus | null {
@@ -103,6 +116,42 @@ export function readGitRequest(value: unknown): MobileGitRequest | null {
         type: 'repository_git_dir',
         path: operation.path
       }
+    }
+  }
+  return null
+}
+
+export function readFileRequest(value: unknown): MobileFileRequest | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+  const candidate = value as { envelope?: unknown; operation?: unknown }
+  const envelope = readHostProtocolEnvelope(candidate.envelope)
+  if (!envelope || envelope.capability !== 'file' || !candidate.operation) {
+    return null
+  }
+  if (typeof candidate.operation !== 'object') {
+    return null
+  }
+  const operation = candidate.operation as {
+    type?: unknown
+    path?: unknown
+    bytes?: unknown
+  }
+  if (typeof operation.path !== 'string' || operation.path.trim().length === 0) {
+    return null
+  }
+  if (operation.type === 'read') {
+    return { envelope, operation: { type: 'read', path: operation.path } }
+  }
+  if (
+    operation.type === 'write' &&
+    Array.isArray(operation.bytes) &&
+    operation.bytes.every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255)
+  ) {
+    return {
+      envelope,
+      operation: { type: 'write', path: operation.path, bytes: [...operation.bytes] as number[] }
     }
   }
   return null

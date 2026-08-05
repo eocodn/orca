@@ -1,4 +1,7 @@
-use ade_host_core::protocol::{GitOperation, GitRequest, HOST_CAPABILITIES, PROTOCOL_VERSION};
+use ade_host_core::protocol::{
+    FileOperation, FileRequest, GitOperation, GitRequest, HOST_CAPABILITIES, PROTOCOL_VERSION,
+};
+use ade_host_platform::file_service::FileService;
 use ade_host_platform::git_capability::GitCapabilityRegistry;
 use ade_host_platform::git_execution::ProcessGitCommandExecutor;
 use ade_host_platform::git_protocol_execution::execute_git_request;
@@ -62,6 +65,65 @@ pub fn render_git_request(request_id: &str, operation: &str, path: &str) -> Resu
     let request = GitRequest::new(request_id, operation, PROTOCOL_VERSION);
     request.validate().map_err(|error| format!("{error:?}"))?;
     serde_json::to_string(&request).map_err(|error| error.to_string())
+}
+
+pub fn render_file_request(
+    request_id: &str,
+    operation: &str,
+    path: &str,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let request = match operation {
+        "read" => FileRequest::read(request_id, path),
+        "write" => FileRequest::write(request_id, path, bytes),
+        value => return Err(format!("unsupported file operation: {value}")),
+    };
+    request.validate().map_err(|error| format!("{error:?}"))?;
+    serde_json::to_string(&request).map_err(|error| error.to_string())
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+struct TauriFileResult {
+    request_id: String,
+    capability: &'static str,
+    operation: &'static str,
+    path: String,
+    bytes: Vec<u8>,
+    bytes_written: usize,
+    changed: bool,
+}
+
+fn execute_file_request(request: &FileRequest) -> Result<String, String> {
+    request.validate().map_err(|error| format!("{error:?}"))?;
+    match &request.operation {
+        FileOperation::Read { path } => {
+            let result = FileService::read(path).map_err(|error| format!("{error:?}"))?;
+            serde_json::to_string(&TauriFileResult {
+                request_id: request.envelope.request_id.clone(),
+                capability: "file",
+                operation: "read",
+                path: result.path.to_string_lossy().into_owned(),
+                bytes_written: 0,
+                bytes: result.bytes,
+                changed: false,
+            })
+            .map_err(|error| error.to_string())
+        }
+        FileOperation::Write { path, bytes } => {
+            let result =
+                FileService::write_atomic(path, bytes).map_err(|error| format!("{error:?}"))?;
+            serde_json::to_string(&TauriFileResult {
+                request_id: request.envelope.request_id.clone(),
+                capability: "file",
+                operation: "write",
+                path: result.path.to_string_lossy().into_owned(),
+                bytes_written: result.bytes_written,
+                bytes: Vec::new(),
+                changed: result.changed,
+            })
+            .map_err(|error| error.to_string())
+        }
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -203,6 +265,21 @@ fn git_request(request_id: String, operation: String, path: String) -> Result<St
 }
 
 #[tauri::command]
+fn file_request(
+    request_id: String,
+    operation: String,
+    path: String,
+    bytes: Vec<u8>,
+) -> Result<String, String> {
+    let request = match operation.as_str() {
+        "read" => FileRequest::read(request_id, path),
+        "write" => FileRequest::write(request_id, path, bytes),
+        value => return Err(format!("unsupported file operation: {value}")),
+    };
+    execute_file_request(&request)
+}
+
+#[tauri::command]
 fn git_worktree_list(
     request_id: String,
     path: String,
@@ -227,7 +304,8 @@ pub fn run() {
             host_status,
             register_workspace,
             git_request,
-            git_worktree_list
+            git_worktree_list,
+            file_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running ADE Tauri application");
@@ -236,8 +314,9 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        execute_git_worktree_request, parse_git_execution_target, register_host_workspace,
-        register_host_workspace_with_location, render_git_request, render_host_status,
+        execute_file_request, execute_git_worktree_request, parse_git_execution_target,
+        register_host_workspace, register_host_workspace_with_location, render_file_request,
+        render_git_request, render_host_status, FileRequest,
     };
     use ade_host_platform::git_capability::GitCapabilityRegistry;
     use ade_host_platform::ExecutionTarget;
@@ -254,7 +333,7 @@ mod tests {
         ];
         assert_eq!(
             render_host_status(&snapshot).expect("status must serialize"),
-            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","git"]}}"#
+            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","git","file"]}}"#
         );
     }
 
@@ -265,6 +344,45 @@ mod tests {
                 .expect("git request must serialize"),
             r#"{"envelope":{"request_id":"request-7","capability":"git","protocol_version":1},"operation":{"type":"worktree_list","repository_path":"C:\\workspaces\\repo"}}"#
         );
+    }
+
+    #[test]
+    fn renders_a_stable_file_request_for_mobile_and_web_hosts() {
+        assert_eq!(
+            render_file_request(
+                "request-file",
+                "write",
+                r"C:\workspaces\file.txt",
+                vec![1, 2],
+            )
+            .expect("file request must serialize"),
+            r#"{"envelope":{"request_id":"request-file","capability":"file","protocol_version":1},"operation":{"type":"write","path":"C:\\workspaces\\file.txt","bytes":[1,2]}}"#
+        );
+    }
+
+    #[test]
+    fn executes_file_requests_and_returns_authoritative_state() {
+        let path = std::env::temp_dir().join(format!(
+            "ade-tauri-file-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should be available")
+                .as_nanos()
+        ));
+        let request = FileRequest::write(
+            "request-file",
+            path.to_string_lossy().into_owned(),
+            vec![1, 2],
+        );
+        assert_eq!(
+            execute_file_request(&request).expect("file write should succeed"),
+            format!(
+                "{{\"request_id\":\"request-file\",\"capability\":\"file\",\"operation\":\"write\",\"path\":{},\"bytes\":[],\"bytes_written\":2,\"changed\":true}}",
+                serde_json::to_string(&path.to_string_lossy()).expect("path should serialize")
+            )
+        );
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

@@ -8,8 +8,8 @@ pub mod worker;
 mod contract_tests {
     use super::host_runtime::HostRuntime;
     use super::protocol::{
-        Capability, GitOperation, GitRequest, ProtocolEnvelope, ProtocolError, HOST_CAPABILITIES,
-        PROTOCOL_VERSION,
+        Capability, FileRequest, GitOperation, GitRequest, ProtocolEnvelope, ProtocolError,
+        HOST_CAPABILITIES, PROTOCOL_VERSION,
     };
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
     use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
@@ -41,7 +41,27 @@ mod contract_tests {
                 .iter()
                 .map(|capability| capability.wire_name())
                 .collect::<Vec<_>>(),
-            vec!["workspace.read", "workspace.write", "terminal", "git"]
+            vec![
+                "workspace.read",
+                "workspace.write",
+                "terminal",
+                "git",
+                "file",
+            ]
+        );
+    }
+
+    #[test]
+    fn file_request_serializes_and_rejects_empty_paths() {
+        let request = FileRequest::write("request-file", r"C:\workspaces\file.txt", vec![1, 2]);
+        assert_eq!(request.validate(), Ok(()));
+        assert_eq!(
+            serde_json::to_string(&request).expect("file request should serialize"),
+            r#"{"envelope":{"request_id":"request-file","capability":"file","protocol_version":1},"operation":{"type":"write","path":"C:\\workspaces\\file.txt","bytes":[1,2]}}"#
+        );
+        assert_eq!(
+            FileRequest::read("request-file", "  ").validate(),
+            Err(ProtocolError::EmptyFilePath)
         );
     }
 

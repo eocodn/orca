@@ -15,6 +15,19 @@ services:
     init: true
     network_mode: host
 
+  mobile-host-protocol-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    command:
+      - sh
+      - -euc
+      - >-
+        pnpm --dir mobile install --frozen-lockfile --ignore-scripts &&
+        pnpm --dir mobile exec vitest run src/transport/host-protocol-status.test.ts
+    init: true
+    network_mode: host
+
   rust-host-core-contract:
     build:
       context: .
