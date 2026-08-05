@@ -23,8 +23,10 @@ services:
       - sh
       - -euc
       - >-
-        pnpm --dir mobile install --frozen-lockfile --ignore-scripts &&
-        pnpm --dir mobile exec vitest run src/transport/host-protocol-status.test.ts
+           pnpm --dir mobile install --frozen-lockfile --ignore-scripts &&
+           pnpm --dir mobile exec vitest run
+           src/transport/host-protocol-status.test.ts
+           src/transport/host-file-transport.test.ts
     init: true
     network_mode: host
 
