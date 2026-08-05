@@ -1,6 +1,7 @@
 pub mod host_runtime;
 pub mod protocol;
 pub mod state;
+pub mod terminal;
 pub mod worker;
 
 #[cfg(test)]
