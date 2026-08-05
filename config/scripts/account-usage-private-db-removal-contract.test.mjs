@@ -74,4 +74,25 @@ assert.deepEqual(
   'preload must not import removed account/usage/private-db modules'
 )
 
-console.log('account-usage-private-db-removal-contract: 3 assertions passed')
+for (const path of [
+  'src/main/main-process-ready-foundation.ts',
+  'src/main/main-process-window-startup-lifecycle.ts',
+  'src/main/main-process-shutdown-lifecycle.ts',
+  'src/main/main-process-process-configuration.ts'
+]) {
+  const source = read(path)
+  for (const token of [
+    'ClaudeUsageStore',
+    'CodexUsageStore',
+    'OpenCodeUsageStore',
+    'RateLimitService',
+    'ClaudeAccountService',
+    'CodexAccountService',
+    'initSessionParseCachePersistence',
+    'setAccountServices'
+  ]) {
+    assert.ok(!source.includes(token), `${path} retains removed startup service ${token}`)
+  }
+}
+
+console.log('account-usage-private-db-removal-contract: 4 assertions passed')
