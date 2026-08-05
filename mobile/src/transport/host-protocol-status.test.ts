@@ -249,5 +249,7 @@ describe('mobile Host protocol descriptor', () => {
     }
     expect(readPtyResponse(response)).toEqual(response)
     expect(readPtyResponse({ ...response, status: 'unknown' })).toBeNull()
+    expect(readPtyResponse({ ...response, status: 'exited', exit_code: null })).toBeNull()
+    expect(readPtyResponse({ ...response, status: 'failed', failure_reason: ' ' })).toBeNull()
   })
 })

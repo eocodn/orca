@@ -6,7 +6,8 @@ import {
   validateHostProtocolEnvelope,
   validateHostTerminalRequest
 } from './host-protocol'
-import { validateHostPtyRequest, validateHostPtyResponse } from './host-pty-protocol'
+import { validateHostPtyRequest } from './host-pty-protocol'
+import { validateHostPtyResponse } from './host-pty-response-protocol'
 
 describe('Host protocol descriptor', () => {
   it('publishes the version and capabilities shared by desktop, web, and Android clients', () => {
@@ -163,5 +164,12 @@ describe('Host protocol descriptor', () => {
     expect(
       validateHostPtyResponse({ ...response, generation: Number.MAX_SAFE_INTEGER + 1 })
     ).toEqual({ ok: false, reason: 'invalid-generation' })
+    expect(validateHostPtyResponse({ ...response, status: 'exited', exit_code: null })).toEqual({
+      ok: false,
+      reason: 'invalid-status-payload'
+    })
+    expect(validateHostPtyResponse({ ...response, status: 'failed', failure_reason: ' ' })).toEqual(
+      { ok: false, reason: 'invalid-status-payload' }
+    )
   })
 })

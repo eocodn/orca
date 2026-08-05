@@ -4,6 +4,13 @@ import {
   validateHostProtocolEnvelope
 } from './host-protocol'
 
+export { validateHostPtyResponse } from './host-pty-response-protocol'
+export type {
+  HostPtyResponse,
+  HostPtyResponseValidation,
+  HostPtyStatus
+} from './host-pty-response-protocol'
+
 export type HostPtyExecutionTarget =
   | { kind: 'windows-native' }
   | { kind: 'wsl2'; distro: string }
@@ -54,47 +61,6 @@ export type HostPtyRequestValidation =
         | 'invalid-execution-target'
         | 'invalid-size'
         | 'invalid-timeout'
-        | 'invalid-operation'
-    }
-
-export type HostPtyStatus = 'created' | 'running' | 'exited' | 'failed' | 'closed'
-
-export type HostPtyResponse = {
-  envelope: HostProtocolEnvelope & { capability: 'pty'; protocol_version: 1 }
-  workspace_id: string
-  worker_id: string
-  session_id: string
-  session_generation: number
-  generation: number
-  operation: string
-  status: HostPtyStatus
-  exit_code: number | null
-  output_sequence: number
-  tail: string
-  failure_reason: string | null
-}
-
-export type HostPtyResponseValidation =
-  | { ok: true; response: HostPtyResponse }
-  | {
-      ok: false
-      reason:
-        | 'missing'
-        | 'invalid-envelope'
-        | 'empty-request-id'
-        | 'unsupported-version'
-        | 'invalid-capability'
-        | 'empty-workspace-id'
-        | 'empty-worker-id'
-        | 'empty-session-id'
-        | 'invalid-session-generation'
-        | 'invalid-generation'
-        | 'empty-operation'
-        | 'invalid-status'
-        | 'invalid-exit-code'
-        | 'invalid-output-sequence'
-        | 'invalid-tail'
-        | 'invalid-failure-reason'
         | 'invalid-operation'
     }
 
@@ -163,101 +129,6 @@ export function validateHostPtyRequest(value: unknown): HostPtyRequestValidation
       session_id: value.session_id,
       session_generation: sessionGeneration,
       operation: operation.operation
-    }
-  }
-}
-
-export function validateHostPtyResponse(value: unknown): HostPtyResponseValidation {
-  if (!isRecord(value)) {
-    return { ok: false, reason: 'missing' }
-  }
-  if (
-    !hasOnlyKeys(value, [
-      'envelope',
-      'workspace_id',
-      'worker_id',
-      'session_id',
-      'session_generation',
-      'generation',
-      'operation',
-      'status',
-      'exit_code',
-      'output_sequence',
-      'tail',
-      'failure_reason'
-    ])
-  ) {
-    return { ok: false, reason: 'invalid-operation' }
-  }
-  const envelope = validateHostProtocolEnvelope(value.envelope)
-  if (!envelope.ok) {
-    return envelope.reason === 'missing'
-      ? { ok: false, reason: 'invalid-envelope' }
-      : { ok: false, reason: envelope.reason }
-  }
-  if (envelope.envelope.capability !== 'pty') {
-    return { ok: false, reason: 'invalid-capability' }
-  }
-  if (typeof value.workspace_id !== 'string' || value.workspace_id.trim().length === 0) {
-    return { ok: false, reason: 'empty-workspace-id' }
-  }
-  if (typeof value.worker_id !== 'string' || value.worker_id.trim().length === 0) {
-    return { ok: false, reason: 'empty-worker-id' }
-  }
-  if (typeof value.session_id !== 'string' || value.session_id.trim().length === 0) {
-    return { ok: false, reason: 'empty-session-id' }
-  }
-  if (!isNonNegativeSafeInteger(value.session_generation)) {
-    return { ok: false, reason: 'invalid-session-generation' }
-  }
-  if (!isNonNegativeSafeInteger(value.generation)) {
-    return { ok: false, reason: 'invalid-generation' }
-  }
-  if (typeof value.operation !== 'string') {
-    return { ok: false, reason: 'empty-operation' }
-  }
-  if (
-    value.status !== 'created' &&
-    value.status !== 'running' &&
-    value.status !== 'exited' &&
-    value.status !== 'failed' &&
-    value.status !== 'closed'
-  ) {
-    return { ok: false, reason: 'invalid-status' }
-  }
-  const exitCode = value.exit_code === undefined ? null : value.exit_code
-  if (exitCode !== null && !isI32(exitCode)) {
-    return { ok: false, reason: 'invalid-exit-code' }
-  }
-  if (!isNonNegativeSafeInteger(value.output_sequence)) {
-    return { ok: false, reason: 'invalid-output-sequence' }
-  }
-  if (typeof value.tail !== 'string') {
-    return { ok: false, reason: 'invalid-tail' }
-  }
-  const failureReason = value.failure_reason === undefined ? null : value.failure_reason
-  if (failureReason !== null && typeof failureReason !== 'string') {
-    return { ok: false, reason: 'invalid-failure-reason' }
-  }
-  return {
-    ok: true,
-    response: {
-      envelope: {
-        request_id: envelope.envelope.request_id,
-        capability: 'pty',
-        protocol_version: HOST_PROTOCOL_VERSION
-      },
-      workspace_id: value.workspace_id,
-      worker_id: value.worker_id,
-      session_id: value.session_id,
-      session_generation: value.session_generation,
-      generation: value.generation,
-      operation: value.operation,
-      status: value.status,
-      exit_code: exitCode,
-      output_sequence: value.output_sequence,
-      tail: value.tail,
-      failure_reason: failureReason
     }
   }
 }
@@ -399,13 +270,4 @@ function isPositiveSafeInteger(value: unknown): value is number {
 
 function isPositiveU16(value: unknown): value is number {
   return isPositiveSafeInteger(value) && value <= 65_535
-}
-
-function isI32(value: unknown): value is number {
-  return (
-    typeof value === 'number' &&
-    Number.isInteger(value) &&
-    value >= -2147483648 &&
-    value <= 2147483647
-  )
 }

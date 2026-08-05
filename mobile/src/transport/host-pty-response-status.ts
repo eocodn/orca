@@ -53,6 +53,9 @@ export function readPtyResponse(value: unknown): MobilePtyResponse | null {
   ) {
     return null
   }
+  if (!hasValidPtyOutcome(value.status, value.exit_code, value.failure_reason)) {
+    return null
+  }
   return {
     envelope,
     workspace_id: value.workspace_id,
@@ -106,4 +109,27 @@ function isPtyStatus(value: unknown): value is MobilePtyResponse['status'] {
     value === 'failed' ||
     value === 'closed'
   )
+}
+
+function hasValidPtyOutcome(
+  status: MobilePtyResponse['status'],
+  exitCode: number | null | undefined,
+  failureReason: string | null | undefined
+): boolean {
+  switch (status) {
+    case 'created':
+    case 'running':
+      return exitCode == null && failureReason == null
+    case 'exited':
+      return exitCode != null && failureReason == null
+    case 'failed':
+      return (
+        exitCode == null && typeof failureReason === 'string' && failureReason.trim().length > 0
+      )
+    case 'closed':
+      return (
+        (exitCode != null && failureReason == null) ||
+        (exitCode == null && typeof failureReason === 'string' && failureReason.trim().length > 0)
+      )
+  }
 }

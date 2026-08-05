@@ -160,7 +160,7 @@ function readPtyExecutionTarget(value: unknown): MobilePtyExecutionTarget | null
   switch (value.kind) {
     case 'windows-native':
     case 'windows_native':
-      return { kind: 'windows-native' }
+      return hasOnlyKeys(value, ['kind']) ? { kind: 'windows-native' } : null
     case 'wsl2':
       return isNonEmptyString(value.distro) && hasOnlyKeys(value, ['kind', 'distro'])
         ? { kind: 'wsl2', distro: value.distro }
