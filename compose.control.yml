@@ -406,6 +406,7 @@ services:
           src/main/persistence.test.ts \
           config/scripts/ade-control-bin-contract.test.mjs \
           config/scripts/ios-runtime-removal-contract.test.mjs \
+          config/scripts/mobile-ios-product-removal-contract.test.mjs \
           config/scripts/emulator-product-control-removal-contract.test.mjs
     init: true
     network_mode: host
@@ -427,6 +428,7 @@ services:
       - config/scripts/compose-control-image-tag-contract.test.mjs
       - config/scripts/verify-cli-bin.test.mjs
       - config/scripts/ios-runtime-removal-contract.test.mjs
+      - config/scripts/mobile-ios-product-removal-contract.test.mjs
       - config/scripts/emulator-product-control-removal-contract.test.mjs
       - config/scripts/public-orca-cli-skills-removal-contract.test.mjs
       - config/scripts/orchestration-cli-removal-contract.test.mjs

@@ -3,7 +3,6 @@ src/terminal/terminal-webview-engine.generated.ts
 .expo/
 dist/
 /android/
-/ios/
 *.jks
 *.p8
 *.p12

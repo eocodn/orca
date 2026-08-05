@@ -1,6 +1,6 @@
 # Orca Two Way Audio
 
-Vendored Expo module for capturing and playing PCM audio data in the Orca mobile app (iOS and Android).
+Vendored Expo module for capturing and playing PCM audio data in the Orca Android app.
 
 The aim of the module is to facilitate creating real-time conversational apps. The following features are provided:
 
@@ -8,7 +8,6 @@ The aim of the module is to facilitate creating real-time conversational apps. T
 - Get clean (applying Acoustic Echo Cancelling) microphone samples in PCM format (1 channel 16 bit at 16kHz)
 - Play audio samples in PCM format (1 channel 16 bit at 16kHz). Playback happens through main speaker unless external audio sources are connected.
 - Provide volume level both for the input and output samples. Float between 0 and 1.
-- [iOS only] Get microphone mode and prompt user to select a microphone mode.
 
 ## Installation
 
@@ -73,12 +72,9 @@ npm i @orca/expo-two-way-audio
 
 ## Notes
 
-Some audio features of expo-two-way-audio like Acoustic Echo Cancelling, noise reduction or microphone modes (iOS) don't work on simulator. Run the Orca mobile app on a real device to test these features.
+Some audio features of expo-two-way-audio like Acoustic Echo Cancelling and noise reduction don't work on an emulator. Run the Orca mobile app on a real Android device to test these features.
 
 ```bash
-# iOS
-npx expo run:ios --device --configuration Release
-
 # Android
 npx expo run:android --device --variant release
 ```

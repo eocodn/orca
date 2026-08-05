@@ -6,7 +6,7 @@ import { HostProtocolGate, useHostProtocolGates } from './HostProtocolGate'
 
 const nativeTestState = vi.hoisted(() => ({
   openUrl: vi.fn(),
-  platform: { OS: 'ios' as 'ios' | 'android' }
+  platform: { OS: 'android' }
 }))
 
 vi.mock('react-native', () => ({
@@ -68,7 +68,7 @@ describe('HostProtocolGate', () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
     nativeTestState.openUrl.mockClear()
-    nativeTestState.platform.OS = 'ios'
+    nativeTestState.platform.OS = 'android'
   })
 
   afterEach(() => {
@@ -87,7 +87,7 @@ describe('HostProtocolGate', () => {
     renderer = await renderGate()
     const output = renderedText(renderer)
     expect(output).toContain('Update Orca Mobile')
-    expect(output).toContain('Open App Store')
+    expect(output).toContain('Open GitHub Releases')
     expect(output).not.toContain('HostContent')
   })
 

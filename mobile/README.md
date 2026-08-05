@@ -13,7 +13,7 @@ Unless a command says otherwise, run mobile app commands from the `mobile/` dire
 
 - Node.js 24+
 - pnpm
-- Xcode and/or Android Studio tooling for simulator or device builds
+- Android Studio tooling for emulator or device builds
 - Expo Go on your phone, or a development client build when native modules are needed
 - Phone and desktop on the same LAN when testing a physical phone
 
@@ -42,13 +42,12 @@ pnpm install
 pnpm start
 ```
 
-Scan the Expo QR code with your phone's camera on iOS, or Expo Go on Android.
+Scan the Expo QR code with Expo Go on Android.
 
 For a native dev-client build:
 
 ```bash
 pnpm exec expo run:android
-pnpm exec expo run:ios
 pnpm start --dev-client
 ```
 
@@ -71,11 +70,6 @@ If the phone has a stale host entry, remove it from the app and pair again.
 2. Run `pnpm start`, scan QR with Expo Go
 3. For native modules: `pnpm exec expo run:android`
 4. Run with `pnpm start --dev-client`
-
-### iOS Simulator
-
-1. Install Xcode from the App Store
-2. Run `pnpm start --ios` to open in iOS Simulator
 
 ## Physical Phone Debugging
 
@@ -142,7 +136,7 @@ pnpm typecheck:node
 
 ## Protocol Version Compatibility
 
-Mobile and desktop talk over a versioned protocol. Because mobile updates lag desktop by 24-48h via the App Store, both sides exchange version numbers on `status.get` so a genuinely incompatible combo can hard-block instead of silently misbehaving.
+Mobile and desktop talk over a versioned protocol. Because mobile updates can lag desktop by 24-48h, both sides exchange version numbers on `status.get` so a genuinely incompatible combo can hard-block instead of silently misbehaving.
 
 Constants live in two files (Metro can't resolve outside `mobile/`):
 
@@ -167,7 +161,7 @@ Do **not** bump for additive changes:
 
 Set `MIN_COMPATIBLE_MOBILE_VERSION` (kill-switch) when desktop ships a change that requires a minimum mobile version to function safely. Same for `MIN_COMPATIBLE_DESKTOP_VERSION` from the mobile side.
 
-When a verdict is `blocked`, `mobile/src/components/ProtocolBlockScreen.tsx` renders a screen pointing the user at either the App Store (mobile too old) or GitHub Releases (desktop too old).
+When a verdict is `blocked`, `mobile/src/components/ProtocolBlockScreen.tsx` renders a screen pointing the user at GitHub Releases.
 
 To exercise the block screen locally: set `MIN_COMPATIBLE_DESKTOP_VERSION = 999` in `mobile/src/transport/protocol-version.ts`, rebuild, pair to any desktop. Revert before merging.
 

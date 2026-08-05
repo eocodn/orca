@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, Linking, Platform } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Linking } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { ChevronLeft, Globe } from 'lucide-react-native'
@@ -7,16 +7,10 @@ import Constants from 'expo-constants'
 import { OrcaLogo } from '../src/components/OrcaLogo'
 import { colors, spacing, typography } from '../src/theme/mobile-theme'
 
-// Why: read version + native build identifier from expo-constants at
-// runtime so the About screen never drifts out of sync with app.json.
-// nativeBuildVersion is iOS buildNumber on iOS and versionCode on
-// Android — different concepts, same role (monotonic native build id).
+// Why: read version + native build identifier from expo-constants at runtime.
 function getVersionLabel(): string {
   const version = Constants.expoConfig?.version ?? '?.?.?'
-  const build =
-    Platform.OS === 'ios'
-      ? Constants.expoConfig?.ios?.buildNumber
-      : String(Constants.expoConfig?.android?.versionCode ?? '')
+  const build = String(Constants.expoConfig?.android?.versionCode ?? '')
   return build ? `v${version} (${build})` : `v${version}`
 }
 

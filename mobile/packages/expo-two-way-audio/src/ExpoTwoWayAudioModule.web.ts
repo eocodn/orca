@@ -14,8 +14,6 @@ type ExpoTwoWayAudioWebModule = {
   restart: () => void
   getMicrophonePermissionsAsync: () => Promise<PermissionResponse>
   requestMicrophonePermissionsAsync: () => Promise<PermissionResponse>
-  getMicrophoneModeIOS: () => null
-  setMicrophoneModeIOS: () => void
   isPlaying: () => boolean
   stopPlayback: () => void
   pausePlayback: () => void
@@ -34,7 +32,7 @@ const noop = () => undefined
 
 const ExpoTwoWayAudioModule: ExpoTwoWayAudioWebModule = {
   // Why: the mobile app can be run on web for QA, but dictation depends on
-  // native audio engines that are only available in the iOS/Android builds.
+  // Native audio engines are only available in the Android build.
   initialize: async () => false,
   playPCMData: noop,
   bypassVoiceProcessing: noop,
@@ -44,8 +42,6 @@ const ExpoTwoWayAudioModule: ExpoTwoWayAudioWebModule = {
   restart: noop,
   getMicrophonePermissionsAsync: async () => deniedMicrophonePermission,
   requestMicrophonePermissionsAsync: async () => deniedMicrophonePermission,
-  getMicrophoneModeIOS: () => null,
-  setMicrophoneModeIOS: noop,
   isPlaying: () => false,
   stopPlayback: noop,
   pausePlayback: noop,

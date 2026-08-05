@@ -81,14 +81,6 @@ class ExpoTwoWayAudioModule : Module() {
              audioEngine?.resumePlayback()
          }
 
-        Function("getMicrophoneModeIOS") {
-            throw UnsupportedOperationException("getMicrophoneModeIOS is only supported on iOS")
-        }
-
-        Function ("setMicrophoneModeIOS") {
-            throw UnsupportedOperationException("setMicrophoneModeIOS is only supported on iOS")
-        }
-
          AsyncFunction("getMicrophonePermissionsAsync") { promise: Promise ->
              Permissions.getPermissionsWithPermissionsManager(
                  appContext.permissions,

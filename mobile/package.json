@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node scripts/start-expo.mjs",
     "android": "expo run:android",
-    "ios": "expo run:ios",
     "postinstall": "node scripts/build-terminal-webview-engine.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -14,8 +13,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "mock-server": "npx tsx scripts/mock-server.ts",
-    "repro:workspace-picker-lag": "npx tsx scripts/repro-workspace-picker-lag.ts",
-    "start:emulator": "node scripts/start-emulator.mjs"
+    "repro:workspace-picker-lag": "npx tsx scripts/repro-workspace-picker-lag.ts"
   },
   "dependencies": {
     "@noble/hashes": "1.8.0",
@@ -80,10 +78,5 @@
     "typescript": "6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"
-  },
-  "pnpm": {
-    "overrides": {
-      "xcode>uuid": "11.1.1"
-    }
   }
 }

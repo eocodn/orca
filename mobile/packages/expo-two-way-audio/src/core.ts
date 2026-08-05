@@ -37,14 +37,6 @@ export async function requestMicrophonePermissionsAsync(): Promise<PermissionRes
   return ExpoTwoWayAudioModule.requestMicrophonePermissionsAsync()
 }
 
-export function getMicrophoneModeIOS() {
-  return ExpoTwoWayAudioModule.getMicrophoneModeIOS()
-}
-
-export function setMicrophoneModeIOS() {
-  return ExpoTwoWayAudioModule.setMicrophoneModeIOS()
-}
-
 export function isPlaying(): boolean {
   return ExpoTwoWayAudioModule.isPlaying()
 }
