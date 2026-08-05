@@ -60,6 +60,7 @@ struct PtyResult {
     session_id: String,
     generation: u64,
     status: String,
+    exit_code: Option<i32>,
     output_sequence: u64,
     tail: String,
     failure_reason: Option<String>,
@@ -309,6 +310,7 @@ fn render_result(
         session_id: request.session_id.clone(),
         generation: snapshot.generation,
         status: status_name(&snapshot.status).to_string(),
+        exit_code: exit_code(&snapshot.status),
         output_sequence: snapshot.output_sequence,
         tail: snapshot.tail,
         failure_reason: snapshot.failure_reason,
@@ -334,6 +336,13 @@ fn status_name(status: &ade_host_core::terminal::TerminalStatus) -> &'static str
         ade_host_core::terminal::TerminalStatus::Exited { .. } => "exited",
         ade_host_core::terminal::TerminalStatus::Failed { .. } => "failed",
         ade_host_core::terminal::TerminalStatus::Closed => "closed",
+    }
+}
+
+fn exit_code(status: &ade_host_core::terminal::TerminalStatus) -> Option<i32> {
+    match status {
+        ade_host_core::terminal::TerminalStatus::Exited { code } => Some(*code),
+        _ => None,
     }
 }
 
@@ -561,6 +570,7 @@ mod tests {
         wait.timeout_ms = Some(2_000);
         let response = execute_pty_request(&wait, &state).unwrap();
         assert!(response.contains(r#""status":"exited""#));
+        assert!(response.contains(r#""exit_code":0"#));
     }
 
     #[cfg(unix)]
