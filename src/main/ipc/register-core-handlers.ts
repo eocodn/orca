@@ -1,4 +1,3 @@
-import { app } from 'electron'
 import { registerAppHandlers } from './app'
 import { registerCliHandlers } from './cli'
 import { registerPreflightHandlers } from './preflight'
@@ -8,9 +7,6 @@ import type { StatsCollector } from '../stats/collector'
 import { registerFilesystemHandlers } from './filesystem'
 import type { CommitMessageAgentEnvironmentResolvers } from '../text-generation/commit-message-agent-environment'
 import { registerFilesystemWatcherHandlers } from './filesystem-watcher'
-import { registerClaudeUsageHandlers } from './claude-usage'
-import { registerCodexUsageHandlers } from './codex-usage'
-import { registerOpenCodeUsageHandlers } from './opencode-usage'
 import { registerGitHubHandlers } from './github'
 import { registerGitLabHandlers } from './gitlab'
 import { registerHostedReviewHandlers } from './hosted-review'
@@ -21,10 +17,8 @@ import { registerCrashReportingHandlers } from './crash-reporting'
 import { registerExportHandlers } from './export'
 import { registerStatsHandlers } from './stats'
 import { registerMemoryHandlers } from './memory'
-import { registerRateLimitHandlers } from './rate-limits'
 import { registerRuntimeHandlers } from './runtime'
 import { registerRuntimeEnvironmentHandlers } from './runtime-environments'
-import { registerAiVaultHandlers } from './ai-vault'
 import { registerNotificationHandlers } from './notifications'
 import { registerNotebookHandlers } from './notebook'
 import { registerOnboardingHandlers } from './onboarding'
@@ -46,37 +40,17 @@ import { registerPluginHandlers } from './plugins'
 import { registerUIHandlers, setTrustedUIRendererWebContentsId } from './ui'
 import { registerTerminalRenderDesyncEvidenceHandler } from './terminal-render-desync-evidence'
 import { registerOrcaProfileHandlers } from './orca-profiles'
-import { registerCodexAccountHandlers } from './codex-accounts'
 import { registerAgentHookHandlers } from './agent-hooks'
-import { registerCodexConfigSyncHandlers } from './codex-config-sync'
 import { getPtyIdForPaneKey } from './pty'
 import { registerAgentTrustHandlers } from './agent-trust'
-import { registerClaudeAccountHandlers } from './claude-accounts'
-import { registerMiniMaxCredentialsHandlers } from './minimax-credentials'
-import { registerGrokAccountHandlers } from './grok-accounts'
 import { registerUpdaterHandlers } from '../window/attach-main-window-services'
 import {
   registerClipboardHandlers,
   setTrustedClipboardRendererWebContentsId
 } from '../window/clipboard-ipc-handlers'
-import type { ClaudeUsageStore } from '../claude-usage/store'
-import type { CodexUsageStore } from '../codex-usage/store'
-import type { OpenCodeUsageStore } from '../opencode-usage/store'
-import type { RateLimitService } from '../rate-limits/service'
-import type { CodexAccountService } from '../codex-accounts/service'
-import type { ClaudeAccountService } from '../claude-accounts/service'
 import type { AgentAwakeService } from '../agent-awake-service'
 import type { CrashReportStore } from '../crash-reporting/crash-report-store'
 import type { KeybindingService } from '../keybindings/keybinding-service'
-import type {
-  AiVaultPrepareSessionResumeArgs,
-  AiVaultPrepareSessionResumeResult
-} from '../../shared/ai-vault-resume-preparation'
-import {
-  getSavedRuntimeAiVaultHostInfos,
-  prepareRuntimeAiVaultSessionResume,
-  scanRuntimeAiVaultSessions
-} from '../ai-vault/runtime-session-scanner'
 import type { PluginService } from '../plugins/plugin-service'
 
 let registered = false
@@ -86,21 +60,19 @@ type CoreHandlerLifecycleOptions = {
   onOrcaProfileAuthMutation?: () => void
   onBeforeOrcaProfileSignOut?: () => void
   getAdditionalAiVaultCodexHomePaths?: () => readonly string[]
-  prepareAiVaultSessionResume?: (
-    args: AiVaultPrepareSessionResumeArgs
-  ) => Promise<AiVaultPrepareSessionResumeResult>
+  prepareAiVaultSessionResume?: (args: unknown) => Promise<unknown>
 }
 
 export function registerCoreHandlers(
   store: Store,
   runtime: OrcaRuntimeService,
   stats: StatsCollector,
-  claudeUsage: ClaudeUsageStore,
-  codexUsage: CodexUsageStore,
-  openCodeUsage: OpenCodeUsageStore,
-  codexAccounts: CodexAccountService,
-  claudeAccounts: ClaudeAccountService,
-  rateLimits: RateLimitService,
+  _claudeUsage: unknown,
+  _codexUsage: unknown,
+  _openCodeUsage: unknown,
+  _codexAccounts: unknown,
+  _claudeAccounts: unknown,
+  _rateLimits: unknown,
   mainWindowWebContentsId: number | null = null,
   commitMessageAgentEnv?: CommitMessageAgentEnvironmentResolvers,
   agentAwakeService?: AgentAwakeService,
@@ -122,17 +94,8 @@ export function registerCoreHandlers(
   registerAppHandlers(store, { onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch })
   registerCliHandlers()
   registerPreflightHandlers()
-  registerClaudeUsageHandlers(claudeUsage)
-  registerCodexUsageHandlers(codexUsage)
-  registerOpenCodeUsageHandlers(openCodeUsage)
-  registerCodexAccountHandlers(codexAccounts, () => store.getSettings())
   registerAgentHookHandlers(runtime, { getPtyIdForPaneKey })
-  registerCodexConfigSyncHandlers(codexAccounts.runtimeHomeService)
   registerAgentTrustHandlers()
-  registerClaudeAccountHandlers(claudeAccounts)
-  registerMiniMaxCredentialsHandlers(rateLimits)
-  registerGrokAccountHandlers()
-  registerRateLimitHandlers(rateLimits, codexAccounts)
   registerGitHubHandlers(store, stats)
   registerGitLabHandlers(store)
   registerHostedReviewHandlers(store, stats)
@@ -188,16 +151,6 @@ export function registerCoreHandlers(
   registerFilesystemWatcherHandlers()
   registerRuntimeHandlers(runtime)
   registerRuntimeEnvironmentHandlers(store)
-  registerAiVaultHandlers({
-    getAdditionalCodexHomePaths: lifecycleOptions.getAdditionalAiVaultCodexHomePaths,
-    prepareSessionResume: lifecycleOptions.prepareAiVaultSessionResume,
-    getActiveRuntimeAiVaultHostInfos: () =>
-      getSavedRuntimeAiVaultHostInfos(app.getPath('userData')),
-    scanRuntimeAiVaultSessions: async (environmentId, args, options) =>
-      scanRuntimeAiVaultSessions(app.getPath('userData'), environmentId, args, options),
-    prepareRuntimeSessionResume: async (environmentId, args) =>
-      prepareRuntimeAiVaultSessionResume(app.getPath('userData'), environmentId, args)
-  })
   registerClipboardHandlers(store)
   registerUpdaterHandlers(store)
   registered = true

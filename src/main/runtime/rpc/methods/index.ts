@@ -1,6 +1,5 @@
 import type { RpcAnyMethod } from '../core'
 import { STATUS_METHODS } from './status'
-import { AI_VAULT_METHODS } from './ai-vault'
 import { REPO_METHODS } from './repo'
 import { WORKTREE_METHODS } from './worktree'
 import { TERMINAL_METHODS } from './terminal'
@@ -11,7 +10,6 @@ import { BROWSER_SCREENCAST_METHODS } from './browser-screencast'
 import { NOTIFICATION_METHODS } from './notifications'
 import { STATS_METHODS } from './stats'
 import { DIAGNOSTICS_METHODS } from './diagnostics'
-import { ACCOUNT_METHODS } from './accounts'
 import { PREFLIGHT_METHODS } from './preflight'
 import { SESSION_TAB_METHODS } from './session-tabs'
 import { SESSION_CONTROL_METHODS } from './session-control'
@@ -41,7 +39,6 @@ import { AGENT_SESSION_METHODS } from './agent-session'
 // auditing the security boundary or wiring new CLI commands.
 export const ALL_RPC_METHODS: readonly RpcAnyMethod[] = [
   ...STATUS_METHODS,
-  ...AI_VAULT_METHODS,
   ...REPO_METHODS,
   ...WORKTREE_METHODS,
   ...AGENT_SESSION_METHODS,
@@ -53,7 +50,6 @@ export const ALL_RPC_METHODS: readonly RpcAnyMethod[] = [
   ...NOTIFICATION_METHODS,
   ...STATS_METHODS,
   ...DIAGNOSTICS_METHODS,
-  ...ACCOUNT_METHODS,
   ...PREFLIGHT_METHODS,
   ...SESSION_TAB_METHODS,
   ...SESSION_CONTROL_METHODS,

@@ -6,8 +6,6 @@ import type {
   ReleaseChannel,
   LocalhostWorktreeLabelResult,
   LocalhostWorktreeLabelRoute,
-  ClaudeRateLimitAccountsState,
-  CodexRateLimitAccountsState,
   CustomPet,
   GhosttyImportPreview,
   GlobalSettings,
@@ -54,11 +52,7 @@ import type {
   BrowserApi,
   PreflightApi,
   StatsApi,
-  MemoryApi,
-  ClaudeUsageApi,
-  CodexUsageApi,
-  OpenCodeUsageApi,
-  AiVaultApi
+  MemoryApi
 } from './preload-api-contract-types'
 export type PreloadApiAgentHooks = {
   settings: {
@@ -90,45 +84,6 @@ export type PreloadApiAgentHooks = {
     openFile: () => Promise<KeybindingFileSnapshot>
     revealFile: () => Promise<KeybindingFileSnapshot>
     onChanged: (callback: (snapshot: KeybindingFileSnapshot) => void) => () => void
-  }
-  codexAccounts: {
-    list: () => Promise<CodexRateLimitAccountsState>
-    add: (args?: {
-      runtime?: 'host' | 'wsl'
-      wslDistro?: string | null
-    }) => Promise<CodexRateLimitAccountsState>
-    reauthenticate: (args: { accountId: string }) => Promise<CodexRateLimitAccountsState>
-    remove: (args: { accountId: string }) => Promise<CodexRateLimitAccountsState>
-    select: (args: {
-      accountId: string | null
-      runtime?: 'host' | 'wsl'
-      wslDistro?: string | null
-    }) => Promise<CodexRateLimitAccountsState>
-    /** Live PTYs whose baked CODEX_HOME still points at a deselected account. */
-    listStalePanes: (args: {
-      ptyIds: string[]
-    }) => Promise<
-      { ptyId: string; launchAccountId: string | null; activeAccountId: string | null }[]
-    >
-    /** The selection lane each PTY launched from, keyed by pty id; unrecorded panes are absent. */
-    listRecordedPaneLanes: (args: { ptyIds: string[] }) => Promise<Record<string, string>>
-    /** Drops launch records so a dismissed prompt stays dismissed across restarts. */
-    forgetStalePanes: (args: { ptyIds: string[] }) => Promise<void>
-  }
-  claudeAccounts: {
-    list: () => Promise<ClaudeRateLimitAccountsState>
-    add: (args?: {
-      runtime?: 'host' | 'wsl'
-      wslDistro?: string | null
-    }) => Promise<ClaudeRateLimitAccountsState>
-    cancelPendingLogin: () => Promise<boolean>
-    reauthenticate: (args: { accountId: string }) => Promise<ClaudeRateLimitAccountsState>
-    remove: (args: { accountId: string }) => Promise<ClaudeRateLimitAccountsState>
-    select: (args: {
-      accountId: string | null
-      runtime?: 'host' | 'wsl'
-      wslDistro?: string | null
-    }) => Promise<ClaudeRateLimitAccountsState>
   }
   cli: {
     getInstallStatus: () => Promise<CliInstallStatus>
@@ -342,8 +297,4 @@ export type PreloadApiAgentHooks = {
   }
   stats: StatsApi
   memory: MemoryApi
-  claudeUsage: ClaudeUsageApi
-  codexUsage: CodexUsageApi
-  openCodeUsage: OpenCodeUsageApi
-  aiVault: AiVaultApi
 }

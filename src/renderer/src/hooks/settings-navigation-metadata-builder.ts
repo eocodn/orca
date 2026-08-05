@@ -20,7 +20,6 @@ import {
   Smartphone,
   SquareTerminal,
   TextCursorInput,
-  UserCog,
   Wrench
 } from 'lucide-react'
 import { OrcaLogoSettingsIcon } from '@/components/settings/orca-logo-settings-icon'
@@ -30,7 +29,6 @@ import { getRepoKindLabel } from '../../../shared/repo-kind'
 import type { SettingsNavSection } from '@/lib/settings-navigation-types'
 import { getGeneralPaneSearchEntries } from '@/components/settings/general-search'
 import { getAgentsPaneSearchEntries } from '@/components/settings/agents-search'
-import { getAccountsPaneSearchEntries } from '@/components/settings/accounts-search'
 import { getIntegrationsPaneSearchEntries } from '@/components/settings/integrations-search'
 import { getGitPaneSearchEntries } from '@/components/settings/git-search'
 import { getGitProviderApiBudgetSearchEntries } from '@/components/settings/git-provider-api-budget-search'
@@ -135,21 +133,6 @@ export function buildSettingsNavigationMetadata({
       icon: Bot,
       searchEntries: getAgentsPaneSearchEntries({ includeAgentRuntime: isLocalWindowsHost }),
       group: 'capabilities'
-    },
-    {
-      id: 'accounts',
-      title: translate(
-        'auto.hooks.useSettingsNavigationMetadata.f70ac54d38',
-        'AI Provider Accounts'
-      ),
-      description: translate(
-        'auto.hooks.useSettingsNavigationMetadata.b1c2f8b0ac',
-        'Optional account switching and usage setup for Claude, Codex, Gemini, OpenCode Go, MiniMax, and Grok.'
-      ),
-      icon: UserCog,
-      searchEntries: getAccountsPaneSearchEntries(),
-      group: 'capabilities',
-      badge: translate('auto.hooks.useSettingsNavigationMetadata.7c79d3b7bf', 'Optional')
     },
     // Why: only surfaced once Linear is connected — a capability that needs a
     // linked provider before the agent skill has anything to act on.

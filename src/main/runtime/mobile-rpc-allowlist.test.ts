@@ -4,11 +4,6 @@ import { describe, expect, it } from 'vitest'
 import { ALL_RPC_METHODS } from './rpc/methods'
 
 const MOBILE_DYNAMIC_RPC_METHODS = [
-  // Why: computed sendRequest method names do not appear as literals in the
-  // mobile source scan below, but still must stay mobile-authorized.
-  'accounts.selectClaude',
-  'accounts.selectCodex',
-  'accounts.selectCodexForTarget',
   'terminal.createAgentSession',
   'terminal.ensureAgentSession',
   'github.updateIssue',
@@ -42,7 +37,6 @@ const MOBILE_DYNAMIC_RPC_METHODS = [
 const MOBILE_STREAMING_CLEANUP_RPC_METHODS = [
   // Why: shared-control unsubscribe methods are sent from generated cleanup
   // paths, so literal mobile source scanning cannot discover every one.
-  'accounts.unsubscribe',
   'browser.screencast.unsubscribe',
   'notifications.unsubscribe',
   'runtime.clientEvents.unsubscribe',

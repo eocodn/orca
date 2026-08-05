@@ -1,7 +1,7 @@
 import { View, Text, Pressable } from 'react-native'
 import { Check, Moon } from 'lucide-react-native'
 import { ActionSheetContent } from '../../../src/components/ActionSheetModal'
-import { buildWorktreeNavigationActions } from '../../../src/agent-history/worktree-navigation-actions'
+import { buildWorktreeNavigationActions } from '../../../src/worktree-navigation-actions'
 import { ConfirmModal } from '../../../src/components/ConfirmModal'
 import { BottomDrawer } from '../../../src/components/BottomDrawer'
 import { NewWorktreeModalController } from '../../../src/components/NewWorktreeModalController'

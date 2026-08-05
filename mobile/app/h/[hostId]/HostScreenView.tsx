@@ -25,7 +25,6 @@ import {
   Moon,
   Filter,
   Check,
-  UserCircle,
   PanelLeftClose,
   SquareTerminal
 } from 'lucide-react-native'
@@ -58,7 +57,7 @@ import { useActiveWorktreeScroll } from '../../../src/hooks/use-active-worktree-
 import type { RepoIcon } from '../../../../src/shared/repo-icon'
 import { PickerModal } from '../../../src/components/PickerModal'
 import { ActionSheetContent } from '../../../src/components/ActionSheetModal'
-import { buildWorktreeNavigationActions } from '../../../src/agent-history/worktree-navigation-actions'
+import { buildWorktreeNavigationActions } from '../../../src/worktree-navigation-actions'
 import { floatingWorkspaceSessionPath } from '../../../src/session/floating-workspace'
 import { ConfirmModal } from '../../../src/components/ConfirmModal'
 import { BottomDrawer } from '../../../src/components/BottomDrawer'
@@ -113,16 +112,92 @@ function ListSeparator() {
 }
 
 export function HostScreenView(props: ViewProps) {
-  const { embedded, onHideSidebar, hostId, client, connState, reconnectAttempts, lastConnectedAt, forceReconnectHost, leaveHost, hostName, hostCapabilities, floatingWorkspaceEnabled, showSearch, setShowSearch, showFilterModal, setShowFilterModal, activeFilterCount, selectedSortLabel, sortMode, handleSortChange, groupMode, handleGroupChange, filters, toggleHideSleeping, toggleHideDefaultBranch, uniqueRepos, toggleRepoFilter, clearFilters, search, setSearch, error, worktreesLoaded, refreshing, fetchWorktrees, displayWorktrees, sections, sectionListRef, onScrollToIndexFailed, toggleCollapsed, collapsedGroups, repoIconsByName, repoColorsByName, now, openWorktreeSession, openFloatingWorkspace, actionTarget, setActionTarget, confirmDelete, setConfirmDelete, handleDeleteWorktree, confirmRemoveHost, setConfirmRemoveHost, handleRemoveHost, newWorktreeModalRef, showNewWorktree, setShowNewWorktreeVisible, existingWorktreePaths, worktrees, navigateFromHostList, newWorktreeModalVisibleRef, openNewWorktreeModal, togglePin, toggleWorktreeLineage, isWideLayout, contentMaxWidth, insets, pathname, router, isErrorVerdict, setSleptIds, pinnedIds } = props
+  const {
+    embedded,
+    onHideSidebar,
+    hostId,
+    client,
+    connState,
+    reconnectAttempts,
+    lastConnectedAt,
+    forceReconnectHost,
+    leaveHost,
+    hostName,
+    hostCapabilities,
+    floatingWorkspaceEnabled,
+    showSearch,
+    setShowSearch,
+    showFilterModal,
+    setShowFilterModal,
+    activeFilterCount,
+    selectedSortLabel,
+    sortMode,
+    handleSortChange,
+    groupMode,
+    handleGroupChange,
+    filters,
+    toggleHideSleeping,
+    toggleHideDefaultBranch,
+    uniqueRepos,
+    toggleRepoFilter,
+    clearFilters,
+    search,
+    setSearch,
+    error,
+    worktreesLoaded,
+    refreshing,
+    fetchWorktrees,
+    displayWorktrees,
+    sections,
+    sectionListRef,
+    onScrollToIndexFailed,
+    toggleCollapsed,
+    collapsedGroups,
+    repoIconsByName,
+    repoColorsByName,
+    now,
+    openWorktreeSession,
+    openFloatingWorkspace,
+    actionTarget,
+    setActionTarget,
+    confirmDelete,
+    setConfirmDelete,
+    handleDeleteWorktree,
+    confirmRemoveHost,
+    setConfirmRemoveHost,
+    handleRemoveHost,
+    newWorktreeModalRef,
+    showNewWorktree,
+    setShowNewWorktreeVisible,
+    existingWorktreePaths,
+    worktrees,
+    navigateFromHostList,
+    newWorktreeModalVisibleRef,
+    openNewWorktreeModal,
+    togglePin,
+    toggleWorktreeLineage,
+    isWideLayout,
+    contentMaxWidth,
+    insets,
+    pathname,
+    router,
+    isErrorVerdict,
+    setSleptIds,
+    pinnedIds
+  } = props
   const [localSortPickerVisible, setLocalSortPickerVisible] = useState(false)
   const [localGroupPickerVisible, setLocalGroupPickerVisible] = useState(false)
   // Why: the split runtime still passes the pre-split list contract; keep picker state local until it forwards these values.
   const showSortPicker = props.showSortPicker ?? localSortPickerVisible
-  const setShowSortPicker = props.showSortPicker === undefined ? setLocalSortPickerVisible : props.setShowSortPicker
+  const setShowSortPicker =
+    props.showSortPicker === undefined ? setLocalSortPickerVisible : props.setShowSortPicker
   const showGroupPicker = props.showGroupPicker ?? localGroupPickerVisible
-  const setShowGroupPicker = props.showGroupPicker === undefined ? setLocalGroupPickerVisible : props.setShowGroupPicker
+  const setShowGroupPicker =
+    props.showGroupPicker === undefined ? setLocalGroupPickerVisible : props.setShowGroupPicker
   const rawSections = props.rawSections ?? sections
-  const uniqueRepoColors = props.uniqueRepoColors ?? new Map(uniqueRepos.map((repo: { name: string; color: string }) => [repo.name, repo.color]))
+  const uniqueRepoColors =
+    props.uniqueRepoColors ??
+    new Map(uniqueRepos.map((repo: { name: string; color: string }) => [repo.name, repo.color]))
   const onRefresh = props.onRefresh ?? (() => void fetchWorktrees())
   const isReadOnly = props.isReadOnly ?? connState === 'auth-failed'
   return (
@@ -271,22 +346,6 @@ export function HostScreenView(props: ViewProps) {
                   styles.embeddedToolbarIconButton,
                   connState !== 'connected' && styles.toolbarIconDisabled
                 ]}
-                onPress={() => navigateFromHostList(`/h/${hostId}/accounts`)}
-                disabled={connState !== 'connected'}
-                accessibilityRole="button"
-                accessibilityLabel="Accounts"
-              >
-                <UserCircle
-                  size={16}
-                  color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
-                />
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.embeddedToolbarIconButton,
-                  connState !== 'connected' && styles.toolbarIconDisabled
-                ]}
                 onPress={() => navigateFromHostList(`/h/${hostId}/tasks`)}
                 disabled={connState !== 'connected'}
                 accessibilityRole="button"
@@ -387,17 +446,6 @@ export function HostScreenView(props: ViewProps) {
             </Pressable>
 
             <View style={styles.toolbarSpacer} />
-
-            <Pressable
-              style={styles.searchToggle}
-              onPress={() => navigateFromHostList(`/h/${hostId}/accounts`)}
-              disabled={connState !== 'connected'}
-            >
-              <UserCircle
-                size={16}
-                color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
-              />
-            </Pressable>
 
             <Pressable
               style={styles.searchToggle}
@@ -570,7 +618,42 @@ export function HostScreenView(props: ViewProps) {
         onClose={() => setShowGroupPicker(false)}
       />
 
-      <HostScreenOverlays {...{showFilterModal,setShowFilterModal,activeFilterCount,clearFilters,filters,toggleHideSleeping,toggleHideDefaultBranch,uniqueRepos,toggleRepoFilter,actionTarget,setActionTarget,confirmDelete,setConfirmDelete,handleDeleteWorktree,hostId,hostCapabilities,navigateFromHostList,client,setSleptIds,pinnedIds,togglePin,confirmRemoveHost,setConfirmRemoveHost,hostName,handleRemoveHost,newWorktreeModalRef,showNewWorktree,existingWorktreePaths,worktrees,newWorktreeModalVisibleRef,fetchWorktrees,setShowNewWorktreeVisible}} />
+      <HostScreenOverlays
+        {...{
+          showFilterModal,
+          setShowFilterModal,
+          activeFilterCount,
+          clearFilters,
+          filters,
+          toggleHideSleeping,
+          toggleHideDefaultBranch,
+          uniqueRepos,
+          toggleRepoFilter,
+          actionTarget,
+          setActionTarget,
+          confirmDelete,
+          setConfirmDelete,
+          handleDeleteWorktree,
+          hostId,
+          hostCapabilities,
+          navigateFromHostList,
+          client,
+          setSleptIds,
+          pinnedIds,
+          togglePin,
+          confirmRemoveHost,
+          setConfirmRemoveHost,
+          hostName,
+          handleRemoveHost,
+          newWorktreeModalRef,
+          showNewWorktree,
+          existingWorktreePaths,
+          worktrees,
+          newWorktreeModalVisibleRef,
+          fetchWorktrees,
+          setShowNewWorktreeVisible
+        }}
+      />
     </SafeAreaView>
   )
 }

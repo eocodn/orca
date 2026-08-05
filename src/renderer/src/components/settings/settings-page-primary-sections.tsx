@@ -1,6 +1,5 @@
 import { translate } from '@/i18n/i18n'
 import { AgentsPane } from './AgentsPane'
-import { AccountsPane } from './AccountsPane'
 import { LinearAgentSkillPane } from './LinearAgentSkillPane'
 import { SettingsSetupGuidePane } from './SettingsSetupGuidePane'
 import { GeneralPane } from './GeneralPane'
@@ -28,7 +27,6 @@ export function SettingsPagePrimarySections({
     getSectionSearchEntries,
     localWslSupportedPlatform,
     localWindowsRuntimeCapabilities,
-    runtimeWslSupportedPlatform,
     windowsTerminalCapabilities,
     terminalFontSuggestions,
     requestFontSuggestions,
@@ -64,29 +62,6 @@ export function SettingsPagePrimarySections({
             wslAvailable={localWindowsRuntimeCapabilities.wslAvailable}
             wslDistros={localWindowsRuntimeCapabilities.wslDistros}
             wslCapabilitiesLoading={localWindowsRuntimeCapabilities.isLoading}
-          />
-        ) : null}
-      </SettingsSection>
-
-      <SettingsSection
-        id="accounts"
-        title={translate('auto.components.settings.Settings.ad6c529693', 'AI Provider Accounts')}
-        description={translate(
-          'auto.components.settings.Settings.21f09426ea',
-          'Optional. Orca works with your existing provider logins; add accounts only if you want Orca to help switch between them.'
-        )}
-        badge={translate('auto.hooks.useSettingsNavigationMetadata.7c79d3b7bf', 'Optional')}
-        searchEntries={getSectionSearchEntries('accounts')}
-      >
-        {isSectionMounted('accounts') ? (
-          <AccountsPane
-            settings={settings}
-            updateSettings={updateSettings}
-            wslSupportedPlatform={runtimeWslSupportedPlatform}
-            wslAvailable={windowsTerminalCapabilities.wslAvailable}
-            wslDistros={windowsTerminalCapabilities.wslDistros}
-            wslCapabilitiesLoading={windowsTerminalCapabilities.isLoading}
-            accountOwnerPlatform={windowsTerminalCapabilities.hostPlatform}
           />
         ) : null}
       </SettingsSection>

@@ -203,8 +203,6 @@ import { createBrowserFindSubscriptions } from './browser-find-subscriptions'
 import type { AppStarSource } from '../shared/gh-star-source'
 import type { ExecutionHostId } from '../shared/execution-host'
 import type { KeybindingActionId, KeybindingFileSnapshot } from '../shared/keybindings'
-import type { AiVaultListArgs, AiVaultSubagentListArgs } from '../shared/ai-vault-types'
-import type { AiVaultPrepareSessionResumeArgs } from '../shared/ai-vault-resume-preparation'
 import {
   ORCA_APP_RESTART_ABORTED_EVENT,
   ORCA_APP_RESTART_STARTED_EVENT,
@@ -649,9 +647,6 @@ export type {
   ExecutionHostId,
   KeybindingActionId,
   KeybindingFileSnapshot,
-  AiVaultListArgs,
-  AiVaultSubagentListArgs,
-  AiVaultPrepareSessionResumeArgs,
   AgentType,
   LocalLogTailChangedPayload,
   LocalLogTailReadArgs,

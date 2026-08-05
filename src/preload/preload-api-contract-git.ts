@@ -1,5 +1,37 @@
-
-import type { NativeFileDropPayload, BrowserFindSource, TerminalTabCloseRequest, TerminalTabCloseResponse, TerminalTabCreateReply, ReadClipboardTextOptions, VerifyAndAddRuntimeEnvironmentResult, TerminalPaneSplitSource, AgentProviderSessionMetadata, SleepingAgentLaunchConfig, PersistedUIState, TuiAgent, WorktreeDefaultTabsLaunch, WorktreeSetupLaunch, WorktreeStartupLaunch, PublicKnownRuntimeEnvironment, RuntimeRpcResponse, FeatureInteractionId, RichMarkdownContextMenuCommandPayload, RuntimeBrowserDriverState, RuntimeMobileSessionTabMove, RuntimeStatus, RuntimeSyncWindowGraphResult, RuntimeSyncWindowGraph, RuntimeTerminalCreateRequestPayload, RuntimeTerminalDriverState, RuntimeTerminalPresentation, RuntimeMobileMarkdownRequest, RuntimeMobileMarkdownResponse, CodexRateLimitResetResult, GrokAccountStatus, RateLimitRuntimeTarget, RateLimitState, KeybindingActionId, RuntimeEnvironmentSubscriptionHandle } from './preload-api-contract-types';export type PreloadApiGit = {
+import type {
+  NativeFileDropPayload,
+  BrowserFindSource,
+  TerminalTabCloseRequest,
+  TerminalTabCloseResponse,
+  TerminalTabCreateReply,
+  ReadClipboardTextOptions,
+  VerifyAndAddRuntimeEnvironmentResult,
+  TerminalPaneSplitSource,
+  AgentProviderSessionMetadata,
+  SleepingAgentLaunchConfig,
+  PersistedUIState,
+  TuiAgent,
+  WorktreeDefaultTabsLaunch,
+  WorktreeSetupLaunch,
+  WorktreeStartupLaunch,
+  PublicKnownRuntimeEnvironment,
+  RuntimeRpcResponse,
+  FeatureInteractionId,
+  RichMarkdownContextMenuCommandPayload,
+  RuntimeBrowserDriverState,
+  RuntimeMobileSessionTabMove,
+  RuntimeStatus,
+  RuntimeSyncWindowGraphResult,
+  RuntimeSyncWindowGraph,
+  RuntimeTerminalCreateRequestPayload,
+  RuntimeTerminalDriverState,
+  RuntimeTerminalPresentation,
+  RuntimeMobileMarkdownRequest,
+  RuntimeMobileMarkdownResponse,
+  KeybindingActionId,
+  RuntimeEnvironmentSubscriptionHandle
+} from './preload-api-contract-types'
+export type PreloadApiGit = {
   ui: {
     get: () => Promise<PersistedUIState>
     set: (args: Partial<PersistedUIState>) => Promise<void>
@@ -300,19 +332,6 @@ import type { NativeFileDropPayload, BrowserFindSource, TerminalTabCloseRequest,
         onClose?: () => void
       }
     ) => Promise<RuntimeEnvironmentSubscriptionHandle>
-  }
-  rateLimits: {
-    get: () => Promise<RateLimitState>
-    refresh: () => Promise<RateLimitState>
-    refreshCodexForTarget: (target: RateLimitRuntimeTarget) => Promise<RateLimitState>
-    consumeCodexResetCredit: () => Promise<CodexRateLimitResetResult>
-    refreshClaudeForTarget: (target: RateLimitRuntimeTarget) => Promise<RateLimitState>
-    setPollingInterval: (ms: number) => Promise<void>
-    fetchInactiveClaudeAccounts: () => Promise<void>
-    fetchInactiveCodexAccounts: () => Promise<void>
-    refreshMiniMax: () => Promise<RateLimitState>
-    refreshGrok: () => Promise<RateLimitState>
-    onUpdate: (callback: (state: RateLimitState) => void) => () => void
   }
   minimaxCredentials: {
     getStatus: () => Promise<{ configured: boolean }>
