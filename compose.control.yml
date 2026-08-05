@@ -2,6 +2,7 @@ name: ade-control-${ADE_CONTROL_RUN_ID:?set a unique run id for concurrency-safe
 
 services:
   tauri-contract:
+    image: ade-control-tauri-contract:stable
     build:
       context: .
       dockerfile: Dockerfile.tauri-contract
@@ -16,6 +17,7 @@ services:
     network_mode: host
 
   mobile-host-protocol-contract:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -32,6 +34,7 @@ services:
     network_mode: host
 
   rust-host-core-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -43,6 +46,7 @@ services:
     network_mode: host
 
   file-cli-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -67,6 +71,7 @@ services:
     network_mode: host
 
   worker-cli-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -81,6 +86,7 @@ services:
     network_mode: host
 
   worker-command-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -96,6 +102,7 @@ services:
     network_mode: host
 
   terminal-cli-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -115,6 +122,7 @@ services:
     network_mode: host
 
   pty-cli-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -130,6 +138,7 @@ services:
     network_mode: host
 
   host-cli-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -148,6 +157,7 @@ services:
     network_mode: host
 
   host-location-cli-contract:
+    image: ade-control-rust-control:stable
     build:
       context: .
       dockerfile: Dockerfile.rust-control
@@ -167,6 +177,7 @@ services:
     network_mode: host
 
   runtime-model-tests:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -193,6 +204,7 @@ services:
     network_mode: host
 
   host-request-contract:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -211,6 +223,7 @@ services:
     network_mode: host
 
   runtime-quality:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -335,6 +348,7 @@ services:
     network_mode: host
 
   control-tests:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -397,6 +411,7 @@ services:
     network_mode: host
 
   control-cli-contract:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -409,6 +424,7 @@ services:
       - --config
       - config/vitest.config.ts
       - config/scripts/ade-control-bin-contract.test.mjs
+      - config/scripts/compose-control-image-tag-contract.test.mjs
       - config/scripts/verify-cli-bin.test.mjs
       - config/scripts/ios-runtime-removal-contract.test.mjs
       - config/scripts/emulator-product-control-removal-contract.test.mjs
@@ -435,6 +451,7 @@ services:
     network_mode: host
 
   control-typecheck:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -450,6 +467,7 @@ services:
     network_mode: host
 
   control-web-typecheck:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -468,6 +486,7 @@ services:
     network_mode: host
 
   control-quality:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -483,6 +502,7 @@ services:
     network_mode: host
 
   control-format:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -632,6 +652,7 @@ services:
       - /workspace/node_modules
 
   session-quality:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -665,6 +686,7 @@ services:
     network_mode: host
 
   ssh-quality:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -712,6 +734,7 @@ services:
     network_mode: host
 
   retirement-quality:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -745,6 +768,7 @@ services:
     network_mode: host
 
   preload-tests:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -765,6 +789,7 @@ services:
     network_mode: host
 
   phase1-characterization:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -800,6 +825,7 @@ services:
     network_mode: host
 
   phase1-web-typecheck:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -822,6 +848,7 @@ services:
     network_mode: host
 
   phase1-quality:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
@@ -874,6 +901,7 @@ services:
     network_mode: host
 
   phase1-startup-smoke:
+    image: ade-control-control:stable
     build:
       context: .
       dockerfile: Dockerfile.control
