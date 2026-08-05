@@ -9,7 +9,8 @@ export enum TerminalStreamOpcode {
   SnapshotEnd = 4,
   Resized = 5,
   Error = 6,
-  Metadata = 12
+  Metadata = 12,
+  OutputSpan = 15
 }
 
 export type TerminalStreamFrame = {
@@ -76,6 +77,7 @@ function isTerminalStreamOpcode(value: number): value is TerminalStreamOpcode {
     value === TerminalStreamOpcode.SnapshotEnd ||
     value === TerminalStreamOpcode.Resized ||
     value === TerminalStreamOpcode.Error ||
-    value === TerminalStreamOpcode.Metadata
+    value === TerminalStreamOpcode.Metadata ||
+    value === TerminalStreamOpcode.OutputSpan
   )
 }

@@ -13,6 +13,12 @@ export type TerminalSnapshotState = {
 
 type StreamingListener = (result: unknown) => void
 
+type TerminalOutputSpanPayload = {
+  data: string
+  rawLength: number
+  transformed: true
+}
+
 type TerminalBinaryFrameOptions = {
   terminalSnapshots: Map<number, TerminalSnapshotState>
   getListener: (streamId: number) => StreamingListener | undefined
@@ -38,6 +44,22 @@ export function handleTerminalBinaryFrame(
       type: 'data',
       streamId: frame.streamId,
       chunk: decodeTerminalStreamText(frame.payload)
+    })
+    return
+  }
+  if (frame.opcode === TerminalStreamOpcode.OutputSpan) {
+    const output = decodeTerminalStreamJson<unknown>(frame.payload)
+    if (!isTerminalOutputSpanPayload(output)) {
+      return
+    }
+    options.recordValidatedInboundTraffic()
+    listener({
+      type: 'data',
+      streamId: frame.streamId,
+      chunk: output.data,
+      rawLength: output.rawLength,
+      transformed: true,
+      seq: frame.seq
     })
     return
   }
@@ -113,4 +135,23 @@ export function handleTerminalBinaryFrame(
       message: decodeTerminalStreamText(frame.payload)
     })
   }
+}
+
+function isTerminalOutputSpanPayload(value: unknown): value is TerminalOutputSpanPayload {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  const keys = Object.keys(record).sort()
+  return (
+    keys.length === 3 &&
+    keys[0] === 'data' &&
+    keys[1] === 'rawLength' &&
+    keys[2] === 'transformed' &&
+    typeof record.data === 'string' &&
+    typeof record.rawLength === 'number' &&
+    Number.isSafeInteger(record.rawLength) &&
+    record.rawLength >= 0 &&
+    record.transformed === true
+  )
 }
