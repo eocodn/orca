@@ -94,10 +94,6 @@ fn wsl_current_dir(value: &str, distro: &str) -> Result<String, String> {
     if value.is_empty() {
         return Err(String::from("invalid_wsl_working_directory"));
     }
-    if value.starts_with('/') {
-        return Ok(value.to_string());
-    }
-
     let normalized = value.replace('\\', "/");
     for prefix in ["//wsl.localhost/", "//wsl$/"] {
         if normalized
@@ -117,6 +113,10 @@ fn wsl_current_dir(value: &str, distro: &str) -> Result<String, String> {
                 format!("/{path}")
             });
         }
+    }
+
+    if normalized.starts_with('/') {
+        return Ok(normalized);
     }
 
     let bytes = normalized.as_bytes();
@@ -216,6 +216,42 @@ mod tests {
 
         let spec = build_pty_spec(&start).unwrap();
         assert_eq!(spec.args[3], "/home/ada/project");
+    }
+
+    #[test]
+    fn converts_a_forward_slash_wsl_unc_workspace_path() {
+        let mut start = request("start-1", "session-1");
+        start.program = Some(String::from("bash"));
+        start.current_dir = Some(String::from(
+            "//wsl.localhost/Ubuntu-24.04/home/ada/project",
+        ));
+        start.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        let spec = build_pty_spec(&start).unwrap();
+        assert_eq!(spec.args[3], "/home/ada/project");
+    }
+
+    #[test]
+    fn rejects_a_forward_slash_wsl_unc_workspace_path_for_another_distro() {
+        let mut start = request("start-1", "session-1");
+        start.program = Some(String::from("bash"));
+        start.current_dir = Some(String::from(
+            "//wsl.localhost/Ubuntu-22.04/home/ada/project",
+        ));
+        start.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        assert_eq!(
+            build_pty_spec(&start),
+            Err(String::from("wsl_distro_mismatch"))
+        );
     }
 
     #[test]
