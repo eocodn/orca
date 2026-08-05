@@ -44,6 +44,15 @@ mod contract_tests {
     }
 
     #[test]
+    fn protocol_envelope_serializes_with_stable_wire_fields() {
+        let envelope = ProtocolEnvelope::new("request-1", Capability::WorkspaceWrite, 1);
+        assert_eq!(
+            serde_json::to_string(&envelope).expect("protocol envelope should serialize"),
+            r#"{"request_id":"request-1","capability":"workspace.write","protocol_version":1}"#
+        );
+    }
+
+    #[test]
     fn workspace_registration_is_idempotent_but_conflicting_paths_are_rejected() {
         let id = WorkspaceId::new("workspace-1").unwrap();
         let mut state = HostState::default();

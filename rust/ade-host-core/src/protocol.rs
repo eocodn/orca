@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 pub const PROTOCOL_VERSION: u16 = 1;
 
 pub const HOST_CAPABILITIES: [Capability; 4] = [
@@ -7,11 +9,15 @@ pub const HOST_CAPABILITIES: [Capability; 4] = [
     Capability::Git,
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Capability {
+    #[serde(rename = "workspace.read")]
     WorkspaceRead,
+    #[serde(rename = "workspace.write")]
     WorkspaceWrite,
+    #[serde(rename = "terminal")]
     Terminal,
+    #[serde(rename = "git")]
     Git,
 }
 
@@ -26,7 +32,7 @@ impl Capability {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProtocolEnvelope {
     pub request_id: String,
     pub capability: Capability,
