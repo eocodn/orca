@@ -542,8 +542,6 @@ export function createWebPreloadApi(): Partial<PreloadApi> {
     rateLimits: createRateLimitsApi(),
     minimaxCredentials: createMiniMaxCredentialsApi(),
     grokAccounts: createGrokAccountsApi(),
-    codexAccounts: createAccountsApi(),
-    claudeAccounts: createAccountsApi(),
     cli: createCliApi(),
     agentHooks: createAgentHooksApi(),
     macosTccPrompts: createMacosTccPromptsApi(),
