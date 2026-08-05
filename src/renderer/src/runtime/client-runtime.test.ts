@@ -52,6 +52,7 @@ describe('ClientRuntime service boundary', () => {
       projects: workspace.projects,
       projectGroups: workspace.projectGroups,
       worktrees: workspace.worktrees,
+      workspacePorts: workspace.ports,
       runtimeEnvironments: remoteHost,
       fs: file,
       pty: terminal,
@@ -78,6 +79,7 @@ describe('ClientRuntime service boundary', () => {
     expect(clientRuntime.integration.hooks).toBe(integration.hooks)
     expect(clientRuntime.integration.hostedReview).toBe(integration.hostedReview)
     expect(clientRuntime.workspace.repos).toBe(workspace.repos)
+    expect(clientRuntime.workspace.ports).toBe(workspace.ports)
     expect(clientRuntime.remoteHost).toBe(remoteHost)
     expect(clientRuntime.file).toBe(file)
     expect(clientRuntime.terminal).toBe(terminal)
@@ -124,6 +126,7 @@ describe('ClientRuntime service boundary', () => {
         projects: workspace.projects,
         projectGroups: workspace.projectGroups,
         worktrees: workspace.worktrees,
+        workspacePorts: workspace.ports,
         runtimeEnvironments: remoteHost,
         fs: file,
         pty: terminal,
@@ -140,6 +143,7 @@ describe('ClientRuntime service boundary', () => {
     expect(getClientRuntime().browser).toBe(browser)
     expect(getClientRuntime().integration).toEqual(integration)
     expect(getClientRuntime().workspace.repos).toBe(workspace.repos)
+    expect(getClientRuntime().workspace.ports).toBe(workspace.ports)
     expect(getClientRuntime().remoteHost).toBe(remoteHost)
     expect(getClientRuntime().file).toBe(file)
     expect(getClientRuntime().terminal).toBe(terminal)

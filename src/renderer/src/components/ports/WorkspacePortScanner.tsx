@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { getHasAnyWorktreesFromState } from '@/store/selectors'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import { getActiveRuntimeTarget, type RuntimeClientTarget } from '@/runtime/runtime-rpc-client'
 import {
   mergeWorkspacePortScans,
@@ -292,7 +293,7 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
       retryTimer = null
     }
 
-    const unsubscribe = window.api.workspacePorts.onAdvertisedUrlChanged(() => {
+    const unsubscribe = getClientRuntime().workspace.ports.onAdvertisedUrlChanged(() => {
       eventSequence += 1
       const sequence = eventSequence
       clearRetryTimer()

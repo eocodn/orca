@@ -13,6 +13,7 @@ export type ClientRuntimeWorkspaceService = {
   projects: PreloadApi['projects']
   projectGroups: PreloadApi['projectGroups']
   worktrees: PreloadApi['worktrees']
+  ports: PreloadApi['workspacePorts']
 }
 export type ClientRuntimeTerminalService = PreloadApi['pty']
 export type ClientRuntimePreviewService = PreloadApi['terminalPreview']
@@ -55,6 +56,7 @@ type ClientRuntimeHostAdapter = {
   projects: PreloadApi['projects']
   projectGroups: PreloadApi['projectGroups']
   worktrees: PreloadApi['worktrees']
+  workspacePorts: PreloadApi['workspacePorts']
   pty: ClientRuntimeTerminalService
   terminalPreview: ClientRuntimePreviewService
   mobile: ClientRuntimeDeviceService
@@ -82,7 +84,8 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
       repos: adapter.repos,
       projects: adapter.projects,
       projectGroups: adapter.projectGroups,
-      worktrees: adapter.worktrees
+      worktrees: adapter.worktrees,
+      ports: adapter.workspacePorts
     },
     terminal: adapter.pty,
     preview: adapter.terminalPreview,

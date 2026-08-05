@@ -197,6 +197,11 @@ const deviceFiles = [
   'src/renderer/src/components/settings/RuntimePairingUrlGenerator.tsx',
   'src/renderer/src/hooks/ipc-events-ui.ts'
 ]
+const workspacePortFiles = [
+  'src/renderer/src/lib/workspace-port-scan-client.ts',
+  'src/renderer/src/lib/workspace-port-actions.ts',
+  'src/renderer/src/components/ports/WorkspacePortScanner.tsx'
+]
 
 const terminalFiles = [
   'src/renderer/src/components/terminal-pane/pty-ipc-transport-context.ts',
@@ -292,6 +297,17 @@ describe('ClientRuntime renderer boundary', () => {
         /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
       )
       expect(source).not.toMatch(/window\.api\.mobile/)
+    }
+  })
+
+  it('routes workspace port calls through the workspace adapter', async () => {
+    const sources = await Promise.all(workspacePortFiles.map(readRuntimeFile))
+
+    for (const source of sources) {
+      expect(source).toMatch(
+        /from ['"](?:\.\/client-runtime|\.\/runtime\/client-runtime|\.\.\/runtime\/client-runtime|\.\.\/\.\.\/runtime\/client-runtime|@\/runtime\/client-runtime)['"]/
+      )
+      expect(source).not.toMatch(/window\.api\.workspacePorts/)
     }
   })
 })

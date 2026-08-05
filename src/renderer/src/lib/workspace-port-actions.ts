@@ -1,5 +1,6 @@
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import type { useAppStore } from '@/store'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import {
   callRuntimeRpc,
   RuntimeRpcCallError,
@@ -299,7 +300,7 @@ export async function killWorkspacePortForTarget(
   args: { repoId: string; pid: number; port: number }
 ): Promise<WorkspacePortKillResult> {
   if (target.kind === 'local') {
-    return window.api.workspacePorts.kill(args)
+    return getClientRuntime().workspace.ports.kill(args)
   }
   try {
     return await callRuntimeRpc<WorkspacePortKillResult>(target, 'workspacePorts.kill', args, {

@@ -3,6 +3,7 @@ import {
   RuntimeRpcCallError,
   type RuntimeClientTarget
 } from '@/runtime/runtime-rpc-client'
+import { getClientRuntime } from '@/runtime/client-runtime'
 import type { WorkspacePort, WorkspacePortScanResult } from '../../../shared/workspace-ports'
 
 const WORKSPACE_PORT_PLATFORMS = new Set<NodeJS.Platform | 'unknown'>([
@@ -89,7 +90,7 @@ export async function runWorkspacePortScanForTarget(
 ): Promise<WorkspacePortScanResult> {
   const params = repoId ? { repoId } : {}
   if (target.kind === 'local') {
-    return requireWorkspacePortScanResult(await window.api.workspacePorts.scan(params))
+    return requireWorkspacePortScanResult(await getClientRuntime().workspace.ports.scan(params))
   }
   try {
     const result = await callRuntimeRpc<WorkspacePortScanResult>(
