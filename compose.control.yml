@@ -114,6 +114,21 @@ services:
     init: true
     network_mode: host
 
+  pty-cli-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-control
+    command:
+      - sh
+      - -euc
+      - >-
+        output="$$(cargo run --locked --quiet --package ade-terminal --bin ade-pty --
+        --json --terminal-id pty-contract --run printf --arg ready --resize 100 40)";
+        test "$${output}" =
+        '{"service":"ade-pty","terminal_id":"pty-contract","session_generation":1,"status":"exited","exit_code":0,"output_sequence":1,"tail":"ready","failure_reason":null}'
+    init: true
+    network_mode: host
+
   host-cli-contract:
     build:
       context: .
