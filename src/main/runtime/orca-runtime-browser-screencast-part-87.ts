@@ -58,7 +58,10 @@ export class OrcaRuntimeBrowserScreencastPart87 extends OrcaRuntimeNotifyLinearL
   browserTabCurrent = async (params: { worktree?: string }): Promise<BrowserTabCurrentResult> =>
     this.browserPageRuntime.tabCurrent(await this.worktreeId(params.worktree))
 
-  browserTabShow = async (params: { page: string; worktree?: string }): Promise<BrowserTabShowResult> =>
+  browserTabShow = async (params: {
+    page: string
+    worktree?: string
+  }): Promise<BrowserTabShowResult> =>
     this.browserPageRuntime.tabShow(params.page, await this.worktreeId(params.worktree))
 
   browserTabSwitch = async (params: {
@@ -109,6 +112,16 @@ export class OrcaRuntimeBrowserScreencastPart87 extends OrcaRuntimeNotifyLinearL
     params: { key: string } & BrowserTarget
   ): Promise<BrowserKeypressResult> =>
     this.browserPageRuntime.keypress(await this.pageId(params), params.key)
+
+  browserKeyboardInsertText = async (params: { text: string } & BrowserTarget): Promise<void> => {
+    this.browserPageRuntime.keyboardInsertText(await this.pageId(params), params.text)
+  }
+
+  browserDialogAccept = async (params: BrowserTarget): Promise<{ handled: boolean }> =>
+    this.browserPageRuntime.handleDialog(await this.pageId(params), true)
+
+  browserDialogDismiss = async (params: BrowserTarget): Promise<{ handled: boolean }> =>
+    this.browserPageRuntime.handleDialog(await this.pageId(params), false)
 
   browserMouseMove = async (params: { x: number; y: number } & BrowserTarget): Promise<void> => {
     this.browserPageRuntime.mouseMove(await this.pageId(params), params.x, params.y)

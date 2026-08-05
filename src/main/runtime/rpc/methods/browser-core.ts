@@ -14,7 +14,10 @@ import {
   TabSwitch,
   TabCurrent,
   TabSetProfile,
-  TabProfileClone
+  TabProfileClone,
+  DialogAccept,
+  DialogDismiss,
+  KeyboardInsert
 } from './browser-schemas'
 
 const CertificateProceed = BrowserTarget.extend({
@@ -51,6 +54,21 @@ export const BROWSER_CORE_METHODS: RpcMethod[] = [
     name: 'browser.keypress',
     params: Keypress,
     handler: async (params, { runtime }) => runtime.browserKeypress(params)
+  }),
+  defineMethod({
+    name: 'browser.keyboardInsertText',
+    params: KeyboardInsert,
+    handler: async (params, { runtime }) => runtime.browserKeyboardInsertText(params)
+  }),
+  defineMethod({
+    name: 'browser.dialogAccept',
+    params: DialogAccept,
+    handler: async (params, { runtime }) => runtime.browserDialogAccept(params)
+  }),
+  defineMethod({
+    name: 'browser.dialogDismiss',
+    params: DialogDismiss,
+    handler: async (params, { runtime }) => runtime.browserDialogDismiss(params)
   }),
   defineMethod({
     name: 'browser.certificate.proceed',

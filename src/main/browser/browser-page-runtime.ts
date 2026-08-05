@@ -157,6 +157,17 @@ export class BrowserPageRuntime {
     return { pressed: key }
   }
 
+  keyboardInsertText(page: string, text: string): void {
+    requireGuest(page).insertText(text)
+  }
+
+  async handleDialog(page: string, accept: boolean): Promise<{ handled: boolean }> {
+    const guest = requireGuest(page)
+    if (!guest.debugger.isAttached()) guest.debugger.attach('1.3')
+    await guest.debugger.sendCommand('Page.handleJavaScriptDialog', { accept })
+    return { handled: true }
+  }
+
   mouseMove(page: string, x: number, y: number): void {
     requireGuest(page).sendInputEvent({ type: 'mouseMove', x, y })
   }

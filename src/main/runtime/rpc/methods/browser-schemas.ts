@@ -353,6 +353,8 @@ export const DialogAccept = BrowserTarget.extend({
   text: OptionalPlainString
 })
 
+export const DialogDismiss = BrowserTarget
+
 export const StorageKey = BrowserTarget.extend({
   key: requiredString('Missing required --key')
 })

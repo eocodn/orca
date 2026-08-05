@@ -5,40 +5,23 @@ import { join } from 'node:path'
 import type { RuntimeTransportMetadata } from '../../shared/runtime-bootstrap'
 import type { OrcaRuntimeService } from './orca-runtime'
 
-
-
 import type { RpcRequest, RpcResponse } from './rpc/core'
 
-
-
-
-
-
-import type { DeviceRegistry} from './device-registry';
+import type { DeviceRegistry } from './device-registry'
 import { type DeviceScope } from './device-registry'
 import type { E2EEKeypair } from './e2ee-keypair'
 
-import type {
-  MobileSocketTransportMetadata
-} from './rpc/mobile-socket-wiring'
+import type { MobileSocketTransportMetadata } from './rpc/mobile-socket-wiring'
 import type { PairingRelay } from '../../shared/mobile-relay-pairing-offer'
 import type { MobilePairingConnectionMode } from '../../shared/mobile-pairing-connection-mode'
-import type {
-  MobileRelayMintFailure
-} from '../../shared/mobile-relay-mint-failure'
-import type {
-  RelayDeviceBinding,
-  RelayRevokeOutboxItem
-} from './relay/relay-revoke-outbox'
+import type { MobileRelayMintFailure } from '../../shared/mobile-relay-mint-failure'
+import type { RelayDeviceBinding, RelayRevokeOutboxItem } from './relay/relay-revoke-outbox'
 import type {
   DeviceCredentialInstalled,
   PairingGetEndpointsParams,
   PairingGetEndpointsResult,
   PairingProvisionRelayParams
 } from '../../shared/mobile-relay-credential-contract'
-
-
-
 
 export const DEFAULT_WS_PORT = 6768
 
@@ -158,8 +141,10 @@ export const MOBILE_RPC_METHOD_ALLOWLIST = new Set([
   'aiVault.listSessions',
   'aiVault.prepareSessionResume',
   'browser.back',
+  'browser.certificate.proceed',
   'browser.dialogAccept',
   'browser.dialogDismiss',
+  'browser.eval',
   'browser.forward',
   'browser.goto',
   'browser.keyboardInsertText',
@@ -173,6 +158,20 @@ export const MOBILE_RPC_METHOD_ALLOWLIST = new Set([
   'browser.screencast',
   'browser.screencast.unsubscribe',
   'browser.tabCreate',
+  'browser.tabClose',
+  'browser.tabCurrent',
+  'browser.tabList',
+  'browser.tabProfileClone',
+  'browser.tabProfileShow',
+  'browser.tabSetProfile',
+  'browser.tabShow',
+  'browser.tabSwitch',
+  'browser.profileClearDefaultCookies',
+  'browser.profileCreate',
+  'browser.profileDelete',
+  'browser.profileDetectBrowsers',
+  'browser.profileImportFromBrowser',
+  'browser.profileList',
   'browser.viewport',
   'clipboard.abortImageUpload',
   'clipboard.appendImageUploadChunk',
