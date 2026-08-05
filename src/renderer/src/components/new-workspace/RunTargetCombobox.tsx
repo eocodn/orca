@@ -16,21 +16,15 @@ import {
 } from './RunTargetComboboxRow'
 import {
   buildRunTargetRows,
-  getEphemeralVmLabel,
-  getRecipeDetail,
-  RUN_TARGET_ADD_HOST_KEY,
-  type EphemeralVmRecipeOption
+  RUN_TARGET_ADD_HOST_KEY
 } from './run-target-options'
-import { AddHostSubmenuRow, RecipesSubmenuRow } from './RunTargetSubmenus'
+import { AddHostSubmenuRow } from './RunTargetSubmenus'
 import RunTargetField from './RunTargetField'
 
 type RunTargetComboboxProps = {
   hostOptions: readonly ProjectHostSetupOption[]
   hostValue: string | null
   onHostChange?: (setupId: string) => void
-  recipes: EphemeralVmRecipeOption[]
-  recipeValue: string | null
-  onRecipeChange?: (recipeId: string | null) => void
   onAddRemoteServer?: () => void
   onAddSshHost?: () => void
   onConnectHost?: (option: NeedsSetupProjectHostOption) => Promise<void> | void
@@ -43,38 +37,33 @@ const ROOT_ATTRIBUTE = 'data-run-target-combobox-root'
  * search, exactly one row is armed and Enter takes it, hovering arms, and the
  * "Add host" row is pinned to the popover edge so it survives every state.
  *
- * Two things the project picker doesn't have: disconnected hosts carry an
- * inline Connect action that must not select the row, and two rows open nested
- * lists (VM recipes, Add host) rather than committing.
+ * Disconnected hosts carry an inline Connect action that must not select the row.
  */
 export default function RunTargetCombobox({
   hostOptions,
   hostValue,
   onHostChange,
-  recipes,
-  recipeValue,
-  onRecipeChange,
   onAddRemoteServer,
   onAddSshHost,
   onConnectHost
 }: RunTargetComboboxProps): React.JSX.Element {
-  const [submenu, setSubmenu] = useState<'recipes' | 'add-host' | null>(null)
+  const [submenu, setSubmenu] = useState<'add-host' | null>(null)
   // Track in-flight connects per host so one stalling connect never blocks the others.
   const [connectingHostIds, setConnectingHostIds] = useState<ReadonlySet<string>>(() => new Set())
 
   const hasAddHost = Boolean(onAddSshHost || onAddRemoteServer)
   const deriveRowKeys = useCallback(
     (query: string): string[] =>
-      buildRunTargetRows({ hostOptions, recipes, query, hasAddHost }).rows.map((row) => row.key),
-    [hasAddHost, hostOptions, recipes]
+      buildRunTargetRows({ hostOptions, query, hasAddHost }).rows.map((row) => row.key),
+    [hasAddHost, hostOptions]
   )
   const combobox = useTypeAheadCombobox(deriveRowKeys)
   const { query, setQuery, open, setOpen, armedKey, arm, moveArm, inputRef, listId, setListNode } =
     combobox
 
-  const { rows, matchedRecipes } = useMemo(
-    () => buildRunTargetRows({ hostOptions, recipes, query, hasAddHost }),
-    [hasAddHost, hostOptions, query, recipes]
+  const { rows } = useMemo(
+    () => buildRunTargetRows({ hostOptions, query, hasAddHost }),
+    [hasAddHost, hostOptions, query]
   )
   const readyHostOptions = useMemo(
     () => hostOptions.filter((option) => option.kind === 'ready'),
@@ -82,10 +71,9 @@ export default function RunTargetCombobox({
   )
   const selectedHost =
     readyHostOptions.find((option) => option.id === hostValue) ?? readyHostOptions[0] ?? null
-  const selectedRecipe = recipes.find((recipe) => recipe.id === recipeValue) ?? null
   const armedRow = rows.find((row) => row.key === armedKey) ?? rows[0] ?? null
   // Only a committed selection paints the field; typing replaces it.
-  const committed = query.length === 0 && (selectedRecipe !== null || selectedHost !== null)
+  const committed = query.length === 0 && selectedHost !== null
 
   // Closing also drops any open submenu, which the shared hook doesn't know about.
   const close = useCallback((): void => {
@@ -96,18 +84,9 @@ export default function RunTargetCombobox({
   const selectHost = useCallback(
     (setupId: string): void => {
       onHostChange?.(setupId)
-      onRecipeChange?.(null)
       close()
     },
-    [close, onHostChange, onRecipeChange]
-  )
-
-  const selectRecipe = useCallback(
-    (recipeId: string): void => {
-      onRecipeChange?.(recipeId)
-      close()
-    },
-    [close, onRecipeChange]
+    [close, onHostChange]
   )
 
   const connectHost = useCallback(
@@ -149,7 +128,7 @@ export default function RunTargetCombobox({
         // Not ready: selecting is a no-op, the Connect action is the way forward.
         return
       }
-      setSubmenu(row.kind === 'recipes' ? 'recipes' : 'add-host')
+      setSubmenu('add-host')
     },
     [rows, selectHost]
   )
@@ -193,10 +172,8 @@ export default function RunTargetCombobox({
     [close, setOpen]
   )
 
-  const fieldLabel = selectedRecipe
-    ? `${getEphemeralVmLabel()} / ${selectedRecipe.name}`
-    : (selectedHost?.label ?? '')
-  const fieldDetail = selectedRecipe ? getRecipeDetail(selectedRecipe) : (selectedHost?.path ?? '')
+  const fieldLabel = selectedHost?.label ?? ''
+  const fieldDetail = selectedHost?.path ?? ''
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -211,7 +188,7 @@ export default function RunTargetCombobox({
         onOpenRequest={() => setOpen(true)}
         onToggle={() => setOpen(!open)}
         committed={committed}
-        isRecipe={selectedRecipe !== null}
+        isRecipe={false}
         hostId={selectedHost?.hostId ?? null}
         label={fieldLabel}
         detail={fieldDetail}
@@ -278,7 +255,7 @@ export default function RunTargetCombobox({
                     label={row.option.label}
                     detail={row.option.path}
                     armed={isArmed}
-                    current={selectedRecipe === null && row.option.id === selectedHost?.id}
+                    current={row.option.id === selectedHost?.id}
                     optionId={optionId}
                     onArm={() => {
                       arm(row.key)
@@ -326,23 +303,7 @@ export default function RunTargetCombobox({
                   />
                 )
               }
-              // Recipes submenu row.
-              return (
-                <RecipesSubmenuRow
-                  key={row.key}
-                  open={submenu === 'recipes'}
-                  onOpenChange={(next) => setSubmenu(next ? 'recipes' : null)}
-                  armed={isArmed}
-                  optionId={optionId}
-                  recipes={matchedRecipes}
-                  selectedRecipeId={selectedRecipe?.id ?? null}
-                  onArm={() => {
-                    arm(row.key)
-                    setSubmenu('recipes')
-                  }}
-                  onSelectRecipe={selectRecipe}
-                />
-              )
+              return null
             })}
           </div>
           {hasAddHost ? (

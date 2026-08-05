@@ -39,7 +39,6 @@ export const BOOLEAN_FLAGS = new Set([
   'parent-current',
   'provision',
   'ready',
-  'recipe-json',
   'relations',
   'reinstall',
   'restore-window',
@@ -172,8 +171,7 @@ export function isCommandGroup(commandPath: string[]): boolean {
         'agent',
         'environment',
         'diagnostics',
-        'linear',
-        'vm'
+        'linear'
       ].includes(commandPath[0])) ||
     (commandPath.length === 2 && commandPath[0] === 'agent' && commandPath[1] === 'hooks')
   )

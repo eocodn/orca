@@ -68,7 +68,6 @@ import { unwrapRuntimeRpcResult } from '@/runtime/runtime-rpc-client'
 import { translate } from '@/i18n/i18n'
 
 import {
-  EMPTY_EPHEMERAL_VM_RECIPES,
   EMPTY_PROJECT_HOST_SETUP_OPTIONS,
   EMPTY_PROJECT_OPTIONS,
   type NewWorkspaceComposerCardProps
@@ -96,10 +95,6 @@ export default function NewWorkspaceComposerCard({
   projectHostSetupOptions = EMPTY_PROJECT_HOST_SETUP_OPTIONS,
   selectedProjectHostSetupId = null,
   onProjectHostSetupChange,
-  ephemeralVmRecipes = EMPTY_EPHEMERAL_VM_RECIPES,
-  selectedEphemeralVmRecipeId = null,
-  onEphemeralVmRecipeChange,
-  ephemeralVmRecipeError = null,
   repoBackedSearchRepos,
   repoBackedSourcesDisabled = false,
   allowSmartNameAddProject = true,
@@ -380,7 +375,6 @@ export default function NewWorkspaceComposerCard({
   // host needs this affordance for users who have not registered the target yet.
   const shouldShowRunTargetPicker =
     readyProjectHostSetupOptions.length > 0 ||
-    ephemeralVmRecipes.length > 0 ||
     needsSetupProjectHostSetupOptions.length > 0
   const handleProjectHostSetupChange = React.useCallback(
     (setupId: string): void => {
@@ -422,8 +416,6 @@ export default function NewWorkspaceComposerCard({
     dragHandlers,
     eligibleRepos,
     emptyProjectMessage,
-    ephemeralVmRecipeError,
-    ephemeralVmRecipes,
     focusNameInput,
     forkPushWarning,
     handleAddRemoteServer,
@@ -446,7 +438,6 @@ export default function NewWorkspaceComposerCard({
     onConnectSelectedRepo,
     onCreate,
     onCreateMultipleChange,
-    onEphemeralVmRecipeChange,
     onNameValueChange,
     onNoteChange,
     onOpenAgentSettings,
@@ -482,7 +473,6 @@ export default function NewWorkspaceComposerCard({
     requiresExplicitSetupChoice,
     resolvedSetupDecision,
     reuseSelectedBranch,
-    selectedEphemeralVmRecipeId,
     selectedProjectHostSetupId,
     selectedProjectId,
     selectedProjectName,

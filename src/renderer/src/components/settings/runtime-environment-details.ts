@@ -20,7 +20,7 @@ export type RuntimeHostDetails = {
   error: string | null
 }
 
-export type RemoteServerWorkflow = 'connect' | 'cloud-vm' | 'share'
+export type RemoteServerWorkflow = 'connect' | 'share'
 
 export function evaluateHostDetails(status: RuntimeStatus): RuntimeCompatVerdict {
   return evaluateRuntimeCompat({

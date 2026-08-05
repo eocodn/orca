@@ -30,7 +30,7 @@ export function buildActiveConnectionIdsAtShutdown(
   // disconnect or a failed/cancelled connect — startup must not auto-dial a
   // host the user left offline or stack credential dialogs (sessions still
   // restore on tab focus via the deferred flow, so only eagerness is lost).
-  // Runtime-owned (ephemeral-VM) targets belong to the runtime layer; a
+  // Runtime-owned targets belong to the runtime layer; a
   // renderer-driven ssh.connect would dispose the runtime's live relay session.
   for (const sessionId of Object.values(remoteSessionIdsByTabId ?? {})) {
     const connectionId = parseAppSshPtyId(sessionId)?.connectionId

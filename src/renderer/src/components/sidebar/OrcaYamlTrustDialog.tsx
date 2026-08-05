@@ -17,15 +17,13 @@ type ScriptKind = OrcaHookScriptKind
 const SCRIPT_KIND_LABEL: Record<ScriptKind, string> = {
   setup: 'setup script',
   archive: 'archive script',
-  issueCommand: 'issue command',
-  vmRecipe: 'VM recipe'
+  issueCommand: 'issue command'
 }
 
 const SCRIPT_KIND_TRIGGER: Record<ScriptKind, string> = {
   setup: 'when this workspace is created',
   archive: 'when this workspace is removed',
-  issueCommand: 'when this workspace launches with a linked issue',
-  vmRecipe: 'before provisioning a VM'
+  issueCommand: 'when this workspace launches with a linked issue'
 }
 
 const OrcaYamlTrustDialog = React.memo(function OrcaYamlTrustDialog() {
@@ -58,9 +56,7 @@ const OrcaYamlTrustDialog = React.memo(function OrcaYamlTrustDialog() {
       ? 'archive'
       : modalData.scriptKind === 'issueCommand'
         ? 'issueCommand'
-        : modalData.scriptKind === 'vmRecipe'
-          ? 'vmRecipe'
-          : 'setup'
+        : 'setup'
   const scriptContent = typeof modalData.scriptContent === 'string' ? modalData.scriptContent : ''
   const contentHash = typeof modalData.contentHash === 'string' ? modalData.contentHash : ''
   const previouslyApproved = modalData.previouslyApproved === true

@@ -15,7 +15,6 @@ import type {
 } from '../../shared/plugins/plugin-install-lockfile'
 import {
   validateDeclaredPluginArtifacts,
-  validatePluginInstallContent,
   type PluginArtifactValidationResult
 } from './plugin-artifact-validation'
 import { renamePluginFileWithWindowsRetry } from './plugin-atomic-file-write'
@@ -50,7 +49,7 @@ async function validatePluginInstallTree(
   manifest: PluginManifest
 ): Promise<PluginArtifactValidationResult> {
   const declared = await validateDeclaredPluginArtifacts(rootDir, manifest)
-  return declared.ok ? validatePluginInstallContent(rootDir, manifest) : declared
+  return declared
 }
 
 async function readInstallManifest(

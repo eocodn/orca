@@ -104,15 +104,6 @@ export type PluginHostListEntry = {
     keybindings: { key: string; when: 'global' | 'worktree' }[]
   }[]
   hasWorker: boolean
-  vmRecipes?: {
-    id: string
-    name: string
-    description?: string
-    commands: {
-      phase: 'create' | 'suspend' | 'resume' | 'destroy'
-      command: string
-    }[]
-  }[]
   restarts: number
   blockedByKillList?: { reason: string; advisoryUrl?: string }
   source?: {

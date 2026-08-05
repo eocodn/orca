@@ -39,7 +39,6 @@ export const FEATURE_INTERACTION_CATEGORY_BY_ID = {
   'browser-grab': 'browser',
   'markdown-file-created': 'notes',
   'workspace-creation': 'workspace',
-  'ephemeral-vm-setup': 'setup',
   'agent-orchestration-setup': 'setup',
   'agent-orchestration': 'collaboration',
   'ai-commit-generation': 'source_control',

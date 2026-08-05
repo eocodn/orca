@@ -3,7 +3,6 @@ import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 import { translate } from '@/i18n/i18n'
 import { translateSearchKeyword } from './settings-search-keywords'
 import { getNewWorktreeCardStyleSearchEntry } from './new-worktree-card-style-search-entry'
-import { getEphemeralVmsSearchEntry } from './ephemeral-vms-search'
 
 export const getExperimentalPaneSearchEntries = createLocalizedCatalog(
   (): SettingsSearchEntry[] => [
@@ -226,8 +225,7 @@ export const getExperimentalPaneSearchEntries = createLocalizedCatalog(
         )
       ]
     },
-    getNewWorktreeCardStyleSearchEntry(),
-    getEphemeralVmsSearchEntry()
+    getNewWorktreeCardStyleSearchEntry()
   ]
 )
 
@@ -269,8 +267,5 @@ export function getExperimentalSearchEntry() {
         'New card style'
       )
     ),
-    ephemeralVms: findEntry(
-      translate('auto.components.settings.ephemeralVms.search.cloudVmTitle', 'Cloud VM')
-    )
   } as const
 }

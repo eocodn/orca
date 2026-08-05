@@ -395,7 +395,7 @@ export function useAppShellPageStartupEffects(context: Record<string, unknown>) 
           }
 
           // Why: re-establish SSH before terminal reconnect so SSH-backed tabs route through pty.attach; passphrase targets defer to tab focus to avoid stacked credential dialogs.
-          // Why: never dial runtime-owned (ephemeral-VM) targets from the renderer â ssh.connect would dispose the runtime layer's live relay session; filter them out here too.
+          // Runtime-owned targets stay under the runtime layer's relay session.
           const connectionIds = (sessionRead.session.activeConnectionIdsAtShutdown ?? []).filter(
             (targetId) => !isRuntimeOwnedSshTargetId(targetId)
           )

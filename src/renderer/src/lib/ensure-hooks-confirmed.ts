@@ -39,28 +39,6 @@ function getSetupTrustContent(yamlHooks: OrcaHooks | null): string {
   return [yamlHooks?.scripts?.setup?.trim(), ...defaultTabCommands].filter(Boolean).join('\n\n')
 }
 
-function getVmRecipeTrustContent(yamlHooks: OrcaHooks | null): string {
-  return (yamlHooks?.environmentRecipes ?? [])
-    .map((recipe) =>
-      [
-        `# environmentRecipes.${recipe.id}`,
-        `name: ${recipe.name}`,
-        recipe.description ? `description: ${recipe.description}` : null,
-        `create: ${recipe.create}`,
-        recipe.suspend ? `suspend: ${recipe.suspend}` : null,
-        recipe.resume ? `resume: ${recipe.resume}` : null,
-        recipe.destroyDisabled
-          ? 'destroy: none'
-          : recipe.destroy
-            ? `destroy: ${recipe.destroy}`
-            : null
-      ]
-        .filter((entry): entry is string => entry !== null)
-        .join('\n')
-    )
-    .join('\n\n')
-}
-
 function findHookRepo(state: AppState, repoId: string, hostId?: ExecutionHostId) {
   return hostId
     ? state.repos.find((repo) => repo.id === repoId && getRepoExecutionHostId(repo) === hostId)
@@ -146,9 +124,7 @@ export async function ensureHooksConfirmed(
         scriptContent =
           scriptKind === 'setup'
             ? getSetupTrustContent(yamlHooks)
-            : scriptKind === 'vmRecipe'
-              ? getVmRecipeTrustContent(yamlHooks)
-              : (yamlHooks?.scripts?.[scriptKind] ?? '').trim()
+            : (yamlHooks?.scripts?.[scriptKind] ?? '').trim()
       }
     } catch {
       // Fail closed: if we cannot inspect the script, we cannot trust it.

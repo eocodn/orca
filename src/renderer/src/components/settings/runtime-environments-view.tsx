@@ -5,8 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { SearchableSetting } from './SearchableSetting'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { RuntimePairingUrlGenerator } from './RuntimePairingUrlGenerator'
-import { EphemeralVmRuntimesSection } from './EphemeralVmRuntimesSection'
-import { CloudVmSetupGuide } from './CloudVmSetupGuide'
 import { RemoteServerUpdateStatus, getRemoteServerManualUpdateHelp } from './RemoteServerUpdateStatus'
 import { RuntimeHostAccessForm } from './RuntimeHostAccessForm'
 import { describeRuntimeCompatBlock } from '../../../../shared/protocol-compat'
@@ -67,17 +65,6 @@ export function RuntimeEnvironmentsView(props: RuntimeEnvironmentsViewProps): Re
                 'Other devices join this machine'
               )
             ],
-            [
-              'cloud-vm',
-              translate(
-                'auto.components.settings.RuntimeEnvironmentsPane.cloudVmWorkflow',
-                'Cloud VM'
-              ),
-              translate(
-                'auto.components.settings.RuntimeEnvironmentsPane.cloudVmWorkflowHelp',
-                'Manage recipe-created cloud machines'
-              )
-            ]
           ] as const
         )
           .filter(([value]) => value !== 'share' || canGeneratePairingUrl)
@@ -113,11 +100,6 @@ export function RuntimeEnvironmentsView(props: RuntimeEnvironmentsViewProps): Re
       </div>
 
       <RuntimeEnvironmentConnectionWorkflow {...props} />
-
-      <div className={cn('space-y-5 pt-2', visibleWorkflow !== 'cloud-vm' && 'hidden')}>
-        <CloudVmSetupGuide />
-        <EphemeralVmRuntimesSection />
-      </div>
 
       <div
         data-settings-section="default-runtime"

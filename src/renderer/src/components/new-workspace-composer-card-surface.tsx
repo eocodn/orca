@@ -101,8 +101,6 @@ export default function NewWorkspaceComposerCardSurface({
   dragHandlers,
   eligibleRepos,
   emptyProjectMessage,
-  ephemeralVmRecipeError,
-  ephemeralVmRecipes,
   focusNameInput,
   forkPushWarning,
   handleAddRemoteServer,
@@ -125,7 +123,6 @@ export default function NewWorkspaceComposerCardSurface({
   onConnectSelectedRepo,
   onCreate,
   onCreateMultipleChange,
-  onEphemeralVmRecipeChange,
   onNameValueChange,
   onNoteChange,
   onOpenAgentSettings,
@@ -161,7 +158,6 @@ export default function NewWorkspaceComposerCardSurface({
   requiresExplicitSetupChoice,
   resolvedSetupDecision,
   reuseSelectedBranch,
-  selectedEphemeralVmRecipeId,
   selectedProjectHostSetupId,
   selectedProjectId,
   selectedProjectName,
@@ -282,23 +278,11 @@ export default function NewWorkspaceComposerCardSurface({
                 hostOptions={projectHostSetupOptions}
                 hostValue={selectedProjectHostSetupId ?? null}
                 onHostChange={handleProjectHostSetupChange}
-                recipes={ephemeralVmRecipes}
-                recipeValue={selectedEphemeralVmRecipeId}
-                onRecipeChange={onEphemeralVmRecipeChange}
                 onAddSshHost={handleAddSshHost}
                 onAddRemoteServer={handleAddRemoteServer}
                 onConnectHost={handleConnectRunTargetHost}
               />
-              {ephemeralVmRecipeError ? (
-                <p className="whitespace-pre-line text-[11px] text-destructive">
-                  {ephemeralVmRecipeError}
-                </p>
-              ) : null}
             </div>
-          ) : ephemeralVmRecipeError ? (
-            <p className="whitespace-pre-line text-[11px] text-destructive">
-              {ephemeralVmRecipeError}
-            </p>
           ) : null}
           {selectedRepoRequiresConnection && selectedRepoConnectionId ? (
             <div

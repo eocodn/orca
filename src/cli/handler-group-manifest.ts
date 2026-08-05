@@ -143,10 +143,5 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
       'linear create'
     ],
     load: async () => (await import('./handlers/linear.js')).LINEAR_HANDLERS
-  },
-  {
-    name: 'vm',
-    keys: ['vm recipe doctor'],
-    load: async () => (await import('./handlers/vm.js')).VM_HANDLERS
   }
 ]

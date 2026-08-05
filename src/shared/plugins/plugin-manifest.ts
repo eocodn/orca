@@ -4,11 +4,9 @@ import {
   PLUGIN_AGENT_PROFILE_LIMIT,
   PLUGIN_KEYBINDING_LIMIT,
   PLUGIN_LANGUAGE_PACK_LIMIT,
-  PLUGIN_VM_RECIPE_LIMIT,
   pluginAgentProfileContributionSchema,
   pluginKeybindingContributionSchema,
   pluginLanguagePackContributionSchema,
-  pluginVmRecipeContributionSchema
 } from './plugin-content-pack-contributions'
 import {
   isPluginManifestId,
@@ -109,10 +107,6 @@ export const pluginManifestSchema = z
           .array(pluginKeybindingContributionSchema)
           .max(PLUGIN_KEYBINDING_LIMIT)
           .default([]),
-        vmRecipes: z
-          .array(pluginVmRecipeContributionSchema)
-          .max(PLUGIN_VM_RECIPE_LIMIT)
-          .default([]),
         agents: z
           .array(pluginAgentProfileContributionSchema)
           .max(PLUGIN_AGENT_PROFILE_LIMIT)
@@ -125,7 +119,6 @@ export const pluginManifestSchema = z
         events: [],
         languagePacks: [],
         keybindings: [],
-        vmRecipes: [],
         agents: []
       })),
     capabilities: z.array(pluginCapabilitySchema).max(32).default([])

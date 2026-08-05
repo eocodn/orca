@@ -22,7 +22,6 @@ export type FeatureInteractionId =
   | 'workspace-creation'
   | 'agent-orchestration-setup'
   | 'agent-orchestration'
-  | 'ephemeral-vm-setup'
   | 'ai-commit-generation'
   | 'ai-pr-generation'
   | 'claude-account-switching'
@@ -83,7 +82,6 @@ export const FEATURE_INTERACTIONS = [
   { id: 'browser-grab', interaction: 'browser element grab or screenshot used' },
   { id: 'markdown-file-created', interaction: 'untitled markdown file explicitly created' },
   { id: 'workspace-creation', interaction: 'workspace creation flow opened' },
-  { id: 'ephemeral-vm-setup', interaction: 'Ephemeral VMs setup opened or scaffold prompt copied' },
   {
     id: 'agent-orchestration-setup',
     interaction: 'Agent Orchestration setup enabled or opened'

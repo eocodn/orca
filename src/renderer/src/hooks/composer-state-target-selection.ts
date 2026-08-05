@@ -4,7 +4,6 @@ import { useAppStore } from '@/store'
 import { getAgentLaunchPlatformForRepo } from '@/lib/agent-launch-platform'
 import { getLocalRepoProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import { useDetectedAgents } from '@/hooks/useDetectedAgents'
-import { useEphemeralVmRecipeOptions } from '@/hooks/useEphemeralVmRecipeOptions'
 import { getFolderSourceRepos } from '@/components/sidebar/folder-workspace-composer-helpers'
 import { useFolderWorkspaceComposerPathStatus } from '@/components/sidebar/folder-workspace-composer-path-status'
 import { buildExecutionHostRegistry } from '../../../shared/execution-host-registry'
@@ -34,7 +33,6 @@ import type { ProjectGroup, SparsePreset, TuiAgent } from '../../../shared/types
 
   const {
     initialRepoId,
-    initialEphemeralVmRecipeId,
     initialName = '',
     initialPrompt = '',
     initialLinkedWorkItem = null,
@@ -326,25 +324,6 @@ import type { ProjectGroup, SparsePreset, TuiAgent } from '../../../shared/types
       selectedRepo?.id ?? null
     )
   }, [selectedRepo, settings])
-  // Why: key on repo id, not the repo object — updateRepo replaces it by reference and would re-run this effect, wiping the user's chosen recipe.
-  const selectedRecipeRepoId = selectedRepo?.id ?? null
-  const selectedRecipeRepoConnectionId = selectedRepo?.connectionId ?? null
-  // Why: gate recipe probing on the experimental toggle, since discovery can surface setup errors for a hidden feature.
-  const ephemeralVmsEnabled = settings?.experimentalEphemeralVms === true
-  const {
-    recipes: ephemeralVmRecipes,
-    selectedRecipeId: selectedEphemeralVmRecipeId,
-    setSelectedRecipeId: setSelectedEphemeralVmRecipeId,
-    error: ephemeralVmRecipeError
-  } = useEphemeralVmRecipeOptions({
-    enabled: ephemeralVmsEnabled,
-    repoId: selectedRecipeRepoId,
-    repoIsGit: selectedRepoIsGit,
-    repoConnectionId: selectedRecipeRepoConnectionId,
-    repoExecutionHostId: selectedRepo ? getRepoExecutionHostId(selectedRepo) : null,
-    projectGroupTarget: isProjectGroupTarget,
-    initialRecipeId: initialEphemeralVmRecipeId
-  })
   const selectedRepoConnectionId = selectedRepo?.connectionId ?? null
   const selectedRepoSshState = selectedRepoConnectionId
     ? (sshConnectionStates.get(selectedRepoConnectionId) ?? null)
@@ -415,11 +394,6 @@ import type { ProjectGroup, SparsePreset, TuiAgent } from '../../../shared/types
     projectHostSetupOptions,
     projectOptions,
     selectedRepoSettings,
-    ephemeralVmsEnabled,
-    ephemeralVmRecipes,
-    selectedEphemeralVmRecipeId,
-    setSelectedEphemeralVmRecipeId,
-    ephemeralVmRecipeError,
     selectedRepoConnectionId,
     selectedRepoSshStatus,
     selectedRepoRequiresConnection,

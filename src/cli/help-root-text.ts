@@ -23,9 +23,6 @@ Environments:
   environment show          Show one saved remote Orca runtime
   environment rm            Remove a saved remote Orca runtime
 
-Environment Recipes:
-  vm recipe doctor           Validate a per-workspace environment recipe
-
 Projects:
   project list              List durable projects known to Orca
   project setups            List project host setups

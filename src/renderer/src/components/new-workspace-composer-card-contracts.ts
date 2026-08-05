@@ -1,6 +1,6 @@
 import type React from 'react'
 import type RepoCombobox from '@/components/repo/RepoCombobox'
-import type { GitHubWorkItem, GitLabWorkItem, JiraIssue, LinearIssue, OrcaHooks, SetupAgentStartupPolicy, SparsePreset, TuiAgent } from '../../../shared/types'
+import type { GitHubWorkItem, GitLabWorkItem, JiraIssue, LinearIssue, SetupAgentStartupPolicy, SparsePreset, TuiAgent } from '../../../shared/types'
 import type { SshConnectionStatus } from '../../../shared/ssh-types'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
 import type { RuntimeStatus } from '../../../shared/runtime-types'
@@ -12,10 +12,8 @@ import type { SmartNameMode } from '@/components/new-workspace/smart-workspace-s
 import type { SmartWorkspaceNameSelection } from '@/components/new-workspace/SmartWorkspaceNameField'
 
 export type RepoOption = React.ComponentProps<typeof RepoCombobox>['repos'][number]
-export type EphemeralVmRecipeOption = NonNullable<OrcaHooks['environmentRecipes']>[number]
 const EMPTY_PROJECT_OPTIONS: NewWorkspaceProjectOption[] = []
 const EMPTY_PROJECT_HOST_SETUP_OPTIONS: ProjectHostSetupOption[] = []
-const EMPTY_EPHEMERAL_VM_RECIPES: EphemeralVmRecipeOption[] = []
 
 export type NewWorkspaceComposerCardProps = {
   contextualTourSource?: string
@@ -35,10 +33,6 @@ export type NewWorkspaceComposerCardProps = {
   projectHostSetupOptions?: ProjectHostSetupOption[]
   selectedProjectHostSetupId?: string | null
   onProjectHostSetupChange?: (setupId: string) => void
-  ephemeralVmRecipes?: EphemeralVmRecipeOption[]
-  selectedEphemeralVmRecipeId?: string | null
-  onEphemeralVmRecipeChange?: (recipeId: string | null) => void
-  ephemeralVmRecipeError?: string | null
   repoBackedSearchRepos?: RepoOption[]
   repoBackedSourcesDisabled?: boolean
   allowSmartNameAddProject?: boolean
@@ -107,5 +101,4 @@ export type NewWorkspaceComposerCardProps = {
   /** When set, "Add project" opens a host-provided flow instead of swapping the store's active modal. */
   onAddProjectOverride?: () => void
 }
-
 

@@ -19,7 +19,7 @@ export const PublicRuntimeAccessEndpointSchema = RuntimeAccessEndpointSchema.omi
 
 export type PublicRuntimeAccessEndpoint = z.infer<typeof PublicRuntimeAccessEndpointSchema>
 
-export const RuntimeEnvironmentSourceSchema = z.enum(['manual', 'ephemeral-vm'])
+export const RuntimeEnvironmentSourceSchema = z.enum(['manual'])
 export type RuntimeEnvironmentSource = z.infer<typeof RuntimeEnvironmentSourceSchema>
 
 export const KnownRuntimeEnvironmentSchema = z.object({
@@ -94,16 +94,10 @@ export function createEnvironmentFromPairingOffer(args: {
   })
 }
 
-export function isEphemeralVmRuntimeEnvironment(
-  environment: Pick<PublicKnownRuntimeEnvironment, 'source'>
-): boolean {
-  return environment.source === 'ephemeral-vm'
-}
-
 export function isUserManagedRuntimeEnvironment(
   environment: Pick<PublicKnownRuntimeEnvironment, 'source'>
 ): boolean {
-  return !isEphemeralVmRuntimeEnvironment(environment)
+  return true
 }
 
 export function getPreferredPairingOffer(environment: KnownRuntimeEnvironment): PairingOffer {

@@ -5,8 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { SearchableSetting } from './SearchableSetting'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { RuntimePairingUrlGenerator } from './RuntimePairingUrlGenerator'
-import { EphemeralVmRuntimesSection } from './EphemeralVmRuntimesSection'
-import { CloudVmSetupGuide } from './CloudVmSetupGuide'
 import { RemoteServerUpdateStatus, getRemoteServerManualUpdateHelp } from './RemoteServerUpdateStatus'
 import { RuntimeHostAccessForm } from './RuntimeHostAccessForm'
 import { describeRuntimeCompatBlock } from '../../../../shared/protocol-compat'

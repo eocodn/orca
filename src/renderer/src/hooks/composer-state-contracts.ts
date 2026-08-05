@@ -18,7 +18,6 @@ import type {
   GitPushTarget,
   JiraIssue,
   LinearIssue,
-  OrcaHooks,
   RepoHookSettings,
   SetupAgentStartupPolicy,
   SparsePreset,
@@ -53,7 +52,6 @@ export type SmartGitHubPrStartPointSelection = {
 
 export type UseComposerStateOptions = {
   initialRepoId?: string
-  initialEphemeralVmRecipeId?: string
   initialProjectGroupId?: string
   initialName?: string
   initialPrompt?: string
@@ -87,10 +85,6 @@ export type ComposerCardProps = {
   projectHostSetupOptions: ProjectHostSetupOption[]
   selectedProjectHostSetupId: string | null
   onProjectHostSetupChange: (setupId: string) => void
-  ephemeralVmRecipes: NonNullable<OrcaHooks['environmentRecipes']>
-  selectedEphemeralVmRecipeId: string | null
-  onEphemeralVmRecipeChange: (recipeId: string | null) => void
-  ephemeralVmRecipeError: string | null
   repoBackedSearchRepos?: ReturnType<typeof import('@/store').useAppStore.getState>['repos']
   repoBackedSourcesDisabled?: boolean
   allowSmartNameAddProject?: boolean

@@ -28,7 +28,6 @@ export type ServeReadiness = {
 
 export type ServeReadinessOutput =
   | { mode: 'human' | 'json' }
-  | { mode: 'recipe-json'; projectRoot: string }
 
 type ReadinessWrite = (output: string) => Promise<void>
 
@@ -56,18 +55,6 @@ export function renderServeReadiness(
   readiness: ServeReadiness,
   output: ServeReadinessOutput
 ): string {
-  if (output.mode === 'recipe-json') {
-    if (!readiness.pairing.available) {
-      throw new Error(
-        `Recipe JSON output requires runtime pairing: ${readiness.pairing.reason}. ${readiness.pairing.guidance}`
-      )
-    }
-    return JSON.stringify({
-      schemaVersion: 1,
-      pairingCode: readiness.pairing.url,
-      projectRoot: output.projectRoot
-    })
-  }
   if (output.mode === 'json') {
     return JSON.stringify({
       type: 'orca_server_ready',

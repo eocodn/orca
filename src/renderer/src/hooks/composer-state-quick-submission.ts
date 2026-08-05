@@ -99,8 +99,6 @@ export function useComposerQuickSubmission(context: any) {
     effectivePresetId,
     sparseEnabled,
     selectedWorkspaceTarget,
-    selectedEphemeralVmRecipeId,
-    ephemeralVmsEnabled,
     disabledTuiAgents,
     tuiAgent,
     showProjectRequiredError,
@@ -376,29 +374,9 @@ export function useComposerQuickSubmission(context: any) {
                 path: selectedWorkspaceTarget.target.repo.path
               }
             : null
-        let ephemeralVmRecipe: WorktreeCreationRequest['ephemeralVmRecipe']
-        const activeEphemeralVmRecipeId = ephemeralVmsEnabled ? selectedEphemeralVmRecipeId : null
-        if (activeEphemeralVmRecipeId && selectedWorkspaceTarget.status === 'ready') {
-          const vmRecipeTrustDecision = await ensureHooksConfirmed(
-            useAppStore.getState(),
-            repoId,
-            'vmRecipe'
-          )
-          if (vmRecipeTrustDecision === 'skip') {
-            return
-          }
-          ephemeralVmRecipe = {
-            sourceRepoId: repoId,
-            recipeId: activeEphemeralVmRecipeId,
-            projectId: selectedWorkspaceTarget.target.projectId
-          }
-        }
-
         const request: WorktreeCreationRequest = {
           repoId,
-          ...(ephemeralVmRecipe ? { ephemeralVmRecipe } : {}),
           worktreeCreateProgressMode:
-            activeEphemeralVmRecipeId ||
             getActiveRuntimeTarget(selectedRepoSettings).kind !== 'local'
               ? 'indeterminate'
               : 'stepped',
@@ -507,8 +485,6 @@ export function useComposerQuickSubmission(context: any) {
       selectedRepoSettings,
       selectedRepoRequiresConnection,
       selectedWorkspaceTarget,
-      selectedEphemeralVmRecipeId,
-      ephemeralVmsEnabled,
       showProjectRequiredError,
       settings?.agentCmdOverrides,
       settings?.agentDefaultArgs,

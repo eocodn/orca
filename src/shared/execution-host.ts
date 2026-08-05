@@ -56,7 +56,7 @@ export function toRuntimeExecutionHostId(environmentId: string): `runtime:${stri
   return `runtime:${encodeURIComponent(environmentId)}`
 }
 
-// Why: runtime-owned (ephemeral-VM) SSH targets are hidden from user-facing
+// Why: runtime-owned SSH targets are hidden from user-facing
 // SSH/run-target surfaces. The renderer can't read the target.owner field, so it
 // recognizes them by their deterministic id prefix. getRuntimeOwnedSshTargetId
 // (main) builds on this same prefix to keep the two in sync.

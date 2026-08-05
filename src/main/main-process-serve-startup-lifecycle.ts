@@ -1,5 +1,5 @@
-import { existsSync, statSync } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { app } from 'electron'
 import type { OrcaRuntimeService } from './runtime/orca-runtime'
 import type { OrcaRuntimeRpcServer } from './runtime/runtime-rpc'
@@ -13,8 +13,6 @@ export type ServeOptions = {
   pairingAddress: string | null
   noPairing: boolean
   mobilePairing: boolean
-  recipeJson: boolean
-  projectRoot: string | null
 }
 
 export type ServeReadinessContext = {
@@ -48,8 +46,6 @@ export function getServeOptions(argv = process.argv): ServeOptions {
     pairingAddress: valueAfter('--serve-pairing-address'),
     noPairing: argv.includes('--serve-no-pairing'),
     mobilePairing: argv.includes('--serve-mobile-pairing'),
-    recipeJson: argv.includes('--serve-recipe-json'),
-    projectRoot: valueAfter('--serve-project-root')
   }
 }
 
@@ -84,18 +80,6 @@ export async function printServeReady(
   const { runtime, runtimeRpc, readinessPublisher, managedWslCliReconciliationStatus } = context
   if (!runtime || !runtimeRpc) {
     throw new Error('Runtime server must be initialized before printing serve readiness')
-  }
-  if (options.recipeJson) {
-    if (!options.projectRoot) {
-      throw new Error('--serve-recipe-json requires --serve-project-root')
-    }
-    if (!isAbsolute(options.projectRoot)) {
-      throw new Error(`--serve-project-root must be absolute: ${options.projectRoot}`)
-    }
-    const projectRootStats = statSync(options.projectRoot)
-    if (!projectRootStats.isDirectory()) {
-      throw new Error(`--serve-project-root must be a directory: ${options.projectRoot}`)
-    }
   }
   const boundEndpoint = runtimeRpc.getWebSocketEndpoint()
   const advertised = boundEndpoint
@@ -134,9 +118,7 @@ export async function printServeReady(
           }
         : pairing
     },
-    options.recipeJson
-      ? { mode: 'recipe-json', projectRoot: options.projectRoot! }
-      : { mode: options.json ? 'json' : 'human' }
+    { mode: options.json ? 'json' : 'human' }
   )
   notifyServeSupervisorReady(runtime.getRuntimeId())
 }

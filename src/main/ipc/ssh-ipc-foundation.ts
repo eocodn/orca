@@ -327,7 +327,7 @@ export function broadcastSshState(
   targetId: string,
   state: SshConnectionState
 ): void {
-  // Why: runtime-owned (ephemeral-VM) targets are hidden from the renderer, so broadcasting their state only triggers wasted listTargets() lookups.
+  // Runtime-owned targets are hidden from the renderer, so state broadcasts are unnecessary.
   if (isRuntimeOwnedSshTargetId(targetId)) {
     currentRuntime?.invalidateSshWorktreeScanCache?.(targetId)
     return

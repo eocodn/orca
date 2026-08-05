@@ -104,8 +104,6 @@ export function useComposerWorktreeSubmission(context: any) {
     createMultiple,
     resetForNextCreate,
     selectedWorkspaceTarget,
-    selectedEphemeralVmRecipeId,
-    ephemeralVmsEnabled,
     loadHookCheckForRepo,
     commitHookCheckIfCurrent,
     checkedHooksRepoId,

@@ -9,7 +9,6 @@ import {
   type ExecutionHostId
 } from '../../../../shared/execution-host'
 import type { SshConnectionState } from '../../../../shared/ssh-types'
-import { isEphemeralVmRuntimeEnvironment } from '../../../../shared/runtime-environments'
 import type { AddRepoDialogStep } from './add-repo-dialog-types'
 import { useSidebarHostScopeOptions } from './use-sidebar-host-scope-options'
 import { canSelectAddRepoHost } from './add-repo-host-availability'
@@ -34,27 +33,8 @@ export function useAddRepoHostSelection({
   const settings = useAppStore((s) => s.settings)
   const setSshConnectionState = useAppStore((s) => s.setSshConnectionState)
   const sshConnectionStates = useAppStore((s) => s.sshConnectionStates)
-  const runtimeEnvironments = useAppStore((s) => s.runtimeEnvironments)
   const { hostOptions } = useSidebarHostScopeOptions()
-  const ephemeralRuntimeEnvironmentIds = useMemo(
-    () =>
-      new Set(
-        runtimeEnvironments
-          .filter(isEphemeralVmRuntimeEnvironment)
-          .map((environment) => environment.id)
-      ),
-    [runtimeEnvironments]
-  )
-  const selectableHostOptions = useMemo(
-    () =>
-      hostOptions.filter((host) => {
-        const parsed = parseExecutionHostId(host.id)
-        return (
-          parsed?.kind !== 'runtime' || !ephemeralRuntimeEnvironmentIds.has(parsed.environmentId)
-        )
-      }),
-    [ephemeralRuntimeEnvironmentIds, hostOptions]
-  )
+  const selectableHostOptions = useMemo(() => hostOptions, [hostOptions])
   const [selectedAddProjectHostId, setSelectedAddProjectHostId] =
     useState<ExecutionHostId>(LOCAL_EXECUTION_HOST_ID)
   const [hostSelectorOpen, setHostSelectorOpen] = useState(false)

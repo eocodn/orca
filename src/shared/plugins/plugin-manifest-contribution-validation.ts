@@ -13,7 +13,6 @@ type ContributionValidationManifest = {
     events: { on: string }[]
     languagePacks: { locale: string }[]
     keybindings: { command: string; key: string; when?: 'global' | 'worktree' }[]
-    vmRecipes: PathContribution[]
     agents: PathContribution[]
   }
   capabilities: { kind: string }[]
@@ -60,7 +59,7 @@ export function validatePluginManifestContributions(
     'language pack locale',
     ctx
   )
-  for (const path of ['vmRecipes', 'agents'] as const) {
+  for (const path of ['agents'] as const) {
     rejectDuplicateValues(
       manifest.contributes[path],
       (entry) => (entry as PathContribution).path,
