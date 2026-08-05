@@ -27,6 +27,9 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": false,
+    "icon": [
+      "../resources/build/icon.png"
+    ]
   }
 }

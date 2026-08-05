@@ -8,7 +8,10 @@ services:
     command:
       - sh
       - -euc
-      - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 >/dev/null
+      - >-
+        cargo fmt --manifest-path src-tauri/Cargo.toml -- --check &&
+        cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 >/dev/null &&
+        cargo test --manifest-path src-tauri/Cargo.toml --lib
     init: true
     network_mode: host
 
