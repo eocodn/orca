@@ -21,6 +21,26 @@ pub enum PtyOperation {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PtyExecutionTarget {
+    #[serde(rename = "windows-native", alias = "windows_native")]
+    WindowsNative,
+    Wsl2 {
+        distro: String,
+    },
+    Ssh {
+        host: String,
+        shell: PtySshShell,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum PtySshShell {
+    Posix,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct PtyRequest {
     pub request_id: String,
@@ -29,7 +49,9 @@ pub struct PtyRequest {
     pub program: Option<String>,
     #[serde(default)]
     pub args: Vec<String>,
-    pub current_dir: Option<PathBuf>,
+    pub current_dir: Option<String>,
+    #[serde(default)]
+    pub execution_target: Option<PtyExecutionTarget>,
     pub input: Option<String>,
     pub cols: Option<u16>,
     pub rows: Option<u16>,
@@ -150,6 +172,8 @@ fn should_commit_start_error(error: &str) -> bool {
         "empty_program"
             | "invalid_size"
             | "invalid_working_directory"
+            | "invalid_wsl_working_directory"
+            | "wsl_distro_mismatch"
             | "pty_spawn_failed"
             | "pty_terminal_failed"
     )
@@ -170,6 +194,18 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
             if request.cols.unwrap_or(0) == 0 || request.rows.unwrap_or(0) == 0 {
                 return Err(String::from("invalid_size"));
             }
+            match request.execution_target.as_ref() {
+                Some(PtyExecutionTarget::Wsl2 { distro }) if distro.trim().is_empty() => {
+                    return Err(String::from("empty_wsl_distro"));
+                }
+                Some(PtyExecutionTarget::Ssh { host, .. }) if host.trim().is_empty() => {
+                    return Err(String::from("empty_ssh_host"));
+                }
+                _ => {}
+            }
+        }
+        _ if request.execution_target.is_some() => {
+            return Err(String::from("execution_target_only_on_start"));
         }
         PtyOperation::Write if request.input.is_none() => {
             return Err(String::from("missing_input"));
@@ -196,6 +232,7 @@ fn start_session(
     request: &PtyRequest,
     state: &PtyExecutionState,
 ) -> Result<Arc<Mutex<PtySession>>, String> {
+    let spec = build_pty_spec(request)?;
     let mut registry = state
         .registry
         .lock()
@@ -223,17 +260,7 @@ fn start_session(
         .insert(request.session_id.clone(), request.request_id.clone());
     drop(registry);
 
-    let session = match PtySession::spawn(
-        request.session_id.clone(),
-        PtySpec {
-            program: request.program.clone().unwrap(),
-            args: request.args.clone(),
-            current_dir: request.current_dir.clone(),
-            environment: Default::default(),
-            cols: request.cols.unwrap(),
-            rows: request.rows.unwrap(),
-        },
-    ) {
+    let session = match PtySession::spawn(request.session_id.clone(), spec) {
         Ok(session) => session,
         Err(error) => {
             return Err(pty_error_code(error));
@@ -255,6 +282,119 @@ fn start_session(
         .sessions
         .insert(request.session_id.clone(), Arc::clone(&session));
     Ok(session)
+}
+
+fn build_pty_spec(request: &PtyRequest) -> Result<PtySpec, String> {
+    let program = request
+        .program
+        .clone()
+        .ok_or_else(|| String::from("empty_program"))?;
+    let target = request
+        .execution_target
+        .as_ref()
+        .unwrap_or(&PtyExecutionTarget::WindowsNative);
+    let (program, args, current_dir) = match target {
+        PtyExecutionTarget::WindowsNative => (
+            program,
+            request.args.clone(),
+            request.current_dir.clone().map(PathBuf::from),
+        ),
+        PtyExecutionTarget::Wsl2 { distro } => {
+            if distro.trim().is_empty() {
+                return Err(String::from("empty_wsl_distro"));
+            }
+            let mut args = vec![String::from("--distribution"), distro.clone()];
+            if let Some(current_dir) = &request.current_dir {
+                args.extend([String::from("--cd"), wsl_current_dir(current_dir, distro)?]);
+            }
+            args.push(String::from("--"));
+            args.push(program);
+            args.extend(request.args.clone());
+            (String::from("wsl.exe"), args, None)
+        }
+        PtyExecutionTarget::Ssh {
+            host,
+            shell: PtySshShell::Posix,
+        } => {
+            if host.trim().is_empty() {
+                return Err(String::from("empty_ssh_host"));
+            }
+            let mut command = vec![shell_quote(&program)];
+            command.extend(request.args.iter().map(|arg| shell_quote(arg)));
+            let script = match &request.current_dir {
+                Some(current_dir) => format!(
+                    "cd -- {} && exec {}",
+                    shell_quote(current_dir),
+                    command.join(" ")
+                ),
+                None => format!("exec {}", command.join(" ")),
+            };
+            // OpenSSH concatenates remote arguments, so quote the complete script boundary.
+            (
+                String::from("ssh"),
+                vec![
+                    String::from("-tt"),
+                    String::from("--"),
+                    host.clone(),
+                    format!("sh -lc {}", shell_quote(&script)),
+                ],
+                None,
+            )
+        }
+    };
+    Ok(PtySpec {
+        program,
+        args,
+        current_dir,
+        environment: Default::default(),
+        cols: request.cols.unwrap_or(0),
+        rows: request.rows.unwrap_or(0),
+    })
+}
+
+fn wsl_current_dir(value: &str, distro: &str) -> Result<String, String> {
+    if value.is_empty() {
+        return Err(String::from("invalid_wsl_working_directory"));
+    }
+    if value.starts_with('/') {
+        return Ok(value.to_string());
+    }
+
+    let normalized = value.replace('\\', "/");
+    for prefix in ["//wsl.localhost/", "//wsl$/"] {
+        if normalized
+            .get(..prefix.len())
+            .is_some_and(|head| head.eq_ignore_ascii_case(prefix))
+        {
+            let remainder = &normalized[prefix.len()..];
+            let (path_distro, path) = remainder
+                .split_once('/')
+                .map_or((remainder, ""), |(path_distro, path)| (path_distro, path));
+            if path_distro.is_empty() || !path_distro.eq_ignore_ascii_case(distro) {
+                return Err(String::from("wsl_distro_mismatch"));
+            }
+            return Ok(if path.is_empty() {
+                String::from("/")
+            } else {
+                format!("/{path}")
+            });
+        }
+    }
+
+    let bytes = normalized.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic() {
+        let rest = normalized[2..].trim_start_matches('/');
+        return Ok(if rest.is_empty() {
+            format!("/mnt/{}", (bytes[0] as char).to_ascii_lowercase())
+        } else {
+            format!("/mnt/{}/{}", (bytes[0] as char).to_ascii_lowercase(), rest)
+        });
+    }
+    Err(String::from("invalid_wsl_working_directory"))
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 fn session_for_request(
@@ -396,7 +536,10 @@ impl Drop for PtyExecutionState {
 
 #[cfg(test)]
 mod tests {
-    use super::{execute_pty_request, PtyExecutionState, PtyOperation, PtyRequest};
+    use super::{
+        build_pty_spec, execute_pty_request, PtyExecutionState, PtyExecutionTarget, PtyOperation,
+        PtyRequest, PtySshShell,
+    };
     #[cfg(unix)]
     use std::sync::Arc;
 
@@ -408,6 +551,7 @@ mod tests {
             program: None,
             args: Vec::new(),
             current_dir: None,
+            execution_target: None,
             input: None,
             cols: None,
             rows: None,
@@ -443,6 +587,149 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn builds_a_wsl2_pty_command_without_using_the_native_working_directory() {
+        let mut start = request("start-1", "session-1", PtyOperation::Start);
+        start.program = Some(String::from("bash"));
+        start.args = vec![String::from("-lc"), String::from("printf ready")];
+        start.current_dir = Some(String::from("/workspace/project"));
+        start.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        let spec = build_pty_spec(&start).unwrap();
+        assert_eq!(spec.program, "wsl.exe");
+        assert_eq!(
+            spec.args,
+            vec![
+                "--distribution",
+                "Ubuntu-24.04",
+                "--cd",
+                "/workspace/project",
+                "--",
+                "bash",
+                "-lc",
+                "printf ready"
+            ]
+        );
+        assert!(spec.current_dir.is_none());
+    }
+
+    #[test]
+    fn converts_windows_wsl_workspace_paths_before_using_wsl_cd() {
+        let mut start = request("start-1", "session-1", PtyOperation::Start);
+        start.program = Some(String::from("bash"));
+        start.current_dir = Some(String::from(r"C:\Users\Ada\project"));
+        start.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        let spec = build_pty_spec(&start).unwrap();
+        assert_eq!(spec.args[3], "/mnt/c/Users/Ada/project");
+    }
+
+    #[test]
+    fn converts_a_matching_wsl_unc_workspace_path() {
+        let mut start = request("start-1", "session-1", PtyOperation::Start);
+        start.program = Some(String::from("bash"));
+        start.current_dir = Some(String::from(
+            r"\\wsl.localhost\Ubuntu-24.04\home\ada\project",
+        ));
+        start.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        let spec = build_pty_spec(&start).unwrap();
+        assert_eq!(spec.args[3], "/home/ada/project");
+    }
+
+    #[test]
+    fn rejects_an_unmapped_wsl_workspace_path() {
+        let mut start = request("start-1", "session-1", PtyOperation::Start);
+        start.program = Some(String::from("bash"));
+        start.current_dir = Some(String::from("relative/project"));
+        start.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        assert_eq!(
+            build_pty_spec(&start),
+            Err(String::from("invalid_wsl_working_directory"))
+        );
+    }
+
+    #[test]
+    fn quotes_ssh_working_directory_and_arguments_as_one_remote_command() {
+        let mut start = request("start-1", "session-1", PtyOperation::Start);
+        start.program = Some(String::from("printf"));
+        start.args = vec![String::from("it's-ready")];
+        start.current_dir = Some(String::from("/tmp/it's-project"));
+        start.execution_target = Some(PtyExecutionTarget::Ssh {
+            host: String::from("builder"),
+            shell: PtySshShell::Posix,
+        });
+        start.cols = Some(80);
+        start.rows = Some(24);
+
+        let spec = build_pty_spec(&start).unwrap();
+        assert_eq!(spec.program, "ssh");
+        assert_eq!(spec.args[0], "-tt");
+        assert_eq!(spec.args[1], "--");
+        assert_eq!(spec.args[2], "builder");
+        assert_eq!(
+            spec.args[3],
+            "sh -lc 'cd -- '\\''/tmp/it'\\''\\'\\'''\\''s-project'\\'' && exec '\\''printf'\\'' '\\''it'\\''\\'\\'''\\''s-ready'\\'''"
+        );
+        assert!(spec.current_dir.is_none());
+    }
+
+    #[test]
+    fn rejects_an_execution_target_on_non_start_operations() {
+        let mut write = request("write-1", "session-1", PtyOperation::Write);
+        write.input = Some(String::from("input"));
+        write.execution_target = Some(PtyExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        });
+
+        assert_eq!(
+            execute_pty_request(&write, &PtyExecutionState::default()),
+            Err(String::from("execution_target_only_on_start"))
+        );
+    }
+
+    #[test]
+    fn accepts_the_public_hyphenated_native_target_name() {
+        let request: PtyRequest = serde_json::from_str(
+            r#"{
+                "request_id":"start-1",
+                "session_id":"session-1",
+                "operation":"start",
+                "program":"bash",
+                "args":[],
+                "current_dir":null,
+                "execution_target":{"kind":"windows-native"},
+                "input":null,
+                "cols":80,
+                "rows":24,
+                "timeout_ms":null
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            request.execution_target,
+            Some(PtyExecutionTarget::WindowsNative)
+        );
     }
 
     #[test]
