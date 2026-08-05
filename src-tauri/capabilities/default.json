@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Minimal ADE desktop capability; host operations remain explicit commands.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

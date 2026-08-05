@@ -1,6 +1,17 @@
 name: ade-control-${ADE_CONTROL_RUN_ID:?set a unique run id for concurrency-safe execution}
 
 services:
+  tauri-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.tauri-contract
+    command:
+      - sh
+      - -euc
+      - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 >/dev/null
+    init: true
+    network_mode: host
+
   rust-host-core-contract:
     build:
       context: .

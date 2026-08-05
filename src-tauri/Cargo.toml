@@ -1,0 +1,25 @@
+[package]
+name = "ade-tauri"
+version = "1.4.163"
+description = "Orca ADE Windows desktop host"
+authors = ["Stably"]
+edition = "2021"
+
+[lib]
+name = "ade_tauri_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.0" }
+
+[dependencies]
+ade-host-store = { path = "../rust/ade-host-store" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2.0.0" }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
