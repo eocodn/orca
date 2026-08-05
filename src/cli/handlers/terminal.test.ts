@@ -68,8 +68,17 @@ describe('terminal inspect and resize CLI', () => {
   })
 
   it('reads the authoritative terminal inspection contract', async () => {
-    const call = vi.fn().mockResolvedValue({ result: { terminal: { handle: 'term-1' } } })
-    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const result = {
+      terminal: {
+        handle: 'term-1',
+        lifecycle: { state: 'running', exit: null },
+        size: { cols: 80, rows: 24 },
+        history: { oldestCursor: 1, latestCursor: 3 },
+        reattach: { disposition: 'attached' }
+      }
+    }
+    const call = vi.fn().mockResolvedValue({ result })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     await TERMINAL_HANDLERS['terminal inspect']({
       flags: new Map([['terminal', 'term-1']]),
@@ -79,6 +88,9 @@ describe('terminal inspect and resize CLI', () => {
     })
 
     expect(call).toHaveBeenCalledWith('terminal.inspect', { terminal: 'term-1' })
+    expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toMatchObject({
+      result: { terminal: result.terminal }
+    })
   })
 
   it('requires an observed incarnation and forwards exact integer dimensions', async () => {
