@@ -1,14 +1,17 @@
-use ade_host_core::worker::{WorkerSnapshot, WorkerStatus};
+use ade_host_core::worker::{WorkerCommand, WorkerSnapshot, WorkerStatus};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct WorkerCliOptions {
     pub json: bool,
     pub worker_id: String,
+    pub commands: Vec<WorkerCommand>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum WorkerCliError {
     MissingWorkerId,
+    MissingHeartbeatSequence,
+    InvalidHeartbeatSequence(String),
     UnexpectedArgument(String),
     Runtime(String),
 }
@@ -20,6 +23,7 @@ where
 {
     let mut json = false;
     let mut worker_id = String::from("local");
+    let mut commands = Vec::new();
     let mut args = args.into_iter().map(Into::into);
     while let Some(argument) = args.next() {
         match argument.as_str() {
@@ -30,10 +34,27 @@ where
                     return Err(WorkerCliError::MissingWorkerId);
                 }
             }
+            "--start" => commands.push(WorkerCommand::Start),
+            "--ready" => commands.push(WorkerCommand::Ready),
+            "--heartbeat" => {
+                let sequence = args
+                    .next()
+                    .ok_or(WorkerCliError::MissingHeartbeatSequence)?;
+                let sequence = sequence
+                    .parse::<u64>()
+                    .map_err(|_| WorkerCliError::InvalidHeartbeatSequence(sequence))?;
+                commands.push(WorkerCommand::Heartbeat { sequence });
+            }
+            "--fail" => commands.push(WorkerCommand::Fail),
+            "--stop" => commands.push(WorkerCommand::Stop),
             _ => return Err(WorkerCliError::UnexpectedArgument(argument)),
         }
     }
-    Ok(WorkerCliOptions { json, worker_id })
+    Ok(WorkerCliOptions {
+        json,
+        worker_id,
+        commands,
+    })
 }
 
 pub fn run_cli<I, S>(args: I) -> Result<String, WorkerCliError>
@@ -44,9 +65,14 @@ where
     let options = parse_cli_args(args)?;
     let worker = ade_host_core::worker::WorkerRuntime::new(options.worker_id)
         .map_err(|error| WorkerCliError::Runtime(format!("{error:?}")))?;
-    let snapshot = worker
+    let mut snapshot = worker
         .snapshot()
         .map_err(|error| WorkerCliError::Runtime(format!("{error:?}")))?;
+    for command in options.commands {
+        snapshot = worker
+            .apply(snapshot.generation, command)
+            .map_err(|error| WorkerCliError::Runtime(format!("{error:?}")))?;
+    }
     if options.json {
         Ok(render_heartbeat_json(&snapshot))
     } else {
@@ -109,6 +135,7 @@ mod tests {
             Ok(WorkerCliOptions {
                 json: true,
                 worker_id: String::from("wsl-ubuntu"),
+                commands: Vec::new(),
             })
         );
         assert_eq!(
@@ -116,6 +143,26 @@ mod tests {
             Err(WorkerCliError::UnexpectedArgument(String::from(
                 "--legacy-mode"
             )))
+        );
+    }
+
+    #[test]
+    fn applies_a_strict_worker_command_sequence_before_rendering_state() {
+        let output = run_cli([
+            "--json",
+            "--worker-id",
+            "wsl-ubuntu",
+            "--start",
+            "--ready",
+            "--heartbeat",
+            "1",
+            "--fail",
+            "--stop",
+        ])
+        .expect("worker command sequence should succeed");
+        assert_eq!(
+            output,
+            r#"{"service":"ade-worker","worker_id":"wsl-ubuntu","generation":5,"status":"stopped","heartbeat_sequence":1}"#
         );
     }
 
