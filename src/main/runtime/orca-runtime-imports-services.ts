@@ -89,13 +89,6 @@ export type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-sele
 export type { RateLimitService } from '../rate-limits/service'
 export type { CodexRateLimitResetOutcome, RateLimitState } from '../../shared/rate-limit-types'
 export type { CodexResetCreditExpectedScope } from '../../shared/codex-reset-credit-scope'
-export type { VoiceSettings } from '../../shared/speech-types'
-export { getSpeechModelManager, getSpeechSttService } from '../speech/speech-runtime-service'
-export { getCatalogModel, isLocalSpeechModel, SPEECH_MODEL_CATALOG } from '../speech/model-catalog'
-export {
-  deleteLocalSpeechModel,
-  getSpeechModelDeletionErrorCode
-} from '../speech/speech-model-deletion'
 export type { CommitMessageAgentEnvironmentResolvers } from '../text-generation/commit-message-agent-environment'
 export { scanNestedRepos } from '../project-groups/nested-repo-discovery'
 export {

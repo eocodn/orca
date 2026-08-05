@@ -102,7 +102,7 @@ export function useTerminalLiveInputCommit<TTabType extends string>({
         clearPendingLiveInputCommit()
         return waitForPendingLiveInputFlush()
       }
-      // Why: external bytes (dictation/paste) land after the field's echo on the
+      // Why: external bytes (paste or automation) land after the field's echo on the
       // PTY; the field session must fully end or later diffs would erase them.
       if (pendingHandle === handle) {
         return flushPendingLiveInputText(handle)

@@ -132,14 +132,4 @@ export class OrcaRuntimeStatePart3 extends OrcaRuntimeStatePart2 {
   protected commitMessageAgentEnv: CommitMessageAgentEnvironmentResolvers | null = null
   protected repoHookCommands!: RuntimeRepoHookCommands
   protected readonly claudeAgentTeams = new ClaudeAgentTeamsService()
-  protected mobileDictation: {
-    id: string
-    owner: string
-    clientId?: string
-    connectionId?: string
-    state: 'starting' | 'active' | 'closing'
-    partialText: string
-    finalTexts: string[]
-    errors: string[]
-  } | null = null
 }

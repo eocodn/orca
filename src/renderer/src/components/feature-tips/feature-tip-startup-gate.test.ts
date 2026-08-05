@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getDefaultOnboardingState, getDefaultVoiceSettings } from '../../../../shared/constants'
-import type { GlobalSettings, OnboardingState } from '../../../../shared/types'
+import { getDefaultOnboardingState } from '../../../../shared/constants'
+import type { OnboardingState } from '../../../../shared/types'
 import { getFeatureTipsAppOpenDecision } from './feature-tip-startup-gate'
 
 const existingUserOnboarding: OnboardingState = {
@@ -12,15 +12,6 @@ const existingUserOnboarding: OnboardingState = {
 
 const firstTimeOnboarding = getDefaultOnboardingState()
 
-function makeSettings(voiceEnabled = false): Pick<GlobalSettings, 'voice'> {
-  return {
-    voice: {
-      ...getDefaultVoiceSettings(),
-      enabled: voiceEnabled
-    }
-  }
-}
-
 function decide(overrides: Partial<Parameters<typeof getFeatureTipsAppOpenDecision>[0]> = {}) {
   return getFeatureTipsAppOpenDecision({
     activeModal: 'none',
@@ -29,7 +20,7 @@ function decide(overrides: Partial<Parameters<typeof getFeatureTipsAppOpenDecisi
     onboarding: existingUserOnboarding,
     persistedUIReady: true,
     promptedThisSession: false,
-    settings: makeSettings(),
+    settings: {},
     suppressedByOnboardingThisSession: false,
     ...overrides
   })
@@ -38,25 +29,6 @@ function decide(overrides: Partial<Parameters<typeof getFeatureTipsAppOpenDecisi
 describe('feature tip startup gate', () => {
   it('opens the command palette tip first for an existing user', () => {
     expect(decide()).toEqual({ kind: 'open', tipId: 'cmd-j-palette' })
-  })
-
-  it('opens the voice tip after the command palette tip was seen', () => {
-    expect(decide({ featureTipsSeenIds: ['cmd-j-palette'] })).toEqual({
-      kind: 'open',
-      tipId: 'voice-dictation'
-    })
-  })
-
-  it('skips the voice tip when dictation is already enabled', () => {
-    expect(decide({ settings: makeSettings(true) })).toEqual({
-      kind: 'open',
-      tipId: 'cmd-j-palette'
-    })
-    expect(decide({ featureTipsSeenIds: ['cmd-j-palette'], settings: makeSettings(true) })).toEqual(
-      {
-        kind: 'skip'
-      }
-    )
   })
 
   it('suppresses feature tips while first-time onboarding is showing', () => {

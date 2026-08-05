@@ -155,7 +155,6 @@ export abstract class RuntimeRpcTransportServer extends RuntimeRpcPairingServer 
               this.abortWebSocketDispatches(socket.ws)
               // Why: subscriptions and binary streams are socket-scoped, but disconnect state is device-scoped across transports.
               this.runtime.cleanupSubscriptionsForConnection(socket.connectionId)
-              this.runtime.cancelMobileDictationForConnection(socket.connectionId)
               this.binaryStreamHandlers.delete(socket.connectionId)
               if (!hasOtherConnections) {
                 this.runtime.onClientDisconnected(socket.device.deviceToken)

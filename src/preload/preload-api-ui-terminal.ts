@@ -74,11 +74,6 @@ import { ipcRenderer } from './preload-api-runtime-context';import type { Preloa
       ipcRenderer.on('ui:editableContextPaste', listener)
       return () => ipcRenderer.removeListener('ui:editableContextPaste', listener)
     },
-    onDictationKeyDown: (callback: () => void): (() => void) => {
-      const listener = (_event: Electron.IpcRendererEvent) => callback()
-      ipcRenderer.on('ui:dictationKeyDown', listener)
-      return () => ipcRenderer.removeListener('ui:dictationKeyDown', listener)
-    },
     onActivateWorktree: (
       callback: (data: {
         repoId: string
@@ -359,4 +354,3 @@ import { ipcRenderer } from './preload-api-runtime-context';import type { Preloa
     } satisfies Partial<PreloadApi['ui']>
   }
 }
-

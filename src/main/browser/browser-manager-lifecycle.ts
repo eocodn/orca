@@ -14,7 +14,7 @@ import type {
 import {
   BrowserManagerMethods1,
   type BrowserManagerMethods1Surface
-} from './browser-manager-lifecycle-set-dictation-shortcut-forwarding-predicate-install-certificate-request-guard'
+} from './browser-manager-lifecycle-set-guest-state-listener-install-certificate-request-guard'
 import {
   BrowserManagerMethods2,
   type BrowserManagerMethods2Surface
@@ -117,7 +117,6 @@ export class BrowserManager {
   private readonly clearedLoadErrorsByGuestId = new Map<number, BrowserLoadError>()
   private browserGuestStateChangedListener: ((worktreeId: string) => void) | null = null
   private certificateTrustController: BrowserCertificateTrustController | null = null
-  private shouldForwardDictationShortcut: (() => boolean) | null = null
   private readonly pendingLoadFailuresByGuestId = new Map<
     number,
     { code: number; description: string; validatedUrl: string }
@@ -152,7 +151,6 @@ export class BrowserManager {
       this.clearedLoadErrorsByGuestId,
       this.browserGuestStateChangedListener,
       this.certificateTrustController,
-      this.shouldForwardDictationShortcut,
       this.pendingLoadFailuresByGuestId,
       this.pendingPermissionEventsByGuestId,
       this.pendingPopupEventsByGuestId,

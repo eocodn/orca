@@ -63,7 +63,7 @@ export function useMobileSessionWorkspaceSurface(context: WorkspaceContext) {
     pendingDiffNotesDelivery, setPendingDiffNotesDelivery, sendDiffNotesAgentActions, createTabAgentActions,
     setShowCreateTabDrawer, showCreateTabDrawer, browserScreencastSupported, setShowCreateBrowserModal,
     showCreateBrowserModal, setShowQuickCommands, showQuickCommands, setShowCustomKeyModal,
-    showCustomKeyModal, customKeys, setCustomKeys, showDictationSetup, setShowDictationSetup,
+    showCustomKeyModal, customKeys, setCustomKeys,
     deleteKeyTarget, setDeleteKeyTarget, handleDeleteCustomKey, handleManageShortcuts, leaveSession,
     discardMarkdownTarget, confirmDiscardMarkdown, markdownActionTarget, setMarkdownActionTarget,
     fileActionTarget, setFileActionTarget, browserActionTarget, setBrowserActionTarget, leaveDrafts,
@@ -73,8 +73,7 @@ export function useMobileSessionWorkspaceSurface(context: WorkspaceContext) {
     handleFileOpenStart, handleOpenedFileDiff, getRepoIdFromMobileWorktreeId, handleTerminalWebReady,
     handleSelectionMode, handleSelectionCopy, handleSelectionEvicted, handleModesChanged,
     handleKeyboardAvoidanceMetrics, handleHaptic, handleTerminalInput, handleTerminalQueryReply,
-    handleTerminalTap, handleFileTap, handleTerminalOpenUrl, handleDictationToggle, handleDictationPressIn,
-    handleDictationPressOut, dictation, dictationMode, isAttaching,
+    handleTerminalTap, handleFileTap, handleTerminalOpenUrl, isAttaching,
     keyboardLift, toastOpacityRef } = context
 
   const bulkCloseActions = existingBulkCloseActions ?? createBulkCloseSheetActions({

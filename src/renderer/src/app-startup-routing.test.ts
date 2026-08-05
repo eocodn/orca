@@ -226,15 +226,6 @@ describe('renderer startup runtime routing', () => {
     )
   })
 
-  it('loads dictation only when voice is enabled or a session is active', () => {
-    const source = readFileSync(join(process.cwd(), 'src/renderer/src/App.tsx'), 'utf8')
-
-    expect(source).toContain("import('./components/dictation/DictationController').then")
-    expect(source).not.toContain("from './components/dictation/DictationController'")
-    expect(source).toContain("settings?.voice?.enabled === true || dictationState !== 'idle'")
-    expect(source).toContain('shouldMountDictationController ?')
-  })
-
   it('loads the SSH passphrase dialog only when a credential request is queued', () => {
     const source = readFileSync(join(process.cwd(), 'src/renderer/src/App.tsx'), 'utf8')
 

@@ -70,7 +70,6 @@ import type { NativeFileDropPayload, BrowserFindSource, TerminalTabCloseRequest,
     onCtrlTabKeyDown: (callback: (data: { shiftKey: boolean }) => void) => () => void
     onCtrlTabKeyUp: (callback: () => void) => () => void
     onToggleStatusBar: (callback: () => void) => () => void
-    onDictationKeyDown: (callback: () => void) => () => void
     onExportPdfRequested: (callback: () => void) => () => void
     onAppMenuPaste: (callback: () => void) => () => void
     onEditableContextPaste: (callback: (data: { plainTextOnly: boolean }) => void) => () => void

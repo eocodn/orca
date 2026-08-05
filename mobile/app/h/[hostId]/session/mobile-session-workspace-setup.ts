@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Keyboard, Platform, ScrollView, TextInput } from 'react-native'
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useHostClient, useForceReconnect } from '../../../../src/transport/client-context'
 import {
@@ -10,8 +10,6 @@ import {
 import { useResponsiveLayout } from '../../../../src/layout/responsive-layout'
 import { useMobilePrBranchContext } from '../../../../src/session/use-mobile-pr-branch-context'
 import { isFloatingWorkspaceWorktreeId } from '../../../../src/session/floating-workspace'
-import { useMobileDictation } from '../../../../src/hooks/use-mobile-dictation'
-import { triggerError } from '../../../../src/platform/haptics'
 import { useTerminalLiveInputModePreference } from '../../../../src/session/use-terminal-live-input-mode-preference'
 import { useTerminalLiveInputCommit } from '../../../../src/terminal/use-terminal-live-input-commit'
 import { resolveMobileTerminalInputGate } from '../../../../src/terminal/terminal-input-connection-gate'
@@ -29,14 +27,6 @@ import { canDockSessionPanel } from '../../../../src/session/session-panel-host'
 import type { AppliedSnapshotMarker } from '../../../../src/session/session-tab-snapshot-gate'
 import { MobileTerminalDiagnostics } from '../../../../src/session/mobile-terminal-diagnostics'
 import { useLiveWorktreeName } from '../../../../src/session/use-live-worktree-name'
-import {
-  appendBufferedDictation,
-  routeDictationTranscript
-} from '../../../../src/terminal/terminal-live-dictation-routing'
-import {
-  fetchDictationSetup,
-  isDictationSetupRequiredError
-} from '../../../../src/dictation/mobile-dictation-setup'
 import type { ConnectionState } from '../../../../src/transport/types'
 import type { RpcClient } from '../../../../src/transport/rpc-client'
 import type {
@@ -228,9 +218,6 @@ export function useMobileSessionWorkspaceSetup() {
   >(new Map())
   const [selectModeActive, setSelectModeActive] = useState(false)
   const [canPaste, setCanPaste] = useState(false)
-  const [showDictationSetup, setShowDictationSetup] = useState(false)
-  // 'hold' = press-and-hold mic, 'toggle' = tap-to-start/stop; mirrors Settings ▸ Voice ▸ Dictation Mode.
-  const [dictationMode, setDictationMode] = useState<'toggle' | 'hold'>('toggle')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const toastOpacityRef = useRef(new Animated.Value(0))
   const toastHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -259,10 +246,6 @@ export function useMobileSessionWorkspaceSetup() {
     typeof Keyboard.addListener
   > | null>(null)
   const sessionTabActionSheetRequestSeqRef = useRef(0)
-  const dictationRouteContextRef = useRef<{
-    readonly handle: string | null
-    readonly liveInputEnabled: boolean
-  } | null>(null)
   const terminalUnsubsRef = useRef<Map<string, () => void>>(new Map())
   const subscribingHandlesRef = useRef<Set<string>>(new Set())
   const initializedHandlesRef = useRef<Set<string>>(new Set())
@@ -319,7 +302,6 @@ export function useMobileSessionWorkspaceSetup() {
     activeHandle,
     activeSessionTabType: activeSessionTab?.type
   })
-  const liveInputEnabled = activeHandle ? liveInputTerminalHandles.has(activeHandle) : false
   const [browserScreencastSupported, setBrowserScreencastSupported] = useState<boolean | null>(null)
   // Why: hosts without aiVault.v1 reject listSessions, so hide the header entry instead of a dead-end "update this host" panel.
   const [agentSessionHistorySupported, setAgentSessionHistorySupported] = useState<boolean | null>(
@@ -400,116 +382,6 @@ export function useMobileSessionWorkspaceSetup() {
     },
     [clearToastHideTimer]
   )
-  const dictation = useMobileDictation({
-    client,
-    enabled: canSend,
-    onTranscript: (text) => {
-      // Live mode inserts the transcript into its PTY as text (no Return); buffered mode appends to the command field.
-      const routeContext = dictationRouteContextRef.current
-      dictationRouteContextRef.current = null
-      const route = routeDictationTranscript(
-        text,
-        routeContext?.liveInputEnabled ?? liveInputEnabled
-      )
-      if (route.kind === 'live-insert') {
-        const insertHandle = routeContext?.handle ?? activeHandleRef.current
-        if (!insertHandle) {
-          return
-        }
-        void (async () => {
-          const flushedPendingInput = await flushPendingLiveInputBeforeExternalSend(insertHandle)
-          if (!flushedPendingInput) {
-            return
-          }
-          const sent = await sendLiveTerminalInputRef.current(insertHandle, route.text)
-          if (sent) {
-            showToast('Dictation inserted')
-          }
-        })()
-        return
-      }
-      setInput((current) => appendBufferedDictation(current, route.text))
-      showToast('Dictation inserted')
-    },
-    onError: (err) => {
-      dictationRouteContextRef.current = null
-      // Dictation not set up on desktop → open the setup sheet instead of a dead-end toast.
-      if (isDictationSetupRequiredError(err.message)) {
-        setShowDictationSetup(true)
-        return
-      }
-      triggerError()
-      showToast(err.message)
-    }
-  })
-
-  const startDictation = useCallback(() => {
-    const routeContext = activeHandle
-      ? { handle: activeHandle, liveInputEnabled: liveInputTerminalHandles.has(activeHandle) }
-      : null
-    dictationRouteContextRef.current = routeContext
-    void dictation.start().catch((err) => {
-      if (dictationRouteContextRef.current === routeContext) {
-        dictationRouteContextRef.current = null
-      }
-      triggerError()
-      showToast(err instanceof Error ? err.message : String(err))
-    })
-  }, [activeHandle, dictation, liveInputTerminalHandles, triggerError, showToast])
-
-  const cancelDictation = useCallback(() => {
-    dictationRouteContextRef.current = null
-    void dictation.cancel()
-  }, [dictation])
-
-  // Toggle mode: one tap starts, the next stops; long-press cancels mid-record.
-  const handleDictationToggle = useCallback(() => {
-    if (dictation.isProcessing) {
-      cancelDictation()
-    } else if (dictation.isStarting) {
-      return
-    } else if (dictation.isRecording) {
-      void dictation.stop()
-    } else {
-      startDictation()
-    }
-  }, [cancelDictation, dictation, startDictation])
-
-  // Hold mode: press starts, release stops — like a walkie-talkie.
-  const handleDictationPressIn = useCallback(() => {
-    if (!dictation.isStarting && !dictation.isRecording && !dictation.isProcessing) {
-      startDictation()
-    }
-  }, [dictation, startDictation])
-
-  const handleDictationPressOut = useCallback(() => {
-    if (dictation.isRecording) {
-      void dictation.stop()
-    } else if (dictation.isStarting) {
-      // Released before recording began: cancel so we don't leave a live mic.
-      cancelDictation()
-    }
-  }, [cancelDictation, dictation])
-
-  const refreshDictationMode = useCallback(async () => {
-    if (!client) {
-      return
-    }
-    try {
-      const setup = await fetchDictationSetup(client)
-      setDictationMode(setup.dictationMode)
-    } catch {
-      // Non-fatal: fall back to the default toggle behavior.
-    }
-  }, [client])
-
-  // Re-read on focus so a Settings ▸ Voice dictation-mode change is reflected on return.
-  useFocusEffect(
-    useCallback(() => {
-      void refreshDictationMode()
-    }, [refreshDictationMode])
-  )
-
   useEffect(() => {
     diffCommentsRef.current = diffComments
   }, [diffComments])
@@ -644,10 +516,6 @@ export function useMobileSessionWorkspaceSetup() {
     setSelectModeActive,
     canPaste,
     setCanPaste,
-    showDictationSetup,
-    setShowDictationSetup,
-    dictationMode,
-    setDictationMode,
     toastMessage,
     setToastMessage,
     toastOpacityRef,
@@ -673,7 +541,6 @@ export function useMobileSessionWorkspaceSetup() {
     sendLiveTerminalInputRef,
     sessionTabActionSheetKeyboardHideSubRef,
     sessionTabActionSheetRequestSeqRef,
-    dictationRouteContextRef,
     terminalUnsubsRef,
     subscribingHandlesRef,
     initializedHandlesRef,
@@ -707,7 +574,6 @@ export function useMobileSessionWorkspaceSetup() {
     handleLiveInputSubmit,
     canCompose,
     canSend,
-    liveInputEnabled,
     browserScreencastSupported,
     setBrowserScreencastSupported,
     agentSessionHistorySupported,
@@ -721,12 +587,5 @@ export function useMobileSessionWorkspaceSetup() {
     scheduleDelayedAction,
     clearToastHideTimer,
     showToast,
-    dictation,
-    startDictation,
-    cancelDictation,
-    handleDictationToggle,
-    handleDictationPressIn,
-    handleDictationPressOut,
-    refreshDictationMode
   }
 }

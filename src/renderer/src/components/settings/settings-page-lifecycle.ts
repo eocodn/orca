@@ -42,9 +42,6 @@ export function useSettingsPageLifecycle(context: Record<string, any>): Record<s
     closeSettingsPage,
     fetchSettings,
     fetchKeybindings,
-    showDesktopOnlySettings,
-    setVoiceModelStatesLoading,
-    refreshModelStates,
     shortcutsEscapeConfirmUntilRef,
     activeSectionId,
     keybindings,
@@ -178,24 +175,6 @@ export function useSettingsPageLifecycle(context: Record<string, any>): Record<s
     fetchSettings()
     fetchKeybindings()
   }, [fetchKeybindings, fetchSettings])
-
-  useEffect(() => {
-    if (!showDesktopOnlySettings) {
-      setVoiceModelStatesLoading(false)
-      return
-    }
-    let canceled = false
-    // Why: modelStates starts empty, so Voice shouldn't look missing before the first speech-model scan reports state.
-    setVoiceModelStatesLoading(true)
-    void refreshModelStates().finally(() => {
-      if (!canceled) {
-        setVoiceModelStatesLoading(false)
-      }
-    })
-    return () => {
-      canceled = true
-    }
-  }, [refreshModelStates, showDesktopOnlySettings])
 
   useEffect(() => {
     const hasVisibleOverlay = (): boolean =>

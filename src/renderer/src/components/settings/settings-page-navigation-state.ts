@@ -50,7 +50,6 @@ import {
   getSettingsSectionId,
   getFallbackVisibleSection,
   getSettingsNavGroupDefinitionsForSearch,
-  hasReadyVoiceModel,
   getSettingsScrollTarget,
   scrollSubsectionIntoView,
   readSourceControlAiSettings,
@@ -68,16 +67,13 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
     settingsProjectSetupSelection,
     settingsSearchQuery,
     setSettingsSearchQuery,
-    modelStates,
     settingsProjectList,
     setRepoHooksMap,
     isWindows,
     isWebClient,
-    showDesktopOnlySettings,
     linearConnected,
     linearSkill,
     skillFreshnessApplies,
-    voiceModelStatesLoading,
     activeSectionId,
     setActiveSectionId,
     mountedSectionIds,
@@ -119,30 +115,15 @@ export function useSettingsPageNavigation(context: Record<string, any>): Record<
         })
       )
     }
-    if (showDesktopOnlySettings) {
-      if (settings) {
-        next.set(
-          'voice',
-          voiceModelStatesLoading
-            ? 'checking'
-            : hasReadyVoiceModel(settings, modelStates)
-              ? 'installed'
-              : 'install'
-        )
-      }
-    }
     return next
   }, [
     linearConnected,
     linearSkillInstalled,
     linearSkillLoading,
     linearSkills,
-    modelStates,
     settings,
-    showDesktopOnlySettings,
     skillFreshnessApplies,
     skillFreshnessInventory,
-    voiceModelStatesLoading
   ])
   const navSections = useMemo(
     () =>

@@ -1,4 +1,4 @@
-import { type AgentStatus, type TerminalOscColorQueryReplyColors, type ParsedAgentStatusPayload, type AgentSessionExecutionClaim, homedir, isAbsolute, resolve, stat, type GlobalSettings, type Repo, type WorktreeStartupLaunch, type TuiAgent, type ClaudeRateLimitAccountsState, type CodexRateLimitAccountsState, parseExecutionHostId, type ExecutionHostId, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeTerminalPresentation, type RuntimeSyncedLeaf, type PtyIncarnationId, type TerminalTailWaitState, type RetainedTailRedrawCursor, isENOENT, type Store, type ClaudeAccountService, type CodexAccountService, type CodexResetCreditRejectedBeforeProviderReason, type RateLimitService, type CodexRateLimitResetOutcome, type RateLimitState, type CodexResetCreditExpectedScope, type VoiceSettings, resolveWorktreeScanCacheTtlMs } from './orca-runtime-imports'
+import { type AgentStatus, type TerminalOscColorQueryReplyColors, type ParsedAgentStatusPayload, type AgentSessionExecutionClaim, homedir, isAbsolute, resolve, stat, type GlobalSettings, type Repo, type WorktreeStartupLaunch, type TuiAgent, type ClaudeRateLimitAccountsState, type CodexRateLimitAccountsState, parseExecutionHostId, type ExecutionHostId, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeTerminalPresentation, type RuntimeSyncedLeaf, type PtyIncarnationId, type TerminalTailWaitState, type RetainedTailRedrawCursor, isENOENT, type Store, type ClaudeAccountService, type CodexAccountService, type CodexResetCreditRejectedBeforeProviderReason, type RateLimitService, type CodexRateLimitResetOutcome, type RateLimitState, type CodexResetCreditExpectedScope, resolveWorktreeScanCacheTtlMs } from './orca-runtime-imports'
 /* eslint-disable unicorn/no-useless-spread -- Why: waiter sets and handle keys are cloned intentionally before mutation so resolution and rejection can safely remove entries while iterating. */
 /* eslint-disable no-control-regex -- Why: terminal normalization must strip ANSI and OSC control sequences from PTY output before returning bounded text to agents. */
 export {
@@ -199,7 +199,6 @@ export type RuntimeStore = {
     terminalQuickCommands?: GlobalSettings['terminalQuickCommands']
     gitlabProjects?: GlobalSettings['gitlabProjects']
     mobileAutoRestoreFitMs?: number | null
-    voice?: VoiceSettings
     claudeAgentTeamsMode?: GlobalSettings['claudeAgentTeamsMode']
     // Why: Phase-5 query responder kill switches — read per chunk in
     // onPtyData to capture reply ownership at ingestion.

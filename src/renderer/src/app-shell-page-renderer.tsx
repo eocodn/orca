@@ -209,7 +209,6 @@ import {
   AddRepoDialog,
   ContextualTourOverlay,
   DeleteWorktreeDialog,
-  DictationController,
   FeatureTipsModal,
   FeatureWallModal,
   FloatingTerminalPanel,
@@ -266,7 +265,6 @@ export function AppShellPageRenderer(props: Record<string, unknown>): React.JSX.
     settings,
     shouldMountAddRepoDialog,
     shouldMountContextualTourOverlay,
-    shouldMountDictationController,
     shouldMountFloatingTerminalPanel,
     shouldMountTerminalWorkbench,
     shouldMountUpdateCard,
@@ -790,18 +788,6 @@ export function AppShellPageRenderer(props: Record<string, unknown>): React.JSX.
                     onOnboardingChange={setOnboarding}
                     onSettingsDetourStart={beginOnboardingSettingsDetour}
                   />
-                </RecoverableRenderErrorBoundary>
-              </Suspense>
-            ) : null}
-            {shouldMountDictationController ? (
-              <Suspense fallback={null}>
-                <RecoverableRenderErrorBoundary
-                  boundaryId="overlay.dictation"
-                  surface="overlay"
-                  resetKey={activeView}
-                  compact
-                >
-                  <DictationController />
                 </RecoverableRenderErrorBoundary>
               </Suspense>
             ) : null}

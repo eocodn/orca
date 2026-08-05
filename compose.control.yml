@@ -430,6 +430,7 @@ services:
       - config/scripts/verify-cli-bin.test.mjs
       - config/scripts/ios-runtime-removal-contract.test.mjs
       - config/scripts/mobile-ios-product-removal-contract.test.mjs
+      - config/scripts/voice-audio-removal-contract.test.mjs
       - config/scripts/external-plugin-marketplace-removal-contract.test.mjs
       - config/scripts/emulator-product-control-removal-contract.test.mjs
       - config/scripts/public-orca-cli-skills-removal-contract.test.mjs
@@ -876,8 +877,6 @@ services:
         src/main/persistence-store-repository-load-primary-state.ts
         src/main/runtime/mobile-rpc-allowlist.test.ts
         src/main/runtime/oversized-source-boundaries.test.ts
-        src/main/speech/speech-model-management-download-delete-race.test.ts
-        src/main/speech/stt-service-foundation.ts
         src/main/ssh/ssh-channel-multiplexer-frame-methods.ts
         src/main/ssh/ssh-connection-lifecycle.ts
         src/main/ssh/ssh-connection-lifecycle-get-state-can-run-concurrent-exec-commands.ts

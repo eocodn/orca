@@ -23,12 +23,10 @@ import { useSkillFreshness } from '@/hooks/useSkillFreshness'
 
 export function useSettingsPageRuntimeState({
   settings,
-  updateSettings,
-  showDesktopOnlySettings
+  updateSettings
 }: {
   settings: any
   updateSettings: (...args: any[]) => any
-  showDesktopOnlySettings: boolean
 }): Record<string, any> {
   const [repoHooksMap, setRepoHooksMap] = useState<
     Record<string, { hasHooks: boolean; hooks: OrcaHooks | null; mayNeedUpdate: boolean }>
@@ -45,7 +43,6 @@ export function useSettingsPageRuntimeState({
   })
   const skillFreshnessApplies = activeSkillRuntime.canUseLocalSkillFreshness
   const { inventory: skillFreshnessInventory } = useSkillFreshness(skillFreshnessApplies)
-  const [voiceModelStatesLoading, setVoiceModelStatesLoading] = useState(showDesktopOnlySettings)
   const [scrollbackMode, setScrollbackMode] = useState<'preset' | 'custom'>('preset')
   const [prevScrollbackRows, setPrevScrollbackRows] = useState(settings?.terminalScrollbackRows)
   const ghostty = useGhosttyImport(updateSettings, settings)
@@ -96,8 +93,6 @@ export function useSettingsPageRuntimeState({
     linearSkill,
     skillFreshnessApplies,
     skillFreshnessInventory,
-    voiceModelStatesLoading,
-    setVoiceModelStatesLoading,
     scrollbackMode,
     setScrollbackMode,
     prevScrollbackRows,

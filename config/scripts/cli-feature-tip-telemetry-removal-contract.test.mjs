@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -10,12 +10,9 @@ function readProjectFile(relativePath) {
 
 describe('CLI feature-tip telemetry removal contract', () => {
   it('removes CLI feature-tip telemetry exports and event names', () => {
-    const source = readProjectFile(
-      'src/renderer/src/components/feature-tips/feature-tip-telemetry.ts'
-    )
-
-    expect(source).not.toContain('OrcaCliFeatureTip')
-    expect(source).not.toContain('orca_cli_feature_tip')
+    expect(
+      existsSync(resolve(projectRoot, 'src/renderer/src/components/feature-tips/feature-tip-telemetry.ts'))
+    ).toBe(false)
   })
 
   it('removes CLI feature-tip telemetry callers from app-shell modules', () => {

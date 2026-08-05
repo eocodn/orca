@@ -23,8 +23,6 @@ import type { BrowserFindSource } from '../../shared/browser-find-source'
 
 import {
   type ResolveRenderer,
-  type ShouldForwardDictationShortcut,
-  type IsMobileEmulatorEnabled,
   CONTROL_MODIFIERS
 } from './browser-guest-ui-resolve-renderer-control-modifiers'
 import {
@@ -233,7 +231,6 @@ export function setupGuestShortcutForwarding(args: {
   browserTabId: string
   guest: Electron.WebContents
   resolveRenderer: ResolveRenderer
-  shouldForwardDictationShortcut?: ShouldForwardDictationShortcut
   getKeybindings?: () => KeybindingOverrides | undefined
   // Why: a floating-panel guest owns a distinct workspace; its close/index chords must route to the panel, not the main tab strip.
   resolveWorktreeId?: (browserTabId: string) => string | null
@@ -243,7 +240,6 @@ export function setupGuestShortcutForwarding(args: {
     browserTabId,
     guest,
     resolveRenderer,
-    shouldForwardDictationShortcut,
     getKeybindings,
     resolveWorktreeId,
     resolveWorkspaceId
@@ -274,10 +270,6 @@ export function setupGuestShortcutForwarding(args: {
       return true
     }
     if (input.isAutoRepeat) {
-      if (action?.type === 'dictationKeyDown' && shouldForwardDictationShortcut?.()) {
-        event.preventDefault()
-        return true
-      }
       return false
     }
     if (action?.type === 'worktreeHistoryNavigate') {
@@ -420,11 +412,6 @@ export function setupGuestShortcutForwarding(args: {
       } else {
         renderer.send('ui:jumpToTabIndex', action.index)
       }
-    } else if (action?.type === 'dictationKeyDown') {
-      if (!shouldForwardDictationShortcut?.()) {
-        return false
-      }
-      renderer.send('ui:dictationKeyDown')
     } else {
       return false
     }

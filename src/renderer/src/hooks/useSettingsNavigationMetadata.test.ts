@@ -37,7 +37,6 @@ describe('settings navigation metadata', () => {
       'agents',
       'accounts',
       'orchestration',
-      'voice',
       'setup-guide',
       'general',
       'integrations',
@@ -96,21 +95,9 @@ describe('settings navigation metadata', () => {
     expect(webIds).not.toContain('browser')
     expect(webIds).not.toContain('ssh')
     expect(webIds).not.toContain('mobile')
-    expect(webIds).not.toContain('voice')
     expect(webIds).not.toContain('advanced')
     expect(webIds).toContain('servers')
     expect(webIds).toContain('repo-repo-1')
-  })
-
-  it('does not mark installable AI capabilities as beta in the sidebar metadata', () => {
-    const sections = buildSettingsNavigationMetadata({
-      isMac: true,
-      isWindows: false,
-      isWebClient: false,
-      repos: [repo]
-    })
-
-    expect(sections.find((section) => section.id === 'voice')?.badge).toBeUndefined()
   })
 
   it('places Cloud VM under Experimental instead of as a beta sidebar item', () => {

@@ -117,38 +117,6 @@ describe('mobile rpc-client request deadline', () => {
     }
   })
 
-  it('leaves a caller that did not opt in on the post-connect clock', async () => {
-    const client = connect('ws://desktop.invalid', 'token', 'server-key')
-    const socket = mockSockets[0]!
-    socket.open()
-    socket.close()
-
-    // A pre-existing caller's budget was sized against the request phase alone;
-    // the connect wait must not eat into it.
-    const request = client.sendRequest(
-      'speech.dictation.finish',
-      { dictationId: 'd1' },
-      { timeoutMs: 5_000 }
-    )
-    const outcome = track(request)
-
-    try {
-      await vi.advanceTimersByTimeAsync(500)
-      mockSockets[1]!.open()
-      await vi.advanceTimersByTimeAsync(0)
-
-      // A shared deadline would already have fired at 4_500 here.
-      await vi.advanceTimersByTimeAsync(4_999)
-      expect(outcome.read()).toBe('pending')
-
-      await vi.advanceTimersByTimeAsync(1)
-      expect(outcome.read()).toBe('Request timed out: speech.dictation.finish')
-    } finally {
-      client.close()
-      await request.catch(() => undefined)
-    }
-  })
-
   it('never floors a sub-second request timeout above what the caller asked for', async () => {
     const client = connect('ws://desktop.invalid', 'token', 'server-key')
     mockSockets[0]!.open()

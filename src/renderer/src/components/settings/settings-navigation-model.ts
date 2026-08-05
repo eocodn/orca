@@ -1,9 +1,7 @@
 import { lazy, type MutableRefObject } from 'react'
 import type { GlobalSettings } from '../../../../shared/types'
-import type { SpeechModelState } from '../../../../shared/speech-types'
 import type { SourceControlAiSettings } from '../../../../shared/source-control-ai-types'
 import { normalizeSourceControlAiSettings } from '../../../../shared/source-control-ai'
-import { getDefaultVoiceSettings } from '../../../../shared/constants'
 import type { SettingsNavSection, SettingsNavTarget } from '@/lib/settings-navigation-types'
 export const DevToolsPane = import.meta.env.DEV
   ? lazy(() => import('./DevToolsPane').then((module) => ({ default: module.DevToolsPane })))
@@ -94,20 +92,6 @@ export function getSettingsNavGroupDefinitionsForSearch(
   })
 }
 
-export function hasReadyVoiceModel(
-  settings: GlobalSettings,
-  modelStates: readonly SpeechModelState[]
-): boolean {
-  const voiceSettings = settings.voice ?? getDefaultVoiceSettings()
-  if (
-    voiceSettings.sttModel !== '' &&
-    modelStates.some((state) => state.id === voiceSettings.sttModel && state.status === 'ready')
-  ) {
-    return true
-  }
-  return modelStates.some((state) => state.status === 'ready')
-}
-
 export function getSettingsScrollTarget(
   sectionId: string,
   container?: HTMLElement | null
@@ -158,5 +142,4 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   const tag = target.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
 }
-
 

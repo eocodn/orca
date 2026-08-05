@@ -459,7 +459,7 @@ describe('client UI RPC methods', () => {
           }
         }
       },
-      featureTipsSeenIds: ['voice-dictation'],
+      featureTipsSeenIds: ['cmd-j-palette'],
       featureInteractions: {
         tasks: { firstInteractedAt: 100, interactionCount: 2 }
       },
@@ -510,7 +510,7 @@ describe('client UI RPC methods', () => {
           }
         }
       },
-      featureTipsSeenIds: ['voice-dictation'],
+      featureTipsSeenIds: ['cmd-j-palette'],
       featureInteractions: {
         tasks: { firstInteractedAt: 100, interactionCount: 2 }
       },
@@ -643,7 +643,7 @@ describe('client UI RPC methods', () => {
   it.each([
     ['worktree card property', { worktreeCardProperties: ['status', 'pr-status'] }],
     ['feature interaction id', { featureInteractions: { unknown: { firstInteractedAt: 100 } } }],
-    ['feature tip id', { featureTipsSeenIds: ['voice-dictation', 'unknown-tip'] }],
+    ['feature tip id', { featureTipsSeenIds: ['cmd-j-palette', 'unknown-tip'] }],
     ['right sidebar tab', { rightSidebarTab: 'not-a-tab' }]
   ])('drops an unknown %s instead of rejecting the batch around it', async (_label, drifted) => {
     const runtime = {

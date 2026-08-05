@@ -105,7 +105,6 @@ describe('browserManager', () => {
     openPopupWithOriginBarMock.mockReset()
     browserManager.unregisterAll()
     browserManager.setBrowserGuestStateChangedListener(null)
-    browserManager.setDictationShortcutForwardingPredicate(null)
     browserManager.setSettingsResolver(() => ({}))
   })
 

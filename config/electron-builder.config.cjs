@@ -45,23 +45,11 @@ const bundledPluginResources = {
   from: 'resources/plugins/launch',
   to: 'plugins/launch'
 }
-// Why: the main bundle, packaged CLI, SSH paths, and speech worker all execute
-// from package directories where pnpm's symlink farm is absent. Copy the exact
+// Why: the main bundle, packaged CLI, and SSH paths execute from package
+// directories where pnpm's symlink farm is absent. Copy the exact
 // runtime dependency closure to Resources/node_modules so bare require() calls
 // do not fall through to a developer checkout's node_modules.
 const commonExtraResources = [relayExtraResource, bundledPluginResources]
-const macSpeechNativeResource = {
-  from: 'node_modules/sherpa-onnx-darwin-${arch}',
-  to: 'node_modules/sherpa-onnx-darwin-${arch}'
-}
-const linuxSpeechNativeResource = {
-  from: 'node_modules/sherpa-onnx-linux-${arch}',
-  to: 'node_modules/sherpa-onnx-linux-${arch}'
-}
-const winSpeechNativeResource = {
-  from: 'node_modules/sherpa-onnx-win-x64',
-  to: 'node_modules/sherpa-onnx-win-x64'
-}
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -132,9 +120,6 @@ module.exports = {
   // before the GUI process starts, so those deps need the same treatment.
   // Why: out/package.json pins compiled output to CommonJS so parent
   // package.json files with type=module cannot change the packaged CLI loader.
-  // Why: sherpa-onnx native bindings (platform-specific subpackages) must be
-  // unpacked because they ship .node addons + .dylib/.so files that cannot be
-  // dlopen()'d from inside the asar archive.
   asarUnpack: [
     'out/package.json',
     'out/cli/**',
@@ -159,7 +144,6 @@ module.exports = {
     'node_modules/tweetnacl/**',
     'node_modules/zod/**',
     'node_modules/yaml/**',
-    'node_modules/sherpa-onnx*/**'
   ],
   afterPack: async (context) => {
     // Why: a Linux runner-image glibc bump silently shipped a node-pty pty.node
@@ -241,7 +225,6 @@ module.exports = {
     extraResources: [
       ...commonExtraResources,
       ...createPackagedRuntimeNodeModuleResources('win32'),
-      winSpeechNativeResource,
       {
         from: 'resources/win32/bin/orca.cmd',
         to: 'bin/orca.cmd'
@@ -301,7 +284,6 @@ module.exports = {
     extraResources: [
       ...commonExtraResources,
       ...createPackagedRuntimeNodeModuleResources('darwin'),
-      macSpeechNativeResource,
       {
         from: 'resources/darwin/bin/orca',
         to: 'bin/orca'
@@ -351,7 +333,6 @@ module.exports = {
     extraResources: [
       ...commonExtraResources,
       ...createPackagedRuntimeNodeModuleResources('linux'),
-      linuxSpeechNativeResource,
       {
         from: 'resources/linux/bin/orca-ide',
         to: 'bin/orca-ide'

@@ -3,7 +3,6 @@ import { Copy, FileText, Globe, RefreshCw, SquareTerminal } from 'lucide-react-n
 import { ActionSheetModal } from '../../../../src/components/ActionSheetModal'
 import { ConfirmModal } from '../../../../src/components/ConfirmModal'
 import { CustomKeyModal } from '../../../../src/components/CustomKeyModal'
-import { MobileDictationSetupSheet } from '../../../../src/components/MobileDictationSetupSheet'
 import { MobileBrowserTabActionSheet } from '../../../../src/session/MobileBrowserTabActionSheet'
 import { MobileSessionHeaderMoreActionsSheet } from '../../../../src/session/MobileSessionHeaderMoreActionsSheet'
 import { QuickCommandsSheet } from '../../../../src/session/QuickCommandsSheet'
@@ -81,8 +80,6 @@ export function renderMobileSessionModals(context: WorkspaceContext) {
     setShowCustomKeyModal,
     setCustomKeys,
     handleManageShortcuts,
-    showDictationSetup,
-    setShowDictationSetup,
     deleteKeyTarget,
     handleDeleteCustomKey
   } = context
@@ -336,12 +333,6 @@ export function renderMobileSessionModals(context: WorkspaceContext) {
         onClose={() => setShowCustomKeyModal(false)}
         onKeysChanged={setCustomKeys}
         onManageShortcuts={handleManageShortcuts}
-      />
-      <MobileDictationSetupSheet
-        visible={showDictationSetup}
-        client={client}
-        onClose={() => setShowDictationSetup(false)}
-        onReady={() => setShowDictationSetup(false)}
       />
       <ActionSheetModal
         visible={deleteKeyTarget != null}

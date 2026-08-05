@@ -13,7 +13,6 @@ const {
   findAsarEntry,
   prunePackagedNodePty,
   prunePackagedParcelWatcher,
-  prunePackagedSherpaOnnx,
   prunePackagedRuntimeTypeDeclarations,
   prunePackagedZodSources,
   verifyPackagedMainRuntimeDeps
@@ -490,26 +489,6 @@ describe('electron-builder config', () => {
       prunePackagedRuntimeTypeDeclarations(resourcesDir)
 
       await expect(readdir(join(packageDir, 'dist'))).resolves.toEqual(['index.cjs'])
-    } finally {
-      await rm(resourcesDir, { recursive: true, force: true })
-    }
-  })
-
-  it('prunes duplicate darwin sherpa-onnx runtime dylib aliases', async () => {
-    const resourcesDir = await mkdtemp(join(tmpdir(), 'orca-sherpa-prune-'))
-    try {
-      const packageDir = join(resourcesDir, 'node_modules', 'sherpa-onnx-darwin-arm64')
-      await mkdir(packageDir, { recursive: true })
-      await writeFile(join(packageDir, 'sherpa-onnx.node'), '', 'utf8')
-      await writeFile(join(packageDir, 'libonnxruntime.1.23.2.dylib'), '', 'utf8')
-      await writeFile(join(packageDir, 'libonnxruntime.dylib'), '', 'utf8')
-
-      prunePackagedSherpaOnnx(resourcesDir, 'darwin')
-
-      await expect(readdir(packageDir).then((entries) => entries.sort())).resolves.toEqual([
-        'libonnxruntime.1.23.2.dylib',
-        'sherpa-onnx.node'
-      ])
     } finally {
       await rm(resourcesDir, { recursive: true, force: true })
     }

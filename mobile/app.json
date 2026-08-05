@@ -20,7 +20,6 @@
       },
       "usesCleartextTraffic": true,
       "allowBackup": false,
-      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"],
       "package": "com.stably.orca.mobile",
       "versionCode": 9
     },
@@ -37,9 +36,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Orca to use the camera for QR code scanning.",
-          "microphonePermission": "Allow Orca to use your microphone for voice dictation sent to your paired desktop for transcription.",
-          "recordAudioAndroid": false
+          "cameraPermission": "Allow Orca to use the camera for QR code scanning."
         }
       ],
       [

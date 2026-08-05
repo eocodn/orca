@@ -45,7 +45,6 @@ import { registerShellHandlers } from './shell'
 import { registerPetHandlers } from './pet'
 import { registerPluginHandlers } from './plugins'
 import { registerUIHandlers, setTrustedUIRendererWebContentsId } from './ui'
-import { registerSpeechHandlers } from './speech'
 import { registerTerminalRenderDesyncEvidenceHandler } from './terminal-render-desync-evidence'
 import { registerOrcaProfileHandlers } from './orca-profiles'
 import { registerCodexAccountHandlers } from './codex-accounts'
@@ -203,6 +202,5 @@ export function registerCoreHandlers(
   })
   registerClipboardHandlers(store)
   registerUpdaterHandlers(store)
-  registerSpeechHandlers(store)
   registered = true
 }

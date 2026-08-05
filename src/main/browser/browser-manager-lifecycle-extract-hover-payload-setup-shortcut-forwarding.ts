@@ -67,7 +67,6 @@ export const BrowserManagerMethods12 = {
         guest,
         resolveRenderer: (tabId) =>
           resolveRendererWebContents(this.rendererWebContentsIdByTabId, tabId),
-        shouldForwardDictationShortcut: () => this.shouldForwardDictationShortcut?.() ?? false,
         getKeybindings: () => this.settingsResolver?.().keybindings,
         resolveWorktreeId: (tabId) => this.worktreeIdByTabId.get(tabId) ?? null,
         resolveWorkspaceId: (tabId) => this.workspaceIdByPageId.get(tabId) ?? null

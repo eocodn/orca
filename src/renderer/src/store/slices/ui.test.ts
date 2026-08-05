@@ -1128,7 +1128,7 @@ describe('createUISlice hydratePersistedUI', () => {
   it('does not churn persisted UI references when hydration is identical by value', () => {
     const store = createUIStore()
     const persistedUI = makePersistedUI({
-      featureTipsSeenIds: ['voice-dictation'],
+      featureTipsSeenIds: ['cmd-j-palette'],
       contextualToursSeenIds: ['tasks'],
       showDotfilesByWorktree: { 'repo-1::/repo': false },
       collapsedGroups: ['repo:one'],
@@ -2509,12 +2509,12 @@ describe('createUISlice feature tips', () => {
     })
     const store = createUIStore()
 
-    store.getState().markFeatureTipsSeen(['voice-dictation'])
-    store.getState().markFeatureTipsSeen(['voice-dictation'])
+    store.getState().markFeatureTipsSeen(['cmd-j-palette'])
+    store.getState().markFeatureTipsSeen(['cmd-j-palette'])
 
-    expect(store.getState().featureTipsSeenIds).toEqual(['voice-dictation'])
+    expect(store.getState().featureTipsSeenIds).toEqual(['cmd-j-palette'])
     expect(setMock).toHaveBeenCalledTimes(1)
-    expect(setMock).toHaveBeenCalledWith({ featureTipsSeenIds: ['voice-dictation'] })
+    expect(setMock).toHaveBeenCalledWith({ featureTipsSeenIds: ['cmd-j-palette'] })
   })
 
   it('normalizes persisted feature tip ids during hydration', () => {
@@ -2522,11 +2522,11 @@ describe('createUISlice feature tips', () => {
 
     store.getState().hydratePersistedUI(
       makePersistedUI({
-        featureTipsSeenIds: ['voice-dictation', 'unknown', 'voice-dictation'] as never
+        featureTipsSeenIds: ['cmd-j-palette', 'unknown', 'cmd-j-palette'] as never
       })
     )
 
-    expect(store.getState().featureTipsSeenIds).toEqual(['voice-dictation'])
+    expect(store.getState().featureTipsSeenIds).toEqual(['cmd-j-palette'])
   })
 })
 

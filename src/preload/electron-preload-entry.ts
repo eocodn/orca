@@ -11,10 +11,9 @@ import { createPreloadApiGit } from './preload-api-git'
 import { createPreloadApiUi } from './preload-api-ui'
 import { createPreloadApiStats } from './preload-api-stats'
 import { createPreloadApiSsh } from './preload-api-ssh'
-import { createPreloadApiSpeech } from './preload-api-speech'
 import type { PreloadApi } from './api-preload-surface'
 
-const api = Object.assign({}, createPreloadApiApp(), createPreloadApiPty(), createPreloadApiGithub(), createPreloadApiLinear(), createPreloadApiAgentHooks(), createPreloadApiBrowser(), createPreloadApiHooks(), createPreloadApiGit(), createPreloadApiUi(), createPreloadApiStats(), createPreloadApiSsh(), createPreloadApiSpeech()) as PreloadApi
+const api = Object.assign({}, createPreloadApiApp(), createPreloadApiPty(), createPreloadApiGithub(), createPreloadApiLinear(), createPreloadApiAgentHooks(), createPreloadApiBrowser(), createPreloadApiHooks(), createPreloadApiGit(), createPreloadApiUi(), createPreloadApiStats(), createPreloadApiSsh()) as PreloadApi
 
 // Expose Electron APIs via contextBridge when context-isolated, otherwise attach to the DOM global.
 if (process.contextIsolated) {

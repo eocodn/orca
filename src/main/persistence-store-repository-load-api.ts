@@ -108,7 +108,6 @@ export const {
   getDefaultPersistedState,
   getDefaultNotificationSettings,
   getDefaultOnboardingState,
-  getDefaultVoiceSettings,
   getDefaultUIState,
   getDefaultRepoHookSettings,
   getDefaultWorkspaceSession,

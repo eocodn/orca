@@ -63,8 +63,6 @@ export {
   type RuntimeTerminalWaitCondition,
   type RuntimeWorktreePsSummary,
   type RuntimeWorktreeAgentRow,
-  type RuntimeSpeechModelSummary,
-  type RuntimeSpeechSetupState,
   type RuntimeTerminalShow,
   type RuntimeTerminalInspect,
   type RuntimeTerminalResize,

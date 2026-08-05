@@ -93,8 +93,7 @@ export {
 } from '../hooks'
 export {
   DEFAULT_REPO_BADGE_COLOR,
-  FLOATING_TERMINAL_WORKTREE_ID,
-  getDefaultVoiceSettings
+  FLOATING_TERMINAL_WORKTREE_ID
 } from '../../shared/constants'
 export { listRepoWorktrees } from '../repo-worktrees'
 export {

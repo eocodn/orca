@@ -43,8 +43,6 @@ function Settings(): React.JSX.Element {
   const settingsSearchInputQuery = useAppStore((s) => s.settingsSearchInputQuery)
   const settingsSearchQuery = useAppStore((s) => s.settingsSearchQuery)
   const setSettingsSearchQuery = useAppStore((s) => s.setSettingsSearchQuery)
-  const modelStates = useAppStore((s) => s.modelStates)
-  const refreshModelStates = useAppStore((s) => s.refreshModelStates)
 
   // Why: one entry per project (derived from repos to match nav metadata) — the source of truth for the pane list.
   const settingsProjectList = useMemo(() => buildSettingsProjectList(repos), [repos])
@@ -69,7 +67,6 @@ function Settings(): React.JSX.Element {
   const runtimeState = useSettingsPageRuntimeState({
     settings,
     updateSettings,
-    showDesktopOnlySettings
   })
   const {
     repoHooksMap,
@@ -80,8 +77,6 @@ function Settings(): React.JSX.Element {
     linearConnected,
     linearSkill,
     skillFreshnessApplies,
-    voiceModelStatesLoading,
-    setVoiceModelStatesLoading,
     scrollbackMode,
     setScrollbackMode,
     prevScrollbackRows,
@@ -144,8 +139,6 @@ function Settings(): React.JSX.Element {
     fetchSettings,
     fetchKeybindings,
     showDesktopOnlySettings,
-    setVoiceModelStatesLoading,
-    refreshModelStates,
     activeSectionId,
     shortcutsEscapeConfirmUntilRef,
     keybindings,
@@ -198,7 +191,6 @@ function Settings(): React.JSX.Element {
     settingsProjectSetupSelection,
     settingsSearchQuery,
     setSettingsSearchQuery,
-    modelStates,
     settingsProjectList,
     setRepoHooksMap,
     isWindows,
@@ -207,7 +199,6 @@ function Settings(): React.JSX.Element {
     linearConnected,
     linearSkill,
     skillFreshnessApplies,
-    voiceModelStatesLoading,
     activeSectionId,
     setActiveSectionId,
     mountedSectionIds,

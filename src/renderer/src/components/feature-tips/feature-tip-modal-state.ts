@@ -1,4 +1,3 @@
-import type { GlobalSettings } from '../../../../shared/types'
 import type { FeatureInteractionState } from '../../../../shared/feature-interactions'
 import {
   FEATURE_TIPS,
@@ -13,7 +12,6 @@ export function getFeatureTipForModal(args: {
   modalData: Record<string, unknown>
   seenTipIds: readonly FeatureTipId[]
   featureInteractions: FeatureInteractionState
-  settings: { voice?: GlobalSettings['voice'] } | null | undefined
 }): FeatureTip | null {
   const modalTipId = isFeatureTipId(args.modalData.tipId) ? args.modalData.tipId : null
   if (modalTipId) {
@@ -23,7 +21,6 @@ export function getFeatureTipForModal(args: {
   const pendingTips = getOrderedUnseenFeatureTips({
     seenTipIds: new Set(args.seenTipIds),
     completedTipIds: getCompletedFeatureTipIds({
-      voiceDictationEnabled: args.settings?.voice?.enabled === true,
       featureInteractions: args.featureInteractions
     })
   })

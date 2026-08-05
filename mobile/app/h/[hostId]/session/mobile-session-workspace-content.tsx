@@ -21,7 +21,6 @@ import {
 } from 'lucide-react-native'
 import { MobileBrowserPane } from '../../../../src/browser/MobileBrowserPane'
 import { MobileTerminalInputActions } from '../../../../src/session/MobileTerminalInputActions'
-import { MobileTerminalLiveInputStatus } from '../../../../src/session/MobileTerminalLiveInputStatus'
 import { SessionDockColumn } from '../../../../src/session/SessionDockColumn'
 import { TerminalPaneView } from '../../../../src/session/TerminalPaneView'
 import { createTerminalLiveAccessoryInput } from '../../../../src/terminal/terminal-live-accessory-input'
@@ -107,11 +106,6 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
     handleTerminalTap,
     handleFileTap,
     handleTerminalOpenUrl,
-    handleDictationToggle,
-    dictation,
-    dictationMode,
-    handleDictationPressIn,
-    handleDictationPressOut,
     dismissSoftwareKeyboard,
     canSend,
     toggleDisplayMode,
@@ -139,7 +133,6 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
     handleFileOpenStart,
     handleOpenedFileDiff,
     attachImage,
-    cancelDictation
   } = context
   return (
     <View style={styles.sessionContentRow} onLayout={handleSessionContentRowLayout}>
@@ -508,22 +501,14 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
                   accessibilityHint="Typed text is sent directly to the active terminal"
                 >
                   <KeyboardIcon size={16} color={colors.textSecondary} strokeWidth={2} />
-                  <MobileTerminalLiveInputStatus dictation={dictation} isAttaching={isAttaching} />
                 </Pressable>
                 <MobileTerminalInputActions
                   canSend={canSend}
                   isAttaching={isAttaching}
-                  dictation={dictation}
-                  dictationMode={dictationMode}
-                  buttonStyle={styles.dictationButton}
-                  activeButtonStyle={styles.dictationButtonActive}
+                  buttonStyle={styles.attachButton}
                   disabledButtonStyle={styles.sendButtonDisabled}
                   onAttachImage={() => void attachImage('library')}
                   onAttachFile={() => void attachImage('files')}
-                  onDictationToggle={handleDictationToggle}
-                  onDictationPressIn={handleDictationPressIn}
-                  onDictationPressOut={handleDictationPressOut}
-                  onDictationCancel={cancelDictation}
                 />
                 <TextInput
                   ref={liveInputRef}
@@ -561,7 +546,6 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
                   }
                   style={styles.textInput}
                   value={input}
-                  // Store raw text and normalize only when sending to preserve dictation input.
                   onChangeText={setInput}
                   placeholder="Type a command…"
                   placeholderTextColor={colors.textMuted}
@@ -580,17 +564,10 @@ export function renderMobileSessionContent(context: WorkspaceContext) {
                 <MobileTerminalInputActions
                   canSend={canSend}
                   isAttaching={isAttaching}
-                  dictation={dictation}
-                  dictationMode={dictationMode}
-                  buttonStyle={styles.dictationButton}
-                  activeButtonStyle={styles.dictationButtonActive}
+                  buttonStyle={styles.attachButton}
                   disabledButtonStyle={styles.sendButtonDisabled}
                   onAttachImage={() => void attachImage('library')}
                   onAttachFile={() => void attachImage('files')}
-                  onDictationToggle={handleDictationToggle}
-                  onDictationPressIn={handleDictationPressIn}
-                  onDictationPressOut={handleDictationPressOut}
-                  onDictationCancel={cancelDictation}
                 />
                 <Pressable
                   style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}

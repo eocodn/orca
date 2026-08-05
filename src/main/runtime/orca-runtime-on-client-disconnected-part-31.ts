@@ -3,7 +3,6 @@ import { OrcaRuntimeRemoveClaudeAccountPart30 } from './orca-runtime-remove-clau
 export class OrcaRuntimeOnClientDisconnectedPart31 extends OrcaRuntimeRemoveClaudeAccountPart30 {
   onClientDisconnected(clientId: string): void {
     this.revokeTerminalFileGrantsForClient(clientId)
-    this.cancelMobileDictationForClient(clientId)
 
     // (1) Cancel pending restore-debounce timers owned by this client.
     for (const [ptyId, entry] of this.pendingRestoreTimers) {

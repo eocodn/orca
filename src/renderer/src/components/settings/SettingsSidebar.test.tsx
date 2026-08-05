@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Bot, GitBranch, Mic, Network, Puzzle } from 'lucide-react'
+import { Bot, GitBranch, Network, Puzzle } from 'lucide-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultSettings } from '../../../../shared/constants'
 import { SettingsSidebar } from './SettingsSidebar'
@@ -58,18 +58,6 @@ function renderSidebar(
                 title: 'Orchestration',
                 icon: Network,
                 installStatus: 'install'
-              },
-              {
-                id: 'voice',
-                title: 'Voice',
-                icon: Mic,
-                installStatus: 'installed'
-              },
-              {
-                id: 'voice-loading',
-                title: 'Voice Loading',
-                icon: Mic,
-                installStatus: 'checking'
               },
               {
                 id: 'linear',

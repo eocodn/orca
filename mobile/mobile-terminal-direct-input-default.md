@@ -28,7 +28,7 @@ change makes direct input the default mode when a terminal is first seen on mobi
 - Removing buffered command input.
 - Changing `terminal.send`, mobile subscription, or PTY sizing semantics.
 - Persisting a user preference across app launches.
-- Changing accessory keys, dictation, paste, terminal gesture input, or mouse-aware TUI routing.
+- Changing accessory keys, paste, terminal gesture input, or mouse-aware TUI routing.
 
 ## Design
 

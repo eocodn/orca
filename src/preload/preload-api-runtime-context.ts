@@ -190,13 +190,6 @@ import type { AgentInterruptInferenceRequest } from '../shared/agent-interrupt-i
 import type { AgentQuestionAnsweredInferenceRequest } from '../shared/agent-question-answered-intent'
 import type { TerminalSideEffectBatch } from '../shared/terminal-side-effect-facts'
 import type {
-  SpeechErrorEvent,
-  SpeechLifecycleEvent,
-  SpeechModelManifest,
-  SpeechModelState,
-  SpeechTranscriptEvent
-} from '../shared/speech-types'
-import type {
   PreflightRuntimeContext,
   RefreshAgentsResult,
   PluginHostInstallResult,
@@ -642,11 +635,6 @@ export type {
   AgentInterruptInferenceRequest,
   AgentQuestionAnsweredInferenceRequest,
   TerminalSideEffectBatch,
-  SpeechErrorEvent,
-  SpeechLifecycleEvent,
-  SpeechModelManifest,
-  SpeechModelState,
-  SpeechTranscriptEvent,
   PreflightRuntimeContext,
   RefreshAgentsResult,
   PluginHostInstallResult,

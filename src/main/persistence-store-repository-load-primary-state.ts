@@ -84,7 +84,6 @@ const {
   getDefaultPersistedState,
   getDefaultNotificationSettings,
   getDefaultOnboardingState,
-  getDefaultVoiceSettings,
   getDefaultUIState,
   getDefaultRepoHookSettings,
   getDefaultWorkspaceSession,
@@ -555,10 +554,6 @@ export function loadPrimaryRepositoryState(
             migratedSourceControlAi,
             parsed.settings?.commitMessageAi ?? defaults.settings.commitMessageAi
           ),
-          voice: {
-            ...loadDependencies.getDefaultVoiceSettings(),
-            ...parsed.settings?.voice
-          }
         },
         ui: (() => {
           const rawSort = parsed.ui?.sortBy

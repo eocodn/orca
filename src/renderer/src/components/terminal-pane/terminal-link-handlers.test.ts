@@ -1978,8 +1978,8 @@ describe('createFilePathLinkProvider range bounds', () => {
     setPlatform('Macintosh')
     const rows = [
       makeBufferLine('/private/tmp/orca-setup-e2e.hOW01f/workspaces/test-wt-5/mobile/'),
-      makeBufferLine('packages/expo-two-way-audio/android/src/main/java/expo/modules/'),
-      makeBufferLine('twowayaudio/ExpoTwoWayAudioLifeCycleListener.kt')
+      makeBufferLine('packages/example-native-module/android/src/main/java/expo/modules/'),
+      makeBufferLine('example/ExampleNativeModuleListener.kt')
     ]
     const { terminal, element } = makeFallbackTerminal(rows)
     const disposable = installFilePathLinkClickFallback(1, terminal, {
@@ -2008,7 +2008,7 @@ describe('createFilePathLinkProvider range bounds', () => {
     await flushAsyncWork()
 
     expect(openFilePathMock).toHaveBeenCalledWith(
-      '/private/tmp/orca-setup-e2e.hOW01f/workspaces/test-wt-5/mobile/packages/expo-two-way-audio/android/src/main/java/expo/modules/twowayaudio/ExpoTwoWayAudioLifeCycleListener.kt'
+      '/private/tmp/orca-setup-e2e.hOW01f/workspaces/test-wt-5/mobile/packages/example-native-module/android/src/main/java/expo/modules/example/ExampleNativeModuleListener.kt'
     )
     expect(preventDefault).toHaveBeenCalled()
     expect(stopPropagation).toHaveBeenCalled()
@@ -2233,13 +2233,13 @@ describe('createFilePathLinkProvider range bounds', () => {
       makeBufferLine('W01f/workspaces'),
       makeBufferLine('/test-wt-5/mob'),
       makeBufferLine('ile/packages/ex'),
-      makeBufferLine('po-two-way-aud'),
-      makeBufferLine('io/android/src/'),
+      makeBufferLine('ample-native-mod'),
+      makeBufferLine('ule/android/src/'),
       makeBufferLine('main/java/expo'),
-      makeBufferLine('/modules/twoway'),
-      makeBufferLine('audio/ExpoTwoW'),
-      makeBufferLine('ayAudioLifeCyc'),
-      makeBufferLine('leListener.kt')
+      makeBufferLine('/modules/exampl'),
+      makeBufferLine('e/ExampleNative'),
+      makeBufferLine('ModuleListener.k'),
+      makeBufferLine('t')
     ]
 
     const opened = openFilePathLinkAtBufferPosition(makeBuffer(rows), { x: 4, y: 12 }, 15, {
@@ -2253,7 +2253,7 @@ describe('createFilePathLinkProvider range bounds', () => {
 
     expect(opened).toBe(true)
     expect(openFilePathMock).toHaveBeenCalledWith(
-      '/private/tmp/orca-setup-e2e.hOW01f/workspaces/test-wt-5/mobile/packages/expo-two-way-audio/android/src/main/java/expo/modules/twowayaudio/ExpoTwoWayAudioLifeCycleListener.kt'
+      '/private/tmp/orca-setup-e2e.hOW01f/workspaces/test-wt-5/mobile/packages/example-native-module/android/src/main/java/expo/modules/example/ExampleNativeModuleListener.kt'
     )
   })
 

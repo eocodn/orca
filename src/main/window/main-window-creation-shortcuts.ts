@@ -41,9 +41,6 @@ function sendResolvedWindowShortcutAction(
   onBeforeReload?: (options: { ignoreCache: boolean; webContentsId: number }) => void
 ): void {
   switch (action.type) {
-    case 'dictationKeyDown':
-      mainWindow.webContents.send('ui:dictationKeyDown')
-      return
     case 'zoom':
       mainWindow.webContents.send('terminal:zoom', action.direction)
       return
@@ -130,22 +127,6 @@ export function registerMainWindowShortcutLifecycle(options: ShortcutLifecycleOp
       windowShortcutActionCapturesTerminal(action)
         ? getWindowShortcutActionId(action)
         : null
-    if (action.type === 'dictationKeyDown') {
-      const voiceSettings = store?.getSettings().voice
-      if (!voiceSettings?.enabled || !voiceSettings.sttModel || voiceSettings.dictationMode === 'hold') {
-        return false
-      }
-      if (context.isAutoRepeat) {
-        event.preventDefault()
-        return true
-      }
-      event.preventDefault()
-      if (capturedTerminalActionId) {
-        mainWindow.webContents.send('ui:terminalShortcutCaptured', { actionId: capturedTerminalActionId })
-      }
-      mainWindow.webContents.send('ui:dictationKeyDown')
-      return true
-    }
     if (action.type === 'toggleQuickCommandsMenu' && context.isAutoRepeat) {
       event.preventDefault()
       return true

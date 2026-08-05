@@ -3,8 +3,7 @@
 Orca's Linux builds target **stock Ubuntu 20.04 and newer** — glibc 2.31 and
 libstdc++ `GLIBCXX_3.4.28` (also Debian 11, RHEL 9), on both x64 and arm64.
 Packaging enforces this floor automatically; keep it in mind when adding or
-upgrading native dependencies. (The optional speech feature is the one
-exception — see below.)
+upgrading native dependencies.
 
 ## Why this needs attention
 
@@ -31,9 +30,8 @@ several long-stable functions into libc under brand-new symbol versions:
 | `openpty`         | `GLIBC_2.34`  | allocate the pty        |
 | `forkpty`         | `GLIBC_2.34`  | fork the shell          |
 
-Electron itself (glibc 2.25) and the other bundled native modules
-(`sherpa-onnx`, `@parcel/watcher`, both prebuilt on old glibc) stay well under
-the floor, so node-pty was the sole blocker.
+Electron itself (glibc 2.25) and the other bundled native modules stay well
+under the floor, so node-pty was the sole blocker.
 
 ## How we keep the floor
 
@@ -74,13 +72,6 @@ crashes on launch.
 > `pty.node` in a glibc-2.31 container and spawns a shell is the recommended
 > follow-up — it would make the load path self-verifying and stay valid even if
 > the build ever moves to an old-glibc sysroot.
-
-The one carve-out is the `sherpa-onnx` speech prebuilt, which already requires
-`GLIBCXX_3.4.29` (GCC 11). It loads lazily in the speech worker
-(`src/main/speech/stt-worker.ts`), never at app launch, so it is exempt from the
-libstdc++ floor — its glibc needs are still checked. Speech-to-text therefore
-needs a host with libstdc++ from GCC 11+ (Ubuntu 21.10 / 22.04 LTS or newer); the
-app itself still launches on stock 20.04.
 
 ## Adding or upgrading a native dependency
 

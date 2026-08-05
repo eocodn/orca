@@ -23,14 +23,6 @@ const VERSION_FLOORS = Object.freeze([
 ])
 const FLOOR_LABEL = 'Ubuntu 20.04 (glibc 2.31 / libstdc++ GLIBCXX_3.4.28)'
 
-// Why: the sherpa-onnx speech prebuilt is a third-party manylinux binary that
-// already requires GLIBCXX_3.4.29 (GCC 11 / Ubuntu 21.10+, 22.04 LTS). It loads
-// lazily in the speech worker (src/main/speech/stt-worker.ts), never at app
-// launch, so it cannot cause the #9902 startup crash. Exempt it from the
-// libstdc++ floor (its glibc is still gated) rather than fail the release on a
-// pre-existing, non-launch condition — speech needs libstdc++ >= GCC 11.
-const LIBSTDCXX_FLOOR_EXEMPT = /(?:^|[/\\])sherpa-onnx/
-
 // VER_FLG_WEAK: a version need whose references are all weak. The loader
 // tolerates its absence (resolves to null and the caller's fallback runs)
 // instead of refusing to load, so a weak need must not count as a requirement.
@@ -117,22 +109,14 @@ function isVersionNodeAboveFloor(name) {
   return false
 }
 
-function isLibstdcxxNode(name) {
-  return name.startsWith('GLIBCXX_') || name.startsWith('CXXABI_')
-}
-
 /**
  * Version needs from `filePath` that would prevent loading on the floor OS.
- * `sherpa-onnx` is exempt from the libstdc++ floor (see LIBSTDCXX_FLOOR_EXEMPT)
- * but its glibc needs are still checked.
  */
-function findFloorViolations(needs, filePath = '') {
-  const exemptLibstdcxx = LIBSTDCXX_FLOOR_EXEMPT.test(filePath)
+function findFloorViolations(needs) {
   return needs.filter(
     (need) =>
       !need.weak &&
-      isVersionNodeAboveFloor(need.name) &&
-      !(exemptLibstdcxx && isLibstdcxxNode(need.name))
+      isVersionNodeAboveFloor(need.name)
   )
 }
 
@@ -330,7 +314,7 @@ function verifyLinuxGlibcFloor(rootDir, options = {}) {
   const offenders = []
   for (const filePath of binaries) {
     const { versionNeeds, neededLibraries } = readDynamicInfo(filePath, objdumpPath)
-    const floorViolations = findFloorViolations(versionNeeds, filePath)
+    const floorViolations = findFloorViolations(versionNeeds)
     // Only pay for `objdump -T` when a relocated-symbol provider is not already
     // in DT_NEEDED (the common, healthy case short-circuits without it).
     const providerViolations = Object.values(RELOCATED_SYMBOL_PROVIDERS).some(
@@ -384,7 +368,6 @@ module.exports = {
   parseNeededLibraries,
   parseImportedSymbols,
   isVersionNodeAboveFloor,
-  isLibstdcxxNode,
   findFloorViolations,
   findMissingProviderDeps,
   collectNativeBinaries,

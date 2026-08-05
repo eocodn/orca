@@ -1,9 +1,6 @@
 import type { BrowserCertificateTrustController } from './browser-certificate-trust-controller'
 
 export const BrowserManagerMethods1 = {
-  setDictationShortcutForwardingPredicate(this: any, predicate: (() => boolean) | null): void {
-    this.shouldForwardDictationShortcut = predicate
-  },
   setBrowserGuestStateChangedListener(
     this: any,
     listener: ((worktreeId: string) => void) | null

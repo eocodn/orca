@@ -2,7 +2,6 @@ import { translate } from '@/i18n/i18n'
 import { AgentsPane } from './AgentsPane'
 import { AccountsPane } from './AccountsPane'
 import { LinearAgentSkillPane } from './LinearAgentSkillPane'
-import { VoicePane } from './VoicePane'
 import { SettingsSetupGuidePane } from './SettingsSetupGuidePane'
 import { GeneralPane } from './GeneralPane'
 import { IntegrationsPane } from './IntegrationsPane'
@@ -104,24 +103,6 @@ export function SettingsPagePrimarySections({
         >
           {isSectionMounted('linear') ? <LinearAgentSkillPane /> : null}
         </SettingsSection>
-      ) : null}
-
-      {showDesktopOnlySettings ? (
-        <>
-          <SettingsSection
-            id="voice"
-            title={translate('auto.components.settings.Settings.5063bb47a5', 'Voice')}
-            description={translate(
-              'auto.components.settings.Settings.eb1176a14e',
-              'Local speech-to-text dictation with on-device models.'
-            )}
-            searchEntries={getSectionSearchEntries('voice')}
-          >
-            {isSectionMounted('voice') ? (
-              <VoicePane settings={settings} updateSettings={updateSettings} />
-            ) : null}
-          </SettingsSection>
-        </>
       ) : null}
 
       <SettingsSection

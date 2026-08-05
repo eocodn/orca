@@ -140,8 +140,6 @@ inline src/main/runtime/rpc/terminal-multiplex.test.ts
 inline src/main/runtime/runtime-rpc.test.ts
 inline src/main/runtime/runtime-rpc.ts
 inline src/main/source-control/hosted-review-creation.ts
-inline src/main/speech/model-manager.ts
-inline src/main/speech/stt-service.ts
 inline src/main/ssh/ssh-channel-multiplexer.ts
 inline src/main/ssh/ssh-connection.test.ts
 inline src/main/ssh/ssh-connection.ts

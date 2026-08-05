@@ -209,7 +209,6 @@ import {
   AddRepoDialog,
   ContextualTourOverlay,
   DeleteWorktreeDialog,
-  DictationController,
   FeatureTipsModal,
   FeatureWallModal,
   FloatingTerminalPanel,
@@ -487,10 +486,7 @@ function App(): React.JSX.Element {
     () => resolveLeftSidebarStyleVariables(settings, systemPrefersDark),
     [settings, systemPrefersDark]
   ) as React.CSSProperties | undefined
-  const dictationState = useAppStore((s) => s.dictationState)
   const hasSshCredentialRequest = useAppStore((s) => s.sshCredentialQueue.length > 0)
-  const shouldMountDictationController =
-    settings?.voice?.enabled === true || dictationState !== 'idle'
   const primarySelectionMiddleClickPaste = resolvePrimarySelectionMiddleClickPaste(
     settings?.primarySelectionMiddleClickPaste
   )
@@ -903,7 +899,6 @@ function App(): React.JSX.Element {
         settings,
         shouldMountAddRepoDialog,
         shouldMountContextualTourOverlay,
-        shouldMountDictationController,
         shouldMountFloatingTerminalPanel,
         shouldMountTerminalWorkbench,
         shouldMountUpdateCard,

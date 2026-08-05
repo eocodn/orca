@@ -1,52 +1,12 @@
 import type { JSX } from 'react'
-import { Mic } from 'lucide-react'
-import { getDefaultVoiceSettings } from '../../../../shared/constants'
-import type { FeatureTip } from '../../../../shared/feature-tips'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
 import { useAppStore } from '@/store'
-import { CmdJPaletteFeatureTipVisual } from './CmdJPaletteFeatureTipVisual'
 import { CmdJPaletteTipDialog } from './CmdJPaletteTipDialog'
-import { FeatureTipActions } from './FeatureTipActions'
 import { getFeatureTipForModal } from './feature-tip-modal-state'
-const WAVEFORM_BAR_HEIGHTS = [30, 60, 90, 70, 100, 50, 80, 35, 65]
-
-function FeatureTipVisual({ tip }: { tip: FeatureTip }): JSX.Element {
-  if (tip.action === 'learn-cmd-j-palette') {
-    return <CmdJPaletteFeatureTipVisual />
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-2.5">
-      <div className="flex size-14 items-center justify-center rounded-full bg-foreground text-background">
-        <Mic className="size-5" />
-      </div>
-      <div className="flex h-6 items-center justify-center gap-1" aria-hidden="true">
-        {WAVEFORM_BAR_HEIGHTS.map((height, index) => (
-          <span
-            key={index}
-            className="block w-[3px] rounded-[2px] bg-foreground/60 animate-waveform"
-            style={{ height: `${height}%`, animationDelay: `${index * 0.1}s` }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function FeatureTipsModal(): JSX.Element | null {
   const activeModal = useAppStore((s) => s.activeModal)
   const closeModal = useAppStore((s) => s.closeModal)
   const openSettingsPage = useAppStore((s) => s.openSettingsPage)
   const openSettingsTarget = useAppStore((s) => s.openSettingsTarget)
-  const settings = useAppStore((s) => s.settings)
-  const updateSettings = useAppStore((s) => s.updateSettings)
   const seenTipIds = useAppStore((s) => s.featureTipsSeenIds)
   const featureInteractions = useAppStore((s) => s.featureInteractions)
   const markFeatureTipsSeen = useAppStore((s) => s.markFeatureTipsSeen)
@@ -55,8 +15,7 @@ export default function FeatureTipsModal(): JSX.Element | null {
   const currentTip = getFeatureTipForModal({
     modalData,
     seenTipIds,
-    featureInteractions,
-    settings
+    featureInteractions
   })
 
   const markCurrentTipSeen = (): void => {
@@ -90,57 +49,22 @@ export default function FeatureTipsModal(): JSX.Element | null {
     }
 
     markFeatureTipsSeen([currentTip.id])
-    if (currentTip.action === 'learn-cmd-j-palette') {
-      closeModal()
-      return
-    }
-
-    const voice = settings?.voice ?? getDefaultVoiceSettings()
-    void updateSettings({ voice: { ...voice, enabled: true } })
     closeModal()
-    openSettingsTarget({ pane: 'voice', repoId: null })
-    openSettingsPage()
   }
 
   if (!isOpen || !currentTip) {
     return null
   }
 
-  if (currentTip.action === 'learn-cmd-j-palette') {
-    return (
-      <CmdJPaletteTipDialog
-        open
-        tip={currentTip}
-        primaryBusy={false}
-        onOpenChange={handleOpenChange}
-        onPrimaryAction={handlePrimaryAction}
-        onSkip={handleSkip}
-        onRebindClick={openShortcutsSettings}
-      />
-    )
-  }
-
   return (
-    <Dialog open onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md gap-4 p-7" showCloseButton>
-        <DialogHeader className="items-center gap-4 px-8 text-center sm:text-center">
-          <FeatureTipVisual tip={currentTip} />
-          <DialogTitle className="text-2xl font-semibold tracking-tight">
-            {currentTip.title}
-          </DialogTitle>
-          <DialogDescription className="max-w-sm text-sm leading-relaxed">
-            {currentTip.description}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="sm:justify-center">
-          <FeatureTipActions
-            currentTip={currentTip}
-            primaryBusy={false}
-            onPrimaryAction={handlePrimaryAction}
-            onSkip={handleSkip}
-          />
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <CmdJPaletteTipDialog
+      open
+      tip={currentTip}
+      primaryBusy={false}
+      onOpenChange={handleOpenChange}
+      onPrimaryAction={handlePrimaryAction}
+      onSkip={handleSkip}
+      onRebindClick={openShortcutsSettings}
+    />
   )
 }

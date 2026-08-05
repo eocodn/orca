@@ -201,7 +201,7 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  dictationButton: {
+  attachButton: {
     backgroundColor: colors.bgRaised,
     width: 34,
     height: 34,
@@ -211,10 +211,6 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm
-  },
-  dictationButtonActive: {
-    backgroundColor: colors.bgPanel,
-    borderColor: colors.textSecondary
   },
   sendButtonDisabled: {
     opacity: 0.35

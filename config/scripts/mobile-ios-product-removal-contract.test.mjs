@@ -49,17 +49,10 @@ describe('mobile iOS product removal contract', () => {
     expect(readProjectFile('mobile/mobile-terminal-direct-input-default.md')).not.toMatch(
       /ios|xcode|iphone|ipad/i
     )
-    expect(readProjectFile('mobile/packages/expo-two-way-audio/README.md')).not.toMatch(
-      /ios|xcode|iphone|ipad/i
-    )
     expect(readProjectFile('mobile/pnpm-workspace.yaml')).not.toMatch(/xcode|ios/i)
 
-    const audioConfig = readProjectFile(
-      'mobile/packages/expo-two-way-audio/expo-module.config.json'
-    )
-    expect(audioConfig).not.toMatch(/ios/i)
     for (const relativePath of [
-      'mobile/packages/expo-two-way-audio/ios',
+      'mobile/packages/expo-two-way-audio',
       'mobile/src/terminal/terminal-ios-dictation-write-back.test.ts',
       'mobile/src/terminal/terminal-ios-ime-keyboard.test.ts'
     ]) {
@@ -122,9 +115,7 @@ describe('mobile iOS product removal contract', () => {
     expect(
       existsSync(resolve(projectRoot, 'mobile/plugins/android-respect-rotation-lock.js'))
     ).toBe(true)
-    expect(existsSync(resolve(projectRoot, 'mobile/packages/expo-two-way-audio/android'))).toBe(
-      true
-    )
+    expect(existsSync(resolve(projectRoot, 'mobile/packages/expo-two-way-audio'))).toBe(false)
     expect(
       existsSync(resolve(projectRoot, 'mobile/src/transport/host-protocol-status.test.ts'))
     ).toBe(true)

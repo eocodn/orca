@@ -99,11 +99,6 @@ export const AddProjectFromFolderDialog = lazy(
 )
 export const ProjectAddedDialog = lazy(() => import('./components/sidebar/ProjectAddedDialog'))
 export const DeleteWorktreeDialog = lazy(() => import('./components/sidebar/DeleteWorktreeDialog'))
-export const DictationController = lazy(() =>
-  import('./components/dictation/DictationController').then((module) => ({
-    default: module.DictationController
-  }))
-)
 export const SshPassphraseDialog = lazy(() =>
   import('./components/settings/SshPassphraseDialog').then((module) => ({
     default: module.SshPassphraseDialog

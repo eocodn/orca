@@ -4,11 +4,11 @@ import {
   type FeatureInteractionState
 } from './feature-interactions'
 
-export type FeatureTipId = 'voice-dictation' | 'cmd-j-palette'
+export type FeatureTipId = 'cmd-j-palette'
 
 export type FeatureTipPriority = 'new' | 'unseen'
 
-export type FeatureTipAction = 'enable-voice' | 'learn-cmd-j-palette'
+export type FeatureTipAction = 'learn-cmd-j-palette'
 
 export type FeatureTip = {
   id: FeatureTipId
@@ -22,10 +22,7 @@ export type FeatureTip = {
   completedByFeatureInteractions?: readonly FeatureInteractionId[]
 }
 
-export type CompletedFeatureTipState = {
-  voiceDictationEnabled: boolean
-  featureInteractions?: FeatureInteractionState
-}
+export type CompletedFeatureTipState = { featureInteractions?: FeatureInteractionState }
 
 export const FEATURE_TIPS = [
   {
@@ -41,17 +38,6 @@ export const FEATURE_TIPS = [
     ctaLabel: 'Got it',
     completedByFeatureInteractions: []
   },
-  {
-    id: 'voice-dictation',
-    priority: 'unseen',
-    eyebrow: 'Tip',
-    title: 'Voice Dictation is here',
-    description:
-      'Speak into any focused pane and Orca will transcribe it. Press the dictation shortcut to start and stop.',
-    action: 'enable-voice',
-    ctaLabel: 'Set Up Voice',
-    completedByFeatureInteractions: ['voice-dictation']
-  }
 ] as const satisfies readonly FeatureTip[]
 
 export const FEATURE_TIP_IDS = FEATURE_TIPS.map((tip) => tip.id)
@@ -76,9 +62,6 @@ export function normalizeFeatureTipIds(value: unknown): FeatureTipId[] {
 
 export function getCompletedFeatureTipIds(state: CompletedFeatureTipState): Set<FeatureTipId> {
   const completedIds = new Set<FeatureTipId>()
-  if (state.voiceDictationEnabled) {
-    completedIds.add('voice-dictation')
-  }
   for (const tip of FEATURE_TIPS) {
     if (
       tip.completedByFeatureInteractions?.some((id) =>

@@ -12,7 +12,7 @@ import { errorMessage } from './session-scanner-values'
 
 // Why (#8864): a lazily-spawned, unref'd worker runs OpenCode SQLite reads off
 // the main-process event loop. Lifecycle (idle teardown, FIFO one-at-a-time
-// dispatch, per-call timeouts, respawn-on-fault) mirrors src/main/speech/
+// dispatch, per-call timeouts, and respawn-on-fault) mirrors other worker clients.
 // stt-service.ts. The default spawn + shared singleton live in
 // session-scanner-opencode-sqlite-worker-spawn.ts.
 

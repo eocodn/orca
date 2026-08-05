@@ -35,9 +35,6 @@ describe('packaged CLI assets', () => {
         join('node_modules', 'yaml'),
         join('node_modules', 'jsonc-parser'),
         join('node_modules', 'node-pty'),
-        join('node_modules', 'sherpa-onnx-darwin-${arch}'),
-        join('node_modules', 'sherpa-onnx-linux-${arch}'),
-        join('node_modules', 'sherpa-onnx-win-x64')
       ])
     )
   })

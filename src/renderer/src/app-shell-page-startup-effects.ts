@@ -210,7 +210,6 @@ import {
   AddRepoDialog,
   ContextualTourOverlay,
   DeleteWorktreeDialog,
-  DictationController,
   FeatureTipsModal,
   FeatureWallModal,
   FloatingTerminalPanel,

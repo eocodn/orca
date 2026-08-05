@@ -34,7 +34,6 @@ import type {
 import type { CtrlTabOrderMode } from './types-tabs'
 import type { TaskProvider } from './task-providers'
 import type { TerminalCustomTheme } from './terminal-custom-themes'
-import type { VoiceSettings } from './speech-types'
 
 export type GlobalSettings = {
   workspaceDir: string
@@ -401,6 +400,4 @@ export type GlobalSettings = {
   /** One-shot cohort marker for the tab-switch keybinding swap. 'pending' =
    *  pre-existing install (seed pins old chords, then flips to 'done'); 'done' = fresh install. */
   tabSwitchKeybindingSeed?: 'pending' | 'done'
-  /** Local voice/dictation config. Optional for pre-voice profiles; getDefaultSettings() hydrates defaults via the persistence merge. */
-  voice?: VoiceSettings
 }
