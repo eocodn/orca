@@ -256,6 +256,10 @@ async function stopChild(child) {
   ])
 }
 
+export function isDaemonChildSurviving(child) {
+  return child.exitCode === null && child.signalCode === null
+}
+
 function isProcessAlive(pid) {
   try {
     process.kill(pid, 0)
@@ -342,7 +346,7 @@ async function main() {
       await Promise.all([graceful, forced])
 
       const sessions = await waitForVictimExit(rpc, victimId, victim.pid)
-      if (child.pid !== daemonPid || child.exitCode !== null) {
+      if (child.pid !== daemonPid || !isDaemonChildSurviving(child)) {
         throw new Error(`Daemon PID ${daemonPid} exited while closing victim ${index}`)
       }
       if (!sessions.some((session) => session.sessionId === witnessId && session.isAlive)) {
@@ -364,7 +368,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`[windows-daemon-workspace-close] FAIL: ${error.message}\n`)
-  process.exitCode = 1
-})
+if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
+  main().catch((error) => {
+    process.stderr.write(`[windows-daemon-workspace-close] FAIL: ${error.message}\n`)
+    process.exitCode = 1
+  })
+}
