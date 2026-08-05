@@ -994,7 +994,10 @@ mod tests {
             .process_identity
             .expect("Windows PTY should capture process identity");
 
-        assert_eq!(capture_windows_process_identity(pid).unwrap(), expected);
+        assert_eq!(
+            super::capture_windows_process_identity(pid).unwrap(),
+            expected
+        );
     }
 
     #[cfg(unix)]
