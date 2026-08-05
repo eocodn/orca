@@ -23,6 +23,20 @@ services:
     init: true
     network_mode: host
 
+  worker-cli-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-control
+    command:
+      - sh
+      - -euc
+      - >-
+        test "$$(cargo run --quiet --package ade-worker -- --json --worker-id wsl-ubuntu)"
+        =
+        '{"service":"ade-worker","worker_id":"wsl-ubuntu","generation":0,"status":"stopped","heartbeat_sequence":0}'
+    init: true
+    network_mode: host
+
   runtime-model-tests:
     build:
       context: .
