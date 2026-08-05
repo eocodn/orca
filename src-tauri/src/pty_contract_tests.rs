@@ -13,6 +13,7 @@ fn request(request_id: &str, session_id: &str, operation: PtyOperation) -> PtyRe
         workspace_id: String::from("workspace-1"),
         worker_id: String::from("worker-1"),
         session_id: session_id.to_string(),
+        session_generation: (operation != PtyOperation::Start).then_some(1),
         operation,
         program: None,
         args: Vec::new(),
@@ -250,6 +251,7 @@ fn stale_terminate_cannot_remove_a_replacement_session() {
             String::from("session-1"),
             PtySessionEntry {
                 owner: super::owner_for_request(&start),
+                session_generation: 1,
                 session: std::sync::Arc::clone(&replacement),
             },
         );
@@ -270,6 +272,67 @@ fn stale_terminate_cannot_remove_a_replacement_session() {
         &registry.sessions.get("session-1").unwrap().session,
         &replacement
     ));
+}
+
+#[cfg(unix)]
+#[test]
+fn rejects_a_request_from_a_previous_session_incarnation() {
+    let state = PtyExecutionState::default();
+    let mut start = request("start-1", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("cat"));
+    start.cols = Some(80);
+    start.rows = Some(24);
+    let started = execute_pty_request(&start, &state).unwrap();
+    assert!(started.contains(r#""session_generation":1"#));
+
+    let terminate = request("terminate-1", "session-1", PtyOperation::Terminate);
+    execute_pty_request(&terminate, &state).unwrap();
+
+    let mut replacement = request("start-2", "session-1", PtyOperation::Start);
+    replacement.program = Some(String::from("cat"));
+    replacement.cols = Some(80);
+    replacement.rows = Some(24);
+    let started = execute_pty_request(&replacement, &state).unwrap();
+    assert!(started.contains(r#""session_generation":2"#));
+
+    let mut stale_write = request("write-stale", "session-1", PtyOperation::Write);
+    stale_write.session_generation = Some(1);
+    stale_write.input = Some(String::from("must-not-reach-replacement"));
+    assert_eq!(
+        execute_pty_request(&stale_write, &state),
+        Err(String::from("stale_session_generation"))
+    );
+
+    let terminate = request("terminate-2", "session-1", PtyOperation::Terminate);
+    // The replacement owns a fresh incarnation; stale requests must not clean it up.
+    assert_eq!(terminate.session_generation, Some(1));
+    let mut terminate = terminate;
+    terminate.session_generation = Some(2);
+    execute_pty_request(&terminate, &state).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn removes_a_session_after_a_successful_wait_timeout() {
+    let state = PtyExecutionState::default();
+    let mut start = request("start-1", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("sleep"));
+    start.args = vec![String::from("2")];
+    start.cols = Some(80);
+    start.rows = Some(24);
+    execute_pty_request(&start, &state).unwrap();
+
+    let mut wait = request("wait-1", "session-1", PtyOperation::Wait);
+    wait.timeout_ms = Some(20);
+    let response = execute_pty_request(&wait, &state).unwrap();
+    assert!(response.contains(r#""status":"failed""#));
+
+    let mut replacement = request("start-2", "session-1", PtyOperation::Start);
+    replacement.program = Some(String::from("printf"));
+    replacement.args = vec![String::from("reused")];
+    replacement.cols = Some(80);
+    replacement.rows = Some(24);
+    assert!(execute_pty_request(&replacement, &state).is_ok());
 }
 
 #[test]

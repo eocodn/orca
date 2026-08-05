@@ -27,6 +27,8 @@ pub struct PtyRequest {
     pub workspace_id: String,
     pub worker_id: String,
     pub session_id: String,
+    #[serde(default)]
+    pub session_generation: Option<u64>,
     pub operation: PtyOperation,
     pub program: Option<String>,
     #[serde(default)]
@@ -47,6 +49,7 @@ pub struct PtyExecutionState {
 
 #[derive(Default)]
 struct PtyRegistry {
+    next_session_generation: u64,
     sessions: HashMap<String, PtySessionEntry>,
     session_reservations: HashMap<String, PtySessionReservation>,
     committed_requests: HashMap<String, (PtyRequest, Result<String, String>)>,
@@ -62,7 +65,13 @@ struct PtyOwner {
 
 struct PtySessionEntry {
     owner: PtyOwner,
+    session_generation: u64,
     session: Arc<Mutex<PtySession>>,
+}
+
+struct PtySessionHandle {
+    session: Arc<Mutex<PtySession>>,
+    session_generation: u64,
 }
 
 struct PtySessionReservation {
@@ -76,6 +85,7 @@ struct PtyResult {
     capability: &'static str,
     operation: &'static str,
     session_id: String,
+    session_generation: u64,
     generation: u64,
     status: String,
     exit_code: Option<i32>,
@@ -88,19 +98,13 @@ pub fn execute_pty_request(
     request: &PtyRequest,
     state: &PtyExecutionState,
 ) -> Result<String, String> {
-    {
-        let registry = state
-            .registry
-            .lock()
-            .map_err(|_| String::from("pty_registry_unavailable"))?;
-        if let Some((committed, response)) = registry.committed_requests.get(&request.request_id) {
-            if committed == request {
-                return response.clone();
-            }
-            return Err(String::from("request_id_conflict"));
-        }
+    if let Some(response) = begin_request(request, state)? {
+        return response;
     }
-    validate_request(request)?;
+    if let Err(error) = validate_request(request) {
+        abort_request(request, state)?;
+        return Err(error);
+    }
     let session = match request.operation {
         PtyOperation::Start => match start_session(request, state) {
             Ok(session) => session,
@@ -111,6 +115,8 @@ pub fn execute_pty_request(
                     {
                         return Err(commit_error);
                     }
+                } else {
+                    abort_request(request, state)?;
                 }
                 return Err(error);
             }
@@ -124,14 +130,18 @@ pub fn execute_pty_request(
                     {
                         return Err(commit_error);
                     }
+                } else {
+                    abort_request(request, state)?;
                 }
                 return Err(error);
             }
         },
     };
 
+    let session_generation = session.session_generation;
     let operation_result = (|| -> Result<(String, bool), String> {
         let mut session = session
+            .session
             .lock()
             .map_err(|_| String::from("pty_session_unavailable"))?;
         let snapshot = match request.operation {
@@ -155,17 +165,29 @@ pub fn execute_pty_request(
             PtyOperation::Terminate => session.terminate().map_err(pty_error_code)?,
         };
         let completed = matches!(
-            snapshot.status,
+            &snapshot.status,
             ade_host_core::terminal::TerminalStatus::Exited { .. }
         );
-        Ok((render_result(request, snapshot)?, completed))
+        let timed_out = matches!(request.operation, PtyOperation::Wait)
+            && matches!(
+                &snapshot.status,
+                ade_host_core::terminal::TerminalStatus::Failed { .. }
+            );
+        Ok((
+            render_result(request, snapshot, session_generation)?,
+            completed || timed_out,
+        ))
     })();
     let (response, completed) = match operation_result {
         Ok(response) => response,
         Err(error) => {
-            if let Err(commit_error) =
-                commit_request_result(request, state, Err(error.clone()), Some(&session), false)
-            {
+            if let Err(commit_error) = commit_request_result(
+                request,
+                state,
+                Err(error.clone()),
+                Some(&session.session),
+                false,
+            ) {
                 return Err(commit_error);
             }
             return Err(error);
@@ -175,10 +197,51 @@ pub fn execute_pty_request(
         request,
         state,
         Ok(response.clone()),
-        Some(&session),
+        Some(&session.session),
         completed,
     )?;
     Ok(response)
+}
+
+fn begin_request(
+    request: &PtyRequest,
+    state: &PtyExecutionState,
+) -> Result<Option<Result<String, String>>, String> {
+    let mut registry = state
+        .registry
+        .lock()
+        .map_err(|_| String::from("pty_registry_unavailable"))?;
+    if let Some((committed, response)) = registry.committed_requests.get(&request.request_id) {
+        if committed == request {
+            return Ok(Some(response.clone()));
+        }
+        return Err(String::from("request_id_conflict"));
+    }
+    if let Some(in_flight) = registry.in_flight_requests.get(&request.request_id) {
+        if in_flight == request {
+            return Err(String::from("request_in_flight"));
+        }
+        return Err(String::from("request_id_conflict"));
+    }
+    registry
+        .in_flight_requests
+        .insert(request.request_id.clone(), request.clone());
+    Ok(None)
+}
+
+fn abort_request(request: &PtyRequest, state: &PtyExecutionState) -> Result<(), String> {
+    let mut registry = state
+        .registry
+        .lock()
+        .map_err(|_| String::from("pty_registry_unavailable"))?;
+    if registry
+        .in_flight_requests
+        .get(&request.request_id)
+        .is_some_and(|in_flight| in_flight == request)
+    {
+        registry.in_flight_requests.remove(&request.request_id);
+    }
+    Ok(())
 }
 
 fn should_commit_start_error(error: &str) -> bool {
@@ -211,6 +274,9 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
     }
     match request.operation {
         PtyOperation::Start => {
+            if request.session_generation.is_some() {
+                return Err(String::from("session_generation_only_on_non_start"));
+            }
             if request.program.as_deref().is_none_or(str::is_empty) {
                 return Err(String::from("empty_program"));
             }
@@ -226,6 +292,9 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
                 }
                 _ => {}
             }
+        }
+        _ if request.session_generation.is_none() => {
+            return Err(String::from("missing_session_generation"));
         }
         _ if request.execution_target.is_some() => {
             return Err(String::from("execution_target_only_on_start"));
@@ -254,19 +323,13 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
 fn start_session(
     request: &PtyRequest,
     state: &PtyExecutionState,
-) -> Result<Arc<Mutex<PtySession>>, String> {
+) -> Result<PtySessionHandle, String> {
     let spec = build_pty_spec(request)?;
     let owner = owner_for_request(request);
     let mut registry = state
         .registry
         .lock()
         .map_err(|_| String::from("pty_registry_unavailable"))?;
-    if let Some(in_flight) = registry.in_flight_requests.get(&request.request_id) {
-        if in_flight == request {
-            return Err(String::from("request_in_flight"));
-        }
-        return Err(String::from("request_id_conflict"));
-    }
     if let Some(entry) = registry.sessions.get(&request.session_id) {
         return Err(if entry.owner == owner {
             String::from("session_id_conflict")
@@ -281,9 +344,6 @@ fn start_session(
             String::from("session_owner_conflict")
         });
     }
-    registry
-        .in_flight_requests
-        .insert(request.request_id.clone(), request.clone());
     registry.session_reservations.insert(
         request.session_id.clone(),
         PtySessionReservation {
@@ -311,47 +371,54 @@ fn start_session(
         let _ = session.terminate();
         return Err(String::from("session_id_conflict"));
     }
+    let session_generation = registry
+        .next_session_generation
+        .checked_add(1)
+        .ok_or_else(|| String::from("session_generation_overflow"))?;
+    registry.next_session_generation = session_generation;
     registry.sessions.insert(
         request.session_id.clone(),
         PtySessionEntry {
             owner,
+            session_generation,
             session: Arc::clone(&session),
         },
     );
-    Ok(session)
+    Ok(PtySessionHandle {
+        session,
+        session_generation,
+    })
 }
 
 fn session_for_request(
     request: &PtyRequest,
     state: &PtyExecutionState,
-) -> Result<Arc<Mutex<PtySession>>, String> {
-    let mut registry = state
+) -> Result<PtySessionHandle, String> {
+    let registry = state
         .registry
         .lock()
         .map_err(|_| String::from("pty_registry_unavailable"))?;
-    if let Some(in_flight) = registry.in_flight_requests.get(&request.request_id) {
-        if in_flight == request {
-            return Err(String::from("request_in_flight"));
-        }
-        return Err(String::from("request_id_conflict"));
-    }
     let owner = owner_for_request(request);
-    let session = if let Some(entry) = registry.sessions.get(&request.session_id) {
-        if entry.owner != owner {
-            return Err(String::from("session_owner_conflict"));
-        }
-        Arc::clone(&entry.session)
-    } else if let Some(reservation) = registry.session_reservations.get(&request.session_id) {
+    let session = if let Some(reservation) = registry.session_reservations.get(&request.session_id)
+    {
         if reservation.owner != owner {
             return Err(String::from("session_owner_conflict"));
         }
         return Err(String::from("session_starting"));
+    } else if let Some(entry) = registry.sessions.get(&request.session_id) {
+        if entry.owner != owner {
+            return Err(String::from("session_owner_conflict"));
+        }
+        if request.session_generation != Some(entry.session_generation) {
+            return Err(String::from("stale_session_generation"));
+        }
+        PtySessionHandle {
+            session: Arc::clone(&entry.session),
+            session_generation: entry.session_generation,
+        }
     } else {
         return Err(String::from("session_not_found"));
     };
-    registry
-        .in_flight_requests
-        .insert(request.request_id.clone(), request.clone());
     Ok(session)
 }
 
@@ -365,12 +432,14 @@ fn owner_for_request(request: &PtyRequest) -> PtyOwner {
 fn render_result(
     request: &PtyRequest,
     snapshot: ade_host_core::terminal::TerminalSnapshot,
+    session_generation: u64,
 ) -> Result<String, String> {
     serde_json::to_string(&PtyResult {
         request_id: request.request_id.clone(),
         capability: "pty",
         operation: operation_name(&request.operation),
         session_id: request.session_id.clone(),
+        session_generation,
         generation: snapshot.generation,
         status: status_name(&snapshot.status).to_string(),
         exit_code: exit_code(&snapshot.status),
@@ -420,11 +489,7 @@ fn commit_request_result(
         .registry
         .lock()
         .map_err(|_| String::from("pty_registry_unavailable"))?;
-    if registry
-        .in_flight_requests
-        .get(&request.request_id)
-        .is_some_and(|in_flight| in_flight != request)
-    {
+    if registry.in_flight_requests.get(&request.request_id) != Some(request) {
         return Ok(());
     }
     registry.in_flight_requests.remove(&request.request_id);

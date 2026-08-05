@@ -146,6 +146,7 @@ mod tests {
             workspace_id: String::from("workspace-1"),
             worker_id: String::from("worker-1"),
             session_id: session_id.to_string(),
+            session_generation: None,
             operation: PtyOperation::Start,
             program: None,
             args: Vec::new(),

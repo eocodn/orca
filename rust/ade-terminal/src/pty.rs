@@ -1,5 +1,5 @@
 use ade_host_core::terminal::{TerminalCommand, TerminalRuntime, TerminalSnapshot, TerminalStatus};
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, ExitStatus, MasterPty, PtySize};
 use std::collections::BTreeMap;
 #[cfg(unix)]
 use std::io;
@@ -192,44 +192,9 @@ impl PtySession {
         if !matches!(current.status, TerminalStatus::Running) {
             return Ok(current);
         }
-        let exit = {
-            let mut child = self
-                .child
-                .lock()
-                .map_err(|_| PtyError::Terminal(String::from("pty_child_unavailable")))?;
-            let exit = child
-                .try_wait()
-                .map_err(|error| PtyError::Terminal(error.to_string()))?;
-            if exit.is_some() {
-                self.child_reaped = true;
-            }
-            exit
-        };
+        let exit = self.observe_child_exit()?;
         if let Some(status) = exit {
-            let code = status.exit_code().min(i32::MAX as u32) as i32;
-            if status.exit_code() > i32::MAX as u32 {
-                let error =
-                    PtyError::Termination(String::from("pty returned an invalid exit code"));
-                self.fail_after_backend_error(&error);
-                return Err(error);
-            }
-            if let Err(error) = self.close_pty_handles() {
-                self.fail_after_backend_error(&error);
-                return Err(error);
-            }
-            self.terminated = true;
-            if let Err(error) = self.drain_output_until_reader_closes() {
-                self.fail_after_backend_error(&error);
-                return Err(error);
-            }
-            if let Err(error) = self.finish_output() {
-                self.fail_after_backend_error(&error);
-                return Err(error);
-            }
-            return self
-                .terminal
-                .complete_process("", code)
-                .map_err(terminal_error);
+            return self.complete_natural_exit(status);
         }
         self.terminal.snapshot().map_err(terminal_error)
     }
@@ -242,8 +207,12 @@ impl PtySession {
                 return Ok(snapshot);
             }
             if started.elapsed() >= timeout {
-                let result = self.terminate_running_process();
-                let reap = if result.is_ok() || self.child_reaped {
+                let termination_error = match self.terminate_running_process() {
+                    Ok(Some(status)) => return self.complete_natural_exit(status),
+                    Ok(None) => None,
+                    Err(error) => Some(error),
+                };
+                let reap = if termination_error.is_none() || self.child_reaped {
                     self.reap_child()
                 } else {
                     Err(PtyError::Termination(String::from(
@@ -254,7 +223,9 @@ impl PtySession {
                 if drain.is_err() {
                     self.disconnect_output_reader();
                 }
-                let cleanup_error = result.err().or_else(|| reap.err()).or_else(|| drain.err());
+                let cleanup_error = termination_error
+                    .or_else(|| reap.err())
+                    .or_else(|| drain.err());
                 let reason = cleanup_error
                     .as_ref()
                     .map(|error| format!("pty timed out: {error:?}"))
@@ -276,12 +247,17 @@ impl PtySession {
     }
 
     pub fn terminate(&mut self) -> Result<TerminalSnapshot, PtyError> {
-        let current = self.terminal.snapshot().map_err(terminal_error)?;
+        // Observe an already-exited child before converting termination into failure.
+        let current = self.poll()?;
         if !matches!(current.status, TerminalStatus::Running) {
             return Ok(current);
         }
-        let termination = self.terminate_running_process();
-        let reap = if termination.is_ok() || self.child_reaped {
+        let termination_error = match self.terminate_running_process() {
+            Ok(Some(status)) => return self.complete_natural_exit(status),
+            Ok(None) => None,
+            Err(error) => Some(error),
+        };
+        let reap = if termination_error.is_none() || self.child_reaped {
             self.reap_child()
         } else {
             Err(PtyError::Termination(String::from(
@@ -292,8 +268,7 @@ impl PtySession {
         if drain.is_err() {
             self.disconnect_output_reader();
         }
-        let cleanup_error = termination
-            .err()
+        let cleanup_error = termination_error
             .or_else(|| reap.err())
             .or_else(|| drain.err());
         let reason = cleanup_error
@@ -315,6 +290,44 @@ impl PtySession {
 
     pub fn snapshot(&self) -> Result<TerminalSnapshot, PtyError> {
         self.terminal.snapshot().map_err(terminal_error)
+    }
+
+    fn observe_child_exit(&mut self) -> Result<Option<ExitStatus>, PtyError> {
+        let mut child = self
+            .child
+            .lock()
+            .map_err(|_| PtyError::Terminal(String::from("pty_child_unavailable")))?;
+        let exit = child
+            .try_wait()
+            .map_err(|error| PtyError::Terminal(error.to_string()))?;
+        if exit.is_some() {
+            self.child_reaped = true;
+        }
+        Ok(exit)
+    }
+
+    fn complete_natural_exit(&mut self, status: ExitStatus) -> Result<TerminalSnapshot, PtyError> {
+        if status.exit_code() > i32::MAX as u32 {
+            let error = PtyError::Termination(String::from("pty returned an invalid exit code"));
+            self.fail_after_backend_error(&error);
+            return Err(error);
+        }
+        if let Err(error) = self.close_pty_handles() {
+            self.fail_after_backend_error(&error);
+            return Err(error);
+        }
+        self.terminated = true;
+        if let Err(error) = self.drain_output_until_reader_closes() {
+            self.fail_after_backend_error(&error);
+            return Err(error);
+        }
+        if let Err(error) = self.finish_output() {
+            self.fail_after_backend_error(&error);
+            return Err(error);
+        }
+        self.terminal
+            .complete_process("", status.exit_code() as i32)
+            .map_err(terminal_error)
     }
 
     fn drain_output(&mut self) -> Result<(), PtyError> {
@@ -434,27 +447,47 @@ impl PtySession {
         Ok(())
     }
 
-    fn terminate_running_process(&mut self) -> Result<(), PtyError> {
+    fn terminate_running_process(&mut self) -> Result<Option<ExitStatus>, PtyError> {
         if self.terminated {
-            return Ok(());
+            return Ok(None);
         }
-        let pid = self
+        let mut child = self
             .child
             .lock()
-            .map_err(|_| PtyError::Termination(String::from("pty_child_unavailable")))?
-            .process_id();
+            .map_err(|_| PtyError::Termination(String::from("pty_child_unavailable")))?;
+        if let Some(status) = child
+            .try_wait()
+            .map_err(|error| PtyError::Termination(error.to_string()))?
+        {
+            self.child_reaped = true;
+            return Ok(Some(status));
+        }
+        let pid = child.process_id();
         if let Some(pid) = pid {
-            terminate_process_tree(self.process_group, pid)?;
+            match terminate_process_tree(self.process_group, pid)? {
+                ProcessTermination::Signalled => {}
+                ProcessTermination::AlreadyExited => {
+                    if let Some(status) = child
+                        .try_wait()
+                        .map_err(|error| PtyError::Termination(error.to_string()))?
+                    {
+                        self.child_reaped = true;
+                        return Ok(Some(status));
+                    }
+                    return Err(PtyError::Termination(String::from(
+                        "pty exited before termination status was observable",
+                    )));
+                }
+            }
         } else if !self.child_reaped {
-            self.child
-                .lock()
-                .map_err(|_| PtyError::Termination(String::from("pty_child_unavailable")))?
+            child
                 .kill()
                 .map_err(|error| PtyError::Termination(error.to_string()))?;
         }
+        drop(child);
         self.close_pty_handles()?;
         self.terminated = true;
-        Ok(())
+        Ok(None)
     }
 
     fn close_pty_handles(&mut self) -> Result<(), PtyError> {
@@ -507,26 +540,38 @@ fn terminal_error(error: ade_host_core::terminal::TerminalError) -> PtyError {
     PtyError::Terminal(format!("{error:?}"))
 }
 
+enum ProcessTermination {
+    Signalled,
+    AlreadyExited,
+}
+
 #[cfg(unix)]
-fn terminate_process_tree(process_group: Option<i32>, pid: u32) -> Result<(), PtyError> {
+fn terminate_process_tree(
+    process_group: Option<i32>,
+    pid: u32,
+) -> Result<ProcessTermination, PtyError> {
     let process_group = process_group.unwrap_or(pid as i32) as libc::pid_t;
     let result = unsafe { libc::kill(-process_group, libc::SIGKILL) };
-    if result == -1 {
-        let error = io::Error::last_os_error();
-        if error.raw_os_error() != Some(libc::ESRCH) {
-            return Err(PtyError::Termination(error.to_string()));
-        }
-        if unsafe { libc::kill(-process_group, 0) } == 0 {
-            return Err(PtyError::Termination(String::from(
-                "pty process group remains after termination",
-            )));
-        }
+    if result == 0 {
+        return Ok(ProcessTermination::Signalled);
     }
-    Ok(())
+    let error = io::Error::last_os_error();
+    if error.raw_os_error() != Some(libc::ESRCH) {
+        return Err(PtyError::Termination(error.to_string()));
+    }
+    if unsafe { libc::kill(-process_group, 0) } == 0 {
+        return Err(PtyError::Termination(String::from(
+            "pty process group remains after termination",
+        )));
+    }
+    Ok(ProcessTermination::AlreadyExited)
 }
 
 #[cfg(windows)]
-fn terminate_process_tree(_process_group: Option<i32>, pid: u32) -> Result<(), PtyError> {
+fn terminate_process_tree(
+    _process_group: Option<i32>,
+    pid: u32,
+) -> Result<ProcessTermination, PtyError> {
     let status = std::process::Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/T", "/F"])
         .status()
@@ -536,7 +581,7 @@ fn terminate_process_tree(_process_group: Option<i32>, pid: u32) -> Result<(), P
             "taskkill exited with {status}"
         )));
     }
-    Ok(())
+    Ok(ProcessTermination::Signalled)
 }
 
 #[cfg(test)]
@@ -599,7 +644,35 @@ mod tests {
         let snapshot = session.wait(Duration::from_millis(20)).unwrap();
 
         assert!(matches!(snapshot.status, TerminalStatus::Failed { .. }));
+        assert_eq!(snapshot.exit_code, None);
         assert_eq!(snapshot.failure_reason.as_deref(), Some("pty timed out"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn terminate_observes_a_natural_exit_before_marking_failure() {
+        let mut session =
+            PtySession::spawn("pty-1", spec("sh", &["-c", "printf 'ready'; sleep 0.05"])).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+
+        let snapshot = session.terminate().unwrap();
+
+        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
+        assert_eq!(snapshot.exit_code, Some(0));
+        assert!(snapshot.tail.contains("ready"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn terminate_observes_a_natural_windows_exit_before_marking_failure() {
+        let mut session =
+            PtySession::spawn("pty-1", spec("cmd.exe", &["/C", "exit", "0"])).unwrap();
+        std::thread::sleep(Duration::from_millis(100));
+
+        let snapshot = session.terminate().unwrap();
+
+        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
+        assert_eq!(snapshot.exit_code, Some(0));
     }
 
     #[cfg(unix)]
