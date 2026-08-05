@@ -9,11 +9,6 @@ import { isInvalidDiscoveredPlugin } from './plugin-discovery'
 import type { PluginService } from './plugin-service'
 import { listPluginVmRecipeCommands } from '../../shared/plugins/plugin-vm-recipe-artifact'
 import type { PluginCommandAliasActionId } from '../../shared/plugins/plugin-command-actions'
-import {
-  isOfficialMarketplaceGitSource,
-  isOfficialOrganizationGitSource,
-  isOfficialPluginIdentity
-} from '../../shared/plugins/plugin-marketplace'
 import { mapWithConcurrency } from '../../shared/map-with-concurrency'
 
 const PLUGIN_LIST_PROJECTION_CONCURRENCY = 4
@@ -74,11 +69,10 @@ export type PluginListEntry = {
   restarts: number
   blockedByKillList?: { reason: string; advisoryUrl?: string }
   source?: {
-    kind: 'local-path' | 'git' | 'marketplace' | 'bundled'
+    kind: 'local-path' | 'git' | 'bundled'
     reference: string
     resolvedCommit: string | null
     contentHash: string
-    marketplace?: { reference: string; resolvedCommit: string }
   }
 }
 
@@ -146,12 +140,7 @@ export async function buildPluginList(
           ? candidateLockEntry
           : undefined
       const bundled = lockEntry?.source.kind === 'bundled'
-      const official =
-        bundled ||
-        (lockEntry?.source.kind === 'marketplace' &&
-          isOfficialPluginIdentity(plugin.pluginKey) &&
-          isOfficialMarketplaceGitSource(lockEntry.source.marketplace.url) &&
-          isOfficialOrganizationGitSource(lockEntry.source.plugin.url))
+      const official = bundled
       return {
         pluginKey: plugin.pluginKey,
         consentFingerprint: plugin.consentFingerprint,
@@ -209,19 +198,9 @@ export async function buildPluginList(
                     ? lockEntry.source.path
                     : lockEntry.source.kind === 'git'
                       ? lockEntry.source.url
-                      : lockEntry.source.kind === 'marketplace'
-                        ? lockEntry.source.plugin.url
-                        : `bundled:${lockEntry.source.bundleId}`,
+                      : `bundled:${lockEntry.source.bundleId}`,
                 resolvedCommit: lockEntry.resolvedCommit,
-                contentHash: lockEntry.contentHash,
-                ...(lockEntry.source.kind === 'marketplace'
-                  ? {
-                      marketplace: {
-                        reference: lockEntry.source.marketplace.url,
-                        resolvedCommit: lockEntry.source.marketplace.resolvedCommit
-                      }
-                    }
-                  : {})
+                contentHash: lockEntry.contentHash
               }
             }
           : {})

@@ -73,7 +73,6 @@ function verifyPackagedPluginResources(resourcesDir) {
     throw new Error(`[verify-packaged-plugin-resources] missing launch directory at ${launchRoot}`)
   }
   const index = readJsonFile(join(launchRoot, 'bundled-plugins.json'), 'bundled plugin index')
-  readJsonFile(join(launchRoot, 'orca-marketplace.json'), 'marketplace index')
   if (index?.version !== 1 || !Array.isArray(index.plugins) || index.plugins.length === 0) {
     throw new Error('[verify-packaged-plugin-resources] bundled plugin index is empty or invalid')
   }

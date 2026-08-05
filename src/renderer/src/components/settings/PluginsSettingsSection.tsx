@@ -7,12 +7,10 @@ import { Button } from '../ui/button'
 import { PluginConsentDialog } from './PluginConsentDialog'
 import { PluginInstallDialog } from './PluginInstallDialog'
 import { PluginRemoveDialog } from './PluginRemoveDialog'
-import { PluginRollbackDialog } from './PluginRollbackDialog'
 import { PluginSettingsOverview } from './PluginSettingsOverview'
 import { getPluginsSectionPresentation } from './plugins-search'
 import { SettingsSection } from './SettingsSection'
 import { usePluginLogs } from './use-plugin-logs'
-import { usePluginMarketplaceLifecycle } from './use-plugin-marketplace-lifecycle'
 
 type PluginsSettingsSectionProps = {
   mounted: boolean
@@ -138,15 +136,6 @@ export function PluginsSettingsSection({
     }
   }, [mounted, settings.pluginSystemEnabled])
 
-  const marketplaceLifecycle = usePluginMarketplaceLifecycle({
-    mounted,
-    mountedRef,
-    plugins,
-    applyCompletedMutation,
-    setPluginListError,
-    setConsentPluginId,
-    setBusyPluginKeys
-  })
   const pluginLogs = usePluginLogs(mounted, mountedRef, plugins)
 
   const sectionPresentation = getPluginsSectionPresentation()
@@ -273,10 +262,6 @@ export function PluginsSettingsSection({
     }
   }
 
-  const refresh = async (): Promise<void> => {
-    await loadPluginList(window.api.plugins.refresh())
-  }
-
   const updateDevPaths = async (paths: string[]): Promise<void> => {
     setDevPathsBusy(true)
     setSettingsError(null)
@@ -329,12 +314,9 @@ export function PluginsSettingsSection({
         devPaths={settings.devPluginPaths}
         devPathsBusy={devPathsBusy}
         onToggleFeature={() => void toggleFeature()}
-        onRefresh={refresh}
         onReview={setConsentPluginId}
         onToggleEnabled={(entry) => void toggleEnabled(entry)}
         onToggleLogs={pluginLogs.toggleLogs}
-        onMarketplaceInstalled={marketplaceLifecycle.reloadAfterMutation}
-        onRollbackRequest={marketplaceLifecycle.requestRollback}
         onRemoveRequest={setRemovePluginId}
         onUpdateDevPaths={updateDevPaths}
       />
@@ -349,16 +331,6 @@ export function PluginsSettingsSection({
         busy={Boolean(removePlugin && busyPluginKeys.has(removePlugin.pluginKey))}
         onCancel={() => setRemovePluginId(null)}
         onConfirm={(pluginKey) => void remove(pluginKey)}
-      />
-      <PluginRollbackDialog
-        plugin={marketplaceLifecycle.rollbackPlugin}
-        busy={Boolean(
-          marketplaceLifecycle.rollbackPlugin &&
-          busyPluginKeys.has(marketplaceLifecycle.rollbackPlugin.pluginKey)
-        )}
-        error={marketplaceLifecycle.rollbackError}
-        onCancel={marketplaceLifecycle.cancelRollback}
-        onConfirm={(pluginKey) => void marketplaceLifecycle.confirmRollback(pluginKey)}
       />
     </SettingsSection>
   )

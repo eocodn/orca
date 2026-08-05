@@ -1,9 +1,8 @@
-import { Blocks, Loader2, SearchX } from 'lucide-react'
+import { Blocks, Loader2 } from 'lucide-react'
 import type { PluginHostListEntry } from '../../../../preload/api-types'
 import { translate } from '@/i18n/i18n'
 import { PluginCatalogEmptyState } from '../plugin-catalog/PluginCatalogEmptyState'
 import { PluginDevelopmentSection } from './PluginDevelopmentSection'
-import { PluginMarketplaceBrowser } from './PluginMarketplaceBrowser'
 import { PluginSettingsRow, type PluginLogsState } from './PluginSettingsRow'
 import { SettingsRow, SettingsSwitch } from './SettingsFormControls'
 
@@ -20,24 +19,11 @@ type PluginSettingsOverviewProps = {
   devPaths: readonly string[]
   devPathsBusy: boolean
   onToggleFeature: () => void
-  onRefresh: () => Promise<void>
   onReview: (pluginKey: string) => void
   onToggleEnabled: (plugin: PluginHostListEntry) => void
   onToggleLogs: (pluginKey: string) => void
-  onMarketplaceInstalled: (pluginKey: string) => Promise<void>
-  onRollbackRequest: (pluginKey: string) => void
   onRemoveRequest: (pluginKey: string) => void
   onUpdateDevPaths: (paths: string[]) => Promise<void>
-}
-
-function matchesInstalledPlugin(plugin: PluginHostListEntry, search: string): boolean {
-  const query = search.trim().toLocaleLowerCase()
-  return (
-    !query ||
-    [plugin.name, plugin.pluginKey, plugin.publisher, plugin.description ?? ''].some((value) =>
-      value.toLocaleLowerCase().includes(query)
-    )
-  )
 }
 
 export function PluginSettingsOverview({
@@ -53,12 +39,9 @@ export function PluginSettingsOverview({
   devPaths,
   devPathsBusy,
   onToggleFeature,
-  onRefresh,
   onReview,
   onToggleEnabled,
   onToggleLogs,
-  onMarketplaceInstalled,
-  onRollbackRequest,
   onRemoveRequest,
   onUpdateDevPaths
 }: PluginSettingsOverviewProps): React.JSX.Element {
@@ -100,68 +83,40 @@ export function PluginSettingsOverview({
         </div>
       ) : (
         <>
-          <PluginMarketplaceBrowser
-            installedPlugins={plugins}
-            onInstalled={onMarketplaceInstalled}
-            onRefreshInstalled={onRefresh}
-            renderInstalledContent={(search) => {
-              const filteredPlugins = plugins.filter((plugin) =>
-                matchesInstalledPlugin(plugin, search)
-              )
-              if (error) {
-                return (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                    {error}
-                  </div>
-                )
-              }
-              if (filteredPlugins.length === 0) {
-                return search ? (
-                  <PluginCatalogEmptyState
-                    icon={SearchX}
-                    title={translate(
-                      'auto.components.settings.PluginsSettingsSection.noInstalledResultsTitle',
-                      'No matching plugins'
-                    )}
-                    description={translate(
-                      'auto.components.settings.PluginsSettingsSection.noInstalledResults',
-                      'No installed plugins match this search.'
-                    )}
-                  />
-                ) : (
-                  <PluginCatalogEmptyState
-                    icon={Blocks}
-                    title={translate(
-                      'auto.components.settings.PluginsSettingsSection.emptyTitle',
-                      'No plugins installed yet'
-                    )}
-                    description={translate(
-                      'auto.components.settings.PluginsSettingsSection.empty',
-                      'Browse the All tab to install plugins from a marketplace.'
-                    )}
-                  />
-                )
-              }
-              return (
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {filteredPlugins.map((plugin) => (
-                    <PluginSettingsRow
-                      key={plugin.pluginKey}
-                      plugin={plugin}
-                      busy={busyPluginKeys.has(plugin.pluginKey)}
-                      logsOpen={openLogs.has(plugin.pluginKey)}
-                      logsState={logsByPlugin[plugin.pluginKey]}
-                      onReview={onReview}
-                      onToggleEnabled={onToggleEnabled}
-                      onToggleLogs={onToggleLogs}
-                      onRollbackRequest={onRollbackRequest}
-                      onRemoveRequest={onRemoveRequest}
-                    />
-                  ))}
-                </div>
-              )
-            }}
-          />
+          {error ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+          {plugins.length === 0 ? (
+            <PluginCatalogEmptyState
+              icon={Blocks}
+              title={translate(
+                'auto.components.settings.PluginsSettingsSection.emptyTitle',
+                'No plugins installed yet'
+              )}
+              description={translate(
+                'auto.components.settings.PluginsSettingsSection.empty',
+                'Install a local or Git plugin to get started.'
+              )}
+            />
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {plugins.map((plugin) => (
+                <PluginSettingsRow
+                  key={plugin.pluginKey}
+                  plugin={plugin}
+                  busy={busyPluginKeys.has(plugin.pluginKey)}
+                  logsOpen={openLogs.has(plugin.pluginKey)}
+                  logsState={logsByPlugin[plugin.pluginKey]}
+                  onReview={onReview}
+                  onToggleEnabled={onToggleEnabled}
+                  onToggleLogs={onToggleLogs}
+                  onRemoveRequest={onRemoveRequest}
+                />
+              ))}
+            </div>
+          )}
           <div className="my-4 border-t border-border/60" />
           <PluginDevelopmentSection
             paths={devPaths}

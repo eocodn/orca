@@ -2,11 +2,7 @@ import { cp, mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  isOfficialOrganizationGitSource,
-  isOfficialPluginIdentity,
-  pluginMarketplaceSchema
-} from '../../shared/plugins/plugin-marketplace'
+import { isOfficialPluginIdentity } from '../../shared/plugins/plugin-trust'
 import { bootstrapBundledPlugins, resolveBundledPluginRoot } from './plugin-bundled-bootstrap'
 import { inspectPluginInstallTree } from './plugin-install-staging'
 
@@ -24,40 +20,33 @@ afterEach(async () => {
 })
 
 describe('Phase 1 launch plugin content', () => {
-  it('lists and validates the launch plugin packs', async () => {
-    const marketplace = pluginMarketplaceSchema.parse(
-      await readJson(join(launchRoot, 'orca-marketplace.json'))
-    )
-    expect(marketplace.plugins.map((plugin) => plugin.id).sort()).toEqual([
-      'stablyai.orca-multipass-recipes',
-      'stablyai.orca-navigation-shortcuts',
-      'stablyai.orca-portuguese'
-    ])
-    expect(
-      marketplace.plugins.filter(
-        (plugin) =>
-          isOfficialPluginIdentity(plugin.id) && isOfficialOrganizationGitSource(plugin.source.url)
-      ).length
-    ).toBeGreaterThanOrEqual(2)
-
+  it('lists and validates the release-indexed plugin packs', async () => {
+    const index = (await readJson(join(launchRoot, 'bundled-plugins.json'))) as {
+      plugins: { pluginKey: string; path: string }[]
+    }
     const localPluginDirectories = (await readdir(launchRoot, { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()
-    expect(marketplace.plugins.map((plugin) => plugin.id).sort()).toEqual(localPluginDirectories)
+    expect(index.plugins.map((plugin) => plugin.path).sort()).toEqual(
+      localPluginDirectories.filter((directory) =>
+        index.plugins.some((plugin) => plugin.path === directory)
+      )
+    )
 
     const contributionKinds = new Set<string>()
-    for (const listing of marketplace.plugins) {
+    for (const listing of index.plugins) {
       const inspection = await inspectPluginInstallTree({
-        rootDir: join(launchRoot, listing.id),
+        rootDir: join(launchRoot, listing.path),
         hostVersion: '1.4.0',
-        expectedPluginKey: listing.id
+        expectedPluginKey: listing.pluginKey
       })
-      expect(inspection, `${listing.id} must pass the production install inspection`).toMatchObject(
-        {
-          ok: true
-        }
-      )
+      expect(
+        inspection,
+        `${listing.pluginKey} must pass the production install inspection`
+      ).toMatchObject({
+        ok: true
+      })
       if (!inspection.ok) {
         continue
       }
@@ -72,7 +61,7 @@ describe('Phase 1 launch plugin content', () => {
         contributionKinds.add('command-keybinding')
       }
     }
-    expect(contributionKinds).toEqual(new Set(['language', 'vm-recipe', 'command-keybinding']))
+    expect(contributionKinds).toEqual(new Set(['command-keybinding']))
   })
 
   it('publishes every bundled pack only when its release hash matches exact bytes', async () => {

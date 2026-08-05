@@ -1,5 +1,36 @@
-
-import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFailure, SshConnectionState, SshConfigImportResult, SshTargetAddResult, SshTarget, PortForwardEntry, EnrichedDetectedPort, PluginPanelActionOutcome, PluginPanelEntry, PluginConsentRequest, PluginLanguagePackRegistration, PluginChangeEvent, PluginMarketplaceGitSource, FilesystemPathFlavor, RuntimeAccessGrant, AgentStatusClearIpcPayload, AgentStatusIpcPayload, MigrationUnsupportedPtyEntry, AgentInterruptInferenceRequest, AgentQuestionAnsweredInferenceRequest, SpeechErrorEvent, SpeechLifecycleEvent, SpeechModelManifest, SpeechModelState, SpeechTranscriptEvent, PluginHostListEntry, PluginHostLogLine, PluginHostInstallSource, PluginHostInstallResult, PluginMarketplaceHostSourceState, PluginMarketplaceHostListing, PluginMarketplaceHostInstallPreview } from './preload-api-contract-types';export type PreloadApiUi = {
+import type {
+  MobileRelayStatus,
+  MobilePairingConnectionMode,
+  MobileRelayMintFailure,
+  SshConnectionState,
+  SshConfigImportResult,
+  SshTargetAddResult,
+  SshTarget,
+  PortForwardEntry,
+  EnrichedDetectedPort,
+  PluginPanelActionOutcome,
+  PluginPanelEntry,
+  PluginConsentRequest,
+  PluginLanguagePackRegistration,
+  PluginChangeEvent,
+  FilesystemPathFlavor,
+  RuntimeAccessGrant,
+  AgentStatusClearIpcPayload,
+  AgentStatusIpcPayload,
+  MigrationUnsupportedPtyEntry,
+  AgentInterruptInferenceRequest,
+  AgentQuestionAnsweredInferenceRequest,
+  SpeechErrorEvent,
+  SpeechLifecycleEvent,
+  SpeechModelManifest,
+  SpeechModelState,
+  SpeechTranscriptEvent,
+  PluginHostListEntry,
+  PluginHostLogLine,
+  PluginHostInstallSource,
+  PluginHostInstallResult
+} from './preload-api-contract-types'
+export type PreloadApiUi = {
   ssh: {
     listTargets: () => Promise<SshTarget[]>
     // Removed-target id â last known label, for a friendly host name on workspaces still pinned to a removed target.
@@ -99,29 +130,6 @@ import type { MobileRelayStatus, MobilePairingConnectionMode, MobileRelayMintFai
       params?: unknown
     }) => Promise<PluginPanelActionOutcome>
     install: (source: PluginHostInstallSource) => Promise<PluginHostInstallResult>
-    listMarketplaces: () => Promise<PluginMarketplaceHostSourceState[]>
-    addMarketplace: (
-      source: PluginMarketplaceGitSource
-    ) => Promise<PluginMarketplaceHostSourceState>
-    removeMarketplace: (args: { sourceId: string }) => Promise<PluginMarketplaceHostSourceState[]>
-    refreshMarketplaces: (args?: {
-      sourceId?: string
-    }) => Promise<PluginMarketplaceHostSourceState[]>
-    listMarketplacePlugins: () => Promise<PluginMarketplaceHostListing[]>
-    previewMarketplacePlugin: (args: {
-      marketplaceSourceId: string
-      pluginKey: string
-    }) => Promise<PluginMarketplaceHostInstallPreview>
-    installMarketplacePlugin: (
-      preview: Pick<
-        PluginMarketplaceHostInstallPreview,
-        'marketplaceSourceId' | 'marketplaceCommit' | 'pluginKey' | 'resolvedCommit'
-      >
-    ) => Promise<PluginHostInstallResult>
-    previewMarketplaceUpdate: (args: {
-      pluginKey: string
-    }) => Promise<PluginMarketplaceHostInstallPreview>
-    rollbackMarketplacePlugin: (args: { pluginKey: string }) => Promise<PluginHostInstallResult>
     remove: (args: { pluginKey: string }) => Promise<PluginHostListEntry[]>
     getLogs: (args: { pluginKey: string }) => Promise<PluginHostLogLine[]>
     /** Re-discovers after settings edits (feature flag, dev paths). */

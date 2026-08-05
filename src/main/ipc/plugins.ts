@@ -24,10 +24,6 @@ import {
   isAllowedPluginGitUrl,
   type PluginLockfile
 } from '../../shared/plugins/plugin-install-lockfile'
-import {
-  registerPluginMarketplaceHandlers,
-  type PluginMarketplaceHandlerServices
-} from './plugin-marketplaces'
 
 export function parsePluginConsentArgs(args: unknown): z.infer<typeof pluginConsentRequestSchema> {
   return pluginConsentRequestSchema.parse(args)
@@ -94,8 +90,7 @@ function rendererPanelOwner(webContentsId: number): string {
 export function registerPluginHandlers(
   store: Store,
   pluginService: PluginService,
-  runtime: OrcaRuntimeService | null,
-  marketplaceServices?: PluginMarketplaceHandlerServices
+  runtime: OrcaRuntimeService | null
 ): void {
   // The runtime IS the delegate: the structural PluginRuntimeDelegate type
   // keeps the facade electron-free while main binds the real service.
@@ -251,7 +246,4 @@ export function registerPluginHandlers(
     await pluginService.refresh()
     return listPluginsForClients(pluginService)
   })
-  if (marketplaceServices) {
-    registerPluginMarketplaceHandlers(pluginService, marketplaceServices)
-  }
 }

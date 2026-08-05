@@ -300,13 +300,7 @@ export function openMainWindow(): startupDeps.BrowserWindow {
       onOrcaProfileAuthMutation: () => startupState.desktopRelayService?.authMutated(),
       onBeforeOrcaProfileSignOut: () => startupState.desktopRelayService?.fenceAndCloseNow()
     },
-    startupState.pluginService ?? undefined,
-    startupState.pluginMarketplaceService && startupState.pluginMarketplaceInstaller
-      ? {
-          marketplace: startupState.pluginMarketplaceService,
-          installer: startupState.pluginMarketplaceInstaller
-        }
-      : undefined
+    startupState.pluginService ?? undefined
   )
   startupDeps.attachMainWindowServices(
     window,

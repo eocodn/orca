@@ -20,8 +20,6 @@ import type { StarNagService } from './star-nag/service'
 import type { KeybindingService } from './keybindings/keybinding-service'
 import type { PluginService } from './plugins/plugin-service'
 import type { PluginKillListService } from './plugins/plugin-kill-list-service'
-import type { PluginMarketplaceService } from './plugins/plugin-marketplace-service'
-import type { PluginMarketplaceInstaller } from './plugins/plugin-marketplace-installer'
 import type { CrashReportStore } from './crash-reporting/crash-report-store'
 import {
   DEFAULT_GPU_CRASH_FALLBACK_THRESHOLD,
@@ -98,8 +96,6 @@ export const startupState = {
   watcherShutdownDone: false,
   pluginService: null as PluginService | null,
   pluginKillListService: null as PluginKillListService | null,
-  pluginMarketplaceService: null as PluginMarketplaceService | null,
-  pluginMarketplaceInstaller: null as PluginMarketplaceInstaller | null,
   keybindings: null as KeybindingService | null,
   expectedRendererReload: createWebContentsTimedFlag(),
   recoveryReloadInFlight: createWebContentsTimedFlag(),
@@ -145,9 +141,7 @@ export function getExpectedTeardownScope(webContentsId?: number): ExpectedTeardo
   if (webContentsId === undefined) {
     return 'none'
   }
-  return startupState.expectedRendererReload.matches(webContentsId)
-    ? 'renderer-reload'
-    : 'none'
+  return startupState.expectedRendererReload.matches(webContentsId) ? 'renderer-reload' : 'none'
 }
 
 export function markRecoveryReloadInFlight(webContentsId: number, durationMs = 10_000): void {

@@ -94,7 +94,7 @@ describe('plugin install trust', () => {
     })
   })
 
-  it('blocks a killed plugin even when the caller bypasses marketplace UI', async () => {
+  it('blocks a killed plugin even when the caller bypasses the UI', async () => {
     const sourcePath = await tempRoot('orca-killed-plugin-')
     const pluginsDir = await tempRoot('orca-plugin-installs-')
     await writePlugin(sourcePath, 'community', 'unsafe')

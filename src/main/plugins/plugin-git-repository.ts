@@ -17,8 +17,7 @@ export async function runPluginGit(args: string[], cwd: string): Promise<string>
     windowsHide: true,
     env: {
       ...process.env,
-      // Existing non-interactive helpers and SSH agents still work, but a
-      // background marketplace refresh can never hang on a terminal prompt.
+      // Existing non-interactive helpers and SSH agents still work without prompts.
       GIT_TERMINAL_PROMPT: '0'
     }
   })

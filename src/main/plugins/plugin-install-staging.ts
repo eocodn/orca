@@ -79,8 +79,7 @@ async function readInstallManifest(
   return { ok: true, manifest: parsed.manifest }
 }
 
-/** Validates and hashes a source tree without publishing it. Marketplace
- * previews use this exact path so the reviewed bytes match install policy. */
+/** Validates and hashes a source tree without publishing it. */
 export async function inspectPluginInstallTree(input: {
   rootDir: string
   hostVersion: string
@@ -94,7 +93,7 @@ export async function inspectPluginInstallTree(input: {
   if (input.expectedPluginKey && pluginKey !== input.expectedPluginKey) {
     return {
       ok: false,
-      error: `plugin manifest identity ${pluginKey} does not match marketplace listing ${input.expectedPluginKey}`
+      error: `plugin manifest identity ${pluginKey} does not match expected ${input.expectedPluginKey}`
     }
   }
   const declaredArtifacts = await validatePluginInstallTree(input.rootDir, sourceManifest.manifest)

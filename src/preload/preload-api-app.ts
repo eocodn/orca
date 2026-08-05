@@ -112,19 +112,6 @@ import { ipcRenderer, ORCA_APP_RESTART_ABORTED_EVENT, ORCA_APP_RESTART_STARTED_E
     }): Promise<PluginPanelActionOutcome> => ipcRenderer.invoke('plugins:panelAction', args),
     install: (source: PluginHostInstallSource): Promise<PluginHostInstallResult> =>
       ipcRenderer.invoke('plugins:install', source),
-    listMarketplaces: () => ipcRenderer.invoke('plugins:listMarketplaces'),
-    addMarketplace: (source) => ipcRenderer.invoke('plugins:addMarketplace', source),
-    removeMarketplace: (args) => ipcRenderer.invoke('plugins:removeMarketplace', args),
-    refreshMarketplaces: (args = {}) => ipcRenderer.invoke('plugins:refreshMarketplaces', args),
-    listMarketplacePlugins: () => ipcRenderer.invoke('plugins:listMarketplacePlugins'),
-    previewMarketplacePlugin: (args) =>
-      ipcRenderer.invoke('plugins:previewMarketplacePlugin', args),
-    installMarketplacePlugin: (preview) =>
-      ipcRenderer.invoke('plugins:installMarketplacePlugin', preview),
-    previewMarketplaceUpdate: (args) =>
-      ipcRenderer.invoke('plugins:previewMarketplaceUpdate', args),
-    rollbackMarketplacePlugin: (args) =>
-      ipcRenderer.invoke('plugins:rollbackMarketplacePlugin', args),
     remove: (args: { pluginKey: string }): Promise<PluginHostListEntry[]> =>
       ipcRenderer.invoke('plugins:remove', args),
     getLogs: (args: { pluginKey: string }): Promise<PluginHostLogLine[]> =>

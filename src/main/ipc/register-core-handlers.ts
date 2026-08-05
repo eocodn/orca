@@ -32,10 +32,7 @@ import { registerOnboardingHandlers } from './onboarding'
 import { registerDashboardPopoutHandlers } from './dashboard-popout'
 import { registerTerminalPreviewHandlers } from './terminal-preview'
 import { registerDeveloperPermissionHandlers } from './developer-permissions'
-import {
-  setTrustedBrowserRendererWebContentsId,
-  registerBrowserHandlers
-} from './browser'
+import { setTrustedBrowserRendererWebContentsId, registerBrowserHandlers } from './browser'
 import { registerSessionHandlers } from './session'
 import { registerSettingsHandlers } from './settings'
 import { registerDiagnosticsHandlers } from './diagnostics'
@@ -84,7 +81,6 @@ import {
   scanRuntimeAiVaultSessions
 } from '../ai-vault/runtime-session-scanner'
 import type { PluginService } from '../plugins/plugin-service'
-import type { PluginMarketplaceHandlerServices } from './plugin-marketplaces'
 
 let registered = false
 
@@ -114,8 +110,7 @@ export function registerCoreHandlers(
   crashReports?: CrashReportStore,
   keybindings?: KeybindingService,
   lifecycleOptions: CoreHandlerLifecycleOptions = {},
-  pluginService?: PluginService,
-  marketplaceServices?: PluginMarketplaceHandlerServices
+  pluginService?: PluginService
 ): void {
   // Why: on macOS the app can stay alive after all windows close, then
   // openMainWindow() is called again on 'activate'. ipcMain.handle() throws
@@ -173,7 +168,7 @@ export function registerCoreHandlers(
     })
   }
   if (pluginService) {
-    registerPluginHandlers(store, pluginService, runtime, marketplaceServices)
+    registerPluginHandlers(store, pluginService, runtime)
   }
   registerTelemetryHandlers(store)
   registerOrcaProfileHandlers(store, {

@@ -3,7 +3,7 @@ import {
   isOfficialOrganizationGitSource,
   isOfficialPluginIdentity,
   isReservedPluginIdentity
-} from '../../shared/plugins/plugin-marketplace'
+} from '../../shared/plugins/plugin-trust'
 
 export function pluginInstallTrustError(
   pluginKey: string,
@@ -20,8 +20,10 @@ export function pluginInstallTrustError(
   if (source.kind === 'local-path') {
     return `reserved plugin identity ${pluginKey} cannot be installed from a local path`
   }
-  const url = source.kind === 'git' ? source.url : source.plugin.url
-  return isOfficialOrganizationGitSource(url)
+  if (source.kind !== 'git') {
+    return `reserved plugin identity ${pluginKey} cannot use this install source`
+  }
+  return isOfficialOrganizationGitSource(source.url)
     ? null
     : `reserved plugin identity ${pluginKey} must resolve to the stablyai organization`
 }

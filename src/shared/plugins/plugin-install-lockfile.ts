@@ -33,26 +33,6 @@ export const pluginInstallSourceSchema = z.discriminatedUnion('kind', [
     ref: z.string().max(4096).default('')
   }),
   z.object({
-    kind: z.literal('marketplace'),
-    marketplace: z.object({
-      url: z
-        .string()
-        .min(1)
-        .max(32 * 1024)
-        .refine(isAllowedPluginGitUrl, 'marketplace Git URL must use HTTPS or SSH'),
-      ref: z.string().min(1).max(4096),
-      resolvedCommit: z.string().regex(PLUGIN_COMMIT_PATTERN)
-    }),
-    plugin: z.object({
-      url: z
-        .string()
-        .min(1)
-        .max(32 * 1024)
-        .refine(isAllowedPluginGitUrl, 'plugin Git URL must use HTTPS or SSH'),
-      ref: z.string().min(1).max(4096)
-    })
-  }),
-  z.object({
     kind: z.literal('bundled'),
     bundleId: z.string().refine(isQualifiedPluginKey, 'invalid bundled plugin identity')
   })

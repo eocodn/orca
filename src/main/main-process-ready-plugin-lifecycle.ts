@@ -22,25 +22,6 @@ export async function initializeReadyPlugins(): Promise<void> {
     pluginsDataDir: startupDeps.getPluginsDataDir(startupDeps.app.getPath('userData'))
   })
   await startupState.pluginKillListService.initialize()
-  startupState.pluginMarketplaceService = new startupDeps.PluginMarketplaceService({
-    pluginsDataDir: startupDeps.getPluginsDataDir(startupDeps.app.getPath('userData')),
-    getKillListEntry: (pluginKey) => startupState.pluginKillListService?.find(pluginKey) ?? null
-  })
-  const requestOfficialMarketplaceSeed = (): void => {
-    if (startupState.store?.getSettings().pluginSystemEnabled !== true) {
-      return
-    }
-    void startupState.pluginMarketplaceService?.seedOfficialSource().catch((error) => {
-      console.warn('[plugins] failed to configure the official marketplace:', error)
-    })
-  }
-  startupState.pluginMarketplaceInstaller = new startupDeps.PluginMarketplaceInstaller({
-    marketplace: startupState.pluginMarketplaceService,
-    userDataPath: startupDeps.app.getPath('userData'),
-    hostVersion: startupDeps.app.getVersion(),
-    blockedPluginReason: (pluginKey) =>
-      startupState.pluginKillListService?.reason(pluginKey) ?? null
-  })
   startupState.pluginService = new startupDeps.PluginService({
     userDataPath: startupDeps.app.getPath('userData'),
     hostVersion: startupDeps.app.getVersion(),
@@ -94,7 +75,6 @@ export async function initializeReadyPlugins(): Promise<void> {
   store.onSettingsChanged((updates) => {
     if (updates.pluginSystemEnabled === true) {
       requestBundledPluginBootstrap()
-      requestOfficialMarketplaceSeed()
     }
     if (startupDeps.app.isPackaged && updates.pluginSystemEnabled === true) {
       void startupState.pluginKillListService?.refresh().catch((error) => {
@@ -159,7 +139,6 @@ export async function initializeReadyPlugins(): Promise<void> {
     }
   })
   requestBundledPluginBootstrap()
-  requestOfficialMarketplaceSeed()
   // v0 plugin event seams: agent status (hook pipeline tap) + worktree
   // lifecycle (runtime tap). Server-side filtered per plugin subscription.
   startupDeps.agentHookServer.subscribeEnrichedStatus((enriched) => {

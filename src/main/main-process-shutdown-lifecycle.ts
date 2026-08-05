@@ -47,8 +47,6 @@ export function installMainProcessShutdownLifecycle(): void {
     // Electron exit first and orphan the hosts.
     startupDeps.setPluginServiceForRpc(null)
     startupState.pluginKillListService = null
-    startupState.pluginMarketplaceService = null
-    startupState.pluginMarketplaceInstaller = null
     const pluginHostShutdown = startupState.pluginService?.dispose() ?? Promise.resolve()
     startupState.pluginService = null
     startupDeps.setUnreadDockBadgeCount(0)

@@ -1,5 +1,13 @@
-import type * as ApiExternal from "./api-types-external"
-type AppIdentity = ApiExternal.AppIdentity; type WriteTerminalRenderDesyncEvidenceArgs = ApiExternal.WriteTerminalRenderDesyncEvidenceArgs; type WriteTerminalRenderDesyncEvidenceResult = ApiExternal.WriteTerminalRenderDesyncEvidenceResult; type PluginManifest = ApiExternal.PluginManifest; type PluginMarketplaceGitSource = ApiExternal.PluginMarketplaceGitSource; type MarkdownDocument = ApiExternal.MarkdownDocument; type FloatingTerminalCwdRequest = ApiExternal.FloatingTerminalCwdRequest; type PersistedUIState = ApiExternal.PersistedUIState; type WorkspaceSessionState = ApiExternal.WorkspaceSessionState; type ExecutionHostId = ApiExternal.ExecutionHostId; 
+import type * as ApiExternal from './api-types-external'
+type AppIdentity = ApiExternal.AppIdentity
+type WriteTerminalRenderDesyncEvidenceArgs = ApiExternal.WriteTerminalRenderDesyncEvidenceArgs
+type WriteTerminalRenderDesyncEvidenceResult = ApiExternal.WriteTerminalRenderDesyncEvidenceResult
+type PluginManifest = ApiExternal.PluginManifest
+type MarkdownDocument = ApiExternal.MarkdownDocument
+type FloatingTerminalCwdRequest = ApiExternal.FloatingTerminalCwdRequest
+type PersistedUIState = ApiExternal.PersistedUIState
+type WorkspaceSessionState = ApiExternal.WorkspaceSessionState
+type ExecutionHostId = ApiExternal.ExecutionHostId
 
 export type AppApi = {
   /** Returns the app identity currently exposed to native chrome and the titlebar. */
@@ -109,11 +117,10 @@ export type PluginHostListEntry = {
   restarts: number
   blockedByKillList?: { reason: string; advisoryUrl?: string }
   source?: {
-    kind: 'local-path' | 'git' | 'marketplace' | 'bundled'
+    kind: 'local-path' | 'git' | 'bundled'
     reference: string
     resolvedCommit: string | null
     contentHash: string
-    marketplace?: { reference: string; resolvedCommit: string }
   }
 }
 
@@ -133,48 +140,3 @@ export type PluginHostInstallResult =
       resolvedCommit: string | null
     }
   | { ok: false; error: string }
-
-export type PluginMarketplaceHostSourceState = {
-  id: string
-  source: PluginMarketplaceGitSource
-  addedAt: number
-  marketplace: {
-    name: string
-    owner: string
-    resolvedCommit: string
-    fetchedAt: number
-  } | null
-  stale: boolean
-  official: boolean
-  error?: string
-}
-
-export type PluginMarketplaceHostListing = {
-  marketplaceSourceId: string
-  marketplaceName: string
-  marketplaceOwner: string
-  marketplaceCommit: string
-  pluginKey: string
-  source: PluginMarketplaceGitSource
-  description?: string
-  categories: string[]
-  official: boolean
-  bundled: boolean
-  blockedByKillList?: { reason: string; advisoryUrl?: string }
-}
-
-export type PluginMarketplaceHostInstallPreview = {
-  marketplaceSourceId: string
-  marketplaceName: string
-  marketplaceOwner: string
-  marketplaceCommit: string
-  pluginKey: string
-  source: PluginMarketplaceGitSource
-  resolvedCommit: string
-  contentHash: string
-  consentFingerprint: string
-  manifest: PluginManifest
-  official: boolean
-  bundled: boolean
-  blockedByKillList?: { reason: string; advisoryUrl?: string }
-}

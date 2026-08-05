@@ -102,7 +102,6 @@ export type { PluginConsentRequest } from '../shared/plugins/plugin-consent-requ
 export type { PluginLanguagePackRegistration } from '../shared/plugins/plugin-language-pack-artifact'
 export type { PluginChangeEvent } from '../shared/plugins/plugin-change-event'
 export type { PluginManifest } from '../shared/plugins/plugin-manifest'
-export type { PluginMarketplaceGitSource } from '../shared/plugins/plugin-marketplace'
 export type {
   LocalhostWorktreeLabelResult,
   LocalhostWorktreeLabelRoute
