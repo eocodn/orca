@@ -41,7 +41,7 @@ export class PluginContentPackRegistry {
       discovered.map(async (plugin) => {
         if (
           isInvalidDiscoveredPlugin(plugin) ||
-          !approvedKeys.has(plugin.pluginKey) ||
+          !approvedKeys.has(plugin.pluginKey)
         ) {
           return
         }
