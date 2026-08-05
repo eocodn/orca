@@ -37,13 +37,6 @@ import {
   pruneTabGroupLayout
 } from './runtime-graph-mobile-tab-projection'
 import { isMobilePublishableOpenFile } from './runtime-graph-mobile-surface-builders'
-import {
-  buildMobileBrowserTab,
-  buildMobileFileTab,
-  buildMobileMarkdownTab,
-  buildMobileTerminalSurfaceTabs,
-  stableHashString
-} from './runtime-graph-mobile-surface-builders'
 import { registeredTabs, tabRegisteredAt, NO_TRANSPORT_GRACE_MS, EMPTY_LAYOUT_BY_WORKTREE, RUNTIME_GRAPH_SYNC_COALESCE_MS, syncScheduled, syncInFlight, syncPendingAfterFlight, syncEnabled, syncTimer, getStoreState, mobileSessionSnapshotVersion, mobileSessionSnapshotCacheByWorktree, jsonContentEquals, cachedEditorDraftsSource, cachedEditorDraftVersionByFileId, mobileSessionPublicationEpoch, setRuntimeGraphStoreStateGetter, hasRegisteredRuntimeTerminalTab, registerRuntimeTerminalTab, focusRuntimeTerminalSurface, setRuntimeGraphSyncEnabled, clearScheduledRuntimeGraphSync, scheduleRuntimeGraphSync, runRuntimeGraphSync, syncRuntimeGraph, type RegisteredTerminalTab, type OpenFileByWorktreeAndId, type OpenFileIndexes, type FallbackEditorTabTarget } from './runtime-graph-sync'
 
 export function buildMobileSessionTabSnapshots(
@@ -262,18 +255,6 @@ export function isEditorSurfaceTab(tab: Pick<Tab, 'contentType'>): boolean {
   // Why: mobile can mirror ordinary edit/diff files; conflict-review and check-details tabs need metadata this contract lacks.
   return tab.contentType === 'editor' || tab.contentType === 'diff'
 }
-
-import {
-  appendFallbackEditorTabsToGroups,
-  buildMobileSessionGroupProjection,
-  getEditorUnifiedTabsForWorktree,
-  getOpenFileIndexes,
-  isWebOnlyMirroredTerminalTab,
-  pruneTabGroupLayout
-} from './runtime-graph-mobile-tab-projection'
-import { isMobilePublishableOpenFile } from './runtime-graph-mobile-surface-builders'
-
-
 
 export function getEditorDraftVersionByFileId(
   editorDrafts: AppState['editorDrafts']
