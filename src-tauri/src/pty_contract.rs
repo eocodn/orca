@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const MAX_WAIT_MS: u64 = 30_000;
+// Request IDs must be retried within this in-memory replay window.
 const MAX_COMMITTED_REQUESTS: usize = 4096;
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]

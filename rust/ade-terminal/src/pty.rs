@@ -67,6 +67,7 @@ pub struct PtySession {
     reader_thread: Option<JoinHandle<()>>,
     output_bytes: usize,
     output_sequence: u64,
+    pending_utf8: Vec<u8>,
     terminated: bool,
     child_reaped: bool,
 }
@@ -134,6 +135,7 @@ impl PtySession {
             reader_thread,
             output_bytes: 0,
             output_sequence: 0,
+            pending_utf8: Vec::new(),
             terminated: false,
             child_reaped: false,
         })
@@ -217,6 +219,10 @@ impl PtySession {
             }
             self.terminated = true;
             if let Err(error) = self.drain_output_until_reader_closes() {
+                self.fail_after_backend_error(&error);
+                return Err(error);
+            }
+            if let Err(error) = self.finish_output() {
                 self.fail_after_backend_error(&error);
                 return Err(error);
             }
@@ -349,7 +355,24 @@ impl PtySession {
             return Err(PtyError::Output(String::from("pty output limit exceeded")));
         }
         self.output_bytes = next_total;
-        let data = String::from_utf8_lossy(&bytes);
+        let mut combined = std::mem::take(&mut self.pending_utf8);
+        combined.extend(bytes);
+        let data = match std::str::from_utf8(&combined) {
+            Ok(data) => data.to_owned(),
+            Err(error) if error.error_len().is_none() => {
+                self.pending_utf8 = combined[error.valid_up_to()..].to_vec();
+                std::str::from_utf8(&combined[..error.valid_up_to()])
+                    .map_err(|error| {
+                        PtyError::Output(format!("pty output is not valid UTF-8: {error}"))
+                    })?
+                    .to_owned()
+            }
+            Err(error) => {
+                return Err(PtyError::Output(format!(
+                    "pty output is not valid UTF-8: {error}"
+                )))
+            }
+        };
         if data.is_empty() {
             return Ok(());
         }
@@ -363,11 +386,20 @@ impl PtySession {
                 snapshot.generation,
                 TerminalCommand::Output {
                     sequence: self.output_sequence,
-                    data: data.into_owned(),
+                    data,
                 },
             )
             .map_err(terminal_error)?;
         Ok(())
+    }
+
+    fn finish_output(&mut self) -> Result<(), PtyError> {
+        if self.pending_utf8.is_empty() {
+            return Ok(());
+        }
+        Err(PtyError::Output(String::from(
+            "pty output ended with incomplete UTF-8",
+        )))
     }
 
     fn fail_after_backend_error(&mut self, error: &PtyError) {
@@ -568,5 +600,32 @@ mod tests {
 
         assert!(matches!(snapshot.status, TerminalStatus::Failed { .. }));
         assert_eq!(snapshot.failure_reason.as_deref(), Some("pty timed out"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_non_utf8_output_without_replacing_the_bytes() {
+        let mut session =
+            PtySession::spawn("pty-1", spec("sh", &["-c", "printf '\\377'"])).unwrap();
+        let result = session.wait(Duration::from_secs(2));
+
+        assert!(
+            matches!(result, Err(PtyError::Output(reason)) if reason.contains("not valid UTF-8"))
+        );
+        assert!(matches!(
+            session.snapshot().unwrap().status,
+            TerminalStatus::Failed { .. }
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preserves_a_utf8_codepoint_split_across_reader_chunks() {
+        let mut session = PtySession::spawn("pty-1", spec("sleep", &["2"])).unwrap();
+
+        session.record_output(vec![0xe2]).unwrap();
+        session.record_output(vec![0x9c, 0x85]).unwrap();
+
+        assert!(session.snapshot().unwrap().tail.contains('✅'));
     }
 }
