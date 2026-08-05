@@ -17,6 +17,8 @@ pub struct PtyWorkerRegistry {
     registry: Mutex<Registry>,
 }
 
+pub type PtyExecutionState = PtyWorkerRegistry;
+
 #[derive(Default)]
 struct Registry {
     next_generation: u64,
@@ -45,6 +47,10 @@ struct Reservation {
 }
 
 impl PtyWorkerRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn execute(&self, request: &PtyRequest) -> Result<PtyResponse, String> {
         if let Some(result) = self.begin(request)? {
             return result;
@@ -291,6 +297,13 @@ impl PtyWorkerRegistry {
         }
         Ok(())
     }
+}
+
+pub fn execute_shared_pty_request(
+    request: &PtyRequest,
+    state: &PtyWorkerRegistry,
+) -> Result<PtyResponse, String> {
+    state.execute(request)
 }
 
 struct SessionHandle {
