@@ -1,5 +1,7 @@
 use ade_host_core::protocol::{HOST_CAPABILITIES, PROTOCOL_VERSION};
-use ade_host_store::store::{HostStore, StoredWorkspace};
+use ade_host_store::store::{
+    HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
+};
 use serde::Serialize;
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -44,11 +46,55 @@ pub fn register_host_workspace(
     path: impl Into<String>,
     request_id: &str,
 ) -> Result<Vec<StoredWorkspace>, ade_host_store::store::StoreError> {
-    store.commit_workspace(
-        StoredWorkspace::new(workspace_id, path, "registered", 1),
-        request_id,
-    )?;
+    register_host_workspace_with_location(store, workspace_id, path, request_id, None)
+}
+
+pub fn register_host_workspace_with_location(
+    store: &HostStore,
+    workspace_id: impl Into<String>,
+    path: impl Into<String>,
+    request_id: &str,
+    location: Option<StoredWorkspaceLocation>,
+) -> Result<Vec<StoredWorkspace>, ade_host_store::store::StoreError> {
+    let workspace = StoredWorkspace::new(workspace_id, path, "registered", 1);
+    let workspace = match location {
+        Some(location) => workspace.with_location(location),
+        None => workspace,
+    };
+    store.commit_workspace(workspace, request_id)?;
     store.snapshot()
+}
+
+fn parse_workspace_location(
+    path: &str,
+    kind: Option<String>,
+    target: Option<String>,
+    identity: Option<String>,
+) -> Result<Option<StoredWorkspaceLocation>, String> {
+    if kind.is_none() && target.is_none() && identity.is_none() {
+        return Ok(None);
+    }
+    let kind = match kind.as_deref() {
+        Some("folder") => StoredWorkspaceKind::Folder,
+        Some("git-worktree") => StoredWorkspaceKind::GitWorktree,
+        Some(value) => return Err(format!("unsupported workspace kind: {value}")),
+        None => return Err(String::from("workspace kind is required")),
+    };
+    let target = match target.as_deref() {
+        Some("windows-native") if identity.is_none() => StoredExecutionTarget::WindowsNative,
+        Some("wsl2") => StoredExecutionTarget::Wsl2 {
+            distro: identity.ok_or_else(|| String::from("WSL2 distro is required"))?,
+        },
+        Some("ssh") => StoredExecutionTarget::Ssh {
+            host: identity.ok_or_else(|| String::from("SSH host is required"))?,
+        },
+        Some("windows-native") => {
+            return Err(String::from("native target cannot have a remote identity"))
+        }
+        Some(value) => return Err(format!("unsupported execution target: {value}")),
+        None => return Err(String::from("execution target is required")),
+    };
+    Ok(Some(StoredWorkspaceLocation::new(kind, target, path)))
 }
 
 #[tauri::command]
@@ -64,10 +110,16 @@ fn register_workspace(
     workspace_id: String,
     path: String,
     request_id: String,
+    workspace_kind: Option<String>,
+    execution_target: Option<String>,
+    remote_identity: Option<String>,
 ) -> Result<String, String> {
     let store = HostStore::open(state_db).map_err(|error| format!("{error:?}"))?;
-    let snapshot = register_host_workspace(&store, workspace_id, path, &request_id)
-        .map_err(|error| format!("{error:?}"))?;
+    let location =
+        parse_workspace_location(&path, workspace_kind, execution_target, remote_identity)?;
+    let snapshot =
+        register_host_workspace_with_location(&store, workspace_id, path, &request_id, location)
+            .map_err(|error| format!("{error:?}"))?;
     render_host_status(&snapshot).map_err(|error| error.to_string())
 }
 
@@ -81,8 +133,13 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{register_host_workspace, render_host_status};
-    use ade_host_store::store::{HostStore, StoredWorkspace};
+    use super::{
+        register_host_workspace, register_host_workspace_with_location, render_host_status,
+    };
+    use ade_host_store::store::{
+        HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind,
+        StoredWorkspaceLocation,
+    };
 
     #[test]
     fn renders_the_same_authoritative_host_status_as_other_clients() {
@@ -115,6 +172,37 @@ mod tests {
             register_host_workspace(&store, "workspace-1", r"C:\workspaces\one", "request-1")
                 .expect("replay should be idempotent");
         assert_eq!(replay, snapshot);
+        drop(store);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn registers_workspace_location_through_the_shared_host_store_boundary() {
+        let path = std::env::temp_dir().join(format!(
+            "ade-tauri-register-location-{}-{}.db",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should be available")
+                .as_nanos()
+        ));
+        let store = HostStore::open(&path).expect("store should open");
+        let location = StoredWorkspaceLocation::new(
+            StoredWorkspaceKind::Folder,
+            StoredExecutionTarget::Ssh {
+                host: String::from("build.example"),
+            },
+            "/srv/project",
+        );
+        let snapshot = register_host_workspace_with_location(
+            &store,
+            "workspace-1",
+            "/srv/project",
+            "request-1",
+            Some(location.clone()),
+        )
+        .expect("workspace should register");
+        assert_eq!(snapshot[0].location, Some(location));
         drop(store);
         let _ = std::fs::remove_file(path);
     }
