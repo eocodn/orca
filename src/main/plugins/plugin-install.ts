@@ -12,12 +12,10 @@ import {
 } from '../../shared/plugins/plugin-install-lockfile'
 import { readPluginLockfile, writePluginLockfile } from './plugin-install-lockfile-store'
 import {
-  inspectPluginInstallTree,
   installStagedPluginTree,
   type PluginInstallResult
 } from './plugin-install-staging'
 import { checkoutPluginGitSource } from './plugin-git-repository'
-import { readPluginCurrentPointer } from './plugin-current-pointer'
 
 export type { PluginInstallResult } from './plugin-install-staging'
 

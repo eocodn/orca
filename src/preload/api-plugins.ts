@@ -2,7 +2,6 @@ import type * as ApiExternal from './api-types-external'
 type AppIdentity = ApiExternal.AppIdentity
 type WriteTerminalRenderDesyncEvidenceArgs = ApiExternal.WriteTerminalRenderDesyncEvidenceArgs
 type WriteTerminalRenderDesyncEvidenceResult = ApiExternal.WriteTerminalRenderDesyncEvidenceResult
-type PluginManifest = ApiExternal.PluginManifest
 type MarkdownDocument = ApiExternal.MarkdownDocument
 type FloatingTerminalCwdRequest = ApiExternal.FloatingTerminalCwdRequest
 type PersistedUIState = ApiExternal.PersistedUIState
