@@ -2,19 +2,13 @@ import type { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import type { Store } from './persistence'
 import type { StatsCollector } from './stats/collector'
-import type { ClaudeUsageStore } from './claude-usage/store'
-import type { CodexUsageStore } from './codex-usage/store'
-import type { OpenCodeUsageStore } from './opencode-usage/store'
-import type { CodexAccountService } from './codex-accounts/service'
 import type { CodexRuntimeHomeService } from './codex-accounts/runtime-home-service'
-import type { ClaudeAccountService } from './claude-accounts/service'
 import type { ClaudeRuntimeAuthService } from './claude-accounts/runtime-auth-service'
 import type { OrcaRuntimeService } from './runtime/orca-runtime'
 import type { OrcaRuntimeRpcServer } from './runtime/runtime-rpc'
 import { ServeReadinessPublisher } from './server/serve-readiness'
 import type { DesktopRelayService } from './runtime/relay/desktop-relay-service'
 import type { RelayBrokerStatus } from './runtime/relay/relay-session-broker'
-import type { RateLimitService } from './rate-limits/service'
 import type { AgentAwakeService } from './agent-awake-service'
 import type { StarNagService } from './star-nag/service'
 import type { KeybindingService } from './keybindings/keybinding-service'
@@ -72,15 +66,9 @@ export const startupState = {
   isQuitting: false,
   store: null as Store | null,
   stats: null as StatsCollector | null,
-  claudeUsage: null as ClaudeUsageStore | null,
-  codexUsage: null as CodexUsageStore | null,
-  openCodeUsage: null as OpenCodeUsageStore | null,
-  codexAccounts: null as CodexAccountService | null,
   codexRuntimeHome: null as CodexRuntimeHomeService | null,
-  claudeAccounts: null as ClaudeAccountService | null,
   claudeRuntimeAuth: null as ClaudeRuntimeAuthService | null,
   runtime: null as OrcaRuntimeService | null,
-  rateLimits: null as RateLimitService | null,
   runtimeRpc: null as OrcaRuntimeRpcServer | null,
   serveReadinessPublisher: new ServeReadinessPublisher(),
   desktopRelayService: null as DesktopRelayService | null,

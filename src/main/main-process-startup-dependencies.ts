@@ -10,16 +10,12 @@ export {
   getCanonicalUserDataPath,
   migrateMobilePairingDataToCanonicalUserDataPath
 } from './persistence'
-export { initSessionParseCachePersistence } from './ai-vault/session-parse-cache-persistence'
 export { ensureActiveOrcaProfile, initOrcaProfilePaths } from './orca-profiles/profile-index-store'
 export { getOrcaCloudAuthConfig } from './orca-profiles/profile-cloud-auth-config'
 export { getProfileUserDataPath } from './orca-profiles/profile-storage-paths'
 export { applyAppIcon } from './app-icon'
 export { relaunchApp } from './app-relaunch'
 export { StatsCollector, initStatsPath } from './stats/collector'
-export { ClaudeUsageStore, initClaudeUsagePath } from './claude-usage/store'
-export { CodexUsageStore, initCodexUsagePath } from './codex-usage/store'
-export { OpenCodeUsageStore, initOpenCodeUsagePath } from './opencode-usage/store'
 export {
   killAllPty,
   clearProviderPtyState,
@@ -153,11 +149,6 @@ export {
 export { ensureWindowsUserDataAclGrant } from './startup/windows-user-data-acl'
 export { shouldQuitWhenAllWindowsClosed } from './startup/window-all-closed-quit-policy'
 export { createServeDesktopActivationGate } from './startup/serve-desktop-activation'
-export { RateLimitService } from './rate-limits/service'
-export { readMiniMaxSessionCookie } from './minimax/minimax-cookie-store'
-export { getInitialClaudeRateLimitTarget } from './rate-limits/claude-rate-limit-target'
-export { getInitialCodexRateLimitTarget } from './rate-limits/codex-rate-limit-target'
-export { createAccountRuntimeTargetSettingsSync } from './rate-limits/account-runtime-target-sync'
 export {
   attachMainWindowServices,
   ensureAutoUpdaterConfigured
@@ -174,14 +165,9 @@ export {
 export { createMacAppActivationHandler } from './window/macos-app-activation'
 export { focusExistingMainWindow } from './window/focus-existing-window'
 export { notifyMainWindowBecameVisible } from './window/main-window-visibility'
-export { CodexAccountService } from './codex-accounts/service'
 export { CodexRuntimeHomeService } from './codex-accounts/runtime-home-service'
 export { markCodexProjectTrusted } from './agent-trust-presets'
-export {
-  normalizeCodexRuntimeSelection,
-  type CodexAccountSelectionTarget
-} from './codex-accounts/runtime-selection'
-export { normalizeClaudeRuntimeSelection } from './claude-accounts/runtime-selection'
+export type { CodexAccountSelectionTarget } from './codex-accounts/runtime-selection'
 export { codexHookService, setSystemCodexHomeHookSweepSuppressed } from './codex/hook-service'
 export {
   ensureRealHomeCodexHookState,
@@ -198,13 +184,7 @@ export { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex/cod
 export { normalizeRuntimePathForComparison } from '../shared/cross-platform-path'
 export type { AgentProviderSessionMetadata } from '../shared/agent-session-resume'
 export { getDefaultWslDistro } from './wsl'
-export { ClaudeAccountService } from './claude-accounts/service'
 export { ClaudeRuntimeAuthService } from './claude-accounts/runtime-auth-service'
-export {
-  attachClaudeLivePtyPersistence,
-  onLiveClaudePtysDrained,
-  seedLiveClaudePtysFromPersistence
-} from './claude-accounts/live-pty-gate'
 export { StarNagService } from './star-nag/service'
 export { agentHookServer, type AgentHookProviderSessionIdentity } from './agent-hooks/server'
 export { createHookProviderSessionInvalidator } from './agent-hooks/hook-provider-session-invalidation'

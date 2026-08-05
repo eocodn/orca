@@ -120,26 +120,8 @@ export function openMainWindow(): startupDeps.BrowserWindow {
   if (!startupState.stats) {
     throw new Error('Stats must be initialized before opening the main window')
   }
-  if (!startupState.claudeUsage) {
-    throw new Error('Claude usage store must be initialized before opening the main window')
-  }
-  if (!startupState.codexUsage) {
-    throw new Error('Codex usage store must be initialized before opening the main window')
-  }
-  if (!startupState.openCodeUsage) {
-    throw new Error('OpenCode usage store must be initialized before opening the main window')
-  }
-  if (!startupState.rateLimits) {
-    throw new Error('Rate limit service must be initialized before opening the main window')
-  }
-  if (!startupState.codexAccounts) {
-    throw new Error('Codex account service must be initialized before opening the main window')
-  }
   if (!startupState.codexRuntimeHome) {
     throw new Error('Codex runtime home service must be initialized before opening the main window')
-  }
-  if (!startupState.claudeAccounts) {
-    throw new Error('Claude account service must be initialized before opening the main window')
   }
   if (!startupState.claudeRuntimeAuth) {
     throw new Error(
@@ -253,12 +235,12 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     startupState.store,
     startupState.runtime,
     startupState.stats,
-    startupState.claudeUsage,
-    startupState.codexUsage,
-    startupState.openCodeUsage,
-    startupState.codexAccounts,
-    startupState.claudeAccounts,
-    startupState.rateLimits,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
     rendererWebContentsId,
     {
       prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch,
@@ -269,20 +251,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     startupState.crashReports ?? undefined,
     startupState.keybindings,
     {
-      getAdditionalAiVaultCodexHomePaths: () =>
-        startupState.codexRuntimeHome
-          ? startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery()
-          : [],
-      prepareAiVaultSessionResume: (args) =>
-        startupDeps.prepareLegacySharedCodexSessionResume(args, {
-          isHostSystemDefaultRealHome: () =>
-            startupState.codexRuntimeHome?.isHostSystemDefaultRealHome() === true,
-          getSelectedHostAccountCodexHomePath: () =>
-            startupState.codexRuntimeHome?.getSelectedHostAccountCodexHomePath() ?? null,
-          systemCodexHomePath: startupDeps.resolveHostCodexSessionSourceHome(
-            startupState.store!.getSettings()
-          )
-        }),
       onBeforeRelaunch: async () => {
         startupState.isQuitting = true
         startupState.desktopRelayService?.fenceAndCloseNow()
@@ -327,9 +295,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
   )
   // Why: attach the durable renderer pull now, but launch the diagnostic process after first paint.
   startupDeps.initTccPromptNotice(window, { deferWatchUntilReadyToShow: true })
-  startupState.rateLimits.attach(window)
-  // Why: quota probes spawn CLIs and hit network, so don't fetch immediately and compete with first paint; show/focus listeners refresh later.
-  startupState.rateLimits.start({ fetchImmediately: false })
   window.on('closed', () => {
     if (startupState.mainWindow === window) {
       startupState.mainWindow = null

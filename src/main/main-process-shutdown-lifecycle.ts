@@ -21,8 +21,6 @@ export function installMainProcessShutdownLifecycle(): void {
     startupState.unsubscribeAgentAwakeStatusChanges = null
     startupState.agentAwakeService?.dispose()
     startupState.agentAwakeService = null
-    // Why: defer PTY cleanup to will-quit so the renderer captures scrollback before PTY-exit events unmount TerminalPane (dropping its capture callbacks).
-    startupState.rateLimits?.stop()
   })
 
   // Why: will-quit fires twice — first pass runs sync cleanup + preventDefault to await checkpoint writes; second pass exits.
@@ -68,14 +66,6 @@ export function installMainProcessShutdownLifecycle(): void {
       }) ?? Promise.resolve(true)
     const watcherShutdown = shutdownWatchersOnce()
     startupState.store?.flush()
-    // Why: usage-cache writes are queued off the main thread, so a quit right after setEnabled or a
-    // scan completion would drop the final snapshot. Captured before any await; joins the barrier below.
-    const usageCacheFlush = Promise.all([
-      startupState.claudeUsage?.flush(),
-      startupState.codexUsage?.flush(),
-      startupState.openCodeUsage?.flush()
-    ]).then(() => {})
-
     // Why: preventDefault to await disconnectDaemon's async checkpoint writes (else data lost); guard prevents an infinite quit loop on the re-fired will-quit.
     if (!startupState.daemonDisconnectDone) {
       e.preventDefault()
@@ -114,8 +104,7 @@ export function installMainProcessShutdownLifecycle(): void {
           { name: 'daemon', promise: daemonTeardown },
           { name: 'runtime-rpc', promise: rpcStopAndClear },
           { name: 'watchers', promise: watcherShutdown },
-          { name: 'plugin-hosts', promise: pluginHostShutdown },
-          { name: 'usage-cache', promise: usageCacheFlush }
+          { name: 'plugin-hosts', promise: pluginHostShutdown }
         ])
         .then((pendingTeardowns) => {
           if (pendingTeardowns.length > 0) {

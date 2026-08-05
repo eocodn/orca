@@ -94,21 +94,6 @@ export async function initializeReadyFoundation(): Promise<void> {
       syncMacMenuBarIcon(settings.showMenuBarIcon !== false)
     }
   })
-  // Why: run before ClaudeRuntimeAuthService's constructor sync â a surviving daemon Claude CLI holds the single-use refresh token; early refresh rotates it out mid-session.
-  startupDeps.attachClaudeLivePtyPersistence(startupState.store)
-  // Why: while a live claude defers the managed OAuth refresh, usage shows
-  // "Waiting for Claude session"; refetch when the last live PTY exits so the
-  // error clears immediately instead of after the failure backoff.
-  startupDeps.onLiveClaudePtysDrained(() => {
-    void startupState.rateLimits?.refreshAfterClaudeLivePtysDrained()
-  })
-  const persistedClaudePtyIds = startupState.store.getClaudeLivePtySessionIds()
-  startupDeps.seedLiveClaudePtysFromPersistence(persistedClaudePtyIds)
-  if (persistedClaudePtyIds.length > 0) {
-    console.log(
-      `[claude-live-pty] Seeded ${persistedClaudePtyIds.length} persisted Claude session id(s) into the refresh gate`
-    )
-  }
   startupDeps.applyAppIcon(startupState.store.getSettings().appIcon)
   if (startupDeps.shouldSuppressDevEducation({ isDev: startupDeps.is.dev })) {
     startupDeps.suppressDevEducationForStore(startupState.store)
@@ -180,10 +165,6 @@ export async function initializeReadyFoundation(): Promise<void> {
   })
   // Why: cohort-classifier reads repo count synchronously at every emit, so hydrate it here â before any IPC handler or window can trigger track().
   startupState.stats = new startupDeps.StatsCollector()
-  startupState.claudeUsage = new startupDeps.ClaudeUsageStore(startupState.store)
-  startupState.codexUsage = new startupDeps.CodexUsageStore(startupState.store)
-  startupState.openCodeUsage = new startupDeps.OpenCodeUsageStore(startupState.store)
-  startupState.rateLimits = new startupDeps.RateLimitService()
   startupState.codexRuntimeHome = new startupDeps.CodexRuntimeHomeService(startupState.store)
   // Why: an incapable trust-grant host must fall back to the managed home for
   // every consumer (PTY env, rate limits, commit messages) in one place.
@@ -200,78 +181,7 @@ export async function initializeReadyFoundation(): Promise<void> {
       startupState.codexRuntimeHome.isHostSystemDefaultRealHome() &&
       startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
   )
-  const codexSessionMigration = startupDeps.createCodexSessionMigrationScheduler({
-    isEligible: () => startupState.codexRuntimeHome?.isHostSystemDefaultRealHome() === true,
-    isQuitting: () => startupState.isQuitting,
-    resolveSystemCodexHomePathOverride: () =>
-      startupDeps.resolveHostCodexSessionSourceHome(startupState.store!.getSettings()),
-    startBackfill: startupDeps.startCodexSessionBackfillInBackground,
-    startIndexHeal: startupDeps.startCodexSessionIndexHealInBackground
-  })
-  startupState.codexAccounts = new startupDeps.CodexAccountService(
-    startupState.store,
-    startupState.rateLimits,
-    startupState.codexRuntimeHome,
-    {
-      onHostSystemDefaultSelected: codexSessionMigration.requestRun
-    }
-  )
-  // Why: one-time per-host backfill makes historical Orca-managed Codex
-  // sessions visible to the user's own resume picker and app history (#4444,
-  // #8612). Deferred so startup and first PTY spawns never compete with the
-  // sessions tree walk.
-  codexSessionMigration.scheduleInitialRun()
   startupState.claudeRuntimeAuth = new startupDeps.ClaudeRuntimeAuthService(startupState.store)
-  startupState.claudeAccounts = new startupDeps.ClaudeAccountService(
-    startupState.store,
-    startupState.rateLimits,
-    startupState.claudeRuntimeAuth
-  )
-  startupState.rateLimits.setCodexHomePathResolver((target) =>
-    startupState.codexRuntimeHome!.prepareForRateLimitFetch(target)
-  )
-  startupState.rateLimits.setCodexFetchTarget(
-    startupDeps.getInitialCodexRateLimitTarget(startupState.store.getSettings())
-  )
-  startupState.rateLimits.setClaudeFetchTarget(
-    startupDeps.getInitialClaudeRateLimitTarget(startupState.store.getSettings())
-  )
-  const syncAccountRuntimeTargets = startupDeps.createAccountRuntimeTargetSettingsSync(
-    startupState.rateLimits,
-    startupState.store.getSettings()
-  )
-  startupState.store.onSettingsChanged((updates, settings) => {
-    // Why: auto is a live policy; retarget only providers whose settings-derived runtime changed.
-    void syncAccountRuntimeTargets(updates, settings).catch((error) =>
-      console.warn('[rate-limits] Failed to apply account runtime target:', error)
-    )
-  })
-  startupState.rateLimits.setClaudeAuthPreparationResolver((target) =>
-    startupState.claudeRuntimeAuth!.prepareForRateLimitFetch(target)
-  )
-  // Why: live Claude sessions stream usage windows through their statusLine command; feeding them here avoids OAuth usage-endpoint polling (and its 429s).
-  startupDeps.agentHookServer.setClaudeStatusLineListener((event) => {
-    startupState.rateLimits?.ingestLiveClaudeRateLimits(event)
-  })
-  startupState.rateLimits.setOpenCodeGoConfigResolver(() => {
-    const settings = startupState.store!.getSettings()
-    return {
-      sessionCookie: settings.opencodeSessionCookie,
-      workspaceIdOverride: settings.opencodeWorkspaceId
-    }
-  })
-  startupState.rateLimits.setMiniMaxConfigResolver(() => {
-    const settings = startupState.store!.getSettings()
-    return {
-      sessionCookie: startupDeps.readMiniMaxSessionCookie() ?? '',
-      groupId: settings.minimaxGroupId,
-      models: settings.minimaxUsageModels
-    }
-  })
-  startupState.rateLimits.setGeminiCliOAuthEnabledResolver(
-    () => startupState.store!.getSettings().geminiCliOAuthEnabled
-  )
-  startupState.rateLimits.setNetworkProxySettingsResolver(() => startupState.store!.getSettings())
   startupState.keybindings = new startupDeps.KeybindingService({
     homePath: startupDeps.app.getPath('home'),
     getLegacyOverrides: () => startupState.store!.getSettings().keybindings,
@@ -285,36 +195,6 @@ export async function initializeReadyFoundation(): Promise<void> {
   startupDeps.browserManager.setSettingsResolver(() => ({
     keybindings: startupState.keybindings?.getOverrides()
   }))
-  startupState.rateLimits.setInactiveClaudeAccountsResolver(() => {
-    const settings = startupState.store!.getSettings()
-    const activeIds = new Set(
-      [
-        startupDeps.normalizeClaudeRuntimeSelection(settings).host,
-        ...Object.values(startupDeps.normalizeClaudeRuntimeSelection(settings).wsl)
-      ].filter(Boolean)
-    )
-    return settings.claudeManagedAccounts
-      .filter((account) => !activeIds.has(account.id))
-      .map((account) => ({
-        id: account.id,
-        managedAuthPath: account.managedAuthPath,
-        managedAuthRuntime: account.managedAuthRuntime,
-        wslDistro: account.wslDistro,
-        wslLinuxAuthPath: account.wslLinuxAuthPath
-      }))
-  })
-  startupState.rateLimits.setInactiveCodexAccountsResolver(() => {
-    const settings = startupState.store!.getSettings()
-    const activeIds = new Set(
-      [
-        startupDeps.normalizeCodexRuntimeSelection(settings).host,
-        ...Object.values(startupDeps.normalizeCodexRuntimeSelection(settings).wsl)
-      ].filter(Boolean)
-    )
-    return settings.codexManagedAccounts
-      .filter((account) => !activeIds.has(account.id))
-      .map((account) => ({ id: account.id, managedHomePath: account.managedHomePath }))
-  })
   const runtimeService = new startupDeps.OrcaRuntimeService(
     startupState.store,
     startupState.stats,
@@ -352,21 +232,6 @@ export async function initializeReadyFoundation(): Promise<void> {
       retireAgentHookCompatibilityAuthority: (paneKey) =>
         startupDeps.agentHookServer.retirePaneAuthority(paneKey),
       canRecoverPersistentLocalPtys: () => startupDeps.getDaemonProvider() !== null,
-      // Why: source codex-home here (runs in window AND serve) so aiVault.listSessions includes managed-Codex sessions; registerCoreHandlers is window-only.
-      getAdditionalAiVaultCodexHomePaths: () =>
-        startupState.codexRuntimeHome
-          ? startupState.codexRuntimeHome.getHostCodexHomePathsForSessionDiscovery()
-          : [],
-      prepareAiVaultSessionResume: (args) =>
-        startupDeps.prepareLegacySharedCodexSessionResume(args, {
-          isHostSystemDefaultRealHome: () =>
-            startupState.codexRuntimeHome?.isHostSystemDefaultRealHome() === true,
-          getSelectedHostAccountCodexHomePath: () =>
-            startupState.codexRuntimeHome?.getSelectedHostAccountCodexHomePath() ?? null,
-          systemCodexHomePath: startupDeps.resolveHostCodexSessionSourceHome(
-            startupState.store!.getSettings()
-          )
-        }),
       buildAgentHookPtyEnv: () =>
         startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
           ? startupDeps.agentHookServer.buildPtyEnv()
@@ -377,11 +242,6 @@ export async function initializeReadyFoundation(): Promise<void> {
   publishProviderSessionChanges(startupDeps.agentHookServer.getProviderSessionIdentities())
   startupDeps.browserManager.setBrowserGuestStateChangedListener((worktreeId) => {
     runtimeService.notifyMobileSessionTabsChanged(worktreeId)
-  })
-  runtimeService.setAccountServices({
-    claudeAccounts: startupState.claudeAccounts,
-    codexAccounts: startupState.codexAccounts,
-    rateLimits: startupState.rateLimits
   })
   runtimeService.setCommitMessageAgentEnvironmentResolvers({
     // Why: Codex hooks/auth live in Orca's managed runtime home even for the default path, so every launch must resolve CODEX_HOME via runtime-home.
