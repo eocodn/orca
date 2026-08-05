@@ -1,8 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto'
 import type { createServer } from 'node:http'
 
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
-import { track } from '../telemetry/client'
 import * as hookShared from './agent-hook-server-shared'
 import type {
   AgentHookAuthorityAttestation,
@@ -18,10 +16,20 @@ import {
   type AgentHookEventPayload,
   type HookListenerState
 } from '../../shared/agent-hook-listener'
-import { AGENT_STATUS_STALE_AFTER_MS, type AgentStatusIpcPayload, type AgentType } from '../../shared/agent-status-types'
+import {
+  AGENT_STATUS_STALE_AFTER_MS,
+  type AgentStatusIpcPayload,
+  type AgentType
+} from '../../shared/agent-status-types'
 import type { ClaudeStatusLineRateLimits } from '../../shared/claude-statusline-rate-limits'
-import { isAgentInterruptInputIntent, type AgentInterruptInferenceRequest } from '../../shared/agent-interrupt-intent'
-import { isAskUserQuestionTool, type AgentQuestionAnsweredInferenceRequest } from '../../shared/agent-question-answered-intent'
+import {
+  isAgentInterruptInputIntent,
+  type AgentInterruptInferenceRequest
+} from '../../shared/agent-interrupt-intent'
+import {
+  isAskUserQuestionTool,
+  type AgentQuestionAnsweredInferenceRequest
+} from '../../shared/agent-question-answered-intent'
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import { isCommandCodeNewTurnWhileWorking } from '../../shared/command-code-turn-boundary'
 
@@ -553,15 +561,8 @@ export abstract class AgentHookServerBase {
     })
     try {
       // Why: hooks prove a turn was submitted but not which UI launched the terminal; keep attribution low-cardinality.
-      track('agent_prompt_sent', {
-        agent_kind: agentKind,
-        launch_source: 'unknown',
-        request_kind: 'followup',
-        ...getCohortAtEmit()
-      })
     } catch (err) {
       console.error('[agent-hooks] prompt-sent telemetry failed', err)
     }
   }
-
 }

@@ -1,8 +1,5 @@
-import type {
-  DaemonSpawner} from './daemon-spawner';
-import {
-  getDaemonPidPath
-} from './daemon-spawner'
+import type { DaemonSpawner } from './daemon-spawner'
+import { getDaemonPidPath } from './daemon-spawner'
 import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter'
 import { DaemonPtyRouter } from './daemon-pty-router'
 import { PROTOCOL_VERSION } from './types'
@@ -10,10 +7,7 @@ import {
   DegradedDaemonPtyProvider,
   type CurrentDaemonInventoryState
 } from './degraded-daemon-pty-provider'
-import {
-  unbindLocalProviderListeners,
-  rebindLocalProviderListeners
-} from '../ipc/pty'
+import { unbindLocalProviderListeners, rebindLocalProviderListeners } from '../ipc/pty'
 
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'
@@ -26,7 +20,6 @@ import {
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
 import type { IPtyProvider } from '../providers/types'
 import { setAttributedReplaceReason } from './daemon-lifecycle-launcher-process'
-import { trackDaemonRetired } from './daemon-lifecycle-event'
 
 export type RestartDaemonResult = {
   killedCount: number
@@ -125,7 +118,6 @@ async function runRestartDaemon(): Promise<RestartDaemonResult> {
         // Why: a manual restart tears the daemon down under a still-live daemonLifecycleState.adapter, so a pane
         // respawning on its synthetic exit would bill a user action to the crash bucket.
         if (!daemonLifecycleState.restartInFlight) {
-          trackDaemonRetired('died_respawn')
         }
       } else if (reason === 'unhealthy_resolver') {
         // Must reach the launcher below without an await in between; see the consume site.

@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { getAgentCatalog } from '@/lib/agent-catalog'
 import { useAppStore } from '@/store'
 import { applyDocumentTheme } from '@/lib/document-theme'
-import { track } from '@/lib/telemetry'
 import { buildAgentPickedPayload } from './agent-picked-payload'
 import { ONBOARDING_FINAL_STEP, ONBOARDING_FLOW_VERSION } from '../../../../shared/constants'
 import {
@@ -55,7 +54,7 @@ import {
   OnboardingStepId,
   OnboardingProgressSnapshot,
   remapOpenOnboardingLastCompletedStep,
-  SkippedOnboardingPreferenceOptions,
+  SkippedOnboardingPreferenceOptions
 } from './onboarding-flow-policy'
 
 export function useOnboardingFlow(
@@ -194,17 +193,6 @@ export function useOnboardingFlow(
         return
       }
       // Why: emit at click time (not step completion) to capture mind-changes; payload builder extracted for coverage — see agent-picked-payload.test.ts.
-      track(
-        'onboarding_agent_picked',
-        buildAgentPickedPayload({
-          agent: value,
-          detectedAgentIds: detectedAgentIdsRef.current,
-          isDetecting: isDetectingRef.current,
-          fromCollapsedSection,
-          pathSource: pathSourceRef.current,
-          pathFailureReason: pathFailureReasonRef.current
-        })
-      )
     },
     []
   )
@@ -312,12 +300,7 @@ export function useOnboardingFlow(
     startedTrackedRef.current = true
     // Why: resumed_from_step is the step the user finished, not the one we resume into.
     const lastCompleted = remappedLastCompletedStep
-    track(
-      'onboarding_started',
-      lastCompleted >= 1 && lastCompleted < ONBOARDING_FINAL_STEP
-        ? { resumed_from_step: lastCompleted as StepNumber }
-        : {}
-    )
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -325,10 +308,6 @@ export function useOnboardingFlow(
   const stepStartedAtRef = useRef<number>(Date.now())
   useEffect(() => {
     stepStartedAtRef.current = Date.now()
-    track('onboarding_step_viewed', {
-      step: currentStep.stepNumber,
-      value_kind: currentStep.valueKind
-    })
   }, [currentStep.id, currentStep.stepNumber, currentStep.valueKind])
 
   const consumeStepDurationMs = useCallback((): number => {
@@ -344,13 +323,6 @@ export function useOnboardingFlow(
       advancedVia: 'button' | 'keyboard'
     ): void => {
       // Why: one low-cardinality snapshot captures task-source usability at step exit without per-button telemetry.
-      track('onboarding_task_sources_snapshot', {
-        github_status: getGitHubTaskSourceStatus(preflightStatus, preflightStatusLoading),
-        linear_status: getLinearTaskSourceStatus(linearStatus, linearStatusChecked),
-        exit_action: exitAction,
-        duration_ms: durationMs,
-        advanced_via: advancedVia
-      })
     },
     [linearStatus, linearStatusChecked, preflightStatus, preflightStatusLoading]
   )
@@ -396,25 +368,11 @@ export function useOnboardingFlow(
   const trackCurrentStepCompleted = useCallback(
     (advancedVia: 'button' | 'keyboard'): void => {
       const durationMs = consumeStepDurationMs()
-      track('onboarding_step_completed', {
-        step: currentStep.stepNumber,
-        value_kind: currentStep.valueKind,
-        duration_ms: durationMs,
-        advanced_via: advancedVia
-      })
+
       if (currentStep.id === 'integrations') {
         trackTaskSourcesSnapshot('continue', durationMs, advancedVia)
       }
       if (currentStep.id === 'windows_terminal') {
-        track(
-          'onboarding_windows_terminal_snapshot',
-          buildWindowsTerminalSnapshotPayload({
-            settings,
-            exitAction: 'continue',
-            durationMs,
-            advancedVia
-          })
-        )
       }
     },
     [
@@ -541,9 +499,17 @@ export function useOnboardingFlow(
     scanNestedRepos,
     importNestedRepos,
     cancelNestedRepoScan,
-    onboardingNestedRepoRuntimeKind,
+    onboardingNestedRepoRuntimeKind
   })
-  const { completeRepo, next, openFolder, importNested, clone, continueWithExistingProject, skipToRepo } = onboardingActions
+  const {
+    completeRepo,
+    next,
+    openFolder,
+    importNested,
+    clone,
+    continueWithExistingProject,
+    skipToRepo
+  } = onboardingActions
   const openSshSettings = useOnboardingSshSettingsAction({
     busyLabel,
     setError,

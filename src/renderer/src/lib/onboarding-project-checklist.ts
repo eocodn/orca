@@ -1,4 +1,3 @@
-import { track } from '@/lib/telemetry'
 import type { OnboardingState } from '../../../shared/types'
 
 export type OnboardingProjectChecklistItem = 'addedRepo' | 'addedFolder'
@@ -22,9 +21,4 @@ export async function markOnboardingProjectAdded(
     console.warn('[onboarding] Failed to update project checklist item:', err)
     return
   }
-
-  track('activation_checklist_item_completed', {
-    item,
-    time_since_completed_ms: 0
-  })
 }

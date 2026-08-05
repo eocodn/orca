@@ -1,7 +1,11 @@
 import type { BrowserWindow } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../shared/constants'
-import { isRuntimePathAbsolute,normalizeRuntimePathForComparison,relativePathInsideRoot } from '../../shared/cross-platform-path'
+import {
+  isRuntimePathAbsolute,
+  normalizeRuntimePathForComparison,
+  relativePathInsideRoot
+} from '../../shared/cross-platform-path'
 import { getGitCloneFailureMessage } from '../../shared/git-clone-failure-message'
 import { isFolderRepo } from '../../shared/repo-kind'
 import type { Repo } from '../../shared/types'
@@ -12,17 +16,26 @@ import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { joinRemotePath } from '../ssh/ssh-remote-platform'
 import type { ActiveRemoteCloneMetadata } from './repo-ipc-clone'
-import { activeRemoteClone,remoteCloneInFlightByPath,resolveRemoteHomePath,setActiveRemoteClone } from './repo-ipc-clone'
+import {
+  activeRemoteClone,
+  remoteCloneInFlightByPath,
+  resolveRemoteHomePath,
+  setActiveRemoteClone
+} from './repo-ipc-clone'
 import { getActiveMultiplexer } from './ssh'
 
 // Why: `method` is the IPC entry point the user took, not what they added (never path/URL/name); repos:create → 'folder_picker'.
 // Why: `isGitRepo` is a non-identifying git-vs-folder signal from the caller's detection; pass undefined when unknown, never default false.
 // Why: it replaced onboarding_completed.is_git_repo, which lost meaning once repo selection left onboarding (1.4.46).
-import {
-  emitRepoAdded
-} from './repo-ipc-foundation'
+
 export {
-  addLocalRepoFromPath,alignRepoWithRequestedProject,buildProjectHostSetupResult,emitRepoAdded,getConsistentRepoCatalogForHost,hasValidCatalogSshAuthority,listReposForExecutionHost,repoHostContradictsConnection
+  addLocalRepoFromPath,
+  alignRepoWithRequestedProject,
+  buildProjectHostSetupResult,
+  getConsistentRepoCatalogForHost,
+  hasValidCatalogSshAuthority,
+  listReposForExecutionHost,
+  repoHostContradictsConnection
 } from './repo-ipc-foundation'
 
 export async function addRemoteRepoFromPath(
@@ -173,7 +186,6 @@ export async function cloneRemoteRepo(
     )
   })
   if (existing && !isFolderRepo(existing)) {
-    emitRepoAdded('clone_url', true)
     return existing
   }
 
@@ -227,7 +239,6 @@ export async function cloneRemoteRepo(
       projectHostSetupMethod: 'cloned'
     })
     if (updated) {
-      emitRepoAdded('clone_url', false)
       getActiveMultiplexer(args.connectionId)?.notify('session.registerRoot', {
         rootPath: clonePath
       })
@@ -243,6 +254,5 @@ export async function cloneRemoteRepo(
   if ('error' in result) {
     throw new Error(result.error)
   }
-  emitRepoAdded('clone_url', result.alreadyExisted)
   return result.repo
 }

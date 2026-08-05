@@ -19,7 +19,6 @@ import {
   killStaleDaemon
 } from './daemon-health'
 import { materializeRelocatedDaemonHost } from './daemon-host-relocation'
-import { trackDaemonReplaced } from './daemon-lifecycle-event'
 import { parseDaemonReadyIdentity } from './daemon-ready-identity'
 import type { DaemonReplaceReason } from '../../shared/daemon-lifecycle-telemetry'
 import { cleanupDaemonForProtocol } from './daemon-lifecycle-cleanup'
@@ -57,7 +56,7 @@ export function createOutOfProcessLauncher(
     attributedReplaceReason = null
     let pendingReplacement:
       | {
-          reason: Parameters<typeof trackDaemonReplaced>[0]
+          reason: DaemonReplaceReason
           liveSessionCount: number | null
         }
       | undefined
@@ -203,11 +202,8 @@ export function createOutOfProcessLauncher(
           ? pendingReplacement
           : null
       if (identifiedReplacement) {
-        trackDaemonReplaced(identifiedReplacement.reason, identifiedReplacement.liveSessionCount)
       } else if (attributedReason) {
-        trackDaemonReplaced(attributedReason, 0)
       } else if (pendingReplacement && confirmedReplacement) {
-        trackDaemonReplaced(pendingReplacement.reason, pendingReplacement.liveSessionCount)
       }
 
       const userDataPath = app.getPath('userData')

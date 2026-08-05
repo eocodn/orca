@@ -10,7 +10,7 @@ import {
   buildAgentStartupPlan,
   type AgentStartupPlan
 } from '@/lib/tui-agent-startup'
-import { tuiAgentToAgentKind } from '@/lib/telemetry'
+import { tuiAgentToAgentKind } from '@/lib/agent-kind'
 import { activateAndRevealFolderWorkspace } from '@/lib/worktree-activation'
 import { isWorkItemLookupText } from '@/lib/work-item-lookup-text'
 import { TUI_AGENT_CONFIG } from '../../../../shared/tui-agent-config'

@@ -4,7 +4,6 @@ import type {
   WorkspaceSessionState
 } from '../shared/types'
 
-
 import { sanitizeWorkspaceSessionTerminalRetirements } from './runtime/mobile-session-terminal-persistence-retirement'
 import {
   LOCAL_EXECUTION_HOST_ID,
@@ -44,14 +43,8 @@ import { clampMarkdownTocPanelWidth } from '../shared/markdown-toc-panel-width'
 import { clampCombinedDiffFileTreeWidth } from '../shared/combined-diff-file-tree-width'
 import { normalizeBrowserPageZoomLevel } from '../shared/browser-page-zoom'
 import { persistedUIValuesEqual } from '../shared/persisted-ui-equality'
-import {
-  readTerminalScrollbackSnapshotSync
-} from './terminal-scrollback-snapshots'
-import { track } from './telemetry/client'
-import { getCohortAtEmit } from './telemetry/cohort-classifier'
-import {
-  findWorktreeIdForTab
-} from './persistence-layout-records'
+import { readTerminalScrollbackSnapshotSync } from './terminal-scrollback-snapshots'
+import { findWorktreeIdForTab } from './persistence-layout-records'
 import {
   mergeContextualTourSeenIds,
   mergeFeatureInteractions,
@@ -236,16 +229,6 @@ export class StorePhase10 extends StorePhase9 {
     this.scheduleSave()
 
     if (shouldEmit) {
-      track('feature_interaction_usage_bucket_reached', {
-        feature_id: id,
-        feature_category: getFeatureInteractionCategory(id),
-        count_bucket: nextBucket,
-        bucket_source:
-          lastEmittedBucket === null && previousBucket !== null && previousBucket === nextBucket
-            ? 'observed_existing'
-            : 'crossed_now',
-        ...getCohortAtEmit()
-      })
     }
     return this.getUI()
   }
@@ -354,6 +337,4 @@ export class StorePhase10 extends StorePhase9 {
     }
     this.scheduleSave()
   }
-
-
 }

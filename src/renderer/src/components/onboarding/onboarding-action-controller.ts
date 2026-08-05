@@ -7,7 +7,6 @@ import { getAgentCatalog } from '@/lib/agent-catalog'
 import { useAppStore } from '@/store'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { applyDocumentTheme } from '@/lib/document-theme'
-import { track } from '@/lib/telemetry'
 import { getSelectedNestedRepoPathsInScanOrder } from '@/lib/nested-repo-selected-paths'
 import { buildAgentPickedPayload } from './agent-picked-payload'
 import { ONBOARDING_FINAL_STEP, ONBOARDING_FLOW_VERSION } from '../../../../shared/constants'
@@ -91,7 +90,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
     scanNestedRepos,
     importNestedRepos,
     cancelNestedRepoScan,
-    onboardingNestedRepoRuntimeKind,
+    onboardingNestedRepoRuntimeKind
   } = context
 
   const completeRepo = useCallback(
@@ -125,11 +124,6 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         return
       }
       // Why: the final repo step has no keyboard-vs-button distinction, so emit duration_ms without advanced_via. See docs/onboarding-telemetry-extensions.md §3.
-      track('onboarding_step_completed', {
-        step: ONBOARDING_FINAL_STEP,
-        value_kind: 'repo',
-        duration_ms: consumeStepDurationMs()
-      })
     },
     [
       closeWith,
@@ -217,21 +211,13 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
           setError(message)
           return
         }
-        track('onboarding_step4_path_clicked', { path: 'open_folder' })
+
         setBusyLabel(kind === 'git' ? 'Scanning for repositories…' : 'Opening folder…')
         try {
           if (kind === 'git') {
             const attemptId = createNestedRepoTelemetryAttemptId()
             const scan = await scanNestedRepos(path)
-            track(
-              'add_repo_nested_scan_result',
-              buildNestedRepoScanTelemetry({
-                attemptId,
-                surface: 'onboarding',
-                runtimeKind: 'runtime',
-                scan
-              })
-            )
+
             if (scan?.selectedPathKind === 'non_git_folder' && scan.repos.length > 0) {
               showNestedRepoReview(scan, attemptId, 'runtime')
               return
@@ -240,13 +226,11 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
           setBusyLabel(kind === 'git' ? 'Opening project…' : 'Opening folder…')
           const repo = await addRepoPath(path, kind)
           if (!repo) {
-            track('onboarding_step4_path_failed', { path: 'open_folder', reason: 'invalid_path' })
             return
           }
           await completeRepo(repo.id, isGitRepoKind(repo), 'open_folder')
         } catch (err) {
           setError(err instanceof Error ? err.message : String(err))
-          track('onboarding_step4_path_failed', { path: 'open_folder', reason: 'invalid_path' })
         } finally {
           nestedScanIdRef.current = null
           setNestedScanInProgress(false)
@@ -254,10 +238,9 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         }
         return
       }
-      track('onboarding_step4_path_clicked', { path: 'open_folder' })
+
       const path = await getClientRuntime().workspace.repos.pickFolder()
       if (!path) {
-        track('onboarding_step4_path_failed', { path: 'open_folder', reason: 'cancelled' })
         return
       }
       setBusyLabel('Opening project…')
@@ -287,15 +270,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
           }
           nestedScanIdRef.current = null
           setNestedScanInProgress(false)
-          track(
-            'add_repo_nested_scan_result',
-            buildNestedRepoScanTelemetry({
-              attemptId,
-              surface: 'onboarding',
-              runtimeKind: 'local',
-              scan
-            })
-          )
+
           if (scan?.selectedPathKind === 'non_git_folder' && scan.repos.length > 0) {
             showNestedRepoReview(scan, attemptId, 'local', false, scanId)
             return
@@ -308,7 +283,6 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         await completeRepo(result.repo.id, isGitRepoKind(result.repo), 'open_folder')
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
-        track('onboarding_step4_path_failed', { path: 'open_folder', reason: 'invalid_path' })
       } finally {
         nestedScanIdRef.current = null
         setNestedScanInProgress(false)
@@ -345,17 +319,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
     const runtimeKind = nestedRuntimeKind ?? onboardingNestedRepoRuntimeKind
     setError(null)
     setBusyLabel('Importing repositories…')
-    track(
-      'add_repo_nested_import_action',
-      buildNestedRepoImportActionTelemetry({
-        attemptId,
-        surface: 'onboarding',
-        runtimeKind,
-        action: 'import_separate',
-        foundCount,
-        selectedCount
-      })
-    )
+
     let resultTracked = false
     try {
       const selectedProjectPaths = getSelectedNestedRepoPathsInScanOrder(
@@ -370,18 +334,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         ...(nestedImportScanId ? { scanId: nestedImportScanId } : {}),
         mode
       })
-      track(
-        'add_repo_nested_import_result',
-        buildNestedRepoImportResultTelemetry({
-          attemptId,
-          surface: 'onboarding',
-          runtimeKind,
-          mode,
-          foundCount,
-          selectedCount,
-          result
-        })
-      )
+
       resultTracked = true
       const importedRepoIds =
         result?.projects
@@ -401,21 +354,8 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
       await completeRepo(projectId, true, 'open_folder')
     } catch (err) {
       if (!resultTracked) {
-        track(
-          'add_repo_nested_import_result',
-          buildNestedRepoImportResultTelemetry({
-            attemptId,
-            surface: 'onboarding',
-            runtimeKind,
-            mode,
-            foundCount,
-            selectedCount,
-            result: null
-          })
-        )
       }
       setError(err instanceof Error ? err.message : String(err))
-      track('onboarding_step4_path_failed', { path: 'open_folder', reason: 'invalid_path' })
     } finally {
       setBusyLabel(null)
     }
@@ -442,7 +382,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
       return
     }
     setError(null)
-    track('onboarding_step4_path_clicked', { path: 'clone_url' })
+
     const target = getActiveRuntimeTarget(settings)
     const destination =
       target.kind === 'environment' ? cloneDestination.trim() : settings.workspaceDir
@@ -470,7 +410,7 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
       await completeRepo(repo.id, true, 'clone_url')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-      track('onboarding_step4_path_failed', { path: 'clone_url', reason: 'clone_failed' })
+
       toast.error(
         translate('auto.components.onboarding.use.onboarding.flow.fd74e7558e', 'Clone failed'),
         {
@@ -497,12 +437,6 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         if (!closed) {
           return
         }
-        track('onboarding_step_completed', {
-          step: ONBOARDING_FINAL_STEP,
-          value_kind: 'repo',
-          duration_ms: consumeStepDurationMs(),
-          advanced_via: advancedVia
-        })
       } finally {
         setBusyLabel(null)
       }
@@ -542,25 +476,11 @@ export function useOnboardingActionController(context: OnboardingActionContext) 
         return
       }
       // Why: repo picker now lives in the Add Project dialog, so skipping optional setup closes onboarding and hands off to it.
-      track('onboarding_step_skipped', {
-        step: stepNumber,
-        value_kind: valueKind,
-        duration_ms: durationMs,
-        advanced_via: 'button'
-      })
+
       if (stepId === 'integrations') {
         trackTaskSourcesSnapshot('skip_to_project_setup', durationMs, 'button')
       }
       if (stepId === 'windows_terminal') {
-        track(
-          'onboarding_windows_terminal_snapshot',
-          buildWindowsTerminalSnapshotPayload({
-            settings,
-            exitAction: 'skip_to_project_setup',
-            durationMs,
-            advancedVia: 'button'
-          })
-        )
       }
       openModal('add-repo')
     } finally {

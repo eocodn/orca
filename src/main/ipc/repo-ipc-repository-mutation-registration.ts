@@ -14,13 +14,15 @@ import { normalizeExecutionHostId } from '../../shared/execution-host'
 import { invalidateAuthorizedRootsCache } from './filesystem-auth'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
-import { addLocalRepoFromPath, addRemoteRepoFromPath, createRemoteRepo, emitRepoAdded, notifyReposChanged } from './repo-ipc-handlers'
+import {
+  addLocalRepoFromPath,
+  addRemoteRepoFromPath,
+  createRemoteRepo,
+  notifyReposChanged
+} from './repo-ipc-handlers'
 import { gitExecFileAsync } from '../git/runner'
 
-export function registerRepositoryMutationHandlers(
-  mainWindow: BrowserWindow,
-  store: Store
-): void {
+export function registerRepositoryMutationHandlers(mainWindow: BrowserWindow, store: Store): void {
   ipcMain.handle(
     'repos:add',
     async (
@@ -36,7 +38,6 @@ export function registerRepositoryMutationHandlers(
       }
       invalidateAuthorizedRootsCache()
       notifyReposChanged(mainWindow)
-      emitRepoAdded('folder_picker', result.alreadyExisted, result.repo.kind === 'git')
       return { repo: result.repo }
     }
   )
@@ -57,7 +58,6 @@ export function registerRepositoryMutationHandlers(
         return result
       }
       notifyReposChanged(mainWindow)
-      emitRepoAdded('folder_picker', result.alreadyExisted, result.repo.kind === 'git')
       return { repo: result.repo }
     }
   )
@@ -114,7 +114,6 @@ export function registerRepositoryMutationHandlers(
       // Dedup by path so a double-click on Create doesn't make two entries for one folder (first of three dedup checks).
       const existing = store.getRepos().find((r) => r.path === targetPath)
       if (existing) {
-        emitRepoAdded('folder_picker', true, repoKind === 'git')
         return { repo: existing }
       }
 
@@ -215,7 +214,6 @@ export function registerRepositoryMutationHandlers(
       const raceWinner = store.getRepos().find((r) => r.path === targetPath)
       if (raceWinner) {
         // Why: don't rm even if we made the dir — the race winner owns it; leaking an empty folder beats deleting a dir in use.
-        emitRepoAdded('folder_picker', true, repoKind === 'git')
         return { repo: raceWinner }
       }
 
@@ -242,7 +240,6 @@ export function registerRepositoryMutationHandlers(
       invalidateAuthorizedRootsCache()
       notifyReposChanged(mainWindow)
       // Why: repos:create git-inits when kind is 'git', so repoKind is the true git-vs-folder signal.
-      emitRepoAdded('folder_picker', false, repoKind === 'git')
       return { repo }
     }
   )
@@ -469,5 +466,4 @@ export function registerRepositoryMutationHandlers(
 
   // ── Sparse presets ─────────────────────────────────────────────
   // Why: repo-scoped reusable directory lists for the new-workspace composer; broadcast on change so open composers refresh.
-
 }

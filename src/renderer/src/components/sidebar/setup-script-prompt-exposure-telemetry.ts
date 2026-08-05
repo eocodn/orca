@@ -1,4 +1,3 @@
-import { track } from '@/lib/telemetry'
 import { buildSetupScriptPromptTelemetry } from '../../../../shared/setup-script-telemetry'
 import type { SetupScriptPromptState } from './setup-script-prompt-render-state'
 
@@ -37,5 +36,4 @@ export function trackSetupScriptPromptExposure(input: {
   }
 
   trackedPromptKeys.add(promptKey)
-  track('setup_script_prompt_shown', telemetry)
 }

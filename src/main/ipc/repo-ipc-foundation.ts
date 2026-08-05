@@ -1,38 +1,32 @@
 import { randomUUID } from 'node:crypto'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../shared/constants'
 import { normalizeRuntimePathForComparison } from '../../shared/cross-platform-path'
-import { getRepoExecutionHostId,LOCAL_EXECUTION_HOST_ID,parseExecutionHostId } from '../../shared/execution-host'
-import type { HostRepoCatalogSnapshot,ListReposForExecutionHostArgs } from '../../shared/host-repo-catalog-contract'
-import { getProjectHostSetupForRepo,getProjectIdForProviderIdentity } from '../../shared/project-host-setup-projection'
+import {
+  getRepoExecutionHostId,
+  LOCAL_EXECUTION_HOST_ID,
+  parseExecutionHostId
+} from '../../shared/execution-host'
+import type {
+  HostRepoCatalogSnapshot,
+  ListReposForExecutionHostArgs
+} from '../../shared/host-repo-catalog-contract'
+import {
+  getProjectHostSetupForRepo,
+  getProjectIdForProviderIdentity
+} from '../../shared/project-host-setup-projection'
 import { isFolderRepo } from '../../shared/repo-kind'
 import { isAdmissibleDirectSshAuthority } from '../../shared/ssh-retained-payload-admission'
-import type { RepoMethod } from '../../shared/telemetry-events'
-import type { ProjectHostSetupExistingFolderArgs,ProjectHostSetupResult,Repo } from '../../shared/types'
-import { getGitRepoRoot,getLinkedWorktreeMainRepoRoot,getRepoName,isGitRepo } from '../git/repo'
+import type {
+  ProjectHostSetupExistingFolderArgs,
+  ProjectHostSetupResult,
+  Repo
+} from '../../shared/types'
+import { getGitRepoRoot, getLinkedWorktreeMainRepoRoot, getRepoName, isGitRepo } from '../git/repo'
 import type { Store } from '../persistence'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { isCurrentSshProviderAuthority } from '../ssh/ssh-provider-authority'
-import { track } from '../telemetry/client'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
-
-// Why: `method` is the IPC entry point the user took, not what they added (never path/URL/name); repos:create → 'folder_picker'.
-// Why: `isGitRepo` is a non-identifying git-vs-folder signal from the caller's detection; pass undefined when unknown, never default false.
-// Why: it replaced onboarding_completed.is_git_repo, which lost meaning once repo selection left onboarding (1.4.46).
-export function emitRepoAdded(method: RepoMethod, alreadyExisted: boolean, isGitRepo?: boolean): void {
-  // Why: re-adding an existing repo isn't a new activation; suppress so re-picking a folder doesn't inflate repo_added.
-  if (alreadyExisted) {
-    return
-  }
-  // Why: read cohort AFTER store.addRepo() so the just-added repo is counted (docs/onboarding-funnel-cohort-addendum.md §Read-vs-write ordering).
-  const props = {
-    method,
-    ...(isGitRepo === undefined ? {} : { is_git_repo: isGitRepo }),
-    ...getCohortAtEmit()
-  }
-  track('repo_added', props)
-}
 
 export function hasValidCatalogSshAuthority(
   args: ListReposForExecutionHostArgs

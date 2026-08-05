@@ -16,7 +16,7 @@ export function splitTerminalPaneWithInheritedCwd(args: {
   source: TerminalPaneSplitSource
 }): void {
   const ptyId = args.paneTransports.get(args.pane.id)?.getPtyId() ?? null
-  if (splitWebRuntimeTerminal(ptyId, args.direction, args.source)) {
+  if (splitWebRuntimeTerminal(ptyId, args.direction)) {
     return
   }
   const cached = args.paneCwdMap.get(args.pane.id)

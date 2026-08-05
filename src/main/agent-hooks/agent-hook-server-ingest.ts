@@ -1,6 +1,5 @@
 import { AgentHookServerAuthority } from './agent-hook-server-authority'
 import type * as hookShared from './agent-hook-server-shared'
-import { track } from '../telemetry/client'
 import { normalizeAgentProviderSession } from '../../shared/agent-session-resume'
 import {
   normalizeAgentStatusPayload,
@@ -31,7 +30,6 @@ export class AgentHookServerIngest extends AgentHookServerAuthority {
     const paneKey = this.resolvePaneKeyAlias(physicalPaneKey)
     const parsedPaneKey = parsePaneKey(paneKey)
     if (paneKey.length === 0) {
-      track('agent_hook_unattributed', { reason: 'empty_pane_key' })
       return
     }
     if (paneKey.length > MAX_PANE_KEY_LEN || !parsedPaneKey) {
@@ -136,7 +134,6 @@ export class AgentHookServerIngest extends AgentHookServerAuthority {
     const paneKey = this.resolvePaneKeyAlias(physicalPaneKey)
     const parsedPaneKey = parsePaneKey(paneKey)
     if (paneKey.length === 0) {
-      track('agent_hook_unattributed', { reason: 'empty_pane_key' })
       return
     }
     if (paneKey.length > MAX_PANE_KEY_LEN) {
@@ -240,5 +237,4 @@ export class AgentHookServerIngest extends AgentHookServerAuthority {
     this.recordCurrentAuthorityObservation(event)
     this.applyNormalizedStatus(event)
   }
-
 }

@@ -12,7 +12,6 @@ import {
   createDirectSshReconnectTargetState,
   type DirectSshReconnectTargetState
 } from './direct-ssh-reconnect-coordinator-stabilization'
-import { createDirectSshCoordinatorTelemetryReporter } from './direct-ssh-reconnect-coordinator-telemetry'
 import type {
   DirectSshCorrectionReason,
   DirectSshPreparationInput,
@@ -62,10 +61,6 @@ export function createDirectSshReconnectCoordinator(
     scheduler: deps.scheduler,
     isCurrentAuthority: isCurrent,
     readLineage: deps.readHostScopedLineage,
-    now
-  })
-  const telemetry = createDirectSshCoordinatorTelemetryReporter({
-    onTelemetry: deps.onTelemetry,
     now
   })
 
@@ -132,15 +127,7 @@ export function createDirectSshReconnectCoordinator(
         staleBindingsCleared,
         retriedTerminals
       )
-      telemetry.reportWithoutInput('reconnect', 'reconnect', outcome, operationStartedAt, {
-        staleBindingsCleared,
-        retriedTerminals,
-        terminalFinalizationDurationMs,
-        catalogOutcome: 'stale',
-        catalogDurationMs: Math.max(0, now() - operationStartedAt),
-        authorityRotationCount,
-        damped
-      })
+
       return outcome
     }
     const acquired = preparation.acquire(input)
@@ -159,14 +146,6 @@ export function createDirectSshReconnectCoordinator(
       correctedTerminals
     )
     if (!acquired.joined) {
-      telemetry.report('reconnect', input, prepared, operationStartedAt, {
-        terminalFinalizationDurationMs,
-        staleBindingsCleared,
-        retriedTerminals,
-        correctedTerminals,
-        damped,
-        authorityRotationCount
-      })
     }
     return outcome
   }
@@ -196,17 +175,13 @@ export function createDirectSshReconnectCoordinator(
     const startedAt = now()
     if (stopped || !deps.isCurrentConnectedAuthority(authority)) {
       const outcome = createTerminalOnlyDirectSshReconnectOutcome(stopped ? 'stopped' : 'stale')
-      telemetry.reportWithoutInput('reconnect', 'reconnect', outcome, startedAt, {
-        catalogOutcome: 'degraded'
-      })
+
       return outcome
     }
     const rotated = replaceAuthority(authority)
     if (!isCurrent(authority)) {
       const outcome = createTerminalOnlyDirectSshReconnectOutcome('stale')
-      telemetry.reportWithoutInput('reconnect', 'reconnect', outcome, startedAt, {
-        authorityRotationCount: rotated ? 1 : 0
-      })
+
       return outcome
     }
     const terminalStartedAt = now()
@@ -221,14 +196,7 @@ export function createDirectSshReconnectCoordinator(
         staleBindingsCleared,
         retriedTerminals
       )
-      telemetry.reportWithoutInput('reconnect', 'reconnect', outcome, startedAt, {
-        staleBindingsCleared,
-        retriedTerminals,
-        terminalFinalizationDurationMs,
-        catalogOutcome: 'degraded',
-        authorityRotationCount: rotated ? 1 : 0,
-        damped: true
-      })
+
       return outcome
     }
     return runPreparedReconnect(
@@ -254,15 +222,13 @@ export function createDirectSshReconnectCoordinator(
         lineageOutcome: 'not-started',
         metrics: createTerminalOnlyDirectSshReconnectOutcome('stale').metrics
       }
-      telemetry.report('prepare-only', input, outcome, now())
+
       return Promise.resolve(outcome)
     }
     const startedAt = now()
     const acquired = preparation.acquire(input)
     if (!acquired.joined) {
-      void acquired.promise.then((outcome) => {
-        telemetry.report('prepare-only', input, outcome, startedAt)
-      })
+      void acquired.promise.then((outcome) => {})
     }
     return acquired.promise
   }

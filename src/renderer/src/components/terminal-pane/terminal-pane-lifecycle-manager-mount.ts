@@ -17,7 +17,6 @@ import {
   type CloseTerminalPaneDetail,
   type SplitTerminalPaneDetail
 } from '@/constants/terminal'
-import { consumePendingWebRuntimeSplitMirrorTelemetry } from '@/runtime/web-runtime-session'
 import { closeTerminalTab } from '../terminal/terminal-tab-actions'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
 import { scheduleRuntimeGraphSync } from '@/runtime/sync-runtime-graph'
@@ -25,7 +24,11 @@ import type {
   TerminalPaneLifecycleContext,
   TerminalPaneLifecycleSetupContext
 } from './terminal-pane-lifecycle-contracts'
-import { hydrateTerminalScrollbackRefs, resolveQueuedInitialCwd, resolveTerminalHomePathFromEnv } from './terminal-pane-lifecycle-policies'
+import {
+  hydrateTerminalScrollbackRefs,
+  resolveQueuedInitialCwd,
+  resolveTerminalHomePathFromEnv
+} from './terminal-pane-lifecycle-policies'
 import { extractUncHost } from './terminal-pane-lifecycle-policies'
 import {
   applyTerminalPaneCloseRequest,
@@ -49,7 +52,10 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
   const paneTransports = d.paneTransportsRef.current
   const panePtyBindings = d.panePtyBindingsRef.current
   const worktreePath =
-    useAppStore.getState().allWorktrees().find((candidate) => candidate.id === d.worktreeId)?.path ??
+    useAppStore
+      .getState()
+      .allWorktrees()
+      .find((candidate) => candidate.id === d.worktreeId)?.path ??
     d.cwd ??
     ''
   const defaultTabCwd = d.cwd ?? worktreePath
@@ -202,7 +208,8 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
   if (d.issueCommandSplit) {
     let targetPane = manager.getActivePane() ?? manager.getPanes()[0] ?? null
     if (issueAutomationAnchorPaneId !== null) {
-      targetPane = manager.getPanes().find((pane) => pane.id === issueAutomationAnchorPaneId) ?? targetPane
+      targetPane =
+        manager.getPanes().find((pane) => pane.id === issueAutomationAnchorPaneId) ?? targetPane
     }
     if (targetPane) {
       splitPaneWithOneShotStartup(
@@ -246,13 +253,9 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
       })
     } else {
       const createdPane = mgr.splitPane(sourcePaneId, detail.direction, splitOptions)
-      const telemetrySuppressed = createdPane
-        ? consumePendingWebRuntimeSplitMirrorTelemetry(detail.sourcePtyId, detail.direction)
-        : false
       recordRuntimeCreatedTerminalPaneSplit(createdPane, {
         source: detail.telemetrySource ?? 'command',
-        direction: detail.direction,
-        telemetrySuppressed
+        direction: detail.direction
       })
     }
   }
@@ -290,7 +293,9 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
     window.removeEventListener(SPLIT_TERMINAL_PANE_EVENT, onCliSplitPane)
     window.removeEventListener(CLOSE_TERMINAL_PANE_EVENT, onCliClosePane)
     const currentWorktreeTabs = useAppStore.getState().tabsByWorktree[d.worktreeId]
-    const tabStillExists = Boolean(currentWorktreeTabs?.some((candidate) => candidate.id === d.tabId))
+    const tabStillExists = Boolean(
+      currentWorktreeTabs?.some((candidate) => candidate.id === d.tabId)
+    )
     runtimeTab()
     context.cancelResizeAll()
     restoreExpandedLayoutFrom(expandedStyleSnapshots)
@@ -319,7 +324,14 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
     )
     for (const transport of paneTransports.values()) {
       const ptyId = transport.getPtyId()
-      if (shouldDetachPaneTransportOnUnmount({ tabStillExists, tabId: d.tabId, ptyId, worktreeTabs: currentWorktreeTabs })) {
+      if (
+        shouldDetachPaneTransportOnUnmount({
+          tabStillExists,
+          tabId: d.tabId,
+          ptyId,
+          worktreeTabs: currentWorktreeTabs
+        })
+      ) {
         transport.detach?.()
       } else {
         transport.destroy?.()
@@ -361,7 +373,8 @@ function seedRestoredPaneState(
     manager.getActivePane()?.id ??
     manager.getPanes()[0]?.id ??
     null
-  if (restoredActivePaneId !== null) manager.setActivePane(restoredActivePaneId, { focus: d.isActive })
+  if (restoredActivePaneId !== null)
+    manager.setActivePane(restoredActivePaneId, { focus: d.isActive })
   const restoredExpandedPaneId = d.initialLayoutRef.current.expandedLeafId
     ? (restoredPaneByLeafId.get(d.initialLayoutRef.current.expandedLeafId) ?? null)
     : null

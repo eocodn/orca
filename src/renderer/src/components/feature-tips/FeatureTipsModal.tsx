@@ -15,8 +15,6 @@ import { CmdJPaletteFeatureTipVisual } from './CmdJPaletteFeatureTipVisual'
 import { CmdJPaletteTipDialog } from './CmdJPaletteTipDialog'
 import { FeatureTipActions } from './FeatureTipActions'
 import { getFeatureTipForModal } from './feature-tip-modal-state'
-import { trackCmdJPaletteFeatureTipAcknowledged } from './feature-tip-telemetry'
-
 const WAVEFORM_BAR_HEIGHTS = [30, 60, 90, 70, 100, 50, 80, 35, 65]
 
 function FeatureTipVisual({ tip }: { tip: FeatureTip }): JSX.Element {
@@ -93,7 +91,6 @@ export default function FeatureTipsModal(): JSX.Element | null {
 
     markFeatureTipsSeen([currentTip.id])
     if (currentTip.action === 'learn-cmd-j-palette') {
-      trackCmdJPaletteFeatureTipAcknowledged('manual')
       closeModal()
       return
     }

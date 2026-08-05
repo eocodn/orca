@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
-import { track } from '@/lib/telemetry'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import {
   buildImportedHookSettings,
@@ -155,14 +154,6 @@ function SetupScriptPromptCard(): React.JSX.Element | null {
       promptState.status === 'ok' &&
       !promptState.hasEffectiveSetup
     ) {
-      track(
-        'setup_script_prompt_action',
-        buildSetupScriptPromptActionTelemetry({
-          action: 'configure_clicked',
-          candidate: promptState.candidate,
-          hasSharedHooks: promptState.hasSharedHooks
-        })
-      )
     }
     openLocalCommandSettings(activeRepo.id, getRepoExecutionHostId(activeRepo))
   }, [activeRepo, activeRepoHostIdentity, openLocalCommandSettings, promptState])
@@ -175,14 +166,6 @@ function SetupScriptPromptCard(): React.JSX.Element | null {
         promptState.status === 'ok' &&
         !promptState.hasEffectiveSetup
       ) {
-        track(
-          'setup_script_prompt_action',
-          buildSetupScriptPromptActionTelemetry({
-            action: 'dismissed',
-            candidate: promptState.candidate,
-            hasSharedHooks: promptState.hasSharedHooks
-          })
-        )
       }
       dismissSetupScriptPrompt(activeRepoHostIdentity)
     }
@@ -211,18 +194,6 @@ function SetupScriptPromptCard(): React.JSX.Element | null {
           { hostId: importedHostId }
         )
         if (!didUpdate) {
-          track(
-            'setup_script_prompt_action',
-            buildSetupScriptPromptActionTelemetry({
-              action:
-                actionPrefix === 'save_detected_setup'
-                  ? 'save_detected_setup_failed'
-                  : 'import_failed',
-              candidate,
-              hasSharedHooks,
-              editedBeforeSave
-            })
-          )
           if (mountedRef.current) {
             toast.error(
               translate(
@@ -233,18 +204,7 @@ function SetupScriptPromptCard(): React.JSX.Element | null {
           }
           return
         }
-        track(
-          'setup_script_prompt_action',
-          buildSetupScriptPromptActionTelemetry({
-            action:
-              actionPrefix === 'save_detected_setup'
-                ? 'save_detected_setup_completed'
-                : 'import_completed',
-            candidate,
-            hasSharedHooks,
-            editedBeforeSave
-          })
-        )
+
         if (actionPrefix === 'save_detected_setup') {
           if (mountedRef.current) {
             setPromptState((current) =>
@@ -272,18 +232,6 @@ function SetupScriptPromptCard(): React.JSX.Element | null {
           })
         }
       } catch (error) {
-        track(
-          'setup_script_prompt_action',
-          buildSetupScriptPromptActionTelemetry({
-            action:
-              actionPrefix === 'save_detected_setup'
-                ? 'save_detected_setup_failed'
-                : 'import_failed',
-            candidate,
-            hasSharedHooks,
-            editedBeforeSave
-          })
-        )
         console.warn('[setup-script-prompt] Failed to save setup script:', error)
         if (mountedRef.current) {
           toast.error(
@@ -328,15 +276,6 @@ function SetupScriptPromptCard(): React.JSX.Element | null {
       return
     }
     if (actionPrefix === 'save_detected_setup') {
-      track(
-        'setup_script_prompt_action',
-        buildSetupScriptPromptActionTelemetry({
-          action: 'save_detected_setup_clicked',
-          candidate,
-          hasSharedHooks: promptState.hasSharedHooks,
-          editedBeforeSave
-        })
-      )
     }
     await saveSetupCandidate({
       candidate,

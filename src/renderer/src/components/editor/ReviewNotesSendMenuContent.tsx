@@ -25,7 +25,6 @@ import {
   formatAgentTypeLabel,
   agentTypeToIconAgent
 } from '@/lib/agent-status'
-import { track } from '@/lib/telemetry'
 import { useNow } from '@/components/dashboard/useNow'
 import type { DashboardAgentRow as DashboardAgentRowData } from '@/components/dashboard/useDashboardData'
 import { selectLivePtyIdsForWorktree } from '@/components/sidebar/worktree-card-status-inputs'
@@ -166,11 +165,6 @@ export function ReviewNotesSendMenuContent({
           onPromptDelivered?.()
           // Why: mirror the sidebar send-target telemetry so dropdown-routed
           // follow-up notes show up identically on `agent_prompt_sent`.
-          track('agent_prompt_sent', {
-            agent_kind: agentKindForAgentType(target.agentType),
-            launch_source: launchSource,
-            request_kind: 'followup'
-          })
         },
         { explicitTarget: true }
       )

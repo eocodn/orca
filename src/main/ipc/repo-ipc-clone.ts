@@ -1,24 +1,26 @@
 import type { BrowserWindow } from 'electron'
 import type { ChildProcess } from 'node:child_process'
 import { z } from 'zod'
-import { isRuntimePathAbsolute,normalizeRuntimePathForComparison,relativePathInsideRoot } from '../../shared/cross-platform-path'
+import {
+  isRuntimePathAbsolute,
+  normalizeRuntimePathForComparison,
+  relativePathInsideRoot
+} from '../../shared/cross-platform-path'
 import { normalizeExecutionHostId } from '../../shared/execution-host'
-import type { NestedRepoScanResult,Repo } from '../../shared/types'
+import type { NestedRepoScanResult, Repo } from '../../shared/types'
 import type { ClaimedCloneTarget } from '../git/repo-clone-path'
 import type { Store } from '../persistence'
 import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { joinRemotePath } from '../ssh/ssh-remote-platform'
-import { emitRepoAdded } from './repo-ipc-foundation'
+
 import { getActiveMultiplexer } from './ssh'
 
 // Why: `method` is the IPC entry point the user took, not what they added (never path/URL/name); repos:create → 'folder_picker'.
 // Why: `isGitRepo` is a non-identifying git-vs-folder signal from the caller's detection; pass undefined when unknown, never default false.
 // Why: it replaced onboarding_completed.is_git_repo, which lost meaning once repo selection left onboarding (1.4.46).
-import {
-  addRemoteRepoFromPath
-} from './repo-ipc-add'
-export { addRemoteRepoFromPath,cloneRemoteRepo,getRemoteRepoFolderName } from './repo-ipc-add'
+import { addRemoteRepoFromPath } from './repo-ipc-add'
+export { addRemoteRepoFromPath, cloneRemoteRepo, getRemoteRepoFolderName } from './repo-ipc-add'
 
 export async function createRemoteRepo(
   store: Store,
@@ -66,7 +68,6 @@ export async function createRemoteRepo(
     )
   })
   if (existing) {
-    emitRepoAdded('folder_picker', true)
     return { repo: existing }
   }
 
@@ -142,7 +143,6 @@ export async function createRemoteRepo(
     )
   })
   if (raceWinner) {
-    emitRepoAdded('folder_picker', true)
     return { repo: raceWinner }
   }
 
@@ -155,7 +155,6 @@ export async function createRemoteRepo(
   if ('error' in result) {
     return result
   }
-  emitRepoAdded('folder_picker', result.alreadyExisted)
   return { repo: result.repo }
 }
 

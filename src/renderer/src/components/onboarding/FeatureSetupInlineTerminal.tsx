@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, type KeyboardEvent } from 'react'
-import { track } from '@/lib/telemetry'
 import { notifyInstalledAgentSkillsChanged } from '@/hooks/useInstalledAgentSkills'
 import { OnboardingInlineCommandTerminal } from './OnboardingInlineCommandTerminal'
 import {
@@ -30,7 +29,6 @@ export function FeatureSetupInlineTerminal({
       return
     }
     terminalOpenedTrackedRef.current = true
-    track('onboarding_feature_setup_terminal_opened', selectionTelemetry)
   }, [selectionTelemetry])
 
   const trackTerminalInteraction = useCallback(
@@ -46,10 +44,6 @@ export function FeatureSetupInlineTerminal({
       // Why: auto-insert focuses the terminal programmatically; only count
       // direct terminal activity, not the global continue shortcut.
       terminalInteractedTrackedRef.current = true
-      track('onboarding_feature_setup_terminal_interacted', {
-        ...selectionTelemetry,
-        method
-      })
     },
     [selectionTelemetry]
   )

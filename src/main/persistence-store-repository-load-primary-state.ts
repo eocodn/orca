@@ -188,8 +188,7 @@ const {
   getProfileTerminalScrollbackSnapshotRoot,
   migrateWorkspaceSessionTerminalScrollbackSnapshots,
   readTerminalScrollbackSnapshotSync,
-  track,
-  getCohortAtEmit,
+
   isStartupDiagnosticsEnabled,
   logStartupDiagnostic,
   cloneLayoutNode,

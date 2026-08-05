@@ -1,20 +1,9 @@
-import {
-  DaemonSpawner,
-  getDaemonPidPath
-} from './daemon-spawner'
+import { DaemonSpawner, getDaemonPidPath } from './daemon-spawner'
 import { DaemonPtyAdapter, type DaemonRespawnReason } from './daemon-pty-adapter'
 import { DaemonPtyRouter } from './daemon-pty-router'
-import {
-  collectPinnedDaemonVersions,
-  pruneOldDaemonHosts
-} from './daemon-host-relocation'
+import { collectPinnedDaemonVersions, pruneOldDaemonHosts } from './daemon-host-relocation'
 import { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
-import { trackDaemonRetired } from './daemon-lifecycle-event'
-import {
-  getLocalPtyProvider,
-  setLocalPtyProvider,
-  rebindLocalProviderListeners
-} from '../ipc/pty'
+import { getLocalPtyProvider, setLocalPtyProvider, rebindLocalProviderListeners } from '../ipc/pty'
 import {
   confirmSeededClaudeLivePtys,
   hasSeededUnconfirmedClaudePtys
@@ -81,7 +70,6 @@ export async function initDaemonPtyProvider(
         // Why: a manual restart tears the daemon down under a still-live daemonLifecycleState.adapter, so a pane
         // respawning on its synthetic exit would bill a user action to the crash bucket.
         if (!daemonLifecycleState.restartInFlight) {
-          trackDaemonRetired('died_respawn')
         }
       } else if (reason === 'unhealthy_resolver') {
         // Must reach the launcher below without an await in between; see the consume site.

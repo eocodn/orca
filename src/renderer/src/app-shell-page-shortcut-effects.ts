@@ -160,7 +160,6 @@ import { selectActiveTerminalChromeState } from './store/active-terminal-chrome-
 import type { VirtualizedScrollAnchor } from './hooks/useVirtualizedScrollAnchor'
 import type { OnboardingState } from '../../shared/types'
 import { getFeatureTipsAppOpenDecision } from './components/feature-tips/feature-tip-startup-gate'
-import { trackCmdJPaletteFeatureTipShown } from './components/feature-tips/feature-tip-telemetry'
 import {
   keybindingMatchesAction,
   type KeybindingActionId,
@@ -224,7 +223,6 @@ import {
   RemoteServerUpdateDialog,
   Settings,
   SetupGuideModal,
-  SetupGuideTelemetryObserver,
   shouldMountUpdateCardForStatus,
   SkillsPage,
   SshPassphraseDialog,

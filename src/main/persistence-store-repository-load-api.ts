@@ -212,8 +212,7 @@ export const {
   getProfileTerminalScrollbackSnapshotRoot,
   migrateWorkspaceSessionTerminalScrollbackSnapshots,
   readTerminalScrollbackSnapshotSync,
-  track,
-  getCohortAtEmit,
+
   isStartupDiagnosticsEnabled,
   logStartupDiagnostic,
   cloneLayoutNode,
@@ -234,5 +233,5 @@ export const {
   projectHostSetupCompatibilityStateEqual,
   mergeProjectHostSetupCompatibilityState,
   getDefaultWorktreeMeta,
-  StoreFoundation,
+  StoreFoundation
 } = persistenceLoadDependencies

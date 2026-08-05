@@ -18,7 +18,6 @@ export function recordRuntimeCreatedTerminalPaneSplit(
   args: {
     source: TerminalPaneSplitSource
     direction: 'vertical' | 'horizontal'
-    telemetrySuppressed?: boolean
   }
 ): boolean {
   return recordCreatedTerminalPaneSplit(createdPane, args)

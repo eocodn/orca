@@ -2,7 +2,13 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { Store } from '../persistence'
-import type { FolderWorkspace, NestedRepoScanResult, ProjectGroup, ProjectGroupImportResult, Repo } from '../../shared/types'
+import type {
+  FolderWorkspace,
+  NestedRepoScanResult,
+  ProjectGroup,
+  ProjectGroupImportResult,
+  Repo
+} from '../../shared/types'
 import type { FolderWorkspacePathStatusRequest } from '../../shared/folder-workspace-path-status'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../shared/constants'
 import { isGitRepo, getRepoName } from '../git/repo'
@@ -13,10 +19,36 @@ import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { getActiveMultiplexer } from './ssh'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { getSshFilesystemProvider } from '../providers/ssh-filesystem-dispatch'
-import { createNestedProjectGroupResolver, resolveNestedRepoSelection } from '../project-groups/nested-repo-import'
+import {
+  createNestedProjectGroupResolver,
+  resolveNestedRepoSelection
+} from '../project-groups/nested-repo-import'
 import { createNestedRepoImportTargetResolver } from '../project-groups/nested-repo-import-target'
-import { assertFolderWorkspacePathUsable, getFolderWorkspacePathStatus, getFolderWorkspacePathStatusForPath } from '../project-groups/folder-workspace-path-status'
-import { activeNestedRepoScans, emitRepoAdded, getCompletedNestedRepoScan, notifyReposChanged, parseProjectGroupIpcArgs, ProjectGroupCancelNestedScanArgs, ProjectGroupCreateArgs, ProjectGroupImportNestedArgs, ProjectGroupMoveProjectArgs, ProjectGroupScanNestedArgs, ProjectGroupSelectorArgs, ProjectGroupUpdateArgs, sanitizeNestedRepoImportError, scanNestedReposForIpc, runNestedRepoScanForIpc, FolderWorkspaceCreateArgs, FolderWorkspacePathStatusArgs, FolderWorkspaceSelectorArgs, FolderWorkspaceUpdateArgs } from './repo-ipc-handlers'
+import {
+  assertFolderWorkspacePathUsable,
+  getFolderWorkspacePathStatus,
+  getFolderWorkspacePathStatusForPath
+} from '../project-groups/folder-workspace-path-status'
+import {
+  activeNestedRepoScans,
+  getCompletedNestedRepoScan,
+  notifyReposChanged,
+  parseProjectGroupIpcArgs,
+  ProjectGroupCancelNestedScanArgs,
+  ProjectGroupCreateArgs,
+  ProjectGroupImportNestedArgs,
+  ProjectGroupMoveProjectArgs,
+  ProjectGroupScanNestedArgs,
+  ProjectGroupSelectorArgs,
+  ProjectGroupUpdateArgs,
+  sanitizeNestedRepoImportError,
+  scanNestedReposForIpc,
+  runNestedRepoScanForIpc,
+  FolderWorkspaceCreateArgs,
+  FolderWorkspacePathStatusArgs,
+  FolderWorkspaceSelectorArgs,
+  FolderWorkspaceUpdateArgs
+} from './repo-ipc-handlers'
 
 export function registerProjectGroupHandlers(mainWindow: BrowserWindow, store: Store): void {
   ipcMain.handle('projectGroups:list', () => store.getProjectGroups())
@@ -319,7 +351,6 @@ export function registerProjectGroupHandlers(mainWindow: BrowserWindow, store: S
           importedProjectIdsByRepoPath.set(normalizedImportRepoPath, repo.id)
           results.push({ path: repoPath, projectId: repo.id, status: 'imported' })
           // Why: reaches here only after the isGitRepo guard above confirmed a git repo, so always true.
-          emitRepoAdded('folder_picker', false, true)
         } catch (error) {
           results.push({
             path: repoPath,
@@ -349,6 +380,4 @@ export function registerProjectGroupHandlers(mainWindow: BrowserWindow, store: S
       }
     }
   )
-
-
 }

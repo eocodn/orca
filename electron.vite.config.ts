@@ -27,15 +27,16 @@ function isExternalMainModule(source: string): boolean {
   )
 }
 
-// Why: the telemetry transport is gated by two compile-time constants that
-// only the official CI release workflow sets. Contributor / `pnpm dev` /
-// third-party rebuilds must substitute literal `null` at these sites so
-// `IS_OFFICIAL_BUILD` in `src/main/telemetry/client.ts` evaluates `false`
-// at module load and the track() wrapper short-circuits to console-mirror.
-// The substitution happens at compile time — there is no runtime env-var
-// fallback — so a curious contributor cannot spoof transmission with a
-// shell export.
-//
+// Why: release diagnostics need the channel identity at compile time so
+// official binaries stay pinned to the support upload policy. This identity
+// is unrelated to product analytics and must remain after that transport is
+// removed. Contributor and hourly builds intentionally resolve to `null`.
+const orcaBuildIdentity = process.env.ORCA_BUILD_IDENTITY
+const ORCA_BUILD_IDENTITY_LITERAL =
+  orcaBuildIdentity === 'stable' || orcaBuildIdentity === 'rc'
+    ? JSON.stringify(orcaBuildIdentity)
+    : 'null'
+
 const orcaDiagnosticsTokenUrl = process.env.ORCA_DIAGNOSTICS_TOKEN_URL
 const ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL =
   typeof orcaDiagnosticsTokenUrl === 'string' && orcaDiagnosticsTokenUrl.length > 0
@@ -231,6 +232,7 @@ export const electronViteConfig: UserConfig = {
       }
     },
     define: {
+      ORCA_BUILD_IDENTITY: ORCA_BUILD_IDENTITY_LITERAL,
       ORCA_DIAGNOSTICS_TOKEN_URL: ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL
     },
     // Why: @xterm/headless declares "exports": null in package.json, which

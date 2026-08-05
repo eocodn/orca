@@ -160,7 +160,6 @@ import { selectActiveTerminalChromeState } from './store/active-terminal-chrome-
 import type { VirtualizedScrollAnchor } from './hooks/useVirtualizedScrollAnchor'
 import type { OnboardingState } from '../../shared/types'
 import { getFeatureTipsAppOpenDecision } from './components/feature-tips/feature-tip-startup-gate'
-import { trackCmdJPaletteFeatureTipShown } from './components/feature-tips/feature-tip-telemetry'
 import {
   keybindingMatchesAction,
   type KeybindingActionId,
@@ -224,7 +223,6 @@ import {
   RemoteServerUpdateDialog,
   Settings,
   SetupGuideModal,
-  SetupGuideTelemetryObserver,
   shouldMountUpdateCardForStatus,
   SkillsPage,
   SshPassphraseDialog,
@@ -336,7 +334,6 @@ export function useAppShellPageOnboardingEffects(context: Record<string, unknown
 
     featureTipsPromptedThisSessionRef.current = true
     if (featureTipsDecision.tipId === 'cmd-j-palette') {
-      trackCmdJPaletteFeatureTipShown('app_open')
     }
     // Why: mark seen on show so a quit/crash before dismiss doesn't reappear it next launch.
     actions.markFeatureTipsSeen([featureTipsDecision.tipId])

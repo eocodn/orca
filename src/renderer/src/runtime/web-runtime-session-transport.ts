@@ -530,7 +530,6 @@ async function callWebRuntimeSessionTabMethod(
 export {
   clearWebRuntimeTerminalBuffer,
   closeWebRuntimeTerminal,
-  consumePendingWebRuntimeSplitMirrorTelemetry,
   setWebRuntimeTabProps,
   splitWebRuntimeTerminal,
   updateWebRuntimePaneLayout

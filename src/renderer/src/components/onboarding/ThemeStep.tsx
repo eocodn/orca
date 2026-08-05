@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Check, Monitor, Moon, Settings2, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { track } from '@/lib/telemetry'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { GhosttyDiscoveryRow } from './GhosttyDiscoveryRow'
 import type {
@@ -94,28 +93,17 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
         // tell, so don't make a claim either way.
         if (!preview.found || Object.keys(preview.diff).length === 0) {
           setDiscovery({ status: 'absent' })
-          track('onboarding_ghostty_discovered', {
-            state: 'absent',
-            field_group_count_bucket: '0'
-          })
+
           return
         }
         const fields = humanFields(preview.diff)
         setDiscovery({ status: 'found', preview, fields })
-        track('onboarding_ghostty_discovered', {
-          state: 'found',
-          field_group_count_bucket: fieldGroupCountBucket(fields.length)
-        })
       })
       .catch(() => {
         if (cancelled) {
           return
         }
         setDiscovery({ status: 'absent' })
-        track('onboarding_ghostty_discovered', {
-          state: 'absent',
-          field_group_count_bucket: '0'
-        })
       })
     return () => {
       cancelled = true
@@ -129,7 +117,7 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
     // Why: track AFTER the busy guard so a double-click during an in-flight
     // import doesn't inflate the click counter when no second import attempt
     // actually proceeds.
-    track('onboarding_ghostty_import_clicked', {})
+
     setImporting(true)
     try {
       const resolved = preview.found ? preview : await window.api.settings.previewGhosttyImport()
@@ -142,7 +130,7 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
             )
           )
         }
-        track('onboarding_ghostty_import_failed', { reason: 'empty_diff' })
+
         return
       }
       await updateSettings({
@@ -165,10 +153,6 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
       if (mountedRef.current) {
         setDiscovery({ status: 'imported', fields: importedFields })
       }
-      track('onboarding_ghostty_discovered', {
-        state: 'imported',
-        field_group_count_bucket: fieldGroupCountBucket(importedFields.length)
-      })
     } catch (err) {
       if (mountedRef.current) {
         toast.error(
@@ -181,7 +165,6 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
           }
         )
       }
-      track('onboarding_ghostty_import_failed', { reason: 'unknown' })
     } finally {
       if (mountedRef.current) {
         setImporting(false)

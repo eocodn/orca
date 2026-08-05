@@ -5,7 +5,6 @@ import { getAgentCatalog } from '@/lib/agent-catalog'
 import { useAppStore } from '@/store'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { applyDocumentTheme } from '@/lib/document-theme'
-import { track } from '@/lib/telemetry'
 import { getSelectedNestedRepoPathsInScanOrder } from '@/lib/nested-repo-selected-paths'
 import { buildAgentPickedPayload } from './agent-picked-payload'
 import { ONBOARDING_FINAL_STEP, ONBOARDING_FLOW_VERSION } from '../../../../shared/constants'
@@ -202,5 +201,3 @@ export async function prepareSkippedOnboardingPreferences({
     return false
   }
 }
-
-

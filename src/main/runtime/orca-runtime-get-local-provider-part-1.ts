@@ -1,4 +1,19 @@
-import { type GlobalSettings, type PersistedUIState, type StatsSummary, type MemorySnapshot, type TerminalQuickCommand, type FeatureInteractionId, type TerminalQuickCommandMutation, applyAgentStatusHooksEnabled, recordManagedHookInstallFailure, type IPtyProvider, collectMemorySnapshot, app, killAllProcessesForWorktree, type RuntimeClientSettings } from './orca-runtime-symbols'
+import {
+  type GlobalSettings,
+  type PersistedUIState,
+  type StatsSummary,
+  type MemorySnapshot,
+  type TerminalQuickCommand,
+  type FeatureInteractionId,
+  type TerminalQuickCommandMutation,
+  applyAgentStatusHooksEnabled,
+  logManagedHookInstallFailure,
+  type IPtyProvider,
+  collectMemorySnapshot,
+  app,
+  killAllProcessesForWorktree,
+  type RuntimeClientSettings
+} from './orca-runtime-symbols'
 import { OrcaRuntimeState } from './orca-runtime-state'
 import type { OrcaRuntimeService } from './orca-runtime'
 
@@ -64,7 +79,7 @@ export class OrcaRuntimeGetLocalProviderPart1 extends OrcaRuntimeState {
       }
       await applyAgentStatusHooksEnabled(settings.agentStatusHooksEnabled !== false, settings, {
         shouldHydrateShellPath: app.isPackaged && process.platform !== 'win32',
-        onInstallError: recordManagedHookInstallFailure,
+        onInstallError: logManagedHookInstallFailure,
         shouldContinue: (agent) => {
           const current = this.store?.getSettings()
           return (

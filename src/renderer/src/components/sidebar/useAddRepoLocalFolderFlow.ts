@@ -1,7 +1,6 @@
 import { getClientRuntime } from '@/runtime/client-runtime'
 import { useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { track } from '@/lib/telemetry'
 import { isGitRepoKind } from '../../../../shared/repo-kind'
 import {
   buildNestedRepoScanTelemetry,
@@ -134,15 +133,7 @@ export function useAddRepoLocalFolderFlow({
           return { status: 'cancelled' }
         }
         clearNestedScanState()
-        track(
-          'add_repo_nested_scan_result',
-          buildNestedRepoScanTelemetry({
-            attemptId,
-            surface: 'sidebar',
-            runtimeKind: 'local',
-            scan
-          })
-        )
+
         if (scan?.selectedPathKind === 'non_git_folder' && mode === 'batch') {
           return { status: 'skipped' }
         }

@@ -1,33 +1,53 @@
 // Repository IPC registration facade; concrete domains own their handler wiring.
 import type { BrowserWindow } from 'electron'
-import { dialog,ipcMain } from 'electron'
+import { dialog, ipcMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../shared/constants'
 import type { ExecutionHostId } from '../../shared/execution-host'
 import { getGitCloneFailureMessage } from '../../shared/git-clone-failure-message'
 import { isFolderRepo } from '../../shared/repo-kind'
-import type { BaseRefDefaultResult,Repo } from '../../shared/types'
-import { getSshGitUsername,resolveLocalGitUsername } from '../git/git-username'
-import { getBaseRefDefault,getRemoteCount,getRepoName,parseRemoteCount,resolveDefaultBaseRefViaExec } from '../git/repo'
-import { claimCloneTarget,cleanupClaimedCloneTarget,deriveValidatedClonePath,getClonePathComparisonKey } from '../git/repo-clone-path'
-import { gitSpawn,nonInteractiveGitEnv } from '../git/runner'
+import type { BaseRefDefaultResult, Repo } from '../../shared/types'
+import { getSshGitUsername, resolveLocalGitUsername } from '../git/git-username'
+import {
+  getBaseRefDefault,
+  getRemoteCount,
+  getRepoName,
+  parseRemoteCount,
+  resolveDefaultBaseRefViaExec
+} from '../git/repo'
+import {
+  claimCloneTarget,
+  cleanupClaimedCloneTarget,
+  deriveValidatedClonePath,
+  getClonePathComparisonKey
+} from '../git/repo-clone-path'
+import { gitSpawn, nonInteractiveGitEnv } from '../git/runner'
 import { runWithGitReadCacheInvalidation } from '../git/status'
 import type { Store } from '../persistence'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
 import { invalidateAuthorizedRootsCache } from './filesystem-auth'
-import type { ActiveCloneMetadata,ActiveRemoteCloneMetadata } from './repo-ipc-clone'
-import { cloneInFlightByPath,latestCloneGenerationByPath,pendingAbortCleanupByPath } from './repo-ipc-clone'
-import { cloneRemoteRepo,emitCloneProgressFromText,emitRepoAdded,getRepoForExecutionHost,searchBaseRefDetailsForRepo } from './repo-ipc-handlers'
+import type { ActiveCloneMetadata, ActiveRemoteCloneMetadata } from './repo-ipc-clone'
+import {
+  cloneInFlightByPath,
+  latestCloneGenerationByPath,
+  pendingAbortCleanupByPath
+} from './repo-ipc-clone'
+import {
+  cloneRemoteRepo,
+  emitCloneProgressFromText,
+  getRepoForExecutionHost,
+  searchBaseRefDetailsForRepo
+} from './repo-ipc-handlers'
 import { notifyReposChanged } from './repo-ipc-imports'
 import { registerProjectGroupHandlers } from './repo-ipc-project-group-registration'
 import { registerRepositoryCatalogHandlers } from './repo-ipc-repository-catalog-registration'
 import { registerRepositoryMutationHandlers } from './repo-ipc-repository-mutation-registration'
 import { registerSparsePresetHandlers } from './repo-ipc-sparse-preset-registration'
 
-export { runNestedRepoScanForIpc,scanNestedReposForIpc } from './repo-ipc-folder-workspaces'
+export { runNestedRepoScanForIpc, scanNestedReposForIpc } from './repo-ipc-folder-workspaces'
 
 let activeClone: ActiveCloneMetadata | null = null
 let activeRemoteClone: ActiveRemoteCloneMetadata | null = null
@@ -206,7 +226,6 @@ export function registerRepoHandlers(mainWindow: BrowserWindow, store: Store): v
           .find((r) => getClonePathComparisonKey(r.path) === clonePathKey)
         if (existingAfterPendingClone && !isFolderRepo(existingAfterPendingClone)) {
           // Why: clone_url always produces a git repo.
-          emitRepoAdded('clone_url', true, true)
           return existingAfterPendingClone
         }
         // Why: gitSpawn cwd is args.destination, so it must exist before spawn (fresh installs may lack the defaulted parent).
@@ -323,11 +342,9 @@ export function registerRepoHandlers(mainWindow: BrowserWindow, store: Store): v
                 invalidateAuthorizedRootsCache()
                 notifyReposChanged(mainWindow)
                 // Why: folder→git upgrade is a real new git repo provisioning event.
-                emitRepoAdded('clone_url', false, true)
                 return updated
               }
             }
-            emitRepoAdded('clone_url', true, true)
             return existing
           }
 
@@ -349,7 +366,6 @@ export function registerRepoHandlers(mainWindow: BrowserWindow, store: Store): v
           await prepareLocalWorktreeRootForRepo(store, repo)
           invalidateAuthorizedRootsCache()
           notifyReposChanged(mainWindow)
-          emitRepoAdded('clone_url', false, true)
           return repo
         } finally {
           const metadata = cloneMetadataRef.current

@@ -1,4 +1,3 @@
-import { track } from '@/lib/telemetry'
 import {
   buildNestedRepoImportActionTelemetry,
   type NestedRepoTelemetryRuntimeKind
@@ -16,15 +15,4 @@ export function trackNestedFolderOpen(args: {
   if (!args.attemptId) {
     return
   }
-  track(
-    'add_repo_nested_import_action',
-    buildNestedRepoImportActionTelemetry({
-      attemptId: args.attemptId,
-      surface: 'sidebar',
-      runtimeKind: args.runtimeKind ?? args.getRuntimeKind(args.connectionId),
-      action: 'open_as_folder',
-      foundCount: args.scan.repos.length,
-      selectedCount: args.selectedCount
-    })
-  )
 }

@@ -111,9 +111,7 @@ import {
 import { createTerminalSessionStateSaveFailureMessage } from '../../shared/terminal-session-state-save-failure'
 import { isSshPtyIdentityMismatchError } from '../providers/ssh-pty-errors'
 import { resolveLocalProjectRuntimeForWorktreeId } from '../local-project-runtime-resolution'
-import { track } from '../telemetry/client'
-import { classifyError } from '../telemetry/classify-error'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
+import { classifyError } from '../diagnostics/error-classifier'
 import {
   agentKindSchema,
   launchSourceSchema,
@@ -263,9 +261,6 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     createTerminalSessionStateSaveFailureMessage,
     isSshPtyIdentityMismatchError,
     classifyError,
-    track,
-    trackTelemetry: track,
-    getCohortAtEmit,
     agentKindSchema,
     launchSourceSchema,
     requestKindSchema,

@@ -8,23 +8,54 @@ import { shouldSkipCodexHomeEnvForWindowsShell } from './pty-ipc-runtime-host-en
 type PtySpawnArgs = Parameters<NonNullable<RuntimePtyController['spawn']>>[0]
 type BindingRollbackReceipt = { rollbackIfCurrent: () => boolean }
 
-export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record<string, any>): NonNullable<RuntimePtyController['spawn']> {
+export function createPtySpawnHandler(
+  state: PtyRendererDeliveryContext & Record<string, any>
+): NonNullable<RuntimePtyController['spawn']> {
   const prepare = createPtySpawnPreparation(state)
   const {
-    runtime, trustedTerminalHandleEnv, reconcileAgentSessionOwnerListings, agentSessionOwners,
+    runtime,
+    trustedTerminalHandleEnv,
+    reconcileAgentSessionOwnerListings,
+    agentSessionOwners,
     assertPtyProviderIdentityCurrent,
-    ptyIncarnationById, snapshotPtyCleanupAuthority, assertPtyCleanupComplete, assertSpawnReplyWasLive,
-    stagePtyIncarnation, tryGetProviderForAgentSessionOwner, isProviderAgentSessionOwnerLive,
-    commitPtyIncarnation, ptyOwnership, registerPty,
-    ptySizes, pendingPtySizes, snapshotPtyPublication, restorePtyPublicationIfCurrent, getSettings, track,
-    isNativeWindowsLocalPtySpawn, markNativeWindowsConptyPty, getRelayPtyId,
-    toSshExecutionHostId, isValidTerminalTabId, isTerminalLeafId, recordCodexPaneAccountForSpawn,
-    rememberPaneKeyForPty, pendingByPaneKey, rendererSerializerReadiness, pendingPtyIdBySerializerGeneration,
-    resolvePaneSpawnReservation, cleanUpFailedFreshSpawn, rejectPaneSpawnReservation, rollbackPtyIncarnation,
-    clearProviderPtyStateIfCurrent, deletePtyOwnership, normalizeNodePtySpawnError,
-    isSshPtyIdentityMismatchError, store, markClaudePtySpawned,
-    getCohortAtEmit, agentKindSchema, launchSourceSchema, requestKindSchema, createTerminalSessionStateSaveFailureMessage,
-    sendPtySpawnedToRenderer,
+    ptyIncarnationById,
+    snapshotPtyCleanupAuthority,
+    assertPtyCleanupComplete,
+    assertSpawnReplyWasLive,
+    stagePtyIncarnation,
+    tryGetProviderForAgentSessionOwner,
+    isProviderAgentSessionOwnerLive,
+    commitPtyIncarnation,
+    ptyOwnership,
+    registerPty,
+    ptySizes,
+    pendingPtySizes,
+    snapshotPtyPublication,
+    restorePtyPublicationIfCurrent,
+    getSettings,
+    isNativeWindowsLocalPtySpawn,
+    markNativeWindowsConptyPty,
+    getRelayPtyId,
+    toSshExecutionHostId,
+    isValidTerminalTabId,
+    isTerminalLeafId,
+    recordCodexPaneAccountForSpawn,
+    rememberPaneKeyForPty,
+    pendingByPaneKey,
+    rendererSerializerReadiness,
+    pendingPtyIdBySerializerGeneration,
+    resolvePaneSpawnReservation,
+    cleanUpFailedFreshSpawn,
+    rejectPaneSpawnReservation,
+    rollbackPtyIncarnation,
+    clearProviderPtyStateIfCurrent,
+    deletePtyOwnership,
+    normalizeNodePtySpawnError,
+    isSshPtyIdentityMismatchError,
+    store,
+    markClaudePtySpawned,
+    createTerminalSessionStateSaveFailureMessage,
+    sendPtySpawnedToRenderer
   } = state
 
   return async (args: PtySpawnArgs) => {
@@ -34,12 +65,32 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
     }
     const prepared = preparation.prepared
     const {
-      cwd, provider, providerIdentity, isClaudeLaunch, daemonShellOverride, isDaemonHostSpawn,
-      sessionId, effectiveSessionRelayId, effectiveSessionAppId, isMintedSessionId, expectedWslDistro,
-      codexSelectionTarget, codexResumeHome, launchCommand, hostSessionBinding, env,
-      selectedCodexHomePath, spawnOptions, reportPtySpawnCommitted,
-      publicationSnapshot: initialPublicationSnapshot, hadSessionSizeBeforeAttach, sessionSizeBeforeAttach,
-      materializedPaneKey, metadataLeafId, paneSpawnReservation, finishTerminalInstall
+      cwd,
+      provider,
+      providerIdentity,
+      isClaudeLaunch,
+      daemonShellOverride,
+      isDaemonHostSpawn,
+      sessionId,
+      effectiveSessionRelayId,
+      effectiveSessionAppId,
+      isMintedSessionId,
+      expectedWslDistro,
+      codexSelectionTarget,
+      codexResumeHome,
+      launchCommand,
+      hostSessionBinding,
+      env,
+      selectedCodexHomePath,
+      spawnOptions,
+      reportPtySpawnCommitted,
+      publicationSnapshot: initialPublicationSnapshot,
+      hadSessionSizeBeforeAttach,
+      sessionSizeBeforeAttach,
+      materializedPaneKey,
+      metadataLeafId,
+      paneSpawnReservation,
+      finishTerminalInstall
     } = prepared
     let publicationSnapshot = initialPublicationSnapshot
     let result: PtySpawnResult
@@ -107,7 +158,10 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
               rejectedRegistrationCandidate = spawnedProviderResult
               assertPtyProviderIdentityCurrent(providerIdentity)
               if (spawnedProviderResult.id === providerSpawnPtyId) {
-                assertPtyCleanupComplete(spawnedProviderResult.id, cleanupAuthorityBeforeProviderSpawn)
+                assertPtyCleanupComplete(
+                  spawnedProviderResult.id,
+                  cleanupAuthorityBeforeProviderSpawn
+                )
               }
               // Why: a successful lower-owner return proves physical work committed even if admission sees an early exit.
               reportPtySpawnCommitted()
@@ -260,8 +314,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
           }
         }
         if (isMintedSessionId && sessionId !== undefined) {
-          const expectedStateToken =
-            failedPublicationStateToken ?? publicationSnapshot?.stateToken
+          const expectedStateToken = failedPublicationStateToken ?? publicationSnapshot?.stateToken
           if (expectedStateToken !== undefined) {
             clearProviderPtyStateIfCurrent(
               sessionId,
@@ -398,19 +451,6 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
       if (isClaudeLaunch) {
         markClaudePtySpawned(result.id)
       }
-      if (args.telemetry) {
-        const agentKindParse = agentKindSchema.safeParse(args.telemetry.agent_kind)
-        const launchSourceParse = launchSourceSchema.safeParse(args.telemetry.launch_source)
-        const requestKindParse = requestKindSchema.safeParse(args.telemetry.request_kind)
-        if (agentKindParse.success && launchSourceParse.success && requestKindParse.success) {
-          track('agent_started', {
-            agent_kind: agentKindParse.data,
-            launch_source: launchSourceParse.data,
-            request_kind: requestKindParse.data,
-            ...getCohortAtEmit()
-          })
-        }
-      }
       // Why: runtime-owned CLI PTYs bypass the renderer pty:spawn handler; record paneKey here too since hook titles and cache cleanup need this reverse lookup.
       const paneKey = rememberPaneKeyForPty(result.id, env?.ORCA_PANE_KEY)
       const pendingSerializer = paneKey ? pendingByPaneKey.get(paneKey) : undefined
@@ -471,10 +511,7 @@ export function createPtySpawnHandler(state: PtyRendererDeliveryContext & Record
           if (rejectedRegistrationCandidate.isReattach) {
             pendingPtySizes.delete(rejectedRegistrationCandidate.id)
             if (publicationSnapshot) {
-              restorePtyPublicationIfCurrent(
-                publicationSnapshot,
-                failedPublicationStateToken
-              )
+              restorePtyPublicationIfCurrent(publicationSnapshot, failedPublicationStateToken)
             }
           } else {
             await cleanUpFailedFreshSpawn(

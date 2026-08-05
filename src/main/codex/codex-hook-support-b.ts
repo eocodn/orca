@@ -1,11 +1,11 @@
-import { existsSync,readFileSync,statSync,unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { win32 as pathWin32 } from 'node:path'
 import type { AgentHookInstallStatus } from '../../shared/agent-hook-types'
 import { resolveHooksJsonWritePath } from '../agent-hooks/hook-config-write-path'
 import {
   buildPosixHookPayloadCapture,
   buildWindowsHookEnvironmentGuardLines,
-  buildWindowsHookStdinDrainEpilogue,
+  buildWindowsHookStdinDrainEpilogue
 } from '../agent-hooks/hook-stdin-contract'
 import {
   buildManagedCommandHook,
@@ -21,10 +21,8 @@ import {
   type HookDefinition
 } from '../agent-hooks/installer-utils'
 import { writeFileAtomically } from '../codex-accounts/fs-utils'
-import { getOrcaManagedCodexHomePath,getSystemCodexHomePath } from './codex-home-paths'
-import {
-  getCodexManagedScriptFileName
-} from './codex-hook-identity'
+import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
+import { getCodexManagedScriptFileName } from './codex-hook-identity'
 import {
   CODEX_EVENT_LABEL,
   CODEX_EVENTS,
@@ -416,8 +414,7 @@ export function installManagedHooksIntoWslRuntime(
       tomlPath: plan.tomlPath,
       managedCommand: command,
       managedEntries: trustEntries,
-      host: { kind: 'wsl', distro: plan.wslDistro, linuxRuntimeHome: plan.linuxRuntimeHome },
-      telemetryLane: 'managed'
+      host: { kind: 'wsl', distro: plan.wslDistro, linuxRuntimeHome: plan.linuxRuntimeHome }
     })
     if (grant.lane === 'fallback') {
       // Why: WSL runtime homes may carry user hook approvals we did not rebuild

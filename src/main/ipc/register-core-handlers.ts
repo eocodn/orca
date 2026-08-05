@@ -41,7 +41,6 @@ import { registerWorkspaceSpaceHandlers } from './workspace-space'
 import { registerWorkspacePortHandlers } from './workspace-ports'
 import { registerLocalhostWorktreeLabelHandlers } from './localhost-worktree-labels'
 import { registerKeybindingHandlers } from './keybindings'
-import { registerTelemetryHandlers } from './telemetry'
 import { registerShellHandlers } from './shell'
 import { registerPetHandlers } from './pet'
 import { registerPluginHandlers } from './plugins'
@@ -170,7 +169,6 @@ export function registerCoreHandlers(
   if (pluginService) {
     registerPluginHandlers(store, pluginService, runtime)
   }
-  registerTelemetryHandlers(store)
   registerOrcaProfileHandlers(store, {
     onBeforeRelaunch: lifecycleOptions.onBeforeRelaunch,
     onAuthMutation: lifecycleOptions.onOrcaProfileAuthMutation,

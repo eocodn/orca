@@ -1,19 +1,44 @@
 import { ipcMain } from 'electron'
 import type { BrowserWindow } from 'electron'
 import type { Store } from '../persistence'
-import type { Project, ProjectHostSetupCreateArgs, ProjectHostSetupCreateResult, ProjectHostSetupDeleteArgs, ProjectHostSetupDeleteResult, ProjectHostSetupExistingFolderArgs, ProjectHostSetupResult, ProjectHostSetupUpdateArgs, ProjectHostSetupUpdateResult, ProjectUpdateArgs } from '../../shared/types'
-import type { HostRepoCatalogSnapshot, ListReposForExecutionHostArgs } from '../../shared/host-repo-catalog-contract'
+import type {
+  Project,
+  ProjectHostSetupCreateArgs,
+  ProjectHostSetupCreateResult,
+  ProjectHostSetupDeleteArgs,
+  ProjectHostSetupDeleteResult,
+  ProjectHostSetupExistingFolderArgs,
+  ProjectHostSetupResult,
+  ProjectHostSetupUpdateArgs,
+  ProjectHostSetupUpdateResult,
+  ProjectUpdateArgs
+} from '../../shared/types'
+import type {
+  HostRepoCatalogSnapshot,
+  ListReposForExecutionHostArgs
+} from '../../shared/host-repo-catalog-contract'
 import { parseExecutionHostId } from '../../shared/execution-host'
 import { invalidateAuthorizedRootsCache } from './filesystem-auth'
 import { enrichMissingRepoGitRemoteIdentities } from '../repo-git-remote-identity-enrichment'
 import { enrichRepoGitUsernames } from '../repo-git-username-enrichment'
 import { prepareLocalWorktreeRootForRepo } from '../worktree-root-preparation'
-import { addLocalRepoFromPath, addRemoteRepoFromPath, alignRepoWithRequestedProject, emitRepoAdded, getDefaultCreateProjectParent, isGitAvailable, listReposForExecutionHost, notifyReposChanged, parseProjectGroupIpcArgs, ProjectHostSetupCreateIpcArgs, ProjectHostSetupDeleteIpcArgs, ProjectHostSetupExistingFolderIpcArgs, ProjectHostSetupUpdateIpcArgs, ProjectUpdateIpcArgs } from './repo-ipc-handlers'
+import {
+  addLocalRepoFromPath,
+  addRemoteRepoFromPath,
+  alignRepoWithRequestedProject,
+  getDefaultCreateProjectParent,
+  isGitAvailable,
+  listReposForExecutionHost,
+  notifyReposChanged,
+  parseProjectGroupIpcArgs,
+  ProjectHostSetupCreateIpcArgs,
+  ProjectHostSetupDeleteIpcArgs,
+  ProjectHostSetupExistingFolderIpcArgs,
+  ProjectHostSetupUpdateIpcArgs,
+  ProjectUpdateIpcArgs
+} from './repo-ipc-handlers'
 
-export function registerRepositoryCatalogHandlers(
-  mainWindow: BrowserWindow,
-  store: Store
-): void {
+export function registerRepositoryCatalogHandlers(mainWindow: BrowserWindow, store: Store): void {
   ipcMain.handle('repos:list', () => {
     enrichMissingRepoGitRemoteIdentities(store, {
       onChanged: () => notifyReposChanged(mainWindow)
@@ -160,7 +185,6 @@ export function registerRepositoryCatalogHandlers(
       }
       invalidateAuthorizedRootsCache()
       notifyReposChanged(mainWindow)
-      emitRepoAdded('folder_picker', result.alreadyExisted)
       if (result.alreadyExisted) {
         await prepareLocalWorktreeRootForRepo(store, aligned.repo)
       }
@@ -170,5 +194,4 @@ export function registerRepositoryCatalogHandlers(
 
   ipcMain.handle('repos:isGitAvailable', () => isGitAvailable())
   ipcMain.handle('repos:getDefaultCreateProjectParent', () => getDefaultCreateProjectParent())
-
 }

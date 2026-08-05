@@ -1,6 +1,5 @@
 import { useAppStore } from '@/store'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
-import { track } from '@/lib/telemetry'
 import type {
   AddRepoDefaultCheckoutHandoffSource,
   EventProps
@@ -199,11 +198,6 @@ export async function openProjectDefaultCheckout({
       executionHostId
     )
     if (revealLinkedFailureReason) {
-      track('add_repo_default_checkout_handoff', {
-        source,
-        result: 'revealed_project',
-        reason: revealLinkedFailureReason
-      })
       finalizeImportedRepoAfterSkip(useAppStore.getState(), repoId)
       return
     }
@@ -213,11 +207,7 @@ export async function openProjectDefaultCheckout({
     if (state.hideDefaultBranchWorkspace) {
       setHideDefaultBranchWorkspace(false)
     }
-    track('add_repo_default_checkout_handoff', {
-      source,
-      result: 'opened_default_checkout',
-      reason
-    })
+
     const initialCwd = resolveInitialCwdForDefaultCheckout(defaultCheckout, selectedPath)
     if (initialCwd || executionHostId) {
       activateAndRevealWorktree(defaultCheckout.id, {
@@ -230,11 +220,6 @@ export async function openProjectDefaultCheckout({
     return
   }
 
-  track('add_repo_default_checkout_handoff', {
-    source,
-    result: 'revealed_project',
-    reason
-  })
   finalizeImportedRepoAfterSkip(useAppStore.getState(), repoId)
 }
 

@@ -1,5 +1,4 @@
 import { useCallback, useRef } from 'react'
-import { track } from '@/lib/telemetry'
 import { useAppStore } from '@/store'
 import { ONBOARDING_FINAL_STEP, ONBOARDING_FLOW_VERSION } from '../../../../shared/constants'
 import type { EventProps } from '../../../../shared/telemetry-events'
@@ -63,9 +62,7 @@ export function buildOnboardingDismissedPayload(
 export function trackOnboardingDismissed(
   lastStepReached: StepNumber,
   dismissedExtras?: DismissedExtras
-): void {
-  track('onboarding_dismissed', buildOnboardingDismissedPayload(lastStepReached, dismissedExtras))
-}
+): void {}
 
 export function useCloseWith({
   onOnboardingChange,
@@ -120,25 +117,14 @@ export function useCloseWith({
         // Why: no `is_git_repo` — project selection now happens in the Add
         // Project modal after this fires, so the signal moved to
         // `repo_added.is_git_repo`.
-        track('onboarding_completed', {
-          path: completedPath,
-          total_duration_ms: total
-        })
+
         // Why: checklist items completed by the wizard itself must fire
         // `activation_checklist_item_completed` so the post-wizard panel and
         // analytics agree. Other items (ranFirstAgent, triedCmdJ, …) emit
         // from their own product surfaces.
         if (checklist.addedRepo && !onboardingChecklist.addedRepo) {
-          track('activation_checklist_item_completed', {
-            item: 'addedRepo',
-            time_since_completed_ms: 0
-          })
         }
         if (checklist.addedFolder && !onboardingChecklist.addedFolder) {
-          track('activation_checklist_item_completed', {
-            item: 'addedFolder',
-            time_since_completed_ms: 0
-          })
         }
       }
       if (outcome === 'completed') {
@@ -206,10 +192,6 @@ export function usePersistCurrentStep({
           })
         )
         if (choseAgent && !wasAlreadyChosen) {
-          track('activation_checklist_item_completed', {
-            item: 'choseAgent',
-            time_since_completed_ms: 0
-          })
         }
         return { ok: true }
       }

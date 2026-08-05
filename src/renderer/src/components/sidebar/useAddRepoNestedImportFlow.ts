@@ -1,6 +1,5 @@
 import { useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { track } from '@/lib/telemetry'
 import { useAppStore } from '@/store'
 import { getSelectedNestedRepoPathsInScanOrder } from '@/lib/nested-repo-selected-paths'
 import {
@@ -75,17 +74,6 @@ export function useAddRepoNestedImportFlow({
     if (!nestedScan || !nestedAttemptId) {
       return
     }
-    track(
-      'add_repo_nested_import_action',
-      buildNestedRepoImportActionTelemetry({
-        attemptId: nestedAttemptId,
-        surface: 'sidebar',
-        runtimeKind: nestedRuntimeKind ?? getNestedRepoRuntimeKind(nestedConnectionId),
-        action: 'back',
-        foundCount: nestedScan.repos.length,
-        selectedCount: nestedSelectedPaths.size
-      })
-    )
   }, [
     getNestedRepoRuntimeKind,
     nestedAttemptId,
@@ -117,17 +105,7 @@ export function useAddRepoNestedImportFlow({
       const runtimeKind = nestedRuntimeKind ?? getNestedRepoRuntimeKind(nestedConnectionId)
       const gen = ++nestedImportGenRef.current
       setIsAdding(true)
-      track(
-        'add_repo_nested_import_action',
-        buildNestedRepoImportActionTelemetry({
-          attemptId,
-          surface: 'sidebar',
-          runtimeKind,
-          action: mode === 'group' ? 'import_group' : 'import_separate',
-          foundCount,
-          selectedCount
-        })
-      )
+
       let resultTracked = false
       try {
         const result = await importNestedRepos({
@@ -139,18 +117,7 @@ export function useAddRepoNestedImportFlow({
           runtimeEnvironmentId: nestedRuntimeEnvironmentId,
           mode
         })
-        track(
-          'add_repo_nested_import_result',
-          buildNestedRepoImportResultTelemetry({
-            attemptId,
-            surface: 'sidebar',
-            runtimeKind,
-            mode,
-            foundCount,
-            selectedCount,
-            result
-          })
-        )
+
         resultTracked = true
         if (!result) {
           return
@@ -212,18 +179,6 @@ export function useAddRepoNestedImportFlow({
         }
       } finally {
         if (!resultTracked) {
-          track(
-            'add_repo_nested_import_result',
-            buildNestedRepoImportResultTelemetry({
-              attemptId,
-              surface: 'sidebar',
-              runtimeKind,
-              mode,
-              foundCount,
-              selectedCount,
-              result: null
-            })
-          )
         }
         if (gen === nestedImportGenRef.current) {
           setIsAdding(false)

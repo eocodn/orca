@@ -69,7 +69,6 @@ export function startTerminalRuntimeStartupServices(): Promise<void> {
       console.error(
         `[daemon] STARTUP FAILED — falling back to local PTYs; terminals will not persist across quit. Reason: ${reason}`
       )
-      startupDeps.track('daemon_start_failed', startupDeps.classifyError(error))
     },
     onAgentHookServerError: (error) => {
       // Why: hook callbacks are sidebar enrichment only; Orca must still boot if the loopback receiver fails.
@@ -156,8 +155,10 @@ export function prepareCodexRuntimeHomeForLaunch(
         // Why: a managed account's launch home is its own self-contained
         // CODEX_HOME, so hooks/trust must install there, not the shared mirror.
         startupDeps.codexHookService.install(runtimeHomePath ?? undefined))
-      : (startupDeps.codexHookService.refreshRuntimeUserHooksForRuntimeHome(runtimeHomePath, hookTarget) ??
-        startupDeps.codexHookService.refreshRuntimeUserHooks(runtimeHomePath ?? undefined))
+      : (startupDeps.codexHookService.refreshRuntimeUserHooksForRuntimeHome(
+          runtimeHomePath,
+          hookTarget
+        ) ?? startupDeps.codexHookService.refreshRuntimeUserHooks(runtimeHomePath ?? undefined))
     if (status.state === 'error') {
       console.warn(
         `[codex-hook-service] failed to ${
@@ -203,7 +204,8 @@ export async function prepareCodexSessionResumeForLaunch(args: {
     // Why: the legacy id rescan's winning home becomes this pane's CODEX_HOME, i.e. its account;
     // rank it by the current selection so settings insertion order can never decide the account.
     // Lazy: only the legacy branch ranks, so a provenance-present resume never stats the marker.
-    getSelectedAccountCodexHome: () => startupState.codexRuntimeHome!.getSelectedHostAccountCodexHomePath(),
+    getSelectedAccountCodexHome: () =>
+      startupState.codexRuntimeHome!.getSelectedHostAccountCodexHomePath(),
     systemCodexHomePath: systemHomePath,
     // Why: the mirror winning is what triggers the migration into ~/.codex below, so it must
     // outrank the path-sorted account homes or a system-default selection resumes as an account.
@@ -219,7 +221,8 @@ export async function prepareCodexSessionResumeForLaunch(args: {
             codexHome: sessionSource.homePath
           },
           {
-            isHostSystemDefaultRealHome: () => startupState.codexRuntimeHome!.isHostSystemDefaultRealHome(),
+            isHostSystemDefaultRealHome: () =>
+              startupState.codexRuntimeHome!.isHostSystemDefaultRealHome(),
             systemCodexHomePath: systemHomePath
           }
         )
@@ -245,7 +248,10 @@ export async function prepareCodexSessionResumeForLaunch(args: {
       const hooksEnabled = startupDeps.isAgentStatusHooksEnabled(settingsStore.getSettings())
       try {
         if (isSystemHome) {
-          startupDeps.ensureRealHomeCodexHookState({ hooksEnabled, userDataPath: startupDeps.app.getPath('userData') })
+          startupDeps.ensureRealHomeCodexHookState({
+            hooksEnabled,
+            userDataPath: startupDeps.app.getPath('userData')
+          })
         } else if (hooksEnabled) {
           startupDeps.codexHookService.install(resumeHome)
         } else {

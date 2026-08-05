@@ -16,7 +16,6 @@ import { join, dirname, isAbsolute, resolve, sep } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 
-
 import {
   deriveGlobalWindowsRuntimeDefaultFromLegacySettings,
   normalizeProjectRuntimePreference
@@ -44,9 +43,7 @@ import {
   removeRepoFromWorkspaceSession
 } from './orca-profiles/profile-project-session-state'
 import { hardenExistingSecureFile } from '../shared/secure-file'
-import {
-  LEGACY_DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS
-} from '../shared/ssh-types'
+import { LEGACY_DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS } from '../shared/ssh-types'
 import { isFolderRepo } from '../shared/repo-kind'
 import {
   getRepoExecutionHostId,
@@ -128,9 +125,7 @@ import {
 } from '../shared/feature-interactions'
 import { normalizeContextualTourIds } from '../shared/contextual-tours'
 import { normalizeFeatureTipIds } from '../shared/feature-tips'
-import {
-  parseCodexResetCreditAttemptLedger
-} from '../shared/codex-reset-credit-attempt-ledger'
+import { parseCodexResetCreditAttemptLedger } from '../shared/codex-reset-credit-attempt-ledger'
 import { normalizeManualRepoOrder } from '../shared/manual-repo-order'
 import {
   DEFAULT_WORKSPACE_STATUS_ID,
@@ -200,8 +195,6 @@ import {
   migrateWorkspaceSessionTerminalScrollbackSnapshots,
   readTerminalScrollbackSnapshotSync
 } from './terminal-scrollback-snapshots'
-import { track } from './telemetry/client'
-import { getCohortAtEmit } from './telemetry/cohort-classifier'
 import { isStartupDiagnosticsEnabled, logStartupDiagnostic } from './startup/startup-diagnostics'
 import {
   cloneLayoutNode,
@@ -435,8 +428,7 @@ export const persistenceLoadDependencies = {
   getProfileTerminalScrollbackSnapshotRoot,
   migrateWorkspaceSessionTerminalScrollbackSnapshots,
   readTerminalScrollbackSnapshotSync,
-  track,
-  getCohortAtEmit,
+
   isStartupDiagnosticsEnabled,
   logStartupDiagnostic,
   cloneLayoutNode,

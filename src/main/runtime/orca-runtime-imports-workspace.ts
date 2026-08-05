@@ -164,7 +164,7 @@ export {
 } from '../agent-trust-presets'
 export { markRemoteAgentWorkspaceTrusted } from '../remote-agent-trust-presets'
 export { applyAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
-export { recordManagedHookInstallFailure } from '../agent-hooks/install-telemetry'
+export { logManagedHookInstallFailure } from '../agent-hooks/install-diagnostics'
 export {
   isWindowsAbsolutePathLike,
   isPathInsideOrEqual,

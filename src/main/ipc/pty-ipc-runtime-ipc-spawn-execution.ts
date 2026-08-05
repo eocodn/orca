@@ -3,8 +3,6 @@ import type { PtySpawnResult } from '../providers/types'
 import type { PtyRendererDeliveryContext } from './pty-ipc-runtime-renderer-delivery-context'
 import { createPtyIpcSpawnPreparation } from './pty-ipc-runtime-ipc-spawn-preparation'
 import { SSH_SESSION_EXPIRED_ERROR } from '../providers/ssh-pty-errors'
-import { classifyError } from '../telemetry/classify-error'
-import { track } from '../telemetry/client'
 import { toSshExecutionHostId } from '../../shared/execution-host'
 import { isValidTerminalTabId } from '../../shared/terminal-tab-id'
 import { shouldSkipCodexHomeEnvForWindowsShell } from './pty-ipc-runtime-host-env-foundation'
@@ -12,23 +10,48 @@ import { agentHookServer } from '../agent-hooks/server'
 
 type BindingRollbackReceipt = { rollbackIfCurrent: () => boolean }
 
-export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Record<string, any>): NonNullable<RuntimePtyController['spawn']> {
+export function createPtyIpcSpawnHandler(
+  state: PtyRendererDeliveryContext & Record<string, any>
+): NonNullable<RuntimePtyController['spawn']> {
   const prepare = createPtyIpcSpawnPreparation(state)
   const {
-    runtime, store, trustedTerminalHandleEnv, ptySizes, pendingPtySizes, ptyOwnership,
+    runtime,
+    store,
+    trustedTerminalHandleEnv,
+    ptySizes,
+    pendingPtySizes,
+    ptyOwnership,
     assertPtyProviderIdentityCurrent,
     getRelayPtyId,
-    assertPtyCleanupComplete, assertSpawnReplyWasLive, stagePtyIncarnation,
-    rollbackPtyIncarnation, commitPtyIncarnation, clearProviderPtyStateIfCurrent, deletePtyOwnership,
-    snapshotPtyCleanupAuthority, snapshotPtyPublication, restorePtyPublicationIfCurrent,
-    registerPty, recordCodexPaneAccountForSpawn,
-    rememberPaneKeyForPty, pendingByPaneKey, pendingPtyIdBySerializerGeneration,
-    rendererSerializerReadiness, sendPtySpawnedToRenderer, resolvePaneSpawnReservation,
-    rejectPaneSpawnReservation, cleanUpFailedFreshSpawn, transitionSpawnHiddenRendererPtyDeliveryState,
-    clearMigrationUnsupportedPtysForPaneKey, closeStartupQueryAuthorityForPty,
-    syncPtyBackgroundedDelivery, getSettings,
-    getCohortAtEmit, agentKindSchema, launchSourceSchema, requestKindSchema, createTerminalSessionStateSaveFailureMessage,
-    normalizeNodePtySpawnError, isSshPtyIdentityMismatchError, markClaudePtySpawned,
+    assertPtyCleanupComplete,
+    assertSpawnReplyWasLive,
+    stagePtyIncarnation,
+    rollbackPtyIncarnation,
+    commitPtyIncarnation,
+    clearProviderPtyStateIfCurrent,
+    deletePtyOwnership,
+    snapshotPtyCleanupAuthority,
+    snapshotPtyPublication,
+    restorePtyPublicationIfCurrent,
+    registerPty,
+    recordCodexPaneAccountForSpawn,
+    rememberPaneKeyForPty,
+    pendingByPaneKey,
+    pendingPtyIdBySerializerGeneration,
+    rendererSerializerReadiness,
+    sendPtySpawnedToRenderer,
+    resolvePaneSpawnReservation,
+    rejectPaneSpawnReservation,
+    cleanUpFailedFreshSpawn,
+    transitionSpawnHiddenRendererPtyDeliveryState,
+    clearMigrationUnsupportedPtysForPaneKey,
+    closeStartupQueryAuthorityForPty,
+    syncPtyBackgroundedDelivery,
+    getSettings,
+    createTerminalSessionStateSaveFailureMessage,
+    normalizeNodePtySpawnError,
+    isSshPtyIdentityMismatchError,
+    markClaudePtySpawned,
     markNativeWindowsConptyPty
   } = state
 
@@ -39,15 +62,41 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
     }
     const prepared = preparation.prepared
     let {
-      spawnTiming, startupCwdFallback, cwd, provider, providerIdentity, isClaudeLaunch, isDaemonHostSpawn, isMintedSessionId,
-      effectiveSessionId, effectiveSessionAppId, effectiveSessionRelayId, expectedWslDistro,
-      metadataLeafId, legacySpawnPaneKey, migrationUnsupportedPaneKey,
-      effectiveLaunchConfig, preAllocatedHandle,
-      validatedPaneKey, reservationPaneKey, validatedLeafId, effectiveShellOverride,
-      nativeWindowsConptySpawn, codexSelectionTarget, codexResumeLaunch, codexResumeHome, launchCommand,
-      selectedCodexHomePath, spawnOptions, publicationSnapshot, hadSessionSizeBeforeAttach,
-      sessionSizeBeforeAttach, finishTerminalInstall, paneSpawnReservation,
-      initiallyHidden, preSpawnHiddenMarkId
+      spawnTiming,
+      startupCwdFallback,
+      cwd,
+      provider,
+      providerIdentity,
+      isClaudeLaunch,
+      isDaemonHostSpawn,
+      isMintedSessionId,
+      effectiveSessionId,
+      effectiveSessionAppId,
+      effectiveSessionRelayId,
+      expectedWslDistro,
+      metadataLeafId,
+      legacySpawnPaneKey,
+      migrationUnsupportedPaneKey,
+      effectiveLaunchConfig,
+      preAllocatedHandle,
+      validatedPaneKey,
+      reservationPaneKey,
+      validatedLeafId,
+      effectiveShellOverride,
+      nativeWindowsConptySpawn,
+      codexSelectionTarget,
+      codexResumeLaunch,
+      codexResumeHome,
+      launchCommand,
+      selectedCodexHomePath,
+      spawnOptions,
+      publicationSnapshot,
+      hadSessionSizeBeforeAttach,
+      sessionSizeBeforeAttach,
+      finishTerminalInstall,
+      paneSpawnReservation,
+      initiallyHidden,
+      preSpawnHiddenMarkId
     } = prepared
     let result: PtySpawnResult
     let rejectedRegistrationCandidate: PtySpawnResult | null = null
@@ -188,8 +237,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
         }
         // Why: provider state buildPtyHostEnv materialized for this minted id leaks if spawn failed.
         if (isMintedSessionId && effectiveSessionId !== undefined) {
-          const expectedStateToken =
-            failedPublicationStateToken ?? publicationSnapshot?.stateToken
+          const expectedStateToken = failedPublicationStateToken ?? publicationSnapshot?.stateToken
           if (expectedStateToken !== undefined) {
             clearProviderPtyStateIfCurrent(
               effectiveSessionId,
@@ -197,24 +245,6 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
               rejectedRegistrationCandidate?.incarnationId
             )
           }
-        }
-        // Why: telemetry-plan.md§agent_error — attribute the error to the renderer-threaded agent_kind, else sniff the command for `claude`; raw messages are dropped at the validator boundary.
-        const rendererAgentKindParse =
-          args.telemetry?.agent_kind !== undefined
-            ? agentKindSchema.safeParse(args.telemetry.agent_kind)
-            : null
-        const errorAgentKind = rendererAgentKindParse?.success
-          ? rendererAgentKindParse.data
-          : isClaudeLaunch
-            ? ('claude-code' as const)
-            : null
-        if (errorAgentKind) {
-          const classified = classifyError(spawnError)
-          track('agent_error', {
-            agent_kind: errorAgentKind,
-            error_class: classified.error_class,
-            ...getCohortAtEmit()
-          })
         }
         if (!rawMessage.includes(SSH_SESSION_EXPIRED_ERROR) && publicationSnapshot) {
           restorePtyPublicationIfCurrent(publicationSnapshot, failedPublicationStateToken)
@@ -280,9 +310,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
         markNativeWindowsConptyPty(result.id)
       }
       // Why: when the renderer has declared it will own the serializer for this paneKey, suppress the daemon-snapshot seed so its hydration path is sole authority (keyed on paneKey since the ptyId isn't known yet). See docs/mobile-prefer-renderer-scrollback.md.
-      const rendererPreSignaled = validatedPaneKey
-        ? pendingByPaneKey.has(validatedPaneKey)
-        : false
+      const rendererPreSignaled = validatedPaneKey ? pendingByPaneKey.has(validatedPaneKey) : false
       const rendererAlreadyRegistered =
         result.isReattach === true &&
         !rendererPreSignaled &&
@@ -442,20 +470,6 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
           lastAttachedAt: Date.now()
         })
       }
-      // Why: telemetry-plan.md§Agent launch semantics — fire agent_started only after spawn resolved; safeParse each field so a spoofed IPC payload can't poison the event (missing required field skips it).
-      if (args.telemetry) {
-        const agentKindParse = agentKindSchema.safeParse(args.telemetry.agent_kind)
-        const launchSourceParse = launchSourceSchema.safeParse(args.telemetry.launch_source)
-        const requestKindParse = requestKindSchema.safeParse(args.telemetry.request_kind)
-        if (agentKindParse.success && launchSourceParse.success && requestKindParse.success) {
-          track('agent_started', {
-            agent_kind: agentKindParse.data,
-            launch_source: launchSourceParse.data,
-            request_kind: requestKindParse.data,
-            ...getCohortAtEmit()
-          })
-        }
-      }
       const response = {
         ...result,
         ...(!result.isReattach && effectiveLaunchConfig
@@ -492,10 +506,7 @@ export function createPtyIpcSpawnHandler(state: PtyRendererDeliveryContext & Rec
           if (rejectedRegistrationCandidate.isReattach) {
             pendingPtySizes.delete(rejectedRegistrationCandidate.id)
             if (publicationSnapshot) {
-              restorePtyPublicationIfCurrent(
-                publicationSnapshot,
-                failedPublicationStateToken
-              )
+              restorePtyPublicationIfCurrent(publicationSnapshot, failedPublicationStateToken)
             }
           } else {
             await cleanUpFailedFreshSpawn(

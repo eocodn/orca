@@ -9,7 +9,7 @@ import {
   type HookDefinition
 } from '../agent-hooks/installer-utils'
 import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
-import { getOrcaManagedCodexHomePath,getSystemCodexHomePath } from './codex-home-paths'
+import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex-home-paths'
 import { getCodexManagedScriptFileName } from './codex-hook-identity'
 import * as supportA from './codex-hook-support-a'
 import * as supportB from './codex-hook-support-b'
@@ -171,8 +171,7 @@ export function install(
       tomlPath,
       managedCommand: command,
       managedEntries: managedTrustEntries,
-      host: { kind: 'native' },
-      telemetryLane: 'managed'
+      host: { kind: 'native' }
     })
     if (grant.lane === 'rpc') {
       recentGrantEntries = grant.entries

@@ -171,7 +171,7 @@ export async function initializeReadyPlugins(): Promise<void> {
       void startupDeps
         .applyAgentStatusHooksEnabled(true, managedHookStore.getSettings(), {
           shouldHydrateShellPath: startupDeps.app.isPackaged && process.platform !== 'win32',
-          onInstallError: startupDeps.recordManagedHookInstallFailure,
+          onInstallError: startupDeps.logManagedHookInstallFailure,
           shouldContinue: (agent) => {
             const settings = managedHookStore.getSettings()
             return (

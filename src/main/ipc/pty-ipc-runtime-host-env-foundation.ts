@@ -56,6 +56,17 @@ export type BuildPtyHostEnvOptions = {
   deferGitConfigGuardToDaemon?: boolean
 }
 
+// These keys belonged to the retired Git/PR attribution feature. Scrub them
+// from inherited environments so terminals launched from an older Orca build
+// cannot re-enable attribution through stale process state.
+export const RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS = [
+  'ORCA_ENABLE_GIT_ATTRIBUTION',
+  'ORCA_GIT_COMMIT_TRAILER',
+  'ORCA_GH_PR_FOOTER',
+  'ORCA_GH_ISSUE_FOOTER',
+  'ORCA_ATTRIBUTION_SHIM_DIR'
+] as const
+
 export function readInheritedPath(baseEnv: Record<string, string>): string {
   return baseEnv.PATH ?? baseEnv.Path ?? process.env.PATH ?? process.env.Path ?? ''
 }

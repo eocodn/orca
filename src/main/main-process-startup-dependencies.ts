@@ -40,9 +40,8 @@ export { disposeWorktreeBaseDirectoryWatchers } from './ipc/worktree-base-direct
 export { registerCoreHandlers } from './ipc/register-core-handlers'
 export { initObservability, shutdownObservability } from './observability'
 export { registerMobileHandlers } from './ipc/mobile'
-export { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
-export { classifyError } from './telemetry/classify-error'
-export { recordManagedHookInstallFailure } from './agent-hooks/install-telemetry'
+export { classifyError } from './diagnostics/error-classifier'
+export { logManagedHookInstallFailure } from './agent-hooks/install-diagnostics'
 export {
   indexPersistedPaneKeyPtyIds,
   isLocalExecutionHost,
@@ -54,9 +53,6 @@ export {
   isAgentStatusHooksEnabled,
   removeManagedAgentHooks
 } from './agent-hooks/managed-agent-hook-controls'
-export { initCohortClassifier } from './telemetry/cohort-classifier'
-export { initOnboardingCohortClassifier } from './telemetry/onboarding-cohort-classifier'
-export { resolveConsent } from './telemetry/consent'
 export { triggerStartupNotificationRegistration } from './ipc/notifications'
 export { OrcaRuntimeService, type RuntimeWorktreeLifecycleEvent } from './runtime/orca-runtime'
 export { loadAgentSessionClaimSigner } from './runtime/agent-session-claim-identity'
@@ -191,7 +187,6 @@ export {
   ensureRealHomeCodexHookState,
   isRealHomeCodexHookLaneUsable
 } from './codex/codex-real-home-hook-install'
-export { setCodexTrustGrantTelemetry } from './codex/codex-trust-grant-telemetry'
 export { startCodexSessionBackfillInBackground } from './codex/codex-session-backfill'
 export { startCodexSessionIndexHealInBackground } from './codex/codex-session-index-heal'
 export { createCodexSessionMigrationScheduler } from './codex/codex-session-migration-scheduler'

@@ -54,6 +54,14 @@ import {
   spawnDaemonPtyWithWindowsFallback
 } from './daemon-pty-spawn-support'
 
+const RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS = [
+  'ORCA_ENABLE_GIT_ATTRIBUTION',
+  'ORCA_GIT_COMMIT_TRAILER',
+  'ORCA_GH_PR_FOOTER',
+  'ORCA_GH_ISSUE_FOOTER',
+  'ORCA_ATTRIBUTION_SHIM_DIR'
+] as const
+
 export type { PtySubprocessOptions } from './daemon-pty-spawn-support'
 export { checkPtySpawnHealth } from './daemon-pty-spawn-support'
 
@@ -69,6 +77,9 @@ export function createPtySubprocess(opts: PtySubprocessOptions): SubprocessHandl
     // Why: `supports-hyperlinks` gates OSC 8 on a TERM_PROGRAM allowlist excluding Orca; force it since xterm.js parses OSC 8 for clickable links.
     FORCE_HYPERLINK: '1'
   } as Record<string, string>
+  for (const key of RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS) {
+    delete env[key]
+  }
   composeGuardedDaemonGitConfigEnv(env, opts.env, opts.launchAgent)
   deleteRequestedDaemonEnvKeys(env, opts.envToDelete)
   if (opts.env?.TERM) {

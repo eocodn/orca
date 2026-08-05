@@ -160,7 +160,6 @@ import { selectActiveTerminalChromeState } from './store/active-terminal-chrome-
 import type { VirtualizedScrollAnchor } from './hooks/useVirtualizedScrollAnchor'
 import type { OnboardingState } from '../../shared/types'
 import { getFeatureTipsAppOpenDecision } from './components/feature-tips/feature-tip-startup-gate'
-import { trackCmdJPaletteFeatureTipShown } from './components/feature-tips/feature-tip-telemetry'
 import {
   keybindingMatchesAction,
   type KeybindingActionId,
@@ -224,7 +223,6 @@ import {
   RemoteServerUpdateDialog,
   Settings,
   SetupGuideModal,
-  SetupGuideTelemetryObserver,
   shouldMountUpdateCardForStatus,
   SkillsPage,
   SshPassphraseDialog,
@@ -270,7 +268,6 @@ export function AppShellPageRenderer(props: Record<string, unknown>): React.JSX.
     shouldMountContextualTourOverlay,
     shouldMountDictationController,
     shouldMountFloatingTerminalPanel,
-    shouldMountSetupGuideTelemetryObserver,
     shouldMountTerminalWorkbench,
     shouldMountUpdateCard,
     shouldRenderOnboarding,
@@ -675,11 +672,6 @@ export function AppShellPageRenderer(props: Record<string, unknown>): React.JSX.
                 </RecoverableRenderErrorBoundary>
               ) : null}
             </Suspense>
-            {shouldMountSetupGuideTelemetryObserver ? (
-              <Suspense fallback={null}>
-                <SetupGuideTelemetryObserver />
-              </Suspense>
-            ) : null}
             {shouldMountContextualTourOverlay ? (
               <Suspense fallback={null}>
                 <ContextualTourOverlay />
@@ -727,14 +719,6 @@ export function AppShellPageRenderer(props: Record<string, unknown>): React.JSX.
               <StarNagToastHost />
             </RecoverableRenderErrorBoundary>
             <StarNagAgentValueMomentObserver />
-            {/* Why: mount at App root to render once per session; internal cohort gate limits it to pre-telemetry users â see telemetry-plan.md Â§First-launch experience. */}
-            <RecoverableRenderErrorBoundary
-              boundaryId="overlay.telemetry-first-launch"
-              surface="overlay"
-              resetKey={settings?.telemetry?.optedIn ?? 'unknown'}
-              compact
-            >
-            </RecoverableRenderErrorBoundary>
             <RecoverableRenderErrorBoundary
               boundaryId="overlay.zoom"
               surface="overlay"

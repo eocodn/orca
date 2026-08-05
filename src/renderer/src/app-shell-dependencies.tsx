@@ -71,10 +71,14 @@ export const WorktreeCreationPanel = lazy(
   () => import('./components/worktree-creation/WorktreeCreationPanel')
 )
 export const TaskPage = lazy(() => import('./components/TaskPage'))
-export const ActivityPrototypePage = lazy(() => import('./components/activity/ActivityPrototypePage'))
+export const ActivityPrototypePage = lazy(
+  () => import('./components/activity/ActivityPrototypePage')
+)
 export const Settings = lazy(() => import('./components/settings/Settings'))
 export const SkillsPage = lazy(() => import('./components/skills/SkillsPage'))
-export const WorkspaceSpacePage = lazy(() => import('./components/workspace-space/WorkspaceSpacePage'))
+export const WorkspaceSpacePage = lazy(
+  () => import('./components/workspace-space/WorkspaceSpacePage')
+)
 export const MobilePage = lazy(() => import('./components/mobile/MobilePage'))
 export const QuickOpen = lazy(() => import('./components/QuickOpen'))
 export const WorktreeJumpPalette = lazy(() => import('./components/WorktreeJumpPalette'))
@@ -114,11 +118,6 @@ export const RemoteServerUpdateDialog = lazy(
 export const ContextualTourOverlay = lazy(() =>
   import('./components/contextual-tours/ContextualTourOverlay').then((module) => ({
     default: module.ContextualTourOverlay
-  }))
-)
-export const SetupGuideTelemetryObserver = lazy(() =>
-  import('./components/setup-guide/SetupGuideTelemetryObserver').then((module) => ({
-    default: module.SetupGuideTelemetryObserver
   }))
 )
 export const FloatingTerminalPanel = lazy(() =>

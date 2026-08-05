@@ -6,7 +6,6 @@ import {
 } from '../../shared/star-nag-telemetry'
 import type { Store } from '../persistence'
 import type { StatsCollector } from '../stats/collector'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
 import type { StarNagPromptContext } from './prompt-session-telemetry'
 
 export function createStarNagPromptContext(
@@ -26,7 +25,6 @@ export function createStarNagPromptContext(
     mode,
     threshold,
     agents_since_baseline: agentsSinceBaseline,
-    agents_since_baseline_bucket: bucketStarNagAgentsSinceBaseline(agentsSinceBaseline),
-    ...getCohortAtEmit()
+    agents_since_baseline_bucket: bucketStarNagAgentsSinceBaseline(agentsSinceBaseline)
   }
 }

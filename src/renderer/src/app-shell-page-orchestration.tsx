@@ -160,7 +160,6 @@ import { selectActiveTerminalChromeState } from './store/active-terminal-chrome-
 import type { VirtualizedScrollAnchor } from './hooks/useVirtualizedScrollAnchor'
 import type { OnboardingState } from '../../shared/types'
 import { getFeatureTipsAppOpenDecision } from './components/feature-tips/feature-tip-startup-gate'
-import { trackCmdJPaletteFeatureTipShown } from './components/feature-tips/feature-tip-telemetry'
 import {
   keybindingMatchesAction,
   type KeybindingActionId,
@@ -224,7 +223,6 @@ import {
   RemoteServerUpdateDialog,
   Settings,
   SetupGuideModal,
-  SetupGuideTelemetryObserver,
   shouldMountUpdateCardForStatus,
   SkillsPage,
   SshPassphraseDialog,
@@ -475,7 +473,6 @@ function App(): React.JSX.Element {
   const persistedUIReady = useAppStore((s) => s.persistedUIReady)
   const shouldMountContextualTourOverlay = activeContextualTourId !== null
   useOsc52ClipboardDefaultOnNotice(persistedUIReady)
-  const shouldMountSetupGuideTelemetryObserver = persistedUIReady
   const shouldMountUpdateCard = shouldMountUpdateCardForStatus(updateStatus)
   const rightSidebarWidth = useAppStore((s) => s.rightSidebarWidth)
   const markdownTocPanelWidth = useAppStore((s) => s.markdownTocPanelWidth)
@@ -908,7 +905,6 @@ function App(): React.JSX.Element {
         shouldMountContextualTourOverlay,
         shouldMountDictationController,
         shouldMountFloatingTerminalPanel,
-        shouldMountSetupGuideTelemetryObserver,
         shouldMountTerminalWorkbench,
         shouldMountUpdateCard,
         shouldRenderOnboarding,

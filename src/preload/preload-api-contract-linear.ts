@@ -1,6 +1,63 @@
 import type { GitLabRepoSelectorArgs } from './preload-api-repo-selectors'
 
-import type { LinearIssueAttributeFilter, ClassifiedError, GitLabAssignableUser, GitLabAuthDiagnostic, GitLabCommentResult, GitLabDiscussionResolveResult, GitLabIssueInfo, GitLabIssueUpdate, GitLabJobTraceResult, GitLabMRInlineCommentInput, GitLabMRReviewersUpdateResult, GitLabMRUpdate, GitLabProjectRef, GitLabRetryJobResult, GitLabTodo, GitLabViewer, GitLabWorkItem, GitLabWorkItemDetails, GetGitLabRateLimitResult, ListMergeRequestsResult, MRInfo, MRListState, JiraComment, JiraConnectionStatus, JiraCreateField, JiraCreateIssueArgs, JiraIssue, JiraIssueFilter, JiraIssueType, JiraProjectStatusOrder, JiraIssueUpdate, JiraPriority, JiraProject, JiraSiteSelection, JiraTransition, JiraUser, JiraViewer, LinearViewer, LinearCollectionResult, LinearConnectionStatus, LinearCustomViewModel, LinearCustomViewSummary, LinearWorkspaceSelection, LinearIssue, LinearIssueUpdate, LinearComment, LinearWorkflowState, LinearLabel, LinearMember, LinearProjectDetail, LinearProjectSummary, LinearTeam, TelemetryConsentState, DiagnosticsStatusPayload, DiagnosticsBundlePayload, DiagnosticsUploadPayload } from './preload-api-contract-types';export type PreloadApiLinear = {
+import type {
+  LinearIssueAttributeFilter,
+  ClassifiedError,
+  GitLabAssignableUser,
+  GitLabAuthDiagnostic,
+  GitLabCommentResult,
+  GitLabDiscussionResolveResult,
+  GitLabIssueInfo,
+  GitLabIssueUpdate,
+  GitLabJobTraceResult,
+  GitLabMRInlineCommentInput,
+  GitLabMRReviewersUpdateResult,
+  GitLabMRUpdate,
+  GitLabProjectRef,
+  GitLabRetryJobResult,
+  GitLabTodo,
+  GitLabViewer,
+  GitLabWorkItem,
+  GitLabWorkItemDetails,
+  GetGitLabRateLimitResult,
+  ListMergeRequestsResult,
+  MRInfo,
+  MRListState,
+  JiraComment,
+  JiraConnectionStatus,
+  JiraCreateField,
+  JiraCreateIssueArgs,
+  JiraIssue,
+  JiraIssueFilter,
+  JiraIssueType,
+  JiraProjectStatusOrder,
+  JiraIssueUpdate,
+  JiraPriority,
+  JiraProject,
+  JiraSiteSelection,
+  JiraTransition,
+  JiraUser,
+  JiraViewer,
+  LinearViewer,
+  LinearCollectionResult,
+  LinearConnectionStatus,
+  LinearCustomViewModel,
+  LinearCustomViewSummary,
+  LinearWorkspaceSelection,
+  LinearIssue,
+  LinearIssueUpdate,
+  LinearComment,
+  LinearWorkflowState,
+  LinearLabel,
+  LinearMember,
+  LinearProjectDetail,
+  LinearProjectSummary,
+  LinearTeam,
+  DiagnosticsStatusPayload,
+  DiagnosticsBundlePayload,
+  DiagnosticsUploadPayload
+} from './preload-api-contract-types'
+export type PreloadApiLinear = {
   gl: {
     viewer: () => Promise<GitLabViewer | null>
     diagnoseAuth: () => Promise<GitLabAuthDiagnostic>
@@ -332,12 +389,6 @@ import type { LinearIssueAttributeFilter, ClassifiedError, GitLabAssignableUser,
     showAgentValueMoment: () => Promise<void>
     onboardingCompleted: () => Promise<void>
   }
-  /** Fire-and-forget track. Loose IPC typing on purpose — the main-side validator enforces;
-   *  renderer sites should import `track<N>()` from lib/telemetry.ts, not reach here. */
-  telemetryTrack: (name: string, props: Record<string, unknown>) => Promise<void>
-  /** Flip the persisted opt-in preference. Subject to a per-session
-   *  consent-mutation rate limit on the main side (≤5/session). */
-  telemetrySetOptIn: (optedIn: boolean) => Promise<void>
   /** Diagnostic file controls (telemetry-error-tracking.md §User controls). Main does the FS/network
    *  work and retains upload payloads so the renderer can't read or substitute arbitrary bytes. */
   diagnostics: {
@@ -348,9 +399,4 @@ import type { LinearIssueAttributeFilter, ClassifiedError, GitLabAssignableUser,
     uploadBundle: (bundleSubmissionId: string) => Promise<DiagnosticsUploadPayload>
     deleteBundle: (ticketId: string) => Promise<void>
   }
-  /** Read-only effective consent state (+ reason if disabled) — env vars are main-side state the renderer can't read directly. */
-  telemetryGetConsentState: () => Promise<TelemetryConsentState>
-  /** Banner ✕ — persist `optedIn = true` silently. Separate channel from `telemetrySetOptIn`,
-   *  whose `via` derivation would wrongly fire `telemetry_opted_in`. Same per-session rate limit. */
-  telemetryAcknowledgeBanner: () => Promise<void>
 }

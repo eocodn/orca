@@ -4,7 +4,7 @@ import { planLaunchAgentStartupPrompt } from '@/lib/launch-agent-startup-prompt-
 import { CLIENT_PLATFORM } from '@/lib/new-workspace'
 import { getAgentLaunchPlatformForRepo } from '@/lib/agent-launch-platform'
 import { reconcileTabOrder } from '@/components/tab-bar/reconcile-order'
-import { tuiAgentToAgentKind } from '@/lib/telemetry'
+import { tuiAgentToAgentKind } from '@/lib/agent-kind'
 import { createPasteReadinessTimeoutNotice } from '@/lib/launch-agent-paste-timeout-notice'
 import { deliverLaunchPromptToAgentTab } from '@/lib/agent-launch-prompt-delivery'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'

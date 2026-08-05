@@ -924,12 +924,30 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y rpm
 
+      - name: Classify release tag for diagnostics channel
+        id: diagnostics-channel
+        shell: bash
+        env:
+          TAG: ${{ needs.cut.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+(\.[0-9A-Za-z]+)?$ ]]; then
+            identity=rc
+          elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            identity=stable
+          else
+            echo "::error::Tag $TAG does not match stable or rc diagnostics channel"
+            exit 1
+          fi
+          echo "identity=$identity" >>"$GITHUB_OUTPUT"
+
       - name: Build app
         run: pnpm build:release
         env:
           # Why: Vite's web build crossed Node's default old-space ceiling on
           # the macOS release runner, leaving v1.4.2-rc.8 as an incomplete draft.
           NODE_OPTIONS: --max-old-space-size=4096
+          ORCA_BUILD_IDENTITY: ${{ steps.diagnostics-channel.outputs.identity }}
           ORCA_DIAGNOSTICS_TOKEN_URL: https://www.onorca.dev/diagnostics/token
 
       - name: Gate runtime file-watcher process isolation

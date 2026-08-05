@@ -3,23 +3,40 @@ import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import { activateAndRevealWorktree, type AgentStartedTelemetry } from '@/lib/worktree-activation'
-import { buildAgentPromptWithContext, canUseIssueCommandForLinkedItemProvider, DEFAULT_ISSUE_COMMAND_TEMPLATE, getLinkedWorkItemProvider, getLinkedWorkItemWorkspaceName, renderIssueCommandTemplate } from '@/lib/new-workspace'
+import {
+  buildAgentPromptWithContext,
+  canUseIssueCommandForLinkedItemProvider,
+  DEFAULT_ISSUE_COMMAND_TEMPLATE,
+  getLinkedWorkItemProvider,
+  getLinkedWorkItemWorkspaceName,
+  renderIssueCommandTemplate
+} from '@/lib/new-workspace'
 import { getLinkedWorkItemPromptContext } from '@/lib/linked-work-item-context'
 import { buildAgentStartupPlan } from '@/lib/tui-agent-startup'
-import { resolveTuiAgentLaunchArgs, resolveTuiAgentLaunchEnv } from '../../../shared/tui-agent-launch-defaults'
-import { tuiAgentToAgentKind } from '@/lib/telemetry'
+import {
+  resolveTuiAgentLaunchArgs,
+  resolveTuiAgentLaunchEnv
+} from '../../../shared/tui-agent-launch-defaults'
+import { tuiAgentToAgentKind } from '@/lib/agent-kind'
 import { ensureAgentStartupInTerminal } from '@/lib/new-workspace'
 import { ensureHooksConfirmed } from '@/lib/ensure-hooks-confirmed'
 import { resolveWorktreeCreateBaseBranch } from '@/runtime/worktree-create-base'
 import { toFolderWorkspaceLinkedTask } from '@/components/sidebar/folder-workspace-composer-helpers'
 import { getSmartGitHubSubmitResolution } from '@/lib/smart-github-submit'
 import { isTuiAgentEnabled } from '../../../shared/tui-agent-selection'
-import { formatWorkspaceCreateError, getWorkspaceCreateErrorToastMessage } from '@/lib/workspace-create-error-format'
+import {
+  formatWorkspaceCreateError,
+  getWorkspaceCreateErrorToastMessage
+} from '@/lib/workspace-create-error-format'
 import { queueWorkspaceActivationTerminalFocus } from '@/lib/workspace-activation-terminal-focus'
 import { runBackgroundWorktreeCreation } from '@/lib/worktree-creation-flow'
 import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { resolveComposerBranchNameOverrideForCreate } from './composer-branch-selection'
-import { resolveSmartGitHubCreateNames, isExplicitWorkspaceNameInput, type PendingSmartGitHubSubmitResolution } from './composer-state-contracts'
+import {
+  resolveSmartGitHubCreateNames,
+  isExplicitWorkspaceNameInput,
+  type PendingSmartGitHubSubmitResolution
+} from './composer-state-contracts'
 import { translate } from '@/i18n/i18n'
 import type { WorktreeCreationRequest } from '@/lib/pending-worktree-creation'
 import type { SetupDecision, TuiAgent } from '../../../shared/types'

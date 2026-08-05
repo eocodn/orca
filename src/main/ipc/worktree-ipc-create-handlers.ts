@@ -1,8 +1,16 @@
 import { ipcMain } from 'electron'
-import type { CreateWorktreeArgs, CreateWorktreeResult, GitHubPrStartPoint, GitPushTarget } from '../../shared/types'
+import type {
+  CreateWorktreeArgs,
+  CreateWorktreeResult,
+  GitHubPrStartPoint,
+  GitPushTarget
+} from '../../shared/types'
 import { isFolderRepo } from '../../shared/repo-kind'
 import { workspaceSourceSchema, type WorkspaceSource } from '../../shared/telemetry-events'
-import { getLocalProjectGitExecOptions, getLocalProjectWorktreeGitOptions } from '../project-runtime-git-options'
+import {
+  getLocalProjectGitExecOptions,
+  getLocalProjectWorktreeGitOptions
+} from '../project-runtime-git-options'
 import { classifyWorkspaceCreateError } from './workspace-create-error-classifier'
 import { prefetchWorktreeCreateBase } from '../worktree-create-base-prefetch'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
@@ -14,10 +22,11 @@ import {
 import { gitExecFileAsync } from '../git/runner'
 import { withWorktreeSpan } from '../observability/instrumentation'
 import { resolveGitHubPrStartPoint } from '../github/pr-start-point'
-import { fetchGitHubPullRequestHeadRef, fetchPrHeadTrackingRef } from '../github/pr-head-tracking-ref'
+import {
+  fetchGitHubPullRequestHeadRef,
+  fetchPrHeadTrackingRef
+} from '../github/pr-head-tracking-ref'
 import { resolveGitHubReviewHeadRemote } from '../github/review-head-remote'
-import { getCohortAtEmit } from '../telemetry/cohort-classifier'
-import { track } from '../telemetry/client'
 import type { CreateWorktreeArgsWithSystemProvenance } from './worktree-ipc-foundation'
 import { createFolderWorkspace } from './worktree-ipc-local'
 import { normalizeLinkedWorkItemFields } from './worktree-ipc-foundation'
@@ -71,24 +80,10 @@ export function registerWorktreeCreationHandlers({
               ? await createRemoteWorktree(createArgs, repo, store, mainWindow)
               : await createLocalWorktree(createArgs, repo, store, mainWindow, runtime)
         } catch (error) {
-          track('workspace_create_failed', {
-            source,
-            error_class: classifyWorkspaceCreateError(error),
-            ...getCohortAtEmit()
-          })
           throw error
         }
 
         // Why: reaching here means create succeeded (helpers throw); skip a separate workspace_initialized (telemetry-plan.md§Deferred); never send the branch name.
-        track('workspace_created', {
-          source,
-          from_existing_branch:
-            !isFolderRepo(repo) &&
-            typeof args.baseBranch === 'string' &&
-
-            args.baseBranch.length > 0,
-          ...getCohortAtEmit()
-        })
 
         if (isFolderRepo(repo)) {
           notifyWorktreesChanged(mainWindow, repo.id)
@@ -206,5 +201,4 @@ export function registerWorktreeCreationHandlers({
       })
     }
   )
-
 }

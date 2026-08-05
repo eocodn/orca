@@ -14,7 +14,10 @@ import {
   detectExplicitPiAgentKindFromCommand
 } from '../../shared/pi-agent-kind'
 import { AGENT_HOOK_RUNTIME_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
-import type { BuildPtyHostEnvOptions } from './pty-ipc-runtime-host-env-foundation'
+import {
+  RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS,
+  type BuildPtyHostEnvOptions
+} from './pty-ipc-runtime-host-env-foundation'
 import {
   clearPiAgentShadowEnv,
   exposePiManagedExtensionEnv,
@@ -35,6 +38,10 @@ export function buildPtyHostEnv(
 ): Record<string, string> {
   mergePersistedWindowsPath(baseEnv)
   Object.assign(baseEnv, buildConfiguredProxyEnv(opts.networkProxySettings))
+
+  for (const key of RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS) {
+    delete baseEnv[key]
+  }
 
   // Why: local path's baseEnv includes process.env but the daemon path doesn't (fork inheritance, not IPC); check both sources so guards stay in lock-step across spawn paths.
   const preexistingOpenCodeConfigDir = resolveOpenCodeSourceConfigDir(baseEnv)

@@ -130,7 +130,6 @@ export function installMainProcessShutdownLifecycle(): void {
             )
           }
         })
-        .then(() => startupDeps.shutdownTelemetry())
         .then(() => startupDeps.shutdownObservability())
         .catch(() => {
           /* swallow — telemetry must never prevent startupDeps.app.quit() */

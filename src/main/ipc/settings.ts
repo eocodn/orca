@@ -6,12 +6,11 @@ import { previewGhosttyImport } from '../ghostty/index'
 import { previewWarpThemeImport } from '../warp-themes'
 import { setMainUiLanguage } from '../i18n/main-i18n'
 import { rebuildAppMenu } from '../menu/register-app-menu'
-import { track } from '../telemetry/client'
 import { SETTINGS_CHANGED_WHITELIST, type SettingsChangedKey } from '../../shared/telemetry-events'
 import type { AgentAwakeService } from '../agent-awake-service'
 import { sanitizeFloatingWorkspaceDirectorySetting } from './floating-workspace-directory'
 import { applyAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
-import { recordManagedHookInstallFailure } from '../agent-hooks/install-telemetry'
+import { logManagedHookInstallFailure } from '../agent-hooks/install-diagnostics'
 import { applyElectronProxySettings } from '../network/proxy-settings'
 import { normalizeProxyBypassRules, normalizeProxyUrl } from '../../shared/network-proxy'
 import { normalizeAppIconId } from '../../shared/app-icon'
@@ -158,7 +157,7 @@ export function registerSettingsHandlers(
       try {
         await applyAgentStatusHooksEnabled(result.agentStatusHooksEnabled, result, {
           shouldHydrateShellPath: app.isPackaged && process.platform !== 'win32',
-          onInstallError: recordManagedHookInstallFailure,
+          onInstallError: logManagedHookInstallFailure,
           shouldContinue: (agent) => {
             const settings = store.getSettings()
             return (
@@ -217,10 +216,6 @@ export function registerSettingsHandlers(
         // No non-bool whitelist entries today; skip rather than guess.
         continue
       }
-      track('settings_changed', {
-        setting_key: key as SettingsChangedKey,
-        value_kind: 'bool'
-      })
     }
 
     return result

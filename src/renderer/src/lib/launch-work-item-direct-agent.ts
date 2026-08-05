@@ -1,6 +1,5 @@
 import { toast } from 'sonner'
 import { deliverLaunchPromptToAgentTab } from '@/lib/agent-launch-prompt-delivery'
-import { track, tuiAgentToAgentKind } from '@/lib/telemetry'
 import {
   buildAgentDraftLaunchPlan,
   buildAgentStartupPlan,
@@ -166,10 +165,6 @@ export async function pasteDirectWorkItemDraftWhenAgentReady(args: {
       )
       // Why: process-startup timeout has no v1 enum slot; the `unknown` slice
       // on the dashboard is the trigger to add one.
-      track('agent_error', {
-        error_class: 'unknown',
-        agent_kind: tuiAgentToAgentKind(startupPlan.agent)
-      })
     }
   })
 }

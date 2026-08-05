@@ -1,7 +1,6 @@
 // Why: this main-process adapter keeps listener internals in shared/ (`src/shared/agent-hook-listener.ts`) so the relay can host the same pipeline without Electron. See docs/design/agent-status-over-ssh.md §5.
 import { createHash } from 'node:crypto'
 
-import { track } from '../telemetry/client'
 import { AGENT_KIND_VALUES, type AgentKind } from '../../shared/telemetry-events'
 import { MAX_PANE_KEY_LEN, type AgentHookEventPayload } from '../../shared/agent-hook-listener'
 import type { AgentHookSource } from '../../shared/agent-hook-relay'
@@ -16,7 +15,11 @@ import {
 import { isAskUserQuestionTool } from '../../shared/agent-question-answered-intent'
 import { parseLegacyNumericPaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import type { LegacyPaneKeyAliasEntry } from '../../shared/types'
-import { getAgentResumeArgv, normalizeAgentProviderSession, type AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
+import {
+  getAgentResumeArgv,
+  normalizeAgentProviderSession,
+  type AgentProviderSessionMetadata
+} from '../../shared/agent-session-resume'
 
 export type { AgentHookSource }
 
@@ -70,7 +73,9 @@ export type AgentHookAuthorityAttestation = Readonly<{
 }>
 
 export type StatusChangeListener = (statuses: AgentHookStatusChangeEntry[]) => void
-export type ProviderSessionChangeListener = (providerSessions: AgentHookProviderSessionIdentity[]) => void
+export type ProviderSessionChangeListener = (
+  providerSessions: AgentHookProviderSessionIdentity[]
+) => void
 export type PaneStatusClearListener = (clear: AgentStatusClearIpcPayload) => void
 export type PaneKeyAliasPersistenceListener = (entries: LegacyPaneKeyAliasEntry[]) => void
 export type PaneKeyAliasEntry = {
@@ -92,7 +97,11 @@ export const LAST_STATUS_FILE_VERSION = 2
 
 // Why: trailing-edge debounce so a burst of hook events yields one disk write, not N; quit-time flushStatusPersistSync() guarantees the final flush.
 export const STATUS_PERSIST_DEBOUNCE_MS = 250
-export const TOOL_PROGRESS_HOOK_EVENTS = new Set(['PreToolUse', 'PostToolUse', 'PostToolUseFailure'])
+export const TOOL_PROGRESS_HOOK_EVENTS = new Set([
+  'PreToolUse',
+  'PostToolUse',
+  'PostToolUseFailure'
+])
 export const AGENT_PROMPT_SENT_AGENT_KINDS = new Set<AgentKind>(AGENT_KIND_VALUES)
 
 // Why: bound file growth from PTYs that never re-attach; 7 days is the "still relevant?" horizon beyond which entries shouldn't resurrect on hydrate.
@@ -302,7 +311,9 @@ export function authorityCommitmentsMatch(
   )
 }
 
-export function toAgentStatusIpcPayload(entry: EnrichedAgentHookEventPayload): AgentStatusIpcPayload {
+export function toAgentStatusIpcPayload(
+  entry: EnrichedAgentHookEventPayload
+): AgentStatusIpcPayload {
   return {
     paneKey: entry.paneKey,
     ...(entry.launchToken ? { launchToken: entry.launchToken } : {}),
@@ -343,7 +354,6 @@ export function trackEmptyPaneKeyHook(body: unknown): void {
   if (typeof paneKey === 'string' && paneKey.trim().length > 0) {
     return
   }
-  track('agent_hook_unattributed', { reason: 'empty_pane_key' })
 }
 
 export function isToolProgressWorkingAfterInterrupt(next: AgentHookEventPayload): boolean {

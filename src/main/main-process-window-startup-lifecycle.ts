@@ -246,11 +246,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     if (!startupState.store) {
       return
     }
-    const consent = startupDeps.resolveConsent(startupState.store.getSettings())
-    if (consent.effective !== 'enabled') {
-      return
-    }
-    startupDeps.trackAppOpenedOnce()
   }
   window.webContents.on('did-finish-load', onFirstWindowLoad)
 

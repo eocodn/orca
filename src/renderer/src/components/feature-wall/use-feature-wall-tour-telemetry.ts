@@ -8,7 +8,6 @@ import type {
   EventProps,
   FeatureWallOpenSourceTelemetry
 } from '../../../../shared/telemetry-events'
-import { track } from '@/lib/telemetry'
 
 export type FeatureWallTourTelemetryState = {
   open: boolean
@@ -93,7 +92,6 @@ export function useFeatureWallTourTelemetry(args: {
       getDepthSummaryRef.current()
     )
     if (payload) {
-      track('feature_wall_closed', payload)
     }
   }, [])
 
@@ -108,7 +106,6 @@ export function useFeatureWallTourTelemetry(args: {
     }
 
     if (openFeatureWallTourTelemetrySession(telemetryRef.current, performance.now())) {
-      track('feature_wall_opened', { source: sourceRef.current })
     }
     // Why: the telemetry session opens from this Effect, so the same Effect
     // owns close-on-unmount instead of a second cleanup-only Effect.

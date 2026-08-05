@@ -601,11 +601,6 @@ export function createWebPreloadApi(): Partial<PreloadApi> {
       onRelayStatusChanged: () => noopUnsubscribe,
       consumePendingUnpairedDeviceAuthFailure: () => Promise.resolve(false),
       onUnpairedDeviceAuthFailure: () => noopUnsubscribe
-    },
-    telemetryTrack: () => Promise.resolve(),
-    telemetrySetOptIn: () => Promise.resolve(),
-    telemetryGetConsentState: () =>
-      Promise.resolve({ optedIn: false, source: 'default', blockedByEnv: false } as never),
-    telemetryAcknowledgeBanner: () => Promise.resolve()
+    }
   }
 }

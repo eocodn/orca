@@ -68,7 +68,6 @@ import {
 } from './direct-ssh-reconnect-coordinator'
 import { directSshAuthoritiesEqual } from './direct-ssh-reconnect-tokens'
 import { createDirectSshHostHydration } from './direct-ssh-host-hydration'
-import { createDirectSshReconnectProductTelemetryAdapter } from '@/lib/direct-ssh-reconnect-product-telemetry'
 import { registerAgentStatusEvents } from './ipc-events-agent-status'
 import { registerSshEvents } from './ipc-events-ssh'
 import { registerWorktreeEvents } from './ipc-events-worktree'
@@ -182,9 +181,7 @@ export function useIpcEvents(): void {
         directSshTerminalActions().retryDirectSshTargetPanes?.(authority) ?? 0,
       correctUnboundTerminalPanes: (authority) =>
         directSshTerminalActions().retryDirectSshTargetPanes?.(authority) ?? 0,
-      syncRemoteWorkspaceAfterConnect: (token) =>
-        remoteWorkspaceTargetSync?.syncAfterConnect(token),
-      onTelemetry: createDirectSshReconnectProductTelemetryAdapter()
+      syncRemoteWorkspaceAfterConnect: (token) => remoteWorkspaceTargetSync?.syncAfterConnect(token)
     })
     const remoteWorkspaceApi = getClientRuntime().remoteWorkspace
     if (remoteWorkspaceApi) {

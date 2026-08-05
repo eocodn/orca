@@ -161,32 +161,12 @@ export async function initializeReadyFoundation(): Promise<void> {
     unsubscribeProviderSessionChanges()
   }
   // Why: telemetry must init before any IPC handler/renderer can call track(); it's a no-op in dev and while TELEMETRY_ENABLED is false, so it's safe early.
-  startupDeps.initTelemetry(startupState.store)
   // Why: the breadcrumb alone never leaves the machine â it rides crash reports, and a hang is not
   // a crash (the app is force-quit, so no report is ever generated). Without this the incidence
   // number the watchdog exists to produce would sit unread on the user's disk. Must run after
-  // initTelemetry: track() drops silently until the client and store are wired.
-  if (hangDetection) {
-    startupDeps.track('main_thread_hang_detected', {
-      unresponsive_ms: Math.round(hangDetection.unresponsiveMs),
-      self_recovered: hangDetection.selfRecovered
-    })
-  }
   // Why: the trust-grant module is bundled into plain-node CLI entries where
   // the telemetry client cannot load, so the tracker is injected here instead
   // of imported there.
-  startupDeps.setCodexTrustGrantTelemetry(
-    ({ outcome, hostKind, lane, reason, errorClass, verifyClass }) => {
-      startupDeps.track('codex_trust_grant', {
-        outcome,
-        host_kind: hostKind,
-        lane,
-        ...(reason !== undefined ? { fallback_reason: reason } : {}),
-        ...(errorClass !== undefined ? { error_class: errorClass } : {}),
-        ...(verifyClass !== undefined ? { verify_class: verifyClass } : {})
-      })
-    }
-  )
   // Why: the error-tracking lane (telemetry-error-tracking.md) is its own
   // composition root â independent of product telemetry â and must
   // initialize before any IPC handler / runtime span is created so the
@@ -199,8 +179,6 @@ export async function initializeReadyFoundation(): Promise<void> {
     platform: process.platform
   })
   // Why: cohort-classifier reads repo count synchronously at every emit, so hydrate it here â before any IPC handler or window can trigger track().
-  startupDeps.initCohortClassifier(startupState.store)
-  startupDeps.initOnboardingCohortClassifier(startupState.store)
   startupState.stats = new startupDeps.StatsCollector()
   startupState.claudeUsage = new startupDeps.ClaudeUsageStore(startupState.store)
   startupState.codexUsage = new startupDeps.CodexUsageStore(startupState.store)
