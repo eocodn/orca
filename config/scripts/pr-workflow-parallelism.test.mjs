@@ -178,7 +178,8 @@ describe('PR workflow parallelism', () => {
       'shell_contracts',
       'test',
       'package',
-      'package_windows'
+      'package_windows',
+      'rust_tauri_windows'
     ])
   })
 })

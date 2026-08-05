@@ -1,4 +1,5 @@
 pub mod host_runtime;
+pub mod ownership;
 pub mod protocol;
 pub mod state;
 pub mod terminal;
