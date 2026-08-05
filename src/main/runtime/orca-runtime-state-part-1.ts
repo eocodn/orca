@@ -118,6 +118,11 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   protected graphSyncCallbacks: (() => void)[] = []
   protected waitersByHandle = new Map<string, Set<TerminalWaiter>>()
   protected ptyController: RuntimePtyController | null = null
+
+  setPtyController(controller: RuntimePtyController): void {
+    this.ptyController = controller
+  }
+
   protected notifier: RuntimeNotifier | null = null
   protected clientEventListeners = new Set<(event: RuntimeClientEvent) => void>()
   // Why: mobile subscribers discard terminalSideEffects; exclude them from batch delivery and production.
