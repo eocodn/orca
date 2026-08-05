@@ -10,7 +10,6 @@ import {
 import type { TerminalQuickCommand } from '../../src/shared/types'
 import { handleMockFilePreviewRequest } from './mock-server-file-preview-data'
 import { handleMockGitRequest } from './mock-server-git-state'
-import { handleMockAccountRequest } from './mock-server-account-rpc'
 import { handleMockSessionTabsRequest } from './mock-server-session-tabs-fixture'
 import { handleMockTerminalRequest } from './mock-server-terminal-stream'
 import { createMockRepos, createMockWorktrees, readScenarioNumber } from './mobile-lag-scenario'
@@ -126,7 +125,6 @@ export function handleRequest(
   if (
     handleMockGitRequest(request, respond, success) ||
     handleMockFilePreviewRequest(request, respond, success, error) ||
-    handleMockAccountRequest(request, respond, success, error) ||
     handleMockSessionTabsRequest(request, respond, success, terminalListWorktreeId) ||
     handleMockTerminalRequest(request, respond, success, ws, terminalListWorktreeId)
   ) {
