@@ -258,6 +258,12 @@ fn stale_terminate_cannot_remove_a_replacement_session() {
     }
 
     let terminate = request("terminate-1", "session-1", PtyOperation::Terminate);
+    {
+        let mut registry = state.registry.lock().unwrap();
+        registry
+            .in_flight_requests
+            .insert(terminate.request_id.clone(), terminate.clone());
+    }
     commit_request_result(
         &terminate,
         &state,
@@ -326,6 +332,7 @@ fn removes_a_session_after_a_successful_wait_timeout() {
     wait.timeout_ms = Some(20);
     let response = execute_pty_request(&wait, &state).unwrap();
     assert!(response.contains(r#""status":"failed""#));
+    assert!(response.contains(r#""failure_reason":"pty timed out""#));
 
     let mut replacement = request("start-2", "session-1", PtyOperation::Start);
     replacement.program = Some(String::from("printf"));
@@ -333,6 +340,55 @@ fn removes_a_session_after_a_successful_wait_timeout() {
     replacement.cols = Some(80);
     replacement.rows = Some(24);
     assert!(execute_pty_request(&replacement, &state).is_ok());
+}
+
+#[cfg(unix)]
+#[test]
+fn validation_abort_allows_a_corrected_retry_with_the_same_request_id() {
+    let state = PtyExecutionState::default();
+    let mut start = request("start-1", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("cat"));
+    start.cols = Some(80);
+    start.rows = Some(24);
+    execute_pty_request(&start, &state).unwrap();
+
+    let mut write = request("write-1", "session-1", PtyOperation::Write);
+    write.input = Some(String::from("retry\n"));
+    write.session_generation = Some(super::MAX_SESSION_GENERATION + 1);
+    assert_eq!(
+        execute_pty_request(&write, &state),
+        Err(String::from("invalid_session_generation"))
+    );
+
+    write.session_generation = Some(1);
+    assert!(execute_pty_request(&write, &state).is_ok());
+
+    let terminate = request("terminate-1", "session-1", PtyOperation::Terminate);
+    execute_pty_request(&terminate, &state).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn session_generation_overflow_does_not_leave_a_reservation() {
+    let state = PtyExecutionState::default();
+    {
+        let mut registry = state.registry.lock().unwrap();
+        registry.next_session_generation = super::MAX_SESSION_GENERATION;
+    }
+
+    let mut start = request("start-1", "session-1", PtyOperation::Start);
+    start.program = Some(String::from("cat"));
+    start.cols = Some(80);
+    start.rows = Some(24);
+    assert_eq!(
+        execute_pty_request(&start, &state),
+        Err(String::from("session_generation_overflow"))
+    );
+
+    let registry = state.registry.lock().unwrap();
+    assert!(registry.in_flight_requests.is_empty());
+    assert!(registry.session_reservations.is_empty());
+    assert!(registry.sessions.is_empty());
 }
 
 #[test]

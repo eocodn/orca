@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const MAX_WAIT_MS: u64 = 30_000;
+const MAX_SESSION_GENERATION: u64 = 9_007_199_254_740_991;
 // Request IDs must be retried within this in-memory replay window.
 const MAX_COMMITTED_REQUESTS: usize = 4096;
 
@@ -77,6 +78,7 @@ struct PtySessionHandle {
 struct PtySessionReservation {
     request_id: String,
     owner: PtyOwner,
+    session_generation: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -272,6 +274,12 @@ fn validate_request(request: &PtyRequest) -> Result<(), String> {
     if request.worker_id.trim().is_empty() {
         return Err(String::from("empty_worker_id"));
     }
+    if request
+        .session_generation
+        .is_some_and(|generation| generation > MAX_SESSION_GENERATION)
+    {
+        return Err(String::from("invalid_session_generation"));
+    }
     match request.operation {
         PtyOperation::Start => {
             if request.session_generation.is_some() {
@@ -344,11 +352,18 @@ fn start_session(
             String::from("session_owner_conflict")
         });
     }
+    let session_generation = registry
+        .next_session_generation
+        .checked_add(1)
+        .filter(|generation| *generation <= MAX_SESSION_GENERATION)
+        .ok_or_else(|| String::from("session_generation_overflow"))?;
+    registry.next_session_generation = session_generation;
     registry.session_reservations.insert(
         request.session_id.clone(),
         PtySessionReservation {
             request_id: request.request_id.clone(),
             owner: owner.clone(),
+            session_generation,
         },
     );
     drop(registry);
@@ -372,10 +387,11 @@ fn start_session(
         return Err(String::from("session_id_conflict"));
     }
     let session_generation = registry
-        .next_session_generation
-        .checked_add(1)
-        .ok_or_else(|| String::from("session_generation_overflow"))?;
-    registry.next_session_generation = session_generation;
+        .session_reservations
+        .get(&request.session_id)
+        .filter(|reservation| reservation.request_id == request.request_id)
+        .map(|reservation| reservation.session_generation)
+        .ok_or_else(|| String::from("session_reservation_lost"))?;
     registry.sessions.insert(
         request.session_id.clone(),
         PtySessionEntry {

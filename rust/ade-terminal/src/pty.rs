@@ -652,13 +652,14 @@ mod tests {
     #[test]
     fn terminate_observes_a_natural_exit_before_marking_failure() {
         let mut session =
-            PtySession::spawn("pty-1", spec("sh", &["-c", "printf 'ready'; sleep 0.05"])).unwrap();
-        std::thread::sleep(Duration::from_millis(100));
+            PtySession::spawn("pty-1", spec("sh", &["-c", "printf 'ready'; exit 7"])).unwrap();
+        std::thread::sleep(Duration::from_millis(50));
 
         let snapshot = session.terminate().unwrap();
 
-        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
-        assert_eq!(snapshot.exit_code, Some(0));
+        assert_eq!(snapshot.status, TerminalStatus::Exited { code: 7 });
+        assert_eq!(snapshot.exit_code, Some(7));
+        assert_eq!(snapshot.failure_reason, None);
         assert!(snapshot.tail.contains("ready"));
     }
 
