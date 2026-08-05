@@ -327,8 +327,9 @@ impl PtySession {
             .child
             .lock()
             .map_err(|_| PtyError::Terminal(String::from("pty_child_unavailable")))?;
-        let exit =
-            try_wait_child(&mut child).map_err(|error| PtyError::Terminal(format!("{error:?}")))?;
+        let exit = self
+            .try_wait_child(&mut child)
+            .map_err(|error| PtyError::Terminal(format!("{error:?}")))?;
         if exit.is_some() {
             self.child_reaped = true;
         }
@@ -495,7 +496,7 @@ impl PtySession {
             .child
             .lock()
             .map_err(|_| PtyError::Termination(String::from("pty_child_unavailable")))?;
-        if let Some(status) = try_wait_child(&mut child)? {
+        if let Some(status) = self.try_wait_child(&mut child)? {
             self.child_reaped = true;
             return Ok(Some(status));
         }
@@ -508,11 +509,11 @@ impl PtySession {
             let termination = terminate_process_tree(self.process_group, pid)?;
             match termination {
                 ProcessTermination::Signalled => {
-                    confirm_child_exit(&mut child)?;
+                    self.confirm_child_exit(&mut child)?;
                     self.child_reaped = true;
                 }
                 ProcessTermination::AlreadyExited => {
-                    if let Some(status) = try_wait_child(&mut child)? {
+                    if let Some(status) = self.try_wait_child(&mut child)? {
                         self.child_reaped = true;
                         return Ok(Some(status));
                     }
@@ -525,13 +526,42 @@ impl PtySession {
             child
                 .kill()
                 .map_err(|error| PtyError::Termination(error.to_string()))?;
-            confirm_child_exit(&mut child)?;
+            self.confirm_child_exit(&mut child)?;
             self.child_reaped = true;
         }
         drop(child);
         self.close_pty_handles()?;
         self.terminated = true;
         Ok(None)
+    }
+
+    fn try_wait_child(
+        &self,
+        child: &mut Box<dyn Child + Send + Sync>,
+    ) -> Result<Option<ExitStatus>, PtyError> {
+        #[cfg(windows)]
+        {
+            return try_wait_child(child, self.process_identity);
+        }
+        #[cfg(not(windows))]
+        {
+            try_wait_child(child)
+        }
+    }
+
+    fn confirm_child_exit(&self, child: &mut Box<dyn Child + Send + Sync>) -> Result<(), PtyError> {
+        let deadline = Instant::now() + READER_CLOSE_TIMEOUT;
+        loop {
+            if self.try_wait_child(child)?.is_some() {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err(PtyError::Termination(String::from(
+                    "pty child did not exit after termination",
+                )));
+            }
+            thread::sleep(POLL_INTERVAL);
+        }
     }
 
     fn close_pty_handles(&mut self) -> Result<(), PtyError> {
@@ -604,31 +634,38 @@ fn terminal_error(error: ade_host_core::terminal::TerminalError) -> PtyError {
     PtyError::Terminal(format!("{error:?}"))
 }
 
-fn confirm_child_exit(child: &mut Box<dyn Child + Send + Sync>) -> Result<(), PtyError> {
-    let deadline = Instant::now() + READER_CLOSE_TIMEOUT;
-    loop {
-        if try_wait_child(child)?.is_some() {
-            return Ok(());
-        }
-        if Instant::now() >= deadline {
-            return Err(PtyError::Termination(String::from(
-                "pty child did not exit after termination",
-            )));
-        }
-        thread::sleep(POLL_INTERVAL);
-    }
-}
-
+#[cfg(not(windows))]
 fn try_wait_child(
     child: &mut Box<dyn Child + Send + Sync>,
 ) -> Result<Option<ExitStatus>, PtyError> {
-    #[cfg(windows)]
+    child
+        .try_wait()
+        .map_err(|error| PtyError::Termination(error.to_string()))
+}
+
+#[cfg(windows)]
+fn try_wait_child(
+    child: &mut Box<dyn Child + Send + Sync>,
+    expected_identity: Option<WindowsProcessIdentity>,
+) -> Result<Option<ExitStatus>, PtyError> {
     if let Some(pid) = child.process_id() {
-        if windows_process_has_exited(pid)? {
-            return child
-                .wait()
-                .map(Some)
-                .map_err(|error| PtyError::Termination(error.to_string()));
+        match windows_process_has_exited(pid, expected_identity) {
+            Ok(true) => {
+                return child
+                    .wait()
+                    .map(Some)
+                    .map_err(|error| PtyError::Termination(error.to_string()));
+            }
+            Ok(false) => {}
+            Err(identity_error) => {
+                return match child
+                    .try_wait()
+                    .map_err(|error| PtyError::Termination(error.to_string()))?
+                {
+                    Some(status) => Ok(Some(status)),
+                    None => Err(identity_error),
+                };
+            }
         }
     }
     child
@@ -707,7 +744,18 @@ fn capture_windows_process_identity(pid: u32) -> Result<WindowsProcessIdentity, 
 }
 
 #[cfg(windows)]
-fn windows_process_has_exited(pid: u32) -> Result<bool, PtyError> {
+fn windows_process_has_exited(
+    pid: u32,
+    expected_identity: Option<WindowsProcessIdentity>,
+) -> Result<bool, PtyError> {
+    let expected_identity = expected_identity.ok_or_else(|| {
+        PtyError::Termination(String::from("Windows PTY process identity unavailable"))
+    })?;
+    if capture_windows_process_identity(pid)? != expected_identity {
+        return Err(PtyError::Termination(String::from(
+            "Windows PTY process identity changed while observing",
+        )));
+    }
     use std::ffi::c_void;
     use std::ptr::null_mut;
 
@@ -931,6 +979,22 @@ mod tests {
 
         assert_eq!(snapshot.status, TerminalStatus::Exited { code: 259 });
         assert_eq!(snapshot.exit_code, Some(259));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn reobserves_the_spawned_windows_process_identity() {
+        let session = PtySession::spawn(
+            "pty-1",
+            spec("cmd.exe", &["/C", "ping", "-n", "2", "127.0.0.1"]),
+        )
+        .unwrap();
+        let pid = session.process_id.expect("Windows PTY should expose a pid");
+        let expected = session
+            .process_identity
+            .expect("Windows PTY should capture process identity");
+
+        assert_eq!(capture_windows_process_identity(pid).unwrap(), expected);
     }
 
     #[cfg(unix)]
