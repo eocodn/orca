@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
 import { subscribeMobileTerminalSafely } from '../../../../src/session/mobile-terminal-stream-subscribe'
+import { buildMobileTerminalSubscribeParams } from '../../../../src/session/mobile-terminal-subscribe-params'
 import { isTerminalOscLinkRanges } from '../../../../src/terminal/terminal-osc-link-ranges'
 import { updateTerminalCwdFromStreamEvent } from '../../../../src/session/mobile-session-route-helpers'
 import { mergeTerminalListWithKnownRecords, terminalRecordsEqual } from '../../../../src/session/mobile-terminal-records'
@@ -104,11 +105,7 @@ export function useMobileSessionWorkspaceTerminal(context: WorkspaceContext) {
       // Why: viewport is embedded in the subscribe params so the server auto-fits before serializing scrollback (no focus→safeFit race).
       const unsub = subscribeMobileTerminalSafely(
         client,
-        {
-          terminal: handle,
-          client: { id: deviceTokenRef.current!, type: 'mobile' as const },
-          ...(viewportRef.current ? { viewport: viewportRef.current } : {})
-        },
+        buildMobileTerminalSubscribeParams(handle, deviceTokenRef.current!, viewportRef.current),
         (result) => {
           if (subscribeSeqRef.current.get(handle) !== seq) {
             return

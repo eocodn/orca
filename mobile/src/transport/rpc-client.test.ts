@@ -512,6 +512,7 @@ describe('mobile rpc-client connection timeout', () => {
       {
         terminal: 'term-1',
         client: { id: 'phone-1', type: 'mobile' },
+        capabilities: { terminalBinaryStream: 1 },
         viewport: { cols: 45, rows: 20 }
       },
       () => {}
@@ -529,6 +530,7 @@ describe('mobile rpc-client connection timeout', () => {
     secondSocket.receive('encrypted:{"type":"e2ee_authenticated"}')
 
     expect(sentRequest(secondSocket, 'terminal.subscribe').params).toMatchObject({
+      capabilities: { terminalBinaryStream: 1 },
       viewport: { cols: 60, rows: 24 }
     })
 
