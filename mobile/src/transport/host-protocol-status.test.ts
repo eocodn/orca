@@ -6,6 +6,8 @@ import {
   readHostProtocolStatus,
   readTerminalRequest
 } from './host-protocol-status'
+import { readPtyRequest } from './host-pty-protocol-status'
+import { readPtyResponse } from './host-pty-response-status'
 
 describe('mobile Host protocol descriptor', () => {
   it('accepts the Rust Host descriptor advertised by status.get', () => {
@@ -170,5 +172,82 @@ describe('mobile Host protocol descriptor', () => {
         operation: { type: 'fail', reason: '  ' }
       })
     ).toBeNull()
+  })
+
+  it('accepts the shared PTY lifecycle and canonicalizes optional start fields', () => {
+    const request = readPtyRequest({
+      envelope: { request_id: 'pty-start', capability: 'pty', protocol_version: 1 },
+      workspace_id: 'workspace-1',
+      worker_id: 'worker-1',
+      session_id: 'session-1',
+      operation: {
+        type: 'start',
+        program: 'wsl.exe',
+        cols: 80,
+        rows: 24,
+        execution_target: { kind: 'wsl2', distro: 'Ubuntu-24.04' }
+      }
+    })
+
+    expect(request).toEqual({
+      envelope: { request_id: 'pty-start', capability: 'pty', protocol_version: 1 },
+      workspace_id: 'workspace-1',
+      worker_id: 'worker-1',
+      session_id: 'session-1',
+      session_generation: null,
+      operation: {
+        type: 'start',
+        program: 'wsl.exe',
+        args: [],
+        current_dir: null,
+        execution_target: { kind: 'wsl2', distro: 'Ubuntu-24.04' },
+        cols: 80,
+        rows: 24
+      }
+    })
+    expect(
+      readPtyRequest({
+        ...request,
+        operation: { type: 'wait', timeout_ms: 0 },
+        session_generation: 1
+      })
+    ).toBeNull()
+    expect(
+      readPtyRequest({
+        ...request,
+        operation: {
+          type: 'start',
+          program: 'wsl.exe',
+          cols: 80,
+          rows: 24,
+          execution_target: { kind: 'future' }
+        }
+      })
+    ).toBeNull()
+    expect(
+      readPtyRequest({
+        ...request,
+        session_generation: 1
+      })
+    ).toBeNull()
+  })
+
+  it('accepts authoritative PTY responses and rejects unknown status fields', () => {
+    const response = {
+      envelope: { request_id: 'pty-poll', capability: 'pty', protocol_version: 1 },
+      workspace_id: 'workspace-1',
+      worker_id: 'worker-1',
+      session_id: 'session-1',
+      session_generation: 1,
+      generation: 2,
+      operation: 'poll',
+      status: 'running',
+      exit_code: null,
+      output_sequence: 0,
+      tail: '',
+      failure_reason: null
+    }
+    expect(readPtyResponse(response)).toEqual(response)
+    expect(readPtyResponse({ ...response, status: 'unknown' })).toBeNull()
   })
 })
