@@ -3,7 +3,6 @@ export type FeatureWallTileId =
   | 'tile-02'
   | 'tile-03'
   | 'tile-04'
-  | 'tile-05'
   | 'tile-06'
   | 'tile-07'
   | 'tile-08'
@@ -36,7 +35,6 @@ export const FEATURE_WALL_MEDIA_TILE_IDS = [
   'tile-02',
   'tile-03',
   'tile-04',
-  'tile-05',
   'tile-06',
   'tile-07',
   'tile-08',
@@ -101,18 +99,6 @@ export const FEATURE_WALL_TILES: readonly FeatureWallTile[] = [
     recordedAtPath: 'tile-04.recorded-at.json',
     owner: 'agent-integrations',
     docsUrl: 'https://www.onorca.dev/docs/agents/supported'
-  },
-  {
-    id: 'tile-05',
-    kind: 'media',
-    title: 'Embedded browser + Design Mode',
-    caption:
-      'A real Chromium window per workspace. Click any UI element to send its HTML, CSS, and a cropped screenshot into your agent.',
-    gifPath: 'tile-05.gif',
-    posterPath: 'tile-05.poster.jpg',
-    recordedAtPath: 'tile-05.recorded-at.json',
-    owner: 'browser-experience',
-    docsUrl: 'https://www.onorca.dev/docs/browser/design-mode'
   },
   {
     id: 'tile-06',

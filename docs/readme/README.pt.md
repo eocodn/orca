@@ -74,20 +74,6 @@ Terminais no nível do Ghostty com renderização WebGL, divisões infinitas e s
 <tr>
 <td width="50%" valign="middle">
 
-### Modo Design
-
-Clique em qualquer elemento de UI em uma janela real do Chromium para enviar HTML, CSS e uma captura recortada direto para o prompt do seu agente.
-
-[Docs →](https://www.onorca.dev/docs/browser/design-mode)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/browser/design-mode"><picture><source srcset="../assets/feature-wall/design-mode.gif" type="image/gif"><img src="../assets/feature-wall/design-mode.jpg" alt="Navegador integrado e Modo Design" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
 ### GitHub e Linear nativos
 
 Navegue por PRs, issues e quadros de projeto dentro do app — abra um worktree a partir de qualquer tarefa e revise sem trocar de contexto.

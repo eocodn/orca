@@ -74,20 +74,6 @@ Ghostty 级终端，支持 WebGL 渲染、无限分屏，以及重启后依然�
 <tr>
 <td width="50%" valign="middle">
 
-### 设计模式
-
-在真实的 Chromium 窗口中点击任意 UI 元素，把它的 HTML、CSS 和裁剪好的截图直接发送到智能体的提示中。
-
-[文档 →](https://www.onorca.dev/docs/browser/design-mode)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/browser/design-mode"><picture><source srcset="../assets/feature-wall/design-mode.gif" type="image/gif"><img src="../assets/feature-wall/design-mode.jpg" alt="内置浏览器与设计模式" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
 ### GitHub &amp; Linear 原生集成
 
 在应用内浏览 PR、issue 和项目看板 — 从任意任务打开 worktree，无需切换上下文即可完成评审。

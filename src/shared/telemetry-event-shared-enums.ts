@@ -147,7 +147,6 @@ export const featureWallTileIdSchema = z.enum([
   'tile-02',
   'tile-03',
   'tile-04',
-  'tile-05',
   'tile-06',
   'tile-07',
   'tile-08',
@@ -192,7 +191,7 @@ export const SETTINGS_CHANGED_WHITELIST = [
   'experimentalTerminalAttention',
   'experimentalAgentHibernation',
   'experimentalEphemeralVms',
-  'geminiCliOAuthEnabled',
+  'geminiCliOAuthEnabled'
 ] as const satisfies readonly BooleanGlobalSettingsKey[]
 export const settingsChangedKeySchema = z.enum(SETTINGS_CHANGED_WHITELIST)
 export type SettingsChangedKey = z.infer<typeof settingsChangedKeySchema>

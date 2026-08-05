@@ -74,20 +74,6 @@ WebGL レンダリング、無制限の分割、再起動後も残るスクロ�
 <tr>
 <td width="50%" valign="middle">
 
-### デザインモード
-
-実際の Chromium ウィンドウで任意の UI 要素をクリックすると、その HTML、CSS、切り抜いたスクリーンショットがそのままエージェントのプロンプトに送られます。
-
-[ドキュメント →](https://www.onorca.dev/docs/browser/design-mode)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/browser/design-mode"><picture><source srcset="../assets/feature-wall/design-mode.gif" type="image/gif"><img src="../assets/feature-wall/design-mode.jpg" alt="組み込みブラウザとデザインモード" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
 ### GitHub &amp; Linear をネイティブに
 
 PR、Issue、プロジェクトボードをアプリ内で閲覧 — 任意のタスクからワークツリーを開き、コンテキストスイッチなしでレビューできます。

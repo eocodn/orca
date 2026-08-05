@@ -74,20 +74,6 @@ Ghostty-class terminals with WebGL rendering, infinite splits, and scrollback th
 <tr>
 <td width="50%" valign="middle">
 
-### Design Mode
-
-Click any UI element in a real Chromium window to send its HTML, CSS, and a cropped screenshot straight into your agent's prompt.
-
-[Docs →](https://www.onorca.dev/docs/browser/design-mode)
-
-</td>
-<td width="50%">
-  <a href="https://www.onorca.dev/docs/browser/design-mode"><picture><source srcset="docs/assets/feature-wall/design-mode.gif" type="image/gif"><img src="docs/assets/feature-wall/design-mode.jpg" alt="Embedded browser and Design Mode" width="100%" /></picture></a>
-</td>
-</tr>
-<tr>
-<td width="50%" valign="middle">
-
 ### GitHub &amp; Linear, Native
 
 Browse PRs, issues, and project boards in-app — open a worktree from any task and review without a context switch.
@@ -261,6 +247,7 @@ Want to contribute or run locally? See our [CONTRIBUTING.md](.github/CONTRIBUTIN
 </p>
 
 ## Signed Builds
+
 Windows code signing sponored/provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
 ## License

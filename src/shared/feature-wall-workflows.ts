@@ -42,7 +42,7 @@ export const FEATURE_WALL_WORKFLOWS: readonly FeatureWallWorkflow[] = [
     meta: 'Terminal · Editor · Browser · Files',
     lede: 'Bring your terminal setup into Orca, then split panes to keep servers, tests, logs, and agents running side by side.',
     primaryTileId: 'tile-02',
-    relatedTileIds: ['tile-07', 'tile-05', 'tile-12'],
+    relatedTileIds: ['tile-07', 'tile-12'],
     docsUrl: 'https://www.onorca.dev/docs/terminal'
   },
   {

@@ -11,7 +11,6 @@ const MEDIA_TILE_IDS = [
   'tile-02',
   'tile-03',
   'tile-04',
-  'tile-05',
   'tile-06',
   'tile-07',
   'tile-08',
