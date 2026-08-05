@@ -10,8 +10,8 @@ mod contract_tests {
     use super::host_runtime::HostRuntime;
     use super::protocol::{
         Capability, FileRequest, GitOperation, GitRequest, ProtocolEnvelope, ProtocolError,
-        PtyOperation, PtyRequest, TerminalOperation, TerminalRequest, HOST_CAPABILITIES,
-        PROTOCOL_VERSION,
+        PtyOperation, PtyRequest, PtyResponse, PtyStatus, TerminalOperation, TerminalRequest,
+        HOST_CAPABILITIES, PROTOCOL_VERSION,
     };
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
     use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
@@ -177,6 +177,33 @@ mod contract_tests {
         request.session_generation = Some(1);
         request.operation = PtyOperation::Wait { timeout_ms: 30_001 };
         assert_eq!(request.validate(), Err(ProtocolError::InvalidPtyTimeout));
+    }
+
+    #[test]
+    fn pty_response_serializes_authoritative_terminal_outcome_and_rejects_unknown_fields() {
+        let response = PtyResponse {
+            envelope: ProtocolEnvelope::new("request-pty", Capability::Pty, PROTOCOL_VERSION),
+            workspace_id: String::from("workspace-1"),
+            worker_id: String::from("worker-1"),
+            session_id: String::from("session-1"),
+            session_generation: 7,
+            generation: 2,
+            operation: String::from("wait"),
+            status: PtyStatus::Exited,
+            exit_code: Some(7),
+            output_sequence: 3,
+            tail: String::from("ready"),
+            failure_reason: None,
+        };
+
+        assert_eq!(
+            serde_json::to_string(&response).expect("pty response should serialize"),
+            r#"{"envelope":{"request_id":"request-pty","capability":"pty","protocol_version":1},"workspace_id":"workspace-1","worker_id":"worker-1","session_id":"session-1","session_generation":7,"generation":2,"operation":"wait","status":"exited","exit_code":7,"output_sequence":3,"tail":"ready","failure_reason":null}"#
+        );
+        assert!(serde_json::from_str::<PtyResponse>(
+            r#"{"envelope":{"request_id":"request-pty","capability":"pty","protocol_version":1},"workspace_id":"workspace-1","worker_id":"worker-1","session_id":"session-1","session_generation":7,"generation":2,"operation":"wait","status":"exited","exit_code":7,"output_sequence":3,"tail":"ready","failure_reason":null,"unexpected":true}"#
+        )
+        .is_err());
     }
 
     #[test]
