@@ -5,6 +5,8 @@ use std::collections::BTreeMap;
 use std::io;
 use std::io::{Read, Write};
 use std::path::PathBuf;
+#[cfg(windows)]
+use std::process::Stdio;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -479,10 +481,7 @@ impl PtySession {
             .child
             .lock()
             .map_err(|_| PtyError::Termination(String::from("pty_child_unavailable")))?;
-        if let Some(status) = child
-            .try_wait()
-            .map_err(|error| PtyError::Termination(error.to_string()))?
-        {
+        if let Some(status) = try_wait_child(&mut child)? {
             self.child_reaped = true;
             return Ok(Some(status));
         }
@@ -494,10 +493,7 @@ impl PtySession {
                     self.child_reaped = true;
                 }
                 ProcessTermination::AlreadyExited => {
-                    if let Some(status) = child
-                        .try_wait()
-                        .map_err(|error| PtyError::Termination(error.to_string()))?
-                    {
+                    if let Some(status) = try_wait_child(&mut child)? {
                         self.child_reaped = true;
                         return Ok(Some(status));
                     }
@@ -695,16 +691,34 @@ fn terminate_process_tree(
     _process_group: Option<i32>,
     pid: u32,
 ) -> Result<ProcessTermination, PtyError> {
-    let status = std::process::Command::new("taskkill")
+    let mut taskkill = std::process::Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/T", "/F"])
-        .status()
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|error| PtyError::Termination(error.to_string()))?;
-    if !status.success() {
-        return Err(PtyError::Termination(format!(
-            "taskkill exited with {status}"
-        )));
+    let deadline = Instant::now() + READER_CLOSE_TIMEOUT;
+    loop {
+        match taskkill.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(ProcessTermination::Signalled),
+            Ok(Some(status)) => {
+                return Err(PtyError::Termination(format!(
+                    "taskkill exited with {status}"
+                )))
+            }
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = taskkill.kill();
+                let _ = taskkill.wait();
+                return Err(PtyError::Termination(String::from("taskkill timed out")));
+            }
+            Ok(None) => thread::sleep(POLL_INTERVAL),
+            Err(error) => {
+                return Err(PtyError::Termination(format!(
+                    "taskkill wait failed: {error}"
+                )))
+            }
+        }
     }
-    Ok(ProcessTermination::Signalled)
 }
 
 #[cfg(test)]
