@@ -215,7 +215,13 @@ describe('Electron runtime package contract', () => {
 
   it('packages and verifies the Windows SSH node-pty console-list fallback', () => {
     const relayBuild = readFileSync(join(projectDir, 'config/scripts/build-relay.mjs'), 'utf8')
-    const relayDeploy = readFileSync(join(projectDir, 'src/main/ssh/ssh-relay-deploy.ts'), 'utf8')
+    const relayDeploy = [
+      'ssh-relay-deployment-native-deps-probe-js-repair-installed-native-deps.ts',
+      'ssh-relay-deployment-install-native-deps-without-node-pty-windows-node-pty-patch-command.ts',
+      'ssh-relay-deployment-create-relay-launch-namespace-reset-native-deps-command.ts'
+    ]
+      .map((fileName) => readFileSync(join(projectDir, 'src/main/ssh', fileName), 'utf8'))
+      .join('\n')
     const patchAsset = readFileSync(
       join(projectDir, 'config/relay-assets/node-pty-1.1.0-console-list-agent-patch.cjs'),
       'utf8'
