@@ -7,12 +7,29 @@ import {
   isCurrentPtyExit
 } from '../ipc/pty'
 import type { SshPtyProvider } from '../providers/ssh-pty-provider'
-import { isMainWindowVisible,onMainWindowBecameVisible } from '../window/main-window-visibility'
+import { isMainWindowVisible, onMainWindowBecameVisible } from '../window/main-window-visibility'
 import type { SshChannelMultiplexer } from './ssh-channel-multiplexer'
 import { PortScanner } from './ssh-port-scanner'
 
 import * as foundation from './ssh-relay-session-lifecycle-foundation'
-const { SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE, SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS, SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS, SSH_PTY_REATTACH_MAX_CONCURRENCY, SSH_PTY_REATTACH_RETRY_JITTER_MS, SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS, SSH_SOURCE_RECOVERY_CANCELLATION_FAILED, expectedIdentityForLease, isSourceRecoveryCancellationError, nonNegativeSafeInteger, normalizeRelayGracePeriodSeconds, parseRecoveryComplete, positiveSafeInteger, ptyConsumerRecoveryByTarget, ptyConsumerRecoveryForTarget, sourceRecoveryCancellationError } = foundation
+const {
+  SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE,
+  SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS,
+  SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS,
+  SSH_PTY_REATTACH_MAX_CONCURRENCY,
+  SSH_PTY_REATTACH_RETRY_JITTER_MS,
+  SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS,
+  SSH_SOURCE_RECOVERY_CANCELLATION_FAILED,
+  expectedIdentityForLease,
+  isSourceRecoveryCancellationError,
+  nonNegativeSafeInteger,
+  normalizeRelayGracePeriodSeconds,
+  parseRecoveryComplete,
+  positiveSafeInteger,
+  ptyConsumerRecoveryByTarget,
+  ptyConsumerRecoveryForTarget,
+  sourceRecoveryCancellationError
+} = foundation
 type ExpectedPtyIdentity = foundation.ExpectedPtyIdentity
 type PendingPtyReattach = foundation.PendingPtyReattach
 type PtyConsumerRecovery = foundation.PtyConsumerRecovery
@@ -48,7 +65,8 @@ export const SshRelaySessionMethods9 = {
       this.portScanner = null
     }
   },
-  wireUpPtyEvents(this: any,
+  wireUpPtyEvents(
+    this: any,
     ptyProvider: SshPtyProvider,
     mux: SshChannelMultiplexer,
     providerGeneration: number
@@ -112,10 +130,12 @@ export const SshRelaySessionMethods9 = {
         this.wakeRecovery(pendingReattach)
         return
       }
-      if (pendingCleanupIncarnation !== undefined && !isCurrentPtyExit(payload)) {
+      const isLegacyExit = exitIncarnation?.startsWith('legacy:') === true
+      if (pendingCleanupIncarnation !== undefined && !isLegacyExit && !isCurrentPtyExit(payload)) {
         return
       }
-      if (!isCurrentPtyExit(payload)) {
+      // Legacy exits require remote inventory proof before lifecycle cleanup.
+      if (!isLegacyExit && !isCurrentPtyExit(payload)) {
         return
       }
       void this.acceptPtyExitOnce(payload).catch(() => {})

@@ -17,7 +17,24 @@ import { acceptSshPtyOutputExit } from '../ipc/ssh-pty-output-intake-registry'
 import { toRelaySshPtyId } from '../providers/ssh-pty-id'
 
 import * as foundation from './ssh-relay-session-lifecycle-foundation'
-const { SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE, SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS, SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS, SSH_PTY_REATTACH_MAX_CONCURRENCY, SSH_PTY_REATTACH_RETRY_JITTER_MS, SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS, SSH_SOURCE_RECOVERY_CANCELLATION_FAILED, expectedIdentityForLease, isSourceRecoveryCancellationError, nonNegativeSafeInteger, normalizeRelayGracePeriodSeconds, parseRecoveryComplete, positiveSafeInteger, ptyConsumerRecoveryByTarget, ptyConsumerRecoveryForTarget, sourceRecoveryCancellationError } = foundation
+const {
+  SSH_PTY_EXIT_RETIREMENT_MAX_EVIDENCE,
+  SSH_PTY_EXIT_RETRY_MAX_ATTEMPTS,
+  SSH_PTY_REATTACH_ATTEMPT_TIMEOUT_MS,
+  SSH_PTY_REATTACH_MAX_CONCURRENCY,
+  SSH_PTY_REATTACH_RETRY_JITTER_MS,
+  SSH_PTY_REATTACH_RETRY_MIN_DELAY_MS,
+  SSH_SOURCE_RECOVERY_CANCELLATION_FAILED,
+  expectedIdentityForLease,
+  isSourceRecoveryCancellationError,
+  nonNegativeSafeInteger,
+  normalizeRelayGracePeriodSeconds,
+  parseRecoveryComplete,
+  positiveSafeInteger,
+  ptyConsumerRecoveryByTarget,
+  ptyConsumerRecoveryForTarget,
+  sourceRecoveryCancellationError
+} = foundation
 type ExpectedPtyIdentity = foundation.ExpectedPtyIdentity
 type PendingPtyReattach = foundation.PendingPtyReattach
 type PtyConsumerRecovery = foundation.PtyConsumerRecovery
@@ -44,6 +61,7 @@ export const SshRelaySessionMethods12 = {
     ) {
       return
     }
+    const authoritativePayload = this.canonicalizeLegacyExit(payload, exitIncarnation)
     const isExactCleanupPending = (): boolean => {
       const pendingCleanupIncarnation = getPendingPtyCleanupIncarnation(payload.id)
       return (
@@ -56,10 +74,10 @@ export const SshRelaySessionMethods12 = {
         true || consumePendingPtyCleanupIfExact({ id: payload.id, incarnationId: exitIncarnation })
     try {
       await acceptSshPtyOutputExit({
-        id: payload.id,
-        code: payload.code,
-        providerGeneration: payload.providerGeneration,
-        ptyIncarnation: payload.ptyIncarnation
+        id: authoritativePayload.id,
+        code: authoritativePayload.code,
+        providerGeneration: authoritativePayload.providerGeneration,
+        ptyIncarnation: authoritativePayload.ptyIncarnation
       })
     } catch (error) {
       // Why: an admitted exit cannot mutate state after its provider generation has been torn down.
@@ -68,19 +86,33 @@ export const SshRelaySessionMethods12 = {
       }
       if (isExactCleanupPending() && finalizeExactCleanup()) {
         // Why: the exact provider exit is authoritative even when output delivery is canceled; retire relay state after finalizing the main-side cleanup snapshot.
-        await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
+        await this.retireCurrentPtyExitIfAuthoritative(
+          authoritativePayload,
+          true,
+          authoritativePayload.ptyIncarnation
+        )
         return
       }
       if (isExactCleanupPending()) {
         return
       }
-      if (consumeSshPtyExitFinalization?.(payload)) {
+      if (consumeSshPtyExitFinalization?.(authoritativePayload)) {
         // Why: intake may finalize the renderer/runtime exit before a later projection close rejects; only provider/lease cleanup remains here.
-        await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
+        await this.retireCurrentPtyExitIfAuthoritative(
+          authoritativePayload,
+          true,
+          authoritativePayload.ptyIncarnation
+        )
         return
       }
       // Why: an exit that loses the output barrier still needs authoritative teardown.
-      if (!(await this.retireCurrentPtyExitIfAuthoritative(payload, false, exitIncarnation))) {
+      if (
+        !(await this.retireCurrentPtyExitIfAuthoritative(
+          authoritativePayload,
+          false,
+          authoritativePayload.ptyIncarnation
+        ))
+      ) {
         throw error
       }
       return
@@ -99,9 +131,28 @@ export const SshRelaySessionMethods12 = {
         return
       }
     }
-    await this.retireCurrentPtyExitIfAuthoritative(payload, true, exitIncarnation)
+    await this.retireCurrentPtyExitIfAuthoritative(
+      authoritativePayload,
+      true,
+      authoritativePayload.ptyIncarnation
+    )
   },
-  async proveLegacyExitAbsence(this: any,
+  canonicalizeLegacyExit(
+    this: any,
+    payload: SshPtyExitPayload,
+    exitIncarnation: string | undefined
+  ): SshPtyExitPayload {
+    if (!exitIncarnation?.startsWith('legacy:')) {
+      return payload
+    }
+    const currentIncarnation = getPtyIncarnation(payload.id)
+    if (!currentIncarnation || currentIncarnation.startsWith('legacy:')) {
+      return payload
+    }
+    return { ...payload, ptyIncarnation: currentIncarnation, incarnationId: currentIncarnation }
+  },
+  async proveLegacyExitAbsence(
+    this: any,
     payload: SshPtyExitPayload,
     exitIncarnation: string | undefined
   ): Promise<boolean> {
@@ -119,7 +170,8 @@ export const SshRelaySessionMethods12 = {
     // Why: legacy identities are synthetic; only an authoritative inventory can distinguish an old exit from a live same-id replacement.
     return !sessions.some((session) => session.id === payload.id)
   },
-  async retireCurrentPtyExitIfAuthoritative(this: any,
+  async retireCurrentPtyExitIfAuthoritative(
+    this: any,
     payload: SshPtyExitPayload,
     deliveryHandled: boolean,
     exitIncarnation: string | undefined
@@ -134,8 +186,9 @@ export const SshRelaySessionMethods12 = {
     ) {
       return true
     }
-    if (isCurrentPtyExit(payload)) {
-      this.retireExitedPty(payload, deliveryHandled)
+    const authoritativePayload = this.canonicalizeLegacyExit(payload, exitIncarnation)
+    if (isCurrentPtyExit(authoritativePayload)) {
+      this.retireExitedPty(authoritativePayload, deliveryHandled)
       return true
     }
     return false

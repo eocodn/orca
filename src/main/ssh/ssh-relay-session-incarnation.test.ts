@@ -233,6 +233,57 @@ describe('SSH relay PTY incarnation exits', () => {
     expect(mockWindow.webContents.send).not.toHaveBeenCalledWith('pty:exit', expect.anything())
   })
 
+  it('canonicalizes a legacy exit after authoritative remote absence proof', async () => {
+    const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
+    const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
+    const session = new SshRelaySession(
+      'target-1',
+      getMainWindow,
+      mockStore,
+      mockPortForward,
+      runtime as never
+    )
+    await session.establish(mockConn)
+    const provider = vi.mocked(registerSshPtyProvider).mock.calls[0]?.[1] as unknown as {
+      onExit: ReturnType<typeof vi.fn>
+    }
+    const onExit = provider.onExit.mock.calls[0]?.[0] as (payload: {
+      id: string
+      code: number
+      providerGeneration: number
+      ptyIncarnation: string
+      incarnationId: string
+    }) => void
+    const listProcesses = vi.fn().mockResolvedValue([])
+    vi.mocked(getSshPtyProvider).mockReturnValue({ listProcesses } as never)
+    vi.mocked(getPtyIncarnation).mockReturnValue('current-incarnation')
+
+    onExit({
+      id: 'ssh:target-1@@pty-gone',
+      code: 9,
+      providerGeneration: 31,
+      ptyIncarnation: 'legacy:31:1:ssh:target-1@@pty-gone',
+      incarnationId: 'legacy:31:1:ssh:target-1@@pty-gone'
+    })
+
+    await vi.waitFor(() =>
+      expect(acceptOutputExitMock).toHaveBeenCalledWith({
+        id: 'ssh:target-1@@pty-gone',
+        code: 9,
+        providerGeneration: 31,
+        ptyIncarnation: 'current-incarnation'
+      })
+    )
+    expect(listProcesses).toHaveBeenCalledWith()
+    expect(clearProviderPtyState).toHaveBeenCalledWith('ssh:target-1@@pty-gone')
+    expect(deletePtyOwnership).toHaveBeenCalledWith('ssh:target-1@@pty-gone')
+    expect(mockStore.markSshRemotePtyLease).toHaveBeenCalledWith(
+      'target-1',
+      'pty-gone',
+      'terminated'
+    )
+  })
+
   it('accepts a current replacement exit while an older cleanup identity is pending', async () => {
     const { mockConn, mockStore, mockPortForward, getMainWindow } = createMockDeps()
     const runtime = { onPtyData: vi.fn(), onPtyExit: vi.fn() }
