@@ -41,6 +41,30 @@ services:
     init: true
     network_mode: host
 
+  file-cli-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-control
+    command:
+      - sh
+      - -euc
+      - >-
+        path=/tmp/ade-file-cli-contract.txt;
+        rm -f "$$path";
+        write="$$(cargo run --quiet --package ade-file -- --json
+        --write "$$path" --bytes-hex 4142)";
+        test "$$write" =
+        '{"service":"ade-file","operation":"write","path":"/tmp/ade-file-cli-contract.txt","bytes":[],"bytes_written":2,"changed":true}';
+        repeat="$$(cargo run --quiet --package ade-file -- --json
+        --write "$$path" --bytes-hex 4142)";
+        test "$$repeat" =
+        '{"service":"ade-file","operation":"write","path":"/tmp/ade-file-cli-contract.txt","bytes":[],"bytes_written":2,"changed":false}';
+        read="$$(cargo run --quiet --package ade-file -- --json --read "$$path")";
+        test "$$read" =
+        '{"service":"ade-file","operation":"read","path":"/tmp/ade-file-cli-contract.txt","bytes":[65,66],"bytes_written":0,"changed":false}'
+    init: true
+    network_mode: host
+
   worker-cli-contract:
     build:
       context: .
