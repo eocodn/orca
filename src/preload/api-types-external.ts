@@ -348,7 +348,8 @@ export type { CodexConfigSyncStatus } from '../shared/codex-config-sync-types'
 export type {
   AgentStatusClearIpcPayload,
   AgentStatusIpcPayload,
-  MigrationUnsupportedPtyEntry
+  MigrationUnsupportedPtyEntry,
+  AgentType
 } from '../shared/agent-status-types'
 export type { AgentInterruptInferenceRequest } from '../shared/agent-interrupt-intent'
 export type { AgentQuestionAnsweredInferenceRequest } from '../shared/agent-question-answered-intent'

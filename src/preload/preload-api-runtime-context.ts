@@ -184,7 +184,8 @@ import {
 import type {
   AgentStatusClearIpcPayload,
   AgentStatusIpcPayload,
-  MigrationUnsupportedPtyEntry
+  MigrationUnsupportedPtyEntry,
+  AgentType
 } from '../shared/agent-status-types'
 import type { AgentInterruptInferenceRequest } from '../shared/agent-interrupt-intent'
 import type { AgentQuestionAnsweredInferenceRequest } from '../shared/agent-question-answered-intent'
