@@ -1,10 +1,16 @@
+pub mod host_runtime;
 pub mod protocol;
 pub mod state;
+pub mod worker;
 
 #[cfg(test)]
 mod contract_tests {
+    use super::host_runtime::HostRuntime;
     use super::protocol::{Capability, ProtocolEnvelope, ProtocolError, PROTOCOL_VERSION};
     use super::state::{HostCommand, HostError, HostState, WorkspaceId, WorkspaceStatus};
+    use super::worker::{WorkerCommand, WorkerRuntime, WorkerStatus};
+    use std::sync::Arc;
+    use std::thread;
 
     #[test]
     fn protocol_rejects_unsupported_versions_and_missing_capabilities() {
@@ -87,6 +93,67 @@ mod contract_tests {
         assert_eq!(
             state.apply(HostCommand::Start { id }),
             Err(HostError::InvalidTransition)
+        );
+    }
+
+    #[test]
+    fn concurrent_host_mutations_have_one_authoritative_winner() {
+        let runtime = Arc::new(HostRuntime::new());
+        let id = WorkspaceId::new("workspace-1").unwrap();
+        runtime
+            .apply(
+                0,
+                HostCommand::Register {
+                    id: id.clone(),
+                    path: String::from(r"C:\workspaces\one"),
+                },
+            )
+            .unwrap();
+        let generation = runtime.snapshot().unwrap().generation;
+
+        let handles = (0..8)
+            .map(|_| {
+                let runtime = Arc::clone(&runtime);
+                let id = id.clone();
+                thread::spawn(move || runtime.apply(generation, HostCommand::Start { id }))
+            })
+            .collect::<Vec<_>>();
+        let results = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| result
+                    == &&Err(HostError::StaleGeneration {
+                        expected: generation,
+                        actual: generation + 1,
+                    }))
+                .count(),
+            7
+        );
+        assert_eq!(runtime.snapshot().unwrap().ready_workspaces, 0);
+    }
+
+    #[test]
+    fn worker_heartbeat_is_monotonic_and_observable() {
+        let worker = WorkerRuntime::new("wsl-ubuntu").unwrap();
+        worker.apply(0, WorkerCommand::Start).unwrap();
+        worker.apply(1, WorkerCommand::Ready).unwrap();
+        worker
+            .apply(2, WorkerCommand::Heartbeat { sequence: 1 })
+            .unwrap();
+        assert_eq!(worker.snapshot().unwrap().status, WorkerStatus::Ready);
+        assert_eq!(worker.snapshot().unwrap().heartbeat_sequence, 1);
+        assert_eq!(
+            worker.apply(3, WorkerCommand::Heartbeat { sequence: 1 }),
+            Err(super::worker::WorkerError::StaleHeartbeat {
+                received: 1,
+                actual: 1
+            })
         );
     }
 }

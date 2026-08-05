@@ -9,6 +9,7 @@ pub enum HostError {
     WorkspaceNotFound,
     WorkspacePathConflict,
     InvalidTransition,
+    StateLockPoisoned,
     StaleGeneration { expected: u64, actual: u64 },
 }
 
@@ -74,6 +75,17 @@ impl HostState {
 
     pub fn workspace(&self, id: &WorkspaceId) -> Option<&WorkspaceRecord> {
         self.workspaces.get(id)
+    }
+
+    pub fn workspace_count(&self) -> usize {
+        self.workspaces.len()
+    }
+
+    pub fn ready_workspace_count(&self) -> usize {
+        self.workspaces
+            .values()
+            .filter(|workspace| workspace.status == WorkspaceStatus::Ready)
+            .count()
     }
 
     pub fn journal(&self) -> &[JournalEntry] {
