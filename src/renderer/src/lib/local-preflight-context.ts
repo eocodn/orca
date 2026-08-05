@@ -6,6 +6,7 @@ import {
   type ProjectExecutionRuntimeResolution
 } from '../../../shared/project-execution-runtime'
 import { getRepoExecutionHostId, LOCAL_EXECUTION_HOST_ID } from '../../../shared/execution-host'
+import { parseWorkspaceKey } from '../../../shared/workspace-scope'
 import type { Repo, Worktree } from '../../../shared/types'
 import { getProviderRuntimeContextKey } from './provider-runtime-context'
 import { getRendererAppPlatform } from './renderer-app-platform'
@@ -31,7 +32,13 @@ export {
 
 type LocalProjectRuntimeState = Pick<
   AppState,
-  'activeRepoId' | 'activeWorktreeId' | 'projects' | 'repos' | 'settings' | 'worktreesByRepo'
+  | 'activeRepoId'
+  | 'activeWorktreeId'
+  | 'folderWorkspaces'
+  | 'projects'
+  | 'repos'
+  | 'settings'
+  | 'worktreesByRepo'
 >
 
 type LocalProjectRuntimeWslContext = {
@@ -230,11 +237,29 @@ function getCachedLocalProjectRuntimeWslContext(): LocalProjectRuntimeWslContext
 function getLocalPreflightWslDistro(state: AppState, worktreeId?: string | null): string | null {
   const activeWorktree = getLocalWorktree(state, worktreeId)
   const repo = getLocalRuntimeRepoForWorktree(state, activeWorktree)
-  if (!isLocalRuntimeRepo(repo) || !isLocalRuntimeWorktree(activeWorktree)) {
+  if (isLocalRuntimeRepo(repo) && isLocalRuntimeWorktree(activeWorktree)) {
+    const activePath = activeWorktree?.path ?? repo.path
+    return getWslDistroFromPath(activePath)
+  }
+
+  const folderWorkspace = getLocalFolderWorkspace(state, worktreeId)
+  if (!folderWorkspace || getRepoExecutionHostId(folderWorkspace) !== LOCAL_EXECUTION_HOST_ID) {
     return null
   }
-  const activePath = activeWorktree?.path ?? repo.path
-  return getWslDistroFromPath(activePath)
+  return getWslDistroFromPath(folderWorkspace.folderPath)
+}
+
+function getLocalFolderWorkspace(
+  state: LocalProjectRuntimeState,
+  worktreeId?: string | null
+): LocalProjectRuntimeState['folderWorkspaces'][number] | null {
+  const scope = parseWorkspaceKey(worktreeId ?? state.activeWorktreeId ?? '')
+  if (scope?.type !== 'folder') {
+    return null
+  }
+  return (
+    state.folderWorkspaces.find((workspace) => workspace.id === scope.folderWorkspaceId) ?? null
+  )
 }
 
 function getLocalRuntimeRepoForWorktree(

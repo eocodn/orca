@@ -54,6 +54,25 @@ describe('local preflight context', () => {
     expect(getWslDistroFromPath('/Users/alice/repo')).toBeNull()
   })
 
+  it('passes the local WSL distro for a restored active folder workspace', () => {
+    const state = {
+      activeRepoId: null,
+      activeWorktreeId: 'folder:folder-1',
+      folderWorkspaces: [
+        {
+          id: 'folder-1',
+          folderPath: String.raw`\\wsl.localhost\Ubuntu\home\alice\workspace`,
+          connectionId: null,
+          executionHostId: 'local'
+        }
+      ],
+      repos: [],
+      worktreesByRepo: {}
+    } as unknown as AppState
+
+    expect(getLocalPreflightContext(state, 'win32')).toEqual({ wslDistro: 'Ubuntu' })
+  })
+
   it('returns a stable snapshot for repeated WSL selector reads', () => {
     const state = makeState({
       repoPath: '/Users/alice/repo',
