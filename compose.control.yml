@@ -1,6 +1,17 @@
 name: ade-control-${ADE_CONTROL_RUN_ID:?set a unique run id for concurrency-safe execution}
 
 services:
+  rust-host-core-contract:
+    build:
+      context: .
+      dockerfile: Dockerfile.rust-control
+    command:
+      - sh
+      - -euc
+      - cargo fmt --all -- --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
+    init: true
+    network_mode: host
+
   runtime-model-tests:
     build:
       context: .

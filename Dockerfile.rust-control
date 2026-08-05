@@ -1,0 +1,12 @@
+FROM rust:1.85-slim-bookworm@sha256:9f841bbe9e7d8e37ceb96ed907265a3a0df7f44e3737d0b100e7907a679acb36
+
+RUN rustup component add rustfmt clippy
+
+WORKDIR /workspace/rust
+COPY rust/Cargo.toml rust/Cargo.lock ./
+COPY rust/ade-host-core/Cargo.toml ade-host-core/Cargo.toml
+COPY rust/ade-host-core/src ade-host-core/src
+
+RUN cargo test --workspace
+
+CMD ["sh", "-euc", "cargo fmt --all -- --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings"]
