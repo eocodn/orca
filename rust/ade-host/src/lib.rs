@@ -4,6 +4,8 @@ use ade_host_store::store::{
 };
 use std::path::PathBuf;
 
+pub mod pty_router;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct HostCliOptions {
     pub json: bool,

@@ -26,6 +26,8 @@ version = "0.1.0"
 dependencies = [
  "ade-host-core",
  "ade-host-store",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

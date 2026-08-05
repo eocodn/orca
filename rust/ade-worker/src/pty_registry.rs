@@ -63,7 +63,7 @@ impl PtyWorkerRegistry {
             PtyOperation::Start { .. } => match self.start(request) {
                 Ok(handle) => handle,
                 Err(error) => {
-                    self.commit(request, Err(error.clone()), None, false)?;
+                    self.commit(request, Err(error.clone()), None)?;
                     return Err(error);
                 }
             },
@@ -75,7 +75,7 @@ impl PtyWorkerRegistry {
                 }
                 Err(error) => {
                     if error == "session_owner_conflict" {
-                        self.commit(request, Err(error.clone()), None, false)?;
+                        self.commit(request, Err(error.clone()), None)?;
                     } else {
                         self.abort(request)?;
                     }
@@ -85,11 +85,11 @@ impl PtyWorkerRegistry {
         };
         let generation = handle.generation;
         let operation = self.apply_operation(request, &handle.session, generation);
-        let (result, completed) = match operation {
-            Ok(response) => (Ok(response.clone()), is_completed(request, &response)),
-            Err(error) => (Err(error), false),
+        let result = match operation {
+            Ok(response) => Ok(response.clone()),
+            Err(error) => Err(error),
         };
-        self.commit(request, result.clone(), Some(&handle.session), completed)?;
+        self.commit(request, result.clone(), Some(&handle.session))?;
         result
     }
 
@@ -254,7 +254,6 @@ impl PtyWorkerRegistry {
         request: &PtyRequest,
         result: Result<PtyResponse, String>,
         session: Option<&Arc<Mutex<PtySession>>>,
-        completed: bool,
     ) -> Result<(), String> {
         let mut registry = self
             .registry
@@ -271,8 +270,12 @@ impl PtyWorkerRegistry {
         {
             registry.reservations.remove(&request.session_id);
         }
-        let remove =
-            completed || (matches!(request.operation, PtyOperation::Terminate) && result.is_ok());
+        // Wait leaves the session addressable so cleanup can be explicit after observing exit.
+        let completed = result
+            .as_ref()
+            .is_ok_and(|response| matches!(response.status, PtyStatus::Exited | PtyStatus::Closed));
+        let remove = (completed && !matches!(request.operation, PtyOperation::Wait { .. }))
+            || (matches!(request.operation, PtyOperation::Terminate) && result.is_ok());
         if remove {
             let same = registry
                 .sessions
@@ -316,12 +319,6 @@ fn owner(request: &PtyRequest) -> Owner {
         workspace_id: request.workspace_id.clone(),
         worker_id: request.worker_id.clone(),
     }
-}
-
-fn is_completed(request: &PtyRequest, response: &PtyResponse) -> bool {
-    matches!(response.status, PtyStatus::Exited | PtyStatus::Closed)
-        || matches!(request.operation, PtyOperation::Wait { .. })
-            && matches!(response.status, PtyStatus::Failed)
 }
 
 fn response(
