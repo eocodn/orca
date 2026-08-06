@@ -1,5 +1,4 @@
 export {
-  CheckButton,
   DecisionLine,
   getAgentDecisionLabel,
   getDeleteDecisionLabel,
@@ -8,7 +7,6 @@ export {
   getTerminalDecisionLabel,
   getTreemapFill,
   StatusBadge,
-  UpdatedMetric,
   WorkspaceDecisionHoverCard
 } from './workspace-space-manager-decision'
 export {

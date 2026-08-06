@@ -7,7 +7,6 @@ import CodexRestartChip from './CodexRestartChip'
 import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
 import TerminalPaneOverlayLayer from './terminal-pane/TerminalPaneOverlayLayer'
 import BrowserPaneOverlayLayer from './browser-pane/BrowserPaneOverlayLayer'
-import AiVaultSessionDropLayer from './tab-group/AiVaultSessionDropLayer'
 import type { TabGroupLayoutNode } from '../../../shared/types'
 import type { ActivityTerminalPortalTarget } from './activity/activity-terminal-portal'
 
@@ -83,11 +82,8 @@ const WorktreeSplitSurface = React.memo(function WorktreeSplitSurface({
         activationDeferredMountTabIds={activationDeferredMountTabIds}
       />
       {isVisible || backgroundMountTabIds === null ? (
-        <>
-          <BrowserPaneOverlayLayer worktreeId={worktreeId} isWorktreeActive={isVisible} />
-        </>
+        <BrowserPaneOverlayLayer worktreeId={worktreeId} isWorktreeActive={isVisible} />
       ) : null}
-      <AiVaultSessionDropLayer worktreeId={worktreeId} enabled={isVisible} />
     </div>
   )
 })

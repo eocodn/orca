@@ -182,7 +182,7 @@ export function buildRenderableRows(rows: HostSectionRow[]): RenderRow[] {
 
 // Why: getRenderRowKey lives with the other virtual-row helpers now; keep the
 // long-standing import path working for callers that reach for it here.
-export { getRenderRowKey }
+export { getRenderRowKey } from './worktree-list-virtual-rows'
 
 export function getWorktreeDragGroups(rows: HostSectionRow[]): WorktreeDragGroup[] {
   const groups: WorktreeDragGroup[] = []

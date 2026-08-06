@@ -9,21 +9,8 @@ import { Button } from '../ui/button'
 import { formatBytes, formatCompactCount } from './workspace-space-format'
 import { buildTreemapLayout } from './workspace-space-layout'
 import { getLargestWorkspaceSpaceItemSize } from './workspace-space-presentation'
+import { getTreemapFill } from './workspace-space-manager-decision'
 import { translate } from '@/i18n/i18n'
-
-export {
-  BreakdownRow,
-  DecisionLine,
-  getAgentDecisionLabel,
-  getDeleteDecisionLabel,
-  getEditorDecisionLabel,
-  getGitDecisionLabel,
-  getTerminalDecisionLabel,
-  Metric,
-  StatusBadge,
-  WorkspaceDecisionHoverCard,
-  getTreemapFill
-} from './workspace-space-manager-decision'
 
 export function WorkspaceTreemap({
   rows,
