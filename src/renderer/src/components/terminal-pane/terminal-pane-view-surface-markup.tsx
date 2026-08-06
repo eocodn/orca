@@ -4,10 +4,8 @@ import { TerminalQuickCommandDialog } from '@/components/terminal-quick-commands
 import type { TerminalQuickCommand } from '../../../../shared/types'
 import { WORKSPACE_FILE_PATH_MIME, WORKSPACE_FILE_PATHS_MIME } from '@/lib/workspace-file-drag'
 import { shouldShowMobileDriverOverlay } from './mobile-driver-overlay-visibility'
-import {
-  getDriverForPty,
-  getFitOverrideForPty
-} from '@/lib/pane-manager/mobile-driver-state'
+import { getDriverForPty } from '@/lib/pane-manager/mobile-driver-state'
+import { getFitOverrideForPty } from '@/lib/pane-manager/mobile-fit-overrides'
 import { DaemonActionDialog } from '@/components/shared/useDaemonActions'
 import TerminalSearch from '@/components/TerminalSearch'
 import CloseTerminalDialog from './CloseTerminalDialog'
@@ -21,9 +19,14 @@ import { SessionRestoredBannerPortals } from './SessionRestoredBannerPortals'
 import TerminalPaneHeaderOverlay from './TerminalPaneHeaderOverlay'
 import { TerminalSshReconnectOverlay } from './TerminalSshReconnectOverlay'
 import { TerminalRemoteRuntimeReconnectBanner } from './TerminalRemoteRuntimeReconnectBanner'
+import type { useTerminalPaneSurfaceEffects } from './terminal-pane-view-surface-effects'
 
-
-type TerminalPaneSurfaceMarkupProps = Record<string, any>
+type TerminalPaneSurfaceMarkupProps = ReturnType<typeof useTerminalPaneSurfaceEffects> & {
+  tabId: string
+  worktreeId: string
+  cwd?: string
+  isActive: boolean
+}
 
 function TerminalQuickCommandEditorDialog({
   command,
@@ -46,82 +49,84 @@ function TerminalQuickCommandEditorDialog({
     />
   )
 }
-export function TerminalPaneSurfaceMarkup(props: TerminalPaneSurfaceMarkupProps): React.JSX.Element {
+export function TerminalPaneSurfaceMarkup(
+  props: TerminalPaneSurfaceMarkupProps
+): React.JSX.Element {
   const {
-  setContainerRef,
-  tabId,
-  expectedLayoutLeafIdsAttr,
-  titleUsesLightSurface,
-  terminalContainerStyle,
-  contextMenu,
-  handlePrimarySelectionMiddleMouseDown,
-  handlePrimarySelectionAuxClick,
-  managerRef,
-  paneTransportsRef,
-  worktreeId,
-  cwd,
-  terminalError,
-  isActive,
-  showSshReconnectOverlay,
-  setTerminalError,
-  daemonActions,
-  sshReconnectTargetId,
-  sshReconnectStatus,
-  managedPanes,
-  sshReconnectTargetLabel,
-  sshReconnectTargetRemoved,
-  sshReconnectEnvironmentId,
-  sessionStateSaveFailureOpen,
-  setSessionStateSaveFailureOpen,
-  openDiskSpaceAnalyzer,
-  activePane,
-  searchOpen,
-  setSearchOpen,
-  searchStateRef,
-  sessionRestoredBannerPaneIds,
-  expandedPaneId,
-  keybindings,
-  contextMenuCanContinueInNewSession,
-  repoQuickCommands,
-  globalQuickCommands,
-  quickCommandRepoLabel,
-  quickCommandRepoId,
-  openQuickCommandEditor,
-  menuPaneHasCustomTitle,
-  quickCommandEditorOpen,
-  quickCommandDraft,
-  saveQuickCommand,
-  agentSessionFork,
-  setAgentSessionFork,
-  agentSessionContinuation,
-  setAgentSessionContinuation,
-  paneCount,
-  paneTitles,
-  paneTitleOverlayRects,
-  renamingPaneId,
-  renameValue,
-  renameInputRef,
-  paneTitleBackground,
-  terminalContentVisible,
-  hiddenStartupStyle,
-  activePaneCanContinueInNewSession,
-  showSplitButton,
-  splitTerminalPaneFromHeader,
-  beginPaneDragFromHeader,
-  activatePaneTitleInteraction,
-  handleStartRename,
-  handleRemoveTitle,
-  handleRequestClosePane,
-  setRenameValue,
-  handleRenameSubmit,
-  handleRenameCancel,
-  handleRenameBlur,
-  ptyRecoveryStatesByPaneId,
-  restorePaneTerminalFit,
-  restoreAllTerminalFits,
-  pendingCloseConfirmation,
-  handleCancelClose,
-  handleConfirmClose
+    setContainerRef,
+    tabId,
+    expectedLayoutLeafIdsAttr,
+    titleUsesLightSurface,
+    terminalContainerStyle,
+    contextMenu,
+    handlePrimarySelectionMiddleMouseDown,
+    handlePrimarySelectionAuxClick,
+    managerRef,
+    paneTransportsRef,
+    worktreeId,
+    cwd,
+    terminalError,
+    isActive,
+    showSshReconnectOverlay,
+    setTerminalError,
+    daemonActions,
+    sshReconnectTargetId,
+    sshReconnectStatus,
+    managedPanes,
+    sshReconnectTargetLabel,
+    sshReconnectTargetRemoved,
+    sshReconnectEnvironmentId,
+    sessionStateSaveFailureOpen,
+    setSessionStateSaveFailureOpen,
+    openDiskSpaceAnalyzer,
+    activePane,
+    searchOpen,
+    setSearchOpen,
+    searchStateRef,
+    sessionRestoredBannerPaneIds,
+    expandedPaneId,
+    keybindings,
+    contextMenuCanContinueInNewSession,
+    repoQuickCommands,
+    globalQuickCommands,
+    quickCommandRepoLabel,
+    quickCommandRepoId,
+    openQuickCommandEditor,
+    menuPaneHasCustomTitle,
+    quickCommandEditorOpen,
+    quickCommandDraft,
+    saveQuickCommand,
+    agentSessionFork,
+    setAgentSessionFork,
+    agentSessionContinuation,
+    setAgentSessionContinuation,
+    paneCount,
+    paneTitles,
+    paneTitleOverlayRects,
+    renamingPaneId,
+    renameValue,
+    renameInputRef,
+    paneTitleBackground,
+    terminalContentVisible,
+    hiddenStartupStyle,
+    activePaneCanContinueInNewSession,
+    showSplitButton,
+    splitTerminalPaneFromHeader,
+    beginPaneDragFromHeader,
+    activatePaneTitleInteraction,
+    handleStartRename,
+    handleRemoveTitle,
+    handleRequestClosePane,
+    setRenameValue,
+    handleRenameSubmit,
+    handleRenameCancel,
+    handleRenameBlur,
+    ptyRecoveryStatesByPaneId,
+    restorePaneTerminalFit,
+    restoreAllTerminalFits,
+    pendingCloseConfirmation,
+    handleCancelClose,
+    handleConfirmClose
   } = props
   return (
     <>

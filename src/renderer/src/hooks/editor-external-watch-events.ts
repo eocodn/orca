@@ -1,167 +1,41 @@
-import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '@/store'
-import { basename, joinPath } from '@/lib/path'
+import { joinPath } from '@/lib/path'
 import { getExternalFileChangeRelativePath } from '@/components/right-sidebar/useFileExplorerWatch'
 import { normalizeRuntimePathForComparison } from '../../../shared/cross-platform-path'
 import {
   canAutoSaveOpenFile,
   getOpenFilesForExternalFileChange,
-  isExternalReloadableEditorTab,
-  isWorkingTreeCombinedDiffTab,
-  notifyEditorExternalFileChange
+  isWorkingTreeCombinedDiffTab
 } from '@/components/editor/editor-autosave'
+import { getRecentSelfWrite } from '@/components/editor/editor-self-write-registry'
 import {
-  clearSelfWrite,
-  getRecentSelfWrite,
-  type RecentSelfWrite
-} from '@/components/editor/editor-self-write-registry'
-import { hasActiveEditorPathMoves, isActiveMoveSourcePath } from '@/components/editor/editor-path-move-inflight'
+  hasActiveEditorPathMoves,
+  isActiveMoveSourcePath
+} from '@/components/editor/editor-path-move-inflight'
 import type { FsChangedPayload } from '../../../shared/types'
-import type { OpenFile } from '@/store/slices/editor'
-import { readRuntimeFileContent } from '@/runtime/runtime-file-client'
-import { markFileChangedOnDisk } from '@/components/editor/editor-changed-on-disk-mark'
-import { getDiskBaselineSignature } from '@/components/editor/diff-content-signature'
 import { scheduleDebouncedExternalReload } from './editor-external-watch-targets'
-import { getWatchedTargetKey, openFileRuntimeOwner } from './editor-external-watch-targets'
-import { readFileForEchoVerification } from './editor-external-watch-echo'
-import type { ExternalWatchNotification, WatchedTarget } from './editor-external-watch-targets'
+import { openFileRuntimeOwner } from './editor-external-watch-targets'
+import {
+  scheduleChangedOnDiskMark,
+  scheduleSelfMoveEchoVerification
+} from './editor-external-watch-echo'
+import type { WatchedTarget } from './editor-external-watch-targets'
 import type { WorktreeFileChangeEventDetail } from './worktree-file-change-event'
 import { ORCA_WORKTREE_FILE_CHANGE_EVENT } from './worktree-file-change-event'
+import {
+  getOverflowExternalReloadTargets,
+  scheduleSelfWriteAwareExternalReload
+} from './editor-external-watch-reload'
+import {
+  buildDeletePathByFileId,
+  collectDeletedOpenEditorIds,
+  hasRenameCorrelatedCreate
+} from './editor-external-watch-mutation'
 const EXTERNAL_MUTATION_DEBOUNCE_MS = 75
 
 type PendingDeleteTimer = {
   fileId: string
   timer: ReturnType<typeof setTimeout>
-}
-
-/**
- * Subscribes to filesystem watcher events for every worktree that currently
- * has an editor tab open, and notifies the editor to reload clean tabs when
- * their on-disk contents change.
- *
- * Why: the File Explorer watcher unmounts when the sidebar leaves Explorer, so lifting this to an always-mounted hook keeps terminal edits noticed everywhere.
- */
-export function useEditorExternalWatch(): void {
-  const { targets, targetsKey } = useAppStore(getEditorExternalWatchTargets)
-
-  const targetsRef = useRef<WatchedTarget[]>([])
-  const latestTargetsRef = useRef<WatchedTarget[]>(targets)
-  latestTargetsRef.current = targets
-  const remoteWatchUnsubsRef = useRef(new Map<string, () => void>())
-  const fsChangedHandlerRef = useRef<
-    ((payload: FsChangedPayload, runtimeEnvironmentId?: string | null) => void) | null
-  >(null)
-
-  // Why: diff prev vs next targets so unchanged worktrees keep their subscription; tearing down all on every targetsKey change churns watchers and drops events in the gap.
-  useEffect(() => {
-    const nextTargets = latestTargetsRef.current
-    const prev = targetsRef.current
-    const prevKeys = new Set(prev.map(getWatchedTargetKey))
-    const nextKeys = new Set(nextTargets.map(getWatchedTargetKey))
-    const removed = prev.filter((t) => !nextKeys.has(getWatchedTargetKey(t)))
-    const added = nextTargets.filter((t) => !prevKeys.has(getWatchedTargetKey(t)))
-
-    for (const target of removed) {
-      const key = getWatchedTargetKey(target)
-      const remoteUnsubscribe = remoteWatchUnsubsRef.current.get(key)
-      if (remoteUnsubscribe) {
-        remoteUnsubscribe()
-        remoteWatchUnsubsRef.current.delete(key)
-      } else {
-        void getClientRuntime().file.unwatchWorktree({
-          worktreePath: target.worktreePath,
-          connectionId: target.connectionId
-        })
-      }
-    }
-    for (const target of added) {
-      if (target.runtimeEnvironmentId) {
-        const key = getWatchedTargetKey(target)
-        let cancelled = false
-        const pendingUnsubscribe = (): void => {
-          cancelled = true
-        }
-        remoteWatchUnsubsRef.current.set(key, pendingUnsubscribe)
-        void subscribeRuntimeFileChanges(
-          {
-            settings: { activeRuntimeEnvironmentId: target.runtimeEnvironmentId },
-            worktreeId: target.worktreeId,
-            worktreePath: target.worktreePath,
-            connectionId: target.connectionId
-          },
-          (payload) => fsChangedHandlerRef.current?.(payload, target.runtimeEnvironmentId),
-          (err) => warnExternalWatchFailure(target, err)
-        )
-          .then((unsubscribe) => {
-            if (cancelled) {
-              unsubscribe()
-              return
-            }
-            if (remoteWatchUnsubsRef.current.get(key) === pendingUnsubscribe) {
-              remoteWatchUnsubsRef.current.set(key, unsubscribe)
-            } else {
-              unsubscribe()
-            }
-          })
-          .catch((err) => {
-            if (remoteWatchUnsubsRef.current.get(key) === pendingUnsubscribe) {
-              remoteWatchUnsubsRef.current.delete(key)
-            }
-            warnExternalWatchFailure(target, err)
-          })
-        continue
-      }
-      void getClientRuntime().file
-        .watchWorktree({
-          worktreePath: target.worktreePath,
-          connectionId: target.connectionId
-        })
-        .catch((err) => {
-          // Why: remote SSH providers can disappear while tabs still reference the worktree; degrade to a diagnostic, not an uncaught renderer promise.
-          warnExternalWatchFailure(target, err)
-        })
-    }
-    targetsRef.current = nextTargets
-    // Why: intentionally differential — no unwatch on cleanup; final unmount unwatching lives in the [] effect below so targetsKey changes don't tear down everything.
-  }, [targetsKey])
-
-  // Why: keep the fs:changed subscription in an always-mounted [] effect so it doesn't re-subscribe on every targetsKey change and miss events fired during the gap.
-  useEffect(() => {
-    const remoteWatchUnsubs = remoteWatchUnsubsRef.current
-    const { handleFsChanged, dispose } = createExternalWatchEventHandler(
-      (worktreePath, runtimeEnvironmentId) =>
-        targetsRef.current.find(
-          (t) =>
-            normalizeRuntimePathForComparison(t.worktreePath) ===
-              normalizeRuntimePathForComparison(worktreePath) &&
-            t.runtimeEnvironmentId === runtimeEnvironmentId
-        )
-    )
-    const unsubscribe = getClientRuntime().file.onFsChanged((payload) => handleFsChanged(payload, null))
-    fsChangedHandlerRef.current = handleFsChanged
-
-    return () => {
-      unsubscribe()
-      dispose()
-      fsChangedHandlerRef.current = null
-      // Why: the differential watch effect never unwatches on cleanup, so final unmount is the only place that tears down every subscription.
-      for (const target of targetsRef.current) {
-        const key = getWatchedTargetKey(target)
-        const remoteUnsubscribe = remoteWatchUnsubs.get(key)
-        if (remoteUnsubscribe) {
-          remoteUnsubscribe()
-        } else {
-          void getClientRuntime().file.unwatchWorktree({
-            worktreePath: target.worktreePath,
-            connectionId: target.connectionId
-          })
-        }
-      }
-      remoteWatchUnsubs.clear()
-      targetsRef.current = []
-      // Why: don't clear the module-scoped pendingExternalReloadTimers — StrictMode's first-mount cleanup would drop the second mount's timers; a late dispatch is harmless.
-    }
-  }, [])
 }
 
 /**
@@ -411,186 +285,5 @@ export function createExternalWatchEventHandler(
 
   return { handleFsChanged, dispose }
 }
-function scheduleSelfWriteAwareExternalReload(
-  target: WatchedTarget,
-  notification: ExternalWatchNotification,
-  file: OpenFile,
-  recentSelfWrite: RecentSelfWrite
-): void {
-  if (recentSelfWrite.content === null) {
-    scheduleDebouncedExternalReload(notification)
-    return
-  }
 
-  const runtimeEnvironmentId = file.runtimeEnvironmentId ?? target.runtimeEnvironmentId
-  // Why: a self-write stamp only proves recent change; compare disk content so we suppress only Orca's own echo, not a newer agent write in the same TTL.
-  void readFileForEchoVerification({
-    runtimeEnvironmentId,
-    filePath: file.filePath,
-    relativePath: file.relativePath,
-    worktreeId: file.worktreeId,
-    connectionId: target.connectionId,
-    expectedExternalSshTargetId: file.externalSshTargetId
-  })
-    .then((result) => {
-      if (
-        (result.isBinary || result.content !== recentSelfWrite.content) &&
-        hasCleanExternalReloadTarget(notification)
-      ) {
-        clearSelfWrite(file.filePath, runtimeEnvironmentId)
-        scheduleDebouncedExternalReload(notification)
-      }
-    })
-    .catch(() => {
-      if (hasCleanExternalReloadTarget(notification)) {
-        clearSelfWrite(file.filePath, runtimeEnvironmentId)
-        scheduleDebouncedExternalReload(notification)
-      }
-    })
-}
-
-function hasCleanExternalReloadTarget(notification: ExternalWatchNotification): boolean {
-  const matching = getOpenFilesForExternalFileChange(useAppStore.getState().openFiles, notification)
-  // Why: one clean target is enough — consumers skip dirty files per-file, so a dirty sibling doesn't veto the reload.
-  return matching.some((file) => !file.isDirty)
-}
-
-export function getOverflowExternalReloadTargets(
-  target: Pick<WatchedTarget, 'worktreeId' | 'worktreePath'> & {
-    runtimeEnvironmentId?: string | null
-  }
-): ExternalWatchNotification[] {
-  const state = useAppStore.getState()
-  const notifications: ExternalWatchNotification[] = []
-
-  for (const file of state.openFiles) {
-    if (
-      file.worktreeId !== target.worktreeId ||
-      openFileRuntimeOwner(file) !== (target.runtimeEnvironmentId ?? null) ||
-      !isExternalReloadableEditorTab(file) ||
-      file.isDirty
-    ) {
-      continue
-    }
-    if (file.externalMutation) {
-      // Why: overflow gives no per-path resurrection signal, so clear the tombstone and let a still-missing file surface as a read failure.
-      state.setExternalMutation(file.id, null)
-    }
-    notifications.push({
-      worktreeId: target.worktreeId,
-      worktreePath: target.worktreePath,
-      relativePath: file.relativePath,
-      runtimeEnvironmentId: target.runtimeEnvironmentId ?? null
-    })
-  }
-
-  return notifications
-}
-
-function buildDeletePathByFileId(
-  payload: FsChangedPayload,
-  worktreeId: string,
-  runtimeEnvironmentId: string | null,
-  deletedOpenEditorIds: string[],
-  openFiles: OpenFile[]
-): Map<string, string> {
-  const deletePaths = new Set<string>()
-  for (const evt of payload.events) {
-    if (evt.kind === 'delete') {
-      deletePaths.add(normalizeRuntimePathForComparison(evt.absolutePath))
-    }
-  }
-  const result = new Map<string, string>()
-  if (deletePaths.size === 0) {
-    return result
-  }
-  const deletedIdSet = new Set(deletedOpenEditorIds)
-  for (const file of openFiles) {
-    if (
-      !deletedIdSet.has(file.id) ||
-      file.worktreeId !== worktreeId ||
-      openFileRuntimeOwner(file) !== runtimeEnvironmentId
-    ) {
-      continue
-    }
-    const normalized = normalizeRuntimePathForComparison(file.filePath)
-    if (deletePaths.has(normalized)) {
-      result.set(file.id, normalized)
-    }
-  }
-  return result
-}
-
-function collectDeletedOpenEditorIds(
-  payload: FsChangedPayload,
-  worktreeId: string,
-  runtimeEnvironmentId: string | null,
-  openFiles: OpenFile[]
-): string[] {
-  const deletePaths = new Set<string>()
-  for (const evt of payload.events) {
-    if (evt.kind === 'delete') {
-      deletePaths.add(normalizeRuntimePathForComparison(evt.absolutePath))
-    }
-  }
-  if (deletePaths.size === 0) {
-    return []
-  }
-  const result: string[] = []
-  for (const file of openFiles) {
-    if (
-      file.worktreeId !== worktreeId ||
-      openFileRuntimeOwner(file) !== runtimeEnvironmentId ||
-      (file.mode !== 'edit' && file.mode !== 'markdown-preview')
-    ) {
-      continue
-    }
-    if (deletePaths.has(normalizeRuntimePathForComparison(file.filePath))) {
-      result.push(file.id)
-    }
-  }
-  return result
-}
-
-/**
- * Returns true if the batched payload contains at least one file-create event
- * whose basename matches a deleted open editor file.
- *
- * Why: correlate by basename only, not parent dir — save-as-temp patterns (`rm foo.md && touch foo.md.new`) put unrelated creates in the same dir and would mislabel deletes as renames.
- */
-function hasRenameCorrelatedCreate(
-  payload: FsChangedPayload,
-  worktreeId: string,
-  deletedOpenEditorIds: string[],
-  openFiles: OpenFile[]
-): boolean {
-  if (deletedOpenEditorIds.length === 0) {
-    return false
-  }
-  const deletedIdSet = new Set(deletedOpenEditorIds)
-  const deletedBasenames = new Set<string>()
-  for (const file of openFiles) {
-    if (
-      file.worktreeId !== worktreeId ||
-      (file.mode !== 'edit' && file.mode !== 'markdown-preview')
-    ) {
-      continue
-    }
-    if (!deletedIdSet.has(file.id)) {
-      continue
-    }
-    deletedBasenames.add(basename(file.filePath))
-  }
-  if (deletedBasenames.size === 0) {
-    return false
-  }
-  for (const evt of payload.events) {
-    if (evt.kind !== 'create' || evt.isDirectory === true) {
-      continue
-    }
-    if (deletedBasenames.has(basename(evt.absolutePath))) {
-      return true
-    }
-  }
-  return false
-}
+export { getOverflowExternalReloadTargets } from './editor-external-watch-reload'

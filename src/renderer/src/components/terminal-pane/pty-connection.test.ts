@@ -876,7 +876,7 @@ describe('connectPanePty', () => {
   const originalCancelAnimationFrame = globalThis.cancelAnimationFrame
   const originalDocument = globalThis.document
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules()
     vi.clearAllMocks()
     transportFactoryQueue = []
@@ -1027,6 +1027,10 @@ describe('connectPanePty', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn()
     }
+    const { createElectronClientRuntimeAdapter } =
+      await import('../../runtime/electron-client-runtime-adapter')
+    const { registerClientRuntimeAdapter } = await import('../../runtime/client-runtime-resolver')
+    registerClientRuntimeAdapter(createElectronClientRuntimeAdapter(window.api))
     vi.mocked(window.api.pty.confirmForegroundProcess).mockImplementation((id) =>
       window.api.pty.getForegroundProcess(id)
     )

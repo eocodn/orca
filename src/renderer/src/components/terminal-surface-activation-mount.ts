@@ -4,12 +4,10 @@ import type { MutableRefObject } from 'react'
 import { isRemoteRuntimePtyId } from '@/runtime/runtime-terminal-inspection'
 import { isParkRestorableTerminalPty } from './terminal-pane/terminal-hidden-view-parking'
 import { terminalProviderHasAuthoritativeSnapshot } from './terminal/terminal-provider-snapshot-capability'
-import {
-  canDeferColdActivationTabsForHost,
-  canWatcherCoverParkedTerminalTab
-} from './terminal-pane/terminal-parked-tab-watchers'
+import { canWatcherCoverParkedTerminalTab } from './terminal-pane/terminal-parked-tab-watchers'
 import { hasRegisteredRuntimeTerminalTab } from '../runtime/sync-runtime-graph'
 import {
+  canDeferColdActivationTabsForHost,
   planColdActivationTabDeferral,
   revealActivationDeferredTabs
 } from './terminal/background-terminal-worktree-mount'

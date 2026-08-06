@@ -1,11 +1,6 @@
 import { useAppStore } from '@/store'
 import { joinPath } from '@/lib/path'
-import {
-  clearSelfWrite,
-  getRecentSelfWrite,
-  type RecentSelfWrite
-} from '@/components/editor/editor-self-write-registry'
-import type { OpenFile } from '@/store/slices/editor'
+import { getRecentSelfWrite } from '@/components/editor/editor-self-write-registry'
 import { readRuntimeFileContent } from '@/runtime/runtime-file-client'
 import { markFileChangedOnDisk } from '@/components/editor/editor-changed-on-disk-mark'
 import { getDiskBaselineSignature } from '@/components/editor/diff-content-signature'
@@ -13,7 +8,7 @@ import type { ExternalWatchNotification, WatchedTarget } from './editor-external
 const inFlightEchoVerificationReads = new Map<string, ReturnType<typeof readRuntimeFileContent>>()
 
 // Why: one save echo can arrive as a burst of payloads; share the in-flight full-file read so concurrent payloads for the same file don't stack duplicate reads.
-function readFileForEchoVerification(args: {
+export function readFileForEchoVerification(args: {
   runtimeEnvironmentId: string | null | undefined
   filePath: string
   relativePath: string
@@ -61,7 +56,7 @@ function markTabsChangedOnDisk(fileIds: string[], connectionId: string | undefin
   }
 }
 
-function scheduleChangedOnDiskMark(
+export function scheduleChangedOnDiskMark(
   target: WatchedTarget,
   notification: ExternalWatchNotification,
   fileIds: string[]
@@ -170,7 +165,7 @@ export function verifyLatchedMoveDestinations(
 
 // Settle each dirty tab by content identity: the move's own echo leaves disk == the tab's baseline, a genuine external write does not.
 // Autosave is suspended synchronously first so a write landing mid-read can't be overwritten before we decide.
-function scheduleSelfMoveEchoVerification(
+export function scheduleSelfMoveEchoVerification(
   target: WatchedTarget,
   fileIds: string[],
   consumeProvenance: boolean

@@ -13,7 +13,8 @@ export {
   ConflictTriageStrip
 } from './checks-panel-conflict-surface'
 export { ChecksList, getFailedChecksForDetails } from './checks-panel-checks-list'
-export { isMutablePRConversationComment, PRCommentsList } from './checks-panel-comments-list'
+export { PRCommentsList } from './checks-panel-comments-list'
+export { isMutablePRConversationComment } from './checks-panel-comment-actions'
 export { CheckJobLogTail } from './check-job-log-tail'
 
 export function prStateColor(state: PRInfo['state']): string {

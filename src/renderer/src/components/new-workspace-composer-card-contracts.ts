@@ -1,19 +1,26 @@
 import type React from 'react'
 import type RepoCombobox from '@/components/repo/RepoCombobox'
-import type { GitHubWorkItem, GitLabWorkItem, JiraIssue, LinearIssue, SetupAgentStartupPolicy, SparsePreset, TuiAgent } from '../../../shared/types'
+import type {
+  GitHubWorkItem,
+  GitLabWorkItem,
+  JiraIssue,
+  LinearIssue,
+  SetupAgentStartupPolicy,
+  SparsePreset,
+  TuiAgent
+} from '../../../shared/types'
 import type { SshConnectionStatus } from '../../../shared/ssh-types'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
-import type { RuntimeStatus } from '../../../shared/runtime-types'
 import type { SetupConfig } from '@/lib/new-workspace'
 import type { NewWorkspaceProjectOption } from '@/lib/new-workspace-project-options'
-import type { NeedsSetupProjectHostOption, ProjectHostSetupOption } from '@/lib/project-host-setup-options'
+import type { ProjectHostSetupOption } from '@/lib/project-host-setup-options'
 import type { WorkspaceCreateErrorDisplay } from '@/lib/workspace-create-error-format'
 import type { SmartNameMode } from '@/components/new-workspace/smart-workspace-source-results'
 import type { SmartWorkspaceNameSelection } from '@/components/new-workspace/SmartWorkspaceNameField'
 
 export type RepoOption = React.ComponentProps<typeof RepoCombobox>['repos'][number]
-const EMPTY_PROJECT_OPTIONS: NewWorkspaceProjectOption[] = []
-const EMPTY_PROJECT_HOST_SETUP_OPTIONS: ProjectHostSetupOption[] = []
+export const EMPTY_PROJECT_OPTIONS: NewWorkspaceProjectOption[] = []
+export const EMPTY_PROJECT_HOST_SETUP_OPTIONS: ProjectHostSetupOption[] = []
 
 export type NewWorkspaceComposerCardProps = {
   contextualTourSource?: string
@@ -101,4 +108,3 @@ export type NewWorkspaceComposerCardProps = {
   /** When set, "Add project" opens a host-provided flow instead of swapping the store's active modal. */
   onAddProjectOverride?: () => void
 }
-

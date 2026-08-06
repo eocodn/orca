@@ -9,9 +9,9 @@ import {
   estimateRenderRowSize,
   extractWorktreeVirtualRowIndexes,
   getRenderRowKey,
-  getVirtualRowIndex,
   pruneStaleVirtualRowElementCache
 } from './worktree-list-virtual-rows'
+import { getVirtualRowIndex } from './worktree-list-row-model'
 import { WORKTREE_SIDEBAR_REVEAL_TOP_INSET } from './worktree-sidebar-reveal'
 import { SUPPRESS_WORKTREE_LIST_SCROLL_ADJUSTMENT_EVENT } from './WorktreeCardAgents'
 import { shouldAdjustWorktreeSidebarMeasuredRowScroll } from './worktree-list-row-dom'

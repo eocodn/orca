@@ -1,13 +1,4 @@
-import {
-  ALWAYS_REFRESH_FOREGROUND_SYNCHRONOUSLY,
-  FOREGROUND_COALESCE_DELAY_MS,
-  FOREGROUND_HOLD_SAFETY_DELAY_MS,
-  FOREGROUND_BACKLOG_WARNING,
-  SYNC_FOREGROUND_FLUSH_CHARS,
-  queuedByTerminal,
-  recordQueueDebugPressure,
-  scheduleDrain
-} from './pane-terminal-output-scheduler'
+import { recordRendererCrashBreadcrumb } from '@/lib/crash-breadcrumb-recorder'
 import { attemptTerminalOutputAckCredit } from './pane-terminal-output-ack-credit'
 import {
   containsCursorRestore,
@@ -15,15 +6,28 @@ import {
   containsFinalCursorPlacementBeforeSynchronizedEnd,
   SYNCHRONIZED_OUTPUT_END_SEQUENCE
 } from './pane-terminal-output-cursor-control'
-import type {
-  QueueChunk,
-  QueueEntry,
-  TerminalOutputBeforeWrite,
-  TerminalOutputParsedCallback,
-  TerminalOutputTarget,
-  WriteTerminalOutputOptions,
-  ForegroundRefreshSyncResolver
-} from './pane-terminal-output-scheduler'
+import {
+  debugEnabled,
+  debugState,
+  recordQueueDebugPressure
+} from './terminal-output-scheduler-queue-runtime-debug'
+import { scheduleDrain } from './terminal-output-scheduler-queue-runtime-drain'
+import {
+  ALWAYS_REFRESH_FOREGROUND_SYNCHRONOUSLY,
+  BACKGROUND_BACKLOG_WARNING,
+  currentTerminalOutputBacklogCapChars,
+  FOREGROUND_BACKLOG_WARNING,
+  FOREGROUND_COALESCE_DELAY_MS,
+  FOREGROUND_HOLD_SAFETY_DELAY_MS,
+  LARGE_BACKLOG_CHARS,
+  MAX_BACKGROUND_QUEUE_CHUNKS,
+  queuedByTerminal,
+  SYNC_FOREGROUND_FLUSH_CHARS,
+  type QueueEntry,
+  type TerminalOutputBeforeWrite,
+  type TerminalOutputTarget,
+  type WriteTerminalOutputOptions
+} from './terminal-output-scheduler-queue-runtime-state'
 
 export function createQueueEntry(
   terminal: TerminalOutputTarget,
@@ -132,158 +136,11 @@ export function coalescedQueuedDataNeedsCursorRestore(entry: QueueEntry): boolea
   )
 }
 
-export function takeQueuedChunk(entry: QueueEntry, limit: number): QueuedWrite | null {
-  let remaining = limit
-  let data = ''
-  let foreground: boolean | null = null
-  let forceForegroundRefresh = false
-  let followupForegroundRefresh = false
-  let shouldRefreshForegroundSynchronously: ForegroundRefreshSyncResolver | null = null
-  let additionalRefreshSyncResolvers: ForegroundRefreshSyncResolver[] | null = null
-  let stripTransientCursorShows = false
-  let beforeWrite: TerminalOutputBeforeWrite | undefined
-  let additionalBeforeWriteCallbacks: TerminalOutputBeforeWrite[] | null = null
-  const parsedCallbacks: TerminalOutputParsedCallback[] = []
-  const ackCredits: (() => void)[] = []
-
-  while (remaining > 0 && entry.chunkIndex < entry.chunks.length) {
-    const chunk = entry.chunks[entry.chunkIndex]
-    if (foreground !== null && chunk.foreground !== foreground) {
-      break
-    }
-    foreground ??= chunk.foreground
-    forceForegroundRefresh ||= chunk.forceForegroundRefresh
-    followupForegroundRefresh ||= chunk.followupForegroundRefresh
-    // Why: one drained write can combine chunks from different renderer states or producers; preserve every forced policy and prep hook.
-    if (chunk.forceForegroundRefresh) {
-      if (shouldRefreshForegroundSynchronously === null) {
-        shouldRefreshForegroundSynchronously = chunk.shouldRefreshForegroundSynchronously
-      } else if (
-        chunk.shouldRefreshForegroundSynchronously !== shouldRefreshForegroundSynchronously &&
-        !additionalRefreshSyncResolvers?.includes(chunk.shouldRefreshForegroundSynchronously)
-      ) {
-        additionalRefreshSyncResolvers ??= []
-        additionalRefreshSyncResolvers.push(chunk.shouldRefreshForegroundSynchronously)
-      }
-    }
-    stripTransientCursorShows ||= chunk.stripTransientCursorShows
-    if (!beforeWrite) {
-      beforeWrite = chunk.beforeWrite
-    } else if (
-      chunk.beforeWrite &&
-      chunk.beforeWrite !== beforeWrite &&
-      !additionalBeforeWriteCallbacks?.includes(chunk.beforeWrite)
-    ) {
-      additionalBeforeWriteCallbacks ??= []
-      additionalBeforeWriteCallbacks.push(chunk.beforeWrite)
-    }
-    if (chunk.data.length <= remaining) {
-      data += chunk.data
-      remaining -= chunk.data.length
-      entry.queuedChars -= chunk.data.length
-      entry.chunkIndex += 1
-      if (chunk.onParsed) {
-        parsedCallbacks.push(chunk.onParsed)
-      }
-      if (chunk.ackCredit) {
-        ackCredits.push(chunk.ackCredit)
-      }
-      continue
-    }
-
-    data += chunk.data.slice(0, remaining)
-    entry.chunks[entry.chunkIndex] = {
-      ...chunk,
-      data: chunk.data.slice(remaining)
-    }
-    entry.queuedChars -= remaining
-    remaining = 0
-  }
-
-  compactConsumedChunks(entry)
-  if (entry.queuedChars < 0) {
-    entry.queuedChars = 0
-  }
-  recordQueueDebugPressure()
-  return data
-    ? {
-        data,
-        foreground: foreground === true,
-        forceForegroundRefresh,
-        followupForegroundRefresh,
-        shouldRefreshForegroundSynchronously:
-          additionalRefreshSyncResolvers && shouldRefreshForegroundSynchronously
-            ? () =>
-                shouldRefreshForegroundSynchronously() ||
-                additionalRefreshSyncResolvers.some((resolve) => resolve())
-            : (shouldRefreshForegroundSynchronously ?? ALWAYS_REFRESH_FOREGROUND_SYNCHRONOUSLY),
-        stripTransientCursorShows,
-        beforeWrite:
-          additionalBeforeWriteCallbacks && beforeWrite
-            ? (queuedData) => {
-                beforeWrite(queuedData)
-                for (const callback of additionalBeforeWriteCallbacks) {
-                  callback(queuedData)
-                }
-              }
-            : beforeWrite,
-        onParsed:
-          parsedCallbacks.length > 0
-            ? () => {
-                for (const callback of parsedCallbacks) {
-                  callback()
-                }
-              }
-            : undefined,
-        ackCredits
-      }
-    : null
-}
-
-export function compactConsumedChunks(entry: QueueEntry): void {
-  if (entry.chunkIndex === 0) {
-    return
-  }
-  if (entry.chunkIndex === entry.chunks.length) {
-    entry.chunks.length = 0
-    entry.chunkIndex = 0
-    return
-  }
-  if (entry.chunkIndex >= 64) {
-    entry.chunks.splice(0, entry.chunkIndex)
-    entry.chunkIndex = 0
-  }
-}
-
-export function enqueueChunk(
-  entry: QueueEntry,
-  data: string,
-  options?: {
-    foreground?: boolean
-    forceForegroundRefresh?: boolean
-    followupForegroundRefresh?: boolean
-    shouldRefreshForegroundSynchronously?: ForegroundRefreshSyncResolver
-    stripTransientCursorShows?: boolean
-    beforeWrite?: TerminalOutputBeforeWrite
-    onParsed?: TerminalOutputParsedCallback
-    ackCredit?: () => void
-  }
-): void {
-  entry.chunks.push({
-    data,
-    foreground: options?.foreground === true,
-    forceForegroundRefresh: options?.forceForegroundRefresh === true,
-    followupForegroundRefresh: options?.followupForegroundRefresh === true,
-    shouldRefreshForegroundSynchronously:
-      options?.shouldRefreshForegroundSynchronously ?? ALWAYS_REFRESH_FOREGROUND_SYNCHRONOUSLY,
-    stripTransientCursorShows: options?.stripTransientCursorShows === true,
-    beforeWrite: options?.beforeWrite,
-    onParsed: options?.onParsed,
-    ackCredit: options?.ackCredit
-  })
-  entry.queuedChars += data.length
-  recordQueueDebugPressure()
-}
+export {
+  compactConsumedChunks,
+  enqueueChunk,
+  takeQueuedChunk
+} from './pane-terminal-output-chunk-queue'
 
 // Why: every discard path MUST fire these before clearing/replacing the queue — a dropped chunk still counts as consumed, or main's in-flight window shrinks permanently and the PTY wedges.
 export function fireQueuedAckCredits(entry: QueueEntry): void {
@@ -307,7 +164,7 @@ export function discardDetachedQueueEntry(entry: QueueEntry): void {
 
 export function queueCapExceeded(entry: QueueEntry): boolean {
   return (
-    entry.queuedChars > maxQueueChars ||
+    entry.queuedChars > currentTerminalOutputBacklogCapChars() ||
     entry.chunks.length - entry.chunkIndex > MAX_BACKGROUND_QUEUE_CHUNKS
   )
 }
@@ -322,7 +179,7 @@ export function replaceBacklogWithWarning(
     recordRendererCrashBreadcrumb('terminal_output_backlog_dropped', {
       foreground: warning === FOREGROUND_BACKLOG_WARNING,
       droppedChars: entry.queuedChars,
-      capChars: maxQueueChars
+      capChars: currentTerminalOutputBacklogCapChars()
     })
   }
   let beforeWrite: TerminalOutputBeforeWrite | undefined

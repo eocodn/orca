@@ -14,7 +14,10 @@ import { createExternalWatchEventHandler } from './editor-external-watch-events'
 
 export { getEditorExternalWatchTargets, getWatchedTargetKey }
 export type { EditorExternalWatchTargetState, WatchedTarget } from './editor-external-watch-targets'
-export { createExternalWatchEventHandler } from './editor-external-watch-events'
+export {
+  createExternalWatchEventHandler,
+  getOverflowExternalReloadTargets
+} from './editor-external-watch-events'
 export { verifyLatchedMoveDestinations } from './editor-external-watch-echo'
 
 export function useEditorExternalWatch(): void {
@@ -87,8 +90,8 @@ export function useEditorExternalWatch(): void {
           })
         continue
       }
-      void getClientRuntime().file
-        .watchWorktree({
+      void getClientRuntime()
+        .file.watchWorktree({
           worktreePath: target.worktreePath,
           connectionId: target.connectionId
         })
@@ -113,7 +116,9 @@ export function useEditorExternalWatch(): void {
             t.runtimeEnvironmentId === runtimeEnvironmentId
         )
     )
-    const unsubscribe = getClientRuntime().file.onFsChanged((payload) => handleFsChanged(payload, null))
+    const unsubscribe = getClientRuntime().file.onFsChanged((payload) =>
+      handleFsChanged(payload, null)
+    )
     fsChangedHandlerRef.current = handleFsChanged
 
     return () => {

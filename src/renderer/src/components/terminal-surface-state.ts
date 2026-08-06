@@ -8,7 +8,7 @@ import { useTerminalProviderSnapshotCapability } from './terminal/use-terminal-p
 import { setForegroundTerminalTabIds } from '@/lib/foreground-terminal-tabs'
 import { useActivityTerminalPortals } from './activity/activity-terminal-portal'
 import { isMainTerminalSideEffectAuthorityForPty } from './terminal-pane/terminal-side-effect-facts-handler'
-import { getEffectiveLayout } from './terminal/split-group-mount'
+import { getEffectiveLayoutForWorktree as getEffectiveLayout } from './terminal/split-group-mount'
 import { selectPairedRuntimeParkingEnvironmentIds } from './terminal-pane/terminal-hidden-view-parking'
 
 export function useTerminalSurfaceState() {

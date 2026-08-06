@@ -6,7 +6,11 @@ export type {
   RuntimeGitContext,
   RuntimePullRequestGenerationInput
 } from './runtime-git-context'
-export { getRuntimeCommitMessageSettings, getRuntimeGitScope, resolveLocalWorktreePath } from './runtime-git-context'
+export {
+  getRuntimeCommitMessageSettings,
+  getRuntimeGitScope,
+  resolveLocalWorktreePath
+} from './runtime-git-context'
 export {
   abortRuntimeGitMerge,
   abortRuntimeGitRebase,
@@ -21,8 +25,11 @@ export {
   getRuntimeGitUpstreamStatus
 } from './runtime-git-read-client'
 export {
+  commitRuntimeGit,
   fastForwardRuntimeGit,
   fetchRuntimeGit,
+  getRuntimeGitBranchDiff,
+  getRuntimeGitCommitDiff,
   pullRuntimeGit,
   pushRuntimeGit,
   rebaseRuntimeGitFromBase,
@@ -47,4 +54,3 @@ export {
   getRuntimeGitRemoteCommitUrl,
   getRuntimeGitRemoteFileUrl
 } from './runtime-git-remote-links'
-

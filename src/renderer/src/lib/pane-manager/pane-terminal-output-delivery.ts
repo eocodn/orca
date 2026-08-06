@@ -1,49 +1,50 @@
+import { registerTerminalOutputAckCredits } from './pane-terminal-output-ack-credit'
 import {
-  ALWAYS_REFRESH_FOREGROUND_SYNCHRONOUSLY,
-  BACKGROUND_CHUNK_CHARS,
-  BACKGROUND_FLUSH_DELAY_MS,
-  FOREGROUND_BACKLOG_WARNING,
-  LARGE_BACKLOG_CHARS,
-  SYNC_FOREGROUND_FLUSH_CHARS,
-  cancelTerminalWriteStallWatch,
+  containsDrainableCursorRestore,
+  removeTransientCursorShowSequences
+} from './pane-terminal-output-cursor-control'
+import {
   clearForegroundCoalesce,
   clearForegroundHoldSafety,
   coalescedQueuedDataNeedsCursorRestore,
-  composeParsedCallback,
-  composeWriteFailureCallback,
-  containsDrainableCursorRestore,
   createQueueEntry,
-  discardDetachedQueueEntry,
-  discardTerminalOutput,
   enqueueChunk,
-  exposeDebugApi,
-  fireQueuedAckCredits,
-  hasQueuedChunks,
-  isEntryDrainable,
-  isTerminalWritePipelineCertifiedDead,
   queueCapExceeded,
-  queuedByTerminal,
-  recordQueueDebugPressure,
-  registerTerminalOutputAckCredits,
   replaceBacklogWithWarning,
-  requestRegisteredTerminalBacklogRecovery,
-  scheduleDrain,
-  takeQueuedChunk,
-  writeBackgroundTerminalChunk,
-  writeForegroundTerminalChunk
-} from './pane-terminal-output-scheduler'
+  scheduleForegroundCoalesceRelease,
+  scheduleForegroundHoldSafety
+} from './pane-terminal-output-queue'
+import { writeForegroundTerminalChunk } from './pane-terminal-foreground-render-settle'
+import { flushTerminalOutput } from './pane-terminal-output-flush'
+import {
+  debugEnabled,
+  debugState,
+  exposeDebugApi
+} from './terminal-output-scheduler-queue-runtime-debug'
+import { scheduleDrain } from './terminal-output-scheduler-queue-runtime-drain'
+import { discardTerminalOutput } from './terminal-output-scheduler-queue-runtime-recovery'
+import {
+  ALWAYS_REFRESH_FOREGROUND_SYNCHRONOUSLY,
+  BACKGROUND_FLUSH_DELAY_MS,
+  FOREGROUND_BACKLOG_WARNING,
+  FOREGROUND_HOLD_SAFETY_DELAY_MS,
+  LATENCY_SENSITIVE_FOREGROUND_COALESCE_DELAY_MS,
+  LATENCY_SENSITIVE_FOREGROUND_HOLD_SAFETY_DELAY_MS,
+  LARGE_BACKLOG_CHARS,
+  queuedByTerminal,
+  SYNC_FOREGROUND_FLUSH_CHARS,
+  type TerminalOutputTarget,
+  type WriteTerminalOutputOptions
+} from './terminal-output-scheduler-queue-runtime-state'
+import {
+  composeParsedCallback,
+  composeWriteFailureCallback
+} from './terminal-output-scheduler-queue-runtime-write'
 import {
   armTerminalWriteStallWatch,
-  failTerminalWriteStallWatch
+  cancelTerminalWriteStallWatch,
+  isTerminalWritePipelineCertifiedDead
 } from './terminal-write-pipeline-health'
-import { removeTransientCursorShowSequences } from './pane-terminal-output-cursor-control'
-import type {
-  QueueEntry,
-  TerminalBacklogRecoveryRequest,
-  TerminalOutputTarget,
-  WriteTerminalOutputOptions
-} from './pane-terminal-output-scheduler'
-import { discardInFlightTerminalOutputAckCredits } from './pane-terminal-output-ack-credit'
 
 export function writeTerminalOutput(
   terminal: TerminalOutputTarget,
@@ -248,105 +249,4 @@ export function writeTerminalOutput(
   )
 }
 
-export function flushTerminalOutput(
-  terminal: TerminalOutputTarget,
-  options?: { maxChars?: number }
-): void {
-  exposeDebugApi()
-  const entry = queuedByTerminal.get(terminal)
-  if (!entry) {
-    return
-  }
-  queuedByTerminal.delete(terminal)
-  if (isTerminalWritePipelineCertifiedDead(terminal)) {
-    discardDetachedQueueEntry(entry)
-    discardTerminalOutput(terminal)
-    return
-  }
-  if (!isEntryDrainable(entry)) {
-    queuedByTerminal.set(terminal, entry)
-    return
-  }
-  if (entry.backgroundBacklogDropped && requestRegisteredTerminalBacklogRecovery(terminal)) {
-    fireQueuedAckCredits(entry)
-    entry.chunks.length = 0
-    entry.chunkIndex = 0
-    entry.queuedChars = 0
-    entry.highPriority = false
-    clearForegroundHoldSafety(entry)
-    clearForegroundCoalesce(entry)
-    recordQueueDebugPressure()
-    return
-  }
-
-  let flushedChars = 0
-  let queuedWrite = takeQueuedChunk(entry, BACKGROUND_CHUNK_CHARS)
-  while (queuedWrite) {
-    flushedChars += queuedWrite.data.length
-    if (debugEnabled) {
-      debugState.flushWriteCount++
-    }
-    const ackCreditsParsed = registerTerminalOutputAckCredits(terminal, queuedWrite.ackCredits)
-    armTerminalWriteStallWatch(terminal, {
-      onCertifiedDead: () => discardTerminalOutput(terminal)
-    })
-    try {
-      queuedWrite.beforeWrite?.(queuedWrite.data)
-      const writeAccepted = queuedWrite.foreground
-        ? writeForegroundTerminalChunk(
-            terminal,
-            queuedWrite.stripTransientCursorShows
-              ? removeTransientCursorShowSequences(queuedWrite.data)
-              : queuedWrite.data,
-            {
-              forceViewportRefresh: queuedWrite.forceForegroundRefresh,
-              followupViewportRefresh: queuedWrite.followupForegroundRefresh,
-              shouldRefreshViewportSynchronously: queuedWrite.shouldRefreshForegroundSynchronously,
-              onParsed: composeParsedCallback(
-                terminal,
-                queuedWrite.onParsed,
-                ackCreditsParsed,
-                undefined
-              ),
-              onWriteFailure: composeWriteFailureCallback(terminal, ackCreditsParsed)
-            }
-          )
-        : writeBackgroundTerminalChunk(
-            terminal,
-            queuedWrite.data,
-            composeParsedCallback(terminal, queuedWrite.onParsed, ackCreditsParsed, undefined),
-            composeWriteFailureCallback(terminal, ackCreditsParsed)
-          )
-      if (!writeAccepted) {
-        fireQueuedAckCredits(entry)
-        clearForegroundHoldSafety(entry)
-        clearForegroundCoalesce(entry)
-        recordQueueDebugPressure()
-        return
-      }
-    } catch {
-      // Why: pre-write hooks/setup failed before xterm owned these bytes; cancel the watch, but consumed + abandoned chunks still credit delivery.
-      cancelTerminalWriteStallWatch(terminal)
-      ackCreditsParsed?.()
-      fireQueuedAckCredits(entry)
-      clearForegroundHoldSafety(entry)
-      clearForegroundCoalesce(entry)
-      recordQueueDebugPressure()
-      return
-    }
-    if (options?.maxChars !== undefined && flushedChars >= options.maxChars) {
-      break
-    }
-    queuedWrite = takeQueuedChunk(entry, BACKGROUND_CHUNK_CHARS)
-  }
-  if (hasQueuedChunks(entry)) {
-    entry.highPriority = true
-    queuedByTerminal.set(terminal, entry)
-    scheduleDrain(0)
-  } else {
-    entry.highPriority = false
-    clearForegroundCoalesce(entry)
-    clearForegroundHoldSafety(entry)
-  }
-  recordQueueDebugPressure()
-}
+export { flushTerminalOutput }

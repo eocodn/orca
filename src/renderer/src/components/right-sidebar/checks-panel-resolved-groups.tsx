@@ -10,7 +10,7 @@ import { translate } from '@/i18n/i18n'
 import type { PRComment } from '../../../../shared/types'
 import type { PRCommentPresentationClasses } from './pr-comment-presentation'
 import type { RightPanelCommentSubmitResult } from './right-panel-comment-composer'
-import { PRCommentGroupView } from './checks-panel-comment-groups'
+import { PRCommentGroupView } from './checks-panel-group-view'
 
 export function ResolvedCommentGroupsSection({
   groups,

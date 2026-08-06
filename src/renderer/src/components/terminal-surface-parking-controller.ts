@@ -18,7 +18,7 @@ import {
 } from './terminal-pane/use-manual-terminal-worktree-parking'
 import {
   anyMountedWorktreeHasLayout as computeAnyMountedWorktreeHasLayout,
-  type getEffectiveLayout
+  type getEffectiveLayoutForWorktree
 } from './terminal/split-group-mount'
 
 export type TerminalSurfaceParkingContext = {
@@ -42,7 +42,9 @@ export type TerminalSurfaceParkingContext = {
   layoutByWorktree: AppState['layoutByWorktree']
   groupsByWorktree: AppState['groupsByWorktree']
   activeGroupIdByWorktree: AppState['activeGroupIdByWorktree']
-  getEffectiveLayoutForWorktree: (worktreeId: string) => ReturnType<typeof getEffectiveLayout>
+  getEffectiveLayoutForWorktree: (
+    worktreeId: string
+  ) => ReturnType<typeof getEffectiveLayoutForWorktree>
   mountedWorktreeIdsRef: MutableRefObject<Set<string>>
   measurableBackgroundWorktreeIdsRef: MutableRefObject<Set<string>>
   terminalWorktreeHiddenSinceRef: MutableRefObject<Map<string, number>>

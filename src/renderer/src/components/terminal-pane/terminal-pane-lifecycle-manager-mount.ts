@@ -1,4 +1,3 @@
-import type { IDisposable } from '@xterm/xterm'
 import { PaneManager } from '@/lib/pane-manager/pane-manager'
 import { useAppStore } from '@/store'
 import { e2eConfig } from '@/lib/e2e-config'
@@ -9,37 +8,21 @@ import {
   restoreScrollbackBuffers
 } from './layout-serialization'
 import { canReleaseReplayedScrollbackFromStore } from './replayed-scrollback-store-release'
-import { applyExpandedLayoutTo, restoreExpandedLayoutFrom } from './expand-collapse'
-import { captureParkedTerminalPaneCandidates } from './terminal-parked-tab-watchers'
-import {
-  CLOSE_TERMINAL_PANE_EVENT,
-  SPLIT_TERMINAL_PANE_EVENT,
-  type CloseTerminalPaneDetail,
-  type SplitTerminalPaneDetail
-} from '@/constants/terminal'
-import { closeTerminalTab } from '../terminal/terminal-tab-actions'
-import { makePaneKey } from '../../../../shared/stable-pane-id'
 import { scheduleRuntimeGraphSync } from '@/runtime/sync-runtime-graph'
-import type {
-  TerminalPaneLifecycleContext,
-  TerminalPaneLifecycleSetupContext
-} from './terminal-pane-lifecycle-contracts'
+import type { TerminalPaneLifecycleSetupContext } from './terminal-pane-lifecycle-contracts'
 import {
   hydrateTerminalScrollbackRefs,
   resolveQueuedInitialCwd,
   resolveTerminalHomePathFromEnv
 } from './terminal-pane-lifecycle-policies'
 import { extractUncHost } from './terminal-pane-lifecycle-policies'
-import {
-  applyTerminalPaneCloseRequest,
-  mapRestoredPaneTitlesByPaneId,
-  recordRuntimeCreatedTerminalPaneSplit,
-  splitPaneWithOneShotStartup,
-  shouldDetachPaneTransportOnUnmount
-} from './terminal-pane-lifecycle-support'
+import { splitPaneWithOneShotStartup } from './terminal-pane-lifecycle-support'
 import { createTerminalPaneManagerOptions } from './terminal-pane-lifecycle-manager-options'
 import { getRemoteRuntimePtyEnvironmentId } from '@/runtime/runtime-terminal-stream'
 import { getTerminalFileOpenHint, getTerminalUrlOpenHint } from './terminal-link-handlers'
+import { seedRestoredPaneState } from './terminal-pane-lifecycle-restored-state'
+import { registerTerminalPaneCliEvents } from './terminal-pane-lifecycle-cli-events'
+import { cleanupTerminalPaneManager } from './terminal-pane-lifecycle-manager-cleanup'
 import { terminalUrlOpenHintOptionsFor } from './terminal-link-open-hints'
 
 export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupContext): () => void {
@@ -188,7 +171,9 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
   ) {
     const layoutWithoutRestoredBuffers = { ...d.initialLayoutRef.current }
     delete layoutWithoutRestoredBuffers.buffersByLeafId
-    if (hasScrollbackRefs) d.initialLayoutRef.current = layoutWithoutRestoredBuffers
+    if (hasScrollbackRefs) {
+      d.initialLayoutRef.current = layoutWithoutRestoredBuffers
+    }
     if (initialLayoutHadBuffers) {
       useAppStore.getState().setTabLayout(d.tabId, layoutWithoutRestoredBuffers)
     }
@@ -230,167 +215,17 @@ export function mountTerminalPaneManager(context: TerminalPaneLifecycleSetupCont
   mountContext.queueResizeAll(d.isActive)
   d.persistLayoutSnapshot()
   scheduleRuntimeGraphSync()
-  const onCliSplitPane = (event: Event): void => {
-    const detail = (event as CustomEvent<SplitTerminalPaneDetail>).detail
-    if (!detail?.tabId || detail.tabId !== d.tabId) return
-    const mgr = d.managerRef.current
-    if (!mgr || (detail.newLeafId && mgr.getNumericIdForLeaf(detail.newLeafId) !== null)) return
-    const sourcePaneId = detail.sourceLeafId
-      ? (mgr.getNumericIdForLeaf(detail.sourceLeafId) ?? detail.paneRuntimeId)
-      : detail.paneRuntimeId
-    if (sourcePaneId < 0) return
-    const splitOptions = {
-      ...(detail.newLeafId ? { leafId: detail.newLeafId } : {}),
-      ...(detail.ptyId ? { ptyId: detail.ptyId } : {})
-    }
-    if (detail.command) {
-      const createdPane = splitPaneWithOneShotStartup(ptyDeps, { command: detail.command }, () =>
-        mgr.splitPane(sourcePaneId, detail.direction, splitOptions)
-      )
-      recordRuntimeCreatedTerminalPaneSplit(createdPane, {
-        source: detail.telemetrySource ?? 'command',
-        direction: detail.direction
-      })
-    } else {
-      const createdPane = mgr.splitPane(sourcePaneId, detail.direction, splitOptions)
-      recordRuntimeCreatedTerminalPaneSplit(createdPane, {
-        source: detail.telemetrySource ?? 'command',
-        direction: detail.direction
-      })
-    }
-  }
-  const onCliClosePane = (event: Event): void => {
-    const detail = (event as CustomEvent<CloseTerminalPaneDetail>).detail
-    if (!detail?.tabId || detail.tabId !== d.tabId) return
-    const mgr = d.managerRef.current
-    if (!mgr) return
-    const result = applyTerminalPaneCloseRequest({
-      detail,
-      manager: mgr,
-      getPtyIdForLeaf: (leafId) =>
-        useAppStore.getState().terminalLayoutsByTabId[d.tabId]?.ptyIdsByLeafId?.[leafId],
-      closeTab: () => closeTerminalTab(d.tabId),
-      closeTabPreservingPty: () => {
-        const store = useAppStore.getState()
-        if (detail.retireSurface && detail.leafId) {
-          store.retireAgentPaneAuthority(makePaneKey(d.tabId, detail.leafId), {
-            preserveSleepingAgentSession: true
-          })
-        }
-        store.closeTab(d.tabId, { reason: 'pty-exit', captureRecentlyClosed: false })
-      }
+  const unregisterCliEvents = registerTerminalPaneCliEvents(mountContext, manager)
+
+  return () =>
+    cleanupTerminalPaneManager({
+      context,
+      manager,
+      expandedStyleSnapshots,
+      paneTransports,
+      panePtyBindings,
+      unregisterRuntimeTab: runtimeTab,
+      releaseDragRef,
+      unregisterCliEvents
     })
-    if (result !== 'pane') return
-    scheduleRuntimeGraphSync()
-    mountContext.syncCanExpandState()
-    mountContext.queueResizeAll(d.isActive)
-    d.persistLayoutSnapshot()
-  }
-  window.addEventListener(SPLIT_TERMINAL_PANE_EVENT, onCliSplitPane)
-  window.addEventListener(CLOSE_TERMINAL_PANE_EVENT, onCliClosePane)
-
-  return () => {
-    window.removeEventListener(SPLIT_TERMINAL_PANE_EVENT, onCliSplitPane)
-    window.removeEventListener(CLOSE_TERMINAL_PANE_EVENT, onCliClosePane)
-    const currentWorktreeTabs = useAppStore.getState().tabsByWorktree[d.worktreeId]
-    const tabStillExists = Boolean(
-      currentWorktreeTabs?.some((candidate) => candidate.id === d.tabId)
-    )
-    runtimeTab()
-    context.cancelResizeAll()
-    restoreExpandedLayoutFrom(expandedStyleSnapshots)
-    disposeAll(refs.linkProviderDisposablesRef.current)
-    disposeAll(refs.terminalHandleLinkDisposablesRef.current)
-    disposeAll(refs.linkifierClickPrimingDisposablesRef.current)
-    disposeAll(refs.fileLinkClickFallbackDisposablesRef.current)
-    disposeAll(refs.httpLinkClickFallbackDisposablesRef.current)
-    disposeAll(refs.selectionDisposablesRef.current)
-    for (const timer of refs.selectionCaptureTimersRef.current.values()) window.clearTimeout(timer)
-    refs.selectionCaptureTimersRef.current.clear()
-    disposeAll(refs.mouseHideDisposablesRef.current)
-    disposeAll(refs.imeCompositionDisposablesRef.current)
-    disposeAll(refs.imeNativeTextForwarderDisposablesRef.current)
-    disposeAll(refs.osc52DisposablesRef.current)
-    disposeAll(refs.osc7DisposablesRef.current)
-    captureParkedTerminalPaneCandidates(
-      d.tabId,
-      d.worktreeId,
-      manager.getPanes().map((pane) => ({
-        ptyId: paneTransports.get(pane.id)?.getPtyId() ?? null,
-        paneId: pane.id,
-        leafId: pane.leafId,
-        drivesTabTitle: manager.getActivePane()?.id === pane.id
-      }))
-    )
-    for (const transport of paneTransports.values()) {
-      const ptyId = transport.getPtyId()
-      if (
-        shouldDetachPaneTransportOnUnmount({
-          tabStillExists,
-          tabId: d.tabId,
-          ptyId,
-          worktreeTabs: currentWorktreeTabs
-        })
-      ) {
-        transport.detach?.()
-      } else {
-        transport.destroy?.()
-      }
-    }
-    for (const binding of panePtyBindings.values()) binding.dispose()
-    panePtyBindings.clear()
-    paneTransports.clear()
-    manager.destroy()
-    releaseDragRef.current?.()
-    releaseDragRef.current = null
-    d.managerRef.current = null
-    if (e2eConfig.exposeStore && window.__paneManagers?.get(d.tabId) === manager) {
-      window.__paneManagers.delete(d.tabId)
-    }
-    d.setTabPaneExpanded(d.tabId, false)
-    d.setTabCanExpandPane(d.tabId, false)
-  }
-}
-
-function seedRestoredPaneState(
-  context: TerminalPaneLifecycleContext,
-  manager: PaneManager,
-  restoredPaneByLeafId: ReadonlyMap<string, number>
-): void {
-  const { deps: d } = context
-  const restoredTitles = mapRestoredPaneTitlesByPaneId(
-    d.initialLayoutRef.current.titlesByLeafId,
-    restoredPaneByLeafId
-  )
-  if (Object.keys(restoredTitles).length > 0) {
-    d.setPaneTitles((previous) => ({ ...previous, ...restoredTitles }))
-    d.paneTitlesRef.current = { ...d.paneTitlesRef.current, ...restoredTitles }
-  }
-  const restoredActivePaneId =
-    (d.initialLayoutRef.current.activeLeafId
-      ? restoredPaneByLeafId.get(d.initialLayoutRef.current.activeLeafId)
-      : null) ??
-    manager.getActivePane()?.id ??
-    manager.getPanes()[0]?.id ??
-    null
-  if (restoredActivePaneId !== null)
-    manager.setActivePane(restoredActivePaneId, { focus: d.isActive })
-  const restoredExpandedPaneId = d.initialLayoutRef.current.expandedLeafId
-    ? (restoredPaneByLeafId.get(d.initialLayoutRef.current.expandedLeafId) ?? null)
-    : null
-  if (restoredExpandedPaneId !== null && manager.getPanes().length > 1) {
-    d.setExpandedPane(restoredExpandedPaneId)
-    applyExpandedLayoutTo(restoredExpandedPaneId, {
-      managerRef: d.managerRef,
-      containerRef: d.containerRef,
-      expandedStyleSnapshotRef: d.expandedStyleSnapshotRef
-    })
-  } else {
-    d.setExpandedPane(null)
-  }
-}
-
-function disposeAll(map: Map<number, IDisposable>): void {
-  for (const disposable of map.values()) disposable.dispose()
-  map.clear()
 }

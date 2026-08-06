@@ -19,7 +19,7 @@ import {
 import { useLocalhostLabelRouteForPort } from '@/lib/workspace-port-localhost-label-selector'
 import { addressForPort } from '@/lib/workspace-port-urls'
 import type { WorkspacePort } from '../../../../shared/workspace-ports'
-import { WORKTREE_NATIVE_CONTEXT_MENU_ATTR } from './WorktreeContextMenu'
+import { WORKTREE_NATIVE_CONTEXT_MENU_ATTR } from './worktree-context-menu-model'
 import {
   WorktreeCardDetailSection,
   WorktreeCardDetailSectionContent

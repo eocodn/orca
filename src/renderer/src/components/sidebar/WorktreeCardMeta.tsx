@@ -7,7 +7,7 @@ import { LinearIcon } from '@/components/icons/LinearIcon'
 import { JiraIcon } from '@/components/icons/JiraIcon'
 import { SelectedTextCopyMenu } from '@/components/SelectedTextCopyMenu'
 import CommentMarkdown from './CommentMarkdown'
-import { WORKTREE_NATIVE_CONTEXT_MENU_ATTR } from './WorktreeContextMenu'
+import { WORKTREE_NATIVE_CONTEXT_MENU_ATTR } from './worktree-context-menu-model'
 import {
   WorktreeCardDetailSection,
   WorktreeCardDetailSectionContent

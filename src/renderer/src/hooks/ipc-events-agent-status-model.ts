@@ -1,12 +1,15 @@
-import { useAppStore } from '../store'
+import type { useAppStore } from '../store'
 import type { AppState } from '../store/types'
 import { getWorktreeMapFromState, getRepoMapFromState } from '@/store/selectors'
 import { resolveAgentPaneAuthorityKey } from '@/store/slices/agent-pane-authority'
 import { parsePaneKey } from '../../../shared/stable-pane-id'
 import { collectLeafIdsInOrder } from '@/components/terminal-pane/layout-serialization'
-import type { AgentStatusIpcPayload, ParsedAgentStatusPayload } from '../../../shared/agent-status-types'
+import type {
+  AgentStatusIpcPayload,
+  ParsedAgentStatusPayload
+} from '../../../shared/agent-status-types'
 import { titleHasAgentName } from '../../../shared/agent-detection'
-function isAgentStatusForRecentlyClosedTab(
+export function isAgentStatusForRecentlyClosedTab(
   store: Pick<AppState, 'recentlyClosedAgentStatusTabIds' | 'recentlyRetiredAgentStatusPaneKeys'>,
   paneKey: string
 ): boolean {
@@ -20,14 +23,14 @@ function isAgentStatusForRecentlyClosedTab(
   }
   return store.recentlyClosedAgentStatusTabIds[tabId] === true
 }
-function hasRuntimeBackedWorktreeAttribution(data: AgentStatusIpcPayload): boolean {
+export function hasRuntimeBackedWorktreeAttribution(data: AgentStatusIpcPayload): boolean {
   return (
     (typeof data.terminalHandle === 'string' && data.terminalHandle.length > 0) ||
     data.orchestration !== undefined
   )
 }
 
-function applyResolvedAgentTerminalTitleToTab(
+export function applyResolvedAgentTerminalTitleToTab(
   store: ReturnType<typeof useAppStore.getState>,
   paneKey: string,
   previousTitle: string | undefined,
@@ -48,7 +51,7 @@ function applyResolvedAgentTerminalTitleToTab(
   store.updateTabTitle(parsed.tabId, nextTitle)
 }
 
-function resolvePaneKey(
+export function resolvePaneKey(
   store: ReturnType<typeof useAppStore.getState>,
   paneKey: string
 ): {
@@ -138,7 +141,7 @@ function resolvePaneKey(
   }
 }
 
-function resolveWorktreeConnection(
+export function resolveWorktreeConnection(
   store: ReturnType<typeof useAppStore.getState>,
   worktreeId: string
 ): {
@@ -158,7 +161,7 @@ function resolveWorktreeConnection(
   }
 }
 
-function resolveHookPayloadAgentType(
+export function resolveHookPayloadAgentType(
   payload: ParsedAgentStatusPayload,
   terminalTitle: string | undefined
 ): ParsedAgentStatusPayload {

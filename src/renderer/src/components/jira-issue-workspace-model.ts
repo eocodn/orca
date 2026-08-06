@@ -43,7 +43,7 @@ export function jiraStatusClass(categoryKey: string): string {
   return 'border-border/50 bg-muted/40 text-muted-foreground'
 }
 
-async function copyTextToClipboard(text: string, label: string): Promise<void> {
+export async function copyTextToClipboard(text: string, label: string): Promise<void> {
   try {
     await window.api.ui.writeClipboardText(text)
     toast.success(
@@ -59,4 +59,3 @@ async function copyTextToClipboard(text: string, label: string): Promise<void> {
     )
   }
 }
-

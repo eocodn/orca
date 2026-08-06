@@ -40,7 +40,7 @@ function getRenderRowWorktreeItem(row: RenderRow, worktreeId: string): WorktreeI
   return row.type === 'item' && row.worktree.id === worktreeId ? row : null
 }
 
-function getRenderRowOptionId(
+export function getRenderRowOptionId(
   row: RenderRow | undefined,
   worktreeId?: string | null
 ): string | undefined {

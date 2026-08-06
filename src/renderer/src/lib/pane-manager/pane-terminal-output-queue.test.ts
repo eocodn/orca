@@ -9,6 +9,7 @@ describe('pane terminal output ACK credit queue', () => {
     })
     const secondCredit = vi.fn()
     const entry = {
+      terminal: {},
       chunkIndex: 0,
       chunks: [{ ackCredit: firstCredit }, { ackCredit: secondCredit }]
     } as unknown as QueueEntry
