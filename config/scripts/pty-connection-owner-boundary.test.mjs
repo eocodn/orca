@@ -6,6 +6,25 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes remote viewport claim state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-remote-viewport-claim-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionRemoteViewportClaimController } from './pty-connection-remote-viewport-claim-controller'"
+    )
+    expect(orchestrator).not.toContain('let visibleRemoteViewportClaimPtyId: string | null = null')
+    expect(orchestrator).not.toContain('const claimViewportForUserActivity =')
+    expect(controller).toContain(
+      'export function createPtyConnectionRemoteViewportClaimController('
+    )
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes PTY exit lifecycle through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

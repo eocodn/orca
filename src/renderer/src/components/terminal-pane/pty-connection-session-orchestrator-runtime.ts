@@ -57,11 +57,7 @@ import {
   type SafeFitContinuationHandle
 } from '@/lib/pane-manager/pane-tree-ops'
 import { requestStablePaneFit } from '@/lib/pane-manager/pane-fit-resize-observer'
-import {
-  bindPanePtyId,
-  getFitOverrideForPty,
-  onOverrideChange
-} from '@/lib/pane-manager/mobile-fit-overrides'
+import { bindPanePtyId, getFitOverrideForPty } from '@/lib/pane-manager/mobile-fit-overrides'
 import { isPtyLocked } from '@/lib/pane-manager/mobile-driver-state'
 import { reconcilePtySizeAcrossFrames, type PtySizeReconcileHandle } from './pty-size-reconcile'
 import { shouldClaimRemoteDesktopViewport } from './remote-desktop-viewport-claim'
@@ -332,6 +328,7 @@ import { createPtyConnectionStartupCommandDelivery } from './pty-connection-star
 import { createPtyConnectionDirectSshRetryController } from './pty-connection-direct-ssh-retry-controller'
 import { createPtyConnectionAgentNotificationController } from './pty-connection-agent-notification-controller'
 import { createPtyConnectionExitController } from './pty-connection-exit-controller'
+import { createPtyConnectionRemoteViewportClaimController } from './pty-connection-remote-viewport-claim-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -1080,26 +1077,21 @@ export function connectPanePty(
     terminalKeyTarget.addEventListener('keydown', onTerminalKeyDown, { capture: true })
   }
 
-  let visibleRemoteViewportClaimPtyId: string | null = null
-  let pendingVisibleRemoteViewportClaim = false
+  const remoteViewportClaimController = createPtyConnectionRemoteViewportClaimController({
+    pane,
+    deps,
+    getTransport: () => transport
+  })
   const setPanePtyFitBinding = (ptyId: string): void => {
     bindPanePtyId(pane.id, ptyId, deps.tabId)
     pane.container.dataset.ptyId = ptyId
-    if (
-      deps.isVisibleRef.current &&
-      isRemoteRuntimePtyId(ptyId) &&
-      visibleRemoteViewportClaimPtyId !== ptyId
-    ) {
-      // Why: the initial fit event consumes this activation arm before later peer ownership changes.
-      visibleRemoteViewportClaimPtyId = ptyId
-      pendingVisibleRemoteViewportClaim = true
-    }
+    remoteViewportClaimController.armForPaneBinding(ptyId)
     // Why: override hydration can arrive before this pane knows its PTY. Once
     // data-pty-id is bound, safeFit can park xterm at the authoritative grid.
     if (getFitOverrideForPty(ptyId)) {
       safeFit(pane)
     }
-    claimPendingVisibleRemoteViewport()
+    remoteViewportClaimController.claimPending()
   }
   let activePanePtyBinding: string | null = null
   // Why: bind time lets async liveness reconcile ignore a request started
@@ -1159,8 +1151,7 @@ export function connectPanePty(
     // Why: fit bindings live in a module-level map, so pane teardown must
     // clear them explicitly instead of relying on DOM removal.
     bindPanePtyId(pane.id, null, deps.tabId)
-    visibleRemoteViewportClaimPtyId = null
-    pendingVisibleRemoteViewportClaim = false
+    remoteViewportClaimController.clear()
     activePanePtyBinding = null
     activePanePtyBindingBoundAt = null
     delete pane.container.dataset.ptyId
@@ -2228,72 +2219,6 @@ export function connectPanePty(
     sendDesktopQueryReplyImmediate
   )
 
-  const claimViewportForUserActivity = (): void => {
-    const currentPtyId = transport.getPtyId()
-    if (!currentPtyId || getFitOverrideForPty(currentPtyId)?.mode !== 'remote-desktop-fit') {
-      return
-    }
-    let proposed: { cols: number; rows: number } | undefined
-    try {
-      proposed = pane.fitAddon.proposeDimensions()
-    } catch {
-      proposed = undefined
-    }
-    const cols = proposed?.cols ?? pane.terminal.cols
-    const rows = proposed?.rows ?? pane.terminal.rows
-    if (cols > 0 && rows > 0) {
-      // Why: queuing a claim is not convergence. Keep the pane parked until the
-      // runtime confirms desktop-fit so a transient resize failure retries.
-      transport.claimViewport?.(cols, rows)
-    }
-  }
-  const claimPendingVisibleRemoteViewport = (): void => {
-    if (
-      !pendingVisibleRemoteViewportClaim ||
-      !deps.isVisibleRef.current ||
-      typeof document === 'undefined' ||
-      document.visibilityState === 'hidden' ||
-      typeof document.hasFocus !== 'function' ||
-      !document.hasFocus()
-    ) {
-      return
-    }
-    claimViewportForUserActivity()
-  }
-  const armVisibleRemoteViewportClaim = (): void => {
-    const ptyId = transport.getPtyId()
-    if (!ptyId || !isRemoteRuntimePtyId(ptyId)) {
-      visibleRemoteViewportClaimPtyId = null
-      pendingVisibleRemoteViewportClaim = false
-      return
-    }
-    if (
-      visibleRemoteViewportClaimPtyId !== ptyId ||
-      pendingVisibleRemoteViewportClaim ||
-      getFitOverrideForPty(ptyId)?.mode === 'remote-desktop-fit'
-    ) {
-      visibleRemoteViewportClaimPtyId = ptyId
-      pendingVisibleRemoteViewportClaim = true
-    }
-  }
-  const unsubscribeRemoteDesktopActivationClaim = onOverrideChange((event) => {
-    if (event.ptyId !== transport.getPtyId() || !isRemoteRuntimePtyId(event.ptyId)) {
-      return
-    }
-    if (event.mode === 'desktop-fit') {
-      visibleRemoteViewportClaimPtyId = event.ptyId
-      pendingVisibleRemoteViewportClaim = false
-      return
-    }
-    if (event.mode === 'remote-desktop-fit') {
-      if (deps.isVisibleRef.current && visibleRemoteViewportClaimPtyId !== event.ptyId) {
-        visibleRemoteViewportClaimPtyId = event.ptyId
-        pendingVisibleRemoteViewportClaim = true
-      }
-      claimPendingVisibleRemoteViewport()
-    }
-  })
-
   // Why: an unbound transport (detached during a remount/move and never
   // rebound) silently rejects every keystroke while the PTY stays alive and
   // the last frame stays painted — the pane looks healthy and eats input
@@ -2438,7 +2363,7 @@ export function connectPanePty(
     // excluded because those transports do not expose sendInputAccepted.
     const acknowledgedIntent = intent ?? inferIntentFromExactTerminalInput(data)
     if (acknowledgedIntent && transport.sendInputAccepted) {
-      claimViewportForUserActivity()
+      remoteViewportClaimController.claimForUserActivity()
       if (acknowledgedIntent === 'ctrl-c') {
         // Why: the accepted-write callback is async; let the next command be
         // inferred if the user cancelled an oversized line and immediately typed.
@@ -2468,7 +2393,7 @@ export function connectPanePty(
       return
     }
     if (intent) {
-      claimViewportForUserActivity()
+      remoteViewportClaimController.claimForUserActivity()
       if (transport.sendInput(data)) {
         markAcceptedTerminalInputSent()
         observeAcceptedShellCommandInput(data)
@@ -2479,7 +2404,7 @@ export function connectPanePty(
       clearPendingTerminalInputIntent()
       return
     }
-    claimViewportForUserActivity()
+    remoteViewportClaimController.claimForUserActivity()
     if (transport.sendInput(data)) {
       markAcceptedTerminalInputSent()
       observeAcceptedShellCommandInput(data)
@@ -6849,21 +6774,21 @@ export function connectPanePty(
       // Why: the hidden-delivery gate must follow every pane visibility flip.
       syncHiddenRendererPtyDelivery()
       if (!deps.isVisibleRef.current) {
-        pendingVisibleRemoteViewportClaim = false
+        remoteViewportClaimController.clearPending()
       }
     },
     // Why: visible-resume size readback repairs dropped hidden resizes without refitting against xterm's transient hidden DOM fallback.
     noteVisibilityResume() {
-      armVisibleRemoteViewportClaim()
-      claimPendingVisibleRemoteViewport()
+      remoteViewportClaimController.armCurrent()
+      remoteViewportClaimController.claimPending()
       ptySizeReassertion.request({ fit: false })
       consumeHibernatedAgentWake()
       requestKnownDroidReconfirmation()
       sampleVisiblePaneForegroundAgent()
     },
     reassertPtySizeAfterWindowWake() {
-      armVisibleRemoteViewportClaim()
-      claimPendingVisibleRemoteViewport()
+      remoteViewportClaimController.armCurrent()
+      remoteViewportClaimController.claimPending()
       ptySizeReassertion.request({ fit: false })
     },
     // Why: mobile wake reaches this pane while it's hidden on the desktop, so consume only the armed hibernation wake — no size/foreground reads.
@@ -6938,7 +6863,7 @@ export function connectPanePty(
       // Why: park/reconnect/remount doesn't advance the recovery epoch, so invalidate this xterm or its delayed retry could hit the next instance.
       terminalRecoveryInstance.unregister()
       unregisterUndeliverableWriteHandler()
-      unsubscribeRemoteDesktopActivationClaim()
+      remoteViewportClaimController.dispose()
       cancelHiddenOutputSnapshotScrollRestore()
       structuralReplayCoordinator.dispose()
       cancelFreshSpawnFollowReset()
