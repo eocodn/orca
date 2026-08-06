@@ -2,7 +2,6 @@ import React from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '../store'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
-import { hasFeatureInteraction } from '../../../shared/feature-interactions'
 import { useContextualTour } from './contextual-tours/use-contextual-tour'
 import { resumeSleepingAgentSessionsForWorktree } from '@/lib/resume-sleeping-agent-session'
 import { translate } from '@/i18n/i18n'
@@ -37,7 +36,6 @@ import { useTerminalSurfaceKeyboard } from './terminal-surface-keyboard'
 import { useTerminalSurfaceEffects } from './terminal-surface-effects'
 import { useTerminalSurfaceState } from './terminal-surface-state'
 import { useTerminalSurfaceStartupEffects } from './terminal-surface-startup-effects'
-import { useTerminalSurfaceInputEffects } from './terminal-surface-input-effects'
 import { useTerminalSurfaceControllerComposition } from './terminal-surface-controller-composition'
 import { buildTerminalSurfaceRenderProps } from './terminal-surface-render-props'
 function getActiveWorktreeRuntimeEnvironmentId(worktreeId: string | null): string | null {
@@ -51,76 +49,24 @@ function getKeybindingContext(target: EventTarget | null): 'terminal' | 'app' {
 function Terminal(): React.JSX.Element | null {
   const terminalState = useTerminalSurfaceState()
   const {
-    mountedWorktreeIdsRef,
-    measurableBackgroundWorktreeIdsRef,
-    terminalWorktreeHiddenSinceRef,
-    measuringTerminalWorktreeIdsRef,
-    terminalWorktreeParkCooldownUntilRef,
-    terminalWorktreeParkingTimersRef,
-    workspaceSurfaces,
     activeWorktreeId,
     renderedActiveWorktreeId,
-    activeWorktreeDeferralHostId,
     activeView,
-    tabsByWorktree,
-    pendingStartupByTabId,
-    terminalParkingEnabled,
-    terminalSshParkingEnabled,
-    runtimeStatusByEnvironmentId,
-    pairedRuntimeParkingEnvironmentIds,
-    terminalRetentionBudgetEnabled,
-    terminalTitleSnapshotAuthorityEnabled,
-    activeTabId,
-    activeTabIdByWorktree,
     createTab,
-    closeTab,
-    setActiveTab,
-    setActiveWorktree,
-    setTabCustomTitle,
-    setTabColor,
-    consumeSuppressedPtyExit,
-    expandedPaneByTabId,
     workspaceSessionReady,
     hydrationSucceeded,
-    startupWorktreeRefreshCompleted,
     openFiles,
-    activeFileId,
     activeBrowserTabId,
     activeTabType,
     keybindings,
     terminalShortcutPolicy,
     setActiveTabType,
-    setActiveFile,
-    closeFile,
-    makePreviewFilePermanent,
-    pinFile,
     browserTabsByWorktree,
-    createBrowserTab,
-    openNewBrowserTabInActiveWorkspace,
-    openNewMarkdownInActiveWorkspace,
-    openNewTerminalTabInActiveWorkspace,
-    closeBrowserTab,
     setActiveBrowserTab,
-    groupsByWorktree,
-    layoutByWorktree,
-    activeGroupIdByWorktree,
-    ensureWorktreeRootGroup,
     reconcileWorktreeTabModel,
-    markFileDirty,
-    setTabBarOrder,
-    tabBarOrderByWorktree,
-    tabBarOrder,
-    activityTerminalPortals,
-    foregroundTerminalTabIds,
-    tabs,
-    titlebarTabsTarget,
-    worktreeFiles,
-    worktreeBrowserTabs,
-    getEffectiveLayoutForWorktree,
-    effectiveActiveLayout,
     activeWorktreeBrowserTabIdsKey,
     activeContextualTourId,
-    hasSplitTerminalPane,
+    hasSplitTerminalPane
   } = terminalState
   useContextualTour(
     'workspace-agent-sessions',
@@ -140,48 +86,26 @@ function Terminal(): React.JSX.Element | null {
     terminalSave,
     parking,
     terminalActions,
-    saveDialogFileId,
-    saveDialogFile,
-    handleSaveDialogCancel,
-    handleSaveDialogDiscard,
-    handleSaveDialogSave,
-    windowCloseDialogOpen,
-    setWindowCloseDialogOpen,
-    confirmNativeWindowClose,
-    proceedToNativeWindowClose,
-    windowCloseAfterDirtyRef,
-    queueEditorCloseRequests,
-    handleCloseFile,
-    backgroundMountRevision,
-    setBackgroundMountRevision,
-    terminalParkingRevision,
-    setTerminalParkingRevision,
-    effectiveParkedTerminalWorktreeIds,
-    forceParkedTerminalWorktreeIds,
-    backgroundMountTabIdsByWorktreeRef,
-    activationDeferredMountTabIdsByWorktreeRef,
-    anyMountedWorktreeHasLayout,
     handleNewTab,
     handleNewAgentTab,
     handleNewBrowserTab,
-    handleOpenEntry,
-    handleDuplicateBrowserTab,
     handleNewFile,
     handleCloseTab,
     handleCloseBrowserTab,
     handlePtyExit,
-    handleCloseOthers,
-    handleCloseTabsToRight,
-    handleCloseTabsToLeft,
     handleCloseAllFiles,
-    handleActivateTab,
-    handleTogglePaneExpand,
-    handleActivateBrowserTab
+    handleCloseFile
   } = composedControllers
   useTerminalSurfaceStartupEffects({
     workspaceSessionReady,
     activeWorktreeId,
     hydrationSucceeded,
+    createTab,
+    reconcileWorktreeTabModel,
+    resumeSleepingAgentSessionsForWorktree,
+    getActiveWorktreeRuntimeEnvironmentId
+  })
+  useTerminalSurfaceKeyboard({
     activeWorktreeId,
     keybindings,
     terminalShortcutPolicy,
@@ -211,8 +135,11 @@ function Terminal(): React.JSX.Element | null {
     isEventTargetInsideFloatingWorkspacePanel,
     matchesRecentTabSwitcherChord,
     toast,
-    translate,
+    translate
+  })
+  useTerminalSurfaceEffects({
     openFiles,
+    activeWorktreeId,
     activeWorktreeBrowserTabIdsKey,
     activeTabType,
     activeBrowserTabId,
