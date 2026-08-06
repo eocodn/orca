@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes PTY reattach attempt lifecycle through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-attempt-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'"
+    )
+    expect(orchestrator).not.toContain('let expiredReattachError = false')
+    expect(orchestrator).not.toContain('const trackedReattachPromise =')
+    expect(controller).toContain('export function createPtyConnectionReattachAttemptController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes deferred startup grid scheduling through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

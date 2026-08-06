@@ -312,6 +312,7 @@ import { createPtyConnectionSpawnSizeReconcileController } from './pty-connectio
 import { createPtyConnectionSizeReassertionController } from './pty-connection-size-reassertion-controller'
 import { createPtyConnectionSessionLivenessReconcileController } from './pty-connection-session-liveness-reconcile-controller'
 import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'
+import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -5636,6 +5637,28 @@ export function connectPanePty(
       return true
     }
 
+    const reattachAttemptController = createPtyConnectionReattachAttemptController({
+      transport,
+      cacheKey,
+      runtimeEnvironmentId,
+      cols,
+      rows,
+      captureTransportOutputCallbacks,
+      getTransportStreamGeneration: () => transportStreamGeneration,
+      beginLiveDataDeferral: beginReattachLiveDataDeferral,
+      finishLiveDataDeferral: finishReattachLiveDataDeferral,
+      handleReattachResult,
+      settlePaneSerializerAfterReplay,
+      mergeStartupEnvWithPaneIdentity,
+      shouldDeclareHiddenAtSpawn,
+      directSshRetryAttempt,
+      claimCapturedDirectSshRetryPty,
+      armDirectSshPaneRetryTimeout,
+      setConnectInFlightSince: (value) => {
+        transportConnectInFlightSince = value
+      }
+    })
+
     const attachRetainedLegacyPty = (ptyId: string): boolean => {
       try {
         clearPaneMode2031State()
@@ -5811,70 +5834,18 @@ export function connectPanePty(
             )
             // Why: the saved remote PTY id is single-use restore metadata; clear it before attach so remounts don't keep retrying an expired session.
             useAppStore.getState().removeDeferredSshSessionId(deps.tabId)
-            // Why: pre-signal SSH-deferred reattach too so the cooperation gate applies uniformly to remote sessions (Electron preserves the declare→connect order).
-            // See docs/mobile-prefer-renderer-scrollback.md.
-            const preSignalPromise =
-              runtimeEnvironmentId || isRemoteRuntimePtyId(pendingSessionId)
-                ? Promise.resolve(null)
-                : getClientRuntime()
-                    .terminal.declarePendingPaneSerializer(cacheKey)
-                    .catch(() => null)
-            let expiredReattachError = false
             const coldRestoreStartup = buildColdRestoreAgentResumeStartup()
             clearPaneMode2031State()
             clearHiddenOutputRestoreState()
-            const outputCallbacks = captureTransportOutputCallbacks((message) => {
-              if (isSshSessionExpiredError(message)) {
-                expiredReattachError = true
-                return
-              }
-              if (!isCapturedDirectSshReattachCurrent(pendingSessionId)) {
-                return
-              }
-              reportError(message)
-            })
-            beginReattachLiveDataDeferral(outputCallbacks.generation)
-            transportConnectInFlightSince = Date.now()
-            const reattachPromise = transport.connect({
-              url: '',
-              cols,
-              rows,
+            void reattachAttemptController.attempt({
               sessionId: pendingSessionId,
-              ...(coldRestoreStartup?.command ? { command: coldRestoreStartup.command } : {}),
-              ...(coldRestoreStartup?.env
-                ? { env: mergeStartupEnvWithPaneIdentity(coldRestoreStartup.env) }
-                : {}),
-              ...(coldRestoreStartup?.launchConfig
-                ? { launchConfig: coldRestoreStartup.launchConfig }
-                : {}),
-              ...(coldRestoreStartup?.resumeProviderSession
-                ? { resumeProviderSession: coldRestoreStartup.resumeProviderSession }
-                : {}),
-              ...(coldRestoreStartup?.launchToken
-                ? { launchToken: coldRestoreStartup.launchToken }
-                : {}),
-              ...(coldRestoreStartup?.agent ? { launchAgent: coldRestoreStartup.agent } : {}),
-              ...(shouldDeclareHiddenAtSpawn() ? { initiallyHidden: true } : {}),
-              ...(directSshRetryAttempt ? { admitPtyId: claimCapturedDirectSshRetryPty } : {}),
-              callbacks: outputCallbacks.callbacks
-            })
-            void Promise.resolve(reattachPromise)
-              .catch(() => null)
-              .finally(() => {
-                transportConnectInFlightSince = null
-              })
-            const trackedReattachPromise = Promise.resolve(reattachPromise)
-              .then(async (result) => {
-                if (outputCallbacks.generation !== transportStreamGeneration) {
-                  finishReattachLiveDataDeferral(false, outputCallbacks.generation)
-                  const gen = await preSignalPromise
-                  if (typeof gen === 'number') {
-                    void getClientRuntime()
-                      .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                      .catch(() => {})
-                  }
-                  return
+              coldRestoreStartup,
+              onTransportError: (message) => {
+                if (isCapturedDirectSshReattachCurrent(pendingSessionId)) {
+                  reportError(message)
                 }
+              },
+              onResult: (result) => {
                 console.warn(
                   `[pty-connection] Reattach result for tab=${deps.tabId}:`,
                   result
@@ -5884,65 +5855,20 @@ export function connectPanePty(
                       }
                     : 'undefined'
                 )
-                if (!result && expiredReattachError) {
-                  finishReattachLiveDataDeferral(false, outputCallbacks.generation)
-                  const gen = await preSignalPromise
-                  if (typeof gen === 'number') {
-                    void getClientRuntime()
-                      .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                      .catch(() => {})
-                  }
-                  if (disposed) {
-                    return
-                  }
-                  if (rejectObsoleteDirectSshReattach(pendingSessionId)) {
-                    return
-                  }
-                  deps.clearExitedPanePtyLayoutBinding(pane.id, pendingSessionId)
-                  deps.clearTabPtyId(deps.tabId, pendingSessionId)
-                  startFreshColdRestoreAgentResume(coldRestoreStartup, {
-                    forceBlankRestoredViewport: true
-                  })
+              },
+              onExpired: () => {
+                if (disposed || rejectObsoleteDirectSshReattach(pendingSessionId)) {
                   return
                 }
-                const accepted = await handleReattachResult(
-                  result,
-                  pendingSessionId,
-                  coldRestoreStartup,
-                  outputCallbacks.generation
-                )
-                finishReattachLiveDataDeferral(accepted, outputCallbacks.generation)
-                const gen = await preSignalPromise
-                if (typeof gen === 'number') {
-                  if (!accepted) {
-                    await getClientRuntime()
-                      .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                      .catch(() => {})
-                  } else if (!isRemoteRuntimePtyId(pendingSessionId)) {
-                    const settledPtyId =
-                      result && typeof result === 'object' && 'id' in result
-                        ? result.id
-                        : (transport.getPtyId() ?? pendingSessionId)
-                    const hasRestorePayload =
-                      result &&
-                      typeof result === 'object' &&
-                      ('snapshot' in result || 'replay' in result || 'coldRestore' in result)
-                    await (hasRestorePayload
-                      ? settlePaneSerializerAfterReplay(settledPtyId, gen)
-                      : getClientRuntime().terminal.settlePaneSerializer(cacheKey, gen))
-                  }
-                }
-              })
-              .catch(async (err) => {
-                finishReattachLiveDataDeferral(false, outputCallbacks.generation)
-                const gen = await preSignalPromise
-                if (typeof gen === 'number') {
-                  void getClientRuntime()
-                    .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                    .catch(() => {})
-                }
+                deps.clearExitedPanePtyLayoutBinding(pane.id, pendingSessionId)
+                deps.clearTabPtyId(deps.tabId, pendingSessionId)
+                startFreshColdRestoreAgentResume(coldRestoreStartup, {
+                  forceBlankRestoredViewport: true
+                })
+              },
+              onRejected: (err, generation) => {
                 console.warn(`[pty-connection] Reattach FAILED for tab=${deps.tabId}:`, err)
-                if (disposed || outputCallbacks.generation !== transportStreamGeneration) {
+                if (disposed || generation !== transportStreamGeneration) {
                   return
                 }
                 if (rejectObsoleteDirectSshReattach(pendingSessionId)) {
@@ -5959,8 +5885,8 @@ export function connectPanePty(
                 startFreshColdRestoreAgentResume(coldRestoreStartup, {
                   forceBlankRestoredViewport: true
                 })
-              })
-            armDirectSshPaneRetryTimeout(trackedReattachPromise, directSshRetryAttempt)
+              }
+            })
           } else {
             startFreshColdRestoreAgentResume()
           }
@@ -6067,128 +5993,28 @@ export function connectPanePty(
     if (deferredReattachSessionId) {
       allowInitialIdleCacheSeed = true
       recordPtyConnectDiagnostic(`pane=${pane.id} -> REATTACH ${deferredReattachSessionId}`)
-
-      // Why: pre-signal (declare) before the reattach connect so the cooperation gate suppresses the daemon seed for this paneKey; Electron preserves IPC order.
-      // See docs/mobile-prefer-renderer-scrollback.md (Renderer-side prerequisite requirement #4).
-      const preSignalPromise =
-        runtimeEnvironmentId || isRemoteRuntimePtyId(deferredReattachSessionId)
-          ? Promise.resolve(null)
-          : getClientRuntime()
-              .terminal.declarePendingPaneSerializer(cacheKey)
-              .catch(() => null)
-
-      let expiredReattachError = false
       const coldRestoreStartup = buildColdRestoreAgentResumeStartup()
-      const outputCallbacks = captureTransportOutputCallbacks((message) => {
-        if (isSshSessionExpiredError(message)) {
-          expiredReattachError = true
-          return
-        }
-        if (!isCapturedDirectSshReattachCurrent(deferredReattachSessionId)) {
-          return
-        }
-        reportError(message)
-      })
-      beginReattachLiveDataDeferral(outputCallbacks.generation)
-      transportConnectInFlightSince = Date.now()
-      const reattachPromise = transport.connect({
-        url: '',
-        cols,
-        rows,
+      void reattachAttemptController.attempt({
         sessionId: deferredReattachSessionId,
-        ...(coldRestoreStartup?.command ? { command: coldRestoreStartup.command } : {}),
-        ...(coldRestoreStartup?.env
-          ? { env: mergeStartupEnvWithPaneIdentity(coldRestoreStartup.env) }
-          : {}),
-        ...(coldRestoreStartup?.launchConfig
-          ? { launchConfig: coldRestoreStartup.launchConfig }
-          : {}),
-        ...(coldRestoreStartup?.resumeProviderSession
-          ? { resumeProviderSession: coldRestoreStartup.resumeProviderSession }
-          : {}),
-        ...(coldRestoreStartup?.launchToken ? { launchToken: coldRestoreStartup.launchToken } : {}),
-        ...(coldRestoreStartup?.agent ? { launchAgent: coldRestoreStartup.agent } : {}),
-        ...(shouldDeclareHiddenAtSpawn() ? { initiallyHidden: true } : {}),
-        ...(directSshRetryAttempt ? { admitPtyId: claimCapturedDirectSshRetryPty } : {}),
-        callbacks: outputCallbacks.callbacks
-      })
-
-      void Promise.resolve(reattachPromise)
-        .catch(() => null)
-        .finally(() => {
-          transportConnectInFlightSince = null
-        })
-      const trackedReattachPromise = Promise.resolve(reattachPromise)
-        .then(async (result) => {
-          if (outputCallbacks.generation !== transportStreamGeneration) {
-            finishReattachLiveDataDeferral(false, outputCallbacks.generation)
-            const gen = await preSignalPromise
-            if (typeof gen === 'number') {
-              void getClientRuntime()
-                .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                .catch(() => {})
-            }
+        coldRestoreStartup,
+        onTransportError: (message) => {
+          if (isCapturedDirectSshReattachCurrent(deferredReattachSessionId)) {
+            reportError(message)
+          }
+        },
+        onExpired: () => {
+          if (disposed || rejectObsoleteDirectSshReattach(deferredReattachSessionId)) {
             return
           }
-          if (!result && expiredReattachError) {
-            finishReattachLiveDataDeferral(false, outputCallbacks.generation)
-            const gen = await preSignalPromise
-            if (typeof gen === 'number') {
-              void getClientRuntime()
-                .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                .catch(() => {})
-            }
-            if (disposed) {
-              return
-            }
-            if (rejectObsoleteDirectSshReattach(deferredReattachSessionId)) {
-              return
-            }
-            deps.clearExitedPanePtyLayoutBinding(pane.id, deferredReattachSessionId)
-            deps.clearTabPtyId(deps.tabId, deferredReattachSessionId)
-            startFreshColdRestoreAgentResume(coldRestoreStartup, {
-              forceBlankRestoredViewport: true
-            })
-            return
-          }
-          const accepted = await handleReattachResult(
-            result,
-            deferredReattachSessionId,
-            coldRestoreStartup,
-            outputCallbacks.generation
-          )
-          finishReattachLiveDataDeferral(accepted, outputCallbacks.generation)
-          const gen = await preSignalPromise
-          if (typeof gen === 'number') {
-            if (!accepted) {
-              await getClientRuntime()
-                .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                .catch(() => {})
-            } else if (!isRemoteRuntimePtyId(deferredReattachSessionId)) {
-              const settledPtyId =
-                result && typeof result === 'object' && 'id' in result
-                  ? result.id
-                  : (transport.getPtyId() ?? deferredReattachSessionId)
-              const hasRestorePayload =
-                result &&
-                typeof result === 'object' &&
-                ('snapshot' in result || 'replay' in result || 'coldRestore' in result)
-              await (hasRestorePayload
-                ? settlePaneSerializerAfterReplay(settledPtyId, gen)
-                : getClientRuntime().terminal.settlePaneSerializer(cacheKey, gen))
-            }
-          }
-        })
-        .catch(async (err) => {
-          finishReattachLiveDataDeferral(false, outputCallbacks.generation)
-          const gen = await preSignalPromise
-          if (typeof gen === 'number') {
-            void getClientRuntime()
-              .terminal.clearPendingPaneSerializer(cacheKey, gen)
-              .catch(() => {})
-          }
+          deps.clearExitedPanePtyLayoutBinding(pane.id, deferredReattachSessionId)
+          deps.clearTabPtyId(deps.tabId, deferredReattachSessionId)
+          startFreshColdRestoreAgentResume(coldRestoreStartup, {
+            forceBlankRestoredViewport: true
+          })
+        },
+        onRejected: (err, generation) => {
           const message = err instanceof Error ? err.message : String(err)
-          if (outputCallbacks.generation !== transportStreamGeneration) {
+          if (generation !== transportStreamGeneration) {
             return
           }
           if (rejectObsoleteDirectSshReattach(deferredReattachSessionId)) {
@@ -6214,8 +6040,8 @@ export function connectPanePty(
           startFreshColdRestoreAgentResume(coldRestoreStartup, {
             forceBlankRestoredViewport: true
           })
-        })
-      armDirectSshPaneRetryTimeout(trackedReattachPromise, directSshRetryAttempt)
+        }
+      })
     } else if (
       legacyAttachOnlyPtyId ||
       detachedRemoteLeafPtyId ||
