@@ -45,9 +45,6 @@ vi.mock('./ssh-channel-multiplexer', () => ({
     isDisposed = vi.fn().mockReturnValue(false)
   }
 }))
-vi.mock('../agent-hooks/remote-managed-hook-installers', () => ({
-  installRemoteManagedAgentHooks: vi.fn().mockResolvedValue([])
-}))
 vi.mock('../providers/ssh-pty-provider', () => ({
   SshPtyProvider: class MockSshPtyProvider {
     onData = vi.fn().mockReturnValue(() => {})

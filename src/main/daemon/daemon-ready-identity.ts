@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { parseLinuxStartTicks, readBootIdentity } from '../agent-hooks/managed-hook-owner-identity'
+import { parseLinuxStartTicks, readBootIdentity } from './process-identity'
 
 export type DaemonReadyIdentity = {
   startedAtMs: number

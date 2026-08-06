@@ -87,11 +87,6 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/terminal.js')).TERMINAL_HANDLERS
   },
   {
-    name: 'agent-hooks',
-    keys: ['agent hooks status', 'agent hooks off', 'agent hooks on'],
-    load: async () => (await import('./handlers/agent-hooks.js')).AGENT_HOOK_HANDLERS
-  },
-  {
     name: 'diagnostics',
     keys: ['diagnostics memory'],
     load: async () => (await import('./handlers/diagnostics.js')).DIAGNOSTICS_HANDLERS

@@ -49,8 +49,6 @@ export function installMainProcessShutdownLifecycle(): void {
     startupState.pluginService = null
     startupDeps.setUnreadDockBadgeCount(0)
     startupDeps.agentHookServer.stop()
-    // Why: cancels relay restart/reinstall timers and kills wsl.exe children deterministically, not via stdio-pipe teardown.
-    startupDeps.wslHookRelayManager.disposeAll()
     startupState.stats?.flush()
     startupState.runtime?.getOffscreenBrowserBackend()?.destroyAll?.()
     startupDeps.browserManager.setBrowserGuestStateChangedListener(null)

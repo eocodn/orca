@@ -1,4 +1,4 @@
-import { parseLinuxStartTicks, readBootIdentity } from '../agent-hooks/managed-hook-owner-identity'
+import { parseLinuxStartTicks, readBootIdentity } from './process-identity'
 import { commandLineMatchesDaemon, startTimesWithinTolerance } from './daemon-health'
 import {
   WINDOWS_CREATION_TIME_TOLERANCE_MS,

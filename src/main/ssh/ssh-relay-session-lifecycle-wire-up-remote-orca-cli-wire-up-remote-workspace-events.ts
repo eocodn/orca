@@ -1,14 +1,6 @@
 // Why: single authority for all relay lifecycle state per SSH target (previously scattered across module Maps/Sets with duplicated paths).
 
-import {
-  AGENT_HOOK_INSTALL_PLUGINS_METHOD,
-  isRemoteAgentHooksEnabled
-} from '../../shared/agent-hook-relay'
-import { isAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
 import { notifyRemoteWorkspaceHandlers } from '../ipc/remote-workspace-events'
-import { _internals as openCodeInternals } from '../opencode/hook-service'
-import type { Store } from '../persistence'
-import { getPiAgentStatusExtensionSource } from '../pi/agent-status-extension-source'
 import type { SshChannelMultiplexer } from './ssh-channel-multiplexer'
 import { runRemoteOrcaCli } from './ssh-remote-orca-cli'
 
@@ -69,36 +61,6 @@ export const SshRelaySessionMethods7 = {
         ...(stdin !== undefined ? { stdin } : {})
       })
     })
-  },
-  async installPluginsOnRelay(this: any, mux: SshChannelMultiplexer): Promise<void> {
-    if (!isRemoteAgentHooksEnabled() || !this.areAgentStatusHooksEnabled()) {
-      return
-    }
-    try {
-      await mux.request(AGENT_HOOK_INSTALL_PLUGINS_METHOD, {
-        opencodePluginSource: openCodeInternals.getOpenCodePluginSource(),
-        piExtensionSource: getPiAgentStatusExtensionSource('pi'),
-        ompExtensionSource: getPiAgentStatusExtensionSource('omp')
-      })
-    } catch (err) {
-      // Why: -32601 = older relay without the handler; CONNECTION_LOST/DISPOSED = routine mid-flight teardown — swallow both.
-      const code = (err as { code?: unknown })?.code
-      if (code === -32601 || code === 'CONNECTION_LOST' || code === 'DISPOSED') {
-        return
-      }
-      if (mux.isDisposed()) {
-        return
-      }
-      console.warn(
-        `[ssh-relay-session] agent_hook.installPlugins failed for ${this.targetId}: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      )
-    }
-  },
-  areAgentStatusHooksEnabled(this: any): boolean {
-    const store = this.store as { getSettings?: Store['getSettings'] }
-    return isAgentStatusHooksEnabled(store.getSettings?.())
   },
   wireUpRemoteWorkspaceEvents(this: any, mux: SshChannelMultiplexer): void {
     mux.onNotification((method, params) => {

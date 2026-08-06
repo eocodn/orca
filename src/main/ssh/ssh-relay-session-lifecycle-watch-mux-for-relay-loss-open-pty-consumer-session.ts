@@ -73,7 +73,6 @@ export const SshRelaySessionMethods5 = {
       return false
     }
 
-    await this.installPluginsOnRelay(mux)
     if (shouldContinue && !shouldContinue()) {
       return false
     }
@@ -204,7 +203,6 @@ export const SshRelaySessionMethods5 = {
     this.wireUpPtyEvents(ptyProvider, mux, providerGeneration)
     this.wireUpAgentHookEvents(mux)
     this.wireUpRemoteWorkspaceEvents(mux)
-    void this.installManagedHooksOnRemote(mux, shouldContinue)
     return true
   },
   negotiatedPtyConsumerOwner(this: any, serverBuildId?: string): SshPtyConsumerOwnerState | null {

@@ -1,7 +1,5 @@
 import { app } from 'electron'
 import { LocalPtyProvider } from '../providers/local-pty-provider'
-import { isClaudeAuthSwitchInProgress } from '../claude/pty-lifecycle-gate'
-import { hasClaudeAuthEnvConflict, CLAUDE_AUTH_ENV_VARS } from '../claude/pty-lifecycle-gate'
 import { resolveLocalWindowsTerminalRuntimeOptions } from '../../shared/local-windows-terminal-runtime'
 import { isSafePtySessionId, mintPtySessionId } from '../daemon/pty-session-id'
 import {
@@ -39,7 +37,6 @@ export function createPtyIpcSpawnPreparation(
     getRelayPtyId,
     resolveWslSessionContext,
     getCodexSelectionTargetForPty,
-    prepareClaudeAuth,
     getStartupTerminalColorQueryReplyColors,
     stripRemotePaneEnvWhenHooksDisabled,
     parseValidPaneKey,
@@ -103,9 +100,6 @@ export function createPtyIpcSpawnPreparation(
     const providerIdentity = capturePtyProviderIdentity(args.connectionId)
     const provider = providerIdentity.provider
     const isClaudeLaunch = !args.connectionId && isClaudeLaunchCommand(args.command)
-    if (isClaudeLaunch && isClaudeAuthSwitchInProgress()) {
-      throw new Error('A Claude account switch is in progress. Try again after it finishes.')
-    }
     const terminalRuntimeOptions =
       process.platform === 'win32' && !args.connectionId
         ? resolveLocalWindowsTerminalRuntimeOptions({
@@ -147,24 +141,12 @@ export function createPtyIpcSpawnPreparation(
       cwd,
       expectedWslDistro
     )
-    const claudeAuth =
-      isClaudeLaunch && prepareClaudeAuth ? await prepareClaudeAuth(initialSelectionTarget) : null
-    spawnTiming.mark('auth')
-    if (isClaudeLaunch && isClaudeAuthSwitchInProgress()) {
-      throw new Error('A Claude account switch is in progress. Try again after it finishes.')
-    }
-    if (claudeAuth?.stripAuthEnv && hasClaudeAuthEnvConflict(args.env)) {
-      throw new Error(
-        'This Claude launch defines explicit Anthropic auth environment variables. Remove those overrides before using a managed Claude account.'
-      )
-    }
     // Why: the daemon-backed provider skips LocalPtyProvider's buildSpawnEnv, so assemble the same host-local env here for parity.
     // Safety: skip entirely for SSH — every injection is a loopback secret or a local path that leaks or misleads on the remote host.
     const startupTerminalColorQueryReplyColors = getStartupTerminalColorQueryReplyColors(args)
     // Why: forward pane env to SSH only when the relay hook path is enabled, or a newer relay could emit statuses this build can't route.
     const sshSourceEnv = stripRemotePaneEnvWhenHooksDisabled(args.connectionId, args.env)
-    const baseEnvWithAuth = claudeAuth ? { ...sshSourceEnv, ...claudeAuth.envPatch } : sshSourceEnv
-    const spawnPaneKey = baseEnvWithAuth?.ORCA_PANE_KEY
+    const spawnPaneKey = sshSourceEnv?.ORCA_PANE_KEY
     const parsedSpawnPaneKey = parseValidPaneKey(spawnPaneKey)
     const verifiedPaneKey =
       parsedSpawnPaneKey &&
@@ -193,7 +175,7 @@ export function createPtyIpcSpawnPreparation(
         ? makePaneKey(args.tabId, args.leafId)
         : null
     const stablePaneKey = verifiedPaneKey ?? migrationUnsupportedPaneKey
-    let baseEnv = baseEnvWithAuth ? { ...baseEnvWithAuth } : undefined
+    let baseEnv = sshSourceEnv ? { ...sshSourceEnv } : undefined
     const shouldRefreshAgentTeamsEnv =
       !args.connectionId &&
       runtime !== undefined &&
@@ -351,11 +333,7 @@ export function createPtyIpcSpawnPreparation(
     }
     spawnTiming.mark('host_env')
     const spawnEnv = preAllocatedHandle ? { ...env, ORCA_TERMINAL_HANDLE: preAllocatedHandle } : env
-    const envToDelete = claudeAuth?.stripAuthEnv
-      ? [...CLAUDE_AUTH_ENV_VARS, 'ANTHROPIC_CUSTOM_HEADERS']
-      : undefined
     let combinedEnvToDelete = mergePtyEnvDeletions(
-      envToDelete,
       args.envToDelete ?? [],
       agentTeamsEnvToDelete ?? [],
       isDaemonHostSpawn ? getInheritedAgentHookEnvKeysToDelete(spawnEnv) : [],
@@ -477,10 +455,8 @@ export function createPtyIpcSpawnPreparation(
         effectiveSessionRelayId,
         expectedWslDistro,
         initialSelectionTarget,
-        claudeAuth,
         startupTerminalColorQueryReplyColors,
         sshSourceEnv,
-        baseEnvWithAuth,
         spawnPaneKey,
         parsedSpawnPaneKey,
         verifiedPaneKey,
@@ -512,7 +488,6 @@ export function createPtyIpcSpawnPreparation(
         skipCodexHomeEnv,
         stripInheritedOrcaCodexHome,
         spawnEnv,
-        envToDelete,
         combinedEnvToDelete,
         spawnOptions,
         publicationSnapshot,

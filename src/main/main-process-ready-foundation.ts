@@ -76,9 +76,6 @@ export async function initializeReadyFoundation(): Promise<void> {
 
   const activeOrcaProfile = startupDeps.ensureActiveOrcaProfile()
   startupState.store = new startupDeps.Store({ dataFile: activeOrcaProfile.dataFile })
-  startupDeps.wslHookRelayManager.setManagedHookSettingsResolver(
-    () => startupState.store?.getSettings() ?? null
-  )
   startupDeps.logStartupMilestone('store-loaded')
   // Why: apply initial fallback WSL distro from store settings for global git/CLI calls.
   startupDeps.setDefaultWslDistroOverride(
@@ -165,23 +162,6 @@ export async function initializeReadyFoundation(): Promise<void> {
   })
   // Why: cohort-classifier reads repo count synchronously at every emit, so hydrate it here â before any IPC handler or window can trigger track().
   startupState.stats = new startupDeps.StatsCollector()
-  startupState.codexRuntimeHome = new startupDeps.CodexRuntimeHomeService(startupState.store)
-  startupState.claudeRuntimeAuth = new startupDeps.ClaudeRuntimeAuthService(startupState.store)
-  // Why: an incapable trust-grant host must fall back to the managed home for
-  // every consumer (PTY env, rate limits, commit messages) in one place.
-  startupState.codexRuntimeHome.setRealHomeLaneGate(() =>
-    startupDeps.isRealHomeCodexHookLaneUsable()
-  )
-  // Why: while the real-home lane owns ~/.codex/hooks.json, the legacy
-  // system-home sweep inside managed installs would delete the entry the
-  // real-home installer just appended. Flag OFF, hooks off, or an incapable
-  // trust lane re-arms the sweep so downgrade, opt-out, and rollback converge.
-  startupDeps.setSystemCodexHomeHookSweepSuppressed(
-    () =>
-      startupState.codexRuntimeHome !== null &&
-      startupState.codexRuntimeHome.isHostSystemDefaultRealHome() &&
-      startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
-  )
   startupState.keybindings = new startupDeps.KeybindingService({
     homePath: startupDeps.app.getPath('home'),
     getLegacyOverrides: () => startupState.store!.getSettings().keybindings,
@@ -232,10 +212,7 @@ export async function initializeReadyFoundation(): Promise<void> {
       retireAgentHookCompatibilityAuthority: (paneKey) =>
         startupDeps.agentHookServer.retirePaneAuthority(paneKey),
       canRecoverPersistentLocalPtys: () => startupDeps.getDaemonProvider() !== null,
-      buildAgentHookPtyEnv: () =>
-        startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
-          ? startupDeps.agentHookServer.buildPtyEnv()
-          : {}
+      buildAgentHookPtyEnv: () => startupDeps.agentHookServer.buildPtyEnv()
     }
   )
   startupState.runtime = runtimeService

@@ -24,15 +24,13 @@ import {
   getCompatibleSelectedCodexHomePath,
   shouldStripInheritedOrcaCodexHome,
   type GetSelectedCodexHomePath,
-  type PrepareCodexSessionResume,
-  type PrepareClaudeAuth
+  type PrepareCodexSessionResume
 } from './pty-ipc-runtime-host-env-foundation'
 import { buildPtyHostEnv } from './pty-ipc-runtime-host-env-assembly'
 import { registerRendererLifecycleResetHandlers } from './pty-ipc-runtime-renderer-lifecycle-state'
-import { isAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
 import { isCurrentPtyExit } from './pty-ipc-runtime-provider-routing'
 import { addOrcaWslInteropEnv, stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
-import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
+import { markPtyExited } from '../pty/pty-lifecycle-state'
 import { ptyRuntimeState, type PtyPublicationSnapshot } from './pty-ipc-runtime-state'
 import {
   beginPtyRegistrationSharedState,
@@ -45,7 +43,6 @@ export type PtyRegistrationFoundationArgs = {
   runtime?: OrcaRuntimeService
   getSelectedCodexHomePath?: GetSelectedCodexHomePath
   getSettings?: () => GlobalSettings
-  prepareClaudeAuth?: PrepareClaudeAuth
   store?: Store
   options?: {
     prepareCodexSessionResume?: PrepareCodexSessionResume
@@ -317,7 +314,7 @@ export function createPtyRegistrationFoundation(
           shellPath: ctx?.shellPath,
           isWsl: ctx?.isWsl,
           wslDistro: ctx?.wslDistro ?? null,
-          agentStatusHooksEnabled: isAgentStatusHooksEnabled(getSettings?.()),
+          agentStatusHooksEnabled: true,
           networkProxySettings: getSettings?.()
         })
         // Why: agents need their terminal handle at process start to self-identify in orchestration messages without an extra RPC.
@@ -356,7 +353,7 @@ export function createPtyRegistrationFoundation(
         }
         clearProviderPtyState(id)
         ptyRuntimeState.ptyOwnership.delete(id)
-        markClaudePtyExited(id)
+        markPtyExited(id)
         runtime?.onPtyExit(id, code, incarnationId)
       }
     })

@@ -31,9 +31,7 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
   ) {
     super()
     this.store = store
-    this.clientSettingsCommands = new RuntimeClientSettingsCommands(store, () =>
-      this.reconcileManagedAgentHooks()
-    )
+    this.clientSettingsCommands = new RuntimeClientSettingsCommands(store)
     this.repoHookCommands = new RuntimeRepoHookCommands({
       resolveRepoSelector: (selector) => this.resolveRepoSelector(selector)
     })

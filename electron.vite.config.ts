@@ -195,9 +195,6 @@ export const electronViteConfig: UserConfig = {
           'daemon-entry': resolve('src/main/daemon/daemon-entry.ts'),
           'plugin-host-entry': resolve('src/main/plugins/plugin-host-entry.ts'),
           'warp-theme-parser-worker': resolve('src/main/warp-themes/warp-theme-parser-worker.ts'),
-          'session-scanner-opencode-sqlite-worker-entry': resolve(
-            'src/main/ai-vault/session-scanner-opencode-sqlite-worker-entry.ts'
-          ),
           // Why: forked with ELECTRON_RUN_AS_NODE so @parcel/watcher faults
           // can't take down the main process (issue #7547).
           'parcel-watcher-process-entry': resolve('src/main/ipc/parcel-watcher-process-entry.ts'),
@@ -212,13 +209,6 @@ export const electronViteConfig: UserConfig = {
           'codex/codex-app-server-grant-entry': resolve(
             'src/main/codex/codex-app-server-grant-entry.ts'
           ),
-          // Why: electron-vite cleans out/main in dev. The dev CLI imports
-          // this path for `orca agent hooks ...`, so it must survive rebuilds.
-          'agent-hooks/managed-agent-hook-controls': resolve(
-            'src/main/agent-hooks/managed-agent-hook-controls.ts'
-          ),
-          // Why: account import mutates the user's macOS Keychain from the CLI.
-          'claude-accounts/keychain': resolve('src/main/claude-accounts/keychain.ts')
         },
         // Why: Rolldown's SSR default is ESM, but Electron and sidecar launchers
         // consume these stable CommonJS paths.

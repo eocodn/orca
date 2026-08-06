@@ -2,8 +2,6 @@ import { app } from 'electron'
 import type { RuntimePtyController } from '../runtime/orca-runtime-context-2'
 import type { IPtyProvider, PtySpawnOptions } from '../providers/types'
 import { LocalPtyProvider } from '../providers/local-pty-provider'
-import { isClaudeAuthSwitchInProgress } from '../claude/pty-lifecycle-gate'
-import { hasClaudeAuthEnvConflict, CLAUDE_AUTH_ENV_VARS } from '../claude/pty-lifecycle-gate'
 import { resolveLocalWindowsTerminalRuntimeOptions } from '../../shared/local-windows-terminal-runtime'
 import {
   isSafePtySessionId,
@@ -57,7 +55,6 @@ export function createPtySpawnPreparation(
     prepareCodexResumeHome,
     resolveCodexResumeLaunch,
     noCodexResumeLaunch,
-    prepareClaudeAuth,
     stripRemotePaneEnvWhenHooksDisabled,
     stripSequencedStartupResumeArgv,
     getSelectedCodexHomePath,
@@ -87,9 +84,6 @@ export function createPtySpawnPreparation(
     const providerIdentity = capturePtyProviderIdentity(args.connectionId)
     const provider = providerIdentity.provider
     const isClaudeLaunch = !args.connectionId && isClaudeLaunchCommand(args.command)
-    if (isClaudeLaunch && isClaudeAuthSwitchInProgress()) {
-      throw new Error('A Claude account switch is in progress. Try again after it finishes.')
-    }
     // Why: runtime-created terminals carry no renderer-computed projectRuntime; resolve from worktreeId to honor the project's Windows runtime.
     const terminalRuntimeOptions =
       process.platform === 'win32' && !args.connectionId
@@ -146,17 +140,6 @@ export function createPtySpawnPreparation(
     // Why: the drop still applies here, but this controller's result has no field for
     // notifyResumeUnavailable — runtime/relay panes start fresh without the notice.
     const launchCommand = codexResumeLaunch.command
-    const claudeAuth =
-      isClaudeLaunch && prepareClaudeAuth ? await prepareClaudeAuth(codexSelectionTarget) : null
-    if (isClaudeLaunch && isClaudeAuthSwitchInProgress()) {
-      throw new Error('A Claude account switch is in progress. Try again after it finishes.')
-    }
-    if (claudeAuth?.stripAuthEnv && hasClaudeAuthEnvConflict(args.env)) {
-      throw new Error(
-        'This Claude launch defines explicit Anthropic auth environment variables. Remove those overrides before using a managed Claude account.'
-      )
-    }
-
     const shouldPersistHostSessionBinding = args.persistHostSessionBinding === true
     let hostSessionBinding: {
       store: NonNullable<typeof store>
@@ -183,9 +166,7 @@ export function createPtySpawnPreparation(
       }
     }
     const sshScopedEnv = stripRemotePaneEnvWhenHooksDisabled(args.connectionId, args.env)
-    let env: Record<string, string> | undefined = claudeAuth
-      ? { ...sshScopedEnv, ...claudeAuth.envPatch }
-      : sshScopedEnv
+    let env: Record<string, string> | undefined = sshScopedEnv
     const requestedAgentTeamsPath = env?.ORCA_AGENT_TEAMS_TEAM_ID ? env.PATH : undefined
     env = stripSequencedStartupResumeArgv(env, codexResumeLaunch)
     if (args.preAllocatedHandle) {
@@ -241,9 +222,6 @@ export function createPtySpawnPreparation(
       promoteAgentTeamsShimPath(env, requestedAgentTeamsPath)
     }
 
-    const authEnvToDelete = claudeAuth?.stripAuthEnv
-      ? [...CLAUDE_AUTH_ENV_VARS, 'ANTHROPIC_CUSTOM_HEADERS']
-      : undefined
     const spawnOptions: PtySpawnOptions = {
       cols: args.cols,
       rows: args.rows,
@@ -270,7 +248,6 @@ export function createPtySpawnPreparation(
       args.onPtySpawnCommitted?.()
     }
     spawnOptions.envToDelete = mergePtyEnvDeletions(
-      authEnvToDelete,
       args.envToDelete ?? [],
       isDaemonHostSpawn ? getInheritedAgentHookEnvKeysToDelete(env) : [],
       // Why: ungated, unlike the agent-hook keys — the local provider and the relay host also spread their own process.env into every spawn.
@@ -405,7 +382,6 @@ export function createPtySpawnPreparation(
         codexResumeLaunch,
         codexResumeHome,
         launchCommand,
-        claudeAuth,
         shouldPersistHostSessionBinding,
         hostSessionBinding,
         sshScopedEnv,
@@ -414,7 +390,6 @@ export function createPtySpawnPreparation(
         selectedCodexHomePath,
         skipCodexHomeEnv,
         stripInheritedOrcaCodexHome,
-        authEnvToDelete,
         spawnOptions,
         startupTerminalColorQueryReplyColors,
         reportPtySpawnCommitted,

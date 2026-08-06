@@ -3,7 +3,6 @@ import { applyTerminalGitCredentialPromptGuard } from './terminal-git-credential
 import { openCodeHookService } from '../opencode/hook-service'
 import { mimoCodeHookService } from '../mimo/hook-service'
 import { agentHookServer } from '../agent-hooks/server'
-import { wslHookRelayManager } from '../agent-hooks/wsl-hook-relay-manager'
 import { piTitlebarExtensionService } from '../pi/titlebar-extension-service'
 import { ensureLinuxTerminalOrcaCliShimDir } from '../cli/linux-terminal-orca-cli-shim'
 import { buildConfiguredProxyEnv } from '../../shared/network-proxy'
@@ -114,27 +113,6 @@ export function buildPtyHostEnv(
   }
   if (opts.agentStatusHooksEnabled) {
     Object.assign(baseEnv, agentHookServer.buildPtyEnv())
-    if (opts.isWsl === true) {
-      // Why: hook POSTs to 127.0.0.1 die inside WSL's NAT namespace; use the guest-resident relay's endpoint instead of the Windows one.
-      const distro = opts.wslDistro ?? null
-      wslHookRelayManager.ensureForDistro(distro)
-      const guestEndpoint = wslHookRelayManager.getGuestEndpointFilePath(distro)
-      if (guestEndpoint) {
-        baseEnv.ORCA_AGENT_HOOK_ENDPOINT = guestEndpoint
-      }
-      // Why: OpenCode loads its status plugin from a guest config overlay, so point OPENCODE_CONFIG_DIR at the guest dir the relay materialized.
-      const opencodeOverlayDir = wslHookRelayManager.getOpenCodeOverlayDir(distro)
-      if (opencodeOverlayDir) {
-        baseEnv.OPENCODE_CONFIG_DIR = opencodeOverlayDir
-        baseEnv.ORCA_OPENCODE_CONFIG_DIR = opencodeOverlayDir
-        delete baseEnv.ORCA_OPENCODE_SOURCE_CONFIG_DIR
-      } else {
-        // Why: relay not connected yet (or older guest bundle) — never cross the Windows overlay path into WSL; drop it so in-guest OpenCode uses its own config (pre-fix behavior, no status but no regression).
-        delete baseEnv.OPENCODE_CONFIG_DIR
-        delete baseEnv.ORCA_OPENCODE_CONFIG_DIR
-        delete baseEnv.ORCA_OPENCODE_SOURCE_CONFIG_DIR
-      }
-    }
   }
 
   // Why: PI_CODING_AGENT_DIR is the user's config/session root; install only Orca-owned extension files, don't override it.

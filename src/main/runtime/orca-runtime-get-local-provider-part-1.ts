@@ -6,11 +6,8 @@ import {
   type TerminalQuickCommand,
   type FeatureInteractionId,
   type TerminalQuickCommandMutation,
-  applyAgentStatusHooksEnabled,
-  logManagedHookInstallFailure,
   type IPtyProvider,
   collectMemorySnapshot,
-  app,
   killAllProcessesForWorktree,
   type RuntimeClientSettings
 } from './orca-runtime-symbols'
@@ -66,32 +63,6 @@ export class OrcaRuntimeGetLocalProviderPart1 extends OrcaRuntimeState {
   }
   getClientSettings(): RuntimeClientSettings {
     return this.clientSettingsCommands.getClientSettings()
-  }
-  protected reconcileManagedAgentHooks(): Promise<void> {
-    const generation = ++this.managedHookReconciliationGeneration
-    const reconciliation = this.managedHookReconciliationTail.then(async () => {
-      if (generation !== this.managedHookReconciliationGeneration) {
-        return
-      }
-      const settings = this.store?.getSettings()
-      if (!settings) {
-        return
-      }
-      await applyAgentStatusHooksEnabled(settings.agentStatusHooksEnabled !== false, settings, {
-        shouldHydrateShellPath: app.isPackaged && process.platform !== 'win32',
-        onInstallError: logManagedHookInstallFailure,
-        shouldContinue: (agent) => {
-          const current = this.store?.getSettings()
-          return (
-            current !== undefined &&
-            current.agentStatusHooksEnabled !== false &&
-            !current.disabledTuiAgents?.includes(agent)
-          )
-        }
-      })
-    })
-    this.managedHookReconciliationTail = reconciliation.catch(() => {})
-    return reconciliation
   }
   async updateClientSettings(
     updates: Pick<

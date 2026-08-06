@@ -63,7 +63,7 @@ export function addOrcaWslInteropEnv(env: Record<string, string>): void {
   const endpointFlag = env.ORCA_AGENT_HOOK_ENDPOINT?.startsWith('/') ? 'u' : 'p'
   // Why: ONLY a guest-side POSIX overlay may cross. /p would path-translate a
   // Windows value into /mnt/c and let in-guest OpenCode adopt it as its config
-  // root — reachable via the relay spawn's process.env (wsl-hook-relay-launch)
+  // root — reachable via the relay spawn's process.env.
   // and via daemon-inherited env, which buildPtyHostEnv's delete cannot reach.
   const opencodeOverlayEntries = (['OPENCODE_CONFIG_DIR', 'ORCA_OPENCODE_CONFIG_DIR'] as const)
     .filter((name) => env[name]?.startsWith('/'))

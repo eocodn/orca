@@ -1,19 +1,10 @@
 // Why: single authority for all relay lifecycle state per SSH target (previously scattered across module Maps/Sets with duplicated paths).
 
 import {
-  AGENT_HOOK_INSTALL_MANAGED_HOOKS_METHOD,
-  isRemoteAgentHooksEnabled
-} from '../../shared/agent-hook-relay'
-import {
   SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
 } from '../../shared/ssh-types'
-import {
-  buildManagedHookDetectionCommands,
-  detectedManagedHookAgents
-} from '../agent-hooks/managed-hook-detection-commands'
 import type { SshPtyOutputMigrationResult } from '../ipc/ssh-pty-output-model-migration'
 import type { SshPtyAcceptedSourceCheckpoint } from '../ipc/ssh-pty-output-source-obligations'
-import type { Store } from '../persistence'
 import type { SshChannelMultiplexer } from './ssh-channel-multiplexer'
 import { execCommand } from './ssh-relay-deploy-helpers'
 import { createRemoteCliInstallPlan } from './ssh-remote-cli-launcher'
@@ -58,66 +49,6 @@ export const SshRelaySessionMethods6 = {
     mux.notify(SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD, {
       graceTimeSeconds: normalizeRelayGracePeriodSeconds(graceTimeSeconds)
     })
-  },
-  async installManagedHooksOnRemote(this: any,
-    mux: SshChannelMultiplexer,
-    shouldContinue?: () => boolean
-  ): Promise<void> {
-    if (
-      !isRemoteAgentHooksEnabled() ||
-      !this.areAgentStatusHooksEnabled() ||
-      (shouldContinue && !shouldContinue())
-    ) {
-      return
-    }
-    if (
-      this.remoteCliBridgeEnv?.hostPlatform &&
-      isWindowsRemoteHost(this.remoteCliBridgeEnv.hostPlatform)
-    ) {
-      // Why: managed hook installers emit POSIX-only scripts/paths; Windows remotes rely on relay-injected env + plugin overlays instead.
-      return
-    }
-
-    try {
-      const store = this.store as { getSettings?: Store['getSettings'] }
-      const detected = (await mux.request('preflight.detectAgents', {
-        commands: buildManagedHookDetectionCommands(store.getSettings?.() ?? null, 'linux')
-      })) as { agents?: unknown }
-      const agents = detectedManagedHookAgents(detected?.agents)
-      if (agents.length === 0 || (shouldContinue && !shouldContinue())) {
-        return
-      }
-      const hostKeyFingerprint = this.requireReadyConnection().getHostKeyFingerprint?.()
-      const params = {
-        ...(hostKeyFingerprint ? { hostKeyFingerprint } : {}),
-        agents
-      }
-      const result = (await mux.request(AGENT_HOOK_INSTALL_MANAGED_HOOKS_METHOD, params)) as {
-        errors?: unknown
-      }
-      if (typeof result.errors === 'number' && result.errors > 0) {
-        console.warn(
-          `[ssh-relay-session] ${result.errors} remote managed hook installers failed for ${this.targetId}`
-        )
-      }
-    } catch (error) {
-      // Why: teardown routinely cancels this best-effort request; only warn for
-      // installer failures that survive the connection lifecycle.
-      const code = (error as { code?: unknown })?.code
-      if (
-        code === -32601 ||
-        code === 'CONNECTION_LOST' ||
-        code === 'DISPOSED' ||
-        mux.isDisposed()
-      ) {
-        return
-      }
-      console.warn(
-        `[ssh-relay-session] relay managed hook install failed for ${this.targetId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`
-      )
-    }
   },
   async installRemoteOrcaCliLauncher(this: any): Promise<void> {
     if (!this.remoteCliBridgeEnv) {

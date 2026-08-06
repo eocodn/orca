@@ -6,7 +6,6 @@ import {
   makePaneKey,
   parseLegacyNumericPaneKey
 } from '../../shared/stable-pane-id'
-import { isAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
 import { getStartupTerminalColorQueryReplyColors } from './terminal-startup-color-query-replies'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
@@ -97,7 +96,6 @@ import {
   getInheritedClaudeSessionStampEnvKeysToDelete,
   mergePtyEnvDeletions,
   promoteAgentTeamsShimPath,
-  recordCodexPaneAccountForSpawn,
   removeCodexHomeDeletionRequests,
   shouldSkipCodexHomeEnvForWindowsShell,
   shouldStripInheritedOrcaCodexHome,
@@ -118,7 +116,7 @@ import {
   requestKindSchema
 } from '../../shared/telemetry-events'
 import { registerPty } from '../memory/pty-registry'
-import { markClaudePtySpawned } from '../claude/pty-lifecycle-gate'
+import { markPtySpawned } from '../pty/pty-lifecycle-state'
 import { isRemoteAgentHooksEnabled } from '../../shared/agent-hook-relay'
 import { resolveWslSessionContext } from '../daemon/wsl-session-context'
 import { clearMigrationUnsupportedPtysForPaneKey } from '../agent-hooks/migration-unsupported-pty-state'
@@ -242,10 +240,8 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     beginPtySpawnForWorktree,
     isNativeWindowsLocalPtySpawn,
     markNativeWindowsConptyPty,
-    recordCodexPaneAccountForSpawn,
     resolveLocalProjectRuntimeForWorktreeId,
     isTuiAgent,
-    isAgentStatusHooksEnabled,
     isValidTerminalTabId,
     isTerminalLeafId,
     makePaneKey,
@@ -257,7 +253,7 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     toSshExecutionHostId,
     registerPty,
     registerPtyInMemory: registerPty,
-    markClaudePtySpawned,
+    markPtySpawned,
     createTerminalSessionStateSaveFailureMessage,
     isSshPtyIdentityMismatchError,
     classifyError,

@@ -43,8 +43,6 @@ export class OrcaRuntimeStatePart1 extends OrcaRuntimeMethodSurface {
   protected readonly startedAt = Date.now()
   protected store!: RuntimeStore | null
   protected clientSettingsCommands!: RuntimeClientSettingsCommands
-  protected managedHookReconciliationGeneration = 0
-  protected managedHookReconciliationTail: Promise<void> = Promise.resolve()
   protected rendererGraphEpoch = 0
   protected graphStatus: RuntimeGraphStatus = 'unavailable'
   protected authoritativeWindowId: number | null = null

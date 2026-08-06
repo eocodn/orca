@@ -27,7 +27,6 @@ import { expandTilde, RelayContext } from './context'
 import { RelayDispatcher } from './dispatcher'
 import { FsHandler } from './fs-handler'
 import { GitHandler } from './git-handler'
-import { registerManagedHookInstaller } from './managed-hook-installer'
 import { registerRelayPluginHostCallHandlers } from './plugin-host-call-handler'
 import { PluginOverlayManager } from './plugin-overlay'
 import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
@@ -476,7 +475,6 @@ async function main(): Promise<void> {
   })
 
   // Why: relay-local installers collapse hundreds of SFTP request/response RTTs to one RPC.
-  registerManagedHookInstaller(dispatcher)
 
   // Why: plugin sources ship over the wire so an Orca update doesn't force a relay redeploy; cache them per spawn. See docs/design/agent-status-over-ssh.md §4.
   // Why: bound per-source size so a buggy/hostile Orca can't OOM the relay by pushing a giant string.

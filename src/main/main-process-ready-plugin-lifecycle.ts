@@ -12,9 +12,8 @@ function emitPluginWorktreeLifecycle(event: startupDeps.RuntimeWorktreeLifecycle
 
 export async function initializeReadyPlugins(): Promise<void> {
   const store = startupState.store
-  const codexRuntimeHome = startupState.codexRuntimeHome
   const stats = startupState.stats
-  if (!store || !codexRuntimeHome || !stats) {
+  if (!store || !stats) {
     throw new Error('Plugin initialization requires completed startup state')
   }
   const pluginSystemStartupStartedAt = performance.now()
@@ -156,35 +155,4 @@ export async function initializeReadyPlugins(): Promise<void> {
   startupState.starNag.start()
   startupState.starNag.registerIpcHandlers()
   startupDeps.nativeTheme.themeSource = store.getSettings().theme ?? 'system'
-  if (codexRuntimeHome.isHostSystemDefaultRealHomeSelected()) {
-    // Why: establish capability before managed-hook reconciliation so an
-    // incapable host re-arms and completes the legacy real-home sweep now.
-    startupDeps.ensureRealHomeCodexHookState({
-      hooksEnabled: startupDeps.isAgentStatusHooksEnabled(store.getSettings()),
-      userDataPath: startupDeps.app.getPath('userData')
-    })
-  }
-  if (startupDeps.shouldInstallManagedHooks(startupDeps.is.dev)) {
-    // Why: check the persisted off switch before any auto-install so removed hooks don't silently reappear on launch.
-    if (startupDeps.isAgentStatusHooksEnabled(store.getSettings())) {
-      const managedHookStore = store
-      void startupDeps
-        .applyAgentStatusHooksEnabled(true, managedHookStore.getSettings(), {
-          shouldHydrateShellPath: startupDeps.app.isPackaged && process.platform !== 'win32',
-          onInstallError: startupDeps.logManagedHookInstallFailure,
-          shouldContinue: (agent) => {
-            const settings = managedHookStore.getSettings()
-            return (
-              startupDeps.isAgentStatusHooksEnabled(settings) &&
-              !settings.disabledTuiAgents.includes(agent)
-            )
-          }
-        })
-        .catch((error) => {
-          console.warn('[agent-hooks] failed to reconcile managed hooks on startup:', error)
-        })
-    } else {
-      startupDeps.removeManagedAgentHooks()
-    }
-  }
 }

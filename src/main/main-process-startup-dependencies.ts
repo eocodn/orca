@@ -37,18 +37,12 @@ export { registerCoreHandlers } from './ipc/register-core-handlers'
 export { initObservability, shutdownObservability } from './observability'
 export { registerMobileHandlers } from './ipc/mobile'
 export { classifyError } from './diagnostics/error-classifier'
-export { logManagedHookInstallFailure } from './agent-hooks/install-diagnostics'
 export {
   indexPersistedPaneKeyPtyIds,
   isLocalExecutionHost,
   resolveAgentWorkspaceExecutionHostId,
   sweepRestoredSubagentsWithoutLiveAgent
 } from './agent-hooks/restored-subagent-liveness-sweep'
-export {
-  applyAgentStatusHooksEnabled,
-  isAgentStatusHooksEnabled,
-  removeManagedAgentHooks
-} from './agent-hooks/managed-agent-hook-controls'
 export { triggerStartupNotificationRegistration } from './ipc/notifications'
 export { OrcaRuntimeService, type RuntimeWorktreeLifecycleEvent } from './runtime/orca-runtime'
 export { loadAgentSessionClaimSigner } from './runtime/agent-session-claim-identity'
@@ -96,8 +90,7 @@ export {
   installDevParentSignalQuit,
   installDevParentWatchdog,
   isDevParentShutdownRequested,
-  patchPackagedProcessPath,
-  shouldInstallManagedHooks
+  patchPackagedProcessPath
 } from './startup/configure-process'
 export {
   installUncaughtPipeErrorGuard,
@@ -165,20 +158,12 @@ export {
 export { createMacAppActivationHandler } from './window/macos-app-activation'
 export { focusExistingMainWindow } from './window/focus-existing-window'
 export { notifyMainWindowBecameVisible } from './window/main-window-visibility'
-export { CodexRuntimeHomeService } from './codex-cli/runtime-home-service'
-export { ClaudeRuntimeAuthService } from './claude/runtime-auth-service'
 export type {
   CodexAccountSelectionTarget,
   CodexSessionResumePreparation
 } from './runtime/provider-lane-types'
-export async function prepareCodexSessionResume(): Promise<null> {
-  return null
-}
-export function prepareLegacySharedCodexSessionResume(): { useRealCodexHome: false } {
-  return { useRealCodexHome: false }
-}
 export { markCodexProjectTrusted } from './agent-trust-presets'
-export { codexHookService, setSystemCodexHomeHookSweepSuppressed } from './codex/hook-service'
+export { codexHookService } from './codex/hook-service'
 export {
   ensureRealHomeCodexHookState,
   isRealHomeCodexHookLaneUsable
@@ -190,7 +175,6 @@ export { getDefaultWslDistro } from './wsl'
 export { StarNagService } from './star-nag/service'
 export { agentHookServer, type AgentHookProviderSessionIdentity } from './agent-hooks/server'
 export { createHookProviderSessionInvalidator } from './agent-hooks/hook-provider-session-invalidation'
-export { wslHookRelayManager } from './agent-hooks/wsl-hook-relay-manager'
 export { maybeAutoRenameBranchOnFirstWork } from './agent-hooks/first-work-branch-rename'
 export { rememberBranchRenameFailureOutput } from './agent-hooks/branch-rename-failure-output'
 export { renameWorktreeFolderOnFirstWork } from './agent-hooks/first-work-folder-rename'
@@ -259,7 +243,6 @@ export {
 export { LocalPtyProvider } from './providers/local-pty-provider'
 export { KeybindingService } from './keybindings/keybinding-service'
 export { applyElectronProxySettings } from './network/proxy-settings'
-export { preserveAgentAuthBeforeRestart } from './agent-auth-restart-preservation'
 export { CliInstaller } from './cli/cli-installer'
 export { installLinuxBareOrcaDispatcher } from './cli/linux-bare-orca-dispatcher'
 export { reconcileManagedWslCliRegistrations } from './cli/wsl-cli-registration-reconciliation'

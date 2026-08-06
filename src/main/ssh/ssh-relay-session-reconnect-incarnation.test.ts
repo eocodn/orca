@@ -80,9 +80,6 @@ vi.mock('./ssh-channel-multiplexer', () => ({
     }
   }
 }))
-vi.mock('../agent-hooks/remote-managed-hook-installers', () => ({
-  installRemoteManagedAgentHooks: vi.fn()
-}))
 vi.mock('../providers/ssh-pty-provider', () => ({
   isSshPtyNotFoundError: (error: unknown) => String(error).includes('not found'),
   isSshPtyIdentityMismatchError: (error: unknown) => String(error).includes('identity mismatch'),
