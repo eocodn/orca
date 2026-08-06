@@ -169,7 +169,7 @@ export function dropHydratedIdleClaudeSubagents(
   }
 }
 
-// Why: the sole gate for keeping a providerSessionOnly row; shared so hydrate and relay-ingest can't drift.
+// Why: the sole gate for keeping a providerSessionOnly row; shared so hydrate and status ingestion can't drift.
 export function isValidPiProviderSessionOnly(
   providerSession: AgentProviderSessionMetadata | undefined,
   agentType: AgentType | undefined
