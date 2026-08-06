@@ -10,10 +10,6 @@ import type { UiLanguage } from './ui-language'
 import type {
   AgentDashboardMode,
   BranchPrefixStrategy,
-  ClaudeManagedAccount,
-  ClaudeManagedAccountRuntimeSelection,
-  CodexManagedAccount,
-  CodexManagedAccountRuntimeSelection,
   HostSettingOverrides,
   LeftSidebarAppearanceMode,
   NotificationSettings,
@@ -227,14 +223,6 @@ export type GlobalSettings = {
   promptCacheTimerEnabled: boolean
   /** Prompt-cache TTL (ms); only 300000 (5 min standard) or 3600000 (1 hr, extended-TTL plans). */
   promptCacheTtlMs: number
-  /** Why: durable main-owned pref so Orca can prepare shared ~/.codex before the renderer hydrates. */
-  codexManagedAccounts: CodexManagedAccount[]
-  activeCodexManagedAccountId: string | null
-  activeCodexManagedAccountIdsByRuntime?: CodexManagedAccountRuntimeSelection
-  /** Why: persist only per-account auth (not a CLAUDE_CONFIG_DIR swap) so switching accounts doesn't fork Claude's shared chat/session context. */
-  claudeManagedAccounts: ClaudeManagedAccount[]
-  activeClaudeManagedAccountId: string | null
-  activeClaudeManagedAccountIdsByRuntime?: ClaudeManagedAccountRuntimeSelection
   /** Per-worktree shell history file so ArrowUp doesn't surface other worktrees' commands. Defaults to true. */
   terminalScopeHistoryByWorktree: boolean
   /** Kill switch for hidden terminal view parking: unmount long-hidden panes while a pane-less watcher keeps PTY side effects alive. */

@@ -1,7 +1,6 @@
 import { ipcRenderer } from './preload-api-runtime-context'
 import type {
   CliInstallStatus,
-  CodexConfigSyncStatus,
   JiraProjectStatusOrder,
   GhosttyImportPreview,
   LinearProjectDetail,
@@ -375,9 +374,6 @@ export function createPreloadApiLinear(): Record<string, unknown> {
         ipcRenderer.invoke('cli:installWsl', args),
       removeWsl: (args?: { distro?: string | null }): Promise<CliInstallStatus> =>
         ipcRenderer.invoke('cli:removeWsl', args)
-    },
-    codexConfigSync: {
-      status: (): Promise<CodexConfigSyncStatus> => ipcRenderer.invoke('codexConfigSync:status')
     }
   }
 }

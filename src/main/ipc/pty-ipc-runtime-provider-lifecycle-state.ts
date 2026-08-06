@@ -2,8 +2,6 @@ import type { IPtyProvider, PtyProviderGeneration } from '../providers/types'
 import { scheduleOriginalPtyCleanupAuthorities, schedulePendingPtyCleanupReconciliation } from './pty-ipc-runtime-cleanup-reconciliation'
 import { clearHiddenRendererPtyDeliveryState, isHiddenRendererPty } from './pty-hidden-delivery-gate'
 import { clearNativeWindowsConptyPty } from '../runtime/terminal-model-query-authority'
-import { openCodeHookService } from '../opencode/hook-service'
-import { piTitlebarExtensionService } from '../pi/titlebar-extension-service'
 import { markPtyExited } from '../pty/pty-lifecycle-state'
 import { agentHookServer } from '../agent-hooks/server'
 import { clearMigrationUnsupportedPty } from '../agent-hooks/migration-unsupported-pty-state'
@@ -176,8 +174,6 @@ export function clearProviderPtyState(
   if (!opts.preserveAgentSessionOwners) {
     ptyRuntimeState.agentSessionOwners.release(id)
   }
-  openCodeHookService.clearPty(id)
-  piTitlebarExtensionService.clearPty(id)
   markPtyExited(id)
   ptyRuntimeState.ptySizes.delete(id)
   ptyRuntimeState.pendingPtySizes.delete(id)

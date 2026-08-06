@@ -160,7 +160,6 @@ export const SettingsUpdate = z
       .enum(['issues', 'my-issues', 'prs', 'my-prs', 'review', 'all'])
       .optional(),
     experimentalNewWorktreeCardStyle: z.boolean().optional(),
-    agentStatusHooksEnabled: z.boolean().optional(),
     defaultRepoSelection: z.array(z.string()).nullable().optional(),
     defaultLinearTeamSelection: z.array(z.string()).nullable().optional(),
     compactWorktreeCards: z.boolean().optional(),

@@ -67,7 +67,6 @@ export class OrcaRuntimeGetLocalProviderPart1 extends OrcaRuntimeState {
   async updateClientSettings(
     updates: Pick<
       Partial<GlobalSettings>,
-      | 'agentStatusHooksEnabled'
       | 'defaultTuiAgent'
       | 'disabledTuiAgents'
       | 'agentDefaultArgs'
@@ -92,7 +91,6 @@ export class OrcaRuntimeGetLocalProviderPart1 extends OrcaRuntimeState {
       | 'agentCmdOverrides'
       | 'agentDefaultArgs'
       | 'agentDefaultEnv'
-      | 'agentStatusHooksEnabled'
       | 'defaultTaskSource'
       | 'defaultTaskViewPreset'
       | 'visibleTaskProviders'

@@ -288,11 +288,6 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     prBotAuthorOverrides: [],
     promptCacheTimerEnabled: false,
     promptCacheTtlMs: 300_000,
-    codexManagedAccounts: [],
-    activeCodexManagedAccountId: null,
-    activeCodexManagedAccountIdsByRuntime: { host: null, wsl: {} },
-    claudeManagedAccounts: [],
-    activeClaudeManagedAccountId: null,
     terminalScopeHistoryByWorktree: true,
     terminalHiddenViewParking: true,
     // C1 kill switches — runtime reads stay `!== false` so older persisted

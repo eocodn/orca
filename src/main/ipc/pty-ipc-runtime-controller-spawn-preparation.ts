@@ -8,9 +8,7 @@ import {
   mintPtySessionId,
   ptySessionIdForAgentCreateOperation
 } from '../daemon/pty-session-id'
-import {
-  routesFreshSpawnsToLocalProvider
-} from './pty-ipc-runtime-spawn-routing'
+import { routesFreshSpawnsToLocalProvider } from './pty-ipc-runtime-spawn-routing'
 import { stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
 import {
   CODEX_HOME_ENV_KEYS,

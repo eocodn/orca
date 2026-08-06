@@ -9,7 +9,6 @@ import type {
   DashboardRevealAgentArgs,
   TerminalPreviewConnectResult,
   TerminalPreviewDataPayload,
-  AgentHookInstallStatus,
   CustomPet,
   NotificationDismissResult,
   NotificationDispatchResult,
@@ -32,41 +31,6 @@ import type {
 } from './preload-api-runtime-context'
 export function createPreloadApiAgentHooks(): Record<string, unknown> {
   return {
-    agentHooks: {
-      claudeStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:claudeStatus'),
-      openClaudeStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:openClaudeStatus'),
-      codexStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:codexStatus'),
-      geminiStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:geminiStatus'),
-      antigravityStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:antigravityStatus'),
-      ampStatus: (): Promise<AgentHookInstallStatus> => ipcRenderer.invoke('agentHooks:ampStatus'),
-      cursorStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:cursorStatus'),
-      droidStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:droidStatus'),
-      commandCodeStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:commandCodeStatus'),
-      grokStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:grokStatus'),
-      devinStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:devinStatus'),
-      copilotStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:copilotStatus'),
-      hermesStatus: (): Promise<AgentHookInstallStatus> =>
-        ipcRenderer.invoke('agentHooks:hermesStatus'),
-      kimiStatus: (): Promise<AgentHookInstallStatus> => ipcRenderer.invoke('agentHooks:kimiStatus')
-    },
-    agentTrust: {
-      markTrusted: (args: {
-        preset: 'cursor' | 'copilot' | 'codex'
-        workspacePath: string
-        connectionId?: string
-      }): Promise<void> => ipcRenderer.invoke('agentTrust:markTrusted', args)
-    },
     preflight: {
       check: (args?: {
         force?: boolean

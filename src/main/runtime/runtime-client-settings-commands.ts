@@ -7,7 +7,6 @@ import {
   type TerminalQuickCommandMutation
 } from '../../shared/terminal-quick-commands'
 import { applyPRBotAuthorOverride } from '../../shared/pr-bot-author-overrides'
-import { haveSameDisabledTuiAgents } from '../../shared/tui-agent-selection'
 
 export type RuntimeClientSettings = Pick<
   GlobalSettings,
@@ -16,7 +15,6 @@ export type RuntimeClientSettings = Pick<
   | 'agentCmdOverrides'
   | 'agentDefaultArgs'
   | 'agentDefaultEnv'
-  | 'agentStatusHooksEnabled'
   | 'defaultTaskSource'
   | 'defaultTaskViewPreset'
   | 'visibleTaskProviders'
@@ -46,10 +44,7 @@ export type RuntimeClientSettingsStore = {
 }
 
 export class RuntimeClientSettingsCommands {
-  constructor(
-    private readonly store: RuntimeClientSettingsStore | null,
-    private readonly reconcileManagedAgentHooks: () => Promise<void> = async () => {}
-  ) {}
+  constructor(private readonly store: RuntimeClientSettingsStore | null) {}
 
   getUIState(): PersistedUIState {
     if (!this.store?.getUI) {
@@ -84,7 +79,6 @@ export class RuntimeClientSettingsCommands {
       agentCmdOverrides: settings.agentCmdOverrides ?? {},
       agentDefaultArgs: settings.agentDefaultArgs ?? {},
       agentDefaultEnv: settings.agentDefaultEnv ?? {},
-      agentStatusHooksEnabled: settings.agentStatusHooksEnabled !== false,
       defaultTaskSource: settings.defaultTaskSource ?? 'github',
       defaultTaskViewPreset: settings.defaultTaskViewPreset ?? 'issues',
       visibleTaskProviders: settings.visibleTaskProviders ?? [...TASK_PROVIDERS],
@@ -102,7 +96,6 @@ export class RuntimeClientSettingsCommands {
   async updateClientSettings(
     updates: Pick<
       Partial<GlobalSettings>,
-      | 'agentStatusHooksEnabled'
       | 'defaultTuiAgent'
       | 'disabledTuiAgents'
       | 'agentDefaultArgs'
@@ -123,18 +116,7 @@ export class RuntimeClientSettingsCommands {
     if (!this.store?.getSettings || !this.store.updateSettings) {
       throw new Error('runtime_unavailable')
     }
-    const beforeSettings = this.store.getSettings()
-    const before = beforeSettings.agentStatusHooksEnabled !== false
     this.store.updateSettings(updates, { notifyListeners: true })
-    const settings = this.store.getSettings()
-    if (
-      (typeof updates.agentStatusHooksEnabled === 'boolean' &&
-        before !== updates.agentStatusHooksEnabled) ||
-      (updates.disabledTuiAgents !== undefined &&
-        !haveSameDisabledTuiAgents(beforeSettings.disabledTuiAgents, settings.disabledTuiAgents))
-    ) {
-      await this.reconcileManagedAgentHooks()
-    }
     return this.getClientSettings()
   }
 

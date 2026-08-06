@@ -42,7 +42,6 @@ import { registerTerminalRenderDesyncEvidenceHandler } from './terminal-render-d
 import { registerOrcaProfileHandlers } from './orca-profiles'
 import { registerAgentHookHandlers } from './agent-hooks'
 import { getPtyIdForPaneKey } from './pty'
-import { registerAgentTrustHandlers } from './agent-trust'
 import { registerUpdaterHandlers } from '../window/attach-main-window-services'
 import {
   registerClipboardHandlers,
@@ -65,12 +64,6 @@ export function registerCoreHandlers(
   store: Store,
   runtime: OrcaRuntimeService,
   stats: StatsCollector,
-  _claudeUsage: unknown,
-  _codexUsage: unknown,
-  _openCodeUsage: unknown,
-  _codexAccounts: unknown,
-  _claudeAccounts: unknown,
-  _rateLimits: unknown,
   mainWindowWebContentsId: number | null = null,
   commitMessageAgentEnv?: CommitMessageAgentEnvironmentResolvers,
   agentAwakeService?: AgentAwakeService,
@@ -93,7 +86,6 @@ export function registerCoreHandlers(
   registerCliHandlers()
   registerPreflightHandlers()
   registerAgentHookHandlers(runtime, { getPtyIdForPaneKey })
-  registerAgentTrustHandlers()
   registerGitHubHandlers(store, stats)
   registerGitLabHandlers(store)
   registerHostedReviewHandlers(store, stats)
