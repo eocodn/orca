@@ -244,6 +244,12 @@ import {
   getLinearStatusSectionState,
   mergeLinearCollectionResults
 } from './task-page-linear-model'
+import {
+  getEffectiveLinearDisplayProperties,
+  getLinearIssueListRows,
+  getLinearIssuePageState,
+  type LinearIssueListRow
+} from './task-page-linear-list-model'
 import { PaginationBar } from './task-page-pagination'
 import {
   buildJiraCreateCustomFields,
@@ -274,10 +280,6 @@ const GITHUB_PR_TASK_GRID_CLASS =
   'min-w-[1020px] grid-cols-[72px_minmax(360px,2fr)_132px_128px_132px_92px_158px]'
 
 type LinearProjectTab = 'overview' | 'issues'
-
-type LinearIssueListRow =
-  | { type: 'section'; key: string; label: string; count: number }
-  | { type: 'issue'; issue: LinearIssue }
 
 const LINEAR_CUSTOM_VIEW_MODELS = ['issue', 'project'] satisfies readonly LinearCustomViewModel[]
 
@@ -1783,22 +1785,22 @@ export default function TaskPage(): React.JSX.Element {
     () => [...filteredLinearIssues].sort((a, b) => compareLinearIssues(a, b, linearOrderBy)),
     [filteredLinearIssues, linearOrderBy]
   )
-  const loadedLinearIssuePages = Math.max(
-    1,
-    Math.ceil(orderedLinearIssues.length / LINEAR_ITEM_LIMIT)
+  const linearIssuePageState = useMemo(
+    () =>
+      getLinearIssuePageState(
+        orderedLinearIssues,
+        activeLinearIssuePage,
+        LINEAR_ITEM_LIMIT,
+        activeLinearIssueCanRequestMore
+      ),
+    [activeLinearIssueCanRequestMore, activeLinearIssuePage, orderedLinearIssues]
   )
-  const linearIssueTotalPages =
-    orderedLinearIssues.length === 0
-      ? 1
-      : loadedLinearIssuePages + (activeLinearIssueCanRequestMore ? 1 : 0)
-  const visibleLinearIssuePage = Math.min(
-    activeLinearIssuePage,
-    Math.max(0, loadedLinearIssuePages - 1)
-  )
-  const pagedLinearIssues = useMemo(() => {
-    const start = visibleLinearIssuePage * LINEAR_ITEM_LIMIT
-    return orderedLinearIssues.slice(start, start + LINEAR_ITEM_LIMIT)
-  }, [orderedLinearIssues, visibleLinearIssuePage])
+  const {
+    loadedPages: loadedLinearIssuePages,
+    totalPages: linearIssueTotalPages,
+    visiblePage: visibleLinearIssuePage,
+    issues: pagedLinearIssues
+  } = linearIssuePageState
   const showLinearIssuePagination =
     orderedLinearIssues.length > 0 &&
     !activeLinearIssueError &&
@@ -1924,26 +1926,16 @@ export default function TaskPage(): React.JSX.Element {
     return linearTeamOptions.find((team) => team.id === teamId && team.url) ?? null
   }, [linearTeamOptions, linearTeamSelection])
 
-  const effectiveLinearDisplayProperties = useMemo(() => {
-    const next = new Set(linearDisplayProperties)
-    const groupedProperty =
-      linearGroupBy === 'status'
-        ? 'state'
-        : linearGroupBy === 'assignee' || linearGroupBy === 'priority' || linearGroupBy === 'team'
-          ? linearGroupBy
-          : null
-    if (groupedProperty) {
-      next.delete(groupedProperty)
-    }
-
-    // Why: a Team column repeats the same value when one team is selected; keep it hidden until the user opts back in.
-    if (linearTeamSelection.size <= 1 && !linearTeamPropertyTouched) {
-      next.delete('team')
-    } else if (linearTeamSelection.size > 1 && !linearTeamPropertyTouched) {
-      next.add('team')
-    }
-    return next
-  }, [linearDisplayProperties, linearGroupBy, linearTeamPropertyTouched, linearTeamSelection.size])
+  const effectiveLinearDisplayProperties = useMemo(
+    () =>
+      getEffectiveLinearDisplayProperties(
+        linearDisplayProperties,
+        linearGroupBy,
+        linearTeamSelection.size,
+        linearTeamPropertyTouched
+      ),
+    [linearDisplayProperties, linearGroupBy, linearTeamPropertyTouched, linearTeamSelection.size]
+  )
   const linearIssueGridTemplate = useMemo(
     () => getLinearIssueGridTemplate(effectiveLinearDisplayProperties),
     [effectiveLinearDisplayProperties]
@@ -1960,22 +1952,7 @@ export default function TaskPage(): React.JSX.Element {
     [pagedLinearIssues, linearGroupBy, linearOrderBy]
   )
   const linearIssueListRows = useMemo<LinearIssueListRow[]>(
-    () =>
-      linearIssueSections.flatMap((section) => {
-        const issueRows = section.issues.map((issue) => ({ type: 'issue' as const, issue }))
-        if (linearGroupBy === 'none') {
-          return issueRows
-        }
-        return [
-          {
-            type: 'section' as const,
-            key: section.key,
-            label: section.label,
-            count: section.issues.length
-          },
-          ...issueRows
-        ]
-      }),
+    () => getLinearIssueListRows(linearIssueSections, linearGroupBy),
     [linearGroupBy, linearIssueSections]
   )
   const linearBoardSections = useMemo(
