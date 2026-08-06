@@ -54,6 +54,7 @@ import { useTaskPageLinearDetailState } from './use-task-page-linear-detail-stat
 import { useTaskPageJiraDetailState } from './use-task-page-jira-detail-state'
 import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-state'
 import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
+import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import {
   getSingleJiraProjectScope,
@@ -422,7 +423,6 @@ export default function TaskPage(): React.JSX.Element {
   const lastFetchedNonceRef = useRef(-1)
   // Why: invalidation-nonce analog of lastFetchedNonceRef; a preference flip must force past fetch-dedupe or the fan-out collapses onto a stale in-flight request from the pre-flip source.
   const lastFetchedInvalidationNonceRef = useRef(0)
-  const paginationGenerationRef = useRef(0)
   // Why: entering Tasks with fresh cache still verifies remote status once, reconciled into existing rows to avoid a full table shuffle.
   const landingGitHubRefreshKeysRef = useRef<ReadonlySet<string>>(new Set())
   // Why: split the display budget across repos so one provider page maps to one UI page without truncating rows later pages can't return.
@@ -431,41 +431,29 @@ export default function TaskPage(): React.JSX.Element {
     PER_REPO_FETCH_LIMIT,
     CROSS_REPO_DISPLAY_LIMIT
   )
-  const githubPageSize = githubPerRepoPageLimit * Math.max(1, selectedRepos.length)
-  // Why: null entries are pages not fetched yet; numbered provider pages let a high-page click load directly without reading intermediate pages.
-  const [pages, setPages] = useState<(GitHubWorkItem[] | null)[]>(() => {
-    const trimmed = initialTaskQuery.trim()
-    const merged: GitHubWorkItem[] = []
-    for (const r of selectedRepos) {
-      const cached = getCachedWorkItems(
-        r.id,
-        githubPerRepoPageLimit,
-        trimmed,
-        r.path,
-        getTaskPageRepoSourceContext(r, 'github')
-      )
-      if (cached) {
-        merged.push(...cached)
-      }
-    }
-    if (merged.length === 0) {
-      return [[]]
-    }
-    const page0 = sortWorkItemsByNumber(merged).slice(0, githubPageSize)
-    return [page0]
+  const {
+    countedTotalPages,
+    currentPage,
+    fetchWorkItemsNextPage,
+    githubPageSize,
+    loadingTargetPage,
+    paginationGenerationRef,
+    paginationLoading,
+    pages,
+    setCountedTotalPages,
+    setCurrentPage,
+    setLoadingTargetPage,
+    setPages,
+    setPaginationLoading,
+    countWorkItemsAcrossRepos
+  } = useTaskPageGitHubPaginationState({
+    appliedTaskSearch,
+    initialTaskQuery,
+    githubPerRepoPageLimit,
+    getCachedWorkItems,
+    selectedRepos,
+    workItemsInvalidationNonce
   })
-  const [currentPage, setCurrentPage] = useState(0)
-  const [paginationLoading, setPaginationLoading] = useState(false)
-  const [loadingTargetPage, setLoadingTargetPage] = useState<number | null>(null)
-  const [countedTotalPages, setCountedTotalPages] = useState<number | null>(null)
-  const fetchWorkItemsNextPage = useAppStore((s) => s.fetchWorkItemsNextPage)
-  const countWorkItemsAcrossRepos = useAppStore((s) => s.countWorkItemsAcrossRepos)
-
-  useEffect(() => {
-    paginationGenerationRef.current += 1
-    setPaginationLoading(false)
-    setLoadingTargetPage(null)
-  }, [selectedRepos, appliedTaskSearch, workItemsInvalidationNonce])
 
   const {
     dialogInitialTab,
@@ -514,7 +502,7 @@ export default function TaskPage(): React.JSX.Element {
     setPages((current) =>
       reconcileTaskPagePagesWithWorkItemsCache(current, selectedWorkItemsCacheEntries)
     )
-  }, [githubMode, selectedWorkItemsCacheEntries, taskSource])
+  }, [githubMode, selectedWorkItemsCacheEntries, setPages, taskSource])
 
   // Why: one-time toast per repo when the 'upstream' preference fell back to origin (ref-gated); deliberately don't auto-reset the preference so re-adding upstream later still applies.
   const fellBackToastedRef = useRef<Set<string>>(new Set())
