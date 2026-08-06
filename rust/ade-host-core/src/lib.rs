@@ -342,7 +342,7 @@ mod contract_tests {
     fn worker_responses_are_typed_and_correlate_to_replayable_requests() {
         use super::protocol::{
             ExecutionContext, ExecutionTarget, FileWorkerRequest, FileWorkerResponse,
-            OwnershipContext, WorkspaceKind,
+            GitWorkerRequest, GitWorkerResponse, GitWorktree, OwnershipContext, WorkspaceKind,
         };
 
         let context = ExecutionContext::new(
@@ -358,8 +358,64 @@ mod contract_tests {
         let response = FileWorkerResponse::from_read_request(&request, vec![1, 2]);
         assert_eq!(response.validate_for(&request), Ok(()));
         assert_eq!(response.envelope.request_id, "request-file");
+        let mut overflow = response.clone();
+        overflow.bytes_written = 9_007_199_254_740_992;
+        assert_eq!(
+            overflow.validate_for(&request),
+            Err(ProtocolError::InvalidFileBytesWritten)
+        );
         assert!(serde_json::from_str::<FileWorkerResponse>(
             r#"{"envelope":{"request_id":"request-file","capability":"file","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"windows-native"},"remote_identity":null,"operation":"read","path":"/note.txt","bytes":[1,2],"bytes_written":0,"changed":false,"unexpected":true}"#,
+        )
+        .is_err());
+
+        let git_request = GitWorkerRequest::worktree_list(
+            "request-git",
+            ExecutionContext::new(
+                "workspace-1",
+                WorkspaceKind::GitWorktree,
+                "worker-1",
+                7,
+                OwnershipContext::new(11),
+                ExecutionTarget::WindowsNative,
+                None,
+            ),
+            r"C:\workspaces\repo",
+        );
+        let git_response = GitWorkerResponse::from_worktree_list_request(
+            &git_request,
+            vec![GitWorktree {
+                path: String::from(r"C:\workspaces\repo"),
+                head: String::from("abc123"),
+                branch: None,
+                is_bare: false,
+                locked: false,
+                lock_reason: None,
+                prunable: false,
+                prunable_reason: None,
+                is_main: true,
+            }],
+        );
+        assert_eq!(git_response.validate_for(&git_request), Ok(()));
+        let encoded =
+            serde_json::to_value(&git_response).expect("git worker response should serialize");
+        assert_eq!(
+            encoded["repository_path"],
+            serde_json::Value::String(String::from(r"C:\workspaces\repo"))
+        );
+
+        let mut mismatched_path = git_response.clone();
+        mismatched_path.repository_path = String::from(r"C:\workspaces\other");
+        assert_eq!(
+            mismatched_path.validate_for(&git_request),
+            Err(ProtocolError::ResponseMismatch("repository_path"))
+        );
+        assert!(serde_json::from_str::<GitWorkerResponse>(
+            r#"{"envelope":{"request_id":"request-git","capability":"git","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"windows-native"},"remote_identity":null,"operation":"worktree-list","worktrees":[]}"#,
+        )
+        .is_err());
+        assert!(serde_json::from_str::<GitWorkerResponse>(
+            r#"{"envelope":{"request_id":"request-git","capability":"git","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"windows-native"},"remote_identity":null,"operation":"worktree-list","repository_path":"/repo","worktrees":[],"unexpected":true}"#,
         )
         .is_err());
     }

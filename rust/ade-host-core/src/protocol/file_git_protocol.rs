@@ -425,6 +425,7 @@ pub struct GitWorkerResponse {
     pub execution_target: ExecutionTarget,
     pub remote_identity: Option<String>,
     pub operation: GitResponseOperation,
+    pub repository_path: String,
     pub worktrees: Vec<GitWorktree>,
 }
 
@@ -443,6 +444,12 @@ impl GitWorkerResponse {
             execution_target: request.execution_target.clone(),
             remote_identity: request.remote_identity.clone(),
             operation: GitResponseOperation::WorktreeList,
+            repository_path: match &request.operation {
+                GitWorkerOperation::WorktreeList { repository_path }
+                | GitWorkerOperation::RepositoryGitDir {
+                    path: repository_path,
+                } => repository_path.clone(),
+            },
             worktrees,
         }
     }
@@ -467,6 +474,15 @@ impl GitWorkerResponse {
         };
         if self.operation != expected_operation {
             return Err(ProtocolError::ResponseMismatch("operation"));
+        }
+        let expected_repository_path = match &request.operation {
+            GitWorkerOperation::WorktreeList { repository_path }
+            | GitWorkerOperation::RepositoryGitDir {
+                path: repository_path,
+            } => repository_path,
+        };
+        if &self.repository_path != expected_repository_path {
+            return Err(ProtocolError::ResponseMismatch("repository_path"));
         }
         if self
             .worktrees
