@@ -58,9 +58,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { JiraConnectDialog } from '@/components/jira-connect-dialog'
 import { LinearApiKeyDialog } from '@/components/linear-api-key-dialog'
 import { LinearScopeSelector } from '@/components/linear-scope-selector'
-import RepoBadgeLabel from '@/components/repo/RepoBadgeLabel'
-import IssueSourceIndicator, { sameGitHubOwnerRepo } from '@/components/github/IssueSourceIndicator'
-import IssueSourceSelector, { issueSourceChipClass } from '@/components/github/IssueSourceSelector'
 import { reconcileLinearTeamSelection } from '@/components/task-page-linear-team-selection'
 import {
   getGitHubWorkItemWorkspaceSeed,
@@ -160,7 +157,6 @@ import {
 } from '@/components/task-page-jira-load-state'
 import { deriveTaskPagePRCheckSummary } from '@/components/task-page-pr-check-summary'
 import type {
-  GitHubOwnerRepo,
   GitHubAssignableUser,
   GitHubWorkItem,
   GitLabWorkItem,
@@ -221,6 +217,7 @@ import { TaskPageJiraToolbar } from './task-page-jira-toolbar'
 import { TaskPageGitLabToolbar } from './task-page-gitlab-toolbar'
 import { TaskPageGitHubScopeToolbar } from './task-page-github-scope-toolbar'
 import { TaskPageGitHubTaskToolbar } from './task-page-github-task-toolbar'
+import { TaskPageGitHubSourceDivergence } from './task-page-github-source-divergence'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
 import { resolveVisibleTaskProvider } from '../../../shared/task-providers'
 import { translate } from '@/i18n/i18n'
@@ -278,33 +275,6 @@ const GITHUB_PR_TASK_GRID_CLASS =
 type LinearProjectTab = 'overview' | 'issues'
 
 const LINEAR_CUSTOM_VIEW_MODELS = ['issue', 'project'] satisfies readonly LinearCustomViewModel[]
-
-function sameOptionalGitHubOwnerRepo(
-  left: GitHubOwnerRepo | null | undefined,
-  right: GitHubOwnerRepo | null | undefined
-): boolean {
-  const leftValue = left ?? null
-  const rightValue = right ?? null
-  return leftValue === null && rightValue === null
-    ? true
-    : sameGitHubOwnerRepo(leftValue, rightValue)
-}
-
-const hasDivergentSources = (
-  s: TaskPageRepoSourceState
-): s is TaskPageRepoSourceState & {
-  sources: { issues: GitHubOwnerRepo; prs: GitHubOwnerRepo }
-} => !!s.sources?.issues && !!s.sources.prs && !sameGitHubOwnerRepo(s.sources.issues, s.sources.prs)
-
-// Why: gate on raw origin/upstream candidate divergence, not effective sources, so the toggle keeps rendering after the user picks 'upstream'.
-const hasUpstreamCandidateDivergence = (
-  s: TaskPageRepoSourceState
-): s is TaskPageRepoSourceState & {
-  sources: { originCandidate: GitHubOwnerRepo; upstreamCandidate: GitHubOwnerRepo }
-} =>
-  !!s.sources?.originCandidate &&
-  !!s.sources.upstreamCandidate &&
-  !sameGitHubOwnerRepo(s.sources.originCandidate, s.sources.upstreamCandidate)
 
 export default function TaskPage(): React.JSX.Element {
   const taskPageStoreBindings = useTaskPageStoreBindings()
@@ -4910,63 +4880,11 @@ export default function TaskPage(): React.JSX.Element {
                     githubTasksBusy={githubTasksBusy}
                     onRefresh={handleRefreshGithubTasks}
                   >
-                    {(() => {
-                      // Why: show the source-slug chip only when the selector can't render (no upstream to toggle); otherwise it duplicates the selector.
-                      const rows = perRepoSourceState.filter(
-                        (s) => hasUpstreamCandidateDivergence(s) || hasDivergentSources(s)
-                      )
-                      if (rows.length === 0) {
-                        return null
-                      }
-                      return (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {rows.map((s) => {
-                            const repo = selectedRepos.find((r) => r.id === s.repoId)
-                            const showRepoBadgeLabel = selectedRepos.length > 1 && repo
-                            const selectorRenderable = hasUpstreamCandidateDivergence(s)
-                            // Why: render the indicator standalone — it has its own chip styles, so nesting it in our chip would double-border it.
-                            if (!selectorRenderable && hasDivergentSources(s)) {
-                              return (
-                                <IssueSourceIndicator
-                                  key={s.repoId}
-                                  issues={s.sources.issues}
-                                  prs={s.sources.prs}
-                                  localRepo={
-                                    showRepoBadgeLabel && repo
-                                      ? { displayName: repo.displayName, color: repo.badgeColor }
-                                      : undefined
-                                  }
-                                />
-                              )
-                            }
-                            if (!selectorRenderable || !repo) {
-                              return null
-                            }
-                            // Why: <div> not <span> — the child selector renders a block <div> (div-in-span is invalid HTML); inline-flex class looks identical.
-                            return (
-                              <div key={s.repoId} className={issueSourceChipClass}>
-                                {showRepoBadgeLabel ? (
-                                  <RepoBadgeLabel
-                                    name={repo.displayName}
-                                    color={repo.badgeColor}
-                                    badgeClassName="size-1.5"
-                                    className="text-[10px] text-muted-foreground"
-                                  />
-                                ) : null}
-                                <IssueSourceSelector
-                                  preference={repo.issueSourcePreference}
-                                  origin={s.sources.originCandidate}
-                                  upstream={s.sources.upstreamCandidate}
-                                  onChange={(next) => {
-                                    void setIssueSourcePreference(repo.id, repo.path, next)
-                                  }}
-                                />
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
-                    })()}
+                    <TaskPageGitHubSourceDivergence
+                      selectedRepos={selectedRepos}
+                      perRepoSourceState={perRepoSourceState}
+                      onIssueSourcePreferenceChange={setIssueSourcePreference}
+                    />
                   </TaskPageGitHubTaskToolbar>
                 ) : taskSource === 'linear' && linearConnected ? (
                   <TaskPageLinearToolbar
