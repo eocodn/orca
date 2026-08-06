@@ -1,5 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+mod file_git_protocol;
+pub use file_git_protocol::{
+    ExecutionContext, ExecutionTarget, FileResponseOperation, FileWorkerRequest,
+    FileWorkerResponse, GitResponseOperation, GitWorkerRequest, GitWorkerResponse, GitWorktree,
+    OwnershipContext, WorkspaceKind,
+};
+
 pub const PROTOCOL_VERSION: u16 = 1;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
@@ -50,7 +57,7 @@ pub struct ProtocolEnvelope {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", deny_unknown_fields)]
 pub enum GitOperation {
     #[serde(rename = "worktree_list")]
     WorktreeList { repository_path: String },
@@ -59,7 +66,7 @@ pub enum GitOperation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", deny_unknown_fields)]
 pub enum FileOperation {
     #[serde(rename = "read")]
     Read { path: String },
@@ -208,6 +215,12 @@ pub enum ProtocolError {
     InvalidPtySize,
     InvalidPtyTimeout,
     EmptyPtyExecutionTarget,
+    EmptyExecutionWorkspaceId,
+    EmptyExecutionWorkerId,
+    InvalidWorkerIncarnation,
+    InvalidOwnershipLease,
+    ExecutionTargetRemoteIdentityMismatch,
+    ResponseMismatch(&'static str),
 }
 
 impl ProtocolEnvelope {

@@ -240,6 +240,131 @@ mod contract_tests {
     }
 
     #[test]
+    fn worker_file_and_git_requests_carry_strict_execution_context() {
+        use super::protocol::{
+            ExecutionContext, ExecutionTarget, FileWorkerRequest, GitWorkerRequest,
+            OwnershipContext, WorkspaceKind,
+        };
+
+        let context = ExecutionContext::new(
+            "workspace-1",
+            WorkspaceKind::GitWorktree,
+            "worker-1",
+            7,
+            OwnershipContext::new(11),
+            ExecutionTarget::Wsl2 {
+                distro: String::from("Ubuntu-22.04"),
+            },
+            Some(String::from("Ubuntu-22.04")),
+        );
+        let file = FileWorkerRequest::read("request-file", context.clone(), "/repo/note.txt");
+        let git = GitWorkerRequest::worktree_list("request-git", context, "/repo");
+
+        assert_eq!(file.validate(), Ok(()));
+        assert_eq!(git.validate(), Ok(()));
+        assert_eq!(
+            serde_json::to_string(&file).expect("file worker request should serialize"),
+            r#"{"envelope":{"request_id":"request-file","capability":"file","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"wsl2","distro":"Ubuntu-22.04"},"remote_identity":"Ubuntu-22.04","operation":{"type":"read","path":"/repo/note.txt"}}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&git).expect("git worker request should serialize"),
+            r#"{"envelope":{"request_id":"request-git","capability":"git","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"wsl2","distro":"Ubuntu-22.04"},"remote_identity":"Ubuntu-22.04","operation":{"type":"worktree_list","repository_path":"/repo"}}"#
+        );
+    }
+
+    #[test]
+    fn worker_file_and_git_wire_contracts_reject_unknown_fields_and_context_mismatch() {
+        use super::protocol::{
+            ExecutionContext, ExecutionTarget, FileWorkerRequest, OwnershipContext, WorkspaceKind,
+        };
+
+        let unknown = serde_json::from_str::<FileWorkerRequest>(
+            r#"{"envelope":{"request_id":"request-file","capability":"file","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"windows-native"},"remote_identity":null,"operation":{"type":"read","path":"/note.txt","unexpected":true}}"#,
+        );
+        assert!(unknown.is_err());
+
+        let context = ExecutionContext::new(
+            "workspace-1",
+            WorkspaceKind::GitWorktree,
+            "worker-1",
+            7,
+            OwnershipContext::new(11),
+            ExecutionTarget::WindowsNative,
+            Some(String::from("unexpected")),
+        );
+        let request = FileWorkerRequest::read("request-file", context, "/note.txt");
+        assert_eq!(
+            request.validate(),
+            Err(ProtocolError::ExecutionTargetRemoteIdentityMismatch)
+        );
+    }
+
+    #[test]
+    fn worker_context_matrix_covers_folder_worktree_native_wsl2_and_ssh() {
+        use super::protocol::{
+            ExecutionContext, ExecutionTarget, FileWorkerRequest, GitWorkerRequest,
+            OwnershipContext, PtySshShell, WorkspaceKind,
+        };
+
+        let folder = ExecutionContext::new(
+            "folder-1",
+            WorkspaceKind::Folder,
+            "worker-native",
+            1,
+            OwnershipContext::new(1),
+            ExecutionTarget::WindowsNative,
+            None,
+        );
+        assert_eq!(
+            FileWorkerRequest::read("folder-read", folder, r"C:\\folder\\note.txt").validate(),
+            Ok(())
+        );
+
+        let ssh = ExecutionContext::new(
+            "worktree-1",
+            WorkspaceKind::GitWorktree,
+            "worker-ssh",
+            2,
+            OwnershipContext::new(2),
+            ExecutionTarget::Ssh {
+                host: String::from("builder"),
+                shell: PtySshShell::Posix,
+            },
+            Some(String::from("builder")),
+        );
+        assert_eq!(
+            GitWorkerRequest::worktree_list("ssh-list", ssh, "/srv/repo").validate(),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn worker_responses_are_typed_and_correlate_to_replayable_requests() {
+        use super::protocol::{
+            ExecutionContext, ExecutionTarget, FileWorkerRequest, FileWorkerResponse,
+            OwnershipContext, WorkspaceKind,
+        };
+
+        let context = ExecutionContext::new(
+            "workspace-1",
+            WorkspaceKind::GitWorktree,
+            "worker-1",
+            7,
+            OwnershipContext::new(11),
+            ExecutionTarget::WindowsNative,
+            None,
+        );
+        let request = FileWorkerRequest::read("request-file", context, "/note.txt");
+        let response = FileWorkerResponse::from_read_request(&request, vec![1, 2]);
+        assert_eq!(response.validate_for(&request), Ok(()));
+        assert_eq!(response.envelope.request_id, "request-file");
+        assert!(serde_json::from_str::<FileWorkerResponse>(
+            r#"{"envelope":{"request_id":"request-file","capability":"file","protocol_version":1},"workspace_id":"workspace-1","workspace_kind":"git-worktree","worker_id":"worker-1","worker_incarnation":7,"ownership":{"lease_id":11},"execution_target":{"kind":"windows-native"},"remote_identity":null,"operation":"read","path":"/note.txt","bytes":[1,2],"bytes_written":0,"changed":false,"unexpected":true}"#,
+        )
+        .is_err());
+    }
+
+    #[test]
     fn workspace_registration_is_idempotent_but_conflicting_paths_are_rejected() {
         let id = WorkspaceId::new("workspace-1").unwrap();
         let mut state = HostState::default();
