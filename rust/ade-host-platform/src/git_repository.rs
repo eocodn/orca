@@ -64,6 +64,21 @@ mod contract_tests {
     }
 
     #[test]
+    fn falls_back_when_preferred_path_format_is_echoed_as_unsupported_output() {
+        let cache = GitCapabilityCache::new();
+        let result = resolve_repository_git_dir(
+            &cache,
+            &ExecutionTarget::WindowsNative,
+            r"C:\repo",
+            |_| Ok(String::from("--path-format=absolute\nusage: git rev-parse")),
+            |_| Ok(String::from(".git")),
+        )
+        .unwrap();
+
+        assert_eq!(result, r"C:\repo\.git");
+    }
+
+    #[test]
     fn does_not_fallback_for_exit_129_without_an_unsupported_path_format_diagnostic() {
         let cache = GitCapabilityCache::new();
         let fallback_calls = Arc::new(Mutex::new(0));
@@ -179,7 +194,7 @@ where
                 if has_unsupported_path_format_echo(&output) {
                     return Err(GitRepositoryCommandError {
                         code: Some(129),
-                        stderr: String::from("unsupported --path-format"),
+                        stderr: String::from("unknown option --path-format"),
                         stdout: output,
                     });
                 }
@@ -226,6 +241,9 @@ fn is_unsupported_path_format_error(error: &GitRepositoryCommandError) -> bool {
 }
 
 fn is_absolute_target_path(target: &ExecutionTarget, path: &str) -> bool {
+    if std::path::Path::new(path).is_absolute() {
+        return true;
+    }
     match target {
         ExecutionTarget::WindowsNative => {
             // Native tests and local hosts can still report POSIX absolute
