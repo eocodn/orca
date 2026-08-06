@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 import { LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -32,7 +31,6 @@ import {
   getGitHubWorkItemWorkspaceSeed,
   getGitLabWorkItemWorkspaceSeed,
   getJiraIssueWorkspaceSeed,
-  getTaskPageRepoCacheInput,
   getTaskPageRepoSourceContext
 } from './task-page-source-context'
 import { parseTaskQuery, stripRepoQualifiers, withQualifier } from '../../../shared/task-query'
@@ -45,7 +43,7 @@ import { buildGitHubRepoUrl } from '@/lib/github-links'
 import { findGithubWorkItemWorkspaceAttachment } from '@/lib/github-work-item-workspace-attachment'
 import { createGitHubWorkItemWorkspaceInBackground } from '@/lib/github-work-item-background-create'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
-import GitHubItemDialog, { type ItemDialogTab } from '@/components/GitHubItemDialog'
+import GitHubItemDialog from '@/components/GitHubItemDialog'
 import PullRequestPage from '@/components/PullRequestPage'
 import GitLabItemDialog from '@/components/GitLabItemDialog'
 import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
@@ -56,6 +54,7 @@ import { useTaskPageLinearDetailState } from './use-task-page-linear-detail-stat
 import { useTaskPageJiraDetailState } from './use-task-page-jira-detail-state'
 import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-state'
 import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
+import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import {
   getSingleJiraProjectScope,
   getTaskPageJiraStatusOrderScopeKey,
@@ -78,13 +77,11 @@ import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selecto
 import {
   buildTaskPageRepoSourceState,
   deriveTaskPageGitHubWorkItemsFetchOptions,
-  findTaskPageDialogWorkItem,
   reconcileTaskPageLinearIssuesAfterLandingRefresh,
   reconcileTaskPagePagesAfterLandingRefresh,
   reconcileTaskPagePagesWithWorkItemsCache,
   shouldResetTaskPagePaginationAfterLandingRefresh,
   selectTaskPageUnresolvedSourceRepos,
-  selectTaskPageWorkItemsCacheEntries,
   shouldReplaceTaskPageItemsAfterRefresh,
   type TaskPageRepoSourceState
 } from '@/components/task-page-cache-selectors'
@@ -118,7 +115,6 @@ import {
 } from '@/components/task-page-jira-load-state'
 import { deriveTaskPagePRCheckSummary } from '@/components/task-page-pr-check-summary'
 import type {
-  GitHubAssignableUser,
   GitHubWorkItem,
   GitLabWorkItem,
   LinearCollectionResult,
@@ -388,7 +384,6 @@ export default function TaskPage(): React.JSX.Element {
   const projectModeVisible = taskSource === 'github'
   const [githubMode, setGithubMode] = useState<'items' | 'project'>('items')
 
-  const [gitlabDialogItem, setGitlabDialogItem] = useState<GitLabWorkItem | null>(null)
   const {
     activeGitlabFilter,
     displayedGitLabItems,
@@ -472,169 +467,31 @@ export default function TaskPage(): React.JSX.Element {
     setLoadingTargetPage(null)
   }, [selectedRepos, appliedTaskSearch, workItemsInvalidationNonce])
 
-  // Why: the dialog's "Use" button routes through the same direct-launch flow as the row-level "Use" CTA so behavior is consistent regardless of entry point.
-  const githubTaskDrawerWorkItem = useAppStore((s) => s.githubTaskDrawerWorkItem)
-  const setGithubTaskDrawerWorkItem = useAppStore((s) => s.setGithubTaskDrawerWorkItem)
-  const [dialogInitialTab, setDialogInitialTab] = useState<ItemDialogTab>('conversation')
-  const dialogWorkItemKey = githubTaskDrawerWorkItem
-    ? { id: githubTaskDrawerWorkItem.id, repoId: githubTaskDrawerWorkItem.repoId }
-    : null
-
-  const appliedWorkItemsCacheQuery = useMemo(
-    () => stripRepoQualifiers(appliedTaskSearch.trim()),
-    [appliedTaskSearch]
-  )
-  const selectedWorkItemsCacheEntries = useAppStore(
-    useShallow((s) =>
-      selectTaskPageWorkItemsCacheEntries(
-        s.workItemsCache,
-        selectedRepos.map(getTaskPageRepoCacheInput),
-        githubPerRepoPageLimit,
-        appliedWorkItemsCacheQuery
-      )
-    )
-  )
-
-  // Why: derive the dialog item from the cache for optimistic patches, falling back to the click-time snapshot for new stubs; key by repoId so same-number issues across repos resolve to the clicked row.
-  const cachedDialogWorkItem = useAppStore((s) =>
-    findTaskPageDialogWorkItem(s.workItemsCache, dialogWorkItemKey)
-  )
-  const dialogWorkItem = dialogWorkItemKey
-    ? (cachedDialogWorkItem ?? githubTaskDrawerWorkItem)
-    : null
-  const dialogRepoPath = dialogWorkItem ? (repoMap.get(dialogWorkItem.repoId)?.path ?? null) : null
-  const dialogSourceContext = useMemo(() => {
-    if (!dialogWorkItem) {
-      return null
-    }
-    if (
-      pageData.openGitHubSourceContext?.provider === 'github' &&
-      pageData.openGitHubWorkItem?.id === dialogWorkItem.id &&
-      pageData.openGitHubWorkItem.repoId === dialogWorkItem.repoId
-    ) {
-      return pageData.openGitHubSourceContext
-    }
-    return getTaskPageRepoSourceContext(repoMap.get(dialogWorkItem.repoId), 'github')
-  }, [dialogWorkItem, pageData.openGitHubSourceContext, pageData.openGitHubWorkItem, repoMap])
-  const gitlabDialogRepo = useMemo(
-    () =>
-      gitlabDialogItem
-        ? (selectedRepos.find((r) => r.id === gitlabDialogItem.repoId) ?? primaryRepo)
-        : null,
-    [gitlabDialogItem, primaryRepo, selectedRepos]
-  )
-  const gitlabDialogSourceContext = useMemo(() => {
-    if (!gitlabDialogItem) {
-      return null
-    }
-    if (
-      pageData.openGitLabSourceContext?.provider === 'gitlab' &&
-      pageData.openGitLabWorkItem?.id === gitlabDialogItem.id &&
-      pageData.openGitLabWorkItem.repoId === gitlabDialogItem.repoId
-    ) {
-      return pageData.openGitLabSourceContext
-    }
-    return getTaskPageRepoSourceContext(gitlabDialogRepo, 'gitlab', gitlabDialogItem.projectRef)
-  }, [
+  const {
+    dialogInitialTab,
+    dialogRepoPath,
+    dialogSourceContext,
+    dialogWorkItem,
     gitlabDialogItem,
     gitlabDialogRepo,
-    pageData.openGitLabSourceContext,
-    pageData.openGitLabWorkItem
-  ])
-
-  const setDialogWorkItem = useCallback(
-    (item: GitHubWorkItem | null, initialTab: ItemDialogTab = 'conversation') => {
-      setDialogInitialTab(item ? initialTab : 'conversation')
-      setGithubTaskDrawerWorkItem(item)
-    },
-    [setGithubTaskDrawerWorkItem]
-  )
-
-  useEffect(() => {
-    if (!pageData.openGitHubWorkItem) {
-      setDialogWorkItem(null)
-      return
-    }
-    setGithubMode('items')
-    setDialogWorkItem(pageData.openGitHubWorkItem, pageData.openGitHubInitialTab)
-  }, [pageData.openGitHubInitialTab, pageData.openGitHubWorkItem, setDialogWorkItem])
-
-  useEffect(() => {
-    setGitlabDialogItem(pageData.openGitLabWorkItem ?? null)
-  }, [pageData.openGitLabWorkItem])
-
-  const openGitHubDetailPage = useCallback(
-    (item: GitHubWorkItem, initialTab: ItemDialogTab = 'conversation') => {
-      openTaskPage(
-        {
-          taskSource: 'github',
-          preselectedRepoId: item.repoId,
-          openGitHubWorkItem: item,
-          openGitHubSourceContext: getTaskPageRepoSourceContext(repoMap.get(item.repoId), 'github'),
-          openGitHubInitialTab: initialTab
-        },
-        { recordTasksInteraction: false }
-      )
-    },
-    [openTaskPage, repoMap]
-  )
-
-  const openGitLabDetailPage = useCallback(
-    (item: GitLabWorkItem) => {
-      openTaskPage(
-        {
-          taskSource: 'gitlab',
-          preselectedRepoId: item.repoId,
-          openGitLabWorkItem: item,
-          openGitLabSourceContext: getTaskPageRepoSourceContext(
-            repoMap.get(item.repoId),
-            'gitlab',
-            item.projectRef
-          )
-        },
-        { recordTasksInteraction: false }
-      )
-    },
-    [openTaskPage, repoMap]
-  )
-
-  const patchTaskPageWorkItemRows = useCallback(
-    (
-      itemKey: { id: string; repoId: string },
-      patch: Partial<GitHubWorkItem>,
-      shouldPatch?: (item: GitHubWorkItem) => boolean
-    ): void => {
-      setPages((current) => {
-        let changed = false
-        const nextPages = current.map((page) => {
-          if (!page) {
-            return page
-          }
-          let pageChanged = false
-          const nextPage = page.map((item) => {
-            if (item.id !== itemKey.id || item.repoId !== itemKey.repoId) {
-              return item
-            }
-            if (shouldPatch && !shouldPatch(item)) {
-              return item
-            }
-            pageChanged = true
-            changed = true
-            return { ...item, ...patch }
-          })
-          return pageChanged ? nextPage : page
-        })
-        return changed ? nextPages : current
-      })
-    },
-    []
-  )
-  const handleDialogReviewRequestsChange = useCallback(
-    (itemKey: { id: string; repoId: string }, reviewRequests: GitHubAssignableUser[]): void => {
-      patchTaskPageWorkItemRows(itemKey, { reviewRequests })
-    },
-    [patchTaskPageWorkItemRows]
-  )
+    gitlabDialogSourceContext,
+    handleDialogReviewRequestsChange,
+    openGitHubDetailPage,
+    openGitLabDetailPage,
+    patchTaskPageWorkItemRows,
+    selectedWorkItemsCacheEntries,
+    setDialogWorkItem
+  } = useTaskPageProviderDialogState({
+    appliedTaskSearch,
+    githubPerRepoPageLimit,
+    pageData,
+    primaryRepo,
+    repoMap,
+    selectedRepos,
+    openTaskPage,
+    setGithubMode,
+    setPages
+  })
 
   // Why: the per-repo issue-source indicator and retry banner both derive from the same workItemsCache entry, so no extra IPC.
   // Why: subscribe only to entries this page renders; the selector returns entry refs so shallow equality filters unrelated cache writes.
@@ -3825,6 +3682,8 @@ export default function TaskPage(): React.JSX.Element {
     jiraConnected,
     selectedJiraIssueFallback,
     selectedJiraIssueKey,
+    setSelectedJiraIssueFallback,
+    setSelectedJiraIssueKey,
     taskResumeApplied,
     taskSource
   ])
