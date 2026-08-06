@@ -59,6 +59,7 @@ import { useTaskPageGitHubPaginationState } from './use-task-page-github-paginat
 import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
 import { useTaskPageLinearProjectDetailState } from './use-task-page-linear-project-detail-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
+import { useTaskPageLinearProjectIssuesState } from './use-task-page-linear-project-issues-state'
 import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import {
@@ -2918,45 +2919,17 @@ export default function TaskPage(): React.JSX.Element {
     setTaskResumeState
   })
 
-  useEffect(() => {
-    if (!selectedLinearProject?.workspaceId || linearProjectTab !== 'issues') {
-      return
-    }
-    let cancelled = false
-    setLinearProjectIssuesLoading(true)
-    setLinearProjectIssuesError(null)
-    const effectiveLimit = clampLinearIssueListLimit(linearProjectIssueLimit)
-    void listLinearProjectIssues(
-      selectedLinearProject.id,
-      selectedLinearProject.workspaceId,
-      effectiveLimit,
-      { force: linearRefreshNonce > 0, sourceContext: linearTaskSourceContext }
-    )
-      .then((result) => {
-        if (!cancelled) {
-          setLinearProjectIssuesResult(result)
-          setLinearProjectIssuesLoading(false)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setLinearProjectIssuesError(
-            error instanceof Error ? error.message : 'Failed to load project issues.'
-          )
-          setLinearProjectIssuesLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [
+  useTaskPageLinearProjectIssuesState({
     linearProjectIssueLimit,
     linearProjectTab,
     linearRefreshNonce,
-    listLinearProjectIssues,
     linearTaskSourceContext,
-    selectedLinearProject
-  ])
+    listLinearProjectIssues,
+    selectedLinearProject,
+    setLinearProjectIssuesError,
+    setLinearProjectIssuesLoading,
+    setLinearProjectIssuesResult
+  })
 
   useEffect(() => {
     if (!taskResumeApplied || taskSource !== 'linear' || linearMode !== 'views') {
