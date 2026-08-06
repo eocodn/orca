@@ -1,15 +1,9 @@
 import React, { useMemo, useCallback, useRef, useState, useEffect, useLayoutEffect } from 'react'
 import { toast } from 'sonner'
-import {
-  measureElement as measureVirtualElementSize,
-  useVirtualizer
-} from '@tanstack/react-virtual'
-import type { Range } from '@tanstack/react-virtual'
 import { CircleX } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { createLineageToggleHandlerCache } from './worktree-lineage-toggle-handler-cache'
 import { reuseArrayIfEqual } from './worktree-agent-row-selectors'
-import { useShallow } from 'zustand/react/shallow'
 import type { AppState } from '@/store/types'
 import {
   getAllWorktreesFromState,
@@ -24,7 +18,6 @@ import {
   getRepoHeaderSectionEndByRepoId
 } from './worktree-header-section-boundaries'
 import { folderWorkspaceToWorktree } from '../../../../shared/folder-workspace-worktree'
-import { SUPPRESS_WORKTREE_LIST_SCROLL_ADJUSTMENT_EVENT } from './WorktreeCardAgents'
 import { cn } from '@/lib/utils'
 import type {
   Worktree,
@@ -54,8 +47,6 @@ import {
 } from './worktree-list-groups'
 import {
   buildLineageRowRekeyMap,
-  estimateRenderRowSize,
-  extractWorktreeVirtualRowIndexes,
   getActiveStickyIndexesForScroll,
   getRenderRowKey,
   getStickyHeaderIndexes,
@@ -63,7 +54,6 @@ import {
   pruneStaleVirtualRowElementCache,
   shouldUseHeaderTopSpacing
 } from './worktree-list-virtual-rows'
-import { WORKTREE_SIDEBAR_REVEAL_TOP_INSET } from './worktree-sidebar-reveal'
 import {
   getWorkspaceStatus,
   getWorkspaceStatusFromGroupKey,
@@ -95,8 +85,6 @@ import {
   type VirtualizedScrollAnchor
 } from '@/hooks/useVirtualizedScrollAnchor'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
-import { useFolderWorkspacePathStatusCacheExpiryTick } from '@/lib/folder-workspace-path-status-cache-expiry'
-import { getShortcutPlatform } from '@/lib/shortcut-platform'
 import {
   SCROLL_TO_CURRENT_WORKSPACE_REVEAL_REQUEST_EVENT,
   type ScrollToCurrentWorkspaceRevealRequestDetail
@@ -175,7 +163,6 @@ import {
   type ExecutionHostId
 } from '../../../../shared/execution-host'
 import { getRepoHeaderCreateState } from './repo-header-create-state'
-import { keybindingMatchesAction } from '../../../../shared/keybindings'
 import { ProjectGroupNameDialog } from './ProjectGroupNameDialog'
 import { ProjectGroupDeleteDialog } from './ProjectGroupDeleteDialog'
 import { selectProjectGroupRemovalTargets } from '@/store/slices/project-group-removal-targets'
@@ -228,7 +215,6 @@ import {
 import {
   filterFolderWorkspacesForVisibleHosts,
   filterProjectGroupsForVisibleHosts,
-  getFolderPathStatusRouteOptionsForRows,
   getVisibleSidebarHostIdSet
 } from './worktree-list-host-filtering'
 import { getFolderWorkspaceCardPrDisplay } from './folder-workspace-card-pr-display'
@@ -240,17 +226,18 @@ import {
   getSidebarRowRevealAncestorKeys,
   handleRepoHeaderActionPointerDown,
   handleRepoHeaderCollapseAffordancePointerDown,
-  isEditableTarget,
   markSidebarWorktreeActiveImmediately,
   resolvePendingSidebarReveal,
   revealMountedWorktreeElement,
   revealMountedSidebarRowElement,
   rowKeyMatchesRenderRow,
-  shouldAdjustWorktreeSidebarMeasuredRowScroll,
   stopNestedWorktreeCardBubble,
   stopRepoHeaderMenuEvent,
   stopRepoHeaderKeyboardToggle
 } from './worktree-list-row-dom'
+import { useWorktreeListVirtualizer } from './worktree-list-virtualizer'
+import { useWorktreeListFolderPathStatus } from './worktree-list-folder-path-status'
+import { useWorktreeListKeyboard } from './worktree-list-keyboard'
 
 export {
   countRecordKeysByReference,
@@ -297,7 +284,6 @@ const EMPTY_TABS_BY_WORKTREE: AppState['tabsByWorktree'] = {}
 const EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID: AppState['terminalLayoutsByTabId'] = {}
 const EMPTY_PTY_IDS_BY_TAB_ID: AppState['ptyIdsByTabId'] = {}
 const EMPTY_RUNTIME_PANE_TITLES_BY_TAB_ID: AppState['runtimePaneTitlesByTabId'] = {}
-const EXPANDING_CARD_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS = 300
 const NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK = (): void => {}
 const WORKTREE_SIDEBAR_SCROLL_STYLE: React.CSSProperties = {
   // Why: TanStack Virtual owns scroll correction; native overflow anchoring fights it and causes jumps.
@@ -407,7 +393,6 @@ import {
   getActiveDescendantOptionId,
   getPinnedWorktreeRevealCollapsedGroupKeys,
   getRenderRowOptionId,
-  getVirtualRowIndex,
   getVirtualRowKey,
   getWorktreeDragGroups,
   getWorktreeDragIndexes,
@@ -970,257 +955,35 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       sidebarProjectGroupHeaderIdsByBucket
     ]
   )
-  const firstHeaderIndexRef = useRef(firstHeaderIndex)
-  firstHeaderIndexRef.current = firstHeaderIndex
   const stickyHeaderIndexes = useMemo(() => getStickyHeaderIndexes(renderRows), [renderRows])
-  const stickyHeaderIndexesRef = useRef(stickyHeaderIndexes)
-  stickyHeaderIndexesRef.current = stickyHeaderIndexes
-  const activeStickyHeaderIndexRef = useRef<number | null>(null)
   const activeStickyHostIndexRef = useRef<number | null>(null)
-  const stickyRangeStartIndexRef = useRef(0)
-  const sshConnectionStates = useAppStore((s) => s.sshConnectionStates)
   const {
-    folderWorkspacePathStatuses,
-    fetchFolderWorkspacePathStatus,
-    getFolderWorkspacePathStatusCacheKey,
-    getFreshFolderWorkspacePathStatus,
-    activeRuntimeEnvironmentId
-  } = useAppStore(
-    useShallow((s) => ({
-      folderWorkspacePathStatuses: s.folderWorkspacePathStatuses,
-      fetchFolderWorkspacePathStatus: s.fetchFolderWorkspacePathStatus,
-      getFolderWorkspacePathStatusCacheKey: s.getFolderWorkspacePathStatusCacheKey,
-      getFreshFolderWorkspacePathStatus: s.getFreshFolderWorkspacePathStatus,
-      activeRuntimeEnvironmentId: s.settings?.activeRuntimeEnvironmentId ?? null
-    }))
-  )
-  const folderPathStatusRepoMembershipKey = useMemo(
-    () =>
-      allRepoIds
-        .map((repoId) => {
-          const repo = repoMap.get(repoId)
-          return `${repoId}:${repo?.path ?? ''}:${repo?.projectGroupId ?? ''}:${repo?.connectionId ?? ''}`
-        })
-        .join('\0'),
-    [allRepoIds, repoMap]
-  )
-  const folderPathStatusSshConnectionKey = useMemo(
-    () =>
-      [...sshConnectionStates.entries()]
-        .map(([connectionId, state]) => `${connectionId}:${state.status}`)
-        .sort()
-        .join('\0'),
-    [sshConnectionStates]
-  )
-  const folderPathStatusCacheExpiryTick = useFolderWorkspacePathStatusCacheExpiryTick(
-    folderWorkspacePathStatuses
-  )
-  const projectGroupByIdForFolderPathStatus = useMemo(
-    () => new Map(projectGroups.map((group) => [group.id, group])),
-    [projectGroups]
-  )
-  const folderWorkspaceByIdForFolderPathStatus = useMemo(
-    () => new Map(folderWorkspaces.map((workspace) => [workspace.id, workspace])),
-    [folderWorkspaces]
-  )
-  const getFolderPathStatusRouteOptions = useCallback(
-    (request: Parameters<typeof fetchFolderWorkspacePathStatus>[0]) =>
-      getFolderPathStatusRouteOptionsForRows({
-        request,
-        projectGroupsById: projectGroupByIdForFolderPathStatus,
-        folderWorkspacesById: folderWorkspaceByIdForFolderPathStatus
-      }),
-    [folderWorkspaceByIdForFolderPathStatus, projectGroupByIdForFolderPathStatus]
-  )
-  useEffect(() => {
-    const requests = new Map<
-      string,
-      {
-        request: Parameters<typeof fetchFolderWorkspacePathStatus>[0]
-        options?: { runtimeEnvironmentId: string | null }
-      }
-    >()
-    for (const group of projectGroups) {
-      if (group.parentPath) {
-        const request = { scope: 'project-group' as const, projectGroupId: group.id }
-        const options = getFolderPathStatusRouteOptions(request)
-        requests.set(getFolderWorkspacePathStatusCacheKey(request, options), { request, options })
-      }
-    }
-    for (const workspace of folderWorkspaces) {
-      const request = { scope: 'folder-workspace' as const, folderWorkspaceId: workspace.id }
-      const options = getFolderPathStatusRouteOptions(request)
-      requests.set(getFolderWorkspacePathStatusCacheKey(request, options), { request, options })
-    }
-    for (const { request, options } of requests.values()) {
-      void fetchFolderWorkspacePathStatus(request, { force: true, ...options })
-    }
-  }, [
-    activeRuntimeEnvironmentId,
-    fetchFolderWorkspacePathStatus,
-    folderPathStatusRepoMembershipKey,
-    folderPathStatusSshConnectionKey,
-    folderWorkspaces,
-    getFolderPathStatusRouteOptions,
-    getFolderWorkspacePathStatusCacheKey,
-    projectGroups
-  ])
-  const getCachedFolderWorkspacePathStatus = useCallback(
-    (request: Parameters<typeof fetchFolderWorkspacePathStatus>[0]) => {
-      const options = getFolderPathStatusRouteOptions(request)
-      const cacheKey = getFolderWorkspacePathStatusCacheKey(request, options)
-      // Why: don't let an expired negative status keep folder workspaces disabled while a refresh is in flight.
-      void folderWorkspacePathStatuses[cacheKey]
-      void folderPathStatusCacheExpiryTick
-      return getFreshFolderWorkspacePathStatus(request, options)
-    },
-    [
-      folderWorkspacePathStatuses,
-      folderPathStatusCacheExpiryTick,
-      getFolderPathStatusRouteOptions,
-      getFolderWorkspacePathStatusCacheKey,
-      getFreshFolderWorkspacePathStatus
-    ]
-  )
-  const renderRowsRef = useRef(renderRows)
-  renderRowsRef.current = renderRows
-  const getVirtualItemKey = useCallback(
-    (index: number) => {
-      const row = renderRows[index]
-      if (!row) {
-        return `__stale_${index}`
-      }
-      return getRenderRowKey(row)
-    },
-    [renderRows]
-  )
-  const getExpectedVirtualRowKey = useCallback((element: Element) => {
-    const index = getVirtualRowIndex(element)
-    const row = index === null ? undefined : renderRowsRef.current[index]
-    return row ? getRenderRowKey(row) : null
-  }, [])
-  const isCurrentVirtualRowElement = useCallback(
-    (element: Element) => {
-      const expectedKey = getExpectedVirtualRowKey(element)
-      return (
-        element.isConnected &&
-        expectedKey !== null &&
-        element.getAttribute('data-worktree-virtual-row-key') === expectedKey
-      )
-    },
-    [getExpectedVirtualRowKey]
-  )
-  const measureCurrentVirtualRowElement = useCallback(
-    (
-      element: HTMLDivElement,
-      entry: ResizeObserverEntry | undefined,
-      instance: Parameters<typeof measureVirtualElementSize<HTMLDivElement>>[2]
-    ) => {
-      if (!isCurrentVirtualRowElement(element)) {
-        const index = getVirtualRowIndex(element)
-        const measured = instance.getVirtualItems().find((item) => item.index === index)
-        // Why: a stale ResizeObserver row after remount would write a wrong height; return current size to no-op it.
-        return (
-          measured?.size ??
-          estimateRenderRowSize(
-            renderRowsRef.current,
-            index ?? -1,
-            firstHeaderIndexRef.current,
-            activeStickyHeaderIndexRef.current
-          )
-        )
-      }
-      const index = getVirtualRowIndex(element)
-      if (
-        index !== null &&
-        (renderRowsRef.current[index]?.type === 'header' ||
-          renderRowsRef.current[index]?.type === 'host-header')
-      ) {
-        return estimateRenderRowSize(
-          renderRowsRef.current,
-          index,
-          firstHeaderIndexRef.current,
-          activeStickyHeaderIndexRef.current
-        )
-      }
-      return measureVirtualElementSize(element, entry, instance)
-    },
-    [isCurrentVirtualRowElement]
-  )
-  const markScrollMovement = useCallback(() => {
-    suppressMeasurementAdjustmentUntilRef.current =
-      window.performance.now() + USER_SCROLL_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS
-  }, [])
-  const markDirectScrollInput = useCallback(() => {
-    const suppressUntil = window.performance.now() + USER_SCROLL_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS
-    suppressMeasurementAdjustmentUntilRef.current = suppressUntil
-    directScrollInputUntilRef.current = suppressUntil
-  }, [])
-  const hasDirectScrollInput = useCallback(
-    () => window.performance.now() < directScrollInputUntilRef.current,
-    []
-  )
-  // Why: programmatic scrolls keep measurement correction quiet, but only direct input blocks anchor-restore retries.
-  const shouldSkipScrollAnchorRestore = useCallback(
-    () => window.performance.now() < directScrollInputUntilRef.current,
-    []
-  )
-
-  const virtualizer = useVirtualizer({
-    count: renderRows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index) =>
-      estimateRenderRowSize(
-        renderRows,
-        index,
-        firstHeaderIndex,
-        activeStickyHeaderIndexRef.current
-      ),
-    measureElement: measureCurrentVirtualRowElement,
-    // Why: TanStack memoizes rangeExtractor by identity; header indexes must be deps or sticky slots go stale.
-    rangeExtractor: useCallback(
-      (range: Range) => {
-        stickyRangeStartIndexRef.current = range.startIndex
-        return extractWorktreeVirtualRowIndexes({
-          range,
-          stickyHeaderIndexes,
-          rows: renderRowsRef.current
-        })
-      },
-      [stickyHeaderIndexes]
-    ),
-    overscan: 10,
-    gap: 6,
-    // Why: the sticky group header lives inside the virtual list, so scroll math needs the same top inset as the DOM reveal.
-    scrollPaddingStart: WORKTREE_SIDEBAR_REVEAL_TOP_INSET,
-    isScrollingResetDelay: USER_SCROLL_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS,
-    // Why: sync-flushing rich card renders in the scroll listener stalls wheel input; async + overscan keeps rows filled.
-    useFlushSync: false,
-    // Why: seed scrollOffset from the ref (not 0) so the first getVirtualItems() after remount picks the right rows.
-    initialOffset: () => scrollOffsetRef.current,
-    getItemKey: getVirtualItemKey
+    virtualizer,
+    activeStickyHeaderIndexRef,
+    stickyRangeStartIndexRef,
+    isCurrentVirtualRowElement,
+    measureVirtualRowElement,
+    markScrollMovement,
+    markDirectScrollInput,
+    hasDirectScrollInput,
+    shouldSkipScrollAnchorRestore
+  } = useWorktreeListVirtualizer({
+    renderRows,
+    firstHeaderIndex,
+    stickyHeaderIndexes,
+    scrollRef,
+    scrollOffsetRef,
+    suppressMeasurementAdjustmentUntilRef,
+    directScrollInputUntilRef
   })
-  // Why: TanStack's default correction writes scrollTop while cards remeasure mid-wheel, which feels like rubber-banding.
-  // TODO(scroll-origin-migration): wall-clock suppression misclassifies under jank; migrate to programmaticScrollMarks + restoreSignal (see CombinedDiffViewer).
-  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (_item, _delta, instance) =>
-    shouldAdjustWorktreeSidebarMeasuredRowScroll({
-      isScrolling: instance.isScrolling,
-      now: window.performance.now(),
-      suppressUntil: suppressMeasurementAdjustmentUntilRef.current
-    })
-
-  useEffect(() => {
-    const handleSuppress = () => {
-      // Why: let an expanding agent row grow in place instead of TanStack compensating scrollTop.
-      suppressMeasurementAdjustmentUntilRef.current =
-        window.performance.now() + EXPANDING_CARD_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS
-    }
-    window.addEventListener(SUPPRESS_WORKTREE_LIST_SCROLL_ADJUSTMENT_EVENT, handleSuppress)
-    return () => {
-      window.removeEventListener(SUPPRESS_WORKTREE_LIST_SCROLL_ADJUSTMENT_EVENT, handleSuppress)
-    }
-  }, [])
-
+  const sshConnectionStates = useAppStore((s) => s.sshConnectionStates)
+  const getCachedFolderWorkspacePathStatus = useWorktreeListFolderPathStatus({
+    projectGroups,
+    folderWorkspaces,
+    allRepoIds,
+    repoMap,
+    sshConnectionStates
+  })
   React.useEffect(() => {
     if (!pendingRevealWorktree) {
       return
@@ -1557,20 +1320,6 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       virtualizer.measureElement(element)
     })
   }, [isCurrentVirtualRowElement, virtualizer])
-  const measureVirtualRowElement = useCallback(
-    (element: HTMLDivElement | null) => {
-      if (!element) {
-        virtualizer.measureElement(null)
-        return
-      }
-      if (!isCurrentVirtualRowElement(element)) {
-        return
-      }
-      virtualizer.measureElement(element)
-    },
-    [isCurrentVirtualRowElement, virtualizer]
-  )
-
   useLayoutEffect(() => {
     pruneStaleVirtualRowElementCache({
       activeRowKeys: activeRenderRowKeys,
@@ -1650,75 +1399,16 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     [rows, renderRows, activeWorktreeId, virtualizer, pinnedDisplayPolicy]
   )
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeModal !== 'none' || isEditableTarget(e.target)) {
-        return
-      }
-
-      const platform = getShortcutPlatform()
-      if (keybindingMatchesAction('sidebar.focusWorktreeList', e, platform, keybindings)) {
-        scrollRef.current?.focus()
-        e.preventDefault()
-        return
-      }
-
-      const direction = keybindingMatchesAction('worktree.navigateUp', e, platform, keybindings)
-        ? 'up'
-        : keybindingMatchesAction('worktree.navigateDown', e, platform, keybindings)
-          ? 'down'
-          : null
-      if (direction) {
-        markDirectScrollInput()
-        navigateWorktree(direction)
-        e.preventDefault()
-      }
+  const { handleContainerKeyDown, handleScrollPointerDown, handleScroll } = useWorktreeListKeyboard(
+    {
+      activeModal,
+      keybindings,
+      scrollRef,
+      markDirectScrollInput,
+      markScrollMovement,
+      navigateWorktree
     }
-
-    window.addEventListener('keydown', handleKeyDown, { capture: true })
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }, [activeModal, keybindings, markDirectScrollInput, navigateWorktree])
-
-  const handleContainerKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        if (e.target !== e.currentTarget) {
-          return
-        }
-        markDirectScrollInput()
-        navigateWorktree(e.key === 'ArrowUp' ? 'up' : 'down')
-        e.preventDefault()
-      } else if (e.key === 'Enter') {
-        const helper = document.querySelector(
-          '.xterm-helper-textarea'
-        ) as HTMLTextAreaElement | null
-        if (helper) {
-          helper.focus()
-        }
-        e.preventDefault()
-      } else if (['PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
-        markDirectScrollInput()
-      }
-    },
-    [markDirectScrollInput, navigateWorktree]
   )
-
-  const handleScrollPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const scrollbarWidth = event.currentTarget.offsetWidth - event.currentTarget.clientWidth
-      if (scrollbarWidth <= 0) {
-        return
-      }
-      const rect = event.currentTarget.getBoundingClientRect()
-      if (event.clientX >= rect.right - scrollbarWidth) {
-        markDirectScrollInput()
-      }
-    },
-    [markDirectScrollInput]
-  )
-  const handleScroll = useCallback(() => {
-    markScrollMovement()
-  }, [markScrollMovement])
 
   const cancelWorktreePointerAutoscroll = useCallback(() => {
     if (worktreePointerAutoscrollFrameIdRef.current !== null) {
