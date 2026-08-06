@@ -1,4 +1,10 @@
+FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node-runtime
+
 FROM rust:1.88-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89
+
+# Keep the build hermetic: the Node toolchain and official Tauri CLI are installed
+# in this image, while the host only supplies the source tree through Docker.
+COPY --from=node-runtime /usr/local /usr/local
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -13,25 +19,17 @@ RUN apt-get update \
         wget \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rustup component add rustfmt
+RUN rustup component add rustfmt && corepack enable pnpm
 
 WORKDIR /workspace
-COPY rust/ade-host-core/Cargo.toml rust/ade-host-core/Cargo.toml
-COPY rust/ade-host-core/src rust/ade-host-core/src
-COPY rust/ade-host-platform/Cargo.toml rust/ade-host-platform/Cargo.toml
-COPY rust/ade-host-platform/src rust/ade-host-platform/src
-COPY rust/ade-host-store/Cargo.toml rust/ade-host-store/Cargo.toml
-COPY rust/ade-host-store/src rust/ade-host-store/src
-COPY rust/ade-terminal/Cargo.toml rust/ade-terminal/Cargo.toml
-COPY rust/ade-terminal/src rust/ade-terminal/src
-COPY src-tauri/Cargo.toml src-tauri/Cargo.toml
-COPY src-tauri/Cargo.lock src-tauri/Cargo.lock
-COPY src-tauri/build.rs src-tauri/build.rs
-COPY src-tauri/src src-tauri/src
-COPY src-tauri/capabilities src-tauri/capabilities
-COPY src-tauri/tauri.conf.json src-tauri/tauri.conf.json
-COPY src-tauri/tauri.windows.conf.json src-tauri/tauri.windows.conf.json
-COPY resources/build/icon.png resources/build/icon.png
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY config/patches ./config/patches
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
-RUN cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-RUN cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps --format-version 1 >/dev/null
+COPY . .
+
+RUN test -f src/renderer/web-index.html \
+    && test -f src/renderer/src/web/main.tsx \
+    && test -f resources/build/icon.png \
+    && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check \
+    && cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps --format-version 1 >/dev/null

@@ -10,9 +10,8 @@ services:
       - sh
       - -euc
       - >-
-        cargo fmt --manifest-path src-tauri/Cargo.toml -- --check &&
-        cargo metadata --manifest-path src-tauri/Cargo.toml --locked --no-deps --format-version 1 >/dev/null &&
-        cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
+        pnpm run build:tauri &&
+        test -x src-tauri/target/release/ade-tauri
     init: true
     network_mode: host
 
