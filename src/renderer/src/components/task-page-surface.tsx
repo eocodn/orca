@@ -188,7 +188,6 @@ import type {
   LinearProjectSummary,
   LinearTeam,
   LinearWorkspaceSelection,
-  LinearWorkflowState,
   TaskViewPresetId
 } from '../../../shared/types'
 import {
@@ -239,6 +238,12 @@ import {
   scopeGitHubTaskSearch
 } from './task-page-query-model'
 import { groupLinearIssues, type LinearGroupSection } from './task-page-linear-grouping'
+import {
+  DEFAULT_LINEAR_DISPLAY_PROPERTIES,
+  findLinearWorkflowStateForStatus,
+  getLinearStatusSectionState,
+  mergeLinearCollectionResults
+} from './task-page-linear-model'
 import { PaginationBar } from './task-page-pagination'
 import {
   buildJiraCreateCustomFields,
@@ -275,43 +280,6 @@ type LinearIssueListRow =
   | { type: 'issue'; issue: LinearIssue }
 
 const LINEAR_CUSTOM_VIEW_MODELS = ['issue', 'project'] satisfies readonly LinearCustomViewModel[]
-
-function mergeLinearCollectionResults<T>(
-  results: LinearCollectionResult<T>[]
-): LinearCollectionResult<T> {
-  const errors = results.flatMap((result) => result.errors ?? [])
-  return {
-    items: results.flatMap((result) => result.items),
-    ...(errors.length > 0 ? { errors } : {}),
-    ...(results.some((result) => result.hasMore) ? { hasMore: true } : {})
-  }
-}
-
-const DEFAULT_LINEAR_DISPLAY_PROPERTIES: LinearDisplayProperty[] = [
-  'state',
-  'priority',
-  'assignee',
-  'team',
-  'labels',
-  'updated'
-]
-
-function getLinearStatusSectionState(section: LinearGroupSection): LinearIssue['state'] | null {
-  if (!section.key.startsWith('status:')) {
-    return null
-  }
-  return section.issues[0]?.state ?? null
-}
-
-function findLinearWorkflowStateForStatus(
-  states: LinearWorkflowState[],
-  targetState: LinearIssue['state']
-): LinearWorkflowState | undefined {
-  return (
-    states.find((state) => state.name === targetState.name && state.type === targetState.type) ??
-    states.find((state) => state.name === targetState.name)
-  )
-}
 
 function sameOptionalGitHubOwnerRepo(
   left: GitHubOwnerRepo | null | undefined,
