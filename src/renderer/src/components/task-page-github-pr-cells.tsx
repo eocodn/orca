@@ -1,27 +1,53 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { AlertCircle, CheckCircle2, ChevronDown, Clock3, ExternalLink, GitMerge, LoaderCircle, Minus } from 'lucide-react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  ExternalLink,
+  GitMerge,
+  LoaderCircle,
+  Minus
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfirmationDialog } from '@/components/confirmation-dialog'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
-import { getTaskSourceRuntimeSettings, type TaskSourceContext } from '../../../shared/task-source-context'
+import {
+  getTaskSourceRuntimeSettings,
+  type TaskSourceContext
+} from '../../../shared/task-source-context'
 import { githubProjectHost } from '../../../shared/github-project-identity'
 import { parseGitHubIssueOrPRLink } from '@/lib/github-links'
 import { getChecksLabel, getChecksPillTone } from '@/components/task-page-checks-pill'
 import { presentGitHubPRMergeState } from '@/components/github-pr-merge-state'
-import { GITHUB_PR_MERGE_METHOD_LABELS, resolveGitHubPRMergeMethods } from '../../../shared/github-pr-merge-methods'
+import {
+  GITHUB_PR_MERGE_METHOD_LABELS,
+  resolveGitHubPRMergeMethods
+} from '../../../shared/github-pr-merge-methods'
 import { cn } from '@/lib/utils'
-import type { GitHubOwnerRepo, GitHubPRMergeMethod, GitHubWorkItem, Repo } from '../../../shared/types'
-
-function resolveTaskPullRequestRepo(item: Pick<GitHubWorkItem, 'prRepo' | 'url'>): GitHubOwnerRepo | null {
+import type {
+  GitHubOwnerRepo,
+  GitHubPRMergeMethod,
+  GitHubWorkItem,
+  Repo
+} from '../../../shared/types'
+function resolveTaskPullRequestRepo(
+  item: Pick<GitHubWorkItem, 'prRepo' | 'url'>
+): GitHubOwnerRepo | null {
   const repo = item.prRepo ?? parseGitHubIssueOrPRLink(item.url)?.slug ?? null
   return repo ? { ...repo, host: githubProjectHost(repo.host) } : null
 }
-
 export function PRChecksCell({
   item,
   onOpen,
@@ -32,7 +58,6 @@ export function PRChecksCell({
   onLoadChecks: () => void
 }): React.JSX.Element {
   const triggerRef = useRef<HTMLButtonElement | null>(null)
-
   useEffect(() => {
     if (item.type !== 'pr' || item.checksSummary) {
       return
@@ -56,7 +81,6 @@ export function PRChecksCell({
     observer.observe(node)
     return () => observer.disconnect()
   }, [item.checksSummary, item.type, onLoadChecks])
-
   if (item.type !== 'pr') {
     return (
       <span className="text-[11px] text-muted-foreground">
@@ -101,7 +125,6 @@ export function PRChecksCell({
     </Tooltip>
   )
 }
-
 export function PRMergeCell({
   item,
   repo,
@@ -139,7 +162,6 @@ export function PRMergeCell({
   const mergeMethods = resolveGitHubPRMergeMethods(item.mergeMethodSettings)
   const prRepo = resolveTaskPullRequestRepo(item)
   const mergeDisabled = !repo || merging || !mergePresentation.directMergeAvailable
-
   const handleMerge = async (method: GitHubPRMergeMethod): Promise<void> => {
     if (!repo || mergeDisabled) {
       return
@@ -198,7 +220,6 @@ export function PRMergeCell({
       setMerging(false)
     }
   }
-
   const handleAutoMerge = async (): Promise<void> => {
     if (!repo || !mergePresentation.autoMergeAction) {
       return
@@ -253,7 +274,6 @@ export function PRMergeCell({
       setMerging(false)
     }
   }
-
   return (
     <DropdownMenu modal={false}>
       <Tooltip>
@@ -307,5 +327,3 @@ export function PRMergeCell({
     </DropdownMenu>
   )
 }
-
-
