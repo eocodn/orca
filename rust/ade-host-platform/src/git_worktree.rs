@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod contract_tests {
-    use super::{run_worktree_list, GitWorktreeCommandError};
+    use super::{run_worktree_list, GitWorktreeCommandError, GitWorktreeListError};
     use crate::git_capability::GitCapabilityCache;
     use std::sync::{Arc, Mutex};
 
@@ -68,6 +68,59 @@ mod contract_tests {
         assert_eq!(second[0].path, "/repo");
         assert_eq!(*preferred_calls.lock().unwrap(), 1);
         assert_eq!(*fallback_calls.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn does_not_fallback_for_exit_129_without_an_unsupported_worktree_option_diagnostic() {
+        let cache = GitCapabilityCache::new();
+        let fallback_calls = Arc::new(Mutex::new(0));
+        let fallback_calls_for_run = Arc::clone(&fallback_calls);
+
+        let result = run_worktree_list(
+            &cache,
+            |_| {
+                Err(GitWorktreeCommandError {
+                    code: Some(129),
+                    stderr: String::from("fatal: not a git repository"),
+                })
+            },
+            move |_| {
+                *fallback_calls_for_run.lock().unwrap() += 1;
+                Ok(String::from("worktree /repo\nHEAD abc\n\n"))
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Err(GitWorktreeListError::Command(
+                crate::git_capability::GitCapabilityRunError::Preferred(_)
+            ))
+        ));
+        assert_eq!(*fallback_calls.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn does_not_fallback_for_an_option_diagnostic_with_a_non_option_exit_code() {
+        let cache = GitCapabilityCache::new();
+        let fallback_calls = Arc::new(Mutex::new(0));
+        let fallback_calls_for_run = Arc::clone(&fallback_calls);
+
+        let result = run_worktree_list(
+            &cache,
+            |_| {
+                Err(GitWorktreeCommandError {
+                    code: Some(1),
+                    stderr: String::from("error: unknown option -z"),
+                })
+            },
+            move |_| {
+                *fallback_calls_for_run.lock().unwrap() += 1;
+                Ok(String::from("worktree /repo\nHEAD abc\n\n"))
+            },
+        );
+
+        assert!(result.is_err());
+        assert_eq!(*fallback_calls.lock().unwrap(), 0);
     }
 }
 
@@ -175,8 +228,8 @@ pub fn parse_worktree_list(output: &str, nul_delimited: bool) -> Vec<GitWorktree
 }
 
 fn is_unsupported_worktree_list_z_error(error: &GitWorktreeCommandError) -> bool {
-    if error.code == Some(129) {
-        return true;
+    if error.code != Some(129) {
+        return false;
     }
     let stderr = error.stderr.to_ascii_lowercase();
     (stderr.contains("unknown option")

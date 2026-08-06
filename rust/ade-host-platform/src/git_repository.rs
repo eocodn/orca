@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod contract_tests {
-    use super::{resolve_repository_git_dir, GitRepositoryCommandError};
+    use super::{resolve_repository_git_dir, GitRepositoryCommandError, GitRepositoryPathError};
     use crate::git_capability::GitCapabilityCache;
     use crate::ExecutionTarget;
     use std::sync::{Arc, Mutex};
@@ -61,6 +61,65 @@ mod contract_tests {
         assert_eq!(second, r"C:\repo\.git");
         assert_eq!(*preferred_calls.lock().unwrap(), 1);
         assert_eq!(*fallback_calls.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn does_not_fallback_for_exit_129_without_an_unsupported_path_format_diagnostic() {
+        let cache = GitCapabilityCache::new();
+        let fallback_calls = Arc::new(Mutex::new(0));
+        let fallback_calls_for_run = Arc::clone(&fallback_calls);
+
+        let result = resolve_repository_git_dir(
+            &cache,
+            &ExecutionTarget::WindowsNative,
+            r"C:\repo",
+            |_| {
+                Err(GitRepositoryCommandError {
+                    code: Some(129),
+                    stderr: String::from("fatal: not a git repository"),
+                    stdout: String::new(),
+                })
+            },
+            move |_| {
+                *fallback_calls_for_run.lock().unwrap() += 1;
+                Ok(String::from(".git"))
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Err(GitRepositoryPathError::Command(
+                crate::git_capability::GitCapabilityRunError::Preferred(_)
+            ))
+        ));
+        assert_eq!(*fallback_calls.lock().unwrap(), 0);
+    }
+
+    #[test]
+    fn does_not_fallback_for_an_option_diagnostic_with_a_non_option_exit_code() {
+        let cache = GitCapabilityCache::new();
+        let fallback_calls = Arc::new(Mutex::new(0));
+        let fallback_calls_for_run = Arc::clone(&fallback_calls);
+
+        let result = resolve_repository_git_dir(
+            &cache,
+            &ExecutionTarget::WindowsNative,
+            r"C:\repo",
+            |_| {
+                Err(GitRepositoryCommandError {
+                    code: Some(1),
+                    stderr: String::from("error: unknown option --path-format"),
+                    stdout: String::new(),
+                })
+            },
+            move |_| {
+                *fallback_calls_for_run.lock().unwrap() += 1;
+                Ok(String::from(".git"))
+            },
+        );
+
+        assert!(result.is_err());
+        assert_eq!(*fallback_calls.lock().unwrap(), 0);
     }
 
     #[test]
@@ -156,8 +215,8 @@ fn has_unsupported_path_format_echo(output: &str) -> bool {
 }
 
 fn is_unsupported_path_format_error(error: &GitRepositoryCommandError) -> bool {
-    if error.code == Some(129) {
-        return true;
+    if error.code != Some(129) {
+        return false;
     }
     let stderr = error.stderr.to_ascii_lowercase();
     (stderr.contains("unknown option")
@@ -169,7 +228,11 @@ fn is_unsupported_path_format_error(error: &GitRepositoryCommandError) -> bool {
 fn is_absolute_target_path(target: &ExecutionTarget, path: &str) -> bool {
     match target {
         ExecutionTarget::WindowsNative => {
-            path.starts_with(r"\\")
+            // Native tests and local hosts can still report POSIX absolute
+            // paths (for example `/tmp/repo/.git`); preserve those instead of
+            // treating them as relative Windows metadata.
+            path.starts_with('/')
+                || path.starts_with(r"\\")
                 || (path.as_bytes().get(1) == Some(&b':')
                     && path
                         .as_bytes()
