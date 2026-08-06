@@ -39,6 +39,7 @@ import { useAppStore } from '@/store'
 import { useTaskPageStoreBindings } from './use-task-page-store-bindings'
 import { useTaskPageSourceSelection } from './use-task-page-source-selection'
 import { isGitLabIssueFilter, isGitLabMRFilter } from './task-page-provider-guards'
+import { TaskPageJiraErrorBanner } from './task-page-jira-error-banner'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import {
   getSettingsFocusedExecutionHostId,
@@ -82,7 +83,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import TaskProjectSourceCombobox from '@/components/task-project-source-combobox'
 import { JiraConnectDialog } from '@/components/jira-connect-dialog'
 import { LinearApiKeyDialog } from '@/components/linear-api-key-dialog'
@@ -604,51 +604,6 @@ function LinearStateCell({
   )
 }
 
-function TaskPageJiraErrorBanner({
-  error,
-  open,
-  onOpenChange
-}: {
-  error: TaskPageJiraLoadError
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}): React.JSX.Element {
-  return (
-    <Collapsible
-      open={open}
-      onOpenChange={onOpenChange}
-      className="border-b border-border bg-destructive/10 px-4 py-3 text-sm text-destructive"
-    >
-      <div className="flex items-start gap-2">
-        <AlertCircle className="mt-0.5 size-4 flex-none" />
-        <div className="min-w-0 flex-1">
-          <div className="font-medium leading-5">{error.title}</div>
-          {error.details ? (
-            <>
-              <CollapsibleTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="-ml-1 mt-1 h-6 px-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-                  {translate('auto.components.TaskPage.40eaf2c27c', 'Details')}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="mt-1 rounded-md border border-destructive/20 bg-background/80 px-2 py-1.5 font-mono text-xs text-foreground">
-                  {error.details}
-                </div>
-              </CollapsibleContent>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </Collapsible>
-  )
-}
-
 function getLinearIssueGridTemplate(visibleProperties: ReadonlySet<LinearDisplayProperty>): string {
   const columns = ['96px', 'minmax(240px,1.55fr)']
   if (visibleProperties.has('labels')) {
@@ -668,10 +623,6 @@ function getLinearIssueGridTemplate(visibleProperties: ReadonlySet<LinearDisplay
   }
   columns.push('64px')
   return columns.join(' ')
-}
-
-function areStringSetsEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
-  return a.size === b.size && [...a].every((value) => b.has(value))
 }
 
 function getJiraStatusTone(categoryKey: string): string {
@@ -2581,7 +2532,6 @@ export default function TaskPage(): React.JSX.Element {
     setIssueSourcePreference,
     workItemsInvalidationNonce,
     linearStatus,
-    linearStatusChecked,
     linearStatusContextKey,
     preflightStatus,
     preflightStatusChecked,
@@ -2608,7 +2558,6 @@ export default function TaskPage(): React.JSX.Element {
     refreshPreflightStatus,
     expectedPreflightContextKey,
     jiraStatus,
-    jiraStatusChecked,
     jiraStatusContextKey,
     selectJiraSite,
     searchJiraIssues,
