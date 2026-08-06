@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
-const { clearProviderPtyStateMock, markClaudePtyExitedMock } = vi.hoisted(() => ({
+const { clearProviderPtyStateMock, markPtyExitedMock } = vi.hoisted(() => ({
   clearProviderPtyStateMock: vi.fn(),
-  markClaudePtyExitedMock: vi.fn()
+  markPtyExitedMock: vi.fn()
 }))
 
 vi.mock('./pty-ipc-runtime-provider-lifecycle-state', () => ({
   clearProviderPtyState: clearProviderPtyStateMock
 }))
-vi.mock('../claude/pty-lifecycle-gate', () => ({
-  markClaudePtyExited: markClaudePtyExitedMock
+vi.mock('../pty/pty-lifecycle-state', () => ({
+  markPtyExited: markPtyExitedMock
 }))
 
 const PTY_ID = 'shutdown-provider-fence'
@@ -23,7 +23,7 @@ describe('pty shutdown state', () => {
     ptyRuntimeState.ptyStateTokenById.clear()
     ptyRuntimeState.ptyOwnership.set(PTY_ID, null)
     clearProviderPtyStateMock.mockReset()
-    markClaudePtyExitedMock.mockReset()
+    markPtyExitedMock.mockReset()
   })
 
   it('does not finish an old provider target after the provider is replaced', async () => {

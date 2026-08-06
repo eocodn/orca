@@ -26,7 +26,7 @@ import {
   rememberSshPtyExitFinalization
 } from './pty-ipc-runtime-provider-routing'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'
-import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
+import { markPtyExited } from '../pty/pty-lifecycle-state'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import type {
@@ -432,7 +432,7 @@ export function installPtyProviderListeners(): PtyRendererDeliveryContext {
         const currentIncarnation = ptyRuntimeState.ptyIncarnationById.get(payload.id)
         clearProviderPtyState(payload.id)
         ptyRuntimeState.ptyOwnership.delete(payload.id)
-        markClaudePtyExited(payload.id)
+        markPtyExited(payload.id)
         if (ptyRuntimeState.cleanupPendingPtyById.has(payload.id)) {
           schedulePendingPtyCleanupReconciliation(provider)
         }

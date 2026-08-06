@@ -14,7 +14,7 @@ import type { PtyRegistrationFoundation } from './pty-ipc-runtime-registration-f
 import type { PtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
 import type { CodexAccountSelectionTarget } from '../runtime/provider-lane-types'
-import type { CodexSessionResumePreparation } from '../codex/codex-session-resume-home'
+import type { CodexSessionResumePreparation } from '../runtime/provider-lane-types'
 import type { PtyShutdownObservation, PtyShutdownTarget } from './pty-ipc-runtime-shutdown-state'
 
 export type { PtyShutdownObservation, PtyShutdownTarget } from './pty-ipc-runtime-shutdown-state'

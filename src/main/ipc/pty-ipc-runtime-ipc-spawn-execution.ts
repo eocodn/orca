@@ -34,7 +34,6 @@ export function createPtyIpcSpawnHandler(
     snapshotPtyPublication,
     restorePtyPublicationIfCurrent,
     registerPty,
-    recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty,
     pendingByPaneKey,
     pendingPtyIdBySerializerGeneration,
@@ -47,11 +46,10 @@ export function createPtyIpcSpawnHandler(
     clearMigrationUnsupportedPtysForPaneKey,
     closeStartupQueryAuthorityForPty,
     syncPtyBackgroundedDelivery,
-    getSettings,
     createTerminalSessionStateSaveFailureMessage,
     normalizeNodePtySpawnError,
     isSshPtyIdentityMismatchError,
-    markClaudePtySpawned,
+    markPtySpawned,
     markNativeWindowsConptyPty
   } = state
 
@@ -67,7 +65,6 @@ export function createPtyIpcSpawnHandler(
       cwd,
       provider,
       providerIdentity,
-      isClaudeLaunch,
       isDaemonHostSpawn,
       isMintedSessionId,
       effectiveSessionId,
@@ -84,11 +81,8 @@ export function createPtyIpcSpawnHandler(
       validatedLeafId,
       effectiveShellOverride,
       nativeWindowsConptySpawn,
-      codexSelectionTarget,
       codexResumeLaunch,
-      codexResumeHome,
       launchCommand,
-      selectedCodexHomePath,
       spawnOptions,
       publicationSnapshot,
       hadSessionSizeBeforeAttach,
@@ -286,15 +280,6 @@ export function createPtyIpcSpawnHandler(
           })
         }
       }
-      recordCodexPaneAccountForSpawn({
-        ptyId: result.id,
-        isDaemonHostSpawn,
-        isReattach: result.isReattach === true,
-        pinnedByResume: Boolean(codexResumeHome),
-        launchCodexHomePath: selectedCodexHomePath,
-        target: codexSelectionTarget,
-        settings: getSettings?.()
-      })
       if (preAllocatedHandle) {
         runtime?.registerPreAllocatedHandleForPty(result.id, preAllocatedHandle)
       }
@@ -407,9 +392,7 @@ export function createPtyIpcSpawnHandler(
         result.id,
         typeof launchCommand === 'string' ? launchCommand : null
       )
-      if (isClaudeLaunch) {
-        markClaudePtySpawned(result.id)
-      }
+      markPtySpawned(result.id)
       // Why: record the paneKey mapping so clearProviderPtyState can clear the agent-hooks server's per-paneKey caches on exit.
       // Why: args.env is untrusted IPC JSON (type unenforced); bound the paneKey so malformed/oversized values can't pollute ptyPaneKey or clearPaneState.
       const rememberedPaneKey = validatedPaneKey

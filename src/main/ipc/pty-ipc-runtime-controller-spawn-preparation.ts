@@ -9,8 +9,7 @@ import {
   ptySessionIdForAgentCreateOperation
 } from '../daemon/pty-session-id'
 import {
-  routesFreshSpawnsToLocalProvider,
-  isClaudeLaunchCommand
+  routesFreshSpawnsToLocalProvider
 } from './pty-ipc-runtime-spawn-routing'
 import { stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
 import {
@@ -23,7 +22,6 @@ import {
   deleteRequestedEnvKeys,
   mergePtyEnvDeletions,
   removeCodexHomeDeletionRequests,
-  getInheritedAgentHookEnvKeysToDelete,
   getInheritedClaudeSessionStampEnvKeysToDelete
 } from './pty-ipc-runtime-host-env-foundation'
 import { buildPtyHostEnv } from './pty-ipc-runtime-host-env-assembly'
@@ -55,11 +53,9 @@ export function createPtySpawnPreparation(
     prepareCodexResumeHome,
     resolveCodexResumeLaunch,
     noCodexResumeLaunch,
-    stripRemotePaneEnvWhenHooksDisabled,
     stripSequencedStartupResumeArgv,
     getSelectedCodexHomePath,
     isTuiAgent,
-    isAgentStatusHooksEnabled,
     snapshotPtyPublication,
     ptySizes,
     pendingPtySizes,
@@ -83,7 +79,6 @@ export function createPtySpawnPreparation(
     const cwd = resolvePtySpawnStartupCwd(args.worktreeId, args.cwd)
     const providerIdentity = capturePtyProviderIdentity(args.connectionId)
     const provider = providerIdentity.provider
-    const isClaudeLaunch = !args.connectionId && isClaudeLaunchCommand(args.command)
     // Why: runtime-created terminals carry no renderer-computed projectRuntime; resolve from worktreeId to honor the project's Windows runtime.
     const terminalRuntimeOptions =
       process.platform === 'win32' && !args.connectionId
@@ -165,7 +160,7 @@ export function createPtySpawnPreparation(
         leafId: args.leafId
       }
     }
-    const sshScopedEnv = stripRemotePaneEnvWhenHooksDisabled(args.connectionId, args.env)
+    const sshScopedEnv = args.env
     let env: Record<string, string> | undefined = sshScopedEnv
     const requestedAgentTeamsPath = env?.ORCA_AGENT_TEAMS_TEAM_ID ? env.PATH : undefined
     env = stripSequencedStartupResumeArgv(env, codexResumeLaunch)
@@ -210,7 +205,6 @@ export function createPtySpawnPreparation(
         shellPath: daemonShellOverride ?? process.env.COMSPEC,
         isWsl: shouldSkipCodexHomeEnvForWindowsShell(daemonShellOverride, cwd),
         wslDistro: codexSelectionTarget.runtime === 'wsl' ? expectedWslDistro : null,
-        agentStatusHooksEnabled: isAgentStatusHooksEnabled(getSettings?.()),
         networkProxySettings: getSettings?.(),
         deferGitConfigGuardToDaemon: provider.supportsGitCredentialGuardHost?.(sessionId) === true
       })
@@ -249,7 +243,6 @@ export function createPtySpawnPreparation(
     }
     spawnOptions.envToDelete = mergePtyEnvDeletions(
       args.envToDelete ?? [],
-      isDaemonHostSpawn ? getInheritedAgentHookEnvKeysToDelete(env) : [],
       // Why: ungated, unlike the agent-hook keys — the local provider and the relay host also spread their own process.env into every spawn.
       getInheritedClaudeSessionStampEnvKeysToDelete(env)
     )
@@ -366,7 +359,6 @@ export function createPtySpawnPreparation(
         cwd,
         provider,
         providerIdentity,
-        isClaudeLaunch,
         terminalRuntimeOptions,
         daemonShellOverride,
         isDaemonHostSpawn,

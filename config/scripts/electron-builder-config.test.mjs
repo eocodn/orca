@@ -161,8 +161,7 @@ describe('electron-builder config', () => {
       expect.arrayContaining([
         'out/package.json',
         'out/cli/**',
-        'out/shared/**',
-        'out/main/claude-accounts/keychain.js'
+        'out/shared/**'
       ])
     )
   })

@@ -2,30 +2,19 @@ import { delimiter } from 'node:path'
 import type { GlobalSettings, TuiAgent } from '../../shared/types'
 import type { NetworkProxySettings } from '../../shared/network-proxy'
 import type { CodexAccountSelectionTarget } from '../runtime/provider-lane-types'
-import type { CodexSessionResumePreparation } from '../codex/codex-session-resume-home'
+import type { CodexSessionResumePreparation } from '../runtime/provider-lane-types'
 import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
-import type { ClaudeRuntimeAuthPreparation, ClaudeAccountSelectionTarget } from '../claude/runtime-auth-service'
 import { isWslShellName } from '../../shared/local-windows-terminal-runtime'
 import { parseWslPath } from '../wsl'
 import { isCodexSystemDefaultRealHomeEnabled } from '../codex/codex-real-home-flag'
 import { isHostCodexHomeForWsl, isWslCodexHomeForHost } from '../pty/codex-home-wsl-env'
-import { getSystemCodexHomePath } from '../codex/codex-home-paths'
-import {
-  forgetCodexPaneAccount,
-  recordCodexPaneAccount
-} from '../codex/codex-pane-account-registry'
-import { resolveCodexPaneLaunchAccount } from '../codex/codex-pane-launch-account'
 import { readShellStartupEnvVar } from '../pty/shell-startup-env'
 import type { PiAgentKind } from '../../shared/pi-agent-kind'
 import {
   getCommandTokenPathBasename,
   getFirstCommandToken
 } from '../../shared/command-token-scanner'
-import {
-  AGENT_HOOK_RUNTIME_ENV_KEYS,
-  CLAUDE_CHILD_SESSION_STAMP_ENV_KEYS
-} from './pty-ipc-runtime-host-env-constants'
-import { isRemoteAgentHooksEnabled } from '../../shared/agent-hook-relay'
+import { CLAUDE_CHILD_SESSION_STAMP_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
 
 // ─── Host PTY env assembly ──────────────────────────────────────────
 // Why: centralize host-local env injections so both spawn paths (local + daemon) get them; implemented twice they drifted, silently breaking daemon PTYs.
@@ -49,7 +38,6 @@ export type BuildPtyHostEnvOptions = {
   isWsl?: boolean
   /** Distro for WSL spawns (null = Windows default distro); drives the WSL hook relay + endpoint repoint. Only read when isWsl. */
   wslDistro?: string | null
-  agentStatusHooksEnabled: boolean
   networkProxySettings?: NetworkProxySettings
   /** Keep indexed Git config off the sparse daemon wire; the daemon appends guard entries after merging its inherited env. */
   deferGitConfigGuardToDaemon?: boolean
@@ -133,30 +121,6 @@ export function shouldStripInheritedOrcaCodexHome(args: {
 
 export const CODEX_HOME_ENV_KEYS = ['CODEX_HOME', 'ORCA_CODEX_HOME'] as const
 
-export function stripRemotePaneEnvWhenHooksDisabled(
-  connectionId: string | null | undefined,
-  env: Record<string, string> | undefined
-): Record<string, string> | undefined {
-  if (!connectionId || isRemoteAgentHooksEnabled()) {
-    return env
-  }
-  if (
-    !env ||
-    (!('ORCA_PANE_KEY' in env) &&
-      !('ORCA_TAB_ID' in env) &&
-      !('ORCA_WORKTREE_ID' in env) &&
-      !('ORCA_AGENT_LAUNCH_TOKEN' in env))
-  ) {
-    return env
-  }
-  const stripped = { ...env }
-  delete stripped.ORCA_PANE_KEY
-  delete stripped.ORCA_TAB_ID
-  delete stripped.ORCA_WORKTREE_ID
-  delete stripped.ORCA_AGENT_LAUNCH_TOKEN
-  return stripped
-}
-
 // Why: system-default real-home routing runs Codex on the user's own ~/.codex.
 // Nested Orca panes inherit the parent's Orca-owned override; strip only that
 // (CODEX_HOME matching Orca's private ORCA_CODEX_HOME marker), and always drop
@@ -191,10 +155,6 @@ export type PrepareCodexSessionResume = (args: {
   launchEnv?: NodeJS.ProcessEnv
   workspacePath?: string
 }) => Promise<CodexSessionResumePreparation | null>
-export type PrepareClaudeAuth = (
-  target?: ClaudeAccountSelectionTarget
-) => Promise<ClaudeRuntimeAuthPreparation>
-
 export function getCodexSelectionTargetForPty(
   shellPath: string | undefined,
   cwd: string | undefined,
@@ -221,40 +181,6 @@ export function getCompatibleSelectedCodexHomePath(
   return wslInfo || (process.platform === 'win32' && isWslCodexHomeForHost(selectedCodexHomePath))
     ? null
     : selectedCodexHomePath
-}
-
-// Why: CODEX_HOME is fixed in a shell's environment at spawn and the daemon
-// keeps that shell alive across app restarts, so the launch account is the only
-// way to tell later that a pane still runs Codex as the previously selected
-// account. A reattach inherits that baked environment rather than choosing one,
-// so re-recording it under the current selection would erase the very evidence
-// that the pane is stale.
-export function recordCodexPaneAccountForSpawn(args: {
-  ptyId: string | undefined
-  isDaemonHostSpawn: boolean
-  isReattach: boolean
-  pinnedByResume: boolean
-  launchCodexHomePath: string | null
-  target: CodexAccountSelectionTarget
-  settings: GlobalSettings | undefined
-}): void {
-  if (!args.ptyId || !args.isDaemonHostSpawn || args.isReattach) {
-    return
-  }
-  const record = args.settings
-    ? resolveCodexPaneLaunchAccount({
-        pinnedByResume: args.pinnedByResume,
-        launchCodexHomePath: args.launchCodexHomePath,
-        systemCodexHomePath: getSystemCodexHomePath(),
-        settings: args.settings,
-        target: args.target
-      })
-    : null
-  if (!record) {
-    forgetCodexPaneAccount(args.ptyId)
-    return
-  }
-  recordCodexPaneAccount(args.ptyId, record)
 }
 
 export function readEnvWithProcessFallback(
@@ -350,17 +276,9 @@ export function mergePtyEnvDeletions(
 }
 
 export function removeCodexHomeDeletionRequests(keys: string[] | undefined): string[] | undefined {
-  // Why: resume provenance is launch-authoritative; late deletions must not fall back to the current account.
+  // Why: resume provenance is launch-authoritative; late deletions must not fall back to the current selection.
   const filtered = keys?.filter((key) => key !== 'CODEX_HOME' && key !== 'ORCA_CODEX_HOME')
   return filtered?.length ? filtered : undefined
-}
-
-export function getInheritedAgentHookEnvKeysToDelete(
-  spawnEnv: Record<string, string> | undefined
-): string[] {
-  const env = spawnEnv ?? {}
-  // Why: providers merge process.env after cleanup; delete stale hook keys without dropping fresh coordinates buildPtyHostEnv set.
-  return AGENT_HOOK_RUNTIME_ENV_KEYS.filter((key) => env[key] === undefined)
 }
 
 export function getInheritedClaudeSessionStampEnvKeysToDelete(

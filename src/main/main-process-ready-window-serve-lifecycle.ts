@@ -200,7 +200,7 @@ export async function initializeReadyWindowAndServe(): Promise<void> {
       runtime,
       prepareCodexRuntimeHomeForLaunch,
       () => store.getSettings(),
-      (target) => startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target),
+      undefined,
       store,
       prepareCodexSessionResumeForLaunch
     )

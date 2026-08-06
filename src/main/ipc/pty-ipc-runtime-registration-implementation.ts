@@ -5,7 +5,6 @@ import type { GlobalSettings } from '../../shared/types'
 import { LocalPtyProvider } from '../providers/local-pty-provider'
 import type {
   GetSelectedCodexHomePath,
-  PrepareClaudeAuth,
   PrepareCodexSessionResume
 } from './pty-ipc-runtime-host-env-foundation'
 import { createPtyRegistrationFoundation } from './pty-ipc-runtime-registration-foundation'
@@ -40,7 +39,8 @@ export function registerPtyHandlers(
   runtime?: OrcaRuntimeService,
   getSelectedCodexHomePath?: GetSelectedCodexHomePath,
   getSettings?: () => GlobalSettings,
-  prepareClaudeAuth?: PrepareClaudeAuth,
+  /** Reserved positional slot retained for callers compiled against the pre-account API. */
+  _legacyUnused?: unknown,
   store?: Store,
   options?: RegisterPtyHandlersOptions
 ): void {
@@ -49,7 +49,6 @@ export function registerPtyHandlers(
     runtime,
     getSelectedCodexHomePath,
     getSettings,
-    prepareClaudeAuth,
     store,
     options
   })
@@ -71,7 +70,8 @@ export function registerHeadlessPtyRuntime(
   runtime: OrcaRuntimeService,
   getSelectedCodexHomePath?: GetSelectedCodexHomePath,
   getSettings?: () => GlobalSettings,
-  prepareClaudeAuth?: PrepareClaudeAuth,
+  /** Reserved positional slot retained for callers compiled against the pre-account API. */
+  _legacyUnused?: unknown,
   store?: Store,
   prepareCodexSessionResume?: PrepareCodexSessionResume
 ): void {
@@ -89,7 +89,7 @@ export function registerHeadlessPtyRuntime(
     runtime,
     getSelectedCodexHomePath,
     getSettings,
-    prepareClaudeAuth,
+    undefined,
     store,
     { prepareCodexSessionResume }
   )

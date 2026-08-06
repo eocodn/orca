@@ -4,11 +4,6 @@ import { DaemonPtyRouter } from './daemon-pty-router'
 import { collectPinnedDaemonVersions, pruneOldDaemonHosts } from './daemon-host-relocation'
 import { DegradedDaemonPtyProvider } from './degraded-daemon-pty-provider'
 import { getLocalPtyProvider, setLocalPtyProvider, rebindLocalProviderListeners } from '../ipc/pty'
-import {
-  confirmSeededClaudeLivePtys,
-  hasSeededUnconfirmedClaudePtys
-} from '../claude/pty-lifecycle-gate'
-
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'
 import { createLegacyDaemonAdapters } from './daemon-lifecycle-cleanup'
@@ -132,33 +127,6 @@ export async function initDaemonPtyProvider(
   daemonLifecycleSupport.logDaemonMilestone('daemon-init-done', {
     legacyAdapters: legacyAdapters.length
   })
-  await reconcileSeededClaudeLivePtys(routedAdapter)
-}
-
-// Why: release gate ids only for daemon-confirmed-dead sessions; keep seeds on listing failure since releasing early can rotate a live CLI's refresh token.
-export async function reconcileSeededClaudeLivePtys(provider: DaemonProvider): Promise<void> {
-  if (!hasSeededUnconfirmedClaudePtys()) {
-    return
-  }
-  try {
-    const adapters =
-      provider instanceof DaemonPtyRouter || provider instanceof DegradedDaemonPtyProvider
-        ? provider.getAllAdapters()
-        : [provider]
-    const results = await Promise.allSettled(adapters.map((entry) => entry.listSessions()))
-    if (results.some((result) => result.status === 'rejected')) {
-      console.warn('[daemon] Keeping seeded Claude live-PTY gate — session listing failed')
-      return
-    }
-    confirmSeededClaudeLivePtys(
-      results.flatMap((result) =>
-        result.status === 'fulfilled' ? result.value.map((session) => session.sessionId) : []
-      )
-    )
-  } catch (error) {
-    // Why: gate bookkeeping must never fail daemon init; stale seeds only defer a usage refresh until next restart.
-    console.warn('[daemon] Failed to reconcile seeded Claude live-PTY gate:', error)
-  }
 }
 
 // Why: a narrow getter (not a raw export) keeps the "swap on restart" invariant in one place (replaceDaemonProvider).

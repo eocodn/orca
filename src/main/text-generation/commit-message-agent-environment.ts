@@ -1,12 +1,8 @@
-import type { ClaudeRuntimeAuthPreparation } from '../claude/runtime-auth-service'
 import { readShellStartupEnvVar } from '../pty/shell-startup-env'
 import { parseWslUncPath } from '../../shared/wsl-paths'
 
 export type CommitMessageAgentEnvironmentResolvers = {
   prepareForCodexLaunch?: (target?: CommitMessageAgentRuntimeTarget) => string | null
-  prepareForClaudeLaunch?: (
-    target?: CommitMessageAgentRuntimeTarget
-  ) => Promise<ClaudeRuntimeAuthPreparation>
 }
 
 export type CommitMessageAgentRuntimeTarget = {
@@ -119,13 +115,6 @@ export async function prepareLocalCommitMessageAgentEnv(
           ? { ...cloneProcessEnv(), CODEX_HOME: codexHomePath }
           : cloneProcessEnvWithoutOrcaCodexHomeOverride()
       }
-    }
-
-    if (agentId === 'claude' && resolvers.prepareForClaudeLaunch) {
-      const preparation = await resolvers.prepareForClaudeLaunch(target)
-      const env = cloneProcessEnv()
-      for (const [key, value] of Object.entries(preparation.envPatch)) env[key] = value
-      return { ok: true, env }
     }
   } catch (error) {
     console.error('[commit-message] Failed to prepare agent environment:', error)

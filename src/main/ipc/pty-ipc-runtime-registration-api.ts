@@ -92,14 +92,12 @@ import {
   deleteRequestedEnvKeys,
   getCodexSelectionTargetForPty,
   getCompatibleSelectedCodexHomePath,
-  getInheritedAgentHookEnvKeysToDelete,
   getInheritedClaudeSessionStampEnvKeysToDelete,
   mergePtyEnvDeletions,
   promoteAgentTeamsShimPath,
   removeCodexHomeDeletionRequests,
   shouldSkipCodexHomeEnvForWindowsShell,
-  shouldStripInheritedOrcaCodexHome,
-  stripRemotePaneEnvWhenHooksDisabled
+  shouldStripInheritedOrcaCodexHome
 } from './pty-ipc-runtime-host-env-foundation'
 import { beginPtySpawnForWorktree, isClaudeLaunchCommand } from './pty-ipc-runtime-spawn-routing'
 import {
@@ -117,7 +115,6 @@ import {
 } from '../../shared/telemetry-events'
 import { registerPty } from '../memory/pty-registry'
 import { markPtySpawned } from '../pty/pty-lifecycle-state'
-import { isRemoteAgentHooksEnabled } from '../../shared/agent-hook-relay'
 import { resolveWslSessionContext } from '../daemon/wsl-session-context'
 import { clearMigrationUnsupportedPtysForPaneKey } from '../agent-hooks/migration-unsupported-pty-state'
 import { stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
@@ -229,12 +226,10 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     getCompatibleSelectedCodexHomePath,
     shouldSkipCodexHomeEnvForWindowsShell,
     shouldStripInheritedOrcaCodexHome,
-    stripRemotePaneEnvWhenHooksDisabled,
     promoteAgentTeamsShimPath,
     deleteRequestedEnvKeys,
     mergePtyEnvDeletions,
     removeCodexHomeDeletionRequests,
-    getInheritedAgentHookEnvKeysToDelete,
     getInheritedClaudeSessionStampEnvKeysToDelete,
     isClaudeLaunchCommand,
     beginPtySpawnForWorktree,
@@ -247,7 +242,6 @@ export function installPtyRuntimeRegistrationApis(): Record<string, any> {
     makePaneKey,
     parseLegacyNumericPaneKey,
     getStartupTerminalColorQueryReplyColors,
-    isRemoteAgentHooksEnabled,
     resolveWslSessionContext,
     clearMigrationUnsupportedPtysForPaneKey,
     toSshExecutionHostId,

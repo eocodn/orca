@@ -32,14 +32,12 @@ export function createPtySpawnHandler(
     pendingPtySizes,
     snapshotPtyPublication,
     restorePtyPublicationIfCurrent,
-    getSettings,
     isNativeWindowsLocalPtySpawn,
     markNativeWindowsConptyPty,
     getRelayPtyId,
     toSshExecutionHostId,
     isValidTerminalTabId,
     isTerminalLeafId,
-    recordCodexPaneAccountForSpawn,
     rememberPaneKeyForPty,
     pendingByPaneKey,
     rendererSerializerReadiness,
@@ -53,7 +51,7 @@ export function createPtySpawnHandler(
     normalizeNodePtySpawnError,
     isSshPtyIdentityMismatchError,
     store,
-    markClaudePtySpawned,
+    markPtySpawned,
     createTerminalSessionStateSaveFailureMessage,
     sendPtySpawnedToRenderer
   } = state
@@ -68,7 +66,6 @@ export function createPtySpawnHandler(
       cwd,
       provider,
       providerIdentity,
-      isClaudeLaunch,
       daemonShellOverride,
       isDaemonHostSpawn,
       sessionId,
@@ -76,12 +73,9 @@ export function createPtySpawnHandler(
       effectiveSessionAppId,
       isMintedSessionId,
       expectedWslDistro,
-      codexSelectionTarget,
-      codexResumeHome,
       launchCommand,
       hostSessionBinding,
       env,
-      selectedCodexHomePath,
       spawnOptions,
       reportPtySpawnCommitted,
       publicationSnapshot: initialPublicationSnapshot,
@@ -405,15 +399,6 @@ export function createPtySpawnHandler(
           })
         }
       }
-      recordCodexPaneAccountForSpawn({
-        ptyId: result.id,
-        isDaemonHostSpawn,
-        isReattach: result.isReattach === true,
-        pinnedByResume: Boolean(codexResumeHome),
-        launchCodexHomePath: selectedCodexHomePath,
-        target: codexSelectionTarget,
-        settings: getSettings?.()
-      })
       if (args.preAllocatedHandle) {
         runtime?.registerPreAllocatedHandleForPty(result.id, args.preAllocatedHandle)
       }
@@ -448,9 +433,7 @@ export function createPtySpawnHandler(
       }
       // Why: arms main's per-PTY Command Code output detector from the launch command (renderer startupCommand parity).
       runtime?.noteTerminalSpawnCommand?.(result.id, launchCommand ?? null)
-      if (isClaudeLaunch) {
-        markClaudePtySpawned(result.id)
-      }
+      markPtySpawned(result.id)
       // Why: runtime-owned CLI PTYs bypass the renderer pty:spawn handler; record paneKey here too since hook titles and cache cleanup need this reverse lookup.
       const paneKey = rememberPaneKeyForPty(result.id, env?.ORCA_PANE_KEY)
       const pendingSerializer = paneKey ? pendingByPaneKey.get(paneKey) : undefined

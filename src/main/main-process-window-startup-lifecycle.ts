@@ -120,14 +120,6 @@ export function openMainWindow(): startupDeps.BrowserWindow {
   if (!startupState.stats) {
     throw new Error('Stats must be initialized before opening the main window')
   }
-  if (!startupState.codexRuntimeHome) {
-    throw new Error('Codex runtime home service must be initialized before opening the main window')
-  }
-  if (!startupState.claudeRuntimeAuth) {
-    throw new Error(
-      'Claude runtime auth service must be initialized before opening the main window'
-    )
-  }
   if (!startupState.keybindings) {
     throw new Error('Keybinding service must be initialized before opening the main window')
   }
@@ -242,11 +234,7 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     null,
     null,
     rendererWebContentsId,
-    {
-      prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch,
-      prepareForClaudeLaunch: (target) =>
-        startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target)
-    },
+    { prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch },
     startupState.agentAwakeService ?? undefined,
     startupState.crashReports ?? undefined,
     startupState.keybindings,
@@ -254,11 +242,7 @@ export function openMainWindow(): startupDeps.BrowserWindow {
       onBeforeRelaunch: async () => {
         startupState.isQuitting = true
         startupState.desktopRelayService?.fenceAndCloseNow()
-        await startupDeps.preserveAgentAuthBeforeRestart({
-          codexRuntimeHome: startupState.codexRuntimeHome,
-          claudeRuntimeAuth: startupState.claudeRuntimeAuth,
-          store: startupState.store
-        })
+        startupState.store?.flush()
       },
       onOrcaProfileAuthMutation: () => startupState.desktopRelayService?.authMutated(),
       onBeforeOrcaProfileSignOut: () => startupState.desktopRelayService?.fenceAndCloseNow()
@@ -270,7 +254,7 @@ export function openMainWindow(): startupDeps.BrowserWindow {
     startupState.store,
     startupState.runtime,
     prepareCodexRuntimeHomeForLaunch,
-    (target) => startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target),
+    undefined,
     {
       prepareCodexSessionResume: prepareCodexSessionResumeForLaunch,
       awaitLocalPtyStartup: () => startupState.localPtyStartupReady,
@@ -283,12 +267,7 @@ export function openMainWindow(): startupDeps.BrowserWindow {
       },
       // Why: let the PTY layer skip its orphan sweep on the recovery reload that re-fires did-finish-load, so live local sessions survive (#5787).
       isRecoveryReloadInFlight,
-      onBeforeUpdateQuit: () =>
-        startupDeps.preserveAgentAuthBeforeRestart({
-          codexRuntimeHome: startupState.codexRuntimeHome,
-          claudeRuntimeAuth: startupState.claudeRuntimeAuth,
-          store: startupState.store
-        }),
+      onBeforeUpdateQuit: () => startupState.store?.flush(),
       updateInstallMode: startupDeps.resolveUpdateInstallMode(startupState.isServeMode),
       onWorktreeLifecycle: emitPluginWorktreeLifecycle
     }

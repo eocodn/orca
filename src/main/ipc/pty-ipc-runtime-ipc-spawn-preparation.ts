@@ -3,7 +3,6 @@ import { LocalPtyProvider } from '../providers/local-pty-provider'
 import { resolveLocalWindowsTerminalRuntimeOptions } from '../../shared/local-windows-terminal-runtime'
 import { isSafePtySessionId, mintPtySessionId } from '../daemon/pty-session-id'
 import {
-  isClaudeLaunchCommand,
   routesFreshSpawnsToLocalProvider,
   beginPtySpawnForWorktree
 } from './pty-ipc-runtime-spawn-routing'
@@ -38,7 +37,6 @@ export function createPtyIpcSpawnPreparation(
     resolveWslSessionContext,
     getCodexSelectionTargetForPty,
     getStartupTerminalColorQueryReplyColors,
-    stripRemotePaneEnvWhenHooksDisabled,
     parseValidPaneKey,
     makePaneKey,
     parseLegacyNumericPaneKey,
@@ -54,12 +52,10 @@ export function createPtyIpcSpawnPreparation(
     getCompatibleSelectedCodexHomePath,
     shouldSkipCodexHomeEnvForWindowsShell,
     shouldStripInheritedOrcaCodexHome,
-    isAgentStatusHooksEnabled,
     buildPtyHostEnv,
     stampWslOrchestrationCompatibilityHost,
     promoteAgentTeamsShimPath,
     mergePtyEnvDeletions,
-    getInheritedAgentHookEnvKeysToDelete,
     getInheritedClaudeSessionStampEnvKeysToDelete,
     removeCodexHomeDeletionRequests,
     deleteRequestedEnvKeys,
@@ -99,7 +95,6 @@ export function createPtyIpcSpawnPreparation(
     spawnTiming.mark('preflight')
     const providerIdentity = capturePtyProviderIdentity(args.connectionId)
     const provider = providerIdentity.provider
-    const isClaudeLaunch = !args.connectionId && isClaudeLaunchCommand(args.command)
     const terminalRuntimeOptions =
       process.platform === 'win32' && !args.connectionId
         ? resolveLocalWindowsTerminalRuntimeOptions({
@@ -145,7 +140,7 @@ export function createPtyIpcSpawnPreparation(
     // Safety: skip entirely for SSH — every injection is a loopback secret or a local path that leaks or misleads on the remote host.
     const startupTerminalColorQueryReplyColors = getStartupTerminalColorQueryReplyColors(args)
     // Why: forward pane env to SSH only when the relay hook path is enabled, or a newer relay could emit statuses this build can't route.
-    const sshSourceEnv = stripRemotePaneEnvWhenHooksDisabled(args.connectionId, args.env)
+    const sshSourceEnv = args.env
     const spawnPaneKey = sshSourceEnv?.ORCA_PANE_KEY
     const parsedSpawnPaneKey = parseValidPaneKey(spawnPaneKey)
     const verifiedPaneKey =
@@ -312,7 +307,6 @@ export function createPtyIpcSpawnPreparation(
           shellPath: effectiveShellOverride ?? process.env.COMSPEC,
           isWsl: shouldSkipCodexHomeEnvForWindowsShell(effectiveShellOverride, cwd),
           wslDistro: codexSelectionTarget.runtime === 'wsl' ? expectedWslDistro : null,
-          agentStatusHooksEnabled: isAgentStatusHooksEnabled(getSettings?.()),
           networkProxySettings: getSettings?.(),
           deferGitConfigGuardToDaemon:
             provider.supportsGitCredentialGuardHost?.(effectiveSessionId) === true
@@ -336,7 +330,6 @@ export function createPtyIpcSpawnPreparation(
     let combinedEnvToDelete = mergePtyEnvDeletions(
       args.envToDelete ?? [],
       agentTeamsEnvToDelete ?? [],
-      isDaemonHostSpawn ? getInheritedAgentHookEnvKeysToDelete(spawnEnv) : [],
       getInheritedClaudeSessionStampEnvKeysToDelete(spawnEnv),
       skipCodexHomeEnv ? CODEX_HOME_ENV_KEYS : [],
       // Why: the persistent daemon compares its own merged CODEX_HOME pair;
@@ -445,7 +438,6 @@ export function createPtyIpcSpawnPreparation(
         startupCwdFallback,
         provider,
         providerIdentity,
-        isClaudeLaunch,
         terminalRuntimeOptions,
         initialShellOverride,
         isDaemonHostSpawn,

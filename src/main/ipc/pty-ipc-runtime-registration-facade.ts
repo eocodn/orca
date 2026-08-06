@@ -10,7 +10,6 @@ export {
 export type {
   BuildPtyHostEnvOptions,
   GetSelectedCodexHomePath,
-  PrepareClaudeAuth,
   PrepareCodexSessionResume
 } from './pty-ipc-runtime-host-env-foundation'
 export type { RegisterPtyHandlersOptions } from './pty-ipc-runtime-registration-implementation'

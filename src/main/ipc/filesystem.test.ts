@@ -2339,54 +2339,6 @@ describe('registerFilesystemHandlers', () => {
     expect(generateCommitMessageFromContextMock).not.toHaveBeenCalled()
   })
 
-  it('prepares the selected Claude auth environment before local generation', async () => {
-    const previousAnthropicApiKey = process.env.ANTHROPIC_API_KEY
-    process.env.ANTHROPIC_API_KEY = 'do-not-leak-managed-auth-conflict'
-    const context = {
-      branch: 'feature/ai',
-      stagedSummary: 'M\tREADME.md',
-      stagedPatch: '+hello'
-    }
-    const params = { agentId: 'claude', model: 'haiku' }
-    resolveCommitMessageSettingsMock.mockReturnValue({ ok: true, params })
-    getStagedCommitContextMock.mockResolvedValue(context)
-    generateCommitMessageFromContextMock.mockResolvedValue({
-      success: true,
-      message: 'Update README'
-    })
-
-    try {
-      registerFilesystemHandlers(store as never, {
-        prepareForClaudeLaunch: async () => ({
-          configDir: '/managed/claude',
-          envPatch: { CLAUDE_CONFIG_DIR: '/managed/claude' },
-          stripAuthEnv: true,
-          provenance: 'managed:account-1'
-        })
-      })
-
-      await handlers.get('git:generateCommitMessage')!(null, {
-        worktreePath: WORKTREE_FEATURE_PATH
-      })
-
-      const target = generateCommitMessageFromContextMock.mock.calls[0]?.[2] as
-        | { env?: NodeJS.ProcessEnv }
-        | undefined
-      expect(target?.env).toEqual(
-        expect.objectContaining({
-          CLAUDE_CONFIG_DIR: '/managed/claude'
-        })
-      )
-      expect(target?.env?.ANTHROPIC_API_KEY).toBeUndefined()
-    } finally {
-      if (previousAnthropicApiKey === undefined) {
-        delete process.env.ANTHROPIC_API_KEY
-      } else {
-        process.env.ANTHROPIC_API_KEY = previousAnthropicApiKey
-      }
-    }
-  })
-
   it('passes per-agent command overrides into local model discovery', async () => {
     discoverCommitMessageModelsLocalMock.mockResolvedValue({
       success: true,
@@ -2539,7 +2491,6 @@ describe('registerFilesystemHandlers', () => {
     const params = { agentId: 'custom', model: '', customAgentCommand: 'agent' }
     const executeCommitMessagePlan = vi.fn()
     const prepareForCodexLaunch = vi.fn(() => '/managed/codex-home')
-    const prepareForClaudeLaunch = vi.fn()
     resolveCommitMessageSettingsMock.mockReturnValue({ ok: true, params })
     getSshGitProviderMock.mockReturnValue({
       getStagedCommitContext: vi.fn().mockResolvedValue(context),
@@ -2551,8 +2502,7 @@ describe('registerFilesystemHandlers', () => {
     })
 
     registerFilesystemHandlers(store as never, {
-      prepareForCodexLaunch,
-      prepareForClaudeLaunch
+      prepareForCodexLaunch
     })
 
     await expect(
@@ -2585,7 +2535,6 @@ describe('registerFilesystemHandlers', () => {
       'commit-message'
     )
     expect(prepareForCodexLaunch).not.toHaveBeenCalled()
-    expect(prepareForClaudeLaunch).not.toHaveBeenCalled()
   })
 
   it('routes SSH generation cancellations to separate provider operations', async () => {

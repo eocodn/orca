@@ -45,7 +45,6 @@ import {
 } from '../updater'
 import { scheduleHistoryGc } from '../terminal-history-gc'
 import { hydrateLocalPtyRegistryAtBoot } from '../memory/hydrate-local-pty-registry'
-import type { ClaudeRuntimeAuthPreparation, ClaudeAccountSelectionTarget } from '../claude/runtime-auth-service'
 import { getKnownWorktreeIdsForHistoryGc } from './history-gc-worktree-ids'
 import type {
   RuntimeMarkdownReadTabResult,
@@ -84,9 +83,8 @@ export function attachMainWindowServices(
   store: Store,
   runtime: OrcaRuntimeService,
   getSelectedCodexHomePath?: GetSelectedCodexHomePath,
-  prepareClaudeAuth?: (
-    target?: ClaudeAccountSelectionTarget
-  ) => Promise<ClaudeRuntimeAuthPreparation>,
+  /** Reserved positional slot retained for callers compiled against the pre-account API. */
+  _legacyUnused?: unknown,
   options?: {
     prepareCodexSessionResume?: PrepareCodexSessionResume
     awaitLocalPtyStartup?: () => Promise<void>
@@ -113,7 +111,7 @@ export function attachMainWindowServices(
     runtime,
     getSelectedCodexHomePath,
     () => store.getSettings(),
-    prepareClaudeAuth,
+    undefined,
     store,
     {
       prepareCodexSessionResume: options?.prepareCodexSessionResume,

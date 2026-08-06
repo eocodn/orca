@@ -1,4 +1,4 @@
-import { type AgentStatus, type TerminalOscColorQueryReplyColors, type ParsedAgentStatusPayload, type AgentSessionExecutionClaim, homedir, isAbsolute, resolve, stat, type GlobalSettings, type Repo, type WorktreeStartupLaunch, type TuiAgent, type ClaudeRateLimitAccountsState, type CodexRateLimitAccountsState, parseExecutionHostId, type ExecutionHostId, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeTerminalPresentation, type RuntimeSyncedLeaf, type PtyIncarnationId, type TerminalTailWaitState, type RetainedTailRedrawCursor, isENOENT, type Store, type ClaudeAccountService, type CodexAccountService, type CodexResetCreditRejectedBeforeProviderReason, type RateLimitService, type CodexRateLimitResetOutcome, type RateLimitState, type CodexResetCreditExpectedScope, resolveWorktreeScanCacheTtlMs } from './orca-runtime-imports'
+import { type AgentStatus, type TerminalOscColorQueryReplyColors, type ParsedAgentStatusPayload, type AgentSessionExecutionClaim, homedir, isAbsolute, resolve, stat, type GlobalSettings, type Repo, type WorktreeStartupLaunch, type TuiAgent, parseExecutionHostId, type ExecutionHostId, type AgentProviderSessionMetadata, type SleepingAgentLaunchConfig, type RuntimeTerminalPresentation, type RuntimeSyncedLeaf, type PtyIncarnationId, type TerminalTailWaitState, type RetainedTailRedrawCursor, isENOENT, type Store, resolveWorktreeScanCacheTtlMs } from './orca-runtime-imports'
 /* eslint-disable unicorn/no-useless-spread -- Why: waiter sets and handle keys are cloned intentionally before mutation so resolution and rejection can safely remove entries while iterating. */
 /* eslint-disable no-control-regex -- Why: terminal normalization must strip ANSI and OSC control sequences from PTY output before returning bounded text to agents. */
 export {
@@ -87,12 +87,6 @@ export function resolveServerBrowsePath(pathValue: string): string {
   return resolve(homedir(), trimmed)
 }
 
-export type RuntimeAccountServices = {
-  claudeAccounts: ClaudeAccountService
-  codexAccounts: CodexAccountService
-  rateLimits: RateLimitService
-}
-
 export type RemoteFetchResult = { ok: true } | { ok: false; errorKind: 'git_error' }
 
 export type RemoteTrackingBase = {
@@ -101,24 +95,6 @@ export type RemoteTrackingBase = {
   ref: string
   base: string
 }
-
-export type AccountsSnapshot = {
-  claude: ClaudeRateLimitAccountsState
-  codex: CodexRateLimitAccountsState
-  rateLimits: RateLimitState
-}
-
-export type CodexRateLimitResetRpcResult = {
-  scope: CodexResetCreditExpectedScope
-  snapshot: AccountsSnapshot
-} & (
-  | { outcome: CodexRateLimitResetOutcome }
-  | {
-      status: 'rejectedBeforeProvider'
-      retryDisposition: 'discardAttempt'
-      reason: CodexResetCreditRejectedBeforeProviderReason
-    }
-)
 
 export type RuntimeStore = {
   getRepos: Store['getRepos']
@@ -184,7 +160,6 @@ export type RuntimeStore = {
     agentDefaultEnv?: GlobalSettings['agentDefaultEnv']
     terminalWindowsShell?: GlobalSettings['terminalWindowsShell']
     floatingTerminalEnabled?: GlobalSettings['floatingTerminalEnabled']
-    agentStatusHooksEnabled?: GlobalSettings['agentStatusHooksEnabled']
     defaultTaskSource?: GlobalSettings['defaultTaskSource']
     defaultTaskViewPreset?: GlobalSettings['defaultTaskViewPreset']
     visibleTaskProviders?: GlobalSettings['visibleTaskProviders']

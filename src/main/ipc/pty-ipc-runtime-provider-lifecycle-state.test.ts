@@ -18,8 +18,8 @@ vi.mock('../opencode/hook-service', () => ({
 vi.mock('../pi/titlebar-extension-service', () => ({
   piTitlebarExtensionService: { clearPty: vi.fn() }
 }))
-vi.mock('../claude/pty-lifecycle-gate', () => ({
-  markClaudePtyExited: vi.fn()
+vi.mock('../pty/pty-lifecycle-state', () => ({
+  markPtyExited: vi.fn()
 }))
 vi.mock('../agent-hooks/server', () => ({
   agentHookServer: {
@@ -36,10 +36,6 @@ vi.mock('../ports/advertised-url-watcher', () => ({
 vi.mock('../memory/pty-registry', () => ({
   unregisterPty: vi.fn()
 }))
-vi.mock('../codex/codex-pane-account-registry', () => ({
-  forgetCodexPaneAccount: vi.fn()
-}))
-
 const PTY_ID = 'pty-lifecycle-authority'
 const originalLocalProvider = ptyRuntimeState.localProvider
 

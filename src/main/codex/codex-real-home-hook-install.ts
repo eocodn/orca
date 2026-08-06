@@ -48,9 +48,9 @@ export function getRealHomeCodexHookLane(): RealHomeCodexHookLane {
 }
 
 /**
- * Routing gate consumed by CodexRuntimeHomeService. Both a failed install and
+ * Routing gate consumed by generic Codex launch preparation. Both a failed install and
  * a failed opt-out cleanup use the managed lane so no half-mutated hook state
- * can diverge from PTY, rate-limit, or commit-message routing.
+ * can diverge from PTY or commit-message routing.
  */
 export function isRealHomeCodexHookLaneUsable(): boolean {
   return currentLane !== 'unavailable'

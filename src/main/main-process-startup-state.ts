@@ -2,8 +2,6 @@ import type { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import type { Store } from './persistence'
 import type { StatsCollector } from './stats/collector'
-import type { CodexRuntimeHomeService } from './codex-cli/runtime-home-service'
-import type { ClaudeRuntimeAuthService } from './claude/runtime-auth-service'
 import type { OrcaRuntimeService } from './runtime/orca-runtime'
 import type { OrcaRuntimeRpcServer } from './runtime/runtime-rpc'
 import { ServeReadinessPublisher } from './server/serve-readiness'
@@ -66,8 +64,6 @@ export const startupState = {
   isQuitting: false,
   store: null as Store | null,
   stats: null as StatsCollector | null,
-  codexRuntimeHome: null as CodexRuntimeHomeService | null,
-  claudeRuntimeAuth: null as ClaudeRuntimeAuthService | null,
   runtime: null as OrcaRuntimeService | null,
   runtimeRpc: null as OrcaRuntimeRpcServer | null,
   serveReadinessPublisher: new ServeReadinessPublisher(),

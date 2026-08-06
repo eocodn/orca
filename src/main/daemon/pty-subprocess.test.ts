@@ -2017,16 +2017,16 @@ describe('createPtySubprocess', () => {
     expect(env.ORCA_CODEX_HOME).toBeUndefined()
   })
 
-  it('strips an inherited per-account self-contained CODEX_HOME overlay in a nested Orca (#5370)', () => {
+  it('strips an inherited custom CODEX_HOME overlay in a nested Orca (#5370)', () => {
     const proc = mockPtyProcess()
     spawnMock.mockReturnValue(proc)
     const previousCodexHome = process.env.CODEX_HOME
     const previousOrcaCodexHome = process.env.ORCA_CODEX_HOME
-    // A per-account home is injected as CODEX_HOME === ORCA_CODEX_HOME, so the
+    // A custom home is injected as CODEX_HOME === ORCA_CODEX_HOME, so the
     // nested-Orca strip must clear it exactly as it does the shared mirror.
-    const perAccountHome = '/daemon/managed/codex-accounts/019f0000-aaaa/home'
-    process.env.CODEX_HOME = perAccountHome
-    process.env.ORCA_CODEX_HOME = perAccountHome
+    const customHome = '/daemon/managed/custom-codex-home/019f0000-aaaa/home'
+    process.env.CODEX_HOME = customHome
+    process.env.ORCA_CODEX_HOME = customHome
 
     try {
       createPtySubprocess({
@@ -2641,9 +2641,9 @@ describe('createPtySubprocess', () => {
         cwd: 'C:\\Users\\jin\\repo',
         env: {
           CODEX_HOME:
-            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.local\\share\\orca\\codex-accounts\\a\\home',
+            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.config\\orca\\custom-codex-home\\a\\home',
           ORCA_CODEX_HOME:
-            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.local\\share\\orca\\codex-accounts\\a\\home'
+            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.config\\orca\\custom-codex-home\\a\\home'
         }
       })
     } finally {
@@ -2681,9 +2681,9 @@ describe('createPtySubprocess', () => {
         shellOverride: 'wsl.exe',
         env: {
           CODEX_HOME:
-            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.local\\share\\orca\\codex-accounts\\a\\home',
+            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.config\\orca\\custom-codex-home\\a\\home',
           ORCA_CODEX_HOME:
-            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.local\\share\\orca\\codex-accounts\\a\\home'
+            '\\\\wsl.localhost\\Ubuntu\\home\\jin\\.config\\orca\\custom-codex-home\\a\\home'
         }
       })
     } finally {
@@ -2704,8 +2704,8 @@ describe('createPtySubprocess', () => {
       ['-d', 'Ubuntu', '--', 'sh', '-c', expect.stringContaining(`cd '${expectedLinuxCwd}'`)],
       expect.objectContaining({
         env: expect.objectContaining({
-          CODEX_HOME: '/home/jin/.local/share/orca/codex-accounts/a/home',
-          ORCA_CODEX_HOME: '/home/jin/.local/share/orca/codex-accounts/a/home',
+          CODEX_HOME: '/home/jin/.config/orca/custom-codex-home/a/home',
+          ORCA_CODEX_HOME: '/home/jin/.config/orca/custom-codex-home/a/home',
           WSLENV: expect.stringContaining('CODEX_HOME')
         })
       })

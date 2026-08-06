@@ -314,7 +314,6 @@ export function createPtyRegistrationFoundation(
           shellPath: ctx?.shellPath,
           isWsl: ctx?.isWsl,
           wslDistro: ctx?.wslDistro ?? null,
-          agentStatusHooksEnabled: true,
           networkProxySettings: getSettings?.()
         })
         // Why: agents need their terminal handle at process start to self-identify in orchestration messages without an extra RPC.

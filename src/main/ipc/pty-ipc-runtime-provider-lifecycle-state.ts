@@ -4,12 +4,11 @@ import { clearHiddenRendererPtyDeliveryState, isHiddenRendererPty } from './pty-
 import { clearNativeWindowsConptyPty } from '../runtime/terminal-model-query-authority'
 import { openCodeHookService } from '../opencode/hook-service'
 import { piTitlebarExtensionService } from '../pi/titlebar-extension-service'
-import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
+import { markPtyExited } from '../pty/pty-lifecycle-state'
 import { agentHookServer } from '../agent-hooks/server'
 import { clearMigrationUnsupportedPty } from '../agent-hooks/migration-unsupported-pty-state'
 import { advertisedUrlWatcher } from '../ports/advertised-url-watcher'
 import { unregisterPty } from '../memory/pty-registry'
-import { forgetCodexPaneAccount } from '../codex/codex-pane-account-registry'
 import { isPtyIncarnationId } from '../../shared/pty-incarnation'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 
@@ -176,11 +175,10 @@ export function clearProviderPtyState(
     ptyRuntimeState.pendingPtyIncarnationById.has(id)
   if (!opts.preserveAgentSessionOwners) {
     ptyRuntimeState.agentSessionOwners.release(id)
-    forgetCodexPaneAccount(id)
   }
   openCodeHookService.clearPty(id)
   piTitlebarExtensionService.clearPty(id)
-  markClaudePtyExited(id)
+  markPtyExited(id)
   ptyRuntimeState.ptySizes.delete(id)
   ptyRuntimeState.pendingPtySizes.delete(id)
   ptyRuntimeState.pendingPtyIncarnationById.delete(id)
