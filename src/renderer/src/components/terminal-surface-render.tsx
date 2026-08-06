@@ -4,18 +4,16 @@ import TabBar from './tab-bar/TabBar'
 import TerminalPane from './terminal-pane/TerminalPane'
 import BrowserPane from './browser-pane/BrowserPane'
 import EditorAutosaveController from './editor/EditorAutosaveController'
+import CodexRestartChip from './CodexRestartChip'
 import { lazyWithRetry as lazy } from '@/lib/lazy-with-retry'
 import { translate } from '@/i18n/i18n'
-import {
-  findActivityTerminalPortal,
-  type ActivityTerminalPortalTarget
-} from './activity/activity-terminal-portal'
-import { useShallow } from 'zustand/react/shallow'
-import { useAppStore } from '../store'
+import { findActivityTerminalPortal } from './activity/activity-terminal-portal'
 import { WorktreeSplitSurface } from './terminal-surface-worktree-split-surface'
 import { TerminalSurfaceDialogs } from './terminal-surface-dialogs'
 const EditorPanel = lazy(() => import('./editor/EditorPanel'))
-export type TerminalSurfaceRenderProps = Record<string, any>
+import type { buildTerminalSurfaceRenderProps } from './terminal-surface-render-props'
+
+export type TerminalSurfaceRenderProps = ReturnType<typeof buildTerminalSurfaceRenderProps>
 export function TerminalSurfaceMarkup(props: TerminalSurfaceRenderProps): React.JSX.Element {
   const {
     renderedActiveWorktreeId,
@@ -64,6 +62,8 @@ export function TerminalSurfaceMarkup(props: TerminalSurfaceRenderProps): React.
     activationDeferredMountTabIdsByWorktreeRef,
     activeView,
     shouldMountBackgroundWorktreeTab,
+    tabsByWorktree,
+    evictionExemptTerminalTabIds,
     browserTabsByWorktree,
     windowCloseDialogOpen,
     setWindowCloseDialogOpen,
@@ -110,8 +110,6 @@ export function TerminalSurfaceMarkup(props: TerminalSurfaceRenderProps): React.
             activeBrowserTabId={activeBrowserTabId}
             activeTabType={activeTabType}
             onActivateFile={(fileId) => {
-              const unifiedTabs =
-                useAppStore.getState().unifiedTabsByWorktree[renderedActiveWorktreeId ?? ''] ?? []
               setActiveFile(fileId)
               setActiveTabType('editor')
             }}

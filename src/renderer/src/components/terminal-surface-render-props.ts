@@ -46,6 +46,8 @@ export function buildTerminalSurfaceRenderProps(context: Record<string, any>): R
     activationDeferredMountTabIdsByWorktreeRef,
     activeView,
     shouldMountBackgroundWorktreeTab,
+    tabsByWorktree,
+    evictionExemptTerminalTabIds,
     browserTabsByWorktree,
     windowCloseDialogOpen,
     setWindowCloseDialogOpen,
@@ -103,6 +105,8 @@ export function buildTerminalSurfaceRenderProps(context: Record<string, any>): R
     activationDeferredMountTabIdsByWorktreeRef,
     activeView,
     shouldMountBackgroundWorktreeTab,
+    tabsByWorktree,
+    evictionExemptTerminalTabIds,
     browserTabsByWorktree,
     windowCloseDialogOpen,
     setWindowCloseDialogOpen,
@@ -113,5 +117,4 @@ export function buildTerminalSurfaceRenderProps(context: Record<string, any>): R
     handleSaveDialogDiscard,
     handleSaveDialogSave
   }
-
 }
