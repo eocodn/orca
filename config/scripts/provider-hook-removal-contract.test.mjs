@@ -217,7 +217,7 @@ assert.ok(
 const importRefs = []
 const sourceRoots = ['src/main', 'src/preload', 'src/shared', 'src/relay']
 const providerPattern = new RegExp(
-  String.raw\`(?:/(?:amp|antigravity|claude|command-code|copilot|cursor|devin|droid|gemini|grok|hermes|kimi|openclaude|mimo)/(?:hook|statusline|kimi-hook|hook-config))|(?:/codex/(?:codex-hook|hook-service|hook-trust|codex-real-home-hook|codex-managed-trust|codex-user-hook-trust|codex-wsl-hook|codex-trust-grant|codex-app-server-(?:client|grant)))\`
+  "(?:/(?:amp|antigravity|claude|command-code|copilot|cursor|devin|droid|gemini|grok|hermes|kimi|openclaude|mimo)/(?:hook|statusline|kimi-hook|hook-config))|(?:/codex/(?:codex-hook|hook-service|hook-trust|codex-real-home-hook|codex-managed-trust|codex-user-hook-trust|codex-wsl-hook|codex-trust-grant|codex-app-server-(?:client|grant)))"
 )
 const visit = (directory) => {
   if (!existsSync(directory)) return
