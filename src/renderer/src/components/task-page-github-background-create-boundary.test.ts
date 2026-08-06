@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'TaskPage.tsx'), 'utf8')
+const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'task-page-surface.tsx'), 'utf8')
 const PROJECT_VIEW_SOURCE = readFileSync(
-  join(__dirname, 'github-project', 'ProjectViewWrapper.tsx'),
+  join(__dirname, 'github-project', 'project-view-wrapper-view.tsx'),
   'utf8'
 )
 
