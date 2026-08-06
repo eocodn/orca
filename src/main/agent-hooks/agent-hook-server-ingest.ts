@@ -60,31 +60,14 @@ export class AgentHookServerIngest extends AgentHookServerAuthority {
 
   /** Generic remote OSC status path; provider envelopes and replay metadata are not accepted. */
   ingestRemoteStatus(
-    event: Omit<Parameters<AgentHookServerIngest['ingestTerminalStatus']>[0], 'connectionId'>,
+    event: Omit<
+      Parameters<AgentHookServerIngest['ingestTerminalStatus']>[0],
+      'connectionId' | 'isReplay'
+    >,
     connectionId: string
   ): void {
     const normalizedConnectionId = connectionId.trim()
     if (!normalizedConnectionId) return
     this.ingestTerminalStatus({ ...event, connectionId: normalizedConnectionId })
-  }
-
-  /** Compatibility entry for legacy callers; only accepts a generic status payload. */
-  ingestRemote(envelope: unknown, connectionId: string): void {
-    if (!envelope || typeof envelope !== 'object') return
-    const value = envelope as Record<string, unknown>
-    if (typeof value.paneKey !== 'string' || !value.payload || typeof value.payload !== 'object')
-      return
-    this.ingestRemoteStatus(
-      {
-        paneKey: value.paneKey,
-        tabId: typeof value.tabId === 'string' ? value.tabId : undefined,
-        worktreeId: typeof value.worktreeId === 'string' ? value.worktreeId : undefined,
-        launchToken: typeof value.launchToken === 'string' ? value.launchToken : undefined,
-        isReplay: value.isReplay === true,
-        receivedAt: typeof value.receivedAt === 'number' ? value.receivedAt : undefined,
-        payload: value.payload as ParsedAgentStatusPayload
-      },
-      connectionId
-    )
   }
 }

@@ -25,7 +25,8 @@ describe('agent hook server split boundaries', () => {
 
     expect(publicTypes).toBeNull()
     expect(server).toBeInstanceOf(AgentHookServerRuntime)
-    expect(typeof server.ingestRemote).toBe('function')
+    expect(typeof server.ingestRemoteStatus).toBe('function')
+    expect(typeof (server as unknown as { ingestRemote?: unknown }).ingestRemote).toBe('undefined')
     expect(typeof server.ingestTerminalStatus).toBe('function')
     expect(typeof server.stop).toBe('function')
   })

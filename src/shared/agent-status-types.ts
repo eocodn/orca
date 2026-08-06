@@ -186,7 +186,7 @@ export type AgentStatusIpcPayload = ParsedAgentStatusPayload & {
   tabId?: string
   worktreeId?: string
   /** Identifies the SSH connection the event arrived on, or null for local.
-   *  Only the remote-ingest path (`ingestRemote`) can stamp it; the HTTP path always sets null. See docs/design/agent-status-over-ssh.md §5. */
+   *  Only the remote-ingest path (`ingestRemoteStatus`) can stamp it; the local path always sets null. See docs/design/agent-status-over-ssh.md §5. */
   connectionId: string | null
   /** Timestamp (ms) when the hook server received this latest status event. */
   receivedAt: number

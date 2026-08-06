@@ -23,32 +23,6 @@ describe('agent hook state fencing', () => {
     tempDirs.length = 0
   })
 
-  it('does not let an out-of-order replay replace a live hook status', () => {
-    const server = new AgentHookServer()
-    servers.push(server)
-
-    server.ingestRemote(
-      {
-        paneKey: PANE_KEY,
-        payload: { state: 'working', prompt: 'new turn', agentType: 'codex' }
-      },
-      'ssh-1'
-    )
-    server.ingestRemote(
-      {
-        paneKey: PANE_KEY,
-        isReplay: true,
-        payload: { state: 'done', prompt: 'old turn', agentType: 'codex' }
-      },
-      'ssh-1'
-    )
-
-    expect(server.getStatusSnapshotForPane(PANE_KEY)[0]).toMatchObject({
-      state: 'working',
-      prompt: 'new turn'
-    })
-  })
-
   it('rehydrates persisted state idempotently without retaining derived roster entries', async () => {
     const userDataPath = mkdtempSync(join(tmpdir(), 'orca-agent-hook-fencing-'))
     tempDirs.push(userDataPath)
@@ -78,7 +52,7 @@ describe('agent hook state fencing', () => {
 
     const server = new AgentHookServer()
     servers.push(server)
-    await server.start({ env: 'production', userDataPath })
+    await server.hydrate({ env: 'production', userDataPath })
     const state = server._getStateForTests()
     state.claudeSubagentRosterByPaneKey.get(PANE_KEY)?.set('stale-child', {
       state: 'working',

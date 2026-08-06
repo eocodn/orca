@@ -1,8 +1,6 @@
 type FirstWindowStartupServices = {
   startDaemonPtyProvider: (signal: AbortSignal) => Promise<void>
-  startAgentHookServer: (signal: AbortSignal) => Promise<void>
   onDaemonError: (error: unknown) => void
-  onAgentHookServerError: (error: unknown) => void
 }
 
 type StartupService = {
@@ -61,20 +59,13 @@ function startService(
  */
 export function startFirstWindowStartupServices({
   startDaemonPtyProvider,
-  startAgentHookServer,
-  onDaemonError,
-  onAgentHookServerError
+  onDaemonError
 }: FirstWindowStartupServices): FirstWindowStartupServicesResult {
-  // Why: daemon startup and hook-server binding are independent, but both gate
-  // restored terminals; run them together so cold-start latency is max(), not sum().
-  // The first window fails open quickly so the user sees the app; the local PTY
-  // gate waits for the services themselves (a slow daemon must not flip spawns
-  // to the non-restorable LocalPtyProvider fallback) and only fails open at the
-  // hard cap, which also aborts the services so a late daemon swap cannot
-  // strand any fallback PTYs that spawn after the gate opens.
+  // Why: restored terminals require daemon authority. The first window fails
+  // open quickly so the user sees the app; the local PTY gate waits for the
+  // daemon attempt and only fails open at the hard cap.
   const daemon = startService('daemon PTY provider', startDaemonPtyProvider, onDaemonError)
-  const hooks = startService('agent hook server', startAgentHookServer, onAgentHookServerError)
-  const allServicesReady = Promise.all([daemon.ready, hooks.ready]).then(() => undefined)
+  const allServicesReady = daemon.ready
   let windowTimeout: ReturnType<typeof setTimeout> | null = null
   let failOpenTimeout: ReturnType<typeof setTimeout> | null = null
   const servicesSettled = allServicesReady.finally(() => {
@@ -88,7 +79,6 @@ export function startFirstWindowStartupServices({
   const failOpenReady = new Promise<void>((resolve) => {
     failOpenTimeout = setTimeout(() => {
       daemon.reportTimeout()
-      hooks.reportTimeout()
       resolve()
     }, LOCAL_PTY_STARTUP_FAIL_OPEN_TIMEOUT_MS)
   })

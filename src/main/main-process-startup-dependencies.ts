@@ -37,12 +37,6 @@ export { registerCoreHandlers } from './ipc/register-core-handlers'
 export { initObservability, shutdownObservability } from './observability'
 export { registerMobileHandlers } from './ipc/mobile'
 export { classifyError } from './diagnostics/error-classifier'
-export {
-  indexPersistedPaneKeyPtyIds,
-  isLocalExecutionHost,
-  resolveAgentWorkspaceExecutionHostId,
-  sweepRestoredSubagentsWithoutLiveAgent
-} from './agent-hooks/restored-subagent-liveness-sweep'
 export { triggerStartupNotificationRegistration } from './ipc/notifications'
 export { OrcaRuntimeService, type RuntimeWorktreeLifecycleEvent } from './runtime/orca-runtime'
 export { loadAgentSessionClaimSigner } from './runtime/agent-session-claim-identity'

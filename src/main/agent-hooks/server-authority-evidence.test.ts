@@ -32,7 +32,7 @@ describe('AgentHookServer authority evidence', () => {
     } satisfies AgentHookEventPayload & { receivedAt: number; stateStartedAt: number }
     server._getStateForTests().lastStatusByPaneKey.set(PANE_KEY, hydrated)
 
-    await server.start()
+    await server.hydrate()
     const commitments = server.getHydratedAuthorityCommitments()
 
     expect(commitments).toEqual([
@@ -57,7 +57,7 @@ describe('AgentHookServer authority evidence', () => {
       })
     ).toEqual({ paneKey: PANE_KEY, source: 'hydrated_commitment' })
 
-    server.ingestRemote(
+    server.ingestRemoteStatus(
       {
         paneKey: PANE_KEY,
         launchToken: 'launch-after-restart',
@@ -115,7 +115,7 @@ describe('AgentHookServer authority evidence', () => {
       })
     ).toEqual({ paneKey: PANE_KEY, source: 'current_hook' })
 
-    server.ingestRemote(
+    server.ingestRemoteStatus(
       {
         paneKey: PANE_KEY,
         launchToken: 'launch-before-restart',
@@ -135,7 +135,7 @@ describe('AgentHookServer authority evidence', () => {
       })
     ).toEqual({ paneKey: PANE_KEY, source: 'current_hook' })
 
-    server.ingestRemote(
+    server.ingestRemoteStatus(
       {
         paneKey: SECOND_PANE_KEY,
         launchToken: 'launch-before-restart',
@@ -197,8 +197,8 @@ describe('AgentHookServer authority evidence', () => {
     } satisfies AgentHookEventPayload & { receivedAt: number; stateStartedAt: number }
     server._getStateForTests().lastStatusByPaneKey.set(PANE_KEY, hydrated)
     server.registerPaneKeyAlias('tab-authority:0', PANE_KEY, 'old-pty')
-    await server.start()
-    server.ingestRemote(
+    await server.hydrate()
+    server.ingestRemoteStatus(
       {
         paneKey: PANE_KEY,
         launchToken,
@@ -219,5 +219,22 @@ describe('AgentHookServer authority evidence', () => {
         terminalProvenance: 'restored'
       })
     ).toEqual({ paneKey: PANE_KEY, source: 'current_hook' })
+  })
+
+  it('emits a disconnect cutoff even when no cached row matches the connection', () => {
+    const server = new AgentHookServer()
+    servers.push(server)
+    const clears: unknown[] = []
+    server.setPaneStatusClearListener((clear) => clears.push(clear))
+
+    server.clearStatusEntriesForConnection('ssh-target')
+
+    expect(clears).toEqual([
+      {
+        transient: true,
+        connectionId: 'ssh-target',
+        clearedAt: expect.any(Number)
+      }
+    ])
   })
 })

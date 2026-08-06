@@ -51,7 +51,7 @@ export abstract class AgentHookServerBase {
   protected server: ReturnType<typeof createServer> | null = null
   protected port = 0
   protected token = ''
-  // Why: identifies this Orca instance so the server can detect dev vs. prod cross-talk; set at start() from packaged-build knowledge.
+  // Why: identifies this Orca instance so the status runtime can detect dev vs. prod cross-talk; set during hydrate() from packaged-build knowledge.
   protected env = 'production'
   protected onAgentStatus: ((payload: EnrichedAgentHookEventPayload) => void) | null = null
   protected onPaneStatusCleared: PaneStatusClearListener | null = null
@@ -61,7 +61,7 @@ export abstract class AgentHookServerBase {
   // plugin event bus (and future consumers) need an additive subscription
   // that also works in headless serve, where no window listener exists.
   protected enrichedStatusListeners = new Set<(payload: EnrichedAgentHookEventPayload) => void>()
-  // Why: set via start()'s userDataPath so the class has no direct Electron dependency (mockable in vitest node env).
+  // Why: set via hydrate()'s userDataPath so the class has no direct Electron dependency (mockable in vitest node env).
   protected endpointDir: string | null = null
   protected endpointFilePathCache: string | null = null
   protected endpointFileWritten = false

@@ -12,7 +12,7 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
   protected captureHydratedAuthorityCommitments(): void {}
   flushStatusPersistSync(): void {}
 
-  async start(options?: { env?: string; userDataPath?: string }): Promise<void> {
+  async hydrate(options?: { env?: string; userDataPath?: string }): Promise<void> {
     if (options?.env) this.env = options.env
     if (options?.userDataPath) {
       this.endpointDir = join(options.userDataPath, 'agent-status')
@@ -79,13 +79,14 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     if (changed) {
       this.scheduleStatusPersist()
       this.notifyStatusChangeListeners()
-      this.onPaneStatusCleared?.({
-        paneKey: normalized,
-        connectionId: normalized,
-        clearedAt,
-        transient: true
-      })
     }
+    // The disconnect watermark is authoritative even when no cached row matched:
+    // late events from this connection must still be fenced out.
+    this.onPaneStatusCleared?.({
+      connectionId: normalized,
+      clearedAt,
+      transient: true
+    })
   }
 
   clearPaneState(paneKey: string): void {
@@ -109,9 +110,7 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     const paneKeys = new Set<string>()
     const belongsToTab = (key: string): boolean => {
       const paneKey = key.split('\0', 1)[0] ?? key
-      return key === paneKey
-        ? paneKey.startsWith(`${normalizedTabId}:`)
-        : paneKey.startsWith(`${normalizedTabId}:`)
+      return paneKey.startsWith(`${normalizedTabId}:`)
     }
     for (const key of this.state.lastStatusByPaneKey.keys())
       if (belongsToTab(key)) paneKeys.add(key)
@@ -120,12 +119,42 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     for (const key of this.state.lastToolByPaneKey.keys())
       if (belongsToTab(key)) paneKeys.add(key.split('\0', 1)[0] ?? key)
     for (const key of this.runtimeObservedStatusPaneKeys) if (belongsToTab(key)) paneKeys.add(key)
+    for (const key of this.currentAuthorityObservations.keys())
+      if (belongsToTab(key)) paneKeys.add(key)
+    for (const key of this.persistedAuthorityCommitmentsByPaneKey.keys())
+      if (belongsToTab(key)) paneKeys.add(key)
+    for (const key of this.hydratedLaunchTokenHashByPaneKey.keys())
+      if (belongsToTab(key)) paneKeys.add(key)
+    for (const commitment of this.hydratedAuthorityCommitments)
+      if (belongsToTab(commitment.paneKey)) paneKeys.add(commitment.paneKey)
+
+    let aliasChanged = false
+    for (const [physicalPaneKey, entry] of this.legacyPaneKeyAliases) {
+      if (!belongsToTab(entry.stablePaneKey)) continue
+      paneKeys.add(physicalPaneKey)
+      paneKeys.add(entry.stablePaneKey)
+      this.markPaneClosedForAgentStatus(physicalPaneKey)
+      this.markPaneClosedForAgentStatus(entry.stablePaneKey)
+      this.legacyPaneKeyAliases.delete(physicalPaneKey)
+      aliasChanged = true
+    }
+    const authorityChanged = this.revokeHydratedAuthorityForPaneKeys(paneKeys)
+    let statusChanged = false
     for (const key of paneKeys) {
+      statusChanged = this.state.lastStatusByPaneKey.has(key) || statusChanged
+      this.clearAssistantMessageRetry(key)
+      this.clearCodexSubagentPoll(key)
       clearPaneCacheState(this.state, key)
       this.runtimeObservedStatusPaneKeys.delete(key)
       this.currentAuthorityObservations.delete(key)
+      this.promptSentDedupeByPaneKey.delete(key)
     }
-    this.scheduleStatusPersist()
-    this.notifyStatusChangeListeners()
+    if (aliasChanged) {
+      this.notifyPaneKeyAliasPersistenceListener()
+    }
+    if (statusChanged || authorityChanged) {
+      this.scheduleStatusPersist()
+      this.notifyStatusChangeListeners()
+    }
   }
 }
