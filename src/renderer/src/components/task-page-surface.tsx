@@ -73,6 +73,7 @@ import { useTaskPageGitHubPageNavigationState } from './use-task-page-github-pag
 import { useTaskPageLinearScopeController } from './use-task-page-linear-scope-controller'
 import { useTaskPageLinearToolbarActions } from './use-task-page-linear-toolbar-actions'
 import { useTaskPageJiraToolbarActions } from './use-task-page-jira-toolbar-actions'
+import { useTaskPageSourceSynchronization } from './use-task-page-source-synchronization'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -318,42 +319,21 @@ export default function TaskPage(): React.JSX.Element {
     [selectedRepos.length]
   )
   const taskSourceManuallyChangedRef = useRef(false)
-  const lastPageTaskSourceRef = useRef(pageData.taskSource)
   const taskResumeAppliedRef = useRef(false)
   const githubSearchPersistReadyRef = useRef(false)
   const linearSearchPersistReadyRef = useRef(false)
   const jiraSearchPersistReadyRef = useRef(false)
   const [taskResumeApplied, setTaskResumeApplied] = useState(false)
 
-  // Why: useState only inits once, so sync taskSource from the store when a sidebar source-icon click changes pageData.taskSource.
-  useEffect(() => {
-    const pageTaskSourceChanged = lastPageTaskSourceRef.current !== pageData.taskSource
-    lastPageTaskSourceRef.current = pageData.taskSource
-    if (pageData.taskSource) {
-      if (pageTaskSourceChanged) {
-        taskSourceManuallyChangedRef.current = false
-      } else if (taskSourceManuallyChangedRef.current) {
-        return
-      }
-      setTaskSource(resolveVisibleTaskProvider(pageData.taskSource, visibleTaskProviders))
-    }
-  }, [pageData.taskSource, visibleTaskProviders])
-
-  useEffect(() => {
-    if (taskSourceManuallyChangedRef.current) {
-      return
-    }
-    // Why: GitLab/Linear availability hydrates after mount; restore the saved default once its provider check proves it can be shown.
-    if (visibleTaskProviders.includes(preferredTaskSource) && taskSource !== preferredTaskSource) {
-      setTaskSource(preferredTaskSource)
-    }
-  }, [preferredTaskSource, taskSource, visibleTaskProviders])
-
-  useEffect(() => {
-    if (!visibleTaskProviders.includes(taskSource)) {
-      setTaskSource(resolveVisibleTaskProvider(settings?.defaultTaskSource, visibleTaskProviders))
-    }
-  }, [settings?.defaultTaskSource, taskSource, visibleTaskProviders])
+  useTaskPageSourceSynchronization({
+    defaultTaskSource: settings?.defaultTaskSource,
+    pageTaskSource: pageData.taskSource,
+    preferredTaskSource,
+    setTaskSource,
+    taskSource,
+    taskSourceManuallyChangedRef,
+    visibleTaskProviders
+  })
 
   // Why: Project mode is a GitHub sub-tab — visible on the GitHub source, but actual entry is gated on a non-null activeProject.
   const projectModeVisible = taskSource === 'github'
