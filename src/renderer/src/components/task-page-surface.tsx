@@ -70,6 +70,7 @@ import { useTaskPageLinearIssueListDataState } from './use-task-page-linear-issu
 import { useTaskPageLinearIssuePaginationState } from './use-task-page-linear-issue-pagination-state'
 import { useTaskPageGitHubPRChecksState } from './use-task-page-github-pr-checks-state'
 import { useTaskPageGitHubPageNavigationState } from './use-task-page-github-page-navigation-state'
+import { useTaskPageLinearScopeController } from './use-task-page-linear-scope-controller'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -122,7 +123,6 @@ import type {
   LinearProjectDetail,
   LinearProjectSummary,
   LinearTeam,
-  LinearWorkspaceSelection,
   TaskViewPresetId
 } from '../../../shared/types'
 import {
@@ -2459,67 +2459,38 @@ export default function TaskPage(): React.JSX.Element {
     [openComposerForLinearItem]
   )
 
-  const handleLinearWorkspaceChange = useCallback(
-    (workspaceId: LinearWorkspaceSelection): void => {
-      clearSelectedLinearIssue()
-      setSelectedLinearProject(null)
-      setSelectedLinearProjectDetail(null)
-      setSelectedLinearCustomView(null)
-      setLinearProjectParentView(null)
-      setLinearProjectTab('overview')
-      setLinearProjectsResult({ items: [] })
-      setLinearCustomViewsResult({ items: [] })
-      setLinearProjectIssuesResult({ items: [] })
-      setLinearCustomViewIssuesResult({ items: [] })
-      setLinearCustomViewProjectsResult({ items: [] })
-      setLinearProjectDetailError(null)
-      setLinearProjectsError(null)
-      setLinearCustomViewsError(null)
-      setLinearCustomViewContentsError(null)
-      setTaskResumeState({
-        linearMode,
-        linearContext: undefined
-      })
-      linearContextResumeAttemptedRef.current = false
-      setLinearIssues([])
-      setLinearError(null)
-      setLinearLoading(true)
-      void selectLinearWorkspace(workspaceId)
-        .then(() => {
-          setLinearTeamRefreshNonce((n) => n + 1)
-        })
-        .catch(() => {
-          setLinearLoading(false)
-          toast.error(
-            translate('auto.components.TaskPage.d0d570b306', 'Failed to switch Linear workspace.')
-          )
-        })
-    },
-    [clearSelectedLinearIssue, linearMode, selectLinearWorkspace, setTaskResumeState]
-  )
-
-  const handleLinearTeamSelectionChange = useCallback(
-    (next: ReadonlySet<string>, persisted: string[] | null): void => {
-      setLinearTeamSelection(new Set(next))
-      void updateSettings({ defaultLinearTeamSelection: persisted }).catch(() => {
-        toast.error(
-          translate('auto.components.TaskPage.3f594861a5', 'Failed to save team selection.')
-        )
-      })
-    },
-    [updateSettings]
-  )
-
-  const handleLinearScopeOpen = useCallback((): void => {
-    void checkLinearConnection(true)
-    void listLinearTeams(selectedLinearWorkspaceId, { force: true })
-      .then((teams) => {
-        setAvailableTeams(teams)
-      })
-      .catch(() => {
-        console.warn('[TaskPage] Failed to refresh Linear teams')
-      })
-  }, [checkLinearConnection, listLinearTeams, selectedLinearWorkspaceId])
+  const { handleLinearScopeOpen, handleLinearTeamSelectionChange, handleLinearWorkspaceChange } =
+    useTaskPageLinearScopeController({
+      checkLinearConnection,
+      clearSelectedLinearIssue,
+      linearContextResumeAttemptedRef,
+      linearMode,
+      listLinearTeams,
+      selectedLinearWorkspaceId,
+      selectLinearWorkspace,
+      setAvailableTeams,
+      setLinearCustomViewContentsError,
+      setLinearCustomViewIssuesResult,
+      setLinearCustomViewProjectsResult,
+      setLinearCustomViewsError,
+      setLinearCustomViewsResult,
+      setLinearError,
+      setLinearIssues,
+      setLinearLoading,
+      setLinearProjectDetailError,
+      setLinearProjectIssuesResult,
+      setLinearProjectParentView,
+      setLinearProjectTab,
+      setLinearProjectsError,
+      setLinearProjectsResult,
+      setLinearTeamRefreshNonce,
+      setLinearTeamSelection,
+      setSelectedLinearCustomView,
+      setSelectedLinearProject,
+      setSelectedLinearProjectDetail,
+      setTaskResumeState,
+      updateSettings
+    })
 
   const handleLinearAccessConnected = useCallback((): void => {
     setLinearTeamRefreshNonce((n) => n + 1)
