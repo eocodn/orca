@@ -138,12 +138,13 @@ impl FileGitHostRouter {
                     })
             })
             .and_then(|response| {
+                let current_identity = transport.identity().clone();
                 self.validate_fence(
                     &request.workspace_id,
                     &request.worker_id,
                     request.worker_incarnation,
                     request.ownership.lease_id,
-                    &identity,
+                    &current_identity,
                 )?;
                 Ok(response)
             });
@@ -203,12 +204,13 @@ impl FileGitHostRouter {
                     })
             })
             .and_then(|response| {
+                let current_identity = transport.identity().clone();
                 self.validate_fence(
                     &request.workspace_id,
                     &request.worker_id,
                     request.worker_incarnation,
                     request.ownership.lease_id,
-                    &identity,
+                    &current_identity,
                 )?;
                 Ok(response)
             });

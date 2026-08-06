@@ -60,7 +60,7 @@ fn file_dispatch_replays_identical_requests_and_fences_owner_lease_conflicts() {
     );
     assert_eq!(
         registry.execute_file(&conflict),
-        Err("worker_lease_conflict".into())
+        Err("request_id_conflict".into())
     );
     let newer = FileWorkerRequest::read("request-2", context(2, 7), path_string.clone());
     assert!(registry.execute_file(&newer).is_ok());

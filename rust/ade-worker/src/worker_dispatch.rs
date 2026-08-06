@@ -204,6 +204,26 @@ impl FileGitWorkerRegistry {
             .lock()
             .map_err(|_| "worker_registry_unavailable")?;
         let (request_id, owner, incarnation, lease_id) = request_identity(&request);
+        if let Some((committed, result)) = state.committed.get(&request_id) {
+            if committed != &request {
+                return Err("request_id_conflict".into());
+            }
+            if let Some(authority) = state.authorities.get(&owner) {
+                if incarnation < authority.incarnation {
+                    return Err("stale_worker_incarnation".into());
+                }
+                if incarnation == authority.incarnation && lease_id != authority.lease_id {
+                    return Err("worker_lease_conflict".into());
+                }
+            }
+            return result.clone().map(Some);
+        }
+        if let Some(in_flight) = state.in_flight.get(&request_id) {
+            if in_flight == &request {
+                return Err("request_in_flight".into());
+            }
+            return Err("request_id_conflict".into());
+        }
         let authority = state.authorities.entry(owner.clone()).or_insert(Authority {
             incarnation,
             lease_id,
@@ -221,18 +241,6 @@ impl FileGitWorkerRegistry {
                 let (_, committed_owner, committed_incarnation, _) = request_identity(committed);
                 committed_owner != owner || committed_incarnation >= incarnation
             });
-        }
-        if let Some((committed, result)) = state.committed.get(&request_id) {
-            if committed == &request {
-                return result.clone().map(Some);
-            }
-            return Err("request_id_conflict".into());
-        }
-        if let Some(in_flight) = state.in_flight.get(&request_id) {
-            if in_flight == &request {
-                return Err("request_in_flight".into());
-            }
-            return Err("request_id_conflict".into());
         }
         state.in_flight.insert(request_id, request);
         Ok(None)
