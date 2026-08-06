@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const RequestId = z.string().min(1)
 export const PathSchema = z.string().min(1)
+const SafeInteger = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
 const ExecutionTarget = z.enum(['windows-native', 'wsl2', 'ssh'])
 const WorkspaceKind = z.enum(['folder', 'git-worktree'])
 
@@ -63,7 +64,7 @@ const TerminalOperationSchema = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('output'),
-      sequence: z.number().int().nonnegative(),
+      sequence: SafeInteger,
       data: z.string()
     })
     .strict(),
@@ -82,7 +83,7 @@ export const TerminalRequestSchema = z
       })
       .strict(),
     terminal_id: z.string().min(1),
-    expected_generation: z.number().int().nonnegative(),
+    expected_generation: SafeInteger,
     operation: TerminalOperationSchema
   })
   .strict()
@@ -94,11 +95,11 @@ export const TerminalResultSchema = z
     protocol_version: z.literal(1),
     operation: z.enum(['start', 'snapshot', 'output', 'exit', 'fail', 'close']),
     terminal_id: z.string(),
-    generation: z.number().int().nonnegative(),
+    generation: SafeInteger,
     status: z.enum(['created', 'running', 'exited', 'failed', 'closed']),
     exit_code: z.number().int().nullable(),
     failure_reason: z.string().nullable(),
-    output_sequence: z.number().int().nonnegative(),
+    output_sequence: SafeInteger,
     tail: z.string()
   })
   .strict()
