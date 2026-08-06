@@ -394,7 +394,7 @@ fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
     let (_, token) = owned();
     let request = file_request("terminal", &token);
 
-    let crash = make_worker("#!/bin/sh\nexit 0\n");
+    let crash = make_worker("#!/bin/sh\nIFS= read -r line\nexit 0\n");
     let mut transport = JsonlFileGitWorkerTransport::spawn(
         &crash,
         WorkerIdentity {
