@@ -102,6 +102,8 @@ export function useTaskPageLinearDetailState({
     selectedLinearIssue,
     selectedLinearIssueCanFloat,
     selectedLinearIssueId,
+    setSelectedLinearIssue,
+    setSelectedLinearIssueFallback,
     clearSelectedLinearIssue,
     linearDetailSourceContext,
     openLinearDetailPage,

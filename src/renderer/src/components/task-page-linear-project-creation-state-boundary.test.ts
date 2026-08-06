@@ -3,7 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const COMPONENT_ROOT = __dirname
-const SURFACE_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-surface.tsx'), 'utf8')
+const SURFACE_SOURCE = readFileSync(
+  join(COMPONENT_ROOT, 'use-task-page-creation-actions.ts'),
+  'utf8'
+)
 
 describe('TaskPage Linear project creation boundary', () => {
   it('keeps project submission and post-create selection in its bounded hook', () => {

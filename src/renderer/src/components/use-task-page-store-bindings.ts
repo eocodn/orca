@@ -122,3 +122,5 @@ export function useTaskPageStoreBindings() {
     checkJiraConnection
   }
 }
+
+export type TaskPageStoreBindings = ReturnType<typeof useTaskPageStoreBindings>

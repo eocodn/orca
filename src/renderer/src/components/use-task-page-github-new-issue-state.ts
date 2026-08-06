@@ -143,3 +143,5 @@ export function useTaskPageGitHubNewIssueState({
     newIssueRepoAssignees
   }
 }
+
+export type TaskPageGitHubNewIssueState = ReturnType<typeof useTaskPageGitHubNewIssueState>

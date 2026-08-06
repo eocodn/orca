@@ -56,8 +56,8 @@ export type TaskPageJiraDialogContext = {
   newJiraIssueTargetType: JiraIssueType | null
   jiraIssueTypesLoading: boolean
   availableJiraIssueTypes: JiraIssueType[]
-  newJiraIssueTypeId: string
-  setNewJiraIssueTypeId: Setter<string>
+  newJiraIssueTypeId: string | null
+  setNewJiraIssueTypeId: Setter<string | null>
   newJiraIssueTitle: string
   setNewJiraIssueTitle: Setter<string>
   newJiraIssueBody: string

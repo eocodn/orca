@@ -3,7 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const COMPONENT_ROOT = __dirname
-const SURFACE_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-surface.tsx'), 'utf8')
+const SURFACE_SOURCE = readFileSync(
+  join(COMPONENT_ROOT, 'use-task-page-creation-actions.ts'),
+  'utf8'
+)
 
 describe('TaskPage Linear issue creation boundary', () => {
   it('keeps workspace validation, context fencing, and detail selection in its hook', () => {

@@ -3,7 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const COMPONENT_ROOT = __dirname
-const SURFACE_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-surface.tsx'), 'utf8')
+const SURFACE_SOURCE = readFileSync(
+  join(COMPONENT_ROOT, 'use-task-page-github-list-model.ts'),
+  'utf8'
+)
 
 describe('TaskPage GitHub list data boundary', () => {
   it('keeps cache-first fan-out, count reads, and retry fencing in its hook', () => {

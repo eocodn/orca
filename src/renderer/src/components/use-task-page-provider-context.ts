@@ -12,7 +12,11 @@ import {
   type TaskSourceHostAvailability
 } from './task-source-context-summary'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
-import { getTaskPageRepoSourceContext } from './task-page-source-context'
+import {
+  getTaskPageRepoSourceContext,
+  getTaskSourceHostAvailabilityForHost
+} from './task-page-source-context'
+import { getRepoBackedProviderAvailability } from './task-source-provider-availability'
 import type { useTaskPageStoreBindings } from './use-task-page-store-bindings'
 import type { useTaskPageSourceSelection } from './use-task-page-source-selection'
 import { useTaskPageProviderHosts } from './use-task-page-provider-hosts'
@@ -272,3 +276,5 @@ export function useTaskPageProviderContext(
     taskSourceAvailabilityNotice
   }
 }
+
+export type TaskPageProviderContext = ReturnType<typeof useTaskPageProviderContext>

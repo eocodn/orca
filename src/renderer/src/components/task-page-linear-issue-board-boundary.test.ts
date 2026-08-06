@@ -3,7 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const COMPONENT_ROOT = __dirname
-const SURFACE_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-surface.tsx'), 'utf8')
+const SURFACE_SOURCE = readFileSync(
+  join(COMPONENT_ROOT, 'task-page-linear-content-view.tsx'),
+  'utf8'
+)
 const BODY_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-linear-issue-body.tsx'), 'utf8')
 
 describe('TaskPage Linear issue board boundary', () => {

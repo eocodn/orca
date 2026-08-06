@@ -14,7 +14,8 @@ import {
   restoreAvailableDefaultTaskProvider,
   resolveVisibleTaskProvider
 } from '../../../shared/task-providers'
-import { getTaskPresetQuery, normalizeGitHubTaskPreset } from './task-page-query-model'
+import { getTaskPresetQuery } from '../../../shared/task-view-preset-query'
+import { normalizeGitHubTaskPreset } from './task-page-query-model'
 import {
   getSourceOptions,
   getGitHubModeButtons,
@@ -275,3 +276,5 @@ export function useTaskPageSourceSelection(store: TaskPageStoreBindings) {
     setTaskSource
   }
 }
+
+export type TaskPageSourceSelection = ReturnType<typeof useTaskPageSourceSelection>

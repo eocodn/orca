@@ -3,7 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const COMPONENT_ROOT = __dirname
-const SURFACE_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-surface.tsx'), 'utf8')
+const SURFACE_SOURCE = readFileSync(
+  join(COMPONENT_ROOT, 'use-task-page-jira-data-lifecycle.ts'),
+  'utf8'
+)
 
 describe('TaskPage Jira list data boundary', () => {
   it('keeps Jira reads, status-order hydration, and cancellation in its hook', () => {

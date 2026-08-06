@@ -15,6 +15,7 @@ import {
 import type { TaskSourceContext } from '../../../shared/task-source-context'
 import type { PreflightStatus } from '../../../preload/api-types'
 import type { Repo } from '../../../shared/types'
+import type { TaskSourceHostAvailability } from './task-source-context-summary'
 import type { useTaskPageStoreBindings } from './use-task-page-store-bindings'
 import type { useTaskPageSourceSelection } from './use-task-page-source-selection'
 
@@ -35,7 +36,7 @@ export function useTaskPageProviderHosts(
     preflightStatus,
     preflightStatusChecked
   } = store
-  const { selectedRepos, taskSource } = selection
+  const { preflightStatusCurrent, selectedRepos, taskSource } = selection
 
   const runtimePreflightMountedRef = useRef(true)
   const runtimePreflightRequestedHostIdsRef = useRef<Set<TaskSourceContext['hostId']>>(new Set())

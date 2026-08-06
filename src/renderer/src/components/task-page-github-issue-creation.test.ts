@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const taskPageSource = readFileSync(new URL('./task-page-surface.tsx', import.meta.url), 'utf8')
+const taskPageSource = readFileSync(
+  new URL('./use-task-page-creation-actions.ts', import.meta.url),
+  'utf8'
+)
 const issueCreationSource = readFileSync(
   new URL('./use-task-page-github-issue-creation-state.ts', import.meta.url),
   'utf8'

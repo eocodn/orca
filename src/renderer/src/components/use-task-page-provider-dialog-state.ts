@@ -208,6 +208,7 @@ export function useTaskPageProviderDialogState({
     dialogSourceContext,
     dialogWorkItem,
     gitlabDialogItem,
+    setGitlabDialogItem,
     gitlabDialogRepo,
     gitlabDialogSourceContext,
     handleDialogReviewRequestsChange,

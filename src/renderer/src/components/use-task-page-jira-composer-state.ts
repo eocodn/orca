@@ -155,7 +155,7 @@ export function useTaskPageJiraComposerState({
   }, [])
 
   const handleNewJiraIssueProjectTriggerKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLButtonElement>) => {
+    (event: KeyboardEvent<Element>) => {
       if (newJiraIssueProjectComboboxOpen) {
         return
       }
@@ -307,3 +307,5 @@ export function useTaskPageJiraComposerState({
     handleNewJiraIssueProjectTriggerKeyDown
   }
 }
+
+export type TaskPageJiraComposerState = ReturnType<typeof useTaskPageJiraComposerState>

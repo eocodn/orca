@@ -17,7 +17,7 @@ describe('renderer module syntax boundaries', () => {
     'src/renderer/src/components/github-item-dialog-conversation.tsx',
     'src/renderer/src/components/github-item-dialog-edit.tsx',
     'src/renderer/src/components/github-item-dialog-files.tsx',
-    'src/renderer/src/components/github-item-dialog-model.ts',
+    'src/renderer/src/components/github-item-dialog-model.tsx',
     'src/renderer/src/components/github-item-dialog-mutations.ts',
     'src/renderer/src/components/github-item-dialog-reviewers.tsx',
     'src/renderer/src/components/github-item-dialog-source-indicator.tsx',
@@ -36,8 +36,12 @@ describe('renderer module syntax boundaries', () => {
       filePath.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
     )
 
+    const parseDiagnostics = (
+      source as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+    ).parseDiagnostics
+
     expect(
-      source.parseDiagnostics.map(
+      parseDiagnostics.map(
         (diagnostic) =>
           `${diagnostic.start}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\\n')}`
       )

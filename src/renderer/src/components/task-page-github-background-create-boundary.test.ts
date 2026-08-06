@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'task-page-surface.tsx'), 'utf8')
+const TASK_PAGE_WORK_ITEM_ACTIONS = readFileSync(
+  join(__dirname, 'use-task-page-work-item-actions.ts'),
+  'utf8'
+)
 const PROJECT_VIEW_SOURCE = readFileSync(
   join(__dirname, 'github-project', 'project-view-wrapper-view.tsx'),
   'utf8'
@@ -19,13 +22,13 @@ function sourceBetween(source: string, startPattern: string, endPattern: string)
 describe('GitHub workspace creation source boundaries', () => {
   it('routes the TaskPage GitHub create path through background creation first', () => {
     const section = sourceBetween(
-      TASK_PAGE_SOURCE,
+      TASK_PAGE_WORK_ITEM_ACTIONS,
       'const handleUseWorkItem = useCallback(',
       'const handleOpenOrUseGitHubWorkItem = useCallback('
     )
 
     expect(section).toContain('createGitHubWorkItemWorkspaceInBackground({')
-    expect(section).toContain('openModalFallback: () => openComposerForItem(item)')
+    expect(section).toContain('openModalFallback: () => openComposerForGitHubItem(item)')
     expect(section).not.toContain("openModal('new-workspace-composer'")
   })
 

@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 
-import { getTaskPresetQuery, normalizeGitHubTaskPreset } from './task-page-query-model'
+import { getTaskPresetQuery } from '../../../shared/task-view-preset-query'
+import { normalizeGitHubTaskPreset } from './task-page-query-model'
 import type { JiraPresetId, LinearMode } from './task-page-localized-options'
 import type { TaskProvider } from '../../../shared/task-providers'
 import { resolveVisibleTaskProvider } from '../../../shared/task-providers'

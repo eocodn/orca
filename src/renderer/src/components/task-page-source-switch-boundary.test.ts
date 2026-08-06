@@ -2,7 +2,22 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'task-page-surface.tsx'), 'utf8')
+const TASK_PAGE_BASE_CONTROLLER = readFileSync(
+  join(__dirname, 'use-task-page-base-controller.ts'),
+  'utf8'
+)
+const TASK_PAGE_CODE_HOST_CONTENT = readFileSync(
+  join(__dirname, 'task-page-code-host-content-view.tsx'),
+  'utf8'
+)
+const TASK_PAGE_TOOLBAR_CONTROLLER = readFileSync(
+  join(__dirname, 'use-task-page-toolbar-controller.ts'),
+  'utf8'
+)
+const TASK_PAGE_WORK_ITEM_ACTIONS = readFileSync(
+  join(__dirname, 'use-task-page-work-item-actions.ts'),
+  'utf8'
+)
 const TASK_PAGE_SOURCE_PROVIDER_TOOLBAR = readFileSync(
   join(__dirname, 'task-page-source-provider-toolbar.tsx'),
   'utf8'
@@ -68,38 +83,32 @@ describe('TaskPage source switching host boundary', () => {
     expect(TASK_PAGE_LINEAR_COLLECTION_VIEWS.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_SOURCE_PROVIDER_TOOLBAR.split('\n').length).toBeLessThan(200)
     expect(TASK_PAGE_PROVIDER_DIALOG_STATE.split('\n').length).toBeLessThan(300)
-    expect(TASK_PAGE_SOURCE).toContain('useTaskPageStoreBindings()')
-    expect(TASK_PAGE_SOURCE).toContain('useTaskPageSourceSelection(taskPageStoreBindings)')
+    expect(TASK_PAGE_BASE_CONTROLLER).toContain('useTaskPageStoreBindings()')
+    expect(TASK_PAGE_BASE_CONTROLLER).toContain('useTaskPageSourceSelection(store)')
     expect(TASK_PAGE_SOURCE_SELECTION).toContain('pageData.taskSource ?? defaultTaskSource')
     expect(TASK_PAGE_SOURCE_SELECTION).toContain('resolveVisibleTaskProvider(preferredTaskSource')
   })
 
   it('renders GitHub item details from the task-detail page owner only', () => {
     const detailSection = sourceBetween(
-      TASK_PAGE_SOURCE,
-      '<PullRequestPage',
-      ") : taskSource === 'github' && githubMode === 'project' ?"
-    )
-    const modalSection = sourceBetween(
-      TASK_PAGE_SOURCE,
-      '<ProjectViewWrapper selectedRepoIds={repoSelection} />',
-      '<GitLabItemDialog'
+      TASK_PAGE_CODE_HOST_CONTENT,
+      'if (controller.dialogWorkItem) {',
+      "if (controller.githubMode === 'project')"
     )
 
-    expect(modalSection).toContain('selectedRepoIds={repoSelection}')
-    expect(detailSection).toContain('workItem={dialogWorkItem}')
+    expect(TASK_PAGE_CODE_HOST_CONTENT).toContain('selectedRepoIds={controller.repoSelection}')
+    expect(detailSection).toContain('workItem={controller.dialogWorkItem}')
     expect(detailSection).toContain('<PullRequestPage')
-    expect(detailSection).toContain('sourceContext={dialogSourceContext}')
+    expect(detailSection).toContain('sourceContext={controller.dialogSourceContext}')
     expect(detailSection).toContain('<GitHubItemDialog')
-    expect(detailSection).toContain('sourceContext={dialogSourceContext}')
-    expect(modalSection).not.toContain('<GitHubItemDialog')
+    expect(detailSection).toContain('sourceContext={controller.dialogSourceContext}')
   })
 
   it('switches task source without mutating the focused run host', () => {
     const section = sourceBetween(
-      TASK_PAGE_SOURCE,
+      TASK_PAGE_TOOLBAR_CONTROLLER,
       'const handleTaskSourceChange = useCallback(',
-      'const taskPageListChromeHidden = shouldHideTaskPageListChrome('
+      '\n\n  return {'
     )
 
     expect(section).toContain('openTaskPage(')
@@ -153,9 +162,9 @@ describe('TaskPage source switching host boundary', () => {
     expect(openGitLabDetail).toContain('item.projectRef')
 
     const startGitLabWorkspace = sourceBetween(
-      TASK_PAGE_SOURCE,
-      'const openComposerForGitLabItem = useCallback(',
-      'const handleUseGitLabItem = useCallback('
+      TASK_PAGE_WORK_ITEM_ACTIONS,
+      'const handleUseGitLabItem = useCallback(',
+      'const handleUseLinearItem = useCallback('
     )
     expect(startGitLabWorkspace).toContain('item.projectRef')
   })

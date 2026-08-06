@@ -9,7 +9,11 @@ function getLinearPriorityRank(priority: number): number {
   return priority === 0 ? 5 : priority
 }
 
-function compareLinearIssues(a: LinearIssue, b: LinearIssue, orderBy: LinearOrderBy): number {
+export function compareLinearIssues(
+  a: LinearIssue,
+  b: LinearIssue,
+  orderBy: LinearOrderBy
+): number {
   if (orderBy === 'updated') {
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   }

@@ -1,13 +1,12 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
-import { getStateLabel, getStateTone } from '@/components/github-work-item-display'
+import {
+  getGitHubWorkItemStateLabel as getStateLabel,
+  getGitHubWorkItemStateTone as getStateTone
+} from '@/components/github-work-item-display'
 import { githubProjectHost } from '../../../shared/github-project-identity'
 import { parseOwnerRepoFromItemUrl } from '@/components/github-work-item-display'
-import type {
-  GitHubAssignableUser,
-  GitHubOwnerRepo,
-  GitHubWorkItem
-} from '../../../shared/types'
+import type { GitHubAssignableUser, GitHubOwnerRepo, GitHubWorkItem } from '../../../shared/types'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
 
 export type ItemDialogTab = 'conversation' | 'checks' | 'files'

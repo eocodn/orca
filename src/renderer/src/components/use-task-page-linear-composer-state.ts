@@ -219,3 +219,5 @@ export function useTaskPageLinearComposerState({
     newLinearLabels
   }
 }
+
+export type TaskPageLinearComposerState = ReturnType<typeof useTaskPageLinearComposerState>

@@ -4,7 +4,7 @@ import { Github, Gitlab, LayoutGrid, List } from 'lucide-react'
 import { JiraIcon } from '@/components/icons/JiraIcon'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 import { translate } from '@/i18n/i18n'
-import { getTaskPresetQuery } from '@/lib/new-workspace'
+import { getTaskPresetQuery } from '../../../shared/task-view-preset-query'
 import type { TaskProvider, TaskViewPresetId } from '../../../shared/types'
 
 export type GitLabTaskFilter = 'opened' | 'merged' | 'closed' | 'all'
