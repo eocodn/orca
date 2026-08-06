@@ -49,10 +49,6 @@ vi.mock('../app-icon', () => ({
   applyAppIcon: applyAppIconMock
 }))
 
-vi.mock('../agent-hooks/managed-agent-hook-controls', () => ({
-  applyAgentStatusHooksEnabled: applyAgentStatusHooksEnabledMock
-}))
-
 vi.mock('../worktree-root-preparation', () => ({
   prepareLocalWorktreeRootsForRepos: prepareLocalWorktreeRootsForReposMock
 }))

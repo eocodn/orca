@@ -435,10 +435,6 @@ vi.mock('../ipc/preflight', () => ({
   detectRemoteAgents: detectRemoteAgentsMock
 }))
 
-vi.mock('../agent-hooks/managed-agent-hook-controls', () => ({
-  applyAgentStatusHooksEnabled: applyAgentStatusHooksEnabledMock
-}))
-
 vi.mock('../agent-trust-presets', () => ({
   markCodexProjectTrusted: markCodexProjectTrustedMock,
   markCopilotFolderTrusted: markCopilotFolderTrustedMock,
