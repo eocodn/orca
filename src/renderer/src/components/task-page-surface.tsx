@@ -53,6 +53,7 @@ import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
 import { TaskPageLinearIssueBody } from './task-page-linear-issue-body'
 import { useTaskPageLinearComposerState } from './use-task-page-linear-composer-state'
 import { useTaskPageLinearDetailState } from './use-task-page-linear-detail-state'
+import { useTaskPageJiraDetailState } from './use-task-page-jira-detail-state'
 import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-state'
 import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
 import {
@@ -73,6 +74,7 @@ import {
   writeLinearBoardIssueDragData
 } from '@/lib/linear-board-drag-payload'
 import { getLinearIssueWorkspaceName } from '../../../shared/workspace-name'
+import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selectors'
 import {
   buildTaskPageRepoSourceState,
   deriveTaskPageGitHubWorkItemsFetchOptions,
@@ -109,7 +111,6 @@ import {
   resolveNewIssueOpenSeed,
   resolveUserRepoSwitchReset
 } from '@/components/task-page-new-issue-draft'
-import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selectors'
 import { getRepoBackedTaskEmptyState } from '@/components/task-page-empty-state'
 import {
   createTaskPageJiraLoadFailureState,
@@ -772,65 +773,16 @@ export default function TaskPage(): React.JSX.Element {
     }))
   }, [clearSelectedLinearIssue, setDialogWorkItem])
 
-  const [selectedJiraIssueKey, setSelectedJiraIssueKey] = useState<string | null>(null)
-  const [selectedJiraIssueFallback, setSelectedJiraIssueFallback] = useState<JiraIssue | null>(null)
-  const jiraCacheSnapshot = useAppStore(
-    useShallow((s) => ({
-      issueCache: s.jiraIssueCache,
-      searchCache: s.jiraSearchCache
-    }))
-  )
-  const cachedSelectedJiraIssue = findTaskPageJiraIssue(
-    jiraCacheSnapshot.issueCache,
-    jiraCacheSnapshot.searchCache,
+  const {
+    selectedJiraIssue,
+    selectedJiraIssueFallback,
     selectedJiraIssueKey,
-    {
-      sourceContext: jiraTaskSourceContext,
-      siteId: selectedJiraIssueFallback?.siteId ?? pageData.openJiraIssue?.siteId ?? null
-    }
-  )
-  const selectedJiraIssue = selectedJiraIssueKey
-    ? (cachedSelectedJiraIssue ?? selectedJiraIssueFallback)
-    : null
-  const jiraDetailSourceContext = useMemo(() => {
-    if (
-      selectedJiraIssue &&
-      pageData.openJiraSourceContext?.provider === 'jira' &&
-      pageData.openJiraIssue?.key === selectedJiraIssue.key &&
-      pageData.openJiraIssue.siteId === selectedJiraIssue.siteId
-    ) {
-      return pageData.openJiraSourceContext
-    }
-    return jiraTaskSourceContext
-  }, [
-    jiraTaskSourceContext,
-    pageData.openJiraIssue,
-    pageData.openJiraSourceContext,
-    selectedJiraIssue
-  ])
-
-  const setSelectedJiraIssue = useCallback((issue: JiraIssue | null) => {
-    setSelectedJiraIssueKey(issue?.key ?? null)
-    setSelectedJiraIssueFallback(issue)
-  }, [])
-
-  useEffect(() => {
-    setSelectedJiraIssue(pageData.openJiraIssue ?? null)
-  }, [pageData.openJiraIssue, setSelectedJiraIssue])
-
-  const openJiraDetailPage = useCallback(
-    (issue: JiraIssue) => {
-      openTaskPage(
-        {
-          taskSource: 'jira',
-          openJiraIssue: issue,
-          openJiraSourceContext: jiraTaskSourceContext
-        },
-        { recordTasksInteraction: false }
-      )
-    },
-    [jiraTaskSourceContext, openTaskPage]
-  )
+    setSelectedJiraIssue,
+    setSelectedJiraIssueFallback,
+    setSelectedJiraIssueKey,
+    jiraDetailSourceContext,
+    openJiraDetailPage
+  } = useTaskPageJiraDetailState({ pageData, jiraTaskSourceContext, openTaskPage })
 
   // Linear tab state
   const [linearMode, setLinearMode] = useState<LinearMode>('issues')
