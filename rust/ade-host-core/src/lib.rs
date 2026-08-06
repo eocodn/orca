@@ -404,6 +404,38 @@ mod contract_tests {
             serde_json::Value::String(String::from(r"C:\workspaces\repo"))
         );
 
+        let bare_request = GitWorkerRequest::worktree_list(
+            "request-bare",
+            git_request.context(),
+            r"C:\workspaces\bare.git",
+        );
+        let bare_response = GitWorkerResponse::from_worktree_list_request(
+            &bare_request,
+            vec![GitWorktree {
+                path: String::from(r"C:\workspaces\bare.git"),
+                head: String::new(),
+                branch: None,
+                is_bare: true,
+                locked: false,
+                lock_reason: None,
+                prunable: false,
+                prunable_reason: None,
+                is_main: true,
+            }],
+        );
+        assert_eq!(bare_response.validate_for(&bare_request), Ok(()));
+        let decoded_bare = serde_json::from_value::<GitWorkerResponse>(
+            serde_json::to_value(&bare_response).expect("bare git response should serialize"),
+        )
+        .expect("bare git response should deserialize");
+        assert_eq!(decoded_bare.validate_for(&bare_request), Ok(()));
+        let mut non_bare_without_head = bare_response.clone();
+        non_bare_without_head.worktrees[0].is_bare = false;
+        assert_eq!(
+            non_bare_without_head.validate_for(&bare_request),
+            Err(ProtocolError::EmptyGitPath)
+        );
+
         let mut mismatched_path = git_response.clone();
         mismatched_path.repository_path = String::from(r"C:\workspaces\other");
         assert_eq!(

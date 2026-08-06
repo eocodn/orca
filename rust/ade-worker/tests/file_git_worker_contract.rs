@@ -125,6 +125,28 @@ fn git_dispatch_executes_against_a_real_folder_repository_and_jsonl_correlates()
     let _ = fs::remove_dir_all(repository);
 }
 
+#[test]
+fn git_dispatch_handles_a_real_bare_repository_without_inventing_a_head() {
+    let git_status = Command::new("git")
+        .arg("--version")
+        .status()
+        .expect("required Git integration test tool must be installed");
+    assert!(git_status.success(), "Git version probe must succeed");
+    let repository = temp_dir("bare-git");
+    run_git(&repository, &["init", "--bare", "-q"]);
+
+    let repository_string = repository.to_string_lossy().into_owned();
+    let request = GitWorkerRequest::worktree_list("bare-git-1", context(1, 9), repository_string);
+    let response = FileGitWorkerRegistry::default()
+        .execute_git(&request)
+        .unwrap();
+
+    assert_eq!(response.worktrees.len(), 1);
+    assert!(response.worktrees[0].is_bare);
+    assert!(response.worktrees[0].head.is_empty());
+    let _ = fs::remove_dir_all(repository);
+}
+
 fn run_git(path: &std::path::Path, args: &[&str]) {
     let status = Command::new("git")
         .args(args)

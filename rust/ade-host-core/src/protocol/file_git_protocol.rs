@@ -496,11 +496,10 @@ impl GitWorkerResponse {
         if &self.repository_path != expected_repository_path {
             return Err(ProtocolError::ResponseMismatch("repository_path"));
         }
-        if self
-            .worktrees
-            .iter()
-            .any(|worktree| worktree.path.trim().is_empty() || worktree.head.trim().is_empty())
-        {
+        if self.worktrees.iter().any(|worktree| {
+            worktree.path.trim().is_empty()
+                || (!worktree.is_bare && worktree.head.trim().is_empty())
+        }) {
             return Err(ProtocolError::EmptyGitPath);
         }
         Ok(())
