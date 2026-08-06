@@ -52,6 +52,7 @@ import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
 import { TaskPageLinearIssueBody } from './task-page-linear-issue-body'
 import { useTaskPageLinearComposerState } from './use-task-page-linear-composer-state'
+import { useTaskPageLinearDetailState } from './use-task-page-linear-detail-state'
 import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-state'
 import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
 import {
@@ -76,7 +77,6 @@ import {
   buildTaskPageRepoSourceState,
   deriveTaskPageGitHubWorkItemsFetchOptions,
   findTaskPageDialogWorkItem,
-  findTaskPageLinearIssue,
   reconcileTaskPageLinearIssuesAfterLandingRefresh,
   reconcileTaskPagePagesAfterLandingRefresh,
   reconcileTaskPagePagesWithWorkItemsCache,
@@ -733,87 +733,15 @@ export default function TaskPage(): React.JSX.Element {
     newIssueRepoAssignees
   } = useTaskPageGitHubNewIssueState({ selectedRepos, repos, settings })
 
-  const [selectedLinearIssueId, setSelectedLinearIssueId] = useState<string | null>(null)
-  const [selectedLinearIssueFallback, setSelectedLinearIssueFallback] =
-    useState<LinearIssue | null>(null)
-  const [selectedLinearIssueCanFloat, setSelectedLinearIssueCanFloat] = useState(false)
-
-  // Why: subscribe to just the Linear caches so list and inline detail reflect optimistic cell edits without a second cache.
-  const linearCacheSnapshot = useAppStore(
-    useShallow((s) => ({
-      issueCache: s.linearIssueCache,
-      searchCache: s.linearSearchCache,
-      listCache: s.linearListCache
-    }))
-  )
-  const cachedSelectedLinearIssue = findTaskPageLinearIssue(
-    linearCacheSnapshot.issueCache,
-    linearCacheSnapshot.searchCache,
-    linearCacheSnapshot.listCache,
-    selectedLinearIssueId
-  )
-  const selectedLinearIssue = selectedLinearIssueId
-    ? (cachedSelectedLinearIssue ?? selectedLinearIssueFallback)
-    : null
-  const linearDetailSourceContext = useMemo(() => {
-    if (
-      selectedLinearIssue &&
-      pageData.openLinearSourceContext?.provider === 'linear' &&
-      pageData.openLinearIssue?.id === selectedLinearIssue.id
-    ) {
-      return pageData.openLinearSourceContext
-    }
-    return linearTaskSourceContext
-  }, [
-    linearTaskSourceContext,
-    pageData.openLinearIssue,
-    pageData.openLinearSourceContext,
-    selectedLinearIssue
-  ])
-
-  const setSelectedLinearIssue = useCallback(
-    (issue: LinearIssue | null, options?: { allowOutsideList?: boolean }) => {
-      setSelectedLinearIssueCanFloat(Boolean(issue && options?.allowOutsideList))
-      setSelectedLinearIssueId(issue?.id ?? null)
-      setSelectedLinearIssueFallback(issue)
-    },
-    []
-  )
-
-  const clearSelectedLinearIssue = useCallback(() => {
-    setSelectedLinearIssueCanFloat(false)
-    setSelectedLinearIssueId(null)
-    setSelectedLinearIssueFallback(null)
-  }, [])
-
-  useEffect(() => {
-    if (!pageData.openLinearIssue) {
-      clearSelectedLinearIssue()
-      return
-    }
-    setSelectedLinearIssue(pageData.openLinearIssue, { allowOutsideList: true })
-  }, [clearSelectedLinearIssue, pageData.openLinearIssue, setSelectedLinearIssue])
-
-  const openLinearDetailPage = useCallback(
-    (issue: LinearIssue) => {
-      openTaskPage(
-        {
-          taskSource: 'linear',
-          openLinearIssue: issue,
-          openLinearSourceContext: linearTaskSourceContext
-        },
-        { recordTasksInteraction: false }
-      )
-    },
-    [linearTaskSourceContext, openTaskPage]
-  )
-
-  const openRelatedLinearIssue = useCallback(
-    (issue: LinearIssue) => {
-      openLinearDetailPage(issue)
-    },
-    [openLinearDetailPage]
-  )
+  const {
+    selectedLinearIssue,
+    selectedLinearIssueCanFloat,
+    selectedLinearIssueId,
+    clearSelectedLinearIssue,
+    linearDetailSourceContext,
+    openLinearDetailPage,
+    openRelatedLinearIssue
+  } = useTaskPageLinearDetailState({ pageData, linearTaskSourceContext, openTaskPage })
 
   const closeTaskDetailPage = useCallback(() => {
     const state = useAppStore.getState()

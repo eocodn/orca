@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const taskPageSource = readFileSync(new URL('./TaskPage.tsx', import.meta.url), 'utf8')
+const taskPageSource = readFileSync(new URL('./task-page-surface.tsx', import.meta.url), 'utf8')
 
 function issueCreationSection(): string {
   const start = taskPageSource.indexOf('const handleCreateNewIssue')
