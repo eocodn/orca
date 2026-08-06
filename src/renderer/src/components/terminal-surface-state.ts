@@ -11,7 +11,7 @@ import { isMainTerminalSideEffectAuthorityForPty } from './terminal-pane/termina
 import { getEffectiveLayout } from './terminal/split-group-mount'
 import { selectPairedRuntimeParkingEnvironmentIds } from './terminal-pane/terminal-hidden-view-parking'
 
-export function useTerminalSurfaceState(): Record<string, any> {
+export function useTerminalSurfaceState() {
   const mountedWorktreeIdsRef = useRef(new Set<string>())
   const measurableBackgroundWorktreeIdsRef = useRef(new Set<string>())
   const terminalWorktreeHiddenSinceRef = useRef(new Map<string, number>())
@@ -239,6 +239,6 @@ export function useTerminalSurfaceState(): Record<string, any> {
     activeWorktreeBrowserTabIdsKey,
     activeContextualTourId,
     hasSplitTerminalPane,
-    selectPairedRuntimeParkingEnvironmentIds,
+    selectPairedRuntimeParkingEnvironmentIds
   }
 }
