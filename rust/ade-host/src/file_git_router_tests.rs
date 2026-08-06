@@ -163,6 +163,11 @@ fn preserves_worker_timeout_and_rejects_stale_response_context() {
             git_calls: 0,
         }),
     );
+    assert_eq!(
+        router.route_file(request.clone()),
+        Err(FileGitRouterError::Timeout)
+    );
+    // Delivery-unknown failures are receipts, not permission to resend.
     assert_eq!(router.route_file(request), Err(FileGitRouterError::Timeout));
 
     let request = file_request("mismatch", &token);
