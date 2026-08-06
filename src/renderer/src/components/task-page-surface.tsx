@@ -44,6 +44,7 @@ import { TaskPageJiraErrorBanner } from './task-page-jira-error-banner'
 import { TaskPageGitLabTodosTable } from './task-page-gitlab-todos-table'
 import { TaskPageGitLabItemsTable } from './task-page-gitlab-items-table'
 import { TaskPageGitHubItemsTable } from './task-page-github-items-table'
+import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -143,12 +144,7 @@ import GitLabItemDialog from '@/components/GitLabItemDialog'
 import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
-import {
-  LinearCollectionNotice,
-  LinearCustomViewTable,
-  LinearProjectOverview,
-  LinearProjectTable
-} from '@/components/linear-project-view-surfaces'
+import { LinearCollectionNotice } from '@/components/linear-project-view-surfaces'
 import JiraIssueWorkspace from '@/components/JiraIssueWorkspace'
 import { TaskPageJiraIssueList } from '@/components/task-page-jira-issue-list'
 import {
@@ -8176,200 +8172,40 @@ export default function TaskPage(): React.JSX.Element {
                 {translate('auto.components.TaskPage.851017590d', 'Add Linear access')}
               </Button>
             </div>
-          ) : selectedLinearProject && linearProjectTab === 'overview' ? (
-            <div className="flex min-h-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-background shadow-sm">
-              <LinearProjectOverview
-                project={selectedLinearProjectDetail ?? selectedLinearProject}
-                loading={linearProjectDetailLoading}
-                error={linearProjectDetailError}
-                onBack={() => {
-                  if (linearProjectParentView) {
-                    setSelectedLinearProject(null)
-                    setSelectedLinearProjectDetail(null)
-                    setLinearProjectTab('overview')
-                    setLinearMode('views')
-                    setSelectedLinearCustomView(linearProjectParentView)
-                    setTaskResumeState(
-                      linearProjectParentView.workspaceId
-                        ? {
-                            linearMode: 'views',
-                            linearContext: {
-                              kind: 'view',
-                              id: linearProjectParentView.id,
-                              workspaceId: linearProjectParentView.workspaceId,
-                              model: linearProjectParentView.model
-                            }
-                          }
-                        : {
-                            linearMode: 'views',
-                            linearContext: undefined
-                          }
-                    )
-                    setLinearProjectParentView(null)
-                    return
-                  }
-                  setSelectedLinearProject(null)
-                  setSelectedLinearProjectDetail(null)
-                  setLinearProjectParentView(null)
-                  setLinearProjectTab('overview')
-                  setTaskResumeState({ linearContext: undefined })
-                }}
-                onOpenProject={(project) => {
-                  if (project.url) {
-                    void window.api.shell.openUrl(project.url)
-                  }
-                }}
-                onRefresh={() => setLinearRefreshNonce((n) => n + 1)}
-                onOpenIssues={() => setLinearProjectTab('issues')}
-              />
-            </div>
-          ) : linearMode === 'projects' && !selectedLinearProject ? (
-            <div className="flex min-h-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-background shadow-sm">
-              <div className="grid h-8 flex-none items-center gap-3 border-b border-border/50 bg-muted/25 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground grid-cols-[minmax(180px,1.5fr)_110px_100px_90px_120px_110px_80px_70px]">
-                <span>{translate('auto.components.TaskPage.00022ec0ba', 'Project')}</span>
-                <span>{translate('auto.components.TaskPage.154b0fa623', 'Status')}</span>
-                <span>{translate('auto.components.TaskPage.8a07f21e76', 'Health')}</span>
-                <span>{translate('auto.components.TaskPage.c8d5bec5f7', 'Priority')}</span>
-                <span>{translate('auto.components.TaskPage.34da8ac06c', 'Lead')}</span>
-                <span>{translate('auto.components.TaskPage.7da41c9225', 'Target')}</span>
-                <span>{translate('auto.components.TaskPage.dfc0c79bd8', 'Issues')}</span>
-                <span />
-              </div>
-              <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto scrollbar-sleek">
-                {linearProjectsError ? (
-                  <div className="border-b border-border px-4 py-4 text-sm text-destructive">
-                    {linearProjectsError}
-                  </div>
-                ) : null}
-                <LinearProjectTable
-                  projects={linearProjectsResult.items}
-                  loading={linearProjectsLoading}
-                  hasError={!!linearProjectsResult.errors?.length}
-                  workspaceSelection={selectedLinearWorkspaceId}
-                  onSelectProject={openLinearProjectContext}
-                  onOpenProject={(project) => {
-                    if (project.url) {
-                      void window.api.shell.openUrl(project.url)
-                    }
-                  }}
-                  onUseProjectIssues={(project) => {
-                    openLinearProjectContext(project)
-                    setLinearProjectTab('issues')
-                  }}
-                />
-              </div>
-              <LinearCollectionNotice
-                errors={linearProjectsResult.errors}
-                hasMore={linearProjectsResult.hasMore}
-                count={linearProjectsResult.items.length}
-                label={translate('auto.components.TaskPage.b39fe6511d', 'projects')}
-              />
-            </div>
-          ) : linearMode === 'views' && !selectedLinearCustomView ? (
-            <div className="flex min-h-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-background shadow-sm">
-              <div className="grid h-8 flex-none items-center gap-3 border-b border-border/50 bg-muted/25 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground grid-cols-[minmax(220px,1.5fr)_120px_120px_120px_130px_60px]">
-                <span>{translate('auto.components.TaskPage.9c57663908', 'View')}</span>
-                <span>{translate('auto.components.TaskPage.0aa8525950', 'Model')}</span>
-                <span>{translate('auto.components.TaskPage.a04fe7ba73', 'Visibility')}</span>
-                <span>{translate('auto.components.TaskPage.b4e10f096e', 'Owner')}</span>
-                <span>{translate('auto.components.TaskPage.f362667d55', 'Updated')}</span>
-                <span />
-              </div>
-              <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto scrollbar-sleek">
-                {linearCustomViewsError ? (
-                  <div className="border-b border-border px-4 py-4 text-sm text-destructive">
-                    {linearCustomViewsError}
-                  </div>
-                ) : null}
-                <LinearCustomViewTable
-                  views={linearCustomViewsResult.items}
-                  loading={linearCustomViewsLoading}
-                  hasError={!!linearCustomViewsResult.errors?.length}
-                  workspaceSelection={selectedLinearWorkspaceId}
-                  onSelectView={openLinearCustomViewContext}
-                  onOpenView={(view) => {
-                    if (view.url) {
-                      void window.api.shell.openUrl(view.url)
-                    }
-                  }}
-                />
-              </div>
-              <LinearCollectionNotice
-                errors={linearCustomViewsResult.errors}
-                hasMore={linearCustomViewsResult.hasMore}
-                count={linearCustomViewsResult.items.length}
-                label={translate('auto.components.TaskPage.3cb855080f', 'views')}
-              />
-            </div>
-          ) : selectedLinearCustomView?.model === 'project' && !selectedLinearProject ? (
-            <div className="flex min-h-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-background shadow-sm">
-              <div className="flex h-10 flex-none items-center justify-between gap-3 border-b border-border/50 bg-muted/35 px-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => {
-                      setSelectedLinearCustomView(null)
-                      setLinearProjectParentView(null)
-                      setTaskResumeState({ linearContext: undefined })
-                    }}
-                    aria-label={translate('auto.components.TaskPage.bc06ed0fb0', 'Back to views')}
-                  >
-                    <ChevronLeft className="size-3.5" />
-                  </Button>
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-medium text-foreground">
-                      {selectedLinearCustomView.name}
-                    </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {translate('auto.components.TaskPage.733b8f2421', 'Linear / Views')}
-                    </div>
-                  </div>
-                </div>
-                {selectedLinearCustomView.url ? (
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => void window.api.shell.openUrl(selectedLinearCustomView.url!)}
-                    className="gap-1 border-border/50 bg-background/70"
-                  >
-                    <ExternalLink className="size-3.5" />
-                    {translate('auto.components.TaskPage.8675cd6188', 'Linear')}
-                  </Button>
-                ) : null}
-              </div>
-              <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto scrollbar-sleek">
-                {linearCustomViewContentsError ? (
-                  <div className="border-b border-border px-4 py-4 text-sm text-destructive">
-                    {linearCustomViewContentsError}
-                  </div>
-                ) : null}
-                <LinearProjectTable
-                  projects={linearCustomViewProjectsResult.items}
-                  loading={linearCustomViewContentsLoading}
-                  hasError={!!linearCustomViewProjectsResult.errors?.length}
-                  workspaceSelection={selectedLinearWorkspaceId}
-                  onSelectProject={(project) =>
-                    openLinearProjectContext(project, { parentView: selectedLinearCustomView })
-                  }
-                  onOpenProject={(project) => {
-                    if (project.url) {
-                      void window.api.shell.openUrl(project.url)
-                    }
-                  }}
-                  onUseProjectIssues={(project) => {
-                    openLinearProjectContext(project, { parentView: selectedLinearCustomView })
-                    setLinearProjectTab('issues')
-                  }}
-                />
-              </div>
-              <LinearCollectionNotice
-                errors={linearCustomViewProjectsResult.errors}
-                hasMore={linearCustomViewProjectsResult.hasMore}
-                count={linearCustomViewProjectsResult.items.length}
-                label={translate('auto.components.TaskPage.b39fe6511d', 'projects')}
-              />
-            </div>
+          ) : (selectedLinearProject && linearProjectTab === 'overview') ||
+            (linearMode === 'projects' && !selectedLinearProject) ||
+            (linearMode === 'views' && !selectedLinearCustomView) ||
+            (selectedLinearCustomView?.model === 'project' && !selectedLinearProject) ? (
+            <TaskPageLinearCollectionViews
+              selectedLinearProject={selectedLinearProject}
+              selectedLinearProjectDetail={selectedLinearProjectDetail}
+              linearProjectDetailLoading={linearProjectDetailLoading}
+              linearProjectDetailError={linearProjectDetailError}
+              linearProjectTab={linearProjectTab}
+              linearProjectParentView={linearProjectParentView}
+              linearMode={linearMode}
+              linearProjectsResult={linearProjectsResult}
+              linearProjectsLoading={linearProjectsLoading}
+              linearProjectsError={linearProjectsError}
+              linearCustomViewsResult={linearCustomViewsResult}
+              linearCustomViewsLoading={linearCustomViewsLoading}
+              linearCustomViewsError={linearCustomViewsError}
+              selectedLinearCustomView={selectedLinearCustomView}
+              linearCustomViewProjectsResult={linearCustomViewProjectsResult}
+              linearCustomViewContentsLoading={linearCustomViewContentsLoading}
+              linearCustomViewContentsError={linearCustomViewContentsError}
+              selectedLinearWorkspaceId={selectedLinearWorkspaceId}
+              setSelectedLinearProject={setSelectedLinearProject}
+              setSelectedLinearProjectDetail={setSelectedLinearProjectDetail}
+              setLinearProjectTab={setLinearProjectTab}
+              setLinearMode={setLinearMode}
+              setSelectedLinearCustomView={setSelectedLinearCustomView}
+              setLinearProjectParentView={setLinearProjectParentView}
+              setTaskResumeState={setTaskResumeState}
+              onRefresh={() => setLinearRefreshNonce((n) => n + 1)}
+              openLinearProjectContext={openLinearProjectContext}
+              openLinearCustomViewContext={openLinearCustomViewContext}
+            />
           ) : (
             <div className="flex min-h-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-background shadow-sm">
               <div className="flex h-10 flex-none items-center justify-between gap-3 border-b border-border/50 bg-muted/35 px-3">

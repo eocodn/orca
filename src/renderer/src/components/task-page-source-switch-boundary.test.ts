@@ -27,6 +27,10 @@ const TASK_PAGE_GITHUB_ITEM_ACTIONS = readFileSync(
   join(__dirname, 'task-page-github-item-actions.tsx'),
   'utf8'
 )
+const TASK_PAGE_LINEAR_COLLECTION_VIEWS = readFileSync(
+  join(__dirname, 'task-page-linear-collection-views.tsx'),
+  'utf8'
+)
 const TASK_PAGE_STORE_BINDINGS = readFileSync(
   join(__dirname, 'use-task-page-store-bindings.ts'),
   'utf8'
@@ -53,6 +57,7 @@ describe('TaskPage source switching host boundary', () => {
     expect(TASK_PAGE_GITHUB_ITEMS_TABLE.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_GITHUB_ITEM_ROWS.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_GITHUB_ITEM_ACTIONS.split('\n').length).toBeLessThan(400)
+    expect(TASK_PAGE_LINEAR_COLLECTION_VIEWS.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageStoreBindings()')
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageSourceSelection(taskPageStoreBindings)')
     expect(TASK_PAGE_SOURCE_SELECTION).toContain('pageData.taskSource ?? defaultTaskSource')
