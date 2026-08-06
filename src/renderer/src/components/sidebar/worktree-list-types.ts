@@ -1,4 +1,5 @@
 import type React from 'react'
+import type { FolderWorkspacePathStatus } from '../../../../shared/folder-workspace-path-status'
 import type { AppState } from '@/store/types'
 import type {
   FolderWorkspace,
@@ -24,6 +25,7 @@ import type { WorktreeSidebarDragRect } from './worktree-sidebar-drag-autoscroll
 import type { WorktreeSidebarTrackedStatusDropTarget } from './worktree-sidebar-drop-preview'
 import type { WorkspaceKanbanCardTrackedDropTarget } from './workspace-kanban-card-pointer-drag-dom'
 import type { HostSectionRow } from './host-section-rows'
+import type { GroupHeaderRow } from './worktree-list-groups'
 import type { ImportedWorktreeCardActionState } from './imported-worktrees-card-actions'
 import type { NewExternalWorktreesInboxActionState } from './new-external-worktrees-inbox-actions'
 
@@ -169,4 +171,139 @@ export type WorktreeListProps = {
   onWorkspaceBoardDragPreviewStart?: () => void
   onWorkspaceBoardDragPreviewCommit?: () => void
   onWorkspaceBoardDragPreviewCancel?: () => void
+}
+
+export type WorktreeListContentRowProps = {
+  itemKey: React.Key
+  index: number
+  start: number
+  measureRef: React.RefCallback<HTMLElement>
+  children: React.ReactNode
+  className?: string
+  style?: React.CSSProperties
+}
+
+export type WorktreeListCardRowProps = {
+  itemRow: Extract<HostSectionRow, { type: 'item' }>
+  nested: boolean
+  lineageChildren?: React.ReactNode
+  forceActiveSurface?: boolean
+  groupBy: WorktreeGroupBy
+  activeWorktreeId: string | null
+  currentWorktreeId: string | null
+  selectedWorktreeIds: ReadonlySet<string>
+  selectedWorktrees: readonly Worktree[]
+  agentSendTargetWorktreeId: string | null
+  highlightedRevealRowKey?: string
+  folderBackedProjectGroupIds: ReadonlySet<string>
+  experimentalNewWorktreeCardStyle: boolean
+  worktreeDragState: WorktreeRowDragState
+  worktreeDragGroupKey?: string
+  worktreeDragGroupIndex?: number
+  nativeLineageDropTargetId: string | null
+  getActiveSurfaceVariant: (row: Extract<HostSectionRow, { type: 'item' }>) => string
+  getLineageNestedRowGeometry: (args: {
+    experimentalNewWorktreeCardStyle: boolean
+    inheritedCardContentIndent: number
+    lineageDepth: number
+  }) => { surfaceInset: number; cardContentIndent: number; lineageChildrenInlineOffset: number }
+  getWorktreeCardContentIndent: (args: {
+    isGrouped: boolean
+    groupDepth: number
+    lineageDepth: number
+  }) => number
+  getFolderBackedRepoWorktreeCardContentIndent: (args: {
+    groupDepth: number
+    lineageDepth: number
+  }) => number
+  getWorktreeCardSurfaceInset: (args: { isGrouped: boolean; groupDepth: number }) => number
+  getFolderBackedRepoWorktreeCardSurfaceInset: (args: {
+    groupDepth: number
+    lineageDepth: number
+  }) => number
+  getLineageChildrenInlineStyle: (offset: number) => React.CSSProperties
+  getLineageToggleHandler: (groupKey: string) => () => void
+  handleWorktreeRowClickCapture: React.MouseEventHandler<HTMLElement>
+  handleWorktreeRowPointerDown: (
+    event: React.PointerEvent<HTMLElement>,
+    id: string,
+    rowKey: string
+  ) => void
+  stopNestedWorktreeCardBubble: React.EventHandler<React.SyntheticEvent<HTMLElement>>
+  handleImmediateWorktreeRowActivate: (worktreeId: string, rowKey?: string) => void
+  onSelectionGesture: (event: React.MouseEvent<HTMLElement>, worktreeId: string) => boolean
+  onContextMenuSelect: (
+    event: React.MouseEvent<HTMLElement>,
+    worktree: Worktree
+  ) => readonly Worktree[]
+  handleWorktreeCardDragStart: (event: React.DragEvent<HTMLElement>, worktreeId: string) => void
+  clearWorktreeDrag: () => void
+}
+
+export type WorktreeListHeaderActionsProps = {
+  row: GroupHeaderRow
+  groupBy: WorktreeGroupBy
+  folderWorkspaceCreateDisabled: boolean
+  projectGroupPathStatus: FolderWorkspacePathStatus | null
+  handleOpenRepoSettings: (projectId: string, sectionId?: string) => void
+  handleOpenWorktreeVisibility: (projectId: string) => void
+  handleCreateGroupFromRepo: (repo: Repo) => void
+  handleMoveProjectToGroup: (repo: Repo, groupId: string) => void
+  handleRemoveProjectFromGroup: (repo: Repo) => void
+  handleRemoveProject: (repo: Repo) => void
+  handleCreateForRepo: (projectId: string) => void
+  handleCreateFolderWorkspace: (projectGroup: ProjectGroup) => void
+  handleRenameProjectGroup: (groupId: string, currentName: string) => void
+  handleDeleteProjectGroup: (groupId: string, groupName: string) => void
+  canShowFolderWorkspaceCreate: boolean
+  stopRepoHeaderKeyboardToggle: React.KeyboardEventHandler<HTMLElement>
+  handleRepoHeaderActionPointerDown: React.PointerEventHandler<HTMLElement>
+  stopRepoHeaderMenuEvent: React.EventHandler<React.SyntheticEvent<HTMLElement>>
+}
+
+export type WorktreeListHeaderRowProps = {
+  row: GroupHeaderRow
+  itemKey: React.Key
+  index: number
+  start: number
+  measureRef: React.RefCallback<HTMLElement>
+  groupBy: WorktreeGroupBy
+  isActiveStickyHeader: boolean
+  stickyTopClass: string
+  hasHeaderTopSpacing: boolean
+  isDraggableRepoHeader: boolean
+  isDraggableProjectGroupHeader: boolean
+  isDraggingThis: boolean
+  isDraggingThisProjectGroup: boolean
+  headerWorkspaceStatus: WorkspaceStatus | null
+  isPinnedHeader: boolean
+  repoHeaderColor?: string
+  projectGroupPathStatus: FolderWorkspacePathStatus | null
+  folderWorkspaceCreateDisabled: boolean
+  projectGroupDepth: number
+  isHeaderCollapsed: boolean
+  showHeaderCollapseAffordance: boolean
+  headerPaddingLeft: number
+  projectIdForHeader?: string
+  projectGroupIdForHeader?: string
+  repoHeaderIndex?: number
+  repoHeaderBucketKey?: string
+  projectGroupHeaderIndex?: number
+  projectGroupHeaderBucketKey?: string
+  repoHeaderSectionEnd?: number
+  projectGroupHeaderSectionEnd?: number
+  highlighted: boolean
+  pinDragOver: boolean
+  dragOverStatus: WorkspaceStatus | null
+  projectGroups: readonly ProjectGroup[]
+  createState: { disabled: boolean; tooltip: string; ariaLabel: string } | null
+  headerActions: WorktreeListHeaderActionsProps
+  toggleGroup: () => void
+  onRepoHeaderPointerDown?: React.PointerEventHandler<HTMLElement>
+  onProjectGroupHeaderPointerDown?: React.PointerEventHandler<HTMLElement>
+  onDragOver?: React.DragEventHandler<HTMLElement>
+  onDragLeave?: React.DragEventHandler<HTMLElement>
+  onDrop?: React.DragEventHandler<HTMLElement>
+  onCollapseAffordancePointerDown: React.PointerEventHandler<HTMLElement>
+  onIgnoreToggle: (event: React.SyntheticEvent) => boolean
 }
