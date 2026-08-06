@@ -24,8 +24,7 @@ import type {
   Repo,
   ProjectGroup,
   WorktreeMeta,
-  WorkspaceStatus,
-  WorkspaceStatusDefinition
+  WorkspaceStatus
 } from '../../../../shared/types'
 import { DEFAULT_SHOW_SLEEPING_WORKSPACES } from '../../../../shared/constants'
 import { buildWorktreeComparator, compareWorktreeSortLabel } from './smart-sort'
@@ -57,9 +56,7 @@ import {
 import {
   getWorkspaceStatus,
   getWorkspaceStatusFromGroupKey,
-  getWorkspaceStatusGroupKey,
-  hasWorkspaceDragData,
-  readWorkspaceDragDataIds
+  getWorkspaceStatusGroupKey
 } from './workspace-status'
 import { useWorkspaceStatusDocumentDrop } from './use-workspace-status-drop'
 import {
@@ -98,37 +95,14 @@ import {
 } from './worktree-manual-order'
 import {
   buildWorkspaceKanbanSidebarDropUpdates,
-  clearWorkspaceKanbanSidebarDropTargetVisual,
-  getWorkspaceKanbanSidebarDropGroups,
-  getWorkspaceKanbanSidebarDropTarget,
-  hasWorkspaceKanbanSidebarDropBoard,
-  isWorkspaceKanbanSidebarDropPointInBoard,
-  resolveWorkspaceKanbanSidebarFullLaneDropIndex,
-  updateWorkspaceKanbanSidebarDropTargetVisual
+  clearWorkspaceKanbanSidebarDropTargetVisual
 } from './workspace-kanban-sidebar-drop'
-import { resolveWorkspaceKanbanCardDropCommitTarget } from './workspace-kanban-card-pointer-drag-dom'
-import { getFullDropIndexForWorktreeDragUnit } from './worktree-drag-units'
-import {
-  createSidebarDragPreview,
-  isSidebarPointerDragBlocked,
-  setSidebarPointerDragDocumentStyles,
-  updateSidebarDragPreviewPosition
-} from './worktree-sidebar-pointer-drag-dom'
-import {
-  getWorktreeSidebarDragAutoscroll,
-  getWorktreeSidebarDragRectsForGroup,
-  type WorktreeSidebarDragPoint
-} from './worktree-sidebar-drag-autoscroll'
-import { getWorktreeSidebarDragGrab } from './worktree-sidebar-drag-geometry'
-import {
-  resolveWorktreeSidebarStatusDropCommitTarget,
-  type WorktreeSidebarStatusDropTarget,
-  type WorktreeSidebarDropPreview
-} from './worktree-sidebar-drop-preview'
+import type { WorktreeSidebarDragPoint } from './worktree-sidebar-drag-autoscroll'
+import type { WorktreeSidebarStatusDropTarget } from './worktree-sidebar-drop-preview'
 import {
   getReorderedWorktreeIdsToUnnest,
-  getWorktreeLineageDropTargetId
 } from './worktree-lineage-drag-drop'
+import { getPointerDropStatusTarget } from './worktree-list-drop-target'
 import { resolveProjectGroupHeaderColor } from './project-header-color'
 import {
   areWorktreeSelectionsEqual,
@@ -209,7 +183,9 @@ import { useWorktreeListFolderPathStatus } from './worktree-list-folder-path-sta
 import { useWorktreeListKeyboard } from './worktree-list-keyboard'
 import { useWorktreeListRevealEffects } from './worktree-list-reveal-effects'
 import { useWorktreeListDragSession } from './worktree-list-drag-session'
-import { registerWorktreeListPointerListeners } from './worktree-list-pointer-listeners'
+import { useWorktreeListPointerDragController } from './use-worktree-list-pointer-drag'
+import { useWorktreeListStatusDrop } from './use-worktree-list-status-drop'
+import { useWorktreeListNativeDrag } from './use-worktree-list-native-drag'
 import {
   registerWorktreeListDocumentDropListener,
   registerWorktreeListDragEndListener,
@@ -266,7 +242,6 @@ const WORKTREE_SIDEBAR_SCROLL_STYLE: React.CSSProperties = {
   overflowAnchor: 'none'
 }
 
-const SIDEBAR_POINTER_DRAG_THRESHOLD_PX = 4
 const EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS: ReadonlyMap<string, number> = new Map()
 
 const WORKTREE_ROW_DRAG_INITIAL_STATE: WorktreeRowDragState = {
@@ -278,88 +253,9 @@ const WORKTREE_ROW_DRAG_INITIAL_STATE: WorktreeRowDragState = {
   pointerY: null
 }
 
-function areWorktreeDragPreviewOffsetsEqual(
-  a: ReadonlyMap<string, number>,
-  b: ReadonlyMap<string, number>
-): boolean {
-  if (a === b) {
-    return true
-  }
-  if (a.size !== b.size) {
-    return false
-  }
-  for (const [key, value] of a) {
-    if (b.get(key) !== value) {
-      return false
-    }
-  }
-  return true
-}
-
-function updateLatestWorktreeStatusDropTarget(
-  drag: WorktreePointerDrag,
-  target: WorktreeSidebarStatusDropTarget & { lineageParentId: string | null },
-  preview: WorktreeSidebarDropPreview | null
-): void {
-  drag.latestStatusDropTarget =
-    target.status || target.isPinDrop || target.lineageParentId
-      ? {
-          target,
-          preview,
-          x: drag.currentX,
-          y: drag.currentY
-        }
-      : null
-}
-
 function getWorktreeVirtualRowTransform(start: number, previewOffset: number): string {
   const base = getVirtualRowTransform(start)
   return previewOffset === 0 ? base : `${base} translateY(${previewOffset}px)`
-}
-
-function getPointerDropStatusTarget(args: {
-  container: HTMLElement
-  x: number
-  y: number
-}): WorktreeSidebarStatusDropTarget & { lineageParentId: string | null } {
-  const target = document.elementFromPoint(args.x, args.y)
-  if (!(target instanceof Element) || !args.container.contains(target)) {
-    return { status: null, isPinDrop: false, lineageParentId: null }
-  }
-  const pinTarget = target.closest<HTMLElement>('[data-workspace-pin-drop-target]')
-  if (pinTarget && args.container.contains(pinTarget)) {
-    return { status: null, isPinDrop: true, lineageParentId: null }
-  }
-  const lineageParentId = getWorktreeLineageDropTargetId({
-    container: args.container,
-    target,
-    pointerY: args.y
-  })
-  const statusTarget = target.closest<HTMLElement>('[data-workspace-status-drop-target]')
-  return {
-    status:
-      statusTarget && args.container.contains(statusTarget)
-        ? ((statusTarget.dataset.workspaceStatus as WorkspaceStatus | undefined) ?? null)
-        : null,
-    isPinDrop: false,
-    lineageParentId
-  }
-}
-
-function shouldPreferSidebarStatusDropTarget(args: {
-  sourceGroupKey: string
-  target: WorktreeSidebarStatusDropTarget
-  workspaceStatuses: readonly WorkspaceStatusDefinition[]
-}): boolean {
-  if (args.target.isPinDrop) {
-    return true
-  }
-  if (!args.target.status) {
-    return false
-  }
-  const sourceStatus = getWorkspaceStatusFromGroupKey(args.sourceGroupKey, args.workspaceStatuses)
-  // Why: overlapping edge zones — the section under the pointer must win so guide and drop agree.
-  return sourceStatus !== null && args.target.status !== sourceStatus
 }
 
 import {
@@ -955,603 +851,45 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     [cyclicLineageIds, updateWorktreeLineage, worktreeDragGroups, worktreeLineageById, worktreeMap]
   )
 
-  const flushWorktreePointerDrag = useCallback(() => {
-    const drag = worktreePointerDragRef.current
-    if (!drag) {
-      return
-    }
-    drag.frameId = null
-    if (!drag.active || !drag.preview) {
-      return
-    }
-    updateSidebarDragPreviewPosition({
-      preview: drag.preview,
-      pointerX: drag.currentX,
-      pointerY: drag.currentY,
-      offsetX: drag.previewOffsetX,
-      offsetY: drag.previewOffsetY
-    })
-    if (!refreshWorktreeDragSession()) {
-      clearWorktreeDrag()
-      return
-    }
-    // Why: show the board preview as soon as a card drag begins so the drop target is visible up front, not only at the sidebar edge.
-    if (
-      !drag.workspaceBoardDragPreviewRequested &&
-      !workspaceBoardOpen &&
-      !hasWorkspaceKanbanSidebarDropBoard()
-    ) {
-      drag.workspaceBoardDragPreviewRequested = true
-      onWorkspaceBoardDragPreviewStart()
-    }
-    const boardTarget = updateWorkspaceKanbanSidebarDropTargetVisual({
-      x: drag.currentX,
-      y: drag.currentY,
-      shouldShowDropIndicator: (target) =>
-        Boolean(
-          target.status &&
-          shouldShowWorkspaceBoardDropIndicator(drag.reorderDraggedIds, target.status)
-        )
-    })
-    drag.latestBoardDropTarget = {
-      target: boardTarget,
-      x: drag.currentX,
-      y: drag.currentY
-    }
-    if (isWorkspaceKanbanSidebarDropPointInBoard(drag.currentX, drag.currentY)) {
-      onWorkspaceBoardDragPreviewCommit()
-    }
-    if (boardTarget.status || boardTarget.isPinDrop) {
-      drag.latestStatusDropTarget = null
-      setDragOverStatus(null)
-      setPinDragOver(false)
-      setWorktreeDragState((prev) =>
-        prev.dropIndex === null &&
-        prev.dropIndicatorY === null &&
-        prev.pointerY === drag.currentY &&
-        prev.previewOffsetsByWorktreeId.size === 0
-          ? prev
-          : {
-              ...prev,
-              dropIndex: null,
-              dropIndicatorY: null,
-              previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-              pointerY: drag.currentY
-            }
-      )
-      return
-    }
-
-    const sidebarContainer = scrollRef.current
-    const preferredStatusTarget = getEligibleLineageDropTarget(
-      sidebarContainer
-        ? getPointerDropStatusTarget({
-            container: sidebarContainer,
-            x: drag.currentX,
-            y: drag.currentY
-          })
-        : { status: null, isPinDrop: false, lineageParentId: null },
-      drag.draggedIds
-    )
-    if (preferredStatusTarget.lineageParentId) {
-      updateLatestWorktreeStatusDropTarget(drag, preferredStatusTarget, null)
-      clearWorkspaceKanbanSidebarDropTargetVisual()
-      setDragOverStatus(null)
-      setPinDragOver(false)
-      setWorktreeDragState((prev) =>
-        prev.dropIndex === null &&
-        prev.dropIndicatorY === null &&
-        prev.pointerY === drag.currentY &&
-        prev.previewOffsetsByWorktreeId.size === 0
-          ? prev
-          : {
-              ...prev,
-              dropIndex: null,
-              dropIndicatorY: null,
-              previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-              pointerY: drag.currentY
-            }
-      )
-      return
-    }
-    if (
-      shouldPreferSidebarStatusDropTarget({
-        sourceGroupKey: drag.sourceGroupKey,
-        target: preferredStatusTarget,
-        workspaceStatuses
-      })
-    ) {
-      const statusDrop = preferredStatusTarget.status
-        ? computeWorktreeStatusDrop({
-            pointerY: drag.currentY,
-            status: preferredStatusTarget.status,
-            draggedIds: drag.reorderDraggedIds
-          })
-        : null
-      if (statusDrop) {
-        updateLatestWorktreeStatusDropTarget(drag, preferredStatusTarget, statusDrop)
-        clearWorkspaceKanbanSidebarDropTargetVisual()
-        setDragOverStatus(null)
-        setPinDragOver(false)
-        setWorktreeDragState((prev) =>
-          prev.dropIndex === statusDrop.dropIndex &&
-          prev.dropIndicatorY === statusDrop.dropIndicatorY &&
-          prev.pointerY === drag.currentY &&
-          areWorktreeDragPreviewOffsetsEqual(
-            prev.previewOffsetsByWorktreeId,
-            statusDrop.previewOffsetsByWorktreeId
-          )
-            ? prev
-            : { ...prev, ...statusDrop, pointerY: drag.currentY }
-        )
-        return
-      }
-      updateLatestWorktreeStatusDropTarget(drag, preferredStatusTarget, statusDrop)
-      setDragOverStatus(preferredStatusTarget.status)
-      setPinDragOver(preferredStatusTarget.isPinDrop)
-      setWorktreeDragState((prev) =>
-        prev.dropIndex === null &&
-        prev.dropIndicatorY === null &&
-        prev.pointerY === drag.currentY &&
-        prev.previewOffsetsByWorktreeId.size === 0
-          ? prev
-          : {
-              ...prev,
-              dropIndex: null,
-              dropIndicatorY: null,
-              previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-              pointerY: drag.currentY
-            }
-      )
-      return
-    }
-
-    const drop = computeWorktreeDrop(drag.currentY)
-    if (!drop) {
-      const target = preferredStatusTarget
-      const statusDrop = target.status
-        ? computeWorktreeStatusDrop({
-            pointerY: drag.currentY,
-            status: target.status,
-            draggedIds: drag.reorderDraggedIds
-          })
-        : null
-      if (statusDrop) {
-        updateLatestWorktreeStatusDropTarget(drag, target, statusDrop)
-        clearWorkspaceKanbanSidebarDropTargetVisual()
-        setDragOverStatus(null)
-        setPinDragOver(false)
-        setWorktreeDragState((prev) =>
-          prev.dropIndex === statusDrop.dropIndex &&
-          prev.dropIndicatorY === statusDrop.dropIndicatorY &&
-          prev.pointerY === drag.currentY &&
-          areWorktreeDragPreviewOffsetsEqual(
-            prev.previewOffsetsByWorktreeId,
-            statusDrop.previewOffsetsByWorktreeId
-          )
-            ? prev
-            : { ...prev, ...statusDrop, pointerY: drag.currentY }
-        )
-        return
-      }
-      updateLatestWorktreeStatusDropTarget(drag, target, statusDrop)
-      setDragOverStatus(target.status)
-      setPinDragOver(target.isPinDrop)
-      setWorktreeDragState((prev) =>
-        prev.dropIndex === null &&
-        prev.dropIndicatorY === null &&
-        prev.pointerY === drag.currentY &&
-        prev.previewOffsetsByWorktreeId.size === 0
-          ? prev
-          : {
-              ...prev,
-              dropIndex: null,
-              dropIndicatorY: null,
-              previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-              pointerY: drag.currentY
-            }
-      )
-      return
-    }
-    drag.latestStatusDropTarget = null
-    clearWorkspaceKanbanSidebarDropTargetVisual()
-    setDragOverStatus(null)
-    setPinDragOver(false)
-    setWorktreeDragState((prev) =>
-      prev.dropIndex === drop.dropIndex &&
-      prev.dropIndicatorY === drop.dropIndicatorY &&
-      prev.pointerY === drag.currentY &&
-      areWorktreeDragPreviewOffsetsEqual(
-        prev.previewOffsetsByWorktreeId,
-        drop.previewOffsetsByWorktreeId
-      )
-        ? prev
-        : { ...prev, ...drop, pointerY: drag.currentY }
-    )
-  }, [
-    clearWorktreeDrag,
-    computeWorktreeDrop,
-    computeWorktreeStatusDrop,
-    onWorkspaceBoardDragPreviewStart,
-    refreshWorktreeDragSession,
-    onWorkspaceBoardDragPreviewCommit,
-    shouldShowWorkspaceBoardDropIndicator,
-    getEligibleLineageDropTarget,
+  useWorktreeListPointerDragController({
+    scrollRef,
+    worktreePointerDragRef,
+    pointerAutoscrollFrameRef: worktreePointerAutoscrollFrameIdRef,
+    pointerAutoscrollLastFrameRef: worktreePointerAutoscrollLastFrameTimeRef,
+    worktreeDragSessionRef,
+    groupKeyByRowKey,
+    selectedWorktreeIds,
+    selectedWorktrees,
     workspaceBoardOpen,
-    workspaceStatuses
-  ])
-
-  const scheduleWorktreePointerDragFrame = useCallback(
-    (drag: WorktreePointerDrag) => {
-      if (drag.frameId !== null) {
-        return
-      }
-      drag.frameId = window.requestAnimationFrame(flushWorktreePointerDrag)
-    },
-    [flushWorktreePointerDrag]
-  )
-
-  const runWorktreePointerAutoscrollFrame = useCallback(
-    (frameTime: number) => {
-      worktreePointerAutoscrollFrameIdRef.current = null
-      const drag = worktreePointerDragRef.current
-      const container = scrollRef.current
-      const session = worktreeDragSessionRef.current
-      if (!drag?.active || !container || !session) {
-        cancelWorktreePointerAutoscroll()
-        return
-      }
-
-      const previousFrameTime = worktreePointerAutoscrollLastFrameTimeRef.current ?? frameTime
-      worktreePointerAutoscrollLastFrameTimeRef.current = frameTime
-      const autoscroll = getWorktreeSidebarDragAutoscroll({
-        point: { clientX: drag.currentX, clientY: drag.currentY },
-        containerRect: container.getBoundingClientRect(),
-        scrollTop: container.scrollTop,
-        scrollHeight: container.scrollHeight,
-        clientHeight: container.clientHeight,
-        elapsedMs: frameTime - previousFrameTime
-      })
-      if (autoscroll) {
-        markScrollMovement()
-        container.scrollTop = autoscroll.scrollTop
-        if (!refreshWorktreeDragSession()) {
-          clearWorktreeDrag()
-          return
-        }
-        scheduleWorktreePointerDragFrame(drag)
-      }
-
-      worktreePointerAutoscrollFrameIdRef.current = window.requestAnimationFrame(
-        runWorktreePointerAutoscrollFrame
-      )
-    },
-    [
-      cancelWorktreePointerAutoscroll,
-      clearWorktreeDrag,
-      markScrollMovement,
-      refreshWorktreeDragSession,
-      scheduleWorktreePointerDragFrame
-    ]
-  )
-
-  const startWorktreePointerAutoscroll = useCallback(() => {
-    if (worktreePointerAutoscrollFrameIdRef.current !== null) {
-      return
-    }
-    worktreePointerAutoscrollLastFrameTimeRef.current = null
-    worktreePointerAutoscrollFrameIdRef.current = window.requestAnimationFrame(
-      runWorktreePointerAutoscrollFrame
-    )
-  }, [runWorktreePointerAutoscrollFrame])
-
-  const beginWorktreePointerDrag = useCallback(
-    (drag: WorktreePointerDrag) => {
-      const { preview, offsetX, offsetY, height } = createSidebarDragPreview({
-        sourceRow: drag.sourceRow,
-        pointerX: drag.currentX,
-        pointerY: drag.currentY,
-        draggedCount: drag.draggedIds.length
-      })
-      drag.active = true
-      drag.preview = preview
-      drag.previewOffsetX = offsetX
-      drag.previewOffsetY = offsetY
-      suppressWorktreeClickUntilRef.current = window.performance.now() + 500
-      setSidebarPointerDragDocumentStyles(true)
-      worktreeDragSessionRef.current = {
-        draggingWorktreeId: drag.worktreeId,
-        sourceGroupKey: drag.sourceGroupKey,
-        draggedIds: drag.draggedIds,
-        reorderDraggedIds: drag.reorderDraggedIds,
-        reorderUnitDraggedIds: drag.reorderUnitDraggedIds,
-        rects: drag.rects,
-        // Why: reuse the floating preview's own offset so the hit test tracks the
-        // card the user sees, not the raw pointer.
-        grab: getWorktreeSidebarDragGrab({ offsetY, height }),
-        anchor: null
-      }
-      setWorktreeDragState({
-        draggingWorktreeId: drag.worktreeId,
-        sourceGroupKey: drag.sourceGroupKey,
-        dropIndex: null,
-        dropIndicatorY: null,
-        previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-        pointerY: drag.currentY
-      })
-      startWorktreePointerAutoscroll()
-      scheduleWorktreePointerDragFrame(drag)
-    },
-    [scheduleWorktreePointerDragFrame, startWorktreePointerAutoscroll]
-  )
-
-  const handleWorktreeRowPointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>, worktreeId: string, rowKey: string) => {
-      if (event.button !== 0 || event.pointerType === 'touch') {
-        return
-      }
-      const sourceRow = event.currentTarget
-      if (isSidebarPointerDragBlocked(event.target, sourceRow)) {
-        return
-      }
-      const sourceGroupKey = groupKeyByRowKey.get(rowKey)
-      const container = scrollRef.current
-      if (!sourceGroupKey || !container) {
-        return
-      }
-      const rects = getWorktreeSidebarDragRectsForGroup(container, sourceGroupKey)
-      const canPreviewWorkspaceBoardOnDrag =
-        !workspaceBoardOpen &&
-        onWorkspaceBoardDragPreviewStart !== NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK
-      if (
-        rects.length <= 1 &&
-        !hasWorkspaceKanbanSidebarDropBoard() &&
-        !canPreviewWorkspaceBoardOnDrag
-      ) {
-        return
-      }
-      const draggedIds =
-        selectedWorktreeIds.has(worktreeId) && selectedWorktrees.length > 1
-          ? selectedWorktrees.map((worktree) => worktree.id)
-          : [worktreeId]
-      const reorderDraggedIds = getReorderDraggedIds(draggedIds)
-      const reorderUnitDraggedIds = getReorderUnitDraggedIds(sourceGroupKey, reorderDraggedIds)
-      worktreePointerDragRef.current = {
-        pointerId: event.pointerId,
-        sourceRow,
-        startX: event.clientX,
-        startY: event.clientY,
-        currentX: event.clientX,
-        currentY: event.clientY,
-        worktreeId,
-        draggedIds,
-        reorderDraggedIds,
-        reorderUnitDraggedIds,
-        sourceGroupKey,
-        rects,
-        active: false,
-        preview: null,
-        previewOffsetX: 0,
-        previewOffsetY: 0,
-        workspaceBoardDragPreviewRequested: false,
-        frameId: null,
-        latestBoardDropTarget: null,
-        latestStatusDropTarget: null
-      }
-    },
-    [
-      getReorderDraggedIds,
-      getReorderUnitDraggedIds,
-      groupKeyByRowKey,
-      onWorkspaceBoardDragPreviewStart,
-      selectedWorktreeIds,
-      selectedWorktrees,
-      workspaceBoardOpen
-    ]
-  )
-
-  const handleWorktreeRowClickCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (window.performance.now() >= suppressWorktreeClickUntilRef.current) {
-      return
-    }
-    event.preventDefault()
-    event.stopPropagation()
-  }, [])
-
-  useEffect(() => {
-    const handlePointerMove = (event: PointerEvent): void => {
-      const drag = worktreePointerDragRef.current
-      if (!drag || event.pointerId !== drag.pointerId) {
-        return
-      }
-      drag.currentX = event.clientX
-      drag.currentY = event.clientY
-      if (!drag.active) {
-        const distance = Math.hypot(drag.currentX - drag.startX, drag.currentY - drag.startY)
-        if (distance < SIDEBAR_POINTER_DRAG_THRESHOLD_PX) {
-          return
-        }
-        beginWorktreePointerDrag(drag)
-      }
-      event.preventDefault()
-      event.stopPropagation()
-      scheduleWorktreePointerDragFrame(drag)
-    }
-
-    const handlePointerUp = (event: PointerEvent): void => {
-      const drag = worktreePointerDragRef.current
-      if (!drag || event.pointerId !== drag.pointerId) {
-        return
-      }
-      drag.currentX = event.clientX
-      drag.currentY = event.clientY
-      if (!drag.active) {
-        worktreePointerDragRef.current = null
-        return
-      }
-      event.preventDefault()
-      event.stopPropagation()
-      if (!refreshWorktreeDragSession()) {
-        clearWorktreeDrag()
-        return
-      }
-      const boardDropTarget = resolveWorkspaceKanbanCardDropCommitTarget({
-        currentTarget: getWorkspaceKanbanSidebarDropTarget(event.clientX, event.clientY),
-        latestTrackedTarget: drag.latestBoardDropTarget,
-        x: event.clientX,
-        y: event.clientY
-      })
-      if (isWorkspaceKanbanSidebarDropPointInBoard(event.clientX, event.clientY)) {
-        onWorkspaceBoardDragPreviewCommit()
-      }
-      if (boardDropTarget.isPinDrop) {
-        onPinWorktrees(drag.draggedIds)
-      } else if (boardDropTarget.status) {
-        onDropWorktreesOnWorkspaceBoard({
-          worktreeIds: drag.reorderDraggedIds,
-          status: boardDropTarget.status,
-          // Why: the target counts rendered cards, but the groups are the full
-          // lane. Board search can make those two differ.
-          dropIndex: resolveWorkspaceKanbanSidebarFullLaneDropIndex(
-            boardDropTarget.status,
-            boardDropTarget.dropIndex
-          ),
-          groups: getWorkspaceKanbanSidebarDropGroups()
-        })
-      } else {
-        const preferredStatusTarget = getEligibleLineageDropTarget(
-          scrollRef.current
-            ? getPointerDropStatusTarget({
-                container: scrollRef.current,
-                x: event.clientX,
-                y: event.clientY
-              })
-            : { status: null, isPinDrop: false, lineageParentId: null },
-          drag.draggedIds
-        )
-        if (preferredStatusTarget.lineageParentId) {
-          commitWorktreeLineageParentDrop(drag.draggedIds, preferredStatusTarget.lineageParentId)
-          clearWorktreeDrag()
-          return
-        }
-        if (
-          shouldPreferSidebarStatusDropTarget({
-            sourceGroupKey: drag.sourceGroupKey,
-            target: preferredStatusTarget,
-            workspaceStatuses
-          })
-        ) {
-          const statusDrop = preferredStatusTarget.status
-            ? computeWorktreeStatusDrop({
-                pointerY: event.clientY,
-                status: preferredStatusTarget.status,
-                draggedIds: drag.reorderDraggedIds
-              })
-            : null
-          if (preferredStatusTarget.isPinDrop) {
-            onPinWorktrees(drag.draggedIds)
-          } else if (preferredStatusTarget.status) {
-            if (statusDrop) {
-              onMoveWorktreesToStatusAtIndex({
-                worktreeIds: drag.reorderDraggedIds,
-                status: preferredStatusTarget.status,
-                dropIndex: statusDrop.dropIndex,
-                groups: worktreeDragGroups
-              })
-            } else {
-              onMoveWorktreesToStatus(drag.reorderDraggedIds, preferredStatusTarget.status)
-            }
-          }
-          clearWorktreeDrag()
-          return
-        }
-        const drop = computeWorktreeDrop(event.clientY)
-        if (drop) {
-          onReorderWorktrees({
-            groups: worktreeDragGroups,
-            sourceGroupKey: drag.sourceGroupKey,
-            draggedIds: drag.reorderDraggedIds,
-            dropIndex: getFullDropIndexForWorktreeDragUnit({
-              groups: worktreeDragUnitGroups,
-              sourceGroupKey: drag.sourceGroupKey,
-              dropIndex: drop.dropIndex
-            })
-          })
-          clearReorderedWorktreeParents({
-            draggedIds: drag.draggedIds,
-            sourceGroupKey: drag.sourceGroupKey
-          })
-        } else if (scrollRef.current) {
-          const currentTarget = preferredStatusTarget
-          const currentPreview = currentTarget.status
-            ? computeWorktreeStatusDrop({
-                pointerY: event.clientY,
-                status: currentTarget.status,
-                draggedIds: drag.reorderDraggedIds
-              })
-            : null
-          const { target, preview: statusDrop } = resolveWorktreeSidebarStatusDropCommitTarget({
-            currentTarget,
-            currentPreview,
-            latestTrackedTarget: drag.latestStatusDropTarget,
-            x: event.clientX,
-            y: event.clientY
-          })
-          if (target.lineageParentId) {
-            commitWorktreeLineageParentDrop(drag.draggedIds, target.lineageParentId)
-          } else if (target.isPinDrop) {
-            onPinWorktrees(drag.draggedIds)
-          } else if (target.status) {
-            if (statusDrop) {
-              onMoveWorktreesToStatusAtIndex({
-                worktreeIds: drag.reorderDraggedIds,
-                status: target.status,
-                dropIndex: statusDrop.dropIndex,
-                groups: worktreeDragGroups
-              })
-            } else {
-              onMoveWorktreesToStatus(drag.reorderDraggedIds, target.status)
-            }
-          }
-        }
-      }
-      clearWorktreeDrag()
-    }
-
-    const handlePointerCancel = (event: PointerEvent): void => {
-      const drag = worktreePointerDragRef.current
-      if (!drag || event.pointerId !== drag.pointerId) {
-        return
-      }
-      clearWorktreeDrag()
-    }
-
-    return registerWorktreeListPointerListeners(
-      handlePointerMove,
-      handlePointerUp,
-      handlePointerCancel
-    )
-  }, [
-    beginWorktreePointerDrag,
-    clearWorktreeDrag,
-    clearReorderedWorktreeParents,
-    commitWorktreeLineageParentDrop,
-    computeWorktreeDrop,
-    computeWorktreeStatusDrop,
-    getEligibleLineageDropTarget,
-    onMoveWorktreesToStatus,
-    onMoveWorktreesToStatusAtIndex,
-    onDropWorktreesOnWorkspaceBoard,
-    onPinWorktrees,
-    onReorderWorktrees,
-    onWorkspaceBoardDragPreviewCommit,
-    refreshWorktreeDragSession,
-    scheduleWorktreePointerDragFrame,
-    shouldShowWorkspaceBoardDropIndicator,
+    canPreviewWorkspaceBoardOnDrag:
+      !workspaceBoardOpen &&
+      onWorkspaceBoardDragPreviewStart !== NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK,
+    workspaceStatuses,
     worktreeDragGroups,
     worktreeDragUnitGroups,
-    workspaceStatuses
-  ])
+    worktreeDragStateSetter: setWorktreeDragState,
+    setDragOverStatus,
+    setPinDragOver,
+    clearWorktreeDrag,
+    refreshWorktreeDragSession,
+    computeWorktreeDrop,
+    computeWorktreeStatusDrop,
+    getReorderDraggedIds,
+    getReorderUnitDraggedIds,
+    getEligibleLineageDropTarget,
+    commitLineageParentDrop: commitWorktreeLineageParentDrop,
+    clearReorderedParents: clearReorderedWorktreeParents,
+    markScrollMovement,
+    onWorkspaceBoardDragPreviewStart,
+    onWorkspaceBoardDragPreviewCommit,
+    onWorkspaceBoardDragPreviewCancel,
+    shouldShowWorkspaceBoardDropIndicator,
+    onDropWorktreesOnWorkspaceBoard,
+    onPinWorktrees,
+    onMoveWorktreesToStatus,
+    onMoveWorktreesToStatusAtIndex,
+    onReorderWorktrees
+  })
 
   useEffect(() => {
     const handleClick = (event: MouseEvent): void => {
@@ -1567,344 +905,33 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     return () => document.removeEventListener('click', handleClick, true)
   }, [])
 
-  const runWorktreeNativeAutoscrollFrame = useCallback(
-    (frameTime: number) => {
-      worktreeNativeAutoscrollFrameIdRef.current = null
-      const point = worktreeNativeLatestPointRef.current
-      const container = scrollRef.current
-      const session = worktreeDragSessionRef.current
-      if (!point || !container || !session) {
-        cancelWorktreeNativeAutoscroll()
-        return
-      }
-
-      const previousFrameTime = worktreeNativeAutoscrollLastFrameTimeRef.current ?? frameTime
-      worktreeNativeAutoscrollLastFrameTimeRef.current = frameTime
-      const autoscroll = getWorktreeSidebarDragAutoscroll({
-        point,
-        containerRect: container.getBoundingClientRect(),
-        scrollTop: container.scrollTop,
-        scrollHeight: container.scrollHeight,
-        clientHeight: container.clientHeight,
-        elapsedMs: frameTime - previousFrameTime
-      })
-      if (autoscroll) {
-        markScrollMovement()
-        container.scrollTop = autoscroll.scrollTop
-        if (!refreshWorktreeDragSession()) {
-          clearWorktreeDrag()
-          return
-        }
-        const drop = computeWorktreeDrop(point.clientY)
-        if (!drop) {
-          const target = getPointerDropStatusTarget({
-            container,
-            x: point.clientX,
-            y: point.clientY
-          })
-          const statusDrop = target.status
-            ? computeWorktreeStatusDrop({
-                pointerY: point.clientY,
-                status: target.status,
-                draggedIds: session.reorderDraggedIds
-              })
-            : null
-          if (statusDrop) {
-            setWorktreeDragState((prev) =>
-              prev.dropIndex === statusDrop.dropIndex &&
-              prev.dropIndicatorY === statusDrop.dropIndicatorY &&
-              areWorktreeDragPreviewOffsetsEqual(
-                prev.previewOffsetsByWorktreeId,
-                statusDrop.previewOffsetsByWorktreeId
-              )
-                ? prev
-                : { ...prev, ...statusDrop, pointerY: point.clientY }
-            )
-            return
-          }
-          setWorktreeDragState((prev) =>
-            prev.dropIndex === null &&
-            prev.dropIndicatorY === null &&
-            prev.previewOffsetsByWorktreeId.size === 0
-              ? prev
-              : {
-                  ...prev,
-                  dropIndex: null,
-                  dropIndicatorY: null,
-                  previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-                  pointerY: null
-                }
-          )
-        } else {
-          setWorktreeDragState((prev) =>
-            prev.dropIndex === drop.dropIndex &&
-            prev.dropIndicatorY === drop.dropIndicatorY &&
-            areWorktreeDragPreviewOffsetsEqual(
-              prev.previewOffsetsByWorktreeId,
-              drop.previewOffsetsByWorktreeId
-            )
-              ? prev
-              : { ...prev, ...drop, pointerY: point.clientY }
-          )
-        }
-      }
-
-      worktreeNativeAutoscrollFrameIdRef.current = window.requestAnimationFrame(
-        runWorktreeNativeAutoscrollFrame
-      )
-    },
-    [
-      cancelWorktreeNativeAutoscroll,
-      clearWorktreeDrag,
-      computeWorktreeDrop,
-      computeWorktreeStatusDrop,
-      markScrollMovement,
-      refreshWorktreeDragSession
-    ]
-  )
-
-  const startWorktreeNativeAutoscroll = useCallback(() => {
-    if (worktreeNativeAutoscrollFrameIdRef.current !== null) {
-      return
-    }
-    worktreeNativeAutoscrollLastFrameTimeRef.current = null
-    worktreeNativeAutoscrollFrameIdRef.current = window.requestAnimationFrame(
-      runWorktreeNativeAutoscrollFrame
-    )
-  }, [runWorktreeNativeAutoscrollFrame])
-
-  const handleWorktreeCardDragStart = useCallback(
-    (event: React.DragEvent<HTMLDivElement>, worktreeId: string, draggedIds: readonly string[]) => {
-      const sourceGroupKey =
-        worktreeDragGroups.find((group) => group.worktreeIds.includes(worktreeId))?.key ?? null
-      if (!sourceGroupKey) {
-        return
-      }
-      const reorderDraggedIds = getReorderDraggedIds(draggedIds)
-      const reorderUnitDraggedIds = getReorderUnitDraggedIds(sourceGroupKey, reorderDraggedIds)
-      const rects = scrollRef.current
-        ? getWorktreeSidebarDragRectsForGroup(scrollRef.current, sourceGroupKey)
-        : []
-      const sourceRect = event.currentTarget.getBoundingClientRect()
-      worktreeDragSessionRef.current = {
-        draggingWorktreeId: worktreeId,
-        sourceGroupKey,
-        draggedIds,
-        reorderDraggedIds,
-        reorderUnitDraggedIds,
-        rects,
-        grab: getWorktreeSidebarDragGrab({
-          offsetY: event.clientY - sourceRect.top,
-          height: sourceRect.height
-        }),
-        anchor: null
-      }
-      setWorktreeDragState({
-        draggingWorktreeId: worktreeId,
-        sourceGroupKey,
-        dropIndex: null,
-        dropIndicatorY: null,
-        previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-        pointerY: null
-      })
-    },
-    [getReorderDraggedIds, getReorderUnitDraggedIds, worktreeDragGroups]
-  )
-
-  const handleWorktreeDragOver = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      const session = worktreeDragSessionRef.current
-      if (!session) {
-        return
-      }
-      worktreeNativeLatestPointRef.current = { clientX: event.clientX, clientY: event.clientY }
-      startWorktreeNativeAutoscroll()
-      if (!refreshWorktreeDragSession()) {
-        clearWorktreeDrag()
-        return
-      }
-      const target = getEligibleLineageDropTarget(
-        getPointerDropStatusTarget({
-          container: event.currentTarget,
-          x: event.clientX,
-          y: event.clientY
-        }),
-        session.draggedIds
-      )
-      if (target.lineageParentId) {
-        event.preventDefault()
-        event.dataTransfer.dropEffect = 'move'
-        setNativeLineageDropTargetId(target.lineageParentId)
-        setWorktreeDragState((prev) =>
-          prev.dropIndex === null &&
-          prev.dropIndicatorY === null &&
-          prev.previewOffsetsByWorktreeId.size === 0
-            ? prev
-            : {
-                ...prev,
-                dropIndex: null,
-                dropIndicatorY: null,
-                previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-                pointerY: event.clientY
-              }
-        )
-        return
-      }
-      setNativeLineageDropTargetId(null)
-
-      const drop = computeWorktreeDrop(event.clientY)
-      if (!drop) {
-        const statusDrop = target.status
-          ? computeWorktreeStatusDrop({
-              pointerY: event.clientY,
-              status: target.status,
-              draggedIds: session.reorderDraggedIds
-            })
-          : null
-        if (statusDrop) {
-          event.preventDefault()
-          event.dataTransfer.dropEffect = 'move'
-          setWorktreeDragState((prev) =>
-            prev.dropIndex === statusDrop.dropIndex &&
-            prev.dropIndicatorY === statusDrop.dropIndicatorY &&
-            areWorktreeDragPreviewOffsetsEqual(
-              prev.previewOffsetsByWorktreeId,
-              statusDrop.previewOffsetsByWorktreeId
-            )
-              ? prev
-              : { ...prev, ...statusDrop, pointerY: event.clientY }
-          )
-          return
-        }
-        setWorktreeDragState((prev) =>
-          prev.dropIndex === null &&
-          prev.dropIndicatorY === null &&
-          prev.previewOffsetsByWorktreeId.size === 0
-            ? prev
-            : {
-                ...prev,
-                dropIndex: null,
-                dropIndicatorY: null,
-                previewOffsetsByWorktreeId: EMPTY_WORKTREE_DRAG_PREVIEW_OFFSETS,
-                pointerY: null
-              }
-        )
-        return
-      }
-      event.preventDefault()
-      event.dataTransfer.dropEffect = 'move'
-      setWorktreeDragState((prev) =>
-        prev.dropIndex === drop.dropIndex &&
-        prev.dropIndicatorY === drop.dropIndicatorY &&
-        areWorktreeDragPreviewOffsetsEqual(
-          prev.previewOffsetsByWorktreeId,
-          drop.previewOffsetsByWorktreeId
-        )
-          ? prev
-          : { ...prev, ...drop, pointerY: event.clientY }
-      )
-    },
-    [
-      clearWorktreeDrag,
-      computeWorktreeDrop,
-      computeWorktreeStatusDrop,
-      getEligibleLineageDropTarget,
-      refreshWorktreeDragSession,
-      startWorktreeNativeAutoscroll
-    ]
-  )
-
-  const handleWorktreeDrop = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      const session = worktreeDragSessionRef.current
-      if (!session) {
-        return
-      }
-      if (!refreshWorktreeDragSession()) {
-        clearWorktreeDrag()
-        return
-      }
-      const boardDropTarget = getWorkspaceKanbanSidebarDropTarget(event.clientX, event.clientY)
-      if (boardDropTarget.status || boardDropTarget.isPinDrop) {
-        clearWorktreeDrag()
-        return
-      }
-
-      const container = scrollRef.current
-      const target = getEligibleLineageDropTarget(
-        container
-          ? getPointerDropStatusTarget({
-              container,
-              x: event.clientX,
-              y: event.clientY
-            })
-          : { status: null, isPinDrop: false, lineageParentId: null },
-        session.draggedIds
-      )
-
-      if (target.lineageParentId) {
-        event.preventDefault()
-        event.stopPropagation()
-        commitWorktreeLineageParentDrop(session.draggedIds, target.lineageParentId)
-        clearWorktreeDrag()
-        return
-      }
-
-      const drop = computeWorktreeDrop(event.clientY)
-      if (!drop) {
-        const statusDrop = target.status
-          ? computeWorktreeStatusDrop({
-              pointerY: event.clientY,
-              status: target.status,
-              draggedIds: session.reorderDraggedIds
-            })
-          : null
-        if (target.status && statusDrop) {
-          event.preventDefault()
-          event.stopPropagation()
-          onMoveWorktreesToStatusAtIndex({
-            worktreeIds: session.reorderDraggedIds,
-            status: target.status,
-            dropIndex: statusDrop.dropIndex,
-            groups: worktreeDragGroups
-          })
-          clearWorktreeDrag()
-          return
-        }
-        clearWorktreeDrag()
-        return
-      }
-      event.preventDefault()
-      onReorderWorktrees({
-        groups: worktreeDragGroups,
-        sourceGroupKey: session.sourceGroupKey,
-        draggedIds: session.reorderDraggedIds,
-        dropIndex: getFullDropIndexForWorktreeDragUnit({
-          groups: worktreeDragUnitGroups,
-          sourceGroupKey: session.sourceGroupKey,
-          dropIndex: drop.dropIndex
-        })
-      })
-      clearReorderedWorktreeParents({
-        draggedIds: session.draggedIds,
-        sourceGroupKey: session.sourceGroupKey
-      })
-      clearWorktreeDrag()
-    },
-    [
-      clearWorktreeDrag,
-      clearReorderedWorktreeParents,
-      commitWorktreeLineageParentDrop,
-      computeWorktreeDrop,
-      computeWorktreeStatusDrop,
-      getEligibleLineageDropTarget,
-      onMoveWorktreesToStatusAtIndex,
-      onReorderWorktrees,
-      refreshWorktreeDragSession,
-      worktreeDragGroups,
-      worktreeDragUnitGroups
-    ]
-  )
+  const {
+    handleCardDragStart: handleWorktreeCardDragStart,
+    handleDragOver: handleWorktreeDragOver,
+    handleDrop: handleWorktreeDrop
+  } = useWorktreeListNativeDrag({
+    scrollRef,
+    nativeFrameRef: worktreeNativeAutoscrollFrameIdRef,
+    nativeLastFrameRef: worktreeNativeAutoscrollLastFrameTimeRef,
+    nativeLatestPointRef: worktreeNativeLatestPointRef,
+    dragSessionRef: worktreeDragSessionRef,
+    groups: worktreeDragGroups,
+    unitGroups: worktreeDragUnitGroups,
+    setLineageTarget: setNativeLineageDropTargetId,
+    setDragState: setWorktreeDragState,
+    refreshDragSession: refreshWorktreeDragSession,
+    computeDrop: computeWorktreeDrop,
+    computeStatusDrop: computeWorktreeStatusDrop,
+    getEligibleLineageDropTarget,
+    commitLineageParentDrop: commitWorktreeLineageParentDrop,
+    clearReorderedParents: clearReorderedWorktreeParents,
+    clearDrag: clearWorktreeDrag,
+    markScrollMovement,
+    getReorderDraggedIds,
+    getReorderUnitDraggedIds,
+    onMoveWorktreesToStatusAtIndex,
+    onReorderWorktrees
+  })
 
   useEffect(() => {
     if (document.visibilityState !== 'visible') {
@@ -1996,90 +1023,26 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     [groupBy, rows]
   )
 
-  const handleWorkspaceStatusDragOver = useCallback(
-    (event: React.DragEvent, status: WorkspaceStatus) => {
-      if (!hasWorkspaceDragData(event.dataTransfer)) {
-        return
-      }
-      event.preventDefault()
-      event.dataTransfer.dropEffect = 'move'
-      setDragOverStatus(status)
-    },
-    []
-  )
-
-  const handleWorkspaceStatusDragLeave = useCallback((event: React.DragEvent) => {
-    const relatedTarget = event.relatedTarget
-    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) {
-      return
-    }
-    setDragOverStatus(null)
-  }, [])
-
-  const handleWorkspacePinDragOver = useCallback((event: React.DragEvent) => {
-    if (!hasWorkspaceDragData(event.dataTransfer)) {
-      return
-    }
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'move'
-    setPinDragOver(true)
-  }, [])
-
-  const handleWorkspacePinDragLeave = useCallback((event: React.DragEvent) => {
-    const relatedTarget = event.relatedTarget
-    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) {
-      return
-    }
-    setPinDragOver(false)
-  }, [])
-
-  const handleWorkspaceStatusDragFinish = useCallback(() => {
-    setDragOverStatus(null)
-    setPinDragOver(false)
-  }, [])
-
-  const handleWorkspaceStatusDrop = useCallback(
-    (event: React.DragEvent, status: WorkspaceStatus) => {
-      const worktreeIds = readWorkspaceDragDataIds(event.dataTransfer)
-      if (worktreeIds.length === 0) {
-        return
-      }
-      event.preventDefault()
-      const session = worktreeDragSessionRef.current
-      const statusDrop = session
-        ? computeWorktreeStatusDrop({
-            pointerY: event.clientY,
-            status,
-            draggedIds: session.reorderDraggedIds
-          })
-        : null
-      setDragOverStatus(null)
-      if (session && statusDrop) {
-        event.stopPropagation()
-        onMoveWorktreesToStatusAtIndex({
-          worktreeIds: session.reorderDraggedIds,
-          status,
-          dropIndex: statusDrop.dropIndex,
-          groups: worktreeDragGroups
-        })
-        clearWorktreeDrag()
-        return
-      }
-      // Match status-drop scope to drag-preview scope (#9083): session uses its expanded set, else expand dataTransfer ids live.
-      onMoveWorktreesToStatus(
-        session ? session.reorderDraggedIds : getReorderDraggedIds(worktreeIds),
-        status
-      )
-    },
-    [
-      clearWorktreeDrag,
-      computeWorktreeStatusDrop,
-      getReorderDraggedIds,
-      onMoveWorktreesToStatus,
-      onMoveWorktreesToStatusAtIndex,
-      worktreeDragGroups
-    ]
-  )
+  const {
+    handleStatusDragOver: handleWorkspaceStatusDragOver,
+    handleStatusDragLeave: handleWorkspaceStatusDragLeave,
+    handlePinDragOver: handleWorkspacePinDragOver,
+    handlePinDragLeave: handleWorkspacePinDragLeave,
+    handleStatusDrop: handleWorkspaceStatusDrop,
+    finishStatusDrop: handleWorkspaceStatusDragFinish
+  } = useWorktreeListStatusDrop({
+    setDragOverStatus,
+    setPinDragOver,
+    dragSessionRef: worktreeDragSessionRef,
+    computeStatusDrop: computeWorktreeStatusDrop,
+    getReorderDraggedIds,
+    groups: worktreeDragGroups,
+    clearDrag: clearWorktreeDrag,
+    onMoveWorktreeToStatus,
+    onPinWorktree,
+    onMoveWorktreesToStatus,
+    onMoveWorktreesToStatusAtIndex
+  })
 
   useEffect(() => {
     const handleDocumentDrop = (event: DragEvent): void => {
