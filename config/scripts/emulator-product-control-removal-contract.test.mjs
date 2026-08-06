@@ -66,7 +66,7 @@ describe('emulator product-control removal contract', () => {
     const staleSimulatorImport =
       /(?:simulator-palette-search|open-mobile-emulator-tab|ensure-simulator-tab|emulator-pane|MobileEmulatorTabIntroCallout|mobile-emulator-tab-intro-visibility)/
     const staleSimulatorBranch =
-      /mobileEmulatorEnabled|newSimulator|onNewSimulatorTab|activeSimulatorTab|contentType\s*!==?\s*['"]simulator['"]|contentType\s*===\s*['"]simulator['"]|['"]simulator['"]\s*\)|['"]simulator['"]\s*\]/
+      /mobileEmulatorEnabled|newSimulator|onNewSimulatorTab|activeSimulatorTab|Mobile Emulator|contentType\s*!==?\s*['"]simulator['"]|contentType\s*===\s*['"]simulator['"]|['"]simulator['"]\s*\)|['"]simulator['"]\s*\]/
     for (const relativePath of rendererSimulatorRemovalFiles) {
       const source = readProjectFile(relativePath)
       expect(source, relativePath).not.toMatch(staleSimulatorImport)
