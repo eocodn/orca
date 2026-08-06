@@ -186,11 +186,7 @@ import { useWorktreeListDragSession } from './worktree-list-drag-session'
 import { useWorktreeListPointerDragController } from './use-worktree-list-pointer-drag'
 import { useWorktreeListStatusDrop } from './use-worktree-list-status-drop'
 import { useWorktreeListNativeDrag } from './use-worktree-list-native-drag'
-import {
-  registerWorktreeListDocumentDropListener,
-  registerWorktreeListDragEndListener,
-  registerWorktreeListVisibilityListener
-} from './worktree-list-native-listeners'
+import { useWorktreeListNativeDocument } from './use-worktree-list-native-document'
 
 export {
   countRecordKeysByReference,
@@ -1044,8 +1040,7 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     onMoveWorktreesToStatusAtIndex
   })
 
-  useEffect(() => {
-    const handleDocumentDrop = (event: DragEvent): void => {
+  const handleDocumentDrop = useCallback((event: DragEvent): void => {
       const session = worktreeDragSessionRef.current
       if (!session) {
         return
@@ -1114,9 +1109,6 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
         sourceGroupKey: session.sourceGroupKey
       })
       clearWorktreeDrag()
-    }
-
-    return registerWorktreeListDocumentDropListener(handleDocumentDrop)
   }, [
     clearWorktreeDrag,
     clearReorderedWorktreeParents,
@@ -1127,29 +1119,28 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     onMoveWorktreesToStatusAtIndex,
     onReorderWorktrees,
     refreshWorktreeDragSession,
+    scrollRef,
     worktreeDragGroups,
     worktreeDragUnitGroups
   ])
 
-  useEffect(() => {
-    const handleDocumentDragEnd = (): void => {
-      if (worktreeDragSessionRef.current) {
-        clearWorktreeDrag()
-      }
+  const handleDocumentDragEnd = useCallback(() => {
+    if (worktreeDragSessionRef.current) {
+      clearWorktreeDrag()
     }
-
-    return registerWorktreeListDragEndListener(handleDocumentDragEnd)
   }, [clearWorktreeDrag])
 
-  useEffect(() => {
-    const handleVisibilityChange = (): void => {
-      if (document.visibilityState !== 'visible' && worktreeDragSessionRef.current) {
-        clearWorktreeDrag()
-      }
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState !== 'visible' && worktreeDragSessionRef.current) {
+      clearWorktreeDrag()
     }
-
-    return registerWorktreeListVisibilityListener(handleVisibilityChange)
   }, [clearWorktreeDrag])
+
+  useWorktreeListNativeDocument({
+    onDocumentDrop: handleDocumentDrop,
+    onDocumentDragEnd: handleDocumentDragEnd,
+    onVisibilityChange: handleVisibilityChange
+  })
 
   // Why: expand here (not the shared hook, used by the flat board) so a dropped parent carries its lineage children (#9083).
   const moveWorktreesToStatusForDocumentDrop = useCallback(
