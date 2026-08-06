@@ -36,6 +36,10 @@ scan_matches() {
     rg -n "$pattern" "$@"
     return
   fi
+  if ! command -v grep >/dev/null 2>&1; then
+    echo "scan_matches: requires rg or grep" >&2
+    return 2
+  fi
 
   local paths=()
   local includes=()
@@ -107,7 +111,13 @@ assert_no_matches() {
     scan_matches "$pattern" "$@" | head -20
     failures=$((failures + 1))
   else
-    pass_absent "$label"
+    local status=$?
+    if test "$status" -gt 1; then
+      echo "not ok - $label: scanner failed (exit $status)"
+      failures=$((failures + 1))
+    else
+      pass_absent "$label"
+    fi
   fi
 }
 
