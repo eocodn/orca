@@ -57,6 +57,7 @@ import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue
 import { useTaskPageGitHubIssueCreationState } from './use-task-page-github-issue-creation-state'
 import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
 import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
+import { useTaskPageLinearProjectDetailState } from './use-task-page-linear-project-detail-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
 import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
@@ -2903,49 +2904,19 @@ export default function TaskPage(): React.JSX.Element {
     linearTaskSourceContext
   ])
 
-  useEffect(() => {
-    if (!selectedLinearProject?.workspaceId) {
-      setSelectedLinearProjectDetail(null)
-      return
-    }
-    let cancelled = false
-    setLinearProjectDetailLoading(true)
-    setLinearProjectDetailError(null)
-    void fetchLinearProject(selectedLinearProject.id, selectedLinearProject.workspaceId, {
-      force: linearRefreshNonce > 0,
-      sourceContext: linearTaskSourceContext
-    })
-      .then((project) => {
-        if (!cancelled) {
-          setSelectedLinearProjectDetail(project)
-          setLinearProjectDetailLoading(false)
-          if (!project) {
-            setSelectedLinearProject(null)
-            setLinearProjectParentView(null)
-            setLinearProjectDetailError(null)
-            setLinearProjectsError('Project was not found.')
-            setTaskResumeState({ linearContext: undefined })
-          }
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setLinearProjectDetailError(
-            error instanceof Error ? error.message : 'Failed to load project.'
-          )
-          setLinearProjectDetailLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [
+  useTaskPageLinearProjectDetailState({
     fetchLinearProject,
     linearRefreshNonce,
+    linearTaskSourceContext,
     selectedLinearProject,
-    setTaskResumeState,
-    linearTaskSourceContext
-  ])
+    setLinearProjectDetailError,
+    setLinearProjectDetailLoading,
+    setLinearProjectParentView,
+    setLinearProjectsError,
+    setSelectedLinearProject,
+    setSelectedLinearProjectDetail,
+    setTaskResumeState
+  })
 
   useEffect(() => {
     if (!selectedLinearProject?.workspaceId || linearProjectTab !== 'issues') {
