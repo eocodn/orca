@@ -43,7 +43,8 @@ const retiredSimulatorTests = [
   'src/renderer/src/components/tab-bar/tab-create-menu-options.test.ts',
   'src/renderer/src/store/slices/tabs-hydration.test.ts',
   'src/renderer/src/store/slices/tabs.test.ts',
-  'src/renderer/src/components/floating-terminal/FloatingTerminalPanel.test.tsx'
+  'src/renderer/src/components/floating-terminal/FloatingTerminalPanel.test.tsx',
+  'src/renderer/src/components/settings/agent-skill-installed-command-callers.test.ts'
 ]
 
 describe('emulator product-control removal contract', () => {

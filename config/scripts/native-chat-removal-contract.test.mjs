@@ -22,7 +22,9 @@ const retiredNativeChatTests = [
   'src/main/persistence.test.ts',
   'src/main/runtime/orca-runtime.test.ts',
   'src/main/runtime/remote-runtime-request-connection.integration.test.ts',
-  'src/main/ipc/register-core-handlers.test.ts'
+  'src/renderer/src/lib/launch-agent-in-new-tab.test.ts',
+  'src/renderer/src/lib/launch-work-item-direct.test.ts',
+  'src/renderer/src/components/sidebar/folder-workspace-composer-submit.test.ts'
 ]
 
 describe('Native Chat removal contract', () => {

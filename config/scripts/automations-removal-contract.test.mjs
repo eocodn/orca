@@ -28,6 +28,11 @@ function removedPathIsEmpty(relativePath) {
 
 const retiredAutomationTests = [
   'src/main/persistence.test.ts',
+  'src/main/active-view-preference.test.ts',
+  'src/main/ipc/settings.test.ts',
+  'src/main/ipc/worktree-logic.test.ts',
+  'src/main/menu/register-app-menu.test.ts',
+  'src/main/runtime/rpc/methods/client-ui.test.ts',
   'src/main/runtime/rpc/methods/worktree.test.ts',
   'src/main/ipc/worktrees.test.ts',
   'src/renderer/src/components/sidebar/SidebarNav.test.tsx',
@@ -36,7 +41,11 @@ const retiredAutomationTests = [
   'src/renderer/src/components/sidebar/WorktreeCardDisplayMenuSection.test.tsx',
   'src/renderer/src/components/sidebar/sidebar-workspace-option-items.test.ts',
   'src/renderer/src/components/settings/AppearancePane.test.tsx',
-  'src/renderer/src/components/settings/terminal-search.test.ts'
+  'src/renderer/src/components/settings/terminal-search.test.ts',
+  'src/renderer/src/app-startup-routing.test.ts',
+  'src/renderer/src/store/slices/ui.test.ts',
+  'src/renderer/src/store/slices/worktree-nav-history-view-entries.test.ts',
+  'src/shared/feature-interactions.test.ts'
 ]
 
 describe('automations removal contract', () => {

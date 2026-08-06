@@ -35,24 +35,6 @@ describe('ActiveViewPreference', () => {
     })
   })
 
-  it('coalesces rapid switches into one tiny preference write', async () => {
-    vi.useFakeTimers()
-    const preference = new ActiveViewPreference(dataFile, 'terminal')
-
-    preference.set('settings')
-    vi.advanceTimersByTime(50)
-    preference.set('automations')
-    vi.advanceTimersByTime(50)
-    expect(existsSync(getActiveViewPreferenceFile(dataFile))).toBe(false)
-
-    vi.advanceTimersByTime(50)
-    await preference.waitForPendingWrite()
-
-    expect(JSON.parse(readFileSync(getActiveViewPreferenceFile(dataFile), 'utf-8'))).toEqual({
-      activeView: 'automations'
-    })
-  })
-
   it('flushes synchronously for an immediate graceful exit', () => {
     vi.useFakeTimers()
     const preference = new ActiveViewPreference(dataFile, 'terminal')

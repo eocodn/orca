@@ -631,18 +631,4 @@ describe('registerSettingsHandlers', () => {
     expect(applyAppIconMock).toHaveBeenCalledWith('classic')
   })
 
-  it('rebuilds the app menu after Automations sidebar visibility changes', async () => {
-    store.getSettings.mockReturnValue({ showAutomationsButton: true })
-    store.updateSettings.mockReturnValue({ showAutomationsButton: false })
-    registerSettingsHandlers(store as never)
-
-    const handler = handleMock.mock.calls.find((call) => call[0] === 'settings:set')?.[1] as (
-      _event: unknown,
-      args: unknown
-    ) => Promise<unknown>
-
-    await handler(settingsInvokeEvent, { showAutomationsButton: false })
-
-    expect(rebuildAppMenuMock).toHaveBeenCalledTimes(1)
-  })
 })

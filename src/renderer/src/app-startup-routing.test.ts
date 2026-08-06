@@ -154,22 +154,6 @@ describe('renderer startup runtime routing', () => {
     expect(postReconnectRecoveryIndex).toBeGreaterThan(reconnectIndex)
   })
 
-  it('keeps the persisted Automations view from starting its own bootstrap worktree scan', () => {
-    const source = readFileSync(
-      join(process.cwd(), 'src/renderer/src/components/automations/AutomationsPage.tsx'),
-      'utf8'
-    )
-    const fullRefreshStart = source.indexOf('const mountedBeforeStartupWorktreeRefreshRef')
-    const fullRefreshEffect = source.slice(
-      fullRefreshStart,
-      source.indexOf('void refresh()', fullRefreshStart)
-    )
-
-    expect(fullRefreshEffect).toContain('if (!startupWorktreeRefreshCompleted)')
-    expect(fullRefreshEffect).toContain('mountedBeforeStartupWorktreeRefreshRef.current')
-    expect(fullRefreshEffect).toContain('void fetchAllWorktrees()')
-  })
-
   it('does not eagerly import the floating terminal panel on startup', () => {
     const source = readFileSync(join(process.cwd(), 'src/renderer/src/App.tsx'), 'utf8')
 

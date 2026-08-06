@@ -239,11 +239,6 @@ vi.mock('@/components/browser-pane/BrowserPane', () => ({
   }
 }))
 
-vi.mock('@/components/emulator-pane/EmulatorPane', () => ({
-  default: function EmulatorPane() {
-    return null
-  }
-}))
 
 vi.mock('@/components/editor/EditorPanel', () => ({
   default: function EditorPanel() {

@@ -148,7 +148,6 @@ describe('feature interactions', () => {
       'review',
       'setup',
       'settings',
-      'automation',
       'terminal',
       'collaboration',
       'resource_management',

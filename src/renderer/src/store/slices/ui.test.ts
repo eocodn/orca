@@ -2442,59 +2442,6 @@ describe('createUISlice page navigation history', () => {
     expect(store.getState().worktreeNavHistoryIndex).toBe(0)
   })
 
-  it('records and rewinds Automations visits on close', () => {
-    const store = createUIStore()
-    store.setState({ worktreesByRepo: { 'repo-1': [makeWorktree('a')] } })
-
-    store.getState().recordWorktreeVisit('a')
-    store.getState().openAutomationsPage()
-    expect(store.getState().worktreeNavHistory).toEqual(['a', 'automations'])
-    expect(store.getState().worktreeNavHistoryIndex).toBe(1)
-
-    store.getState().closeAutomationsPage()
-    expect(store.getState().activeView).toBe('terminal')
-    expect(store.getState().worktreeNavHistoryIndex).toBe(0)
-  })
-
-  it('dedupes repeated Automations opens against the current history entry', () => {
-    const store = createUIStore()
-    store.setState({ worktreesByRepo: { 'repo-1': [makeWorktree('a')] } })
-
-    store.getState().recordWorktreeVisit('a')
-    store.getState().openAutomationsPage()
-    store.getState().openAutomationsPage()
-
-    expect(store.getState().activeView).toBe('automations')
-    expect(store.getState().worktreeNavHistory).toEqual(['a', 'automations'])
-    expect(store.getState().worktreeNavHistoryIndex).toBe(1)
-  })
-
-  it('keeps the Automations history index when Automations is the only entry', () => {
-    const store = createUIStore()
-
-    store.getState().openAutomationsPage()
-    expect(store.getState().worktreeNavHistory).toEqual(['automations'])
-    expect(store.getState().worktreeNavHistoryIndex).toBe(0)
-
-    store.getState().closeAutomationsPage()
-    expect(store.getState().activeView).toBe('terminal')
-    expect(store.getState().worktreeNavHistoryIndex).toBe(0)
-  })
-
-  it('skips deleted prior worktrees when closing Automations', () => {
-    const store = createUIStore()
-    store.setState({
-      activeView: 'automations',
-      previousViewBeforeAutomations: 'terminal',
-      worktreesByRepo: { 'repo-1': [makeWorktree('c')] },
-      worktreeNavHistory: ['c', 'a', 'automations'],
-      worktreeNavHistoryIndex: 2
-    })
-
-    store.getState().closeAutomationsPage()
-    expect(store.getState().activeView).toBe('terminal')
-    expect(store.getState().worktreeNavHistoryIndex).toBe(0)
-  })
 })
 
 describe('createUISlice feature tips', () => {
@@ -2713,7 +2660,6 @@ describe('createUISlice feature interactions', () => {
       makePersistedUI({
         featureInteractions: {
           tasks: { firstInteractedAt: 100 },
-          automations: { firstInteractedAt: 150, interactionCount: 4 },
           browser: { firstInteractedAt: Number.NaN },
           unknown: { firstInteractedAt: 200 }
         } as unknown as FeatureInteractionState
@@ -2721,8 +2667,7 @@ describe('createUISlice feature interactions', () => {
     )
 
     expect(store.getState().featureInteractions).toEqual({
-      tasks: { firstInteractedAt: 100, interactionCount: 1 },
-      automations: { firstInteractedAt: 150, interactionCount: 4 }
+      tasks: { firstInteractedAt: 100, interactionCount: 1 }
     })
   })
 
@@ -3002,7 +2947,6 @@ describe('createUISlice contextual tours', () => {
   it('does not bias first-visit contextual tour telemetry from navigation actions', () => {
     stubContextualTourTargets([
       '[data-contextual-tour-target="tasks-source-filters"]',
-      '[data-contextual-tour-target="automations-create"]',
       '[data-contextual-tour-target="workspace-creation-project"]'
     ])
 
@@ -3011,14 +2955,6 @@ describe('createUISlice contextual tours', () => {
     tasksStore.getState().openTaskPage()
     tasksStore.getState().requestContextualTour('tasks', 'tasks_open')
     expect(tasksStore.getState().activeContextualTourWasFeaturePreviouslyInteracted).toBe(false)
-
-    const automationsStore = createUIStore()
-    automationsStore.getState().hydratePersistedUI(makeAutoTourEligibleUI())
-    automationsStore.getState().openAutomationsPage()
-    automationsStore.getState().requestContextualTour('automations', 'automations_open')
-    expect(automationsStore.getState().activeContextualTourWasFeaturePreviouslyInteracted).toBe(
-      false
-    )
 
     const composerStore = createUIStore()
     composerStore.getState().hydratePersistedUI(makeAutoTourEligibleUI())
@@ -3309,31 +3245,6 @@ describe('createUISlice contextual tours', () => {
     expect(store.getState().contextualTourShownThisSession).toBe(true)
     expect(store.getState().contextualToursSeenIds).toEqual<ContextualTourId[]>(['tasks'])
     expect(setMock).not.toHaveBeenCalled()
-  })
-
-  it('dismisses active tours as seen', () => {
-    const setMock = vi.fn(() => Promise.resolve())
-    vi.stubGlobal('window', {
-      api: {
-        ui: {
-          set: setMock
-        }
-      }
-    })
-    const store = createUIStore()
-    store.setState({
-      activeContextualTourId: 'automations',
-      activeContextualTourStepIndex: 0,
-      activeContextualTourSource: 'automations_open',
-      contextualTourShownThisSession: true
-    })
-
-    store.getState().dismissContextualTour('automations')
-
-    expect(store.getState().activeContextualTourId).toBeNull()
-    expect(store.getState().contextualToursSeenIds).toEqual<ContextualTourId[]>(['automations'])
-    expect(store.getState().lastCompletedContextualTourId).toBeNull()
-    expect(setMock).toHaveBeenCalledWith({ contextualToursSeenIds: ['automations'] })
   })
 
   it('ignores stale dismissals for a different active tour', () => {
