@@ -90,6 +90,10 @@ describe('ClientRuntime service boundary', () => {
       workspace_count: 1
     })
     expect(runtime.host).toBe(runtime.tauriHost)
+    expect(runtime.host.workspace.registerWorkspace).toBe(runtime.host.registerWorkspace)
+    expect(runtime.host.git.gitWorktreeList).toBe(runtime.host.gitWorktreeList)
+    expect(runtime.host.file.fileRequest).toBe(runtime.host.fileRequest)
+    expect(runtime.host.terminal.terminalRequest).toBe(runtime.host.terminalRequest)
     expect(invoke).toHaveBeenCalledWith('host_status', { stateDb: 'state.db' })
   })
 

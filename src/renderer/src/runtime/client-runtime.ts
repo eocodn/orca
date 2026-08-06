@@ -3,6 +3,8 @@ import { getRegisteredClientRuntime } from './client-runtime-resolver'
 import type { ClientRuntimeHostService } from './client-runtime-host-services'
 import { createCapabilityUnavailableService } from './client-runtime-adapter'
 
+export type { ClientRuntimeHostService } from './client-runtime-host-services'
+
 export type ClientRuntimeRuntimeService = PreloadApi['runtime']
 export type ClientRuntimeRemoteHostService = PreloadApi['runtimeEnvironments']
 export type ClientRuntimeRemoteWorkspaceService = PreloadApi['remoteWorkspace']
