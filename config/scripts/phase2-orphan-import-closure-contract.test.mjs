@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = resolve(import.meta.dirname, '../..')
 
-// These are the retained test/config surfaces that outlived the Phase 2
-// orchestration runtime. Production/runtime paths are intentionally out of scope.
+// Scan only test/config surfaces where retired Phase 2 imports were observed.
+// Production/runtime paths are intentionally out of scope.
 const closureEntries = [join(repositoryRoot, 'tests/e2e'), join(repositoryRoot, 'config/scripts')]
 
 function isScopedSource(filePath) {
