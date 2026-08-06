@@ -147,8 +147,6 @@ function renderWorktreeCardMarkup(element: ReactNode): string {
   return renderToStaticMarkup(<>{element}</>)
 }
 
-function countAutomationCreatedLabels(markup: string): number {
-  return markup.match(/Created by automation/g)?.length ?? 0
 }
 
 function getInlineRenameTitleTag(markup: string): string {
@@ -470,130 +468,6 @@ describe('WorktreeCard linked PR display', () => {
     expect(markup).not.toContain('Linked PR #456')
     expect(markup).not.toContain('Workspace notes')
     expect(markup).not.toContain('Reviewer handoff note')
-  })
-
-  it('shows automation-created workspaces as a metadata icon property', async () => {
-    worktreeCardProperties = ['status', 'automation']
-    const { default: WorktreeCard } = await import('./WorktreeCard')
-
-    const markup = renderWorktreeCardMarkup(
-      <WorktreeCard
-        worktree={makeWorktree({
-          automationProvenance: {
-            kind: 'created-by-automation',
-            automationId: 'automation-1',
-            automationNameSnapshot: 'Nightly triage automation',
-            automationRunId: 'run-1',
-            automationRunTitleSnapshot: 'Nightly triage run',
-            createdAt: 1,
-            executionTargetType: 'local',
-            executionTargetId: 'local',
-            projectId: 'repo-1',
-            repoId: 'repo-1',
-            hostId: 'local'
-          }
-        })}
-        repo={makeRepo()}
-        isActive={false}
-      />
-    )
-
-    expect(countAutomationCreatedLabels(markup)).toBe(1)
-    expect(markup).not.toContain('>Automation</span>')
-  }, 20_000)
-
-  it('hides the automation metadata icon in compact card mode by preset default', async () => {
-    settings = { compactWorktreeCards: true }
-    worktreeCardProperties = [...COMPACT_WORKTREE_CARD_PROPERTIES]
-    const { default: WorktreeCard } = await import('./WorktreeCard')
-
-    const markup = renderWorktreeCardMarkup(
-      <WorktreeCard
-        worktree={makeWorktree({
-          automationProvenance: {
-            kind: 'created-by-automation',
-            automationId: 'automation-1',
-            automationNameSnapshot: 'Nightly triage automation',
-            automationRunId: 'run-1',
-            automationRunTitleSnapshot: 'Nightly triage run',
-            createdAt: 1,
-            executionTargetType: 'local',
-            executionTargetId: 'local',
-            projectId: 'repo-1',
-            repoId: 'repo-1',
-            hostId: 'local'
-          }
-        })}
-        repo={makeRepo()}
-        isActive={false}
-      />
-    )
-
-    expect(countAutomationCreatedLabels(markup)).toBe(0)
-    expect(markup).not.toContain('>Automation</span>')
-    expect(markup).not.toContain('Nightly triage automation')
-  }, 20_000)
-
-  it('shows the automation metadata icon in compact card mode when manually enabled', async () => {
-    settings = { compactWorktreeCards: true }
-    worktreeCardProperties = ['status', 'automation']
-    const { default: WorktreeCard } = await import('./WorktreeCard')
-
-    const markup = renderWorktreeCardMarkup(
-      <WorktreeCard
-        worktree={makeWorktree({
-          automationProvenance: {
-            kind: 'created-by-automation',
-            automationId: 'automation-1',
-            automationNameSnapshot: 'Nightly triage automation',
-            automationRunId: 'run-1',
-            automationRunTitleSnapshot: 'Nightly triage run',
-            createdAt: 1,
-            executionTargetType: 'local',
-            executionTargetId: 'local',
-            projectId: 'repo-1',
-            repoId: 'repo-1',
-            hostId: 'local'
-          }
-        })}
-        repo={makeRepo()}
-        isActive={false}
-      />
-    )
-
-    expect(countAutomationCreatedLabels(markup)).toBe(1)
-    expect(markup).not.toContain('>Automation</span>')
-  }, 20_000)
-
-  it('hides automation-created card surfaces when the Automation property is disabled', async () => {
-    worktreeCardProperties = ['status']
-    const { default: WorktreeCard } = await import('./WorktreeCard')
-
-    const markup = renderWorktreeCardMarkup(
-      <WorktreeCard
-        worktree={makeWorktree({
-          automationProvenance: {
-            kind: 'created-by-automation',
-            automationId: 'automation-1',
-            automationNameSnapshot: 'Nightly triage automation',
-            automationRunId: 'run-1',
-            automationRunTitleSnapshot: 'Nightly triage run',
-            createdAt: 1,
-            executionTargetType: 'local',
-            executionTargetId: 'local',
-            projectId: 'repo-1',
-            repoId: 'repo-1',
-            hostId: 'local'
-          }
-        })}
-        repo={makeRepo()}
-        isActive={false}
-      />
-    )
-
-    expect(countAutomationCreatedLabels(markup)).toBe(0)
-    expect(markup).not.toContain('>Automation</span>')
-    expect(markup).not.toContain('Nightly triage automation')
   })
 
   it('hides live port metadata when the Ports card property is disabled', async () => {

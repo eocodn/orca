@@ -160,7 +160,7 @@ describe('WorktreeCardAgents activation', () => {
     capturedRowActivations = []
   })
 
-  it('reveals the worktree and focuses an automation worker row hydrated during reveal', async () => {
+  it('reveals the worktree and focuses a worker row hydrated during reveal', async () => {
     mockAgentActivityDisplayMode = 'full'
     const tabId = 'worker-tab'
     const paneKey = makePaneKey(tabId, LEAF_A)
@@ -169,7 +169,7 @@ describe('WorktreeCardAgents activation', () => {
         paneKey,
         tabId,
         agentType: 'codex',
-        prompt: 'Run automation worker',
+        prompt: 'Run worker',
         worktreeId: 'wt-1'
       })
     ]
@@ -275,7 +275,7 @@ describe('WorktreeCardAgents activation', () => {
     ]
     mockAgentStatusByPaneKey = { [paneKey]: { worktreeId: 'wt-1' } }
     // Why: activation may create/select a different terminal before the
-    // automation worker hydrates; the row must only pane-focus its exact tab.
+    // The worker hydrates; the row must only pane-focus its exact tab.
     activationMocks.activateAndRevealWorktree.mockImplementation(() => {
       mockTabsByWorktree = { 'wt-1': [{ id: fallbackTabId }] }
       mockSetActiveTab(fallbackTabId)
@@ -370,7 +370,7 @@ describe('WorktreeCardAgents activation', () => {
     expect(staleAgentRowMocks.dismissStaleAgentRowByKey).toHaveBeenCalledWith(paneKey)
   })
 
-  it('reveals the worktree and focuses a compact automation worker row hydrated during reveal', async () => {
+  it('reveals the worktree and focuses a compact worker row hydrated during reveal', async () => {
     mockAgentActivityDisplayMode = 'compact'
     const tabId = 'compact-worker-tab'
     const paneKey = makePaneKey(tabId, LEAF_A)

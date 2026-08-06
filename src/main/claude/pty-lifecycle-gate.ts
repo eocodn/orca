@@ -22,5 +22,5 @@ export function isClaudeAuthSwitchInProgress(): boolean {
   return false
 }
 export function hasClaudeAuthEnvConflict(env: NodeJS.ProcessEnv | undefined): boolean {
-  return CLAUDE_AUTH_ENV_VARS.some((key) => Boolean(env[key]))
+  return CLAUDE_AUTH_ENV_VARS.some((key) => Boolean(env?.[key]))
 }

@@ -3369,17 +3369,17 @@ describe('useIpcEvents browser tab close routing', () => {
         browserTabsByWorktree: {},
         unifiedTabsByWorktree: {
           'wt-1': [
-            { id: 'sim-tab-1', entityId: 'sim-1', contentType: 'simulator', isPinned: false }
+            { id: 'terminal-tab-1', entityId: 'term-1', contentType: 'terminal', isPinned: false }
           ]
         }
       })
     })
 
-    closeSessionTabListenerRef.current?.({ tabId: 'sim-tab-1', worktreeId: 'wt-1' })
+    closeSessionTabListenerRef.current?.({ tabId: 'terminal-tab-1', worktreeId: 'wt-1' })
 
     // Why: only editor tabs need the closeFile (openFiles) path; other content types
     // must keep closeUnifiedTab so the editor-only routing stays scoped.
-    expect(closeUnifiedTab).toHaveBeenCalledWith('sim-tab-1')
+    expect(closeUnifiedTab).toHaveBeenCalledWith('terminal-tab-1')
     expect(closeFile).not.toHaveBeenCalled()
   })
 

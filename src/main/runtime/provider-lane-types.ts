@@ -5,3 +5,4 @@ export type CodexAccountService = Record<string, never>
 export type CodexResetCreditRejectedBeforeProviderReason = string
 export type CodexAccountSelectionTarget = { runtime?: 'host' | 'wsl'; wslDistro?: string | null }
 export type RateLimitService = Record<string, never>
+export type CodexSessionResumePreparation = unknown

@@ -19,7 +19,6 @@ let worktreeCardProperties = [
   'linear-issue',
   'jira-issue',
   'pr',
-  'automation',
   'comment',
   'ports',
   'inline-agents'
@@ -123,7 +122,6 @@ beforeEach(() => {
     'linear-issue',
     'jira-issue',
     'pr',
-    'automation',
     'comment',
     'ports',
     'inline-agents'

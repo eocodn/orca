@@ -329,14 +329,6 @@ describe('remote runtime request connection integration', () => {
       const worktreeId = 'repo-1::C:\\repo\\feature'
       const ptyId = `${worktreeId}@@pty-1`
       let sleepSnapshot: RuntimeClientEvent[] = []
-      const launchDraftResolutionSnapshot: RuntimeClientEvent[] = [
-        {
-          type: 'nativeChatLaunchDraftResolved',
-          tabId: 'tab-1',
-          text: 'seed',
-          createdAt: 7
-        }
-      ]
       const emit = (event: RuntimeClientEvent): void => {
         for (const listener of clientEventListeners) {
           listener(event)
@@ -366,7 +358,6 @@ describe('remote runtime request connection integration', () => {
           return () => clientEventListeners.delete(listener)
         },
         getTerminalSleepClientEventSnapshot: () => sleepSnapshot,
-        getNativeChatLaunchDraftResolutionClientEventSnapshot: () => launchDraftResolutionSnapshot,
         sleepTerminalsForWorktree: async () => {
           emit({
             type: 'worktreeTerminalSleepState',
@@ -445,9 +436,6 @@ describe('remote runtime request connection integration', () => {
           await waitFor(() =>
             clientEvents.every((events) => events.some((e) => e.type === 'ready'))
           )
-          for (const events of clientEvents) {
-            expect(events).toContainEqual(launchDraftResolutionSnapshot[0])
-          }
           await expect(
             requester.request(
               'terminal.sleep',
@@ -495,7 +483,6 @@ describe('remote runtime request connection integration', () => {
                 .filter((event) => event.type === 'worktreeTerminalSleepState')
                 .map((event) => event.phase)
             ).toEqual(['committed'])
-            expect(reconnectedEvents).toContainEqual(launchDraftResolutionSnapshot[0])
 
             sleepSnapshot = []
             emit({

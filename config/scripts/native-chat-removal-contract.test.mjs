@@ -18,6 +18,13 @@ function collectProductionFiles(directoryPath) {
   })
 }
 
+const retiredNativeChatTests = [
+  'src/main/persistence.test.ts',
+  'src/main/runtime/orca-runtime.test.ts',
+  'src/main/runtime/remote-runtime-request-connection.integration.test.ts',
+  'src/main/ipc/register-core-handlers.test.ts'
+]
+
 describe('Native Chat removal contract', () => {
   it('removes Native Chat-owned source trees and entry modules', () => {
     for (const relativePath of [
@@ -72,6 +79,16 @@ describe('Native Chat removal contract', () => {
       'mobile/scripts/mock-server-rpc-handlers.ts'
     ]) {
       expect(existsSync(resolve(projectRoot, relativePath)), relativePath).toBe(true)
+    }
+  })
+
+  it('does not keep Native Chat fixtures in generic test suites', () => {
+    const forbidden =
+      /nativeChatLaunchDraftResolved|NativeChatLaunchDraft|launchDraftResolution|registerNativeChatHandlers|nativeChatSessionOptions/
+    for (const relativePath of retiredNativeChatTests) {
+      expect(readFileSync(resolve(projectRoot, relativePath), 'utf8'), relativePath).not.toMatch(
+        forbidden
+      )
     }
   })
 })

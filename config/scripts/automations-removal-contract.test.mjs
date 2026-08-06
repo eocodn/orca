@@ -26,6 +26,19 @@ function removedPathIsEmpty(relativePath) {
   return readdirSync(absolutePath).length === 0
 }
 
+const retiredAutomationTests = [
+  'src/main/persistence.test.ts',
+  'src/main/runtime/rpc/methods/worktree.test.ts',
+  'src/main/ipc/worktrees.test.ts',
+  'src/renderer/src/components/sidebar/SidebarNav.test.tsx',
+  'src/renderer/src/components/sidebar/WorktreeCard.pr-display.test.tsx',
+  'src/renderer/src/components/sidebar/WorktreeCardAgents.activation.test.tsx',
+  'src/renderer/src/components/sidebar/WorktreeCardDisplayMenuSection.test.tsx',
+  'src/renderer/src/components/sidebar/sidebar-workspace-option-items.test.ts',
+  'src/renderer/src/components/settings/AppearancePane.test.tsx',
+  'src/renderer/src/components/settings/terminal-search.test.ts'
+]
+
 describe('automations removal contract', () => {
   it('removes the complete automations-owned source trees and entry modules', () => {
     for (const relativePath of [
@@ -96,6 +109,16 @@ describe('automations removal contract', () => {
       'src/relay/git-handler-stage-1.ts'
     ]) {
       expect(existsSync(resolve(projectRoot, relativePath)), relativePath).toBe(true)
+    }
+  })
+
+  it('does not keep retired automation fixtures in generic test suites', () => {
+    const forbidden =
+      /createAutomation|listAutomationRuns|automationProvenance|showAutomationsButton|dispatch-tokens|createAutomationDispatchToken|AutomationService|openAutomationsPage|shouldShowAutomationsButton|Created by automation|\bautomation\b|Automations/
+    for (const relativePath of retiredAutomationTests) {
+      expect(readFileSync(resolve(projectRoot, relativePath), 'utf8'), relativePath).not.toMatch(
+        forbidden
+      )
     }
   })
 })

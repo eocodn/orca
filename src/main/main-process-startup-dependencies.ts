@@ -167,6 +167,16 @@ export { focusExistingMainWindow } from './window/focus-existing-window'
 export { notifyMainWindowBecameVisible } from './window/main-window-visibility'
 export { CodexRuntimeHomeService } from './codex-cli/runtime-home-service'
 export { ClaudeRuntimeAuthService } from './claude/runtime-auth-service'
+export type {
+  CodexAccountSelectionTarget,
+  CodexSessionResumePreparation
+} from './runtime/provider-lane-types'
+export async function prepareCodexSessionResume(): Promise<null> {
+  return null
+}
+export function prepareLegacySharedCodexSessionResume(): { useRealCodexHome: false } {
+  return { useRealCodexHome: false }
+}
 export { markCodexProjectTrusted } from './agent-trust-presets'
 export { codexHookService, setSystemCodexHomeHookSweepSuppressed } from './codex/hook-service'
 export {
