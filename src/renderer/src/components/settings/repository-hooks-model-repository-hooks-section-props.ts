@@ -1,33 +1,13 @@
-// Concrete surface implementation for RepositoryHooksSection.tsx
-/* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: repository hook saves and issue-command overrides synchronize debounced persistence state with external repo settings. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+/* Concrete surface implementation for RepositoryHooksSection.tsx. */
 import type {
   HookCommandSourcePolicy,
   OrcaHooks,
   Repo,
   RepoHookSettings,
-  SetupAgentStartupPolicy,
   SetupRunPolicy
 } from '../../../../shared/types'
-import { AlertTriangle, ChevronRight, Plus } from 'lucide-react'
-import { toast } from 'sonner'
-import { useTranslation } from 'react-i18next'
-import { Button } from '../ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { SearchableSetting } from './SearchableSetting'
-import { SettingsSwitch } from './SettingsFormControls'
-import { useAppStore } from '@/store'
-import { readRuntimeIssueCommand, writeRuntimeIssueCommand } from '@/runtime/runtime-hooks-client'
 import { DEFAULT_REPO_HOOK_SETTINGS } from './SettingsConstants'
-import { resolveHookCommandSourcePolicy } from '../../../../shared/hook-command-source-policy'
-import { getRepositoryLocalCommandsSectionId } from './repository-settings-targets'
-import { matchesSettingsSearch } from './settings-search'
 import { translate } from '@/i18n/i18n'
-import { getRepositoryHookScriptTextareaRows } from '@/lib/script-textarea-rows'
-import { getRepoExecutionHostId, parseExecutionHostId } from '../../../../shared/execution-host'
-import { getParseErrorFixes, PolicyOptionGrid, SegmentedPolicyToggle, ExampleTemplateCard, YamlScriptBlock, EnvVarChips, SaveIndicator, LocalCommandSourceNotice } from './repository-hooks-model-get-parse-error-fixes'
-import { ScriptEditor } from './repository-hooks-model-script-editor'
-import type { SaveStatus, ScriptEditorProps } from './repository-hooks-model-get-parse-error-fixes'
 export type RepositoryHooksSectionProps = {
   repo: Repo
   yamlHooks: OrcaHooks | null

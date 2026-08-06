@@ -1,33 +1,48 @@
 // Concrete surface implementation for RepositoryHooksSection.tsx
 /* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: repository hook saves and issue-command overrides synchronize debounced persistence state with external repo settings. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   HookCommandSourcePolicy,
   OrcaHooks,
-  Repo,
   RepoHookSettings,
   SetupAgentStartupPolicy,
   SetupRunPolicy
 } from '../../../../shared/types'
-import { AlertTriangle, ChevronRight, Plus } from 'lucide-react'
-import { toast } from 'sonner'
-import { useTranslation } from 'react-i18next'
-import { Button } from '../ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
+import { AlertTriangle, ChevronRight } from 'lucide-react'
 import { SearchableSetting } from './SearchableSetting'
 import { SettingsSwitch } from './SettingsFormControls'
-import { useAppStore } from '@/store'
-import { readRuntimeIssueCommand, writeRuntimeIssueCommand } from '@/runtime/runtime-hooks-client'
-import { DEFAULT_REPO_HOOK_SETTINGS } from './SettingsConstants'
-import { resolveHookCommandSourcePolicy } from '../../../../shared/hook-command-source-policy'
 import { getRepositoryLocalCommandsSectionId } from './repository-settings-targets'
-import { matchesSettingsSearch } from './settings-search'
 import { translate } from '@/i18n/i18n'
-import { getRepositoryHookScriptTextareaRows } from '@/lib/script-textarea-rows'
-import { getRepoExecutionHostId, parseExecutionHostId } from '../../../../shared/execution-host'
+import type {
+  RepositoryHooksSectionProps,
+  HookSettingsPolicyDraft,
+  getSetupRunPolicyOptions,
+  getCommandSourcePolicyOptions,
+  getLocalHookFields,
+  getYamlStateCopy,
+  getLocalCommandSourcePolicyNotice
+} from './repository-hooks-model-repository-hooks-section-props'
+import {
+  ARTIFACT_URL_TEMPLATE_TOKEN,
+  YAML_STATE_STYLES,
+  getCommandSourceLabel
+} from './repository-hooks-model-repository-hooks-section-props'
+import {
+  PolicyOptionGrid,
+  SegmentedPolicyToggle,
+  ExampleTemplateCard,
+  YamlScriptBlock,
+  LocalCommandSourceNotice
+} from './repository-hooks-model-get-parse-error-fixes'
+import { ScriptEditor } from './repository-hooks-model-script-editor'
 
-import type { RepositoryHooksSectionProps, PolicyOption, HookSettingsPolicyDraft } from './repository-hooks-surface'
-import { ARTIFACT_URL_TEMPLATE_TOKEN, YAML_STATE_STYLES, getSetupRunPolicyOptions, getCommandSourcePolicyOptions, getCommandSourceLabel, getLocalHookFields, getYamlStateCopy, getParseErrorFixes, PolicyOptionGrid, SegmentedPolicyToggle, ExampleTemplateCard, YamlScriptBlock, LocalCommandSourceNotice, ScriptEditor, renderYamlScriptPreview } from './repository-hooks-surface'
+function renderYamlScriptPreview(hooks: OrcaHooks | null): string {
+  const formatScript = (key: string, command?: string): string =>
+    command ? `\n  ${key}: |\n${command.replace(/^/gm, '    ')}` : ''
+  const issueCommand = hooks?.issueCommand
+    ? `\nissueCommand: |\n${hooks.issueCommand.replace(/^/gm, '  ')}`
+    : ''
+  return `scripts:${formatScript('setup', hooks?.scripts.setup)}${formatScript('archive', hooks?.scripts.archive)}${issueCommand}`
+}
 
 type RepositoryHooksViewProps = {
   repo: RepositoryHooksSectionProps['repo']

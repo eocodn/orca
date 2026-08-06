@@ -4,35 +4,89 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   HookCommandSourcePolicy,
   OrcaHooks,
-  Repo,
   RepoHookSettings,
   SetupAgentStartupPolicy,
   SetupRunPolicy
 } from '../../../../shared/types'
-import { AlertTriangle, ChevronRight, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
-import { Button } from '../ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
-import { SearchableSetting } from './SearchableSetting'
-import { SettingsSwitch } from './SettingsFormControls'
 import { useAppStore } from '@/store'
 import { readRuntimeIssueCommand, writeRuntimeIssueCommand } from '@/runtime/runtime-hooks-client'
-import { DEFAULT_REPO_HOOK_SETTINGS } from './SettingsConstants'
 import { resolveHookCommandSourcePolicy } from '../../../../shared/hook-command-source-policy'
-import { getRepositoryLocalCommandsSectionId } from './repository-settings-targets'
 import { matchesSettingsSearch } from './settings-search'
 import { translate } from '@/i18n/i18n'
-import { getRepositoryHookScriptTextareaRows } from '@/lib/script-textarea-rows'
 import { getRepoExecutionHostId, parseExecutionHostId } from '../../../../shared/execution-host'
 
-import { LOCAL_HOOK_NAMES, ARTIFACT_URL_TEMPLATE_TOKEN, EXAMPLE_TEMPLATE, getHookSettingsDraft, areHookSettingsDraftsEqual, getLocalCommandSourcePolicyNotice, YAML_STATE_STYLES, getSetupRunPolicyOptions, getCommandSourcePolicyOptions, getCommandSourceLabel, getLocalHookFields, getEnvVars, getYamlStateCopy } from './repository-hooks-model-repository-hooks-section-props'
-import type { RepositoryHooksSectionProps, PolicyOption, LocalHookName, HookSettingsPolicyDraft, LocalHookField, LocalCommandSourcePolicyNotice } from './repository-hooks-model-repository-hooks-section-props'
-import { getParseErrorFixes, PolicyOptionGrid, SegmentedPolicyToggle, ExampleTemplateCard, YamlScriptBlock, EnvVarChips, SaveIndicator, LocalCommandSourceNotice } from './repository-hooks-model-get-parse-error-fixes'
+import {
+  LOCAL_HOOK_NAMES,
+  ARTIFACT_URL_TEMPLATE_TOKEN,
+  EXAMPLE_TEMPLATE,
+  getHookSettingsDraft,
+  areHookSettingsDraftsEqual,
+  getLocalCommandSourcePolicyNotice,
+  YAML_STATE_STYLES,
+  getSetupRunPolicyOptions,
+  getCommandSourcePolicyOptions,
+  getCommandSourceLabel,
+  getLocalHookFields,
+  getEnvVars,
+  getYamlStateCopy
+} from './repository-hooks-model-repository-hooks-section-props'
+import type {
+  RepositoryHooksSectionProps,
+  PolicyOption,
+  LocalHookName,
+  HookSettingsPolicyDraft,
+  LocalHookField,
+  LocalCommandSourcePolicyNotice
+} from './repository-hooks-model-repository-hooks-section-props'
+import {
+  getParseErrorFixes,
+  PolicyOptionGrid,
+  SegmentedPolicyToggle,
+  ExampleTemplateCard,
+  YamlScriptBlock,
+  EnvVarChips,
+  SaveIndicator,
+  LocalCommandSourceNotice
+} from './repository-hooks-model-get-parse-error-fixes'
 import type { SaveStatus, ScriptEditorProps } from './repository-hooks-model-get-parse-error-fixes'
 import { ScriptEditor } from './repository-hooks-model-script-editor'
-export { LOCAL_HOOK_NAMES, ARTIFACT_URL_TEMPLATE_TOKEN, EXAMPLE_TEMPLATE, getHookSettingsDraft, areHookSettingsDraftsEqual, getLocalCommandSourcePolicyNotice, YAML_STATE_STYLES, getSetupRunPolicyOptions, getCommandSourcePolicyOptions, getCommandSourceLabel, getLocalHookFields, getEnvVars, getYamlStateCopy, getParseErrorFixes, PolicyOptionGrid, SegmentedPolicyToggle, ExampleTemplateCard, YamlScriptBlock, EnvVarChips, SaveIndicator, LocalCommandSourceNotice, ScriptEditor }
-export type { RepositoryHooksSectionProps, PolicyOption, LocalHookName, HookSettingsPolicyDraft, LocalHookField, LocalCommandSourcePolicyNotice, SaveStatus, ScriptEditorProps }
+import { RepositoryHooksView } from './repository-hooks-view'
+export {
+  LOCAL_HOOK_NAMES,
+  ARTIFACT_URL_TEMPLATE_TOKEN,
+  EXAMPLE_TEMPLATE,
+  getHookSettingsDraft,
+  areHookSettingsDraftsEqual,
+  getLocalCommandSourcePolicyNotice,
+  YAML_STATE_STYLES,
+  getSetupRunPolicyOptions,
+  getCommandSourcePolicyOptions,
+  getCommandSourceLabel,
+  getLocalHookFields,
+  getEnvVars,
+  getYamlStateCopy,
+  getParseErrorFixes,
+  PolicyOptionGrid,
+  SegmentedPolicyToggle,
+  ExampleTemplateCard,
+  YamlScriptBlock,
+  EnvVarChips,
+  SaveIndicator,
+  LocalCommandSourceNotice,
+  ScriptEditor
+}
+export type {
+  RepositoryHooksSectionProps,
+  PolicyOption,
+  LocalHookName,
+  HookSettingsPolicyDraft,
+  LocalHookField,
+  LocalCommandSourcePolicyNotice,
+  SaveStatus,
+  ScriptEditorProps
+}
 
 export function RepositoryHooksSection({
   repo,
@@ -296,8 +350,12 @@ export function RepositoryHooksSection({
         translate('auto.components.settings.RepositoryHooksSection.39da2ae12f', 'orca.yaml'),
         translate('auto.components.settings.RepositoryHooksSection.d2b3016c20', 'shared'),
         translate('auto.components.settings.RepositoryHooksSection.2d03a514db', 'local'),
-        translate('auto.components.settings.RepositoryHooksSection.0518758f38', 'both'),
-   return (
+        translate('auto.components.settings.RepositoryHooksSection.0518758f38', 'both')
+      ]
+    })
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
+
+  return (
     <RepositoryHooksView
       repo={repo}
       forceVisible={forceVisible}
@@ -332,14 +390,6 @@ export function RepositoryHooksSection({
       copiedTemplate={copiedTemplate}
       onCopyTemplate={onCopyTemplate}
     />
-  )      onCopyTemplate={onCopyTemplate}
-                />
-              )}
-            </div>
-          </div>
-        </details>
-      </SearchableSetting>
-    </section>
   )
 }
 

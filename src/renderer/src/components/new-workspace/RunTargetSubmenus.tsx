@@ -108,5 +108,3 @@ export function AddHostSubmenuRow({
     </Popover>
   )
 }
-
-export { RUN_TARGET_ADD_HOST_KEY }

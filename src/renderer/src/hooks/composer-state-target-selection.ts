@@ -7,7 +7,7 @@ import { useDetectedAgents } from '@/hooks/useDetectedAgents'
 import { getFolderSourceRepos } from '@/components/sidebar/folder-workspace-composer-helpers'
 import { useFolderWorkspaceComposerPathStatus } from '@/components/sidebar/folder-workspace-composer-path-status'
 import { buildExecutionHostRegistry } from '../../../shared/execution-host-registry'
-import { getRepoExecutionHostId, parseExecutionHostId } from '../../../shared/execution-host'
+import { parseExecutionHostId } from '../../../shared/execution-host'
 import { getHostDisplayLabelOverrides } from '../../../shared/host-setting-overrides'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import { getSelectedRepoSshGate } from '@/lib/new-workspace-ssh-gate'
@@ -25,27 +25,21 @@ import {
   resolveWorkspaceCreationTarget
 } from '@/lib/project-host-workspace-target'
 import { buildProjectHostSetupOptions } from '@/lib/project-host-setup-options'
+import { buildNewWorkspaceCreateTargetOptions } from '@/lib/new-workspace-project-options'
 import {
-  buildNewWorkspaceCreateTargetOptions
-} from '@/lib/new-workspace-project-options'
-import { resolveInitialWorkspaceRunSeed, type UseComposerStateOptions } from './composer-state-contracts'
-import type { ProjectGroup, SparsePreset, TuiAgent } from '../../../shared/types'
+  resolveInitialWorkspaceRunSeed,
+  type UseComposerStateOptions
+} from './composer-state-contracts'
+import type { ProjectGroup, TuiAgent } from '../../../shared/types'
 
+export function useComposerTargetState(options: UseComposerStateOptions) {
   const {
     initialRepoId,
-    initialName = '',
-    initialPrompt = '',
-    initialLinkedWorkItem = null,
     initialTaskSourceContext = null,
     initialWorkspaceStatus,
-    initialBaseBranch,
     persistDraft,
-    onCreated,
     repoIdOverride,
     onRepoIdOverrideChange,
-    telemetrySource,
-    enableIssueAutomation = true,
-    createGateMode = 'full',
     initialProjectGroupId
   } = options
 
@@ -68,23 +62,6 @@ import type { ProjectGroup, SparsePreset, TuiAgent } from '../../../shared/types
       fetchSparsePresets: s.fetchSparsePresets
     }))
   )
-  const {
-    setNewWorkspaceDraft,
-    clearNewWorkspaceDraft,
-    createWorktree,
-    updateRepo,
-    updateWorktreeMeta,
-    createFolderWorkspace,
-    setSidebarOpen,
-    closeModal,
-    openSettingsPage,
-    openSettingsTarget,
-    setActiveRuntimeEnvironmentPreference,
-    prefetchWorktreeCreateBase,
-    prefetchWorkItems,
-    fetchSparsePresets
-  } = actions
-
   const repos = useAppStore((s) => s.repos)
   const projects = useAppStore((s) => s.projects)
   const projectGroups = useAppStore((s) => s.projectGroups)
@@ -153,6 +130,7 @@ import type { ProjectGroup, SparsePreset, TuiAgent } from '../../../shared/types
   const initialProjectGroupAppliedRef = useRef(Boolean(initialFolderProjectGroup))
   const [projectError, setProjectError] = useState<string | null>(null)
   const repoId = repoIdOverride ?? internalRepoId
+  const setRepoId = onRepoIdOverrideChange ?? setInternalRepoId
   const selectedProjectGroup = useMemo<ProjectGroup | null>(
     () =>
       selectedProjectGroupId

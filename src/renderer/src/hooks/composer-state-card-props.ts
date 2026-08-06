@@ -4,7 +4,10 @@ import {
 } from '@/lib/new-workspace-create-gates'
 import type { ComposerCardProps } from './composer-state-contracts'
 
-export function buildComposerCardProps(context: any): { cardProps: ComposerCardProps; createDisabled: boolean } {
+export function buildComposerCardProps(context: any): {
+  cardProps: ComposerCardProps
+  createDisabled: boolean
+} {
   const {
     repoId,
     workspaceSeedName,
@@ -84,13 +87,11 @@ export function buildComposerCardProps(context: any): { cardProps: ComposerCardP
     handleBaseBranchPrSelect,
     handleBaseBranchMrSelect,
     selectedRepo,
-    selectedRepoIsRemote,
     selectedRepoConnectionId,
     selectedRepoSshStatus,
     folderTargetIsRemote,
     folderTargetConnectionId,
     folderTargetSshStatus,
-    selectedRepoRequiresConnection,
     folderTargetRequiresConnection,
     selectedRepoConnectInProgress,
     folderTargetConnectInProgress,
@@ -242,19 +243,6 @@ export function buildComposerCardProps(context: any): { cardProps: ComposerCardP
     setupControlsEnabled: !isProjectGroupTarget,
     sparseControlsEnabled: !isProjectGroupTarget
   }
-
-  return {
-    cardProps,
-    composerRef,
-    onComposerNodeChange: handleComposerNodeChange,
-    promptTextareaRef,
-    nameInputRef,
-    submit,
-    submitQuick,
-    createDisabled,
-    selectAddedProjectRepo
-  }
-}
 
   return { cardProps, createDisabled }
 }

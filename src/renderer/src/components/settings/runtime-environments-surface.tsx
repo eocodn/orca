@@ -1,18 +1,5 @@
-// Concrete surface implementation for RuntimeEnvironmentsPane.tsx
-   server selection, saved server mutation, and confirmation dialogs together so
-   the state transitions stay auditable. */
+/* Concrete surface implementation for RuntimeEnvironmentsPane.tsx. */
 import { getClientRuntime } from '@/runtime/client-runtime'
-import {
-  AlertTriangle,
-  ChevronDown,
-  Loader2,
-  Plus,
-  RefreshCw,
-  Server,
-  ServerOff,
-  Share2,
-  Trash2
-} from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useMountedRef } from '@/hooks/useMountedRef'
@@ -23,19 +10,6 @@ import {
 } from '../../../../shared/runtime-environments'
 import type { RuntimeStatus } from '../../../../shared/runtime-types'
 import { describeRuntimeCompatBlock } from '../../../../shared/protocol-compat'
-import { Button } from '../ui/button'
-import { Label } from '../ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
-import { SearchableSetting } from './SearchableSetting'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '../ui/dialog'
-import { RuntimePairingUrlGenerator } from './RuntimePairingUrlGenerator'
 import {
   getRuntimeEnvironmentsSearchEntry,
   getWebRuntimeEnvironmentsSearchEntry
@@ -43,24 +17,11 @@ import {
 import { unwrapRuntimeRpcResult } from '@/runtime/runtime-rpc-client'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
-import { cn } from '@/lib/utils'
-import { getUpdateCheckClickOptions, getUpdateCheckHint } from '@/lib/update-check-click-options'
-import {
-  getRemoteServerManualUpdateHelp,
-  RemoteServerUpdateStatus
-} from './RemoteServerUpdateStatus'
-import { RuntimeHostAccessForm, type RuntimeHostAccessFailure } from './RuntimeHostAccessForm'
+import { getUpdateCheckHint } from '@/lib/update-check-click-options'
+import type { RuntimeHostAccessFailure } from './RuntimeHostAccessForm'
 import { RuntimeEnvironmentsView } from './runtime-environments-view'
 import {
   evaluateHostDetails,
-  getActiveServerModeDescription,
-  getHostDetailsDescription,
-  getHostDetailsSummary,
-  getHostModelCapabilitySummary,
-  getRuntimeCapabilitiesSummary,
-  getRuntimeServerConnectionLabel,
-  getRuntimeServerConnectionState,
-  getRuntimeServerDotClass,
   isRuntimeEnvironmentRemovalBlocked,
   type RemoteServerWorkflow,
   type RuntimeHostDetails
