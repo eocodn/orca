@@ -104,6 +104,7 @@ export function useTerminalPaneSurfaceEffects(context: TerminalPaneSurfaceContex
     setAgentSessionContinuation,
     rightClickToPaste,
     sessionRestoredBannerPaneIds,
+    paneLayoutRevision,
     setPaneTitleOverlayRects,
     expandedPaneId,
     setSessionRestoredBannerPaneIds,
