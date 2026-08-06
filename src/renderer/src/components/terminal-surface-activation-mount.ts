@@ -1,6 +1,48 @@
 import { useAppStore } from '../store'
+import type { AppState } from '../store'
+import type { MutableRefObject } from 'react'
+import { isRemoteRuntimePtyId } from '@/runtime/runtime-terminal-inspection'
+import { isParkRestorableTerminalPty } from './terminal-pane/terminal-hidden-view-parking'
+import { terminalProviderHasAuthoritativeSnapshot } from './terminal/terminal-provider-snapshot-capability'
+import {
+  canDeferColdActivationTabsForHost,
+  canWatcherCoverParkedTerminalTab
+} from './terminal-pane/terminal-parked-tab-watchers'
+import { hasRegisteredRuntimeTerminalTab } from '../runtime/sync-runtime-graph'
+import {
+  planColdActivationTabDeferral,
+  revealActivationDeferredTabs
+} from './terminal/background-terminal-worktree-mount'
 
-export function applyTerminalSurfaceActivationMount(context: Record<string, any>): void {
+type TerminalSurfaceActivationMountContext = {
+  renderedActiveWorktreeId: string | null
+  canMountTerminalWorkspaceForStartup: (args: {
+    workspaceSessionReady: boolean
+    hydrationSucceeded: boolean
+    startupWorktreeRefreshCompleted: boolean
+  }) => boolean
+  workspaceSessionReady: boolean
+  hydrationSucceeded: boolean
+  startupWorktreeRefreshCompleted: boolean
+  tabsByWorktree: AppState['tabsByWorktree']
+  terminalParkingEnabled: boolean
+  terminalTitleSnapshotAuthorityEnabled: boolean
+  activeTabId: string | null
+  activeTabIdByWorktree: AppState['activeTabIdByWorktree']
+  groupsByWorktree: AppState['groupsByWorktree']
+  activityTerminalPortals: readonly { worktreeId: string; tabId: string }[]
+  pendingStartupByTabId: AppState['pendingStartupByTabId']
+  activeWorktreeDeferralHostId: string | null
+  pairedRuntimeParkingEnvironmentIds: ReadonlySet<string>
+  lastActivationWorktreeIdRef: MutableRefObject<string | null>
+  backgroundMountTabIdsByWorktreeRef: MutableRefObject<Map<string, ReadonlySet<string>>>
+  activationDeferredMountTabIdsByWorktreeRef: MutableRefObject<Map<string, ReadonlySet<string>>>
+  mountedWorktreeIdsRef: MutableRefObject<Set<string>>
+}
+
+export function applyTerminalSurfaceActivationMount(
+  context: TerminalSurfaceActivationMountContext
+): void {
   const {
     renderedActiveWorktreeId,
     canMountTerminalWorkspaceForStartup,
@@ -15,19 +57,11 @@ export function applyTerminalSurfaceActivationMount(context: Record<string, any>
     groupsByWorktree,
     activityTerminalPortals,
     pendingStartupByTabId,
-    canDeferColdActivationTabsForHost,
     activeWorktreeDeferralHostId,
     pairedRuntimeParkingEnvironmentIds,
-    isRemoteRuntimePtyId,
-    isParkRestorableTerminalPty,
-    terminalProviderHasAuthoritativeSnapshot,
     lastActivationWorktreeIdRef,
-    planColdActivationTabDeferral,
     backgroundMountTabIdsByWorktreeRef,
     activationDeferredMountTabIdsByWorktreeRef,
-    hasRegisteredRuntimeTerminalTab,
-    canWatcherCoverParkedTerminalTab,
-    revealActivationDeferredTabs,
     mountedWorktreeIdsRef
   } = context
   if (
@@ -135,6 +169,4 @@ export function applyTerminalSurfaceActivationMount(context: Record<string, any>
   } else {
     lastActivationWorktreeIdRef.current = null
   }
-
 }
-

@@ -1,12 +1,55 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useAppStore } from '../store'
-import { haveSameTerminalIdSet } from './terminal-surface-parking-model'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import type { AppState } from '../store'
 import { useTerminalSurfaceBackgroundMountEffects } from './terminal-surface-background-mount-effects'
 import { useTerminalSurfaceParkingPolicyEffect } from './terminal-surface-parking-policy-effect'
 import { applyTerminalSurfaceActivationMount } from './terminal-surface-activation-mount'
+import { findActivityTerminalPortal } from './activity/activity-terminal-portal'
+import { pruneClosedBackgroundMountTabs } from './terminal/background-terminal-worktree-mount'
+import {
+  canWatcherCoverParkedTerminalTab,
+  disposeAllParkedTerminalWatchers,
+  pruneParkedTerminalWatchers,
+  syncParkedTerminalTabWatchers,
+  terminalWatcherLiveWorkspaceIds
+} from './terminal-pane/terminal-parked-tab-watchers'
+import {
+  combineTerminalWorktreeParkIds,
+  useManualTerminalWorktreeParking
+} from './terminal-pane/use-manual-terminal-worktree-parking'
+import type { getEffectiveLayout } from './terminal/split-group-mount'
+
+export type TerminalSurfaceParkingContext = {
+  activeView: AppState['activeView']
+  renderedActiveWorktreeId: string | null
+  workspaceSurfaces: readonly { id: string; path: string }[]
+  tabsByWorktree: AppState['tabsByWorktree']
+  pendingStartupByTabId: AppState['pendingStartupByTabId']
+  terminalParkingEnabled: boolean
+  terminalSshParkingEnabled: boolean
+  pairedRuntimeParkingEnvironmentIds: ReadonlySet<string>
+  terminalRetentionBudgetEnabled: boolean
+  terminalTitleSnapshotAuthorityEnabled: boolean
+  activeTabId: string | null
+  activeTabIdByWorktree: AppState['activeTabIdByWorktree']
+  workspaceSessionReady: boolean
+  hydrationSucceeded: boolean
+  startupWorktreeRefreshCompleted: boolean
+  activityTerminalPortals: readonly { worktreeId: string; tabId: string }[]
+  activeWorktreeDeferralHostId: string | null
+  layoutByWorktree: AppState['layoutByWorktree']
+  groupsByWorktree: AppState['groupsByWorktree']
+  activeGroupIdByWorktree: AppState['activeGroupIdByWorktree']
+  getEffectiveLayoutForWorktree: (worktreeId: string) => ReturnType<typeof getEffectiveLayout>
+  mountedWorktreeIdsRef: MutableRefObject<Set<string>>
+  measurableBackgroundWorktreeIdsRef: MutableRefObject<Set<string>>
+  terminalWorktreeHiddenSinceRef: MutableRefObject<Map<string, number>>
+  measuringTerminalWorktreeIdsRef: MutableRefObject<Set<string>>
+  terminalWorktreeParkCooldownUntilRef: MutableRefObject<Map<string, number>>
+  terminalWorktreeParkingTimersRef: MutableRefObject<Map<string, number>>
+}
 export function useTerminalSurfaceParkingController(
-  context: Record<string, any>
-): Record<string, any> {
+  context: TerminalSurfaceParkingContext
+): ReturnType<typeof useTerminalSurfaceParkingController> {
   const {
     activeView,
     renderedActiveWorktreeId,
@@ -14,59 +57,18 @@ export function useTerminalSurfaceParkingController(
     tabsByWorktree,
     pendingStartupByTabId,
     terminalParkingEnabled,
-    terminalSshParkingEnabled,
-    runtimeStatusByEnvironmentId,
-    pairedRuntimeParkingEnvironmentIds,
-    terminalRetentionBudgetEnabled,
     terminalTitleSnapshotAuthorityEnabled,
     activeTabId,
     activeTabIdByWorktree,
     workspaceSessionReady,
-    hydrationSucceeded,
-    startupWorktreeRefreshCompleted,
     activityTerminalPortals,
-    activeWorktreeDeferralHostId,
     layoutByWorktree,
     groupsByWorktree,
     activeGroupIdByWorktree,
     getEffectiveLayoutForWorktree,
     mountedWorktreeIdsRef,
     measurableBackgroundWorktreeIdsRef,
-    terminalWorktreeHiddenSinceRef,
-    measuringTerminalWorktreeIdsRef,
-    terminalWorktreeParkCooldownUntilRef,
-    terminalWorktreeParkingTimersRef,
-    isRemoteRuntimePtyId,
-    isParkRestorableTerminalPty,
-    terminalProviderHasAuthoritativeSnapshot,
-    selectColdParkedTerminalWorktrees,
-    selectRetentionForceParkedTerminalWorktrees,
-    selectForceParkEvictableTabIds,
-    selectEvictionExemptTerminalTabIds,
-    captureForceParkedWorktreeBuffers,
-    warnTerminalLifecycleAnomaly,
-    getTerminalParkingPolicyOverrides,
-    recordTerminalWorktreeParkingDebugVerdicts,
-    canParkTerminalWorktreeRenderers,
-    getTerminalWorktreeColdParkRecheckDelayMs,
-    combineTerminalWorktreeParkIds,
-    useManualTerminalWorktreeParking,
-    canDeferColdActivationTabsForHost,
-    canWatcherCoverParkedTerminalTab,
-    disposeAllParkedTerminalWatchers,
-    pruneParkedTerminalWatchers,
-    syncParkedTerminalTabWatchers,
-    terminalWatcherLiveWorkspaceIds,
-    findActivityTerminalPortal,
-    hasRegisteredRuntimeTerminalTab,
-    canMountTerminalWorkspaceForStartup,
-    applyBackgroundMountTabRestriction,
-    planColdActivationTabDeferral,
-    pruneClosedBackgroundMountTabs,
-    revealActivationDeferredTabs,
-    shouldMountBackgroundWorktreeTab,
-    takeAllPendingBackgroundTerminalWorktreeMounts,
-    takePendingBackgroundTerminalWorktreeMount
+    terminalWorktreeParkingTimersRef
   } = context
   const measurableBackgroundWorktreeTimersRef = useRef(new Map<string, number>())
   const [backgroundMountRevision, setBackgroundMountRevision] = useState(0)

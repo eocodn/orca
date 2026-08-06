@@ -10,35 +10,31 @@ import { translate } from '@/i18n/i18n'
 import { useTerminalSurfaceWindowCloseActions } from './terminal-surface-window-close-actions'
 import { waitForTerminalFileClosed } from './terminal-surface-file-close-wait'
 import { useTerminalSurfaceActiveTabRepairEffect } from './terminal-surface-active-tab-repair-effect'
+import type {
+  TerminalSurfaceSaveContext,
+  TerminalSurfaceSaveResult
+} from './terminal-surface-save-contract'
 const CLOSE_DIALOG_DEBOUNCE_MS = 200
 export function useTerminalSurfaceSaveController(
-  context: Record<string, any>
-): Record<string, any> {
+  context: TerminalSurfaceSaveContext
+): TerminalSurfaceSaveResult {
   const {
-    openFiles,
     activeWorktreeId,
     activeTabType,
     activeTabId,
     activeTabIdByWorktree,
     renderedActiveWorktreeId,
     tabs,
-    tabsByWorktree,
     setActiveTab,
     setActiveTabType,
     setActiveWorktree,
     markFileDirty,
-    closeFile,
-    activeFileId,
-    terminalParkingRevision,
-    setTerminalParkingRevision,
-    backgroundMountRevision,
-    setBackgroundMountRevision,
-    consumeSuppressedPtyExit
+    closeFile
   } = context
   const pendingEditorCloseQueueRef = useRef<string[]>([])
   const [saveDialogFileId, setSaveDialogFileId] = useState<string | null>(null)
   const saveDialogFile = saveDialogFileId
-    ? useAppStore.getState().openFiles.find((file) => file.id === saveDialogFileId) ?? null
+    ? (useAppStore.getState().openFiles.find((file) => file.id === saveDialogFileId) ?? null)
     : null
   // Why: track the file whose save-and-close is in flight so getNextQueuedEditorClose skips it and concurrent close requests can't re-open the dialog over it.
   const inFlightSaveFileIdRef = useRef<string | null>(null)

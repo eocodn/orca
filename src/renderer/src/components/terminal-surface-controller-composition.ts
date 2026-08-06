@@ -1,8 +1,13 @@
 import { toast } from 'sonner'
 import { useAppStore } from '../store'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
-import { isRemoteRuntimePtyId } from '@/runtime/runtime-terminal-inspection'
-import { isWebRuntimeSessionActive, createWebRuntimeSessionTerminal, createWebRuntimeSessionBrowserTab, activateWebRuntimeSessionTab, closeWebRuntimeSessionTab } from '@/runtime/web-runtime-session'
+import {
+  isWebRuntimeSessionActive,
+  createWebRuntimeSessionTerminal,
+  createWebRuntimeSessionBrowserTab,
+  activateWebRuntimeSessionTab,
+  closeWebRuntimeSessionTab
+} from '@/runtime/web-runtime-session'
 import { resumeSleepingAgentSessionsForWorktree } from '@/lib/resume-sleeping-agent-session'
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
 import { translate } from '@/i18n/i18n'
@@ -11,26 +16,24 @@ import { focusTerminalTabSurface } from '@/lib/focus-terminal-tab-surface'
 import { buildDuplicatedBrowserTabOptions } from '@/lib/duplicate-browser-tab-options'
 import { browserWorkspaceHasRemoteOwner } from '@/runtime/remote-browser-tab-ownership'
 import { closeTerminalTab } from './terminal/terminal-tab-actions'
-import { canMountTerminalWorkspaceForStartup, applyBackgroundMountTabRestriction, planColdActivationTabDeferral, pruneClosedBackgroundMountTabs, revealActivationDeferredTabs, shouldMountBackgroundWorktreeTab, takeAllPendingBackgroundTerminalWorktreeMounts, takePendingBackgroundTerminalWorktreeMount } from './terminal/background-terminal-worktree-mount'
-import { hasRegisteredRuntimeTerminalTab } from '../runtime/sync-runtime-graph'
-import { terminalProviderHasAuthoritativeSnapshot } from './terminal/terminal-provider-snapshot-capability'
-import { canDeferColdActivationTabsForHost, canWatcherCoverParkedTerminalTab, disposeAllParkedTerminalWatchers, pruneParkedTerminalWatchers, shouldDeferParkedPtyExitTabClose, syncParkedTerminalTabWatchers, terminalWatcherLiveWorkspaceIds } from './terminal-pane/terminal-parked-tab-watchers'
-import { canParkTerminalWorktreeRenderers, getTerminalWorktreeColdParkRecheckDelayMs, selectColdParkedTerminalWorktrees } from './terminal-pane/terminal-hidden-view-parking'
-import { selectForceParkEvictableTabIds, selectRetentionForceParkedTerminalWorktrees } from './terminal-pane/terminal-hidden-worktree-retention'
-import { captureForceParkedWorktreeBuffers } from './terminal-pane/force-park-buffer-capture'
-import { warnTerminalLifecycleAnomaly } from './terminal-pane/terminal-lifecycle-diagnostics'
-import { getTerminalParkingPolicyOverrides, recordTerminalWorktreeParkingDebugVerdicts } from './terminal-pane/terminal-parking-e2e-overrides'
-import { selectEvictionExemptTerminalTabIds } from './terminal-pane/terminal-eviction-exempt-tabs'
-import { getEffectiveLayout } from './terminal/split-group-mount'
-import { combineTerminalWorktreeParkIds, useManualTerminalWorktreeParking } from './terminal-pane/use-manual-terminal-worktree-parking'
 import { useTerminalSurfaceSaveController } from './terminal-surface-save-controller'
 import { useTerminalSurfaceParkingController } from './terminal-surface-parking-controller'
 import { useTerminalSurfaceActions } from './terminal-surface-actions'
+import type { useTerminalSurfaceState } from './terminal-surface-state'
 
 function getActiveWorktreeRuntimeEnvironmentId(worktreeId: string | null): string | null {
   return getRuntimeEnvironmentIdForWorktree(useAppStore.getState(), worktreeId)
 }
-export function useTerminalSurfaceControllerComposition(state: Record<string, any>): Record<string, any> {
+type TerminalSurfaceControllerContext = ReturnType<typeof useTerminalSurfaceState>
+type TerminalSurfaceControllerResult = ReturnType<typeof useTerminalSurfaceSaveController> & {
+  parking: ReturnType<typeof useTerminalSurfaceParkingController>
+  terminalActions: ReturnType<typeof useTerminalSurfaceActions>
+} & ReturnType<typeof useTerminalSurfaceActions> &
+  ReturnType<typeof useTerminalSurfaceSaveController>
+
+export function useTerminalSurfaceControllerComposition(
+  state: TerminalSurfaceControllerContext
+): TerminalSurfaceControllerResult {
   const {
     openFiles,
     activeWorktreeId,
@@ -73,39 +76,6 @@ export function useTerminalSurfaceControllerComposition(state: Record<string, an
     measuringTerminalWorktreeIdsRef,
     terminalWorktreeParkCooldownUntilRef,
     terminalWorktreeParkingTimersRef,
-    isRemoteRuntimePtyId,
-    isParkRestorableTerminalPty,
-    terminalProviderHasAuthoritativeSnapshot,
-    selectPairedRuntimeParkingEnvironmentIds,
-    selectColdParkedTerminalWorktrees,
-    selectRetentionForceParkedTerminalWorktrees,
-    selectForceParkEvictableTabIds,
-    selectEvictionExemptTerminalTabIds,
-    captureForceParkedWorktreeBuffers,
-    warnTerminalLifecycleAnomaly,
-    getTerminalParkingPolicyOverrides,
-    recordTerminalWorktreeParkingDebugVerdicts,
-    canParkTerminalWorktreeRenderers,
-    getTerminalWorktreeColdParkRecheckDelayMs,
-    combineTerminalWorktreeParkIds,
-    useManualTerminalWorktreeParking,
-    canDeferColdActivationTabsForHost,
-    canWatcherCoverParkedTerminalTab,
-    disposeAllParkedTerminalWatchers,
-    pruneParkedTerminalWatchers,
-    shouldDeferParkedPtyExitTabClose,
-    syncParkedTerminalTabWatchers,
-    terminalWatcherLiveWorkspaceIds,
-    findActivityTerminalPortal,
-    hasRegisteredRuntimeTerminalTab,
-    canMountTerminalWorkspaceForStartup,
-    applyBackgroundMountTabRestriction,
-    planColdActivationTabDeferral,
-    pruneClosedBackgroundMountTabs,
-    revealActivationDeferredTabs,
-    shouldMountBackgroundWorktreeTab,
-    takeAllPendingBackgroundTerminalWorktreeMounts,
-    takePendingBackgroundTerminalWorktreeMount,
     createTab,
     closeTab,
     setTabCustomTitle,
@@ -118,28 +88,8 @@ export function useTerminalSurfaceControllerComposition(state: Record<string, an
     openNewTerminalTabInActiveWorkspace,
     closeBrowserTab,
     setActiveBrowserTab,
-    setTabBarOrder,
-    launchAgentInNewTab,
-    getActiveWorktreeRuntimeEnvironmentId,
-    isWebRuntimeSessionActive,
-    createWebRuntimeSessionTerminal,
-    createWebRuntimeSessionBrowserTab,
-    activateWebRuntimeSessionTab,
-    closeWebRuntimeSessionTab,
-    buildDuplicatedBrowserTabOptions,
-    destroyWorkspaceWebviews,
-    handleCloseFile,
-    queueEditorCloseRequests,
-    closeTerminalTab,
-    browserWorkspaceHasRemoteOwner,
-    focusTerminalTabSurface,
-    toast,
-    translate,
-    resolveDefaultAgentForNewTab,
-    listBoundAgentTabActions,
-    resumeSleepingAgentSessionsForWorktree,
+    setTabBarOrder
   } = state
-
 
   const terminalSave = useTerminalSurfaceSaveController({
     openFiles,
@@ -190,40 +140,7 @@ export function useTerminalSurfaceControllerComposition(state: Record<string, an
     terminalWorktreeHiddenSinceRef,
     measuringTerminalWorktreeIdsRef,
     terminalWorktreeParkCooldownUntilRef,
-    terminalWorktreeParkingTimersRef,
-    isRemoteRuntimePtyId,
-    isParkRestorableTerminalPty,
-    terminalProviderHasAuthoritativeSnapshot,
-    selectPairedRuntimeParkingEnvironmentIds,
-    selectColdParkedTerminalWorktrees,
-    selectRetentionForceParkedTerminalWorktrees,
-    selectForceParkEvictableTabIds,
-    selectEvictionExemptTerminalTabIds,
-    captureForceParkedWorktreeBuffers,
-    warnTerminalLifecycleAnomaly,
-    getTerminalParkingPolicyOverrides,
-    recordTerminalWorktreeParkingDebugVerdicts,
-    canParkTerminalWorktreeRenderers,
-    getTerminalWorktreeColdParkRecheckDelayMs,
-    combineTerminalWorktreeParkIds,
-    useManualTerminalWorktreeParking,
-    canDeferColdActivationTabsForHost,
-    canWatcherCoverParkedTerminalTab,
-    disposeAllParkedTerminalWatchers,
-    pruneParkedTerminalWatchers,
-    shouldDeferParkedPtyExitTabClose,
-    syncParkedTerminalTabWatchers,
-    terminalWatcherLiveWorkspaceIds,
-    findActivityTerminalPortal,
-    hasRegisteredRuntimeTerminalTab,
-    canMountTerminalWorkspaceForStartup,
-    applyBackgroundMountTabRestriction,
-    planColdActivationTabDeferral,
-    pruneClosedBackgroundMountTabs,
-    revealActivationDeferredTabs,
-    shouldMountBackgroundWorktreeTab,
-    takeAllPendingBackgroundTerminalWorktreeMounts,
-    takePendingBackgroundTerminalWorktreeMount
+    terminalWorktreeParkingTimersRef
   })
   const terminalActions = useTerminalSurfaceActions({
     activeWorktreeId,
@@ -256,6 +173,7 @@ export function useTerminalSurfaceControllerComposition(state: Record<string, an
     createBrowserTab,
     buildDuplicatedBrowserTabOptions,
     destroyWorkspaceWebviews,
+    queueEditorCloseRequests: terminalSave.queueEditorCloseRequests,
     closeTerminalTab,
     browserWorkspaceHasRemoteOwner,
     focusTerminalTabSurface,

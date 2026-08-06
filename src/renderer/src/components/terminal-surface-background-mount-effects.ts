@@ -1,18 +1,32 @@
-import { useEffect } from 'react'
+import { useEffect, type MutableRefObject } from 'react'
 import { useAppStore } from '../store'
+import {
+  applyBackgroundMountTabRestriction,
+  revealActivationDeferredTabs,
+  takeAllPendingBackgroundTerminalWorktreeMounts,
+  takePendingBackgroundTerminalWorktreeMount
+} from './terminal/background-terminal-worktree-mount'
+import { scheduleBackgroundTerminalWorktreeMeasure } from './terminal/background-terminal-worktree-visibility'
 
-export function useTerminalSurfaceBackgroundMountEffects(context: Record<string, any>): void {
+type TerminalSurfaceBackgroundMountContext = {
+  measurableBackgroundWorktreeTimersRef: MutableRefObject<Map<string, number>>
+  mountedWorktreeIdsRef: MutableRefObject<Set<string>>
+  backgroundMountTabIdsByWorktreeRef: MutableRefObject<Map<string, ReadonlySet<string>>>
+  activationDeferredMountTabIdsByWorktreeRef: MutableRefObject<Map<string, ReadonlySet<string>>>
+  measurableBackgroundWorktreeIdsRef: MutableRefObject<Set<string>>
+  setBackgroundMountRevision: (updater: (revision: number) => number) => void
+}
+
+export function useTerminalSurfaceBackgroundMountEffects(
+  context: TerminalSurfaceBackgroundMountContext
+): void {
   const {
     measurableBackgroundWorktreeTimersRef,
-    applyBackgroundMountTabRestriction,
     mountedWorktreeIdsRef,
     backgroundMountTabIdsByWorktreeRef,
     activationDeferredMountTabIdsByWorktreeRef,
-    revealActivationDeferredTabs,
     measurableBackgroundWorktreeIdsRef,
-    setBackgroundMountRevision,
-    takePendingBackgroundTerminalWorktreeMount,
-    takeAllPendingBackgroundTerminalWorktreeMounts
+    setBackgroundMountRevision
   } = context
   useEffect(() => {
     const timers = measurableBackgroundWorktreeTimersRef.current

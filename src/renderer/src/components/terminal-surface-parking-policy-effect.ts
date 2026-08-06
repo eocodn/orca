@@ -1,10 +1,56 @@
-import { useEffect } from 'react'
+import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react'
+import { useAppStore, type AppState } from '../store'
 import { haveSameTerminalIdSet } from './terminal-surface-parking-model'
+import {
+  TERMINAL_WORKTREE_COLD_PARK_DELAY_MS,
+  canParkTerminalWorktreeRenderers,
+  selectColdParkedTerminalWorktrees
+} from './terminal-pane/terminal-hidden-view-parking'
+import { getTerminalWorktreeColdParkRecheckDelayMs } from './terminal-pane/terminal-cold-park-recheck-deadlines'
+import { canWatcherCoverParkedTerminalTab } from './terminal-pane/terminal-parked-tab-watchers'
+import {
+  selectForceParkEvictableTabIds,
+  selectRetentionForceParkedTerminalWorktrees
+} from './terminal-pane/terminal-hidden-worktree-retention'
+import { selectEvictionExemptTerminalTabIds } from './terminal-pane/terminal-eviction-exempt-tabs'
+import { captureForceParkedWorktreeBuffers } from './terminal-pane/force-park-buffer-capture'
+import { warnTerminalLifecycleAnomaly } from './terminal-pane/terminal-lifecycle-diagnostics'
+import {
+  getTerminalParkingPolicyOverrides,
+  recordTerminalWorktreeParkingDebugVerdicts
+} from './terminal-pane/terminal-parking-e2e-overrides'
 
-export function useTerminalSurfaceParkingPolicyEffect(context: Record<string, any>): void {
+type TerminalSurfaceParkingPolicyContext = {
+  activeView: AppState['activeView']
+  renderedActiveWorktreeId: string | null
+  terminalWorktreeParkingTimersRef: MutableRefObject<Map<string, number>>
+  activityTerminalPortals: readonly { worktreeId: string; tabId: string }[]
+  workspaceSurfaces: readonly { id: string; path: string }[]
+  terminalWorktreeHiddenSinceRef: MutableRefObject<Map<string, number>>
+  mountedWorktreeIdsRef: MutableRefObject<Set<string>>
+  measurableBackgroundWorktreeIdsRef: MutableRefObject<Set<string>>
+  measuringTerminalWorktreeIdsRef: MutableRefObject<Set<string>>
+  terminalWorktreeParkCooldownUntilRef: MutableRefObject<Map<string, number>>
+  tabsByWorktree: AppState['tabsByWorktree']
+  pendingStartupByTabId: AppState['pendingStartupByTabId']
+  terminalSshParkingEnabled: boolean
+  pairedRuntimeParkingEnvironmentIds: ReadonlySet<string>
+  terminalParkingEnabled: boolean
+  terminalRetentionBudgetEnabled: boolean
+  forceParkedCaptureDoneRef: MutableRefObject<Set<string>>
+  setParkedTerminalWorktreeIds: Dispatch<SetStateAction<ReadonlySet<string>>>
+  setForceParkedTerminalWorktreeIds: Dispatch<SetStateAction<ReadonlySet<string>>>
+  setEvictionExemptTerminalTabIds: Dispatch<SetStateAction<ReadonlySet<string>>>
+  setTerminalParkingRevision: (updater: (revision: number) => number) => void
+}
+
+export function useTerminalSurfaceParkingPolicyEffect(
+  context: TerminalSurfaceParkingPolicyContext
+): void {
   const {
+    activeView,
+    renderedActiveWorktreeId,
     terminalWorktreeParkingTimersRef,
-    getTerminalParkingPolicyOverrides,
     activityTerminalPortals,
     workspaceSurfaces,
     terminalWorktreeHiddenSinceRef,
@@ -15,23 +61,12 @@ export function useTerminalSurfaceParkingPolicyEffect(context: Record<string, an
     pendingStartupByTabId,
     terminalSshParkingEnabled,
     pairedRuntimeParkingEnvironmentIds,
-    selectColdParkedTerminalWorktrees,
     terminalParkingEnabled,
-    canWatcherCoverParkedTerminalTab,
-    canParkTerminalWorktreeRenderers,
     terminalRetentionBudgetEnabled,
-    selectRetentionForceParkedTerminalWorktrees,
-    recordTerminalWorktreeParkingDebugVerdicts,
     forceParkedCaptureDoneRef,
-    selectEvictionExemptTerminalTabIds,
-    selectForceParkEvictableTabIds,
-    warnTerminalLifecycleAnomaly,
-    captureForceParkedWorktreeBuffers,
-    useAppStore,
     setParkedTerminalWorktreeIds,
     setForceParkedTerminalWorktreeIds,
     setEvictionExemptTerminalTabIds,
-    getTerminalWorktreeColdParkRecheckDelayMs,
     setTerminalParkingRevision
   } = context
 
@@ -256,4 +291,3 @@ export function useTerminalSurfaceParkingPolicyEffect(context: Record<string, an
     workspaceSurfaces
   ])
 }
-

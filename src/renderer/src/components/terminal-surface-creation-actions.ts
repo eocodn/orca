@@ -1,54 +1,71 @@
 import { useCallback } from 'react'
-import { useAppStore } from '../store'
+import { useAppStore, type AppState } from '../store'
 import { openTabBarEntry } from './tab-bar/tab-create-entry-action'
+import type { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
+import type { translate } from '@/i18n/i18n'
+import type { focusTerminalTabSurface } from '@/lib/focus-terminal-tab-surface'
+import type { buildDuplicatedBrowserTabOptions } from '@/lib/duplicate-browser-tab-options'
+import type { browserWorkspaceHasRemoteOwner } from '@/runtime/remote-browser-tab-ownership'
+import type {
+  createWebRuntimeSessionBrowserTab,
+  createWebRuntimeSessionTerminal,
+  isWebRuntimeSessionActive
+} from '@/runtime/web-runtime-session'
+import type { toast } from 'sonner'
 
-export function useTerminalSurfaceCreationActions(context: Record<string, any>): Record<string, any> {
-    const {
-      activeWorktreeId,
-      createTab,
-      setActiveTabType,
-      openNewTerminalTabInActiveWorkspace,
-      setTabBarOrder,
-      launchAgentInNewTab,
-      activeTabId,
-      closeTab,
-      closeBrowserTab,
-      closeFile,
-      setActiveTab,
-      setActiveWorktree,
-      setActiveBrowserTab,
-      setActiveFile,
-      setTabCustomTitle,
-      setTabColor,
-      setActiveBrowserTabType,
-      browserTabsByWorktree,
-      browserDefaultUrl,
-      openFiles,
-      getActiveWorktreeRuntimeEnvironmentId,
-      isWebRuntimeSessionActive,
-      createWebRuntimeSessionTerminal,
-      createWebRuntimeSessionBrowserTab,
-      activateWebRuntimeSessionTab,
-      closeWebRuntimeSessionTab,
-      openNewMarkdownInActiveWorkspace,
-      openNewBrowserTabInActiveWorkspace,
-      createBrowserTab,
-      buildDuplicatedBrowserTabOptions,
-      destroyWorkspaceWebviews,
-      handleCloseFile,
-      queueEditorCloseRequests,
-      closeTerminalTab,
-      browserWorkspaceHasRemoteOwner,
-      focusTerminalTabSurface,
-      toast,
-      translate,
-      resolveDefaultAgentForNewTab,
-      listBoundAgentTabActions,
-      resumeSleepingAgentSessionsForWorktree,
-      terminalProviderHasAuthoritativeSnapshot,
-      consumeSuppressedPtyExit,
-      useAppStore: appStore
-    } = context
+type TerminalSurfaceCreationContext = Pick<
+  AppState,
+  | 'activeWorktreeId'
+  | 'createTab'
+  | 'setActiveTabType'
+  | 'openNewTerminalTabInActiveWorkspace'
+  | 'setTabBarOrder'
+  | 'openNewMarkdownInActiveWorkspace'
+  | 'openNewBrowserTabInActiveWorkspace'
+  | 'createBrowserTab'
+> & {
+  launchAgentInNewTab: typeof launchAgentInNewTab
+  getActiveWorktreeRuntimeEnvironmentId: (worktreeId: string) => string | null
+  isWebRuntimeSessionActive: typeof isWebRuntimeSessionActive
+  createWebRuntimeSessionTerminal: typeof createWebRuntimeSessionTerminal
+  createWebRuntimeSessionBrowserTab: typeof createWebRuntimeSessionBrowserTab
+  buildDuplicatedBrowserTabOptions: typeof buildDuplicatedBrowserTabOptions
+  browserWorkspaceHasRemoteOwner: typeof browserWorkspaceHasRemoteOwner
+  focusTerminalTabSurface: typeof focusTerminalTabSurface
+  toast: typeof toast
+  translate: typeof translate
+}
+
+export type TerminalSurfaceCreationActions = ReturnType<typeof useTerminalSurfaceCreationActions>
+
+export function useTerminalSurfaceCreationActions(context: TerminalSurfaceCreationContext): {
+  handleNewTab: (shellOverride?: string) => void
+  handleNewAgentTab: (agent: TuiAgent) => void
+  handleNewBrowserTab: () => void
+  handleOpenEntry: (args: TabCreateEntryArgs) => Promise<void>
+  handleDuplicateBrowserTab: (browserTabId: string) => void
+  handleNewFile: () => Promise<void>
+} {
+  const {
+    activeWorktreeId,
+    createTab,
+    setActiveTabType,
+    openNewTerminalTabInActiveWorkspace,
+    setTabBarOrder,
+    launchAgentInNewTab,
+    getActiveWorktreeRuntimeEnvironmentId,
+    isWebRuntimeSessionActive,
+    createWebRuntimeSessionTerminal,
+    createWebRuntimeSessionBrowserTab,
+    openNewMarkdownInActiveWorkspace,
+    openNewBrowserTabInActiveWorkspace,
+    createBrowserTab,
+    buildDuplicatedBrowserTabOptions,
+    browserWorkspaceHasRemoteOwner,
+    focusTerminalTabSurface,
+    toast,
+    translate
+  } = context
   const handleNewTab = useCallback(
     (shellOverride?: string) => {
       if (!activeWorktreeId) {
@@ -217,6 +234,6 @@ export function useTerminalSurfaceCreationActions(context: Record<string, any>):
     handleNewBrowserTab,
     handleOpenEntry,
     handleDuplicateBrowserTab,
-    handleNewFile,
+    handleNewFile
   }
 }

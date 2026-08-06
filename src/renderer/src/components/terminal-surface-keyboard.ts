@@ -1,5 +1,8 @@
 import { useEffect } from 'react'
-export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
+import { useAppStore } from '../store'
+import type { TerminalSurfaceKeyboardContext } from './terminal-surface-keyboard-contract'
+
+export function useTerminalSurfaceKeyboard(context: TerminalSurfaceKeyboardContext): void {
   const {
     activeWorktreeId,
     keybindings,

@@ -1,53 +1,63 @@
 import { useCallback } from 'react'
-import { useAppStore } from '../store'
+import { useAppStore, type AppState } from '../store'
+import type {
+  closeWebRuntimeSessionTab,
+  isWebRuntimeSessionActive
+} from '@/runtime/web-runtime-session'
+import type { browserWorkspaceHasRemoteOwner } from '@/runtime/remote-browser-tab-ownership'
+import type { closeTerminalTab } from './terminal/terminal-tab-actions'
+import type { destroyWorkspaceWebviews } from '../store/slices/browser-webview-cleanup'
 
-export function useTerminalSurfaceCloseActions(context: Record<string, any>): Record<string, any> {
-    const {
-      activeWorktreeId,
-      createTab,
-      setActiveTabType,
-      openNewTerminalTabInActiveWorkspace,
-      setTabBarOrder,
-      launchAgentInNewTab,
-      activeTabId,
-      closeTab,
-      closeBrowserTab,
-      closeFile,
-      setActiveTab,
-      setActiveWorktree,
-      setActiveBrowserTab,
-      setActiveFile,
-      setTabCustomTitle,
-      setTabColor,
-      setActiveBrowserTabType,
-      browserTabsByWorktree,
-      browserDefaultUrl,
-      openFiles,
-      getActiveWorktreeRuntimeEnvironmentId,
-      isWebRuntimeSessionActive,
-      createWebRuntimeSessionTerminal,
-      createWebRuntimeSessionBrowserTab,
-      activateWebRuntimeSessionTab,
-      closeWebRuntimeSessionTab,
-      openNewMarkdownInActiveWorkspace,
-      openNewBrowserTabInActiveWorkspace,
-      createBrowserTab,
-      buildDuplicatedBrowserTabOptions,
-      destroyWorkspaceWebviews,
-      handleCloseFile,
-      queueEditorCloseRequests,
-      closeTerminalTab,
-      browserWorkspaceHasRemoteOwner,
-      focusTerminalTabSurface,
-      toast,
-      translate,
-      resolveDefaultAgentForNewTab,
-      listBoundAgentTabActions,
-      resumeSleepingAgentSessionsForWorktree,
-      terminalProviderHasAuthoritativeSnapshot,
-      consumeSuppressedPtyExit,
-      useAppStore: appStore
-    } = context
+type TerminalSurfaceCloseContext = Pick<
+  AppState,
+  | 'activeWorktreeId'
+  | 'closeTab'
+  | 'closeBrowserTab'
+  | 'closeFile'
+  | 'setActiveTab'
+  | 'setActiveWorktree'
+  | 'setActiveBrowserTab'
+  | 'setActiveFile'
+  | 'setActiveTabType'
+  | 'consumeSuppressedPtyExit'
+> & {
+  getActiveWorktreeRuntimeEnvironmentId: (worktreeId: string) => string | null
+  isWebRuntimeSessionActive: typeof isWebRuntimeSessionActive
+  closeWebRuntimeSessionTab: typeof closeWebRuntimeSessionTab
+  browserWorkspaceHasRemoteOwner: typeof browserWorkspaceHasRemoteOwner
+  destroyWorkspaceWebviews: typeof destroyWorkspaceWebviews
+  closeTerminalTab: typeof closeTerminalTab
+  queueEditorCloseRequests: (fileIds: string[]) => void
+}
+
+export function useTerminalSurfaceCloseActions(context: TerminalSurfaceCloseContext): {
+  handleCloseTab: (tabId: string) => void
+  handleCloseBrowserTab: (tabId: string) => void
+  handlePtyExit: (tabId: string, ptyId: string) => void
+  closeTabBarTabs: (tabIds: string[]) => void
+  handleCloseOthers: (tabId: string) => void
+  handleCloseTabsToRight: (tabId: string) => void
+  handleCloseTabsToLeft: (tabId: string) => void
+  handleCloseAllFiles: () => void
+} {
+  const {
+    activeWorktreeId,
+    closeTab,
+    closeBrowserTab,
+    closeFile,
+    setActiveTab,
+    setActiveWorktree,
+    setActiveBrowserTab,
+    setActiveFile,
+    getActiveWorktreeRuntimeEnvironmentId,
+    isWebRuntimeSessionActive,
+    closeWebRuntimeSessionTab,
+    destroyWorkspaceWebviews,
+    queueEditorCloseRequests,
+    closeTerminalTab,
+    browserWorkspaceHasRemoteOwner,
+    consumeSuppressedPtyExit
+  } = context
   const handleCloseTab = useCallback((tabId: string) => {
     closeTerminalTab(tabId)
   }, [])
@@ -110,7 +120,12 @@ export function useTerminalSurfaceCloseActions(context: Record<string, any>): Re
       closeBrowserTab(tabId)
     },
     [
+      browserWorkspaceHasRemoteOwner,
       closeBrowserTab,
+      closeWebRuntimeSessionTab,
+      destroyWorkspaceWebviews,
+      getActiveWorktreeRuntimeEnvironmentId,
+      isWebRuntimeSessionActive,
       setActiveBrowserTab,
       setActiveFile,
       setActiveTab,
@@ -130,7 +145,7 @@ export function useTerminalSurfaceCloseActions(context: Record<string, any>): Re
       }
       closeTerminalTab(tabId, { reason: 'pty-exit', lifecyclePtyId: ptyId })
     },
-    [consumeSuppressedPtyExit]
+    [consumeSuppressedPtyExit, closeTerminalTab]
   )
 
   // Bulk-close for the tab bar: unlike closeUnifiedTab it must route each id to
@@ -192,7 +207,19 @@ export function useTerminalSurfaceCloseActions(context: Record<string, any>): Re
         queueEditorCloseRequests(dirtyFileIds)
       }
     },
-    [activeWorktreeId, closeBrowserTab, closeFile, closeTab, queueEditorCloseRequests]
+    [
+      activeWorktreeId,
+      browserWorkspaceHasRemoteOwner,
+      closeBrowserTab,
+      closeFile,
+      closeTab,
+      closeTerminalTab,
+      closeWebRuntimeSessionTab,
+      destroyWorkspaceWebviews,
+      getActiveWorktreeRuntimeEnvironmentId,
+      isWebRuntimeSessionActive,
+      queueEditorCloseRequests
+    ]
   )
 
   const handleCloseOthers = useCallback(
@@ -264,7 +291,6 @@ export function useTerminalSurfaceCloseActions(context: Record<string, any>): Re
     handleCloseOthers,
     handleCloseTabsToRight,
     handleCloseTabsToLeft,
-    handleCloseAllFiles,
+    handleCloseAllFiles
   }
 }
-
