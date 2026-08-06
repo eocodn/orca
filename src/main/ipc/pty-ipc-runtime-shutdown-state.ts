@@ -4,7 +4,7 @@ import type { AgentSessionOwnerBinding } from '../../shared/agent-session-host-a
 import { agentSessionOwnerBindingsEqual } from '../../shared/claimed-agent-pty-owner'
 import { addNodePtyRecoveryHint } from '../daemon/node-pty-error-hints'
 import { isSshPtyNotFoundError } from '../providers/ssh-pty-errors'
-import { markClaudePtyExited } from '../claude-accounts/live-pty-gate'
+import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
 import { getRelayPtyId } from './pty-ipc-runtime-provider-routing'
 import { parseAppSshPtyId } from '../providers/ssh-pty-id'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'

@@ -118,7 +118,7 @@ import {
   requestKindSchema
 } from '../../shared/telemetry-events'
 import { registerPty } from '../memory/pty-registry'
-import { markClaudePtySpawned } from '../claude-accounts/live-pty-gate'
+import { markClaudePtySpawned } from '../claude/pty-lifecycle-gate'
 import { isRemoteAgentHooksEnabled } from '../../shared/agent-hook-relay'
 import { resolveWslSessionContext } from '../daemon/wsl-session-context'
 import { clearMigrationUnsupportedPtysForPaneKey } from '../agent-hooks/migration-unsupported-pty-state'

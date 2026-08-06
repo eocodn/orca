@@ -12,7 +12,7 @@ import { resolveRegisteredWorktreePath, isENOENT } from './filesystem-auth'
 import { getSshGitProvider } from '../providers/ssh-git-dispatch'
 import { listRepoWorktrees } from '../repo-worktrees'
 import { splitWorktreeId } from '../../shared/worktree-id'
-import { localLogFileIdentity } from '../ai-vault/local-log-tail-reader'
+import { localLogFileIdentity } from '../local-log-tail-reader'
 
 // Why: Monaco degrades features on large files like VS Code, so a 5MB block would needlessly lock out ordinary JSON/log files.
 export const MAX_TEXT_FILE_SIZE = 50 * 1024 * 1024 // 50MB

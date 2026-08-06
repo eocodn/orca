@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { LocalPtyProvider } from '../providers/local-pty-provider'
-import { isClaudeAuthSwitchInProgress } from '../claude-accounts/live-pty-gate'
-import { hasClaudeAuthEnvConflict, CLAUDE_AUTH_ENV_VARS } from '../claude-accounts/environment'
+import { isClaudeAuthSwitchInProgress } from '../claude/pty-lifecycle-gate'
+import { hasClaudeAuthEnvConflict, CLAUDE_AUTH_ENV_VARS } from '../claude/pty-lifecycle-gate'
 import { resolveLocalWindowsTerminalRuntimeOptions } from '../../shared/local-windows-terminal-runtime'
 import { isSafePtySessionId, mintPtySessionId } from '../daemon/pty-session-id'
 import {

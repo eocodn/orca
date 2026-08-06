@@ -32,13 +32,13 @@ import { registerRendererLifecycleResetHandlers } from './pty-ipc-runtime-render
 import { isAgentStatusHooksEnabled } from '../agent-hooks/managed-agent-hook-controls'
 import { isCurrentPtyExit } from './pty-ipc-runtime-provider-routing'
 import { addOrcaWslInteropEnv, stampWslOrchestrationCompatibilityHost } from '../pty/wsl-orca-env'
-import { markClaudePtyExited } from '../claude-accounts/live-pty-gate'
+import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
 import { ptyRuntimeState, type PtyPublicationSnapshot } from './pty-ipc-runtime-state'
 import {
   beginPtyRegistrationSharedState,
   getPtyRegistrationSharedState
 } from './pty-ipc-runtime-registration-shared-state'
-import type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
+import type { CodexAccountSelectionTarget } from '../runtime/provider-lane-types'
 
 export type PtyRegistrationFoundationArgs = {
   mainWindow: BrowserWindow

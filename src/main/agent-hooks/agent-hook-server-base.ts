@@ -21,7 +21,6 @@ import {
   type AgentStatusIpcPayload,
   type AgentType
 } from '../../shared/agent-status-types'
-import type { ClaudeStatusLineRateLimits } from '../../shared/claude-statusline-rate-limits'
 import {
   isAgentInterruptInputIntent,
   type AgentInterruptInferenceRequest
@@ -57,7 +56,6 @@ export abstract class AgentHookServerBase {
   // Why: identifies this Orca instance so the server can detect dev vs. prod cross-talk; set at start() from packaged-build knowledge.
   protected env = 'production'
   protected onAgentStatus: ((payload: EnrichedAgentHookEventPayload) => void) | null = null
-  protected onClaudeStatusLine: ((event: ClaudeStatusLineRateLimits) => void) | null = null
   protected onPaneStatusCleared: PaneStatusClearListener | null = null
   protected statusChangeListeners = new Set<StatusChangeListener>()
   protected providerSessionChangeListeners = new Set<ProviderSessionChangeListener>()
@@ -149,13 +147,6 @@ export abstract class AgentHookServerBase {
         console.error('[agent-hooks] replay listener threw', err)
       }
     }
-  }
-
-  // Why: statusline posts carry live Claude usage windows, not agent status; they feed RateLimitService directly.
-  setClaudeStatusLineListener(
-    listener: ((event: ClaudeStatusLineRateLimits) => void) | null
-  ): void {
-    this.onClaudeStatusLine = listener
   }
 
   subscribeStatusChanges(listener: StatusChangeListener): () => void {

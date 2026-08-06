@@ -13,7 +13,7 @@ import type { OrcaRuntimeService } from '../runtime/orca-runtime'
 import type { PtyRegistrationFoundation } from './pty-ipc-runtime-registration-foundation'
 import type { PtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import type { AgentProviderSessionMetadata } from '../../shared/agent-session-resume'
-import type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
+import type { CodexAccountSelectionTarget } from '../runtime/provider-lane-types'
 import type { CodexSessionResumePreparation } from '../codex/codex-session-resume-home'
 import type { PtyShutdownObservation, PtyShutdownTarget } from './pty-ipc-runtime-shutdown-state'
 

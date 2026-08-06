@@ -1,4 +1,4 @@
-import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, configureAiVaultSessionSources, type AiVaultPrepareSessionResumeArgs, type AiVaultPrepareSessionResumeResult, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
+import { type TerminalSideEffectBatch, type AgentStatusIpcPayload, createEphemeralAgentSessionClaimSigner, type AgentSessionClaimSigner, type RuntimeDesktopWindowStatus, type IPtyProvider, type StatsCollector, AgentDetector, registerConptyDa1OverrideInstaller, registerTerminalViewAttributesApplier, RuntimeClientSettingsCommands, RuntimeRepoHookCommands, type RuntimeStore, type RuntimeTerminalAgentStatusEvent } from './orca-runtime-symbols'
 import { OrcaRuntimeStatePart3 } from './orca-runtime-state-part-3'
 
 export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
@@ -24,14 +24,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
       getAgentProviderSessionRowsForPane?: (paneKey: string) => AgentStatusIpcPayload[]
       retireAgentHookCompatibilityAuthority?: (paneKey: string) => void
       canRecoverPersistentLocalPtys?: () => boolean
-      // Why: codex-home paths for the Agent Session History scan must be sourced
-      // here, not via the window-only registerCoreHandlers path — that path never
-      // runs under `orca serve`, so remote/SSH hosts would silently drop
-      // managed-Codex sessions. The runtime ctor runs in BOTH window and serve.
-      getAdditionalAiVaultCodexHomePaths?: () => readonly string[]
-      prepareAiVaultSessionResume?: (
-        args: AiVaultPrepareSessionResumeArgs
-      ) => Promise<AiVaultPrepareSessionResumeResult>
       buildAgentHookPtyEnv?: () => Record<string, string>
       getDesktopWindowStatus?: () => RuntimeDesktopWindowStatus
       agentSessionClaimSigner?: AgentSessionClaimSigner
@@ -64,14 +56,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
     this.retireAgentHookCompatibilityAuthorityFn =
       deps?.retireAgentHookCompatibilityAuthority ?? null
     this.canRecoverPersistentLocalPtysFn = deps?.canRecoverPersistentLocalPtys ?? (() => true)
-    // Why: configure the shared AiVault scan cache from a serve-mode-reachable
-    // seam so the aiVault.listSessions RPC includes managed-Codex + WSL sessions
-    // even on headless `orca serve` hosts where registerCoreHandlers never runs.
-    if (deps?.getAdditionalAiVaultCodexHomePaths) {
-      configureAiVaultSessionSources({
-        getAdditionalCodexHomePaths: deps.getAdditionalAiVaultCodexHomePaths
-      })
-    }
     // Why: the daemon adapter is installed via `setLocalPtyProvider()` during
     // attachMainWindowServices, AFTER this service is constructed. Capturing
     // `getLocalPtyProvider()` at construction time would freeze a reference to
@@ -84,7 +68,6 @@ export class OrcaRuntimeState extends OrcaRuntimeStatePart3 {
     this.onTerminalAgentStatus = deps?.onTerminalAgentStatus ?? null
     this.buildAgentHookPtyEnv = deps?.buildAgentHookPtyEnv ?? null
     this.getDesktopWindowStatusFn = deps?.getDesktopWindowStatus ?? (() => 'openable')
-    this.prepareAiVaultSessionResumeFn = deps?.prepareAiVaultSessionResume ?? null
     this.agentSessionClaimSigner =
       deps?.agentSessionClaimSigner ?? createEphemeralAgentSessionClaimSigner(this.runtimeId)
     this.onTerminalSideEffects = deps?.onTerminalSideEffects ?? null

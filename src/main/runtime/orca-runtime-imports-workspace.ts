@@ -205,8 +205,3 @@ export {
   TERMINAL_PAIRED_PARKING_RUNTIME_CAPABILITY,
   type RuntimeCapability
 } from '../../shared/protocol-version'
-export {
-  configureAiVaultSessionSources,
-  listAiVaultSessions
-} from '../ai-vault/cached-session-list'
-export type { AiVaultListArgs, AiVaultListResult } from '../../shared/ai-vault-types'

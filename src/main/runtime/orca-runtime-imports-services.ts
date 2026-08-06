@@ -80,13 +80,13 @@ export {
 export { detectRepoIconAndUpstream } from '../repo-icon-autodetect'
 export { enrichMissingRepoGitRemoteIdentities } from '../repo-git-remote-identity-enrichment'
 export { githubAvatarIcon } from '../../shared/repo-icon'
-export type { ClaudeAccountService } from '../claude-accounts/service'
 export type {
+  ClaudeAccountService,
   CodexAccountService,
-  CodexResetCreditRejectedBeforeProviderReason
-} from '../codex-accounts/service'
-export type { CodexAccountSelectionTarget } from '../codex-accounts/runtime-selection'
-export type { RateLimitService } from '../rate-limits/service'
+  CodexResetCreditRejectedBeforeProviderReason,
+  CodexAccountSelectionTarget,
+  RateLimitService
+} from './provider-lane-types'
 export type { CodexRateLimitResetOutcome, RateLimitState } from '../../shared/rate-limit-types'
 export type { CodexResetCreditExpectedScope } from '../../shared/codex-reset-credit-scope'
 export type { CommitMessageAgentEnvironmentResolvers } from '../text-generation/commit-message-agent-environment'

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { CLAUDE_STATUSLINE_MIN_POST_INTERVAL_SECONDS } from '../../shared/claude-statusline-rate-limits'
+const CLAUDE_STATUSLINE_MIN_POST_INTERVAL_SECONDS = 15
 import { getManagedStatusLineScript } from './statusline-script'
 
 const ORIGINAL_PLATFORM = process.platform

@@ -7,7 +7,7 @@ import type {
   LocalLogTailReadResult,
   LocalLogTailWatchArgs
 } from '../../shared/local-log-tail-types'
-import { readLocalLogTailRange } from '../ai-vault/local-log-tail-reader'
+import { readLocalLogTailRange } from '../local-log-tail-reader'
 import { resolveAuthorizedPath } from './filesystem-auth'
 
 type TailWatch = {

@@ -19,7 +19,7 @@ vi.mock('node:fs', () => ({ watch: watchMock }))
 
 vi.mock('./filesystem-auth', () => ({ resolveAuthorizedPath: resolveAuthorizedPathMock }))
 
-vi.mock('../ai-vault/local-log-tail-reader', () => ({
+vi.mock('../local-log-tail-reader', () => ({
   readLocalLogTailRange: readRangeMock
 }))
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '../..')
@@ -8,6 +8,14 @@ const read = (path) => readFileSync(resolve(root, path), 'utf8')
 // Account switching, usage telemetry and private transcript databases are not
 // product capabilities. Generic agent launch/profile APIs remain elsewhere.
 const forbidden = [
+  'src/main/claude-accounts',
+  'src/main/codex-accounts',
+  'src/main/claude-usage',
+  'src/main/codex-usage',
+  'src/main/opencode-usage',
+  'src/main/rate-limits',
+  'src/main/grok-accounts',
+  'src/main/minimax',
   'src/main/ipc/claude-accounts.ts',
   'src/main/ipc/codex-accounts.ts',
   'src/main/ipc/rate-limits.ts',
@@ -18,7 +26,17 @@ const forbidden = [
   'src/main/ipc/opencode-usage.ts'
 ]
 for (const path of forbidden) {
-  assert.throws(() => read(path), /ENOENT/, `${path} must be removed`)
+  const absolutePath = resolve(root, path)
+  if (existsSync(absolutePath)) {
+    if (!statSync(absolutePath).isDirectory()) {
+      assert.fail(`${path} must be removed`)
+    }
+    const entries = readdirSync(absolutePath)
+    assert.ok(
+      entries.every((entry) => entry.endsWith('.d.ts')),
+      `${path} retains tracked source files`
+    )
+  }
 }
 
 for (const path of [
@@ -58,7 +76,7 @@ const visit = (directory) => {
     ) {
       const source = readFileSync(path, 'utf8')
       if (
-        /from ['"][^'"]*(?:ai-vault|claude-usage|codex-usage|opencode-usage|rate-limits|claude-accounts|codex-accounts)/.test(
+        /(?:from|import\s*\(|require\s*\()\s*['"][^'"]*(?:ai-vault|claude-usage|codex-usage|opencode-usage|rate-limits|claude-accounts|codex-accounts)/.test(
           source
         )
       ) {
@@ -67,6 +85,7 @@ const visit = (directory) => {
     }
   }
 }
+visit(resolve(root, 'src/main'))
 visit(resolve(root, 'src/preload'))
 assert.deepEqual(
   productionRefs,

@@ -3,10 +3,8 @@ import {
   WINDOWS_HOOK_STDIN_DRAIN_LABEL,
   WINDOWS_HOOK_STDIN_READER
 } from '../agent-hooks/hook-stdin-contract'
-import {
-  CLAUDE_STATUSLINE_MIN_POST_INTERVAL_SECONDS,
-  CLAUDE_STATUSLINE_PATHNAME
-} from '../../shared/claude-statusline-rate-limits'
+const CLAUDE_STATUSLINE_MIN_POST_INTERVAL_SECONDS = 15
+const CLAUDE_STATUSLINE_PATHNAME = '/statusline/claude'
 
 const STATUSLINE_CLEANUP_LABEL = 'orca_statusline_cleanup'
 const STATUSLINE_PROBE_LABEL = 'orca_statusline_probe'

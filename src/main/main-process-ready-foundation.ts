@@ -166,6 +166,7 @@ export async function initializeReadyFoundation(): Promise<void> {
   // Why: cohort-classifier reads repo count synchronously at every emit, so hydrate it here â before any IPC handler or window can trigger track().
   startupState.stats = new startupDeps.StatsCollector()
   startupState.codexRuntimeHome = new startupDeps.CodexRuntimeHomeService(startupState.store)
+  startupState.claudeRuntimeAuth = new startupDeps.ClaudeRuntimeAuthService(startupState.store)
   // Why: an incapable trust-grant host must fall back to the managed home for
   // every consumer (PTY env, rate limits, commit messages) in one place.
   startupState.codexRuntimeHome.setRealHomeLaneGate(() =>
@@ -181,7 +182,6 @@ export async function initializeReadyFoundation(): Promise<void> {
       startupState.codexRuntimeHome.isHostSystemDefaultRealHome() &&
       startupDeps.isAgentStatusHooksEnabled(startupState.store?.getSettings())
   )
-  startupState.claudeRuntimeAuth = new startupDeps.ClaudeRuntimeAuthService(startupState.store)
   startupState.keybindings = new startupDeps.KeybindingService({
     homePath: startupDeps.app.getPath('home'),
     getLegacyOverrides: () => startupState.store!.getSettings().keybindings,
@@ -244,9 +244,6 @@ export async function initializeReadyFoundation(): Promise<void> {
     runtimeService.notifyMobileSessionTabsChanged(worktreeId)
   })
   runtimeService.setCommitMessageAgentEnvironmentResolvers({
-    // Why: Codex hooks/auth live in Orca's managed runtime home even for the default path, so every launch must resolve CODEX_HOME via runtime-home.
-    prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch,
-    prepareForClaudeLaunch: (target) =>
-      startupState.claudeRuntimeAuth!.prepareForClaudeLaunch(target)
+    prepareForCodexLaunch: prepareCodexRuntimeHomeForLaunch
   })
 }

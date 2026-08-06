@@ -4,7 +4,7 @@ import { clearHiddenRendererPtyDeliveryState, isHiddenRendererPty } from './pty-
 import { clearNativeWindowsConptyPty } from '../runtime/terminal-model-query-authority'
 import { openCodeHookService } from '../opencode/hook-service'
 import { piTitlebarExtensionService } from '../pi/titlebar-extension-service'
-import { markClaudePtyExited } from '../claude-accounts/live-pty-gate'
+import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
 import { agentHookServer } from '../agent-hooks/server'
 import { clearMigrationUnsupportedPty } from '../agent-hooks/migration-unsupported-pty-state'
 import { advertisedUrlWatcher } from '../ports/advertised-url-watcher'

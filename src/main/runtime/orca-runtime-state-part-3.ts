@@ -4,8 +4,6 @@ import {
   type AgentStatusIpcPayload,
   type AgentSessionClaimSigner,
   type RuntimeDesktopWindowStatus,
-  type AiVaultPrepareSessionResumeArgs,
-  type AiVaultPrepareSessionResumeResult,
   type IPtyProvider,
   ClaudeAgentTeamsService,
   type StatsCollector,
@@ -15,7 +13,6 @@ import {
   PtyGenerationReferenceCount,
   type PreservedBranchCleanupTarget,
   type RuntimeWorktreeRemovalInFlight,
-  type RuntimeAccountServices,
   type RemoteFetchResult,
   type RuntimeTerminalAgentStatusEvent,
   type AgentSessionCreateOperation
@@ -119,16 +116,12 @@ export class OrcaRuntimeStatePart3 extends OrcaRuntimeStatePart2 {
   protected canRecoverPersistentLocalPtysFn!: () => boolean
   protected buildAgentHookPtyEnv!: (() => Record<string, string>) | null
   protected getDesktopWindowStatusFn!: () => RuntimeDesktopWindowStatus
-  protected prepareAiVaultSessionResumeFn!:
-    | ((args: AiVaultPrepareSessionResumeArgs) => Promise<AiVaultPrepareSessionResumeResult>)
-    | null
   protected agentSessionClaimSigner!: AgentSessionClaimSigner
   protected readonly agentSessionCreateOperations = new Map<string, AgentSessionCreateOperation>()
   protected sshRelayRecoveryGenerationByTargetId = new Map<string, number>()
   protected ptyControllerInventorySequence = 0
   protected ptyControllerAggregateInventoryGeneration = 0
   protected ptyControllerInventoryGenerationByProvider = new Map<string, number>()
-  protected accountServices: RuntimeAccountServices | null = null
   protected commitMessageAgentEnv: CommitMessageAgentEnvironmentResolvers | null = null
   protected repoHookCommands!: RuntimeRepoHookCommands
   protected readonly claudeAgentTeams = new ClaudeAgentTeamsService()

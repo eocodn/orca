@@ -19,7 +19,6 @@ import {
   claudeRosterHasWorkingSubagent,
   claudeRosterToSnapshots
 } from '../../shared/claude-subagent-roster'
-import { CLAUDE_STATUSLINE_PATHNAME, parseClaudeStatusLineBody } from '../../shared/claude-statusline-rate-limits'
 
 const { trackEmptyPaneKeyHook, paneCacheKeyMatchesTab, LAST_STATUS_FILE_NAME } = hookShared
 
@@ -84,15 +83,6 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
       try {
         const body = await readRequestBody(req)
         const pathname = new URL(req.url ?? '/', 'http://127.0.0.1').pathname
-        if (pathname === CLAUDE_STATUSLINE_PATHNAME) {
-          const statusLineEvent = parseClaudeStatusLineBody(body)
-          if (statusLineEvent) {
-            this.onClaudeStatusLine?.(statusLineEvent)
-          }
-          res.writeHead(204)
-          res.end()
-          return
-        }
         const source = resolveHookSource(pathname)
         if (!source) {
           res.writeHead(404)
@@ -487,5 +477,4 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     }
     return env
   }
-
 }

@@ -1,6 +1,4 @@
-/** Guest-relative layout of Orca's managed WSL CODEX_HOME. Must stay in sync
- *  with getWslRuntimeHomePath (codex-accounts/runtime-home-service.ts), which
- *  builds the UNC twin of this path. */
+/** Guest-relative layout of the optional neutral WSL CODEX_HOME mirror. */
 export const WSL_CODEX_RUNTIME_HOME_SEGMENTS = [
   '.local',
   'share',

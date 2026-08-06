@@ -1,54 +1,7 @@
-import { type ClaudeRateLimitAccountsState, type CodexRateLimitAccountsState, type RuntimeBrowserDriverState, type ApplyLayoutResult, clampTerminalViewport, type AccountsSnapshot, type DriverState } from './orca-runtime-symbols'
+import { type RuntimeBrowserDriverState, type ApplyLayoutResult, clampTerminalViewport, type DriverState } from './orca-runtime-symbols'
 import { OrcaRuntimeGetCommitMessageAgentEnvironmentResolversPart29 } from './orca-runtime-get-commit-message-agent-environment-resolvers-part-29'
 
 export class OrcaRuntimeRemoveClaudeAccountPart30 extends OrcaRuntimeGetCommitMessageAgentEnvironmentResolversPart29 {
-  removeClaudeAccount(accountId: string): Promise<ClaudeRateLimitAccountsState> {
-    return this.requireAccountServices().claudeAccounts.removeAccount(accountId)
-  }
-
-  // Why: register a managed Claude account from a CLAUDE_CONFIG_DIR the caller
-  // already logged into. Lets the `orca account add` CLI drive `claude login` in
-  // the user's terminal on a headless host, then capture the credentials here —
-  // the desktop GUI's interactive add flow is unreachable over a remote runtime.
-  addClaudeAccountFromConfigDir(
-    configDir: string,
-    options?: {
-      runtime?: 'host' | 'wsl'
-      wslDistro?: string | null
-      previousLegacyCredentialsSha256?: string | null
-    }
-  ): Promise<ClaudeRateLimitAccountsState> {
-    return this.requireAccountServices().claudeAccounts.addAccountFromConfigDir(configDir, options)
-  }
-  removeCodexAccount(accountId: string): Promise<CodexRateLimitAccountsState> {
-    return this.requireAccountServices().codexAccounts.removeAccount(accountId)
-  }
-
-  // Why: Codex counterpart of addClaudeAccountFromConfigDir — register a managed
-  // Codex account from a CODEX_HOME the caller already logged into, so headless
-  // hosts can add accounts via `orca account add --agent codex`.
-  addCodexAccountFromHome(
-    sourceHome: string,
-    target?: { runtime?: 'host' | 'wsl'; wslDistro?: string | null }
-  ): Promise<CodexRateLimitAccountsState> {
-    return this.requireAccountServices().codexAccounts.addAccountFromHome(sourceHome, target)
-  }
-
-  // Why: rate-limit polling fires every 5 minutes and on account switch.
-  // Mobile clients subscribe to receive a fresh AccountsSnapshot whenever
-  // RateLimitService pushes new usage data, mirroring the existing
-  // `rateLimits:update` IPC channel desktop already uses.
-  onAccountsChanged(listener: (snapshot: AccountsSnapshot) => void): () => void {
-    const services = this.requireAccountServices()
-    return services.rateLimits.onStateChange((rateLimits) => {
-      listener({
-        claude: services.claudeAccounts.listAccounts(),
-        codex: services.codexAccounts.listAccounts(),
-        rateLimits
-      })
-    })
-  }
-
   // ─── Mobile Fit Override Management ─────────────────────────
 
   // Why: legacy mobile RPC entrypoint. After the state-machine rewrite this

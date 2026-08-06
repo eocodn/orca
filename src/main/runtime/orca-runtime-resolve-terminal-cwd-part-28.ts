@@ -1,4 +1,4 @@
-import { RECENT_PTY_OUTPUT_LIMIT, appendRecentPtyPathCandidates, recentTerminalOutputIncludesPath, recentTerminalPathCandidatesIncludePath, Notification, resolveLocalProjectRuntimeForWorktreeId, type ProjectExecutionRuntimeResolution, type ReplayableMobileNotification, type CommitMessageAgentEnvironmentResolvers, type RuntimeAccountServices, type RuntimePtyWorktreeRecord, type MobileNotificationEvent } from './orca-runtime-symbols'
+import { RECENT_PTY_OUTPUT_LIMIT, appendRecentPtyPathCandidates, recentTerminalOutputIncludesPath, recentTerminalPathCandidatesIncludePath, Notification, resolveLocalProjectRuntimeForWorktreeId, type ProjectExecutionRuntimeResolution, type ReplayableMobileNotification, type CommitMessageAgentEnvironmentResolvers, type RuntimePtyWorktreeRecord, type MobileNotificationEvent } from './orca-runtime-symbols'
 import { OrcaRuntimeReadHeadlessVisibleTerminalStatePart27 } from './orca-runtime-read-headless-visible-terminal-state-part-27'
 
 export class OrcaRuntimeResolveTerminalCwdPart28 extends OrcaRuntimeReadHeadlessVisibleTerminalStatePart27 {
@@ -305,10 +305,6 @@ export class OrcaRuntimeResolveTerminalCwdPart28 extends OrcaRuntimeReadHeadless
     return { delivered }
   }
 
-  // ─── Account Services (mobile RPC bridge) ─────────────────────
-  setAccountServices(services: RuntimeAccountServices): void {
-    this.accountServices = services
-  }
   setCommitMessageAgentEnvironmentResolvers(
     resolvers: CommitMessageAgentEnvironmentResolvers
   ): void {

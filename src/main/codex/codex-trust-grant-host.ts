@@ -5,7 +5,7 @@ import {
   buildWslCodexAppServerArgs,
   buildWslCodexIdentityArgs,
   WSL_CODEX_AVAILABILITY_TIMEOUT_MS
-} from '../codex-accounts/wsl-codex-command'
+} from '../codex-cli/wsl-command'
 import type { CodexHookTrustGrantRequest } from './codex-app-server-client'
 import {
   binaryStampsMatch,

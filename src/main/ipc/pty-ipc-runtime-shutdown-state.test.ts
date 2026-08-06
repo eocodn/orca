@@ -9,7 +9,7 @@ const { clearProviderPtyStateMock, markClaudePtyExitedMock } = vi.hoisted(() => 
 vi.mock('./pty-ipc-runtime-provider-lifecycle-state', () => ({
   clearProviderPtyState: clearProviderPtyStateMock
 }))
-vi.mock('../claude-accounts/live-pty-gate', () => ({
+vi.mock('../claude/pty-lifecycle-gate', () => ({
   markClaudePtyExited: markClaudePtyExitedMock
 }))
 

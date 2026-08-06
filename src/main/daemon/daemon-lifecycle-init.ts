@@ -7,7 +7,7 @@ import { getLocalPtyProvider, setLocalPtyProvider, rebindLocalProviderListeners 
 import {
   confirmSeededClaudeLivePtys,
   hasSeededUnconfirmedClaudePtys
-} from '../claude-accounts/live-pty-gate'
+} from '../claude/pty-lifecycle-gate'
 
 import * as daemonLifecycleSupport from './daemon-lifecycle-support'
 import { daemonLifecycleState, type DaemonProvider } from './daemon-lifecycle-state'

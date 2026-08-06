@@ -26,7 +26,7 @@ import {
   rememberSshPtyExitFinalization
 } from './pty-ipc-runtime-provider-routing'
 import { clearProviderPtyState } from './pty-ipc-runtime-provider-lifecycle-state'
-import { markClaudePtyExited } from '../claude-accounts/live-pty-gate'
+import { markClaudePtyExited } from '../claude/pty-lifecycle-gate'
 import { getPtyRegistrationSharedState } from './pty-ipc-runtime-registration-shared-state'
 import { ptyRuntimeState } from './pty-ipc-runtime-state'
 import type {

@@ -18,7 +18,7 @@ vi.mock('../opencode/hook-service', () => ({
 vi.mock('../pi/titlebar-extension-service', () => ({
   piTitlebarExtensionService: { clearPty: vi.fn() }
 }))
-vi.mock('../claude-accounts/live-pty-gate', () => ({
+vi.mock('../claude/pty-lifecycle-gate', () => ({
   markClaudePtyExited: vi.fn()
 }))
 vi.mock('../agent-hooks/server', () => ({
