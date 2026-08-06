@@ -21,10 +21,7 @@ import {
   Search,
   SlidersHorizontal,
   Users,
-  X,
-  FolderKanban,
-  Tag,
-  UserRound
+  X
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -41,6 +38,7 @@ import { TaskPageJiraIssueDialog } from './task-page-jira-issue-dialog'
 import { GitHubAssigneeAvatar } from './task-page-github-issue-selectors'
 import { TaskPageGitHubIssueDialog } from './task-page-github-issue-dialog'
 import { TaskPageLinearProjectDialog } from './task-page-linear-project-dialog'
+import { TaskPageLinearIssueDialog } from './task-page-linear-issue-dialog'
 import {
   LinearStateCell,
   getLinearIssueGridTemplate,
@@ -58,10 +56,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -8287,525 +8281,39 @@ export default function TaskPage(): React.JSX.Element {
           submitShortcutLabel
         }}
       />
-      <Dialog
-        open={newLinearIssueOpen}
-        onOpenChange={(open) => {
-          if (!newLinearIssueSubmitting) {
-            setNewLinearIssueOpen(open)
-          }
+      <TaskPageLinearIssueDialog
+        context={{
+          newLinearIssueOpen,
+          setNewLinearIssueOpen,
+          newLinearIssueSubmitting,
+          isScreenSubmitShortcut,
+          handleCreateNewLinearIssue,
+          availableTeams,
+          newLinearIssueTargetTeam,
+          newLinearIssueTeamId,
+          setNewLinearIssueTeamId,
+          newLinearIssueTitle,
+          setNewLinearIssueTitle,
+          newLinearIssueBody,
+          setNewLinearIssueBody,
+          newLinearStates,
+          newLinearIssueStateId,
+          setNewLinearIssueStateId,
+          newLinearMembers,
+          newLinearIssueAssigneeId,
+          setNewLinearIssueAssigneeId,
+          newLinearIssuePriority,
+          setNewLinearIssuePriority,
+          newLinearIssueProjects,
+          newLinearIssueProjectsLoading,
+          newLinearIssueProjectId,
+          setNewLinearIssueProjectId,
+          newLinearLabels,
+          newLinearIssueLabelIds,
+          setNewLinearIssueLabelIds,
+          submitShortcutLabel
         }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          className="sm:max-w-2xl bg-background border-border shadow-2xl p-0 overflow-hidden flex flex-col gap-0 rounded-xl"
-          onKeyDown={(event) => {
-            if (isScreenSubmitShortcut(event)) {
-              event.preventDefault()
-              void handleCreateNewLinearIssue()
-            }
-          }}
-        >
-          {/* Header/Team section */}
-          <div className="flex items-center justify-between border-b border-border/60 px-5 py-3 bg-muted/10">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {translate('auto.components.TaskPage.c11105dac5', 'New Issue')}
-              </span>
-              <span className="text-muted-foreground/40 text-xs">/</span>
-              {availableTeams.length > 1 ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      className="h-7 gap-1 px-2 font-medium text-xs text-foreground hover:bg-muted"
-                    >
-                      {newLinearIssueTargetTeam?.key ??
-                        translate('auto.components.TaskPage.d7f16d0e32', 'Select Team')}
-                      <ChevronDown className="size-3 text-muted-foreground" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-64 p-1">
-                    <div className="text-[10px] font-semibold text-muted-foreground px-2 py-1.5 uppercase tracking-wider">
-                      {translate('auto.components.TaskPage.4f3cb99f41', 'Switch Team')}
-                    </div>
-                    {availableTeams.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setNewLinearIssueTeamId(t.id)}
-                        className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                          newLinearIssueTeamId === t.id ? 'bg-muted font-medium' : ''
-                        }`}
-                      >
-                        <span>
-                          {t.key} — {t.name}
-                        </span>
-                        {newLinearIssueTeamId === t.id && <Check className="size-3" />}
-                      </button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <span className="text-xs font-medium text-foreground">
-                  {newLinearIssueTargetTeam?.key ?? ''} — {newLinearIssueTargetTeam?.name ?? ''}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setNewLinearIssueOpen(false)}
-              className="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors"
-              disabled={newLinearIssueSubmitting}
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          {/* Form Content */}
-          <div className="flex flex-col px-6 py-4 gap-3">
-            {/* Title */}
-            <input
-              autoFocus
-              value={newLinearIssueTitle}
-              onChange={(e) => setNewLinearIssueTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                  e.preventDefault()
-                  void handleCreateNewLinearIssue()
-                }
-              }}
-              placeholder={translate('auto.components.TaskPage.d9151fd4e9', 'Issue title')}
-              disabled={newLinearIssueSubmitting}
-              className="text-lg font-semibold bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 p-0 placeholder:text-muted-foreground/40 text-foreground w-full"
-            />
-
-            {/* Description */}
-            <textarea
-              value={newLinearIssueBody}
-              onChange={(e) => setNewLinearIssueBody(e.target.value)}
-              placeholder={translate('auto.components.TaskPage.9bc8aea407', 'Add description...')}
-              rows={5}
-              disabled={newLinearIssueSubmitting}
-              className="w-full min-w-0 text-sm bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 p-0 placeholder:text-muted-foreground/45 text-foreground resize-none max-h-60 overflow-y-auto scrollbar-sleek py-1"
-            />
-
-            {/* Attribute Badges Row */}
-            <div className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-4 mt-2">
-              {/* Status Selector */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={newLinearIssueSubmitting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border border-border/80 bg-muted/15 hover:bg-muted/50 active:bg-muted transition-colors text-foreground/80 cursor-pointer disabled:opacity-50"
-                  >
-                    {(() => {
-                      const selectedState = newLinearStates.data.find(
-                        (s) => s.id === newLinearIssueStateId
-                      )
-                      return (
-                        <>
-                          <span
-                            className="size-2 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: selectedState?.color || '#a3a3a3' }}
-                          />
-                          <span>
-                            {selectedState?.name ||
-                              translate('auto.components.TaskPage.154b0fa623', 'Status')}
-                          </span>
-                        </>
-                      )
-                    })()}
-                    <ChevronDown className="size-3 text-muted-foreground/70" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-1">
-                  <div className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                    {translate('auto.components.TaskPage.154b0fa623', 'Status')}
-                  </div>
-                  {newLinearStates.loading ? (
-                    <div className="flex items-center justify-center p-4">
-                      <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto scrollbar-sleek">
-                      {newLinearStates.data.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setNewLinearIssueStateId(s.id)}
-                          className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                            newLinearIssueStateId === s.id
-                              ? 'bg-muted font-medium text-foreground'
-                              : 'text-foreground/80'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="size-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: s.color || '#a3a3a3' }}
-                            />
-                            <span>{s.name}</span>
-                          </div>
-                          {newLinearIssueStateId === s.id && (
-                            <Check className="size-3 text-foreground" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-
-              {/* Assignee Selector */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={newLinearIssueSubmitting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border border-border/80 bg-muted/15 hover:bg-muted/50 active:bg-muted transition-colors text-foreground/80 cursor-pointer disabled:opacity-50"
-                  >
-                    {(() => {
-                      const selectedAssignee = newLinearMembers.data.find(
-                        (m) => m.id === newLinearIssueAssigneeId
-                      )
-                      if (selectedAssignee) {
-                        return (
-                          <>
-                            {selectedAssignee.avatarUrl ? (
-                              <img
-                                src={selectedAssignee.avatarUrl}
-                                alt={selectedAssignee.displayName}
-                                className="size-3.5 rounded-full flex-shrink-0"
-                              />
-                            ) : (
-                              <UserRound className="size-3.5 text-muted-foreground/70" />
-                            )}
-                            <span className="truncate max-w-[100px]">
-                              {selectedAssignee.displayName}
-                            </span>
-                          </>
-                        )
-                      }
-                      return (
-                        <>
-                          <UserRound className="size-3.5 text-muted-foreground/70" />
-                          <span>
-                            {translate('auto.components.TaskPage.d2a876ca53', 'Assignee')}
-                          </span>
-                        </>
-                      )
-                    })()}
-                    <ChevronDown className="size-3 text-muted-foreground/70" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-1">
-                  <div className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                    {translate('auto.components.TaskPage.d2a876ca53', 'Assignee')}
-                  </div>
-                  {newLinearMembers.loading ? (
-                    <div className="flex items-center justify-center p-4">
-                      <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto scrollbar-sleek">
-                      <button
-                        type="button"
-                        onClick={() => setNewLinearIssueAssigneeId(null)}
-                        className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                          newLinearIssueAssigneeId === null
-                            ? 'bg-muted font-medium text-foreground'
-                            : 'text-foreground/80'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <UserRound className="size-3.5 text-muted-foreground/50" />
-                          <span>
-                            {translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
-                          </span>
-                        </div>
-                        {newLinearIssueAssigneeId === null && (
-                          <Check className="size-3 text-foreground" />
-                        )}
-                      </button>
-                      {newLinearMembers.data.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => setNewLinearIssueAssigneeId(m.id)}
-                          className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                            newLinearIssueAssigneeId === m.id
-                              ? 'bg-muted font-medium text-foreground'
-                              : 'text-foreground/80'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            {m.avatarUrl ? (
-                              <img
-                                src={m.avatarUrl}
-                                alt={m.displayName}
-                                className="size-3.5 rounded-full flex-shrink-0"
-                              />
-                            ) : (
-                              <UserRound className="size-3.5 text-muted-foreground/70" />
-                            )}
-                            <span className="truncate">{m.displayName}</span>
-                          </div>
-                          {newLinearIssueAssigneeId === m.id && (
-                            <Check className="size-3 text-foreground" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-
-              {/* Priority Selector */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={newLinearIssueSubmitting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border border-border/80 bg-muted/15 hover:bg-muted/50 active:bg-muted transition-colors text-foreground/80 cursor-pointer disabled:opacity-50"
-                  >
-                    <LinearPriorityIcon priority={newLinearIssuePriority} className="size-3.5" />
-                    <span>
-                      {newLinearIssuePriority === 1
-                        ? translate('auto.components.TaskPage.f373ab1a4f', 'Urgent')
-                        : newLinearIssuePriority === 2
-                          ? translate('auto.components.TaskPage.345b169f1f', 'High')
-                          : newLinearIssuePriority === 3
-                            ? translate('auto.components.TaskPage.7fd59c18d8', 'Medium')
-                            : newLinearIssuePriority === 4
-                              ? translate('auto.components.TaskPage.69591944e7', 'Low')
-                              : translate('auto.components.TaskPage.c8d5bec5f7', 'Priority')}
-                    </span>
-                    <ChevronDown className="size-3 text-muted-foreground/70" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-48 p-1">
-                  <div className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                    {translate('auto.components.TaskPage.c8d5bec5f7', 'Priority')}
-                  </div>
-                  {[
-                    {
-                      val: 0,
-                      label: translate('auto.components.TaskPage.713179dfdc', 'No priority')
-                    },
-                    { val: 1, label: translate('auto.components.TaskPage.f373ab1a4f', 'Urgent') },
-                    { val: 2, label: translate('auto.components.TaskPage.345b169f1f', 'High') },
-                    { val: 3, label: translate('auto.components.TaskPage.7fd59c18d8', 'Medium') },
-                    { val: 4, label: translate('auto.components.TaskPage.69591944e7', 'Low') }
-                  ].map((p) => (
-                    <button
-                      key={p.val}
-                      type="button"
-                      onClick={() => setNewLinearIssuePriority(p.val)}
-                      className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                        newLinearIssuePriority === p.val
-                          ? 'bg-muted font-medium text-foreground'
-                          : 'text-foreground/80'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <LinearPriorityIcon priority={p.val} className="size-3.5" />
-                        <span>{p.label}</span>
-                      </div>
-                      {newLinearIssuePriority === p.val && (
-                        <Check className="size-3 text-foreground" />
-                      )}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-
-              {/* Project Selector */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={newLinearIssueSubmitting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border border-border/80 bg-muted/15 hover:bg-muted/50 active:bg-muted transition-colors text-foreground/80 cursor-pointer disabled:opacity-50"
-                  >
-                    <FolderKanban className="size-3.5 text-muted-foreground/70" />
-                    <span className="truncate max-w-[120px]">
-                      {(() => {
-                        const selectedProj = newLinearIssueProjects.find(
-                          (p) => p.id === newLinearIssueProjectId
-                        )
-                        return selectedProj?.name || 'Project'
-                      })()}
-                    </span>
-                    <ChevronDown className="size-3 text-muted-foreground/70" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-1">
-                  <div className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                    {translate('auto.components.TaskPage.00022ec0ba', 'Project')}
-                  </div>
-                  {newLinearIssueProjectsLoading ? (
-                    <div className="flex items-center justify-center p-4">
-                      <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto scrollbar-sleek">
-                      <button
-                        type="button"
-                        onClick={() => setNewLinearIssueProjectId(null)}
-                        className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                          newLinearIssueProjectId === null
-                            ? 'bg-muted font-medium text-foreground'
-                            : 'text-foreground/80'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <FolderKanban className="size-3.5 text-muted-foreground/50" />
-                          <span>
-                            {translate('auto.components.TaskPage.1742eafc14', 'No Project')}
-                          </span>
-                        </div>
-                        {newLinearIssueProjectId === null && (
-                          <Check className="size-3 text-foreground" />
-                        )}
-                      </button>
-                      {newLinearIssueProjects.map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setNewLinearIssueProjectId(p.id)}
-                          className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                            newLinearIssueProjectId === p.id
-                              ? 'bg-muted font-medium text-foreground'
-                              : 'text-foreground/80'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <FolderKanban className="size-3.5 text-muted-foreground/70 flex-shrink-0" />
-                            <span className="truncate">{p.name}</span>
-                          </div>
-                          {newLinearIssueProjectId === p.id && (
-                            <Check className="size-3 text-foreground" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-
-              {/* Labels Selector */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    disabled={newLinearIssueSubmitting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border border-border/80 bg-muted/15 hover:bg-muted/50 active:bg-muted transition-colors text-foreground/80 cursor-pointer disabled:opacity-50"
-                  >
-                    <Tag className="size-3.5 text-muted-foreground/70" />
-                    <span>
-                      {newLinearIssueLabelIds.length === 0
-                        ? translate('auto.components.TaskPage.d0ca4aa1d0', 'Labels')
-                        : translate(
-                            'auto.components.TaskPage.eff9800d4b',
-                            '{{value0}} label{{value1}}',
-                            {
-                              value0: newLinearIssueLabelIds.length,
-                              value1: newLinearIssueLabelIds.length > 1 ? 's' : ''
-                            }
-                          )}
-                    </span>
-                    <ChevronDown className="size-3 text-muted-foreground/70" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-1">
-                  <div className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
-                    {translate('auto.components.TaskPage.d0ca4aa1d0', 'Labels')}
-                  </div>
-                  {newLinearLabels.loading ? (
-                    <div className="flex items-center justify-center p-4">
-                      <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="max-h-60 overflow-y-auto scrollbar-sleek">
-                      {newLinearLabels.data.map((l) => {
-                        const isSelected = newLinearIssueLabelIds.includes(l.id)
-                        return (
-                          <button
-                            key={l.id}
-                            type="button"
-                            onClick={() => {
-                              if (isSelected) {
-                                setNewLinearIssueLabelIds(
-                                  newLinearIssueLabelIds.filter((id) => id !== l.id)
-                                )
-                              } else {
-                                setNewLinearIssueLabelIds([...newLinearIssueLabelIds, l.id])
-                              }
-                            }}
-                            className={`w-full flex items-center justify-between text-left px-2 py-1.5 text-xs rounded-sm hover:bg-muted transition-colors ${
-                              isSelected
-                                ? 'bg-muted font-medium text-foreground'
-                                : 'text-foreground/80'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="size-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: l.color || '#a3a3a3' }}
-                              />
-                              <span>{l.name}</span>
-                            </div>
-                            {isSelected && <Check className="size-3 text-foreground" />}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between border-t border-border/60 px-6 py-4 bg-muted/5">
-            <span className="text-[10px] text-muted-foreground/60 font-medium">
-              {submitShortcutLabel} {translate('auto.components.TaskPage.fc0d8a1fa4', 'to submit.')}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setNewLinearIssueOpen(false)}
-                disabled={newLinearIssueSubmitting}
-                className="text-xs h-8 text-muted-foreground hover:text-foreground"
-              >
-                {translate('auto.components.TaskPage.ff69a30681', 'Cancel')}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => void handleCreateNewLinearIssue()}
-                disabled={
-                  !newLinearIssueTargetTeam ||
-                  !newLinearIssueTitle.trim() ||
-                  newLinearIssueSubmitting
-                }
-                className="text-xs h-8 bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
-              >
-                {newLinearIssueSubmitting ? (
-                  <>
-                    <LoaderCircle className="size-3.5 animate-spin mr-1" />
-                    {translate('auto.components.TaskPage.8ff6fdc368', 'Creating…')}
-                  </>
-                ) : (
-                  translate('auto.components.TaskPage.e15ba2d2eb', 'Create issue')
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      />
       <TaskPageJiraIssueDialog
         context={{
           newJiraIssueOpen,
