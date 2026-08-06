@@ -301,7 +301,12 @@ fn probe_path_exists<E: GitCommandExecutor>(
     executor: &E,
 ) -> Result<bool, GitWorktreeCommandError> {
     if matches!(target, ExecutionTarget::WindowsNative) {
-        return Ok(Path::new(path).exists());
+        return Path::new(path)
+            .try_exists()
+            .map_err(|error| GitWorktreeCommandError {
+                code: None,
+                stderr: format!("native path existence probe failed: {error}"),
+            });
     }
     let command = build_command(target, "test", &["-e", path], None).map_err(|error| {
         GitWorktreeCommandError {
