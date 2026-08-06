@@ -189,8 +189,8 @@ export function scheduleRuntimeGraphSync(): void {
 import { syncRuntimeGraph } from './runtime-graph-window-publisher'
 export { resolveRuntimeTerminalTitle } from './runtime-graph-mobile-projections'
 export type { RuntimeMobileSessionSyncKey } from './runtime-graph-mobile-projections'
+export { AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS_FOR_TESTS } from './runtime-graph-mobile-agent-status-projection'
 export {
-  AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS_FOR_TESTS,
   buildRuntimeMobileAgentStatusProjectionForTests,
   canSkipRuntimeMobileSessionSyncKeyBuild,
   getRuntimeMobileSessionSyncKey,
