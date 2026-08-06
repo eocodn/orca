@@ -165,6 +165,24 @@ mod contract_tests {
     }
 
     #[test]
+    fn recognizes_git_225_unknown_switch_diagnostic_for_z() {
+        let cache = GitCapabilityCache::new();
+        let worktrees = run_worktree_list(
+            &cache,
+            |_| {
+                Err(GitWorktreeCommandError {
+                    code: Some(129),
+                    stderr: String::from("error: unknown switch `z'"),
+                })
+            },
+            |_| Ok(String::from("worktree /repo\nHEAD abc\n\n")),
+        )
+        .unwrap();
+
+        assert_eq!(worktrees[0].path, "/repo");
+    }
+
+    #[test]
     fn does_not_fallback_for_exit_129_without_an_unsupported_worktree_option_diagnostic() {
         let cache = GitCapabilityCache::new();
         let fallback_calls = Arc::new(Mutex::new(0));
@@ -379,9 +397,13 @@ fn is_unsupported_worktree_list_z_error(error: &GitWorktreeCommandError) -> bool
     }
     let stderr = error.stderr.to_ascii_lowercase();
     (stderr.contains("unknown option")
+        || stderr.contains("unknown switch")
         || stderr.contains("invalid option")
         || stderr.contains("unrecognized option"))
-        && (stderr.contains("-z") || stderr.contains(" z"))
+        && (stderr.contains("-z")
+            || stderr.contains(" z")
+            || stderr.contains("'z'")
+            || stderr.contains("`z'"))
 }
 
 fn split_line_blocks(output: &str) -> Vec<Vec<String>> {
