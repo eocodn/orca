@@ -1,0 +1,17 @@
+export type ChecksPanelEffectKey =
+  | 'activeWorktreeId'
+  | 'branch'
+  | 'expireGitHubPRRefreshState'
+  | 'isPanelVisible'
+  | 'panelContextKey'
+  | 'panelContextKeyRef'
+  | 'panelVisibleSinceRef'
+  | 'pr'
+  | 'prCacheKey'
+  | 'prNumber'
+  | 'prRefreshState'
+  | 'rawPRRefreshState'
+  | 'repo'
+  | 'setHardRefreshError'
+  | 'setPrRefreshStateNow'
+;
