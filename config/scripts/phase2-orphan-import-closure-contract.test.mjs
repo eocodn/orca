@@ -1,5 +1,15 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { dirname, extname, join, relative, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 
 const repositoryRoot = resolve(import.meta.dirname, '../..')
@@ -48,7 +58,15 @@ function resolveRelativeImport(importer, specifier) {
     for (const extension of sourceExtensions) candidates.push(join(base, `index${extension}`))
     candidates.push(`${base}.json`)
   }
-  return candidates.find((candidate) => existsSync(candidate)) ?? base
+  return candidates.find(isRegularFile) ?? base
+}
+
+function isRegularFile(filePath) {
+  try {
+    return statSync(filePath).isFile()
+  } catch {
+    return false
+  }
 }
 
 function importsFrom(source) {
@@ -75,7 +93,7 @@ function findMissingImports(entries) {
     for (const specifier of importsFrom(source)) {
       const target = resolveRelativeImport(importer, specifier)
       if (!target) continue
-      if (!existsSync(target)) {
+      if (!isRegularFile(target)) {
         missing.add(`${relative(repositoryRoot, importer)} -> ${specifier}`)
       } else if (isScopedSource(target) && !visited.has(target)) {
         queue.push(target)
@@ -91,5 +109,21 @@ describe('Phase 2 orphan import closure', () => {
     const entries = closureEntries.flatMap(collectEntries)
     const missing = findMissingImports(entries)
     expect(missing, `Missing relative imports:\n${missing.join('\n')}`).toEqual([])
+  })
+
+  it('does not treat a directory without an index module as resolved', () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'phase2-orphan-import-'))
+    try {
+      const importer = join(fixtureRoot, 'entry.ts')
+      mkdirSync(join(fixtureRoot, 'missing-module'))
+      const missingSpecifier = './missing-module'
+      writeFileSync(importer, `${['import', JSON.stringify(missingSpecifier)].join(' ')}\n`, 'utf8')
+
+      const missing = findMissingImports([importer])
+      expect(missing).toHaveLength(1)
+      expect(missing[0]).toContain(` -> ${missingSpecifier}`)
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true })
+    }
   })
 })
