@@ -8,10 +8,9 @@ import { translate } from '@/i18n/i18n'
 import {
   ClaudeChecklistPane,
   ContextMenu,
-  PlaywrightPane,
   RightPaneScrollback,
-  RUN_QUEUE,
   Prompt,
+  TerminalActivityPane,
   TermLine,
   type RightLine
 } from './workbench-animated-visual-panes'
@@ -83,8 +82,6 @@ const FINAL_HOLD_MS = 1800
 // Why: the success state of side-by-side agents needs a longer dwell time so the user can easily see both active.
 const CHECKLIST_FINAL_HOLD_MS = 3800
 
-const RUN_TICK_MS = 2400
-
 const CLAUDE_CMD = 'claude'
 const REVIEW_PROMPT = 'review src/auth for missing error handling'
 const CODEX_CMD = 'codex'
@@ -119,7 +116,6 @@ export function WorkbenchAnimatedVisual(props: {
   const [phase, setPhase] = useState<Phase>(() =>
     reducedMotion && isTwoAgentsChecklist ? { kind: 'split-active' } : { kind: 'idle' }
   )
-  const [runIdx, setRunIdx] = useState(0)
   const [cursorTarget, setCursorTarget] = useState<CursorTarget>({ kind: 'hidden' })
   const [rightTyped, setRightTyped] = useState('')
   const [rightLines, setRightLines] = useState<readonly RightLine[]>(() =>
@@ -129,18 +125,6 @@ export function WorkbenchAnimatedVisual(props: {
   const [promptGlyph, setPromptGlyph] = useState<'$' | '>'>('$')
   const [showCaret, setShowCaret] = useState(true)
   const [rippleKey, setRippleKey] = useState(0)
-
-  // Cycle the running test on the left, independent of the loop, so the
-  // playwright run keeps moving while the user works on the right.
-  useEffect(() => {
-    if (reducedMotion || isTwoAgentsChecklist) {
-      return
-    }
-    const id = window.setInterval(() => {
-      setRunIdx((i) => (i + 1) % RUN_QUEUE.length)
-    }, RUN_TICK_MS)
-    return () => window.clearInterval(id)
-  }, [isTwoAgentsChecklist, reducedMotion])
 
   // Main animation loop — async-ish using setTimeout chains so reduced-motion
   // can short-circuit the entire effect cleanly.
@@ -375,7 +359,6 @@ export function WorkbenchAnimatedVisual(props: {
     phase.kind === 'menu-open' || phase.kind === 'menu-active' || phase.kind === 'menu-click'
   const splitRowActive = phase.kind === 'menu-active' || phase.kind === 'menu-click'
   const showRipple = phase.kind === 'right-click' || phase.kind === 'menu-click'
-  const running = RUN_QUEUE[runIdx] ?? RUN_QUEUE[0]
   const promptAccentClass = isTwoAgentsChecklist ? 'text-foreground' : 'text-amber-600'
 
   return (
@@ -407,7 +390,7 @@ export function WorkbenchAnimatedVisual(props: {
           {isTwoAgentsChecklist ? (
             <ClaudeChecklistPane reducedMotion={reducedMotion} />
           ) : (
-            <PlaywrightPane running={running} reducedMotion={reducedMotion} />
+            <TerminalActivityPane />
           )}
 
           {/* Right-click context menu — theme card, skeleton bars for the

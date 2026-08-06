@@ -1,12 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  ipcMain,
-  Menu,
-  nativeTheme,
-  powerMonitor,
-  screen
-} from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, powerMonitor, screen } from 'electron'
 import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import type { Store } from '../persistence'
@@ -213,7 +205,7 @@ export function createMainWindow(
     handledInitialReadyToShow = true
     clearInitialRevealFallbackTimer()
 
-    // Why: in E2E headless mode keep the window hidden (Playwright drives via CDP) so tests don't steal focus.
+    // Why: headless integration runs keep the window hidden so tests don't steal focus.
     const e2eConfig = getMainE2EConfig()
     if (e2eConfig.headless) {
       return

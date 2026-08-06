@@ -40,7 +40,6 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
     closeTab,
     closeBrowserTab,
     closeFile,
-    closeUnifiedTab,
     openFile,
     browserDefaultUrl,
     markdownCwd,
@@ -131,7 +130,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
       else if (item.contentType === 'browser') {
         destroyWorkspaceWebviews(snapshot.browserPagesByWorkspace, item.entityId)
         closeBrowserTab(item.entityId)
-      } else if (item.contentType === 'simulator') closeUnifiedTab(item.id)
+      }
       else {
         const file = snapshot.openFiles.find((candidate) => candidate.id === item.entityId)
         if (file?.isDirty) dirtyEditorFileIds.push(item.entityId)
@@ -139,7 +138,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
       }
     }
     if (dirtyEditorFileIds.length > 0) queueEditorCloseRequests(dirtyEditorFileIds)
-  }, [activeGroup, closeBrowserTab, closeFile, closeTab, closeUnifiedTab, queueEditorCloseRequests])
+  }, [activeGroup, closeBrowserTab, closeFile, closeTab, queueEditorCloseRequests])
 
   const closeFloatingItemConfirmed = useCallback((visibleId: string, options?: { guestOwned?: boolean }) => {
     const item = resolveGroupTabFromVisibleId(groupTabs, visibleId)
@@ -166,7 +165,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
         if (item.contentType === 'browser') {
           destroyWorkspaceWebviews(latest.browserPagesByWorkspace, item.entityId)
           closeBrowserTab(item.entityId)
-        } else if (item.contentType === 'simulator') closeUnifiedTab(item.id)
+        }
         else {
           const file = latest.openFiles.find((candidate) => candidate.id === item.entityId)
           if (file?.isDirty) {
@@ -179,7 +178,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
         armIfEmptying()
       }
     })
-  }, [closeBrowserTab, closeFile, closeUnifiedTab, groupTabs, pendingReclaimArmByFileIdRef, queueEditorCloseRequests])
+  }, [closeBrowserTab, closeFile, groupTabs, pendingReclaimArmByFileIdRef, queueEditorCloseRequests])
 
   const closeOthers = useCallback((visibleId: string) => {
     const snapshot = useAppStore.getState()
@@ -212,7 +211,7 @@ export function useFloatingTerminalPanelTabActions(state: PanelState, files: Fil
     const currentGroupTabs = activeGroup
       ? (snapshot.unifiedTabsByWorktree[FLOATING_TERMINAL_WORKTREE_ID] ?? []).filter((tab) => tab.groupId === activeGroup.id)
       : (snapshot.unifiedTabsByWorktree[FLOATING_TERMINAL_WORKTREE_ID] ?? [])
-    closeFloatingItems(currentGroupTabs.filter((tab) => !['terminal', 'browser', 'simulator'].includes(tab.contentType) && !tab.isPinned).map((tab) => tab.id))
+    closeFloatingItems(currentGroupTabs.filter((tab) => !['terminal', 'browser'].includes(tab.contentType) && !tab.isPinned).map((tab) => tab.id))
   }, [activeGroup, closeFloatingItems])
 
   return {

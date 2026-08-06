@@ -7,7 +7,6 @@ import { CREATE_WORKTREE_ITEM_ID, CREATE_WORKSPACE_QUICK_ACTION_ID } from '@/com
 import type { SettingsNavTarget } from '@/lib/settings-navigation-types'
 import type { MatchRange, PaletteSearchResult } from '@/lib/worktree-palette-search'
 import type { BrowserPaletteSearchResult } from '@/lib/browser-palette-search'
-import type { SimulatorPaletteSearchResult } from '@/lib/simulator-palette-search'
 import type { WorkspaceTabPaletteSearchResult } from '@/lib/workspace-tab-palette-search'
 import type { CmdJActionResult, CmdJSettingsResult } from '@/components/cmd-j/palette-results'
 import type { CmdJProjectSearchResult } from '@/components/cmd-j/palette-project-results'
@@ -25,12 +24,6 @@ export type BrowserPaletteItem = {
   id: string
   type: 'browser-page'
   result: BrowserPaletteSearchResult
-}
-
-export type SimulatorPaletteItem = {
-  id: string
-  type: 'simulator-tab'
-  result: SimulatorPaletteSearchResult
 }
 
 export type WorkspaceTabPaletteItem = {
@@ -81,7 +74,6 @@ export type PaletteItem =
   | SettingsPaletteItem
   | QuickActionPaletteItem
   | BrowserPaletteItem
-  | SimulatorPaletteItem
   | WorkspaceTabPaletteItem
 
 export type PaletteListEntry = PaletteItem | CreateWorktreePaletteItem | SectionHeader | HintRow
@@ -214,4 +206,3 @@ export function getSettingsTargetFromSectionId(sectionId: string): {
   }
   return { pane: sectionId as SettingsNavTarget, repoId: null }
 }
-

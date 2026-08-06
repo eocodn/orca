@@ -908,12 +908,6 @@
   "auto.components.feature.wall.FeatureTourPreview.5d6ee181b6": {
     "ko": "워크스페이스를 열어 terminal로 돌아가고, 테스트와 로그, agents 용으로 패널을 나누세요."
   },
-  "auto.components.feature.wall.FeatureTourPreview.6218a9014d": {
-    "ko": "pnpm playwright test"
-  },
-  "auto.components.feature.wall.FeatureTourPreview.6ed43cb0e0": {
-    "ko": "dashboard.spec.ts"
-  },
   "auto.components.feature.wall.FeatureTourPreview.70aa182266": {
     "ko": "목표를 넘겨두고 자리를 비우세요. 코디네이터 agent가 작업을 나누어 병렬 PR을 만듭니다."
   },
@@ -965,23 +959,14 @@
   "auto.components.feature.wall.TasksAnimatedVisual.b13375617e": {
     "ko": "워크트리 선택기가 이름을 자릅니다."
   },
-  "auto.components.feature.wall.WorkbenchAnimatedVisual.0b20782e0f": {
-    "ko": "워커 4개로 12개 테스트 실행"
-  },
   "auto.components.feature.wall.WorkbenchAnimatedVisual.16877e038d": {
     "ko": "아래로 분할"
   },
   "auto.components.feature.wall.WorkbenchAnimatedVisual.17cfdc3344": {
     "ko": "Grep"
   },
-  "auto.components.feature.wall.WorkbenchAnimatedVisual.4371cc9931": {
-    "ko": "pnpm playwright test"
-  },
   "auto.components.feature.wall.WorkbenchAnimatedVisual.633a91e358": {
     "ko": "생각 중…"
-  },
-  "auto.components.feature.wall.WorkbenchAnimatedVisual.944199e54a": {
-    "ko": "› 장바구니 합계 업데이트"
   },
   "auto.components.feature.wall.WorkbenchAnimatedVisual.9923847785": {
     "ko": "Read"

@@ -25,45 +25,20 @@ export function FeatureTourTerminalFrame(): JSX.Element {
             <div className="flex items-center gap-1">
               <span className="text-emerald-500">$</span>
               <span className="feature-tour-terminal-line relative inline-block whitespace-nowrap text-foreground">
-                {translate(
-                  'auto.components.feature.wall.FeatureTourPreview.6218a9014d',
-                  'pnpm playwright test'
-                )}
+                git status
               </span>
             </div>
             <div className="mt-1.5 flex flex-col gap-1">
-              <div
-                className="feature-tour-terminal-output truncate text-muted-foreground"
-                data-line="1"
-              >
-                {translate(
-                  'auto.components.feature.wall.FeatureTourPreview.8279e9d95b',
-                  'Running 12 tests'
-                )}
+              <div className="truncate text-muted-foreground" data-line="1">
+                On branch feature/workbench
               </div>
-              <div
-                className="feature-tour-terminal-output flex min-w-0 items-center gap-1.5"
-                data-line="2"
-              >
+              <div className="flex min-w-0 items-center gap-1.5" data-line="2">
                 <span className="font-bold text-emerald-600">✓</span>
-                <span className="truncate">
-                  {translate(
-                    'auto.components.feature.wall.FeatureTourPreview.24fedd5a52',
-                    'login.spec.ts'
-                  )}
-                </span>
+                <span className="truncate">working tree clean</span>
               </div>
-              <div
-                className="feature-tour-terminal-output flex min-w-0 items-center gap-1.5"
-                data-line="3"
-              >
+              <div className="flex min-w-0 items-center gap-1.5" data-line="3">
                 <span className="inline-block size-2 animate-spin rounded-full border-[1.5px] border-foreground/20 border-t-foreground" />
-                <span className="truncate">
-                  {translate(
-                    'auto.components.feature.wall.FeatureTourPreview.6ed43cb0e0',
-                    'dashboard.spec.ts'
-                  )}
-                </span>
+                <span className="truncate">ready for changes</span>
               </div>
             </div>
           </div>
@@ -87,10 +62,7 @@ export function FeatureTourTerminalFrame(): JSX.Element {
                   )}
                 </span>
               </div>
-              <div
-                className="feature-tour-terminal-output flex min-w-0 items-center gap-1"
-                data-line="2"
-              >
+              <div className="flex min-w-0 items-center gap-1" data-line="2">
                 <span className="text-amber-600">
                   {translate('auto.components.feature.wall.FeatureTourPreview.1170621527', '>')}
                 </span>
@@ -101,10 +73,7 @@ export function FeatureTourTerminalFrame(): JSX.Element {
                   )}
                 </span>
               </div>
-              <div
-                className="feature-tour-terminal-output flex min-w-0 items-center gap-1.5"
-                data-line="3"
-              >
+              <div className="flex min-w-0 items-center gap-1.5" data-line="3">
                 <span className="inline-block size-2 animate-spin rounded-full border-[1.5px] border-amber-600/20 border-t-amber-600" />
                 <span className="truncate text-muted-foreground">
                   {translate(

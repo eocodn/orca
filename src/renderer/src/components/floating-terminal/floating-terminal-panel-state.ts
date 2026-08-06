@@ -154,11 +154,11 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
   const activeTerminalId = activeTab?.contentType === 'terminal' ? activeTab.entityId : null
   const activeBrowserId = activeTab?.contentType === 'browser' ? activeTab.entityId : null
   const activeEditorUnifiedId =
-    activeTab && !['terminal', 'browser', 'simulator'].includes(activeTab.contentType)
+    activeTab && !['terminal', 'browser'].includes(activeTab.contentType)
       ? activeTab.id
       : null
   const activeEditorFileId =
-    activeTab && !['terminal', 'browser', 'simulator'].includes(activeTab.contentType)
+    activeTab && !['terminal', 'browser'].includes(activeTab.contentType)
       ? activeTab.entityId
       : null
   const terminalTabById = useMemo(() => new Map(tabs.map((tab) => [tab.id, tab])), [tabs])
@@ -214,15 +214,14 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
     [browserTabs, groupTabs]
   )
   const editorItems = useMemo(
-    () => groupTabs.filter((tab) => !['terminal', 'browser', 'simulator'].includes(tab.contentType)).map((tab) => {
+    () => groupTabs.filter((tab) => !['terminal', 'browser'].includes(tab.contentType)).map((tab) => {
       const file = floatingFiles.find((candidate) => candidate.id === tab.entityId)
       return file ? { ...file, tabId: tab.id } : null
     }).filter((file): file is OpenFile & { tabId: string } => file !== null),
     [floatingFiles, groupTabs]
   )
-  const simulatorItems = useMemo(() => groupTabs.filter((tab) => tab.contentType === 'simulator'), [groupTabs])
-  const hasVisibleFloatingTabs = terminalItems.length > 0 || browserItems.length > 0 || editorItems.length > 0 || simulatorItems.length > 0
-  const visibleFloatingItemCount = terminalItems.length + browserItems.length + editorItems.length + simulatorItems.length
+  const hasVisibleFloatingTabs = terminalItems.length > 0 || browserItems.length > 0 || editorItems.length > 0
+  const visibleFloatingItemCount = terminalItems.length + browserItems.length + editorItems.length
   const activeClosableTab = hasVisibleFloatingTabs ? activeTab : null
   const tabBarOrder = useMemo(() => (activeGroup?.tabOrder ?? []).map((tabId) => {
     const tab = groupTabs.find((candidate) => candidate.id === tabId)
@@ -233,12 +232,11 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
     if (!tab) return false
     if (tab.contentType === 'terminal') return terminalItems.some((item) => item.unifiedTabId === tab.id)
     if (tab.contentType === 'browser') return browserItems.some((item) => item.tabId === tab.id)
-    if (tab.contentType === 'simulator') return simulatorItems.some((item) => item.id === tab.id)
     return editorItems.some((item) => item.tabId === tab.id)
-  }), [browserItems, editorItems, groupTabs, simulatorItems, tabBarOrder, terminalItems])
+  }), [browserItems, editorItems, groupTabs, tabBarOrder, terminalItems])
   const activeBrowserTab = activeBrowserId ? browserTabs.find((tab) => tab.id === activeBrowserId) ?? null : null
   const activeEditorFile = activeEditorFileId ? floatingFiles.find((file) => file.id === activeEditorFileId) ?? null : null
-  const activeTabType = activeTab?.contentType === 'browser' ? 'browser' : activeTab?.contentType === 'terminal' ? 'terminal' : activeTab?.contentType === 'simulator' ? 'simulator' : 'editor'
+  const activeTabType = activeTab?.contentType === 'browser' ? 'browser' : activeTab?.contentType === 'terminal' ? 'terminal' : 'editor'
 
   return {
     tabs, browserTabs, groups, unifiedTabs, floatingFiles, expandedPaneByTabId,
@@ -254,7 +252,7 @@ export function useFloatingTerminalPanelState({ open }: FloatingTerminalPanelSta
     reclaimTerminalInputOnWindowFocusRef, dragRef, activeGroup, groupTabs, activeTab,
     activeTerminalId, activeBrowserId, activeEditorUnifiedId, activeEditorFileId, terminalTabById,
     terminalAssignments, parkedTerminalTabIds, terminalItems, browserItems, editorItems,
-    simulatorItems, hasVisibleFloatingTabs, visibleFloatingItemCount, activeClosableTab,
+    hasVisibleFloatingTabs, visibleFloatingItemCount, activeClosableTab,
     tabBarOrder, visibleFloatingTabOrder, activeBrowserTab, activeEditorFile, activeTabType
   }
 }

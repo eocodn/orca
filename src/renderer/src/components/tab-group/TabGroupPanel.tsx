@@ -114,7 +114,6 @@ export default function TabGroupPanel({
       onNewTerminalTab={commands.newTerminalTab}
       onNewTerminalWithShell={commands.newTerminalWithShell}
       onNewBrowserTab={commands.newBrowserTab}
-      onNewSimulatorTab={commands.newSimulatorTab}
       onOpenEntry={commands.openEntry}
       onNewFileTab={commands.newFileTab}
       onSetCustomTitle={commands.setTabCustomTitle}
@@ -123,22 +122,17 @@ export default function TabGroupPanel({
       editorFiles={editorItems}
       browserTabs={browserItems}
       activeFileId={
-        activeTab?.contentType === 'terminal' ||
-        activeTab?.contentType === 'browser' ||
-        activeTab?.contentType === 'simulator'
+        activeTab?.contentType === 'terminal' || activeTab?.contentType === 'browser'
           ? null
           : activeTab?.id
       }
       activeBrowserTabId={activeTab?.contentType === 'browser' ? activeTab.entityId : null}
-      activeSimulatorTabId={activeTab?.contentType === 'simulator' ? activeTab.id : null}
       activeTabType={
         activeTab?.contentType === 'terminal'
           ? 'terminal'
           : activeTab?.contentType === 'browser'
             ? 'browser'
-            : activeTab?.contentType === 'simulator'
-              ? 'simulator'
-              : 'editor'
+            : 'editor'
       }
       onActivateFile={commands.activateEditor}
       onCloseFile={commands.closeItem}
@@ -311,7 +305,7 @@ export default function TabGroupPanel({
         {activeTab &&
           activeTab.contentType !== 'terminal' &&
           activeTab.contentType !== 'browser' &&
-          activeTab.contentType !== 'simulator' && (
+          (
             <div className="absolute inset-0 flex min-h-0 min-w-0">
               {/* Why: split groups render editor content in a plain relative pane body, not the legacy Terminal.tsx flex column. */}
               <Suspense
@@ -329,7 +323,7 @@ export default function TabGroupPanel({
             </div>
           )}
 
-        {/* Why: terminal/browser/simulator panes render at the worktree level (overlay layers); per-group rendering remounted xterm/webview/simulator on split moves. */}
+        {/* Why: terminal/browser panes render at the worktree level (overlay layers); per-group rendering remounted xterm/webview on split moves. */}
       </div>
     </div>
   )

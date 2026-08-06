@@ -4,16 +4,46 @@ import { FloatingTerminalWindowControls } from './FloatingTerminalWindowControls
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../../shared/constants'
 import type { FloatingTerminalPanelRenderContext } from './floating-terminal-panel-render-types'
 
-export function FloatingTerminalPanelTitlebar({ context }: { context: FloatingTerminalPanelRenderContext }) {
+export function FloatingTerminalPanelTitlebar({
+  context
+}: {
+  context: FloatingTerminalPanelRenderContext
+}) {
   const {
-    terminalItems, activeTerminalId, expandedPaneByTabId, activateFloatingItem,
-    closeFloatingItemConfirmed, closeOthers, closeToRight, closeToLeft,
-    createFloatingTerminalTab, createFloatingBrowserTab, createFloatingMarkdownTab,
-    openFloatingMarkdownTab, setTabCustomTitle, setTabColor, setTabPaneExpanded,
-    editorItems, browserItems, activeEditorUnifiedId, activeBrowserId, activeTab,
-    activeTabType, browserTabs, createBrowserTab, activeGroup, closeAllFiles,
-    makePreviewFilePermanent, pinFile, tabBarOrder, maximized, toggleMaximized,
-    onOpenChange, handleDragStart, handleDragMove, handleDragEnd, handleTitlebarDoubleClick
+    terminalItems,
+    activeTerminalId,
+    expandedPaneByTabId,
+    activateFloatingItem,
+    closeFloatingItemConfirmed,
+    closeOthers,
+    closeToRight,
+    closeToLeft,
+    createFloatingTerminalTab,
+    createFloatingBrowserTab,
+    createFloatingMarkdownTab,
+    openFloatingMarkdownTab,
+    setTabCustomTitle,
+    setTabColor,
+    setTabPaneExpanded,
+    editorItems,
+    browserItems,
+    activeEditorUnifiedId,
+    activeBrowserId,
+    activeTabType,
+    browserTabs,
+    createBrowserTab,
+    activeGroup,
+    closeAllFiles,
+    makePreviewFilePermanent,
+    pinFile,
+    tabBarOrder,
+    maximized,
+    toggleMaximized,
+    onOpenChange,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+    handleTitlebarDoubleClick
   } = context
   return (
     <div
@@ -44,12 +74,13 @@ export function FloatingTerminalPanelTitlebar({ context }: { context: FloatingTe
           newTabMenuOrder="markdown-first"
           onSetCustomTitle={setTabCustomTitle}
           onSetTabColor={setTabColor}
-          onTogglePaneExpand={(tabId) => setTabPaneExpanded(tabId, expandedPaneByTabId[tabId] !== true)}
+          onTogglePaneExpand={(tabId) =>
+            setTabPaneExpanded(tabId, expandedPaneByTabId[tabId] !== true)
+          }
           editorFiles={editorItems}
           browserTabs={browserItems}
           activeFileId={activeEditorUnifiedId}
           activeBrowserTabId={activeBrowserId}
-          activeSimulatorTabId={activeTab?.contentType === 'simulator' ? activeTab.id : null}
           activeTabType={activeTabType}
           onActivateFile={activateFloatingItem}
           onCloseFile={closeFloatingItemConfirmed}
@@ -71,7 +102,11 @@ export function FloatingTerminalPanelTitlebar({ context }: { context: FloatingTe
           tabStripChrome="floating-panel"
         />
       </div>
-      <FloatingTerminalWindowControls maximized={maximized} onToggleMaximized={toggleMaximized} onMinimize={() => onOpenChange(false)} />
+      <FloatingTerminalWindowControls
+        maximized={maximized}
+        onToggleMaximized={toggleMaximized}
+        onMinimize={() => onOpenChange(false)}
+      />
     </div>
   )
 }
