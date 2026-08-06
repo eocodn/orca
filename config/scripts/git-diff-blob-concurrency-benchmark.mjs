@@ -86,7 +86,6 @@ const parent = `${head}~1`
 // cost and the size-dependent read cost are both represented.
 const CANDIDATES = [
   'src/main/git/status.ts',
-  'src/shared/agent-hook-listener.ts',
   'src/renderer/src/components/TaskPage.tsx'
 ]
 

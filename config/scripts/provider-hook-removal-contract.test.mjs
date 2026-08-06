@@ -132,6 +132,7 @@ for (const section of ['dependencies', 'devDependencies', 'optionalDependencies'
 }
 
 for (const staleScript of [
+  'config/scripts/agent-hook-normalizer-roundtrip-benchmark.mjs',
   'config/scripts/verify-agent-hook-stdin-lifecycle.mjs',
   'config/scripts/command-code-transcript-scan-benchmark.mjs',
   'src/main/agent-hooks/managed-hook-stdin-lifecycle.test.ts'
@@ -141,6 +142,12 @@ for (const staleScript of [
     `${staleScript} is a stale provider-hook test artifact`
   )
 }
+
+const diffBenchmark = read('config/scripts/git-diff-blob-concurrency-benchmark.mjs')
+assert.ok(
+  !diffBenchmark.includes('src/shared/agent-hook-listener.ts'),
+  'generic diff benchmark must not retain the deleted hook-listener candidate'
+)
 
 const importRefs = []
 const sourceRoots = ['src/main', 'src/preload', 'src/shared', 'src/relay']
