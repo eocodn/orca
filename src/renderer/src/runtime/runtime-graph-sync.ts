@@ -94,6 +94,35 @@ export let cachedEditorDraftsSource: AppState['editorDrafts'] | null = null
 export let cachedEditorDraftVersionByFileId: Map<string, string> | null = null
 export const mobileSessionPublicationEpoch = `renderer:${createBrowserUuid()}`
 
+/** Allocate the next process-local revision for mobile snapshot publication. */
+export function nextMobileSessionSnapshotVersion(): number {
+  mobileSessionSnapshotVersion += 1
+  return mobileSessionSnapshotVersion
+}
+
+export function getMobileSessionSnapshotVersion(): number {
+  return mobileSessionSnapshotVersion
+}
+
+/** Read the draft-version cache only when its source identity still matches. */
+export function getCachedEditorDraftVersions(
+  source: AppState['editorDrafts']
+): Map<string, string> | null {
+  if (cachedEditorDraftsSource !== source) {
+    return null
+  }
+  return cachedEditorDraftVersionByFileId
+}
+
+/** Replace the source and derived map as one authoritative cache update. */
+export function setCachedEditorDraftVersions(
+  source: AppState['editorDrafts'],
+  versions: Map<string, string>
+): void {
+  cachedEditorDraftsSource = source
+  cachedEditorDraftVersionByFileId = versions
+}
+
 export function setRuntimeGraphStoreStateGetter(getter: (() => AppState) | null): void {
   getStoreState = getter
 }
@@ -200,11 +229,6 @@ async function runRuntimeGraphSync(): Promise<void> {
     }
   }
 }
-
-
-
-
-
 
 export { syncRuntimeGraph } from './runtime-graph-window-publisher'
 export { buildMobileSessionTabSnapshots } from './runtime-graph-mobile-snapshot-builder'

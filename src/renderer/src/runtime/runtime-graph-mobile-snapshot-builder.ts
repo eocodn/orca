@@ -37,7 +37,38 @@ import {
   pruneTabGroupLayout
 } from './runtime-graph-mobile-tab-projection'
 import { isMobilePublishableOpenFile } from './runtime-graph-mobile-surface-builders'
-import { registeredTabs, tabRegisteredAt, NO_TRANSPORT_GRACE_MS, EMPTY_LAYOUT_BY_WORKTREE, RUNTIME_GRAPH_SYNC_COALESCE_MS, syncScheduled, syncInFlight, syncPendingAfterFlight, syncEnabled, syncTimer, getStoreState, mobileSessionSnapshotVersion, mobileSessionSnapshotCacheByWorktree, jsonContentEquals, cachedEditorDraftsSource, cachedEditorDraftVersionByFileId, mobileSessionPublicationEpoch, setRuntimeGraphStoreStateGetter, hasRegisteredRuntimeTerminalTab, registerRuntimeTerminalTab, focusRuntimeTerminalSurface, setRuntimeGraphSyncEnabled, clearScheduledRuntimeGraphSync, scheduleRuntimeGraphSync, runRuntimeGraphSync, syncRuntimeGraph, type RegisteredTerminalTab, type OpenFileByWorktreeAndId, type OpenFileIndexes, type FallbackEditorTabTarget } from './runtime-graph-sync'
+import {
+  registeredTabs,
+  tabRegisteredAt,
+  NO_TRANSPORT_GRACE_MS,
+  EMPTY_LAYOUT_BY_WORKTREE,
+  RUNTIME_GRAPH_SYNC_COALESCE_MS,
+  syncScheduled,
+  syncInFlight,
+  syncPendingAfterFlight,
+  syncEnabled,
+  syncTimer,
+  getStoreState,
+  nextMobileSessionSnapshotVersion,
+  mobileSessionSnapshotCacheByWorktree,
+  jsonContentEquals,
+  getCachedEditorDraftVersions,
+  setCachedEditorDraftVersions,
+  mobileSessionPublicationEpoch,
+  setRuntimeGraphStoreStateGetter,
+  hasRegisteredRuntimeTerminalTab,
+  registerRuntimeTerminalTab,
+  focusRuntimeTerminalSurface,
+  setRuntimeGraphSyncEnabled,
+  clearScheduledRuntimeGraphSync,
+  scheduleRuntimeGraphSync,
+  runRuntimeGraphSync,
+  syncRuntimeGraph,
+  type RegisteredTerminalTab,
+  type OpenFileByWorktreeAndId,
+  type OpenFileIndexes,
+  type FallbackEditorTabTarget
+} from './runtime-graph-sync'
 
 export function buildMobileSessionTabSnapshots(
   state: AppState,
@@ -226,7 +257,7 @@ export function buildMobileSessionTabSnapshots(
     // pair, so reuse the cached version for structurally-identical content. The
     // global counter still advances per worktree per build (as before caching)
     // so a changed worktree's fresh version stays ahead of main's +1 bumps.
-    const candidateVersion = ++mobileSessionSnapshotVersion
+    const candidateVersion = nextMobileSessionSnapshotVersion()
     const cached = mobileSessionSnapshotCacheByWorktree.get(worktreeId)
     if (cached && jsonContentEquals(cached.content, content)) {
       snapshots.push(cached.snapshot)
@@ -259,16 +290,16 @@ export function isEditorSurfaceTab(tab: Pick<Tab, 'contentType'>): boolean {
 export function getEditorDraftVersionByFileId(
   editorDrafts: AppState['editorDrafts']
 ): Map<string, string> {
-  if (cachedEditorDraftsSource === editorDrafts && cachedEditorDraftVersionByFileId) {
-    return cachedEditorDraftVersionByFileId
+  const cachedVersions = getCachedEditorDraftVersions(editorDrafts)
+  if (cachedVersions) {
+    return cachedVersions
   }
 
   const versions = new Map<string, string>()
   for (const [fileId, content] of Object.entries(editorDrafts)) {
     versions.set(fileId, stableHashString(content))
   }
-  cachedEditorDraftsSource = editorDrafts
-  cachedEditorDraftVersionByFileId = versions
+  setCachedEditorDraftVersions(editorDrafts, versions)
   return versions
 }
 
