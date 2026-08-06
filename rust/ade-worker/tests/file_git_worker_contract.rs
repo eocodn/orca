@@ -74,9 +74,11 @@ fn file_dispatch_replays_identical_requests_and_fences_owner_lease_conflicts() {
 
 #[test]
 fn git_dispatch_executes_against_a_real_folder_repository_and_jsonl_correlates() {
-    if Command::new("git").arg("--version").status().is_err() {
-        return;
-    }
+    let git_status = Command::new("git")
+        .arg("--version")
+        .status()
+        .expect("required Git integration test tool must be installed");
+    assert!(git_status.success(), "Git version probe must succeed");
     let repository = temp_dir("git");
     run_git(&repository, &["init", "-q"]);
     run_git(&repository, &["config", "user.email", "ade@example.test"]);
