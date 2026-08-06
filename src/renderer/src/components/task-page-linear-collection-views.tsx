@@ -13,9 +13,9 @@ import type {
   LinearCustomViewSummary,
   LinearProjectDetail,
   LinearProjectSummary,
-  LinearMode,
   TaskResumeState
 } from '../../../shared/types'
+import type { LinearMode } from './task-page-localized-options'
 
 type LinearProjectTab = 'overview' | 'issues'
 

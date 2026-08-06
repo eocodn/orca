@@ -1,22 +1,41 @@
 import { useEffect, useRef } from 'react'
 import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../store'
-export function useTerminalSurfaceEffects(context: Record<string, any>): void {
+type TerminalSurfaceStore = ReturnType<typeof useAppStore.getState>
+
+type TerminalSurfaceEffectsContext = {
+  activeWorktreeBrowserTabIdsKey: string
+  activeTabType: TerminalSurfaceStore['activeTabType']
+  activeBrowserTabId: string | null
+  renderedActiveWorktreeId: string | null
+  setActiveBrowserTab: TerminalSurfaceStore['setActiveBrowserTab']
+  setActiveTabType: TerminalSurfaceStore['setActiveTabType']
+  destroyRemovedBrowserWebview: (id: string) => void
+  collectBrowserWebviewIds: (
+    browserTabsByWorktree: TerminalSurfaceStore['browserTabsByWorktree'],
+    browserPagesByWorkspace: TerminalSurfaceStore['browserPagesByWorkspace']
+  ) => Set<string>
+  setWindowCloseRequestHandler: (handler: ((args: { isQuitting: boolean }) => void) | null) => void
+  isIntentionalAppRestartInProgress: () => boolean
+  preventUnloadAndScheduleShutdownCheckpointReset: (
+    event: BeforeUnloadEvent,
+    target: Window
+  ) => void
+  proceedToNativeWindowClose: (isQuitting: boolean) => void
+  queueEditorCloseRequests: (fileIds: string[], options?: { isQuitting?: boolean }) => void
+  windowCloseAfterDirtyRef: { current: boolean }
+}
+
+export function useTerminalSurfaceEffects(context: TerminalSurfaceEffectsContext): void {
   const {
-    openFiles,
-    activeWorktreeId,
     activeWorktreeBrowserTabIdsKey,
     activeTabType,
     activeBrowserTabId,
     renderedActiveWorktreeId,
     setActiveBrowserTab,
     setActiveTabType,
-    browserTabsByWorktree,
-    activeView,
-    workspaceSurfaces,
     destroyRemovedBrowserWebview,
     collectBrowserWebviewIds,
-    destroyWorkspaceWebviews,
     setWindowCloseRequestHandler,
     isIntentionalAppRestartInProgress,
     preventUnloadAndScheduleShutdownCheckpointReset,
@@ -38,7 +57,7 @@ export function useTerminalSurfaceEffects(context: Record<string, any>): void {
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [])
+  }, [isIntentionalAppRestartInProgress, preventUnloadAndScheduleShutdownCheckpointReset])
 
   // Handle main-process window close requests: only dirty editor files block close (terminal sessions detach via daemon/SSH).
   // Why: register into the coordinator, not IPC directly, so quits on the Terminal-less landing page are still handled (#5144).
@@ -66,7 +85,13 @@ export function useTerminalSurfaceEffects(context: Record<string, any>): void {
       proceedToNativeWindowClose(isQuitting)
     })
     return () => setWindowCloseRequestHandler(null)
-  }, [proceedToNativeWindowClose, queueEditorCloseRequests])
+  }, [
+    isIntentionalAppRestartInProgress,
+    proceedToNativeWindowClose,
+    queueEditorCloseRequests,
+    setWindowCloseRequestHandler,
+    windowCloseAfterDirtyRef
+  ])
 
   // Why: browser pages can vanish via store-only paths; the store can't destroy webviews (owns DOM nodes), so this subscriber tears down orphaned ones.
   const prevBrowserWebviewIdsRef = useRef<Set<string>>(
@@ -98,7 +123,7 @@ export function useTerminalSurfaceEffects(context: Record<string, any>): void {
       }
       prevBrowserWebviewIdsRef.current = currentIds
     })
-  }, [])
+  }, [collectBrowserWebviewIds, destroyRemovedBrowserWebview])
 
   // Why: fall back to terminal when activeTabType 'browser' has no renderable tab; run as effect, not render (Zustand mutations mid-render blank the screen).
   useEffect(() => {
