@@ -5,7 +5,10 @@ import { useAppStore } from '@/store'
 import { useTeamStates } from '@/hooks/useIssueMetadata'
 import { linearUpdateIssue } from '@/runtime/runtime-linear-client'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { getLinearStateMarkerStyle, getLinearStatePillStyle } from '@/components/linear-state-pill-style'
+import {
+  getLinearStateMarkerStyle,
+  getLinearStatePillStyle
+} from '@/components/linear-state-pill-style'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import type { LinearDisplayProperty } from '@/components/task-page-localized-options'
@@ -172,7 +175,9 @@ export function LinearStateCell({
   )
 }
 
-export function getLinearIssueGridTemplate(visibleProperties: ReadonlySet<LinearDisplayProperty>): string {
+export function getLinearIssueGridTemplate(
+  visibleProperties: ReadonlySet<LinearDisplayProperty>
+): string {
   const columns = ['96px', 'minmax(240px,1.55fr)']
   if (visibleProperties.has('labels')) {
     columns.push('minmax(168px,0.9fr)')
