@@ -56,6 +56,7 @@ import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-stat
 import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
 import { useTaskPageGitHubIssueCreationState } from './use-task-page-github-issue-creation-state'
 import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
+import { useTaskPageGitHubListDataState } from './use-task-page-github-list-data-state'
 import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
 import { useTaskPageLinearProjectDetailState } from './use-task-page-linear-project-detail-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
@@ -82,12 +83,8 @@ import { getLinearIssueWorkspaceName } from '../../../shared/workspace-name'
 import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selectors'
 import {
   buildTaskPageRepoSourceState,
-  deriveTaskPageGitHubWorkItemsFetchOptions,
-  reconcileTaskPagePagesAfterLandingRefresh,
   reconcileTaskPagePagesWithWorkItemsCache,
-  shouldResetTaskPagePaginationAfterLandingRefresh,
   selectTaskPageUnresolvedSourceRepos,
-  shouldReplaceTaskPageItemsAfterRefresh,
   type TaskPageRepoSourceState
 } from '@/components/task-page-cache-selectors'
 import { shouldHideTaskPageListChrome } from '@/components/task-page-list-chrome-visibility'
@@ -398,12 +395,6 @@ export default function TaskPage(): React.JSX.Element {
   // Why: when every refresh fails (GitHub outage/network/rate limit), attribute it to GitHub instead of showing an empty or stale list as current.
   const [githubUnavailable, setGithubUnavailable] = useState(false)
   const [taskRefreshNonce, setTaskRefreshNonce] = useState(0)
-  // Why: lets the fetch effect tell a user refresh-click nonce bump (force=true) from a re-run for another reason (e.g. repo change with nonce > 0).
-  const lastFetchedNonceRef = useRef(-1)
-  // Why: invalidation-nonce analog of lastFetchedNonceRef; a preference flip must force past fetch-dedupe or the fan-out collapses onto a stale in-flight request from the pre-flip source.
-  const lastFetchedInvalidationNonceRef = useRef(0)
-  // Why: entering Tasks with fresh cache still verifies remote status once, reconciled into existing rows to avoid a full table shuffle.
-  const landingGitHubRefreshKeysRef = useRef<ReadonlySet<string>>(new Set())
   // Why: split the display budget across repos so one provider page maps to one UI page without truncating rows later pages can't return.
   const githubPerRepoPageLimit = getTaskPagePerRepoLimit(
     selectedRepos.length,
@@ -1998,175 +1989,31 @@ export default function TaskPage(): React.JSX.Element {
     })
   }, [activeTaskPreset, appliedTaskSearch, setTaskResumeState, taskResumeApplied])
 
-  useEffect(() => {
-    if (!taskResumeApplied) {
-      return
-    }
-    // Why: both early-return branches must clear retryingSourceKeys — if they fire, neither .then nor .catch runs and Retry stays stuck.
-    if (taskSource !== 'github' || githubMode !== 'items') {
-      setRetryingSourceKeys(new Set())
-      setTasksRefreshing(false)
-      setTasksFiltering(false)
-      return
-    }
-    if (selectedRepos.length === 0) {
-      setRetryingSourceKeys(new Set())
-      setTasksRefreshing(false)
-      setTasksFiltering(false)
-      return
-    } // unreachable — multi-combobox forbids empty
-
-    // Why: strip repo:owner/name qualifiers before fan-out — cross-repo they'd pin every fetch to one repo. See stripRepoQualifiers.
-    const q = stripRepoQualifiers(appliedTaskSearch.trim())
-    let cancelled = false
-
-    // Why: paint cached rows synchronously before the fan-out so a selection change doesn't leave the prior rows on screen for a frame.
-    const preMerged: GitHubWorkItem[] = []
-    let anyUncached = false
-    let anyRepoCached = false
-    for (const r of selectedRepos) {
-      const cached = getCachedWorkItems(
-        r.id,
-        githubPerRepoPageLimit,
-        q,
-        r.path,
-        getTaskPageRepoSourceContext(r, 'github')
-      )
-      if (cached === null) {
-        anyUncached = true
-      } else {
-        anyRepoCached = true
-        preMerged.push(...cached)
-      }
-    }
-    // Why: always replace — an empty preMerged clears the previous query's rows instead of leaving them under the spinner.
-    const page0 =
-      preMerged.length > 0 ? sortWorkItemsByNumber(preMerged).slice(0, githubPageSize) : []
-    setPages([page0])
-    setCurrentPage(0)
-    setCountedTotalPages(null)
-    setTasksError(null)
-    setFailedCount(0) // reset so a prior failure banner doesn't linger
-    setGithubUnavailable(false)
-    setTasksLoading(anyUncached)
-
-    // Preserve the existing nonce-gated force behavior.
-    const forceRefresh = taskRefreshNonce !== lastFetchedNonceRef.current
-    lastFetchedNonceRef.current = taskRefreshNonce
-    // Why: treat a preference-flip nonce bump as a forced refresh so it bypasses the dedupe map and can't reuse pre-flip data.
-    const preferenceInvalidated =
-      workItemsInvalidationNonce !== lastFetchedInvalidationNonceRef.current
-    lastFetchedInvalidationNonceRef.current = workItemsInvalidationNonce
-    const forcedFetch = (forceRefresh && taskRefreshNonce > 0) || preferenceInvalidated
-    const repoArgs = selectedRepos.map((r) => ({
-      repoId: r.id,
-      path: r.path,
-      executionHostId: r.executionHostId,
-      sourceContext: getTaskPageRepoSourceContext(r, 'github')
-    }))
-    const landingRefreshKey = `${repoArgs.map((r) => `${r.repoId}:${r.path}`).join('|')}::${q}`
-    const shouldProbeOnLanding =
-      !forcedFetch && anyRepoCached && !landingGitHubRefreshKeysRef.current.has(landingRefreshKey)
-    if (shouldProbeOnLanding) {
-      landingGitHubRefreshKeysRef.current = new Set([
-        ...landingGitHubRefreshKeysRef.current,
-        landingRefreshKey
-      ])
-    }
-    // Why: manual refresh keeps cached rows (tasksLoading stays false), so track forced fetch separately for the toolbar spinner.
-    setTasksRefreshing(forcedFetch)
-
-    // Why: snapshot retrying keys at dispatch so an earlier settling effect doesn't wipe a newer retry's pending source.
-    const dispatchedRetrySourceKeys = retryingSourceKeys
-    void fetchWorkItemsAcrossRepos(repoArgs, githubPerRepoPageLimit, githubPageSize, q, {
-      ...deriveTaskPageGitHubWorkItemsFetchOptions(forcedFetch, shouldProbeOnLanding)
-    })
-      .then(({ items, failedCount: failed, githubUnavailable: unavailable }) => {
-        // Why: clear only the dispatch-time snapshot keys so an overlapping retry's newer source isn't wiped.
-        setRetryingSourceKeys((prev) => {
-          if (dispatchedRetrySourceKeys.size === 0) {
-            return prev
-          }
-          const next = new Set(prev)
-          for (const key of dispatchedRetrySourceKeys) {
-            next.delete(key)
-          }
-          return next
-        })
-        if (cancelled) {
-          return
-        }
-        if (shouldProbeOnLanding) {
-          const replaceFirstPage = shouldReplaceTaskPageItemsAfterRefresh(page0, items)
-          const resetPagination = shouldResetTaskPagePaginationAfterLandingRefresh(page0, items)
-          setPages((current) => reconcileTaskPagePagesAfterLandingRefresh(current, items))
-          if (replaceFirstPage || resetPagination) {
-            setCurrentPage(0)
-          }
-        } else {
-          setPages([items])
-          setCurrentPage(0)
-        }
-        setFailedCount(failed)
-        setGithubUnavailable(unavailable)
-        setTasksLoading(false)
-        setTasksRefreshing(false)
-        setTasksFiltering(false)
-      })
-      .catch((err) => {
-        // Why: fetchWorkItemsAcrossRepos swallows per-repo failures, so a reject here is IPC/programmer error — surface it.
-        // Why: clear only the dispatch-time snapshot keys so an overlapping retry's newer source isn't wiped.
-        setRetryingSourceKeys((prev) => {
-          if (dispatchedRetrySourceKeys.size === 0) {
-            return prev
-          }
-          const next = new Set(prev)
-          for (const key of dispatchedRetrySourceKeys) {
-            next.delete(key)
-          }
-          return next
-        })
-        if (cancelled) {
-          return
-        }
-        setTasksError(err instanceof Error ? err.message : 'Failed to load GitHub work.')
-        setFailedCount(0) // the per-repo banner would be misleading next to tasksError
-        setGithubUnavailable(false)
-        setTasksLoading(false)
-        setTasksRefreshing(false)
-        setTasksFiltering(false)
-      })
-
-    // Why: fire-and-forget count query alongside the items fetch; the search API is cached 120s server-side so it adds little cost.
-    void countWorkItemsAcrossRepos(
-      selectedRepos.map((r) => ({
-        repoId: r.id,
-        path: r.path,
-        executionHostId: r.executionHostId,
-        sourceContext: getTaskPageRepoSourceContext(r, 'github')
-      })),
-      q,
-      githubPerRepoPageLimit
-    ).then(({ totalPages: countedPages }) => {
-      if (!cancelled) {
-        setCountedTotalPages(countedPages)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-    // Why: store selectors are stable (omit from deps); workItemsInvalidationNonce included so a preference flip re-dispatches.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    selectedRepos,
+  useTaskPageGitHubListDataState({
     appliedTaskSearch,
-    taskRefreshNonce,
-    taskSource,
+    countWorkItemsAcrossRepos,
+    fetchWorkItemsAcrossRepos,
+    getCachedWorkItems,
     githubMode,
-    workItemsInvalidationNonce,
-    taskResumeApplied
-  ])
+    githubPageSize,
+    githubPerRepoPageLimit,
+    retryingSourceKeys,
+    selectedRepos,
+    setCountedTotalPages,
+    setCurrentPage,
+    setFailedCount,
+    setGithubUnavailable,
+    setPages,
+    setRetryingSourceKeys,
+    setTasksError,
+    setTasksFiltering,
+    setTasksLoading,
+    setTasksRefreshing,
+    taskRefreshNonce,
+    taskResumeApplied,
+    taskSource,
+    workItemsInvalidationNonce
+  })
 
   const applyPRFilterChange = useCallback(
     (change: PRFilterChange): void => {
