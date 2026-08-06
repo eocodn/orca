@@ -1,15 +1,98 @@
 import React from 'react'
-import { AlertTriangle, Check, HardDrive, Loader2, RefreshCw, Search, Trash2, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  HardDrive,
+  Loader2,
+  RefreshCw,
+  Search,
+  Trash2,
+  X
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { translate } from '@/i18n/i18n'
 import { formatBytes } from './workspace-space-format'
-import { BreakdownList, CheckButton, Metric, SortIndicator, UpdatedMetric, WorkspaceRow, WorkspaceTreemap } from './workspace-space-manager-rows'
+import {
+  BreakdownList,
+  CheckButton,
+  Metric,
+  SortIndicator,
+  UpdatedMetric,
+  WorkspaceRow,
+  WorkspaceTreemap
+} from './workspace-space-manager-rows'
 import { getWorkspaceDecisionDetails } from './workspace-space-manager-decision-model'
 
 export function WorkspaceSpaceManagerView(props: Record<string, any>): React.JSX.Element {
-  const { analysis, isScanning, progressLabel, progress, cancelScan, refresh, scanError, repoErrors, hasRows, isInitialScan, sourceRows, inspectedWorktree, zoomedWorktree, setInspectedWorktreeId, setTreemapZoomWorktreeId, selectedDeletableIds, selectedReclaimableBytes, setSelectedIds, deleteSelected, query, setQuery, sortKey, selectSortKey, onlyDeletable, setOnlyDeletable, toggleVisibleSelection, visibleDeletableIds, allVisibleSelected, visibleSelectionState, toggleSort, sortDirection, rows, maxSize, nextSelectedIds, decisionDetailsByWorktreeId, repoMap, worktreeMap, tabsByWorktree, ptyIdsByTabId, agentStatusByPaneKey, migrationUnsupportedByPtyId, runtimePaneTitlesByTabId, retainedAgentsByPaneKey, openFiles, editorDrafts, browserTabsByWorktree, gitStatusByWorktree, remoteStatusesByWorktree, hostedReviewCache, issueCache, linearIssueCache, settings, activeWorktreeId, gitRefreshStateByWorktreeId, deleteStateByWorktreeId, toggleSelection, activateAndRevealWorktree, deleteWorktrees, forceDeleteWorktree } = props
+  const {
+    analysis,
+    isScanning,
+    progressLabel,
+    progress,
+    cancelScan,
+    refresh,
+    scanError,
+    repoErrors,
+    hasRows,
+    isInitialScan,
+    sourceRows,
+    inspectedWorktree,
+    zoomedWorktree,
+    setInspectedWorktreeId,
+    setTreemapZoomWorktreeId,
+    selectedDeletableIds,
+    selectedReclaimableBytes,
+    setSelectedIds,
+    deleteSelected,
+    query,
+    setQuery,
+    sortKey,
+    selectSortKey,
+    onlyDeletable,
+    setOnlyDeletable,
+    toggleVisibleSelection,
+    visibleDeletableIds,
+    allVisibleSelected,
+    visibleSelectionState,
+    toggleSort,
+    sortDirection,
+    rows,
+    maxSize,
+    nextSelectedIds,
+    decisionDetailsByWorktreeId,
+    repoMap,
+    worktreeMap,
+    tabsByWorktree,
+    ptyIdsByTabId,
+    agentStatusByPaneKey,
+    migrationUnsupportedByPtyId,
+    runtimePaneTitlesByTabId,
+    retainedAgentsByPaneKey,
+    openFiles,
+    editorDrafts,
+    browserTabsByWorktree,
+    gitStatusByWorktree,
+    remoteStatusesByWorktree,
+    hostedReviewCache,
+    issueCache,
+    linearIssueCache,
+    settings,
+    activeWorktreeId,
+    gitRefreshStateByWorktreeId,
+    deleteStateByWorktreeId,
+    toggleSelection,
+    activateAndRevealWorktree,
+    deleteWorktrees,
+    forceDeleteWorktree
+  } = props
   return (
     <div className="space-y-5">
       <div className="grid overflow-hidden rounded-lg border border-border/65 bg-background/35 md:grid-cols-4 md:divide-x md:divide-border/60">

@@ -1,8 +1,5 @@
-// Concrete surface implementation for WorkspaceSpaceManagerPanel.tsx
-/* oxlint-disable react-doctor/no-adjust-state-on-prop-change -- Why: the relative time clock advances from a wall-clock interval, which is an external timer rather than render-derived state. */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Bot,
@@ -12,80 +9,33 @@ import {
   FileWarning,
   GitBranch,
   GitPullRequest,
-  HardDrive,
   Loader2,
   Minus,
-  RefreshCw,
-  Search,
-  Server,
   Terminal,
-  Trash2,
-  ZoomIn,
-  ZoomOut,
-  X
+  Trash2
 } from 'lucide-react'
-import type {
-  AgentStatusEntry,
-  MigrationUnsupportedPtyEntry
-} from '../../../../shared/agent-status-types'
-import type { GitStatusResult, Repo, TerminalTab, Worktree } from '../../../../shared/types'
-import type {
-  WorkspaceSpaceItem,
-  WorkspaceSpaceWorktree
-} from '../../../../shared/workspace-space-types'
+import type { WorkspaceSpaceWorktree } from '../../../../shared/workspace-space-types'
 import { cn } from '@/lib/utils'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
-import { toast } from 'sonner'
-import { activateAndRevealWorktree } from '@/lib/worktree-activation'
-import { useAppStore } from '../../store'
-import { getRepoMapFromState, getWorktreeMapFromState } from '../../store/selectors'
-import { getHostedReviewCacheKey } from '../../store/slices/hosted-review'
-import { issueCacheKey as getIssueCacheKey } from '../../store/slices/github'
-import { refreshGitStatusForWorktree } from '../right-sidebar/git-status-refresh'
-import { runWorktreeBatchDelete } from '../sidebar/delete-worktree-flow'
-import { prepareActiveWorktreeFocusAfterDelete } from '../sidebar/active-worktree-focus-after-delete'
-import { branchDisplayName } from '../sidebar/WorktreeCardHelpers'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger
-} from '../ui/context-menu'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card'
-import { Input } from '../ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { HoverCardContent } from '../ui/hover-card'
 import {
   formatBytes,
-  formatCompactCount,
-  getWorkspaceSpaceBranchLabel,
-  getWorkspaceSpaceProgressLabel,
   getWorkspaceSpaceScanDateTimeLabel,
-  getWorkspaceSpaceScanTimeLabel,
   getWorkspaceSpaceStatusLabel
 } from './workspace-space-format'
-import { buildTreemapLayout, type TreemapRect } from './workspace-space-layout'
-import {
-  filterWorkspaceSpaceRows,
-  countWorkspaceSpaceActiveAgents,
-  getLargestWorkspaceSpaceItemSize,
-  getLargestWorkspaceSpaceRowSize,
-  getSelectedDeletableWorkspaceIds,
-  getVisibleDeletableWorkspaceIds,
-  getWorkspaceSpaceGitStatusRefreshCandidates,
-  isWorkspaceSpaceRowReadyToDelete,
-  pruneWorkspaceSpaceSelectedIds,
-  resolveWorkspaceSpaceInspectedWorktreeId,
-  resolveWorkspaceSpaceTreemapZoomWorktreeId,
-  sortWorkspaceSpaceRows,
-  type WorkspaceSpaceSortDirection,
-  type WorkspaceSpaceSortKey
+import type { TreemapRect } from './workspace-space-layout'
+import type {
+  WorkspaceSpaceSortDirection,
+  WorkspaceSpaceSortKey
 } from './workspace-space-presentation'
 import { translate } from '@/i18n/i18n'
-import type { WorktreeForceDeleteReason } from '../../../../shared/worktree-removal'
-
 import type { WorkspaceDecisionDetails } from './workspace-space-manager-decision-model'
+import type {
+  WorkspaceGitRefreshState,
+  WorkspaceSpaceDeleteState
+} from './workspace-space-manager-types'
 
 const TREEMAP_FILLS = [
   'color-mix(in srgb, var(--chart-2) 34%, var(--card))',

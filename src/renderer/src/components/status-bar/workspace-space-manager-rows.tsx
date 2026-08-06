@@ -13,5 +13,10 @@ export {
   UpdatedMetric,
   WorkspaceDecisionHoverCard
 } from './workspace-space-manager-decision'
-export { BreakdownList, BreakdownRow, SizeBar, WorkspaceRow, WorkspaceTreemap } from './workspace-space-manager-workspace-rows'
-
+export {
+  BreakdownList,
+  BreakdownRow,
+  SizeBar,
+  WorkspaceRow,
+  WorkspaceTreemap
+} from './workspace-space-manager-workspace-rows'
