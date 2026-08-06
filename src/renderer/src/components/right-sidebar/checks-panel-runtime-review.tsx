@@ -1,8 +1,22 @@
 /* Checks panel render branch. */
-// @ts-nocheck
 import React from 'react'
+import type { ChecksPanelRenderContext } from './checks-panel-runtime-render-types'
+import { LoaderCircle, Check, X, Pencil } from 'lucide-react'
+import { DetachedHeadBadge } from '@/components/DetachedHeadBadge'
+import HostedReviewActions from './HostedReviewActions'
+import { ChecksPanelReviewHeader } from './checks-panel-review-section'
+import { ChecksPanelChecksSection } from './checks-panel-checks-section'
+import { ChecksPanelCommentsSection } from './checks-panel-comments-section'
+import { ChecksPanelActionsSection } from './checks-panel-actions-section'
+import { ChecksPanelUpdatedAtMetadata } from './checks-panel-updated-at-metadata'
+import { getChecksPanelRefreshErrorBannerLine } from './github-refresh-error-copy'
+import { resolveChecksPanelHostedReviewModifierDestination } from './checks-panel-hosted-review-click-routing'
+import { readSourceControlLaunchRecipeAgentId } from '@/lib/source-control-launch-agent-selection'
+import { resolveSourceControlActionRecipe } from '../../../../shared/source-control-ai'
+import { translate } from '@/i18n/i18n'
+import { toast } from 'sonner'
 
-export function renderChecksPanelReview(context: Record<string, unknown>): React.JSX.Element {
+export function renderChecksPanelReview<T extends Record<string, unknown>>(context: ChecksPanelRenderContext<T>): React.JSX.Element {
   const {
     activeConflictReview,
     activeConnectionId,

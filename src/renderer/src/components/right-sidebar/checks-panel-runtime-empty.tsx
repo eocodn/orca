@@ -1,8 +1,15 @@
 /* Checks panel render branch. */
-// @ts-nocheck
 import React from 'react'
+import type { ChecksPanelRenderContext } from './checks-panel-runtime-render-types'
+import { Button } from '@/components/ui/button'
+import { DetachedHeadBadge } from '@/components/DetachedHeadBadge'
+import { CreateHostedReviewComposer } from './CreateHostedReviewComposer'
+import { translate } from '@/i18n/i18n'
+import { isMacPlatform } from '../terminal-pane/terminal-link-open-hints'
+import { openChecksPanelHostedReviewUrl } from './checks-panel-hosted-review-click-routing'
+import { getChecksPanelReviewState, shouldShowChecksPanelPublishBranchAction } from './checks-panel-empty-state'
 
-export function renderChecksPanelEmpty(context: Record<string, unknown>): React.JSX.Element {
+export function renderChecksPanelEmpty<T extends Record<string, unknown>>(context: ChecksPanelRenderContext<T>): React.JSX.Element {
   const {
     activeReview,
     activeWorktreeId,
