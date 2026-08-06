@@ -10,7 +10,19 @@ describe('Tauri runtime detection', () => {
   })
 
   it('does not classify ordinary browser globals as Tauri', () => {
-    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} })
+    vi.stubGlobal('window', {})
     expect(isTauriRuntime()).toBe(false)
+  })
+
+  it('fails closed when a partial or spoofed marker cannot invoke commands', () => {
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: {} })
+    expect(() => isTauriRuntime()).toThrow(
+      'Tauri runtime marker is present but its invoke bridge is unavailable.'
+    )
+
+    vi.stubGlobal('window', { __TAURI_INTERNALS__: 'spoofed' })
+    expect(() => isTauriRuntime()).toThrow(
+      'Tauri runtime marker is present but its invoke bridge is unavailable.'
+    )
   })
 })
