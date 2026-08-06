@@ -60,7 +60,6 @@ import { requestStablePaneFit } from '@/lib/pane-manager/pane-fit-resize-observe
 import { bindPanePtyId, getFitOverrideForPty } from '@/lib/pane-manager/mobile-fit-overrides'
 import { isPtyLocked } from '@/lib/pane-manager/mobile-driver-state'
 import { reconcilePtySizeAcrossFrames, type PtySizeReconcileHandle } from './pty-size-reconcile'
-import { shouldClaimRemoteDesktopViewport } from './remote-desktop-viewport-claim'
 import { getAppliedSizeReadE2eDelayMs } from './pty-applied-size-read-e2e-delay'
 import { createPtySizeReassertion } from './pty-size-reassertion'
 import {
@@ -325,6 +324,7 @@ import { createPtyConnectionAgentNotificationController } from './pty-connection
 import { createPtyConnectionExitController } from './pty-connection-exit-controller'
 import { createPtyConnectionRemoteViewportClaimController } from './pty-connection-remote-viewport-claim-controller'
 import { createPtyConnectionResizeForwardingController } from './pty-connection-resize-forwarding-controller'
+import { createPtyConnectionPaneGeometryController } from './pty-connection-pane-geometry-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2461,19 +2461,25 @@ export function connectPanePty(
     },
     forwardResize: forwardPtyResize
   })
+  const paneGeometryController = createPtyConnectionPaneGeometryController({
+    pane,
+    deps,
+    transport,
+    isDisposed: () => disposed,
+    shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
+    requestPtySizeReassertion: () => ptySizeReassertion.request({ fit: false }),
+    resizeTerminalForViewportClaim: (cols, rows) => {
+      suppressViewportClaimTerminalResize = true
+      try {
+        pane.terminal.resize(cols, rows)
+      } finally {
+        suppressViewportClaimTerminalResize = false
+      }
+    }
+  })
   let pendingForegroundGridDriftCheckRaf: number | null = null
   let lastForegroundGridDriftCheckAt = Number.NEGATIVE_INFINITY
-  const readProposedTerminalGrid = (): { cols: number; rows: number } | null => {
-    try {
-      const proposed = pane.fitAddon.proposeDimensions()
-      if (!proposed || proposed.cols <= 0 || proposed.rows <= 0) {
-        return null
-      }
-      return proposed
-    } catch {
-      return null
-    }
-  }
+  const readProposedTerminalGrid = paneGeometryController.readProposedGrid
   const terminalGridDriftedFromFit = (): boolean => {
     const proposed = readProposedTerminalGrid()
     return Boolean(
@@ -2512,136 +2518,6 @@ export function connectPanePty(
         ptySizeReassertion.request({ fit: false })
       )
     })
-  }
-
-  // Why: observe the outer pane as the layout signal for both desktop drift
-  // healing and mobile take-back. Normal desktop panes compare xterm against
-  // the PTY's applied size; mobile-fit panes only report desktop geometry so
-  // the parked phone-sized PTY is not resized. See docs/mobile-fit-hold.md.
-  let pendingGeometryReportRaf: number | null = null
-  let lastObservedDesktopGrid: { cols: number; rows: number } | null = null
-  const readPaneSize = (): { width: number; height: number } | null => {
-    if (typeof pane.container.getBoundingClientRect !== 'function') {
-      return null
-    }
-    const rect = pane.container.getBoundingClientRect()
-    return { width: rect.width, height: rect.height }
-  }
-  let lastObservedPaneSize = readPaneSize()
-  let pendingPaneGeometryChanged = false
-  const handleObservedPaneGeometry = (): void => {
-    pendingGeometryReportRaf = null
-    if (disposed) {
-      return
-    }
-    if (
-      deferTerminalGeometryMutationDuringRebuild(
-        pane.terminal,
-        'observed-pane-geometry',
-        handleObservedPaneGeometry
-      )
-    ) {
-      return
-    }
-    const paneGeometryChanged = pendingPaneGeometryChanged
-    pendingPaneGeometryChanged = false
-    const currentPtyId = transport.getPtyId()
-    if (!currentPtyId) {
-      // Why: ResizeObserver may deliver its initial measurement before the
-      // remote binding completes; retain that passive baseline for the first
-      // real focused resize instead of swallowing the user's first claim.
-      const proposed = readProposedTerminalGrid()
-      if (proposed) {
-        lastObservedDesktopGrid = proposed
-      }
-      return
-    }
-    const fitOverride = getFitOverrideForPty(currentPtyId)
-    if (!fitOverride) {
-      if (pane.terminal.cols > 0 && pane.terminal.rows > 0) {
-        // Why: record the local grid before a later remote hold parks xterm;
-        // the first real window/split resize can then claim immediately.
-        lastObservedDesktopGrid = {
-          cols: pane.terminal.cols,
-          rows: pane.terminal.rows
-        }
-      }
-      if (shouldSuppressDesktopPtyResize()) {
-        return
-      }
-      requestStablePaneFit(pane as ManagedPaneInternal, () =>
-        ptySizeReassertion.request({ fit: false })
-      )
-      return
-    }
-    let proposed: { cols: number; rows: number } | undefined
-    try {
-      proposed = pane.fitAddon.proposeDimensions()
-    } catch {
-      proposed = undefined
-    }
-    if (!proposed || proposed.cols <= 0 || proposed.rows <= 0) {
-      return
-    }
-    const priorProposed = lastObservedDesktopGrid
-    lastObservedDesktopGrid = proposed
-    if (fitOverride.mode === 'remote-desktop-fit') {
-      if (
-        shouldClaimRemoteDesktopViewport({
-          holdMode: fitOverride.mode,
-          prior: priorProposed,
-          current: proposed,
-          paneGeometryChanged,
-          paneVisible: deps.isVisibleRef.current,
-          documentVisible: document.visibilityState !== 'hidden',
-          documentFocused: document.hasFocus()
-        })
-      ) {
-        // Why: a focused, visible layout change is genuine activity; release
-        // the park and update xterm before claiming so the owner does not keep
-        // rendering the prior owner's stale grid.
-        suppressViewportClaimTerminalResize = true
-        try {
-          pane.terminal.resize(proposed.cols, proposed.rows)
-        } finally {
-          suppressViewportClaimTerminalResize = false
-        }
-        transport.resize(proposed.cols, proposed.rows, { claim: true })
-      }
-      return
-    }
-    if (isRemoteRuntimePtyId(currentPtyId)) {
-      transport.resize(proposed.cols, proposed.rows)
-    } else {
-      getClientRuntime().terminal.reportGeometry(currentPtyId, proposed.cols, proposed.rows)
-    }
-  }
-  const geometryReportObserver =
-    typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver(() => {
-          const paneSize = readPaneSize()
-          if (
-            paneSize &&
-            lastObservedPaneSize &&
-            (paneSize.width !== lastObservedPaneSize.width ||
-              paneSize.height !== lastObservedPaneSize.height)
-          ) {
-            pendingPaneGeometryChanged = true
-          }
-          lastObservedPaneSize = paneSize
-          if (pendingGeometryReportRaf !== null) {
-            return
-          }
-          pendingGeometryReportRaf = requestAnimationFrame(handleObservedPaneGeometry)
-        })
-  // Why: pane.xtermContainer is created later in pane-lifecycle's
-  // attachWebgl/initial-fit path; pane.container is always present at the
-  // moment connectPanePty runs (it's the .pane element). Both report the
-  // same layout signal — when the outer pane resizes, the inner xterm
-  // container resizes too — so this is the safe element to observe.
-  if (geometryReportObserver && pane.container instanceof Element) {
-    geometryReportObserver.observe(pane.container)
   }
 
   // Why: the deferred-rAF fit can spawn the PTY at a stale width when the pane's
@@ -6894,11 +6770,7 @@ export function connectPanePty(
       terminalCapabilityRepliesDisposable.dispose()
       resizeForwardingController.dispose()
       onBufferChangeDisposable?.dispose()
-      geometryReportObserver?.disconnect()
-      if (pendingGeometryReportRaf !== null) {
-        cancelAnimationFrame(pendingGeometryReportRaf)
-        pendingGeometryReportRaf = null
-      }
+      paneGeometryController.dispose()
       commandLifecycle.dispose()
       deferredCommandFinishedStatusDrop = null
       visibleForegroundSamplePending = false

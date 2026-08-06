@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes observed pane geometry through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-pane-geometry-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionPaneGeometryController } from './pty-connection-pane-geometry-controller'"
+    )
+    expect(orchestrator).not.toContain('const handleObservedPaneGeometry =')
+    expect(orchestrator).not.toContain('const geometryReportObserver =')
+    expect(controller).toContain('export function createPtyConnectionPaneGeometryController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes PTY resize forwarding through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
