@@ -27,15 +27,21 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     this.server = null
     this.port = 0
     this.token = ''
+    this.env = 'production'
+    this.onAgentStatus = null
+    this.onPaneStatusCleared = null
     this.endpointDir = null
     this.endpointFilePathCache = null
     this.endpointFileWritten = false
     this.lastStatusFilePath = null
+    this.lastWrittenJson = null
     this.runtimeObservedStatusPaneKeys.clear()
     this.hydratedAuthorityCommitments = Object.freeze([])
+    this.revokedHydratedAuthorityCommitments = new WeakSet()
     this.hydratedLaunchTokenHashByPaneKey.clear()
     this.persistedAuthorityCommitmentsByPaneKey.clear()
     this.currentAuthorityObservations.clear()
+    this.promptSentDedupeByPaneKey.clear()
     this.closedAgentStatusTabIds.clear()
     this.closedAgentStatusPaneKeys.clear()
     this.connectionTimestampWatermarkById.clear()
