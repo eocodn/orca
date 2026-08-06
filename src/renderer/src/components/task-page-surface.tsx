@@ -67,6 +67,7 @@ import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-stat
 import { useTaskPageLinearCustomViewDataState } from './use-task-page-linear-custom-view-data-state'
 import { useTaskPageLinearProjectListDataState } from './use-task-page-linear-project-list-data-state'
 import { useTaskPageLinearIssueListDataState } from './use-task-page-linear-issue-list-data-state'
+import { useTaskPageLinearIssuePaginationState } from './use-task-page-linear-issue-pagination-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -168,7 +169,6 @@ import {
 import {
   getEffectiveLinearDisplayProperties,
   getLinearIssueListRows,
-  getLinearIssuePageState,
   type LinearIssueListRow
 } from './task-page-linear-list-model'
 import { getJiraProjectSelectionKey } from './task-page-jira-create-model'
@@ -1155,138 +1155,35 @@ export default function TaskPage(): React.JSX.Element {
     () => [...filteredLinearIssues].sort((a, b) => compareLinearIssues(a, b, linearOrderBy)),
     [filteredLinearIssues, linearOrderBy]
   )
-  const linearIssuePageState = useMemo(
-    () =>
-      getLinearIssuePageState(
-        orderedLinearIssues,
-        activeLinearIssuePage,
-        LINEAR_ITEM_LIMIT,
-        activeLinearIssueCanRequestMore
-      ),
-    [activeLinearIssueCanRequestMore, activeLinearIssuePage, orderedLinearIssues]
-  )
   const {
-    loadedPages: loadedLinearIssuePages,
-    totalPages: linearIssueTotalPages,
-    visiblePage: visibleLinearIssuePage,
-    issues: pagedLinearIssues
-  } = linearIssuePageState
-  const showLinearIssuePagination =
-    orderedLinearIssues.length > 0 &&
-    !activeLinearIssueError &&
-    linearIssueTotalPages > 1 &&
-    !(activeLinearIssueLoading && activeLinearIssues.length === 0)
-
-  const setActiveLinearIssuePage = useCallback(
-    (page: number) => {
-      if (selectedLinearProject && linearProjectTab === 'issues') {
-        setLinearProjectIssuePage(page)
-      } else if (selectedLinearCustomView?.model === 'issue') {
-        setLinearCustomViewIssuePage(page)
-      } else {
-        setLinearIssuePage(page)
-      }
-    },
-    [linearProjectTab, selectedLinearCustomView?.model, selectedLinearProject]
-  )
-
-  const setActiveLinearIssueLoadingTargetPage = useCallback(
-    (page: number | null) => {
-      if (selectedLinearProject && linearProjectTab === 'issues') {
-        setLinearProjectIssueLoadingTargetPage(page)
-      } else if (selectedLinearCustomView?.model === 'issue') {
-        setLinearCustomViewIssueLoadingTargetPage(page)
-      } else {
-        setLinearIssueLoadingTargetPage(page)
-      }
-    },
-    [linearProjectTab, selectedLinearCustomView?.model, selectedLinearProject]
-  )
-
-  const ensureActiveLinearIssueLimit = useCallback(
-    (targetLimit: number) => {
-      const nextLimit = Math.min(clampLinearIssueListLimit(targetLimit), LINEAR_ISSUE_LIST_MAX)
-      if (selectedLinearProject && linearProjectTab === 'issues') {
-        setLinearProjectIssueLimit((limit) => Math.max(limit, nextLimit))
-      } else if (selectedLinearCustomView?.model === 'issue') {
-        setLinearCustomViewIssueLimit((limit) => Math.max(limit, nextLimit))
-      } else {
-        setLinearIssueLimit((limit) => Math.max(limit, nextLimit))
-      }
-    },
-    [linearProjectTab, selectedLinearCustomView?.model, selectedLinearProject]
-  )
-
-  const handleLinearIssuePageChange = useCallback(
-    (page: number) => {
-      if (page < loadedLinearIssuePages) {
-        setActiveLinearIssuePage(page)
-        setActiveLinearIssueLoadingTargetPage(null)
-        return
-      }
-
-      // Why: Linear reads are cached as an expanded prefix; a page jump expands it and commits once enough rows arrive.
-      setActiveLinearIssueLoadingTargetPage(page)
-      ensureActiveLinearIssueLimit((page + 1) * LINEAR_ITEM_LIMIT)
-    },
-    [
-      ensureActiveLinearIssueLimit,
-      loadedLinearIssuePages,
-      setActiveLinearIssueLoadingTargetPage,
-      setActiveLinearIssuePage
-    ]
-  )
-
-  const showLinearEmptyFilteredLoadMore =
-    orderedLinearIssues.length === 0 && !activeLinearIssueError && activeLinearIssueCanRequestMore
-  const handleLinearEmptyFilteredLoadMore = useCallback(() => {
-    setActiveLinearIssueLoadingTargetPage(null)
-    ensureActiveLinearIssueLimit(activeLinearIssueLimit + LINEAR_ITEM_LIMIT)
-  }, [activeLinearIssueLimit, ensureActiveLinearIssueLimit, setActiveLinearIssueLoadingTargetPage])
-
-  useEffect(() => {
-    if (activeLinearIssueLoading || activeLinearIssueLoadingTargetPage === null) {
-      return
-    }
-
-    const maxLoadedPage = Math.max(0, loadedLinearIssuePages - 1)
-    const targetPageLoaded = activeLinearIssueLoadingTargetPage <= maxLoadedPage
-    const targetPageCannotLoad =
-      !activeLinearIssueCanRequestMore || activeLinearIssueLimit >= LINEAR_ISSUE_LIST_MAX
-    if (targetPageLoaded || targetPageCannotLoad) {
-      setActiveLinearIssuePage(Math.min(activeLinearIssueLoadingTargetPage, maxLoadedPage))
-      setActiveLinearIssueLoadingTargetPage(null)
-      return
-    }
-
-    // Why: local filtering can leave the next page short, so keep expanding the prefix until the page exists or Linear is exhausted.
-    ensureActiveLinearIssueLimit(activeLinearIssueLimit + LINEAR_ITEM_LIMIT)
-  }, [
+    handleLinearEmptyFilteredLoadMore,
+    handleLinearIssuePageChange,
+    pagedLinearIssues,
+    showLinearEmptyFilteredLoadMore,
+    showLinearIssuePagination,
+    visibleLinearIssuePage,
+    linearIssueTotalPages
+  } = useTaskPageLinearIssuePaginationState({
     activeLinearIssueCanRequestMore,
-    activeLinearIssueHasCollectionError,
+    activeLinearIssueError,
     activeLinearIssueLimit,
     activeLinearIssueLoading,
     activeLinearIssueLoadingTargetPage,
-    ensureActiveLinearIssueLimit,
-    loadedLinearIssuePages,
-    setActiveLinearIssueLoadingTargetPage,
-    setActiveLinearIssuePage
-  ])
-
-  useEffect(() => {
-    if (
-      activeLinearIssueLoadingTargetPage !== null ||
-      activeLinearIssuePage <= visibleLinearIssuePage
-    ) {
-      return
-    }
-    setActiveLinearIssuePage(visibleLinearIssuePage)
-  }, [
-    activeLinearIssueLoadingTargetPage,
     activeLinearIssuePage,
-    setActiveLinearIssuePage,
-    visibleLinearIssuePage
-  ])
+    linearProjectTab,
+    loadedLinearIssues: orderedLinearIssues,
+    selectedLinearCustomView,
+    selectedLinearProject,
+    setLinearCustomViewIssueLoadingTargetPage,
+    setLinearCustomViewIssuePage,
+    setLinearCustomViewIssueLimit,
+    setLinearIssueLoadingTargetPage,
+    setLinearIssuePage,
+    setLinearIssueLimit,
+    setLinearProjectIssueLoadingTargetPage,
+    setLinearProjectIssuePage,
+    setLinearProjectIssueLimit
+  })
 
   const selectedLinearTeamForExternalLink = useMemo(() => {
     if (linearTeamSelection.size !== 1) {
