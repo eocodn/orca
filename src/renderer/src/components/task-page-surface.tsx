@@ -39,6 +39,8 @@ import { TaskPageGitLabTodosTable } from './task-page-gitlab-todos-table'
 import { TaskPageGitLabItemsTable } from './task-page-gitlab-items-table'
 import { TaskPageGitHubItemsTable } from './task-page-github-items-table'
 import { TaskPageJiraIssueDialog } from './task-page-jira-issue-dialog'
+import { GitHubAssigneeAvatar } from './task-page-github-issue-selectors'
+import { TaskPageGitHubIssueDialog } from './task-page-github-issue-dialog'
 import {
   LinearStateCell,
   getLinearIssueGridTemplate,
@@ -61,7 +63,6 @@ import {
   DialogContent,
   DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
 import {
@@ -112,7 +113,6 @@ import {
   getLinearOrganizationUrlKeyFromIssueUrl
 } from '../../../shared/linear-links'
 import PRFilterDropdowns, { type PRFilterChange } from '@/components/github/PRFilterDropdowns'
-import { GitHubMarkdownComposer } from '@/components/github/GitHubMarkdownComposer'
 import { GitHubUserAvatar } from '@/components/github/github-user-avatar'
 import { buildGitHubRepoUrl, parseGitHubIssueOrPRLink } from '@/lib/github-links'
 import { findGithubWorkItemWorkspaceAttachment } from '@/lib/github-work-item-workspace-attachment'
@@ -816,232 +816,6 @@ function ReviewChipAvatar({
     )
   }
   return <Users className="size-5 shrink-0" />
-}
-
-function GitHubAssigneeAvatar({ assignee }: { assignee: GitHubAssignableUser }): React.JSX.Element {
-  if (assignee.avatarUrl) {
-    return (
-      <img
-        src={assignee.avatarUrl}
-        alt={assignee.login}
-        loading="lazy"
-        decoding="async"
-        title={assignee.name ? `${assignee.name} (${assignee.login})` : assignee.login}
-        className="size-5 rounded-full border border-border/40 bg-muted object-cover"
-      />
-    )
-  }
-  return (
-    <span
-      title={assignee.login}
-      className="inline-flex size-5 items-center justify-center rounded-full border border-border/40 bg-muted text-[10px] font-medium text-muted-foreground"
-    >
-      {assignee.login.slice(0, 1).toUpperCase()}
-    </span>
-  )
-}
-
-function GitHubIssueLabelSelector({
-  labels,
-  selectedLabels,
-  loading,
-  error,
-  disabled,
-  onChange
-}: {
-  labels: string[]
-  selectedLabels: string[]
-  loading: boolean
-  error: string | null
-  disabled: boolean
-  onChange: (labels: string[]) => void
-}): React.JSX.Element {
-  const selectedSet = useMemo(() => new Set(selectedLabels), [selectedLabels])
-  const toggleLabel = useCallback(
-    (label: string) => {
-      onChange(
-        selectedSet.has(label)
-          ? selectedLabels.filter((name) => name !== label)
-          : [...selectedLabels, label]
-      )
-    },
-    [onChange, selectedLabels, selectedSet]
-  )
-
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label className="text-[11px] font-medium text-muted-foreground">
-        {translate('auto.components.TaskPage.d0ca4aa1d0', 'Labels')}
-      </label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled}
-            className="h-auto min-h-9 justify-start gap-2 px-3 py-2 text-left"
-          >
-            {selectedLabels.length === 0 ? (
-              <span className="text-muted-foreground">
-                {translate('auto.components.TaskPage.5ebff3a0aa', 'None')}
-              </span>
-            ) : (
-              <span className="flex min-w-0 flex-wrap gap-1.5">
-                {selectedLabels.map((label) => (
-                  <span
-                    key={label}
-                    className="rounded-full border border-border/50 bg-muted/40 px-2 py-0.5 text-[11px] font-medium"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </span>
-            )}
-            {loading ? <LoaderCircle className="ml-auto size-3.5 animate-spin" /> : null}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="popover-scroll-content scrollbar-sleek w-64 p-1" align="start">
-          {error ? (
-            <div className="px-2 py-2 text-xs text-destructive">{error}</div>
-          ) : labels.length === 0 ? (
-            <div className="px-2 py-2 text-xs text-muted-foreground">
-              {translate('auto.components.TaskPage.b36f4bf9de', 'No labels.')}
-            </div>
-          ) : (
-            labels.map((label) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => toggleLabel(label)}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent"
-              >
-                <span
-                  className={cn(
-                    'flex size-3.5 shrink-0 items-center justify-center rounded-sm border',
-                    selectedSet.has(label)
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-input'
-                  )}
-                >
-                  {selectedSet.has(label) ? <Check className="size-2.5" /> : null}
-                </span>
-                <span className="min-w-0 truncate">{label}</span>
-              </button>
-            ))
-          )}
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
-function GitHubIssueAssigneeSelector({
-  assignees,
-  selectedAssignees,
-  loading,
-  error,
-  disabled,
-  onChange
-}: {
-  assignees: GitHubAssignableUser[]
-  selectedAssignees: GitHubAssignableUser[]
-  loading: boolean
-  error: string | null
-  disabled: boolean
-  onChange: (assignees: GitHubAssignableUser[]) => void
-}): React.JSX.Element {
-  const selectedLogins = useMemo(
-    () => new Set(selectedAssignees.map((assignee) => assignee.login.toLowerCase())),
-    [selectedAssignees]
-  )
-  const toggleAssignee = useCallback(
-    (assignee: GitHubAssignableUser) => {
-      const key = assignee.login.toLowerCase()
-      onChange(
-        selectedLogins.has(key)
-          ? selectedAssignees.filter((current) => current.login.toLowerCase() !== key)
-          : [...selectedAssignees, assignee]
-      )
-    },
-    [onChange, selectedAssignees, selectedLogins]
-  )
-
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label className="text-[11px] font-medium text-muted-foreground">
-        {translate('auto.components.TaskPage.8aba10579d', 'Assignees')}
-      </label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled}
-            className="h-auto min-h-9 justify-start gap-2 px-3 py-2 text-left"
-          >
-            {selectedAssignees.length === 0 ? (
-              <span className="text-muted-foreground">
-                {translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
-              </span>
-            ) : (
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className="flex -space-x-1">
-                  {selectedAssignees.slice(0, 3).map((assignee) => (
-                    <GitHubAssigneeAvatar key={assignee.login} assignee={assignee} />
-                  ))}
-                </span>
-                <span className="min-w-0 truncate text-xs">
-                  {selectedAssignees.map((assignee) => assignee.login).join(', ')}
-                </span>
-              </span>
-            )}
-            {loading ? <LoaderCircle className="ml-auto size-3.5 animate-spin" /> : null}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="popover-scroll-content scrollbar-sleek w-72 p-1" align="start">
-          {error ? (
-            <div className="px-2 py-2 text-xs text-destructive">{error}</div>
-          ) : assignees.length === 0 ? (
-            <div className="px-2 py-2 text-xs text-muted-foreground">
-              {translate('auto.components.TaskPage.edf4bc4135', 'No assignable users.')}
-            </div>
-          ) : (
-            assignees.map((assignee) => {
-              const selected = selectedLogins.has(assignee.login.toLowerCase())
-              return (
-                <button
-                  key={assignee.login}
-                  type="button"
-                  onClick={() => toggleAssignee(assignee)}
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent"
-                >
-                  <span
-                    className={cn(
-                      'flex size-3.5 shrink-0 items-center justify-center rounded-sm border',
-                      selected
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-input'
-                    )}
-                  >
-                    {selected ? <Check className="size-2.5" /> : null}
-                  </span>
-                  <GitHubAssigneeAvatar assignee={assignee} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{assignee.login}</span>
-                    {assignee.name ? (
-                      <span className="block truncate text-[11px] text-muted-foreground">
-                        {assignee.name}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-              )
-            })
-          )}
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
 }
 
 function GHAssigneesCell({
@@ -8453,190 +8227,37 @@ export default function TaskPage(): React.JSX.Element {
         </div>
       </div>
 
-      <Dialog
-        open={newIssueOpen}
-        onOpenChange={(open) => {
-          if (!newIssueSubmitting) {
-            setNewIssueOpen(open)
-          }
+      <TaskPageGitHubIssueDialog
+        context={{
+          newIssueOpen,
+          setNewIssueOpen,
+          newIssueSubmitting,
+          isScreenSubmitShortcut,
+          handleCreateNewIssue,
+          newIssueTargetRepo,
+          newIssueSourcePreferenceChange: setIssueSourcePreference,
+          perRepoSourceState,
+          selectedRepos,
+          newIssueRepoId,
+          onRepoChange: (repoId) => {
+            setNewIssueRepoId(repoId)
+            const reset = resolveUserRepoSwitchReset()
+            setNewIssueLabels(reset.labels)
+            setNewIssueAssignees(reset.assignees)
+          },
+          newIssueTitle,
+          setNewIssueTitle,
+          newIssueBody,
+          setNewIssueBody,
+          newIssueRepoLabels,
+          newIssueLabels,
+          setNewIssueLabels,
+          newIssueRepoAssignees,
+          newIssueAssignees,
+          setNewIssueAssignees,
+          submitShortcutLabel
         }}
-      >
-        <DialogContent
-          className="sm:max-w-2xl"
-          onKeyDown={(event) => {
-            if (isScreenSubmitShortcut(event)) {
-              event.preventDefault()
-              void handleCreateNewIssue()
-            }
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {translate('auto.components.TaskPage.d3d0998b7d', 'New GitHub issue')}
-            </DialogTitle>
-            {(() => {
-              // Why: inline the resolved {owner}/{repo} slug as the source indicator; fall back to displayName when unresolved.
-              const entry = newIssueTargetRepo
-                ? perRepoSourceState.find((s) => s.repoId === newIssueTargetRepo.id)
-                : undefined
-              const issuesSlug = entry?.sources?.issues
-                ? `${entry.sources.issues.owner}/${entry.sources.issues.repo}`
-                : null
-              const fallback = newIssueTargetRepo?.displayName ?? 'this repository'
-              return (
-                <DialogDescription>
-                  {translate('auto.components.TaskPage.9f2b4c03a6', 'Filing in')}
-                  {issuesSlug ?? fallback}
-                </DialogDescription>
-              )
-            })()}
-            {(() => {
-              // Why: mirror the Tasks-view target selector so a fork contributor can flip target at filing time (fork-routing regression #1076).
-              // Sibling (not nested) because DialogDescription renders a <p> and the selector a <div> — nesting is invalid HTML.
-              if (!newIssueTargetRepo) {
-                return null
-              }
-              const entry = perRepoSourceState.find((s) => s.repoId === newIssueTargetRepo.id)
-              if (!entry || !entry.sources?.upstreamCandidate || !entry.sources?.originCandidate) {
-                return null
-              }
-              if (
-                sameGitHubOwnerRepo(entry.sources.originCandidate, entry.sources.upstreamCandidate)
-              ) {
-                return null
-              }
-              return (
-                <div className="mt-1">
-                  <IssueSourceSelector
-                    preference={newIssueTargetRepo.issueSourcePreference}
-                    origin={entry.sources.originCandidate}
-                    upstream={entry.sources.upstreamCandidate}
-                    disabled={newIssueSubmitting}
-                    // Why: composer only files issues, so the source tooltip is redundant here (kept on the Tasks header, which also lists PRs).
-                    suppressTooltip
-                    onChange={(next) => {
-                      void setIssueSourcePreference(
-                        newIssueTargetRepo.id,
-                        newIssueTargetRepo.path,
-                        next
-                      )
-                    }}
-                  />
-                </div>
-              )
-            })()}
-          </DialogHeader>
-          <div className="flex flex-col gap-3">
-            {selectedRepos.length > 1 ? (
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-medium text-muted-foreground">
-                  {translate('auto.components.TaskPage.00022ec0ba', 'Project')}
-                </label>
-                <Select
-                  value={newIssueRepoId ?? undefined}
-                  onValueChange={(v) => {
-                    // Why: repo-scoped labels/assignees can't survive a real repo switch, so clear them here (restore never routes through this handler).
-                    setNewIssueRepoId(v)
-                    const reset = resolveUserRepoSwitchReset()
-                    setNewIssueLabels(reset.labels)
-                    setNewIssueAssignees(reset.assignees)
-                  }}
-                  disabled={newIssueSubmitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedRepos.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        <RepoBadgeLabel name={r.displayName} color={r.badgeColor} />
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-medium text-muted-foreground">
-                {translate('auto.components.TaskPage.16cba35bee', 'Title')}
-              </label>
-              <Input
-                autoFocus
-                value={newIssueTitle}
-                onChange={(e) => setNewIssueTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                    e.preventDefault()
-                    void handleCreateNewIssue()
-                  }
-                }}
-                placeholder={translate('auto.components.TaskPage.578f730c16', 'Short summary')}
-                disabled={newIssueSubmitting}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[11px] font-medium text-muted-foreground">
-                {translate(
-                  'auto.components.TaskPage.7f3f7b4c18',
-                  'Description (optional, markdown)'
-                )}
-              </label>
-              <GitHubMarkdownComposer
-                value={newIssueBody}
-                onChange={setNewIssueBody}
-                placeholder={translate('auto.components.TaskPage.34d97ca682', "What's going on?")}
-                disabled={newIssueSubmitting}
-                minHeightClassName="min-h-40"
-                onSubmitShortcut={() => void handleCreateNewIssue()}
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <GitHubIssueLabelSelector
-                labels={newIssueRepoLabels.data}
-                selectedLabels={newIssueLabels}
-                loading={newIssueRepoLabels.loading}
-                error={newIssueRepoLabels.error}
-                disabled={newIssueSubmitting || !newIssueTargetRepo}
-                onChange={setNewIssueLabels}
-              />
-              <GitHubIssueAssigneeSelector
-                assignees={newIssueRepoAssignees.data}
-                selectedAssignees={newIssueAssignees}
-                loading={newIssueRepoAssignees.loading}
-                error={newIssueRepoAssignees.error}
-                disabled={newIssueSubmitting || !newIssueTargetRepo}
-                onChange={setNewIssueAssignees}
-              />
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              {submitShortcutLabel} {translate('auto.components.TaskPage.fc0d8a1fa4', 'to submit.')}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setNewIssueOpen(false)}
-              disabled={newIssueSubmitting}
-            >
-              {translate('auto.components.TaskPage.ff69a30681', 'Cancel')}
-            </Button>
-            <Button
-              onClick={() => void handleCreateNewIssue()}
-              disabled={!newIssueTargetRepo || !newIssueTitle.trim() || newIssueSubmitting}
-            >
-              {newIssueSubmitting ? (
-                <>
-                  <LoaderCircle className="size-4 animate-spin" />
-                  {translate('auto.components.TaskPage.8ff6fdc368', 'Creating…')}
-                </>
-              ) : (
-                translate('auto.components.TaskPage.e15ba2d2eb', 'Create issue')
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      />
       <Dialog
         open={newLinearProjectOpen}
         onOpenChange={(open) => {
