@@ -187,6 +187,95 @@ fn preserves_worker_timeout_and_rejects_stale_response_context() {
     );
 }
 
+#[test]
+fn routes_file_and_git_operations_through_the_real_worker_process() {
+    use std::fs;
+    use std::process::Command;
+    use std::time::Duration;
+
+    let root = std::env::temp_dir().join(format!(
+        "ade-file-git-child-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&root).unwrap();
+    let note = root.join("note.txt");
+    let run_git = |args: &[&str]| {
+        let status = Command::new("git")
+            .args(args)
+            .current_dir(&root)
+            .status()
+            .expect("Git integration test requires an installed git binary");
+        assert!(status.success(), "git command failed: {args:?}");
+    };
+    run_git(&["init", "-q"]);
+    run_git(&["config", "user.email", "ade@example.test"]);
+    run_git(&["config", "user.name", "ADE"]);
+    fs::write(root.join("README"), b"hello").unwrap();
+    run_git(&["add", "README"]);
+    run_git(&["commit", "-qm", "initial"]);
+
+    let (ownership, token) = owned();
+    let worker_path = JsonlFileGitWorkerTransport::sibling_worker_path().unwrap();
+    assert!(
+        worker_path.is_file(),
+        "real child lifecycle test must execute ade-worker; expected {}",
+        worker_path.display()
+    );
+    let transport = JsonlFileGitWorkerTransport::spawn(
+        worker_path,
+        WorkerIdentity {
+            worker_id: "worker".into(),
+            worker_incarnation: token.worker_incarnation,
+        },
+        Duration::from_secs(3),
+    )
+    .unwrap();
+    let router = FileGitHostRouter::new(ownership, Box::new(transport));
+    let note_path = note.to_string_lossy().into_owned();
+
+    let write = FileWorkerRequest::write(
+        "child-file-write",
+        context(&token),
+        note_path.clone(),
+        b"through-worker".to_vec(),
+    );
+    let write_response = router.route_file(write.clone()).unwrap();
+    assert!(write_response.changed);
+    assert_eq!(write_response.bytes_written, 14);
+    // The host receipt and worker registry both make retries idempotent.
+    assert_eq!(router.route_file(write).unwrap(), write_response);
+
+    let read = FileWorkerRequest::read("child-file-read", context(&token), note_path);
+    let read_response = router.route_file(read).unwrap();
+    assert_eq!(read_response.bytes, b"through-worker");
+
+    let repository_path = root.to_string_lossy().into_owned();
+    let list =
+        GitWorkerRequest::worktree_list("child-git-list", context(&token), repository_path.clone());
+    let list_response = router.route_git(list).unwrap();
+    assert_eq!(list_response.worktrees.len(), 1);
+    assert!(list_response.worktrees[0].is_main);
+
+    let git_dir = GitWorkerRequest::repository_git_dir(
+        "child-git-dir",
+        context(&token),
+        repository_path.clone(),
+    );
+    let git_dir_response = router.route_git(git_dir).unwrap();
+    assert_eq!(git_dir_response.worktrees.len(), 1);
+    assert_eq!(
+        git_dir_response.worktrees[0].path,
+        root.join(".git").to_string_lossy().into_owned()
+    );
+
+    drop(router);
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[cfg(unix)]
 #[test]
 fn jsonl_transport_requires_error_correlation_and_replays_terminal_failure() {
@@ -273,4 +362,68 @@ fn jsonl_timeout_poisons_transport_before_late_response_can_be_reused() {
         Err(FileGitRouterError::Timeout)
     );
     let _ = fs::remove_file(path);
+}
+
+#[cfg(unix)]
+#[test]
+fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let make_worker = |body: &str| {
+        let path = std::env::temp_dir().join(format!(
+            "ade-file-git-terminal-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::write(&path, body).unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        path
+    };
+    let (_, token) = owned();
+    let request = file_request("terminal", &token);
+
+    let crash = make_worker("#!/bin/sh\nexit 0\n");
+    let mut transport = JsonlFileGitWorkerTransport::spawn(
+        &crash,
+        WorkerIdentity {
+            worker_id: "worker".into(),
+            worker_incarnation: 7,
+        },
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::Eof)
+    );
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::Eof)
+    );
+    fs::remove_file(crash).unwrap();
+
+    let malformed = make_worker("#!/bin/sh\nIFS= read -r line\nprintf '%s\\n' 'not-json'\n");
+    let mut transport = JsonlFileGitWorkerTransport::spawn(
+        &malformed,
+        WorkerIdentity {
+            worker_id: "worker".into(),
+            worker_incarnation: 7,
+        },
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::MalformedResponse)
+    );
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::MalformedResponse)
+    );
+    fs::remove_file(malformed).unwrap();
 }

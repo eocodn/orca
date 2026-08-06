@@ -254,6 +254,18 @@ impl GitWorkerRequest {
         )
     }
 
+    pub fn repository_git_dir(
+        request_id: impl Into<String>,
+        context: ExecutionContext,
+        path: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            request_id,
+            context,
+            GitWorkerOperation::RepositoryGitDir { path: path.into() },
+        )
+    }
+
     pub fn new(
         request_id: impl Into<String>,
         context: ExecutionContext,

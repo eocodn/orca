@@ -321,7 +321,22 @@ impl JsonlFileGitWorkerTransport {
         } else {
             "ade-worker"
         };
-        Ok(executable.with_file_name(name))
+        // Release bundles place both binaries beside the host. Cargo test
+        // executes from `target/<profile>/deps`, while the worker binary is
+        // emitted one directory above; probe both layouts without inventing a
+        // second transport entry point.
+        let candidates = [
+            executable.with_file_name(name),
+            executable
+                .parent()
+                .and_then(Path::parent)
+                .map(|parent| parent.join(name))
+                .unwrap_or_else(|| executable.with_file_name(name)),
+        ];
+        Ok(candidates
+            .into_iter()
+            .find(|candidate| candidate.is_file())
+            .unwrap_or_else(|| executable.with_file_name(name)))
     }
 
     fn dispatch<Q: serde::Serialize, R: serde::de::DeserializeOwned>(
