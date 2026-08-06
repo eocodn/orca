@@ -55,8 +55,6 @@ pub trait FileGitWorkerTransport: Send {
     ) -> Result<GitWorkerResponse, FileGitRouterError>;
 }
 
-pub use FileGitWorkerTransport as FileGitTransport;
-
 #[derive(Clone)]
 enum RoutedRequest {
     File(FileWorkerRequest),
@@ -80,8 +78,6 @@ pub struct FileGitHostRouter {
     transport: Mutex<Box<dyn FileGitWorkerTransport>>,
     receipts: Mutex<HashMap<String, Receipt>>,
 }
-
-pub type FileGitRouter = FileGitHostRouter;
 
 impl FileGitHostRouter {
     pub fn new(ownership: OwnershipRuntime, transport: Box<dyn FileGitWorkerTransport>) -> Self {
@@ -281,10 +277,8 @@ pub struct JsonlFileGitWorkerTransport {
     responses: Receiver<Result<String, FileGitRouterError>>,
     child: Child,
     timeout: Duration,
+    terminal_error: Option<FileGitRouterError>,
 }
-
-pub type JsonlFileGitTransport = JsonlFileGitWorkerTransport;
-pub type JsonlWorkerTransport = JsonlFileGitWorkerTransport;
 
 impl JsonlFileGitWorkerTransport {
     pub fn spawn(
@@ -315,6 +309,7 @@ impl JsonlFileGitWorkerTransport {
             responses,
             child,
             timeout,
+            terminal_error: None,
         })
     }
 
@@ -334,35 +329,67 @@ impl JsonlFileGitWorkerTransport {
         request: &Q,
         request_id: &str,
     ) -> Result<R, FileGitRouterError> {
-        serde_json::to_writer(&mut self.writer, request)
-            .map_err(|error| FileGitRouterError::Transport(error.to_string()))?;
-        self.writer
+        if let Some(error) = &self.terminal_error {
+            return Err(error.clone());
+        }
+        if let Err(error) = serde_json::to_writer(&mut self.writer, request) {
+            return Err(self.terminate(FileGitRouterError::Transport(error.to_string())));
+        }
+        if let Err(error) = self
+            .writer
             .write_all(b"\n")
             .and_then(|_| self.writer.flush())
-            .map_err(|error| FileGitRouterError::Transport(error.to_string()))?;
+        {
+            return Err(self.terminate(FileGitRouterError::Transport(error.to_string())));
+        }
         let line = match self.responses.recv_timeout(self.timeout) {
-            Ok(result) => result?,
-            Err(RecvTimeoutError::Timeout) => return Err(FileGitRouterError::Timeout),
-            Err(RecvTimeoutError::Disconnected) => return Err(FileGitRouterError::Eof),
-        };
-        let value: Value =
-            serde_json::from_str(&line).map_err(|_| FileGitRouterError::MalformedResponse)?;
-        if value.get("ok").and_then(Value::as_bool) == Some(false) {
-            let worker_error: WorkerTransportError =
-                serde_json::from_value(value).map_err(|_| FileGitRouterError::MalformedResponse)?;
-            if worker_error.ok {
-                return Err(FileGitRouterError::MalformedResponse);
+            Ok(Ok(line)) => line,
+            Ok(Err(error)) => return Err(self.terminate(error)),
+            Err(RecvTimeoutError::Timeout) => {
+                return Err(self.terminate(FileGitRouterError::Timeout));
             }
-            if worker_error
-                .request_id
-                .as_deref()
-                .is_some_and(|response_id| response_id != request_id)
-            {
-                return Err(FileGitRouterError::ResponseMismatch("request_id"));
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(self.terminate(FileGitRouterError::Eof));
+            }
+        };
+        let value: Value = match serde_json::from_str(&line) {
+            Ok(value) => value,
+            Err(_) => return Err(self.terminate(FileGitRouterError::MalformedResponse)),
+        };
+        if value.get("ok").and_then(Value::as_bool) == Some(false) {
+            let worker_error: WorkerTransportError = match serde_json::from_value(value) {
+                Ok(error) => error,
+                Err(_) => return Err(self.terminate(FileGitRouterError::MalformedResponse)),
+            };
+            if worker_error.ok {
+                return Err(self.terminate(FileGitRouterError::MalformedResponse));
+            }
+            if worker_error.request_id.as_deref() != Some(request_id) {
+                return Err(self.terminate(FileGitRouterError::ResponseMismatch("request_id")));
             }
             return Err(FileGitRouterError::WorkerError(worker_error.error));
         }
-        serde_json::from_value(value).map_err(|_| FileGitRouterError::MalformedResponse)
+        if value
+            .get("envelope")
+            .and_then(|envelope| envelope.get("request_id"))
+            .and_then(Value::as_str)
+            != Some(request_id)
+        {
+            return Err(self.terminate(FileGitRouterError::ResponseMismatch("request_id")));
+        }
+        match serde_json::from_value(value) {
+            Ok(response) => Ok(response),
+            Err(_) => Err(self.terminate(FileGitRouterError::MalformedResponse)),
+        }
+    }
+
+    fn terminate(&mut self, error: FileGitRouterError) -> FileGitRouterError {
+        if self.terminal_error.is_none() {
+            self.terminal_error = Some(error.clone());
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+        error
     }
 }
 

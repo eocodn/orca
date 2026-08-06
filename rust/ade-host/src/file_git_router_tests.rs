@@ -186,3 +186,91 @@ fn preserves_worker_timeout_and_rejects_stale_response_context() {
         Err(FileGitRouterError::ResponseMismatch("context"))
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn jsonl_transport_requires_error_correlation_and_replays_terminal_failure() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let path = std::env::temp_dir().join(format!(
+        "ade-file-git-error-correlation-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::write(
+        &path,
+        "#!/bin/sh\nIFS= read -r line\nprintf '%s\\n' '{\"ok\":false,\"error\":\"worker failed\"}'\n",
+    )
+    .unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let (_, token) = owned();
+    let request = file_request("missing-error-id", &token);
+    let mut transport = JsonlFileGitWorkerTransport::spawn(
+        &path,
+        WorkerIdentity {
+            worker_id: "worker".into(),
+            worker_incarnation: 7,
+        },
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::ResponseMismatch("request_id"))
+    );
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::ResponseMismatch("request_id"))
+    );
+    let _ = fs::remove_file(path);
+}
+
+#[cfg(unix)]
+#[test]
+fn jsonl_timeout_poisons_transport_before_late_response_can_be_reused() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::Duration;
+
+    let path = std::env::temp_dir().join(format!(
+        "ade-file-git-timeout-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::write(
+        &path,
+        "#!/bin/sh\nIFS= read -r line\nsleep 1\nprintf '%s\\n' '{\"ok\":false,\"request_id\":null,\"error\":\"late\"}'\n",
+    )
+    .unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+
+    let (_, token) = owned();
+    let request = file_request("timeout", &token);
+    let mut transport = JsonlFileGitWorkerTransport::spawn(
+        &path,
+        WorkerIdentity {
+            worker_id: "worker".into(),
+            worker_incarnation: 7,
+        },
+        Duration::from_millis(10),
+    )
+    .unwrap();
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::Timeout)
+    );
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::Timeout)
+    );
+    let _ = fs::remove_file(path);
+}

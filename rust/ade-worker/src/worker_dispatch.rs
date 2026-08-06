@@ -241,6 +241,10 @@ impl FileGitWorkerRegistry {
                 let (_, committed_owner, committed_incarnation, _) = request_identity(committed);
                 committed_owner != owner || committed_incarnation >= incarnation
             });
+            state.in_flight.retain(|_, in_flight| {
+                let (_, in_flight_owner, in_flight_incarnation, _) = request_identity(in_flight);
+                in_flight_owner != owner || in_flight_incarnation >= incarnation
+            });
         }
         state.in_flight.insert(request_id, request);
         Ok(None)
