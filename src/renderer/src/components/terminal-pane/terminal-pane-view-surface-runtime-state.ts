@@ -233,7 +233,6 @@ export function useTerminalPaneSurfaceRuntimeState(context: TerminalPaneSurfaceC
     containerRef,
     setTerminalError,
     setSessionStateSaveFailureOpen,
-    setSessionRestoredBannerPaneIds,
     setQuickCommandEditorOpen,
     setQuickCommandDraft,
     removeSessionRestoredBannerPaneId,
