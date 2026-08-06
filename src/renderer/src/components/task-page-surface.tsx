@@ -62,6 +62,7 @@ import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-pr
 import { useTaskPageLinearProjectIssuesState } from './use-task-page-linear-project-issues-state'
 import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-state'
 import { useTaskPageLinearCustomViewDataState } from './use-task-page-linear-custom-view-data-state'
+import { useTaskPageLinearProjectListDataState } from './use-task-page-linear-project-list-data-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -2841,58 +2842,22 @@ export default function TaskPage(): React.JSX.Element {
     return () => window.clearTimeout(timeout)
   }, [linearProjectSearchInput, taskResumeApplied])
 
-  useEffect(() => {
-    if (!taskResumeApplied || taskSource !== 'linear' || linearMode !== 'projects') {
-      return
-    }
-    if (!linearConnected || selectedLinearProject) {
-      return
-    }
-    let cancelled = false
-    const query = appliedLinearProjectSearch.trim()
-    const cached = getCachedLinearProjects(query || undefined, LINEAR_ITEM_LIMIT, undefined, {
-      sourceContext: linearTaskSourceContext
-    })
-    if (cached) {
-      setLinearProjectsResult(cached)
-    }
-    const force = linearRefreshNonce > 0
-    setLinearProjectsLoading(force || cached === null)
-    setLinearProjectsError(null)
-    void listLinearProjectsFromStore(query || undefined, LINEAR_ITEM_LIMIT, undefined, {
-      force,
-      sourceContext: linearTaskSourceContext
-    })
-      .then((result) => {
-        if (!cancelled) {
-          setLinearProjectsResult(result)
-          setLinearProjectsLoading(false)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setLinearProjectsError(
-            error instanceof Error ? error.message : 'Failed to load projects.'
-          )
-          setLinearProjectsLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    taskResumeApplied,
-    taskSource,
-    linearMode,
-    linearConnected,
-    selectedLinearWorkspaceId,
-    selectedLinearProject,
+  useTaskPageLinearProjectListDataState({
     appliedLinearProjectSearch,
-    linearRefreshNonce,
     getCachedLinearProjects,
-    linearTaskSourceContext
-  ])
+    linearConnected,
+    linearMode,
+    linearRefreshNonce,
+    linearTaskSourceContext,
+    listLinearProjectsFromStore,
+    selectedLinearProject,
+    selectedLinearWorkspaceId,
+    setLinearProjectsError,
+    setLinearProjectsLoading,
+    setLinearProjectsResult,
+    taskResumeApplied,
+    taskSource
+  })
 
   useTaskPageLinearProjectDetailState({
     fetchLinearProject,
