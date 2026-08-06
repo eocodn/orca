@@ -229,6 +229,9 @@ export function extractAgentProviderSession(
     case 'copilot':
     case 'hermes':
       return null
+    default:
+      // Unknown providers do not have a safe resume contract.
+      return null
   }
 }
 

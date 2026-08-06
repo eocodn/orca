@@ -380,6 +380,9 @@ export function PRReviewCell({
     <TaskPageGitHubReviewCellView
       item={item}
       repo={repo}
+      reviewRepo={reviewRepo}
+      localReviewRequests={localReviewRequests}
+      selectedReviewerLogins={selectedReviewerLogins}
       open={open}
       reviewerInput={reviewerInput}
       setReviewerInput={setReviewerInput}

@@ -11,7 +11,12 @@ import {
   type GitHubPRPrimaryReviewer
 } from '@/components/github-pr-reviewer-display'
 import { translate } from '@/i18n/i18n'
-import type { GitHubAssignableUser, GitHubWorkItem, Repo } from '../../../shared/types'
+import type {
+  GitHubAssignableUser,
+  GitHubOwnerRepo,
+  GitHubWorkItem,
+  Repo
+} from '../../../shared/types'
 
 type ReviewerMetadataViewState = {
   data: GitHubAssignableUser[]
@@ -22,6 +27,9 @@ type ReviewerMetadataViewState = {
 type TaskPageGitHubReviewCellViewProps = {
   item: GitHubWorkItem
   repo: Repo | null
+  reviewRepo: GitHubOwnerRepo | null
+  localReviewRequests: GitHubAssignableUser[]
+  selectedReviewerLogins: ReadonlySet<string>
   open: boolean
   reviewerInput: string
   setReviewerInput: React.Dispatch<React.SetStateAction<string>>
@@ -69,6 +77,9 @@ function ReviewChipAvatar({
 export function TaskPageGitHubReviewCellView({
   item,
   repo,
+  reviewRepo,
+  localReviewRequests,
+  selectedReviewerLogins,
   open,
   reviewerInput,
   setReviewerInput,
