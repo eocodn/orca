@@ -1,18 +1,130 @@
 import React from 'react'
-import { AlertTriangle, ChevronRight, HardDrive, LoaderCircle, MemoryStick, RefreshCw, RotateCw, Terminal, Trash2, X } from 'lucide-react'
+import type { MemorySnapshot } from '../../../../shared/types'
+import type { AppState } from '../../store'
+import {
+  AlertTriangle,
+  ChevronRight,
+  LoaderCircle,
+  MemoryStick,
+  RotateCw,
+  Terminal,
+  Trash2
+} from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import type { DaemonActionsApi } from '../shared/useDaemonActions'
 import { DaemonActionDialog } from '../shared/useDaemonActions'
 import { WorkspaceSpaceCompactPanel } from './WorkspaceSpaceCompactPanel'
-import { AppSection, formatCpu, formatMemory, ResourceTree } from './resource-usage-status-rows'
+import { AppSection, ResourceTree } from './resource-usage-status-rows'
+import { formatCpu, formatMemory } from './resource-usage-metrics'
+import type { ResourceMemoryMetricCopy } from './resource-memory-metric-copy'
+import type { UnifiedProjectGroup, UnifiedSessionRow } from './resource-usage-merge-types'
 import { STATUS_BAR_CONTEXT_MENU_EXEMPT_PROPS } from './status-bar-context-menu-policy'
 import { translate } from '@/i18n/i18n'
 
-export function ResourceUsageStatusView(props: Record<string, any>): React.JSX.Element {
-  const { open, setOpen, recordFeatureInteraction, daemonUnreachable, resourceManagerAriaLabel, spaceScanReady, iconOnly, memBadgeLabel, triggerSessionCount, orphanCount, resourceManagerTooltipLines, daemonActions, sessionsOnlyError, resourceSnapshot, totalCpu, totalMemory, memoryMetricCopy, setPopoverBodyNode, sortOption, setSortOption, METRIC_COLUMNS_CLS, CPU_COLUMN_CLS, MEM_COLUMN_CLS, ROW_TRAILING_GUTTER_CLS, unifiedRepos, collapsedRepos, toggleRepo, collapsedWorktrees, activeWorktreeId, toggleWorktree, navigateToWorktree, navigateToTab, deleteWorktree, handleKillSession, appCollapsed, setAppCollapsed, handleOpenWorkspaceCleanup, openSpaceResults, handleKillOrphans, oldWorkspaceCount, killConfirm, killing, setKillConfirm, runKillConfirmed } = props
+export type ResourceUsageStatusViewProps = {
+  open: boolean
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+  recordFeatureInteraction: AppState['recordFeatureInteraction']
+  daemonUnreachable: boolean
+  resourceManagerAriaLabel: string
+  spaceScanReady: boolean
+  iconOnly: boolean
+  memBadgeLabel: string
+  triggerSessionCount: number
+  orphanCount: number
+  resourceManagerTooltipLines: string[]
+  daemonActions: DaemonActionsApi
+  sessionsOnlyError: boolean
+  resourceSnapshot: MemorySnapshot | null
+  totalCpu: number
+  totalMemory: number
+  memoryMetricCopy: ResourceMemoryMetricCopy
+  setPopoverBodyNode: (node: HTMLDivElement | null) => void
+  sortOption: 'memory' | 'cpu' | 'name'
+  setSortOption: React.Dispatch<React.SetStateAction<'memory' | 'cpu' | 'name'>>
+  METRIC_COLUMNS_CLS: string
+  CPU_COLUMN_CLS: string
+  MEM_COLUMN_CLS: string
+  ROW_TRAILING_GUTTER_CLS: string
+  unifiedRepos: UnifiedProjectGroup[]
+  collapsedRepos: Set<string>
+  toggleRepo: (repoId: string) => void
+  collapsedWorktrees: Set<string>
+  activeWorktreeId: string | null
+  toggleWorktree: (worktreeId: string) => void
+  navigateToWorktree: (worktreeId: string) => void
+  navigateToTab: (tabId: string, paneKey: string | null) => void
+  deleteWorktree: (worktreeId: string) => void
+  handleKillSession: (session: UnifiedSessionRow) => void
+  appCollapsed: boolean
+  setAppCollapsed: React.Dispatch<React.SetStateAction<boolean>>
+  handleOpenWorkspaceCleanup: () => void
+  openSpaceResults: () => void
+  handleKillOrphans: () => Promise<void>
+  oldWorkspaceCount: number
+  killConfirm: UnifiedSessionRow | null
+  killing: boolean
+  setKillConfirm: React.Dispatch<React.SetStateAction<UnifiedSessionRow | null>>
+  runKillConfirmed: () => Promise<void>
+}
+
+export function ResourceUsageStatusView({
+  open,
+  setOpen,
+  recordFeatureInteraction,
+  daemonUnreachable,
+  resourceManagerAriaLabel,
+  spaceScanReady,
+  iconOnly,
+  memBadgeLabel,
+  triggerSessionCount,
+  orphanCount,
+  resourceManagerTooltipLines,
+  daemonActions,
+  sessionsOnlyError,
+  resourceSnapshot,
+  totalCpu,
+  totalMemory,
+  memoryMetricCopy,
+  setPopoverBodyNode,
+  sortOption,
+  setSortOption,
+  METRIC_COLUMNS_CLS,
+  CPU_COLUMN_CLS,
+  MEM_COLUMN_CLS,
+  ROW_TRAILING_GUTTER_CLS,
+  unifiedRepos,
+  collapsedRepos,
+  toggleRepo,
+  collapsedWorktrees,
+  activeWorktreeId,
+  toggleWorktree,
+  navigateToWorktree,
+  navigateToTab,
+  deleteWorktree,
+  handleKillSession,
+  appCollapsed,
+  setAppCollapsed,
+  handleOpenWorkspaceCleanup,
+  openSpaceResults,
+  handleKillOrphans,
+  oldWorkspaceCount,
+  killConfirm,
+  killing,
+  setKillConfirm,
+  runKillConfirmed
+}: ResourceUsageStatusViewProps): React.JSX.Element {
   return (
     <Popover
       open={open}
@@ -491,4 +603,3 @@ export function ResourceUsageStatusView(props: Record<string, any>): React.JSX.E
     </Popover>
   )
 }
-

@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SOURCE_PATH = resolve(__dirname, 'ResourceUsageStatusSegment.tsx')
+const SOURCE_PATH = resolve(__dirname, 'resource-usage-status-surface.tsx')
+const INVENTORY_SOURCE_PATH = resolve(__dirname, 'resource-usage-status-inventory.ts')
 const INVENTORY_HOOK_PATH = resolve(__dirname, 'use-resource-session-inventory.ts')
 
 describe('ResourceUsageStatusSegment session inventory', () => {
@@ -15,7 +16,7 @@ describe('ResourceUsageStatusSegment session inventory', () => {
     expect(inventoryHookSource).not.toContain('setInterval')
     // Why: every seed/action/lifecycle refresh shares one guarded inventory
     // read, and the closed path never installs a polling interval.
-    expect(inventoryHookSource.match(/window\.api\.pty\.listSessions\(\)/g) ?? []).toHaveLength(1)
+    expect(inventoryHookSource.match(/getClientRuntime\(\)\.terminal\.listSessions\(\)/g) ?? []).toHaveLength(1)
 
     const openEffectIndex = source.indexOf('if (!open)')
     const refreshIndex = source.indexOf('void refreshSessions()', openEffectIndex)
@@ -30,10 +31,10 @@ describe('ResourceUsageStatusSegment session inventory', () => {
     const source = readFileSync(SOURCE_PATH, 'utf8')
     const inventoryHookSource = readFileSync(INVENTORY_HOOK_PATH, 'utf8')
 
-    expect(source).toContain('useResourceSessionInventory')
+    expect(readFileSync(INVENTORY_SOURCE_PATH, 'utf8')).toContain('useResourceSessionInventory')
     expect(source).toContain('sessionInventory.count')
-    expect(inventoryHookSource).toContain('window.api.pty.onSpawned')
-    expect(inventoryHookSource).toContain('window.api.pty.onExit')
+    expect(inventoryHookSource).toContain('getClientRuntime().terminal.onSpawned')
+    expect(inventoryHookSource).toContain('getClientRuntime().terminal.onExit')
     expect(source).not.toContain('createClosedResourceSessionCountSelector')
     expect(source).not.toContain('boundPtyIds.size')
     expect(source).not.toContain('closedSessionCount')
@@ -43,10 +44,8 @@ describe('ResourceUsageStatusSegment session inventory', () => {
   it('seeds memory snapshot for the closed badge without requiring a click', () => {
     const source = readFileSync(SOURCE_PATH, 'utf8')
 
-    // Why: the ready-seed effect must call fetchSnapshot so RAM is not "—"
-    // until the user opens Resource Manager.
-    const readySeedBlock = source.slice(source.indexOf('// Why: seed RAM after session restore'))
-    expect(readySeedBlock).toContain('void fetchSnapshot()')
-    expect(readySeedBlock).toContain('workspaceSessionReady')
+    // Why: the ready-seed effect must call fetchSnapshot so RAM is not "—" until the user opens Resource Manager.
+    expect(source).toContain('void fetchSnapshot()')
+    expect(source).toContain('workspaceSessionReady')
   })
 })

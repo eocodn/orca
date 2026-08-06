@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SEGMENT_PATH = resolve(__dirname, 'ResourceUsageStatusSegment.tsx')
+const SEGMENT_PATH = resolve(__dirname, 'resource-usage-status-inventory.ts')
 
 /**
  * Both destructive paths — bulk "kill orphans" and a single row's kill — must classify from the
@@ -13,10 +13,8 @@ const SEGMENT_PATH = resolve(__dirname, 'ResourceUsageStatusSegment.tsx')
 describe('resource session classification parity', () => {
   it('feeds the row merge the same binding inputs as the bulk selector', () => {
     const source = readFileSync(SEGMENT_PATH, 'utf8')
-    const mergeCall = source.slice(
-      source.indexOf('mergeSnapshotAndSessions(resourceSnapshot'),
-      source.indexOf('worktreeById\n          })')
-    )
+    const mergeStart = source.indexOf('mergeSnapshotAndSessions(snapshot, sessions')
+    const mergeCall = source.slice(mergeStart, source.indexOf('worktreeById', mergeStart))
 
     expect(mergeCall).toContain('...resourceSessionBindings')
     // Any of these appearing inline means the call site is re-deriving bindings and can drift.
@@ -35,7 +33,7 @@ describe('resource session classification parity', () => {
     const source = readFileSync(SEGMENT_PATH, 'utf8')
     const bindings = source.slice(
       source.indexOf('const resourceSessionBindings = useMemo'),
-      source.indexOf('const popoverBodyRef')
+      source.indexOf('const repoDisplayNameById')
     )
 
     for (const field of [
