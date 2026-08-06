@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes PTY size reassertion through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-size-reassertion-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionSizeReassertionController } from './pty-connection-size-reassertion-controller'"
+    )
+    expect(orchestrator).not.toContain('const ptySizeReassertion =')
+    expect(orchestrator).not.toContain('const scheduleForegroundGridDriftCheck =')
+    expect(controller).toContain('export function createPtyConnectionSizeReassertionController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes post-spawn PTY size convergence through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

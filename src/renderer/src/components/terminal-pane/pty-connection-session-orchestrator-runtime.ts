@@ -1,6 +1,5 @@
 import { getClientRuntime } from '../../runtime/client-runtime'
 import type { PaneManager, ManagedPane } from '@/lib/pane-manager/pane-manager'
-import type { ManagedPaneInternal } from '@/lib/pane-manager/pane-manager-types'
 import type { IDisposable } from '@xterm/xterm'
 import { installTerminalImeCompositionRoute } from './terminal-ime-composition-route'
 import { detectAgentStatusFromTitle, agentTypeToIconAgent, isClaudeAgent } from '@/lib/agent-status'
@@ -56,11 +55,8 @@ import {
   safeFitAndThen,
   type SafeFitContinuationHandle
 } from '@/lib/pane-manager/pane-tree-ops'
-import { requestStablePaneFit } from '@/lib/pane-manager/pane-fit-resize-observer'
 import { bindPanePtyId, getFitOverrideForPty } from '@/lib/pane-manager/mobile-fit-overrides'
 import { isPtyLocked } from '@/lib/pane-manager/mobile-driver-state'
-import { getAppliedSizeReadE2eDelayMs } from './pty-applied-size-read-e2e-delay'
-import { createPtySizeReassertion } from './pty-size-reassertion'
 import {
   isPaneReplaying,
   replayIntoTerminal,
@@ -248,7 +244,6 @@ import {
   CURSOR_SHOW_SEQUENCE,
   FOCUS_REPORTING_DISABLE_SEQUENCE,
   FOREGROUND_BUDGET_WINDOW_MS,
-  FOREGROUND_GRID_DRIFT_CHECK_MIN_MS,
   FOREGROUND_IMMEDIATE_BUDGET_CHARS,
   FOREGROUND_INTERACTIVE_REDRAW_CHARS,
   FOREGROUND_INTERACTIVE_REDRAW_WINDOW_MS,
@@ -325,6 +320,7 @@ import { createPtyConnectionRemoteViewportClaimController } from './pty-connecti
 import { createPtyConnectionResizeForwardingController } from './pty-connection-resize-forwarding-controller'
 import { createPtyConnectionPaneGeometryController } from './pty-connection-pane-geometry-controller'
 import { createPtyConnectionSpawnSizeReconcileController } from './pty-connection-spawn-size-reconcile-controller'
+import { createPtyConnectionSizeReassertionController } from './pty-connection-size-reassertion-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2439,27 +2435,15 @@ export function connectPanePty(
     alternateScreenBufferSwitches += 1
   })
 
-  // Why: renderer resize forwarding is fire-and-forget. A visible pane can
-  // finish with xterm at the right grid while the PTY silently kept an older
-  // grid, so Codex keeps composing against stale columns. Fit first so xterm's
-  // normal onResize can send, then read applied PTY size and repair only drift.
-  const ptySizeReassertion = createPtySizeReassertion({
+  let readProposedTerminalGrid: () => { cols: number; rows: number } | null = () => null
+  const sizeReassertionController = createPtyConnectionSizeReassertionController({
+    pane,
+    deps,
+    transport,
     isDisposed: () => disposed,
-    getPtyId: () => transport.getPtyId(),
-    isRemotePtyId: isRemoteRuntimePtyId,
-    shouldSuppressDesktopResize: () => shouldSuppressDesktopPtyResize(),
-    fitAndRun: (continuation) => safeFitAndThen(pane, 'pty-size-reassertion', continuation),
-    getTerminalDimensions: () => ({ cols: pane.terminal.cols, rows: pane.terminal.rows }),
-    getAppliedSize: async (ptyId) => {
-      // Why: e2e seam — delays the read past the reveal fit to reproduce the
-      // busy-daemon/SSH ordering; returns 0 outside e2e builds.
-      const delayMs = getAppliedSizeReadE2eDelayMs()
-      if (delayMs > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs))
-      }
-      return getClientRuntime().terminal.getSize(ptyId)
-    },
-    forwardResize: forwardPtyResize
+    shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
+    forwardResize: forwardPtyResize,
+    readProposedGrid: () => readProposedTerminalGrid()
   })
   const paneGeometryController = createPtyConnectionPaneGeometryController({
     pane,
@@ -2467,7 +2451,7 @@ export function connectPanePty(
     transport,
     isDisposed: () => disposed,
     shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
-    requestPtySizeReassertion: () => ptySizeReassertion.request({ fit: false }),
+    requestPtySizeReassertion: sizeReassertionController.request,
     resizeTerminalForViewportClaim: (cols, rows) => {
       suppressViewportClaimTerminalResize = true
       try {
@@ -2477,48 +2461,8 @@ export function connectPanePty(
       }
     }
   })
-  let pendingForegroundGridDriftCheckRaf: number | null = null
-  let lastForegroundGridDriftCheckAt = Number.NEGATIVE_INFINITY
-  const readProposedTerminalGrid = paneGeometryController.readProposedGrid
-  const terminalGridDriftedFromFit = (): boolean => {
-    const proposed = readProposedTerminalGrid()
-    return Boolean(
-      proposed && (pane.terminal.cols !== proposed.cols || pane.terminal.rows !== proposed.rows)
-    )
-  }
-  const scheduleForegroundGridDriftCheck = (): void => {
-    // Why: mobile-owned PTYs intentionally keep a non-desktop grid; drift
-    // healing would refit xterm even if resize forwarding is later suppressed.
-    if (
-      disposed ||
-      !deps.isVisibleRef.current ||
-      shouldSuppressDesktopPtyResize() ||
-      pendingForegroundGridDriftCheckRaf !== null
-    ) {
-      return
-    }
-    const now = performance.now()
-    if (now - lastForegroundGridDriftCheckAt < FOREGROUND_GRID_DRIFT_CHECK_MIN_MS) {
-      return
-    }
-    lastForegroundGridDriftCheckAt = now
-    pendingForegroundGridDriftCheckRaf = requestAnimationFrame(() => {
-      pendingForegroundGridDriftCheckRaf = null
-      if (
-        disposed ||
-        !deps.isVisibleRef.current ||
-        shouldSuppressDesktopPtyResize() ||
-        !terminalGridDriftedFromFit()
-      ) {
-        return
-      }
-      // Why: xterm cell metrics can settle after the DOM box stops resizing, so
-      // ResizeObserver never fires even though FitAddon now proposes more cols.
-      requestStablePaneFit(pane as ManagedPaneInternal, () =>
-        ptySizeReassertion.request({ fit: false })
-      )
-    })
-  }
+  readProposedTerminalGrid = paneGeometryController.readProposedGrid
+  const scheduleForegroundPtyGridCheck = sizeReassertionController.scheduleForegroundGridDriftCheck
 
   const spawnSizeReconcileController = createPtyConnectionSpawnSizeReconcileController({
     pane,
@@ -3948,7 +3892,7 @@ export function connectPanePty(
         shouldProtectNativeWindowsSynchronizedOutput && foreground && containsCursorRestore(data)
       const foregroundOutput = foreground || parseHiddenStartupOutput
       if (foreground) {
-        scheduleForegroundGridDriftCheck()
+        scheduleForegroundPtyGridCheck()
       }
       const renderRefreshDecision = foregroundOutput
         ? shouldForceForegroundRenderRefresh(data)
@@ -5762,7 +5706,7 @@ export function connectPanePty(
           }
           if (fitCompleted && isCurrentReattachPayload() && deps.isVisibleRef.current) {
             // Why: reattach resize is fire-and-forget; verify the provider's applied grid while this reveal still owns the visible pane.
-            ptySizeReassertion.request({ fit: false })
+            sizeReassertionController.request()
           }
         } else if (isCurrentReattachPayload() && !isRemoteRuntimePtyId(reattachPtyId)) {
           getClientRuntime().terminal.signal(reattachPtyId, 'SIGWINCH')
@@ -6562,7 +6506,7 @@ export function connectPanePty(
     noteVisibilityResume() {
       remoteViewportClaimController.armCurrent()
       remoteViewportClaimController.claimPending()
-      ptySizeReassertion.request({ fit: false })
+      sizeReassertionController.request()
       consumeHibernatedAgentWake()
       requestKnownDroidReconfirmation()
       sampleVisiblePaneForegroundAgent()
@@ -6570,7 +6514,7 @@ export function connectPanePty(
     reassertPtySizeAfterWindowWake() {
       remoteViewportClaimController.armCurrent()
       remoteViewportClaimController.claimPending()
-      ptySizeReassertion.request({ fit: false })
+      sizeReassertionController.request()
     },
     // Why: mobile wake reaches this pane while it's hidden on the desktop, so consume only the armed hibernation wake — no size/foreground reads.
     wakeHibernatedAgentIfArmed(claimedProviderSessions) {
@@ -6651,11 +6595,7 @@ export function connectPanePty(
       spawnSizeReconcileController.dispose()
       startupGridSettleHandle?.cancel()
       startupGridSettleHandle = null
-      ptySizeReassertion.dispose()
-      if (pendingForegroundGridDriftCheckRaf !== null) {
-        cancelAnimationFrame(pendingForegroundGridDriftCheckRaf)
-        pendingForegroundGridDriftCheckRaf = null
-      }
+      sizeReassertionController.dispose()
       // Why: a pane unmount must never leave its PTY delivery gated — the parked watcher or remounted pane re-decides.
       releaseHiddenRendererPtyDelivery()
       if (terminalKeyTargetSupportsEvents) {
