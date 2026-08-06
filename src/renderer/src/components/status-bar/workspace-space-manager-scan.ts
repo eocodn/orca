@@ -7,10 +7,7 @@ import { refreshGitStatusForWorktree } from '../right-sidebar/git-status-refresh
 import {
   filterWorkspaceSpaceRows,
   getLargestWorkspaceSpaceRowSize,
-  getSelectedDeletableWorkspaceIds,
-  getVisibleDeletableWorkspaceIds,
   getWorkspaceSpaceGitStatusRefreshCandidates,
-  isWorkspaceSpaceRowReadyToDelete,
   pruneWorkspaceSpaceSelectedIds,
   resolveWorkspaceSpaceInspectedWorktreeId,
   resolveWorkspaceSpaceTreemapZoomWorktreeId,
@@ -24,9 +21,8 @@ import {
 } from './workspace-space-manager-decision-model'
 import type { WorkspaceGitRefreshState } from './workspace-space-manager-types'
 import { getWorkspaceSpaceProgressLabel } from './workspace-space-format'
-
+import { useWorkspaceSpaceManagerSelection } from './workspace-space-manager-selection'
 const GIT_STATUS_REFRESH_CONCURRENCY = 6
-
 export function useWorkspaceSpaceManagerScan() {
   const analysis = useAppStore((state) => state.workspaceSpaceAnalysis)
   const progress = useAppStore((state) => state.workspaceSpaceScanProgress)
@@ -70,7 +66,6 @@ export function useWorkspaceSpaceManagerScan() {
   >({})
   const inFlightGitStatusRefreshes = useRef(new Set<string>())
   const sourceRows = useMemo(() => analysis?.worktrees ?? [], [analysis?.worktrees])
-
   const decisionDetailsByWorktreeId = useMemo(() => {
     void agentStatusEpoch
     const details = new Map<string, WorkspaceDecisionDetails>()
@@ -124,7 +119,6 @@ export function useWorkspaceSpaceManagerScan() {
     tabsByWorktree,
     worktreeMap
   ])
-
   const refreshWorkspaceGitStatus = useCallback(
     (worktree: WorkspaceSpaceWorktree): Promise<void> => {
       const currentState = useAppStore.getState()
@@ -172,7 +166,6 @@ export function useWorkspaceSpaceManagerScan() {
     },
     [fetchUpstreamStatus, setGitStatus, setUpstreamStatus, settings, updateWorktreeGitIdentity]
   )
-
   useEffect(() => {
     const candidates = getWorkspaceSpaceGitStatusRefreshCandidates(sourceRows)
     if (candidates.length === 0) {
@@ -196,7 +189,6 @@ export function useWorkspaceSpaceManagerScan() {
       cancelled = true
     }
   }, [refreshWorkspaceGitStatus, sourceRows])
-
   const nextInspectedWorktreeId = resolveWorkspaceSpaceInspectedWorktreeId(
     sourceRows,
     inspectedWorktreeId
@@ -215,7 +207,6 @@ export function useWorkspaceSpaceManagerScan() {
   if (treemapZoomWorktreeId !== nextTreemapZoomWorktreeId) {
     setTreemapZoomWorktreeId(nextTreemapZoomWorktreeId)
   }
-
   const rows = useMemo(
     () =>
       sortWorkspaceSpaceRows(
@@ -225,35 +216,14 @@ export function useWorkspaceSpaceManagerScan() {
       ),
     [onlyDeletable, query, sortDirection, sortKey, sourceRows]
   )
-  const isWorktreeDeleting = useCallback(
-    (id: string) => deleteStateByWorktreeId[id]?.isDeleting ?? false,
-    [deleteStateByWorktreeId]
-  )
-  const isWorktreeUnavailableForDelete = useCallback(
-    (id: string) => {
-      if (isWorktreeDeleting(id)) {
-        return true
-      }
-      const worktree = sourceRows.find((row) => row.worktreeId === id)
-      return (
-        !worktree ||
-        !isWorkspaceSpaceRowReadyToDelete(worktree, decisionDetailsByWorktreeId.get(id))
-      )
-    },
-    [decisionDetailsByWorktreeId, isWorktreeDeleting, sourceRows]
-  )
-  const selectedDeletableIds = useMemo(
-    () => getSelectedDeletableWorkspaceIds(rows, nextSelectedIds, isWorktreeUnavailableForDelete),
-    [isWorktreeUnavailableForDelete, nextSelectedIds, rows]
-  )
-  const visibleDeletableIds = useMemo(
-    () => getVisibleDeletableWorkspaceIds(rows, isWorktreeUnavailableForDelete),
-    [isWorktreeUnavailableForDelete, rows]
-  )
-  const allVisibleSelected =
-    visibleDeletableIds.length > 0 && visibleDeletableIds.every((id) => nextSelectedIds.has(id))
-  const someVisibleSelected = visibleDeletableIds.some((id) => nextSelectedIds.has(id))
-
+  const { selectedDeletableIds, visibleDeletableIds, allVisibleSelected, someVisibleSelected } =
+    useWorkspaceSpaceManagerSelection({
+      sourceRows,
+      rows,
+      deleteStateByWorktreeId,
+      nextSelectedIds,
+      decisionDetailsByWorktreeId
+    })
   return {
     analysis,
     progress,
@@ -322,3 +292,5 @@ export function useWorkspaceSpaceManagerScan() {
     progressLabel: getWorkspaceSpaceProgressLabel(progress)
   }
 }
+
+export type WorkspaceSpaceManagerScan = ReturnType<typeof useWorkspaceSpaceManagerScan>

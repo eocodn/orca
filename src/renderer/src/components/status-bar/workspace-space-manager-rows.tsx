@@ -7,12 +7,16 @@ export {
   getGitDecisionLabel,
   getTerminalDecisionLabel,
   getTreemapFill,
-  Metric,
-  SortIndicator,
   StatusBadge,
   UpdatedMetric,
   WorkspaceDecisionHoverCard
 } from './workspace-space-manager-decision'
+export {
+  CheckButton,
+  Metric,
+  SortIndicator,
+  UpdatedMetric
+} from './workspace-space-manager-decision-metrics'
 export {
   BreakdownList,
   BreakdownRow,

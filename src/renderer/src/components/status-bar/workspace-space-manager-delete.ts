@@ -118,3 +118,5 @@ export function useWorkspaceSpaceManagerDeletion({
     deleteSelected: () => deleteWorktrees(selectedDeletableIds)
   }
 }
+
+export type WorkspaceSpaceManagerDeletion = ReturnType<typeof useWorkspaceSpaceManagerDeletion>
