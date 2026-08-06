@@ -37,6 +37,7 @@ import { PRChecksCell, PRMergeCell } from './task-page-github-pr-cells'
 import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
 import { TaskPageLinearIssueList } from './task-page-linear-issue-list'
 import { TaskPageLinearIssueBoard } from './task-page-linear-issue-board'
+import { TaskPageLinearToolbar } from './task-page-linear-toolbar'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -133,7 +134,6 @@ import {
   taskPageToGitHubApiPage
 } from '@/components/task-page-work-item-pagination'
 import { sortWorkItemsByNumber } from '../../../shared/work-items'
-import LinearIssueAttributeFilterDropdowns from '@/components/linear-issue-attribute-filter-dropdowns'
 import { resolveLinearIssueAttributeFilterPrimaryTeam } from '@/components/linear-issue-attribute-filter-primary-team'
 import {
   buildLinearIssueListReadArgs,
@@ -4500,6 +4500,46 @@ export default function TaskPage(): React.JSX.Element {
     [openComposerForJiraItem]
   )
 
+  const handleCreateLinearItem = useCallback(() => {
+    if (linearMode === 'projects' && !selectedLinearProject) {
+      setNewLinearProjectName('')
+      setNewLinearProjectDescription('')
+      setNewLinearProjectContent('')
+      setNewLinearProjectTeamId(availableTeams[0]?.id ?? null)
+      setNewLinearProjectLeadId(null)
+      setNewLinearProjectMemberIds([])
+      setNewLinearProjectLabelIds([])
+      setNewLinearProjectPriority(0)
+      setNewLinearProjectStartDate('')
+      setNewLinearProjectTargetDate('')
+      setNewLinearProjectOpen(true)
+      return
+    }
+    setNewLinearIssueTitle('')
+    setNewLinearIssueBody('')
+    const projectTeamId =
+      selectedLinearProject?.teams?.[0]?.id ??
+      availableTeams.find((team) => team.workspaceId === selectedLinearProject?.workspaceId)?.id
+    setNewLinearIssueTeamId(projectTeamId ?? availableTeams[0]?.id ?? null)
+    setNewLinearIssueProjectId(selectedLinearProject?.id ?? null)
+    setNewLinearIssueOpen(true)
+  }, [availableTeams, linearMode, selectedLinearProject])
+
+  const submitLinearSearch = useCallback(() => {
+    const trimmed = linearSearchInput.trim()
+    setLinearSearchInput(trimmed)
+    setAppliedLinearSearch(trimmed)
+    setTaskResumeState({ linearQuery: trimmed, linearMode: 'issues' })
+    setLinearRefreshNonce((n) => n + 1)
+  }, [linearSearchInput, setTaskResumeState])
+
+  const clearLinearSearch = useCallback(() => {
+    setLinearSearchInput('')
+    setAppliedLinearSearch('')
+    setTaskResumeState({ linearQuery: '', linearMode: 'issues' })
+    setLinearRefreshNonce((n) => n + 1)
+  }, [setTaskResumeState])
+
   const taskPageListChromeHidden = shouldHideTaskPageListChrome({
     taskSource,
     hasGitHubDetail: Boolean(dialogWorkItem),
@@ -5048,245 +5088,39 @@ export default function TaskPage(): React.JSX.Element {
                     })()}
                   </div>
                 ) : taskSource === 'linear' && linearConnected ? (
-                  <div
-                    className="min-w-0 rounded-md rounded-b-none border border-border/50 bg-muted/50 px-3 pt-2 pb-0 shadow-sm"
-                    data-contextual-tour-target="tasks-search-presets"
-                  >
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                      <div
-                        className="flex items-center gap-1 text-xs"
-                        role="group"
-                        aria-label={translate(
-                          'auto.components.TaskPage.0cbf7e5cf3',
-                          'Linear task mode'
-                        )}
-                      >
-                        {linearModeOptions.map((mode) => {
-                          const active = linearMode === mode.id
-                          return (
-                            <button
-                              key={mode.id}
-                              type="button"
-                              aria-pressed={active}
-                              onClick={() => selectLinearMode(mode.id)}
-                              className={cn(
-                                'rounded-md border px-2 py-1 text-xs transition',
-                                active
-                                  ? 'border-border/50 bg-foreground/90 text-background'
-                                  : 'border-border/50 bg-transparent text-foreground hover:bg-muted/50'
-                              )}
-                            >
-                              {mode.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <div
-                        className="flex shrink-0 items-center gap-2"
-                        data-contextual-tour-target="tasks-actions"
-                      >
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                if (linearMode === 'projects' && !selectedLinearProject) {
-                                  setNewLinearProjectName('')
-                                  setNewLinearProjectDescription('')
-                                  setNewLinearProjectContent('')
-                                  setNewLinearProjectTeamId(availableTeams[0]?.id ?? null)
-                                  setNewLinearProjectLeadId(null)
-                                  setNewLinearProjectMemberIds([])
-                                  setNewLinearProjectLabelIds([])
-                                  setNewLinearProjectPriority(0)
-                                  setNewLinearProjectStartDate('')
-                                  setNewLinearProjectTargetDate('')
-                                  setNewLinearProjectOpen(true)
-                                  return
-                                }
-                                setNewLinearIssueTitle('')
-                                setNewLinearIssueBody('')
-                                const projectTeamId =
-                                  selectedLinearProject?.teams?.[0]?.id ??
-                                  availableTeams.find(
-                                    (team) =>
-                                      team.workspaceId === selectedLinearProject?.workspaceId
-                                  )?.id
-                                setNewLinearIssueTeamId(
-                                  projectTeamId ?? availableTeams[0]?.id ?? null
-                                )
-                                setNewLinearIssueProjectId(selectedLinearProject?.id ?? null)
-                                setNewLinearIssueOpen(true)
-                              }}
-                              disabled={availableTeams.length === 0}
-                              aria-label={
-                                linearMode === 'projects' && !selectedLinearProject
-                                  ? translate(
-                                      'auto.components.TaskPage.1361275ec3',
-                                      'New Linear project'
-                                    )
-                                  : translate(
-                                      'auto.components.TaskPage.3feb524d42',
-                                      'New Linear issue'
-                                    )
-                              }
-                              className="size-8 border-border/50 bg-transparent hover:bg-muted/50 backdrop-blur-md supports-[backdrop-filter]:bg-transparent"
-                            >
-                              <Plus className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {linearMode === 'projects' && !selectedLinearProject
-                              ? translate(
-                                  'auto.components.TaskPage.1361275ec3',
-                                  'New Linear project'
-                                )
-                              : translate(
-                                  'auto.components.TaskPage.3feb524d42',
-                                  'New Linear issue'
-                                )}
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => setLinearRefreshNonce((n) => n + 1)}
-                              disabled={
-                                linearMode === 'issues'
-                                  ? linearLoading
-                                  : linearMode === 'projects'
-                                    ? linearProjectsLoading || linearProjectDetailLoading
-                                    : linearCustomViewsLoading || linearCustomViewContentsLoading
-                              }
-                              aria-label={translate(
-                                'auto.components.TaskPage.8964184a8b',
-                                'Refresh Linear'
-                              )}
-                              className="size-8 border-border/50 bg-transparent hover:bg-muted/50 backdrop-blur-md supports-[backdrop-filter]:bg-transparent"
-                            >
-                              {linearMode === 'issues' && linearLoading ? (
-                                <LoaderCircle className="size-4 animate-spin" />
-                              ) : linearMode === 'projects' &&
-                                (linearProjectsLoading || linearProjectDetailLoading) ? (
-                                <LoaderCircle className="size-4 animate-spin" />
-                              ) : linearMode === 'views' &&
-                                (linearCustomViewsLoading || linearCustomViewContentsLoading) ? (
-                                <LoaderCircle className="size-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="size-4" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {translate('auto.components.TaskPage.8964184a8b', 'Refresh Linear')}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-
-                    {linearMode === 'issues' ? (
-                      <div className="mt-3 flex min-w-0 items-center gap-2">
-                        {showLinearAttributeFilters ? (
-                          <LinearIssueAttributeFilterDropdowns
-                            value={linearAttributeFilter}
-                            onChange={applyLinearAttributeFilter}
-                            workspaceId={selectedLinearWorkspaceId ?? null}
-                            isAllWorkspaces={selectedLinearWorkspaceId === 'all'}
-                            primaryTeam={linearAttributePrimaryTeam}
-                            selectedTeamIds={[...linearTeamSelection]}
-                            availableTeams={linearTeamOptions}
-                            settings={linearTaskSourceContext ?? settings}
-                          />
-                        ) : null}
-                        <div className="relative min-w-0 flex-1 basis-64">
-                          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={linearSearchInput}
-                            onChange={(e) => setLinearSearchInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                if (
-                                  shouldSuppressEnterSubmit(
-                                    {
-                                      isComposing: e.nativeEvent.isComposing,
-                                      shiftKey: e.shiftKey
-                                    },
-                                    false
-                                  )
-                                ) {
-                                  return
-                                }
-                                e.preventDefault()
-                                const trimmed = linearSearchInput.trim()
-                                setLinearSearchInput(trimmed)
-                                setAppliedLinearSearch(trimmed)
-                                setTaskResumeState({ linearQuery: trimmed, linearMode: 'issues' })
-                                setLinearRefreshNonce((n) => n + 1)
-                              }
-                            }}
-                            placeholder={translate(
-                              'auto.components.TaskPage.eec0c5c079',
-                              'Search Linear issues...'
-                            )}
-                            className="h-8 rounded-md border-border/50 bg-background pl-8 pr-8 text-xs"
-                          />
-                          {linearSearchInput ? (
-                            <button
-                              type="button"
-                              aria-label={translate(
-                                'auto.components.TaskPage.b797bdd7c3',
-                                'Clear search'
-                              )}
-                              onClick={() => {
-                                setLinearSearchInput('')
-                                setAppliedLinearSearch('')
-                                setTaskResumeState({ linearQuery: '', linearMode: 'issues' })
-                                setLinearRefreshNonce((n) => n + 1)
-                              }}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                            >
-                              <X className="size-4" />
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : linearMode === 'projects' && !selectedLinearProject ? (
-                      <div className="mt-3 flex min-w-0 items-center gap-3">
-                        <div className="relative min-w-0 flex-1 basis-64">
-                          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                          <Input
-                            value={linearProjectSearchInput}
-                            onChange={(e) => setLinearProjectSearchInput(e.target.value)}
-                            placeholder={translate(
-                              'auto.components.TaskPage.0b65d3fb2c',
-                              'Search Linear projects...'
-                            )}
-                            className="h-8 rounded-md border-border/50 bg-background pl-8 pr-8 text-xs"
-                          />
-                          {linearProjectSearchInput ? (
-                            <button
-                              type="button"
-                              aria-label={translate(
-                                'auto.components.TaskPage.b797bdd7c3',
-                                'Clear search'
-                              )}
-                              onClick={() => {
-                                setLinearProjectSearchInput('')
-                                setAppliedLinearProjectSearch('')
-                                setLinearRefreshNonce((n) => n + 1)
-                              }}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                            >
-                              <X className="size-4" />
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
+                  <TaskPageLinearToolbar
+                    linearModeOptions={linearModeOptions}
+                    linearMode={linearMode}
+                    onModeChange={selectLinearMode}
+                    onCreate={handleCreateLinearItem}
+                    onRefresh={() => setLinearRefreshNonce((n) => n + 1)}
+                    availableTeams={availableTeams}
+                    selectedLinearProject={selectedLinearProject}
+                    linearLoading={linearLoading}
+                    linearProjectsLoading={linearProjectsLoading}
+                    linearProjectDetailLoading={linearProjectDetailLoading}
+                    linearCustomViewsLoading={linearCustomViewsLoading}
+                    linearCustomViewContentsLoading={linearCustomViewContentsLoading}
+                    showAttributeFilters={showLinearAttributeFilters}
+                    attributeFilter={linearAttributeFilter}
+                    onAttributeFilterChange={applyLinearAttributeFilter}
+                    workspaceId={selectedLinearWorkspaceId ?? null}
+                    isAllWorkspaces={selectedLinearWorkspaceId === 'all'}
+                    primaryTeam={linearAttributePrimaryTeam}
+                    selectedTeamIds={[...linearTeamSelection]}
+                    settings={linearTaskSourceContext ?? settings}
+                    linearSearchInput={linearSearchInput}
+                    onLinearSearchChange={setLinearSearchInput}
+                    onLinearSearchSubmit={submitLinearSearch}
+                    onLinearSearchClear={clearLinearSearch}
+                    linearProjectSearchInput={linearProjectSearchInput}
+                    onLinearProjectSearchChange={setLinearProjectSearchInput}
+                    onLinearProjectSearchClear={() => {
+                      setLinearProjectSearchInput('')
+                      setAppliedLinearProjectSearch('')
+                      setLinearRefreshNonce((n) => n + 1)
+                    }}
+                  />
                 ) : taskSource === 'jira' && jiraConnected ? (
                   <div className="rounded-md rounded-b-none border border-border/50 bg-muted/50 px-3 pt-2 pb-0 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
