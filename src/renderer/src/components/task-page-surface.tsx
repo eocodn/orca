@@ -38,15 +38,12 @@ import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { useTaskPageStoreBindings } from './use-task-page-store-bindings'
 import { useTaskPageSourceSelection } from './use-task-page-source-selection'
+import { useTaskPageProviderContext } from './use-task-page-provider-context'
 import { isGitLabIssueFilter, isGitLabMRFilter } from './task-page-provider-guards'
 import { TaskPageJiraErrorBanner } from './task-page-jira-error-banner'
 import { TaskPageGitLabTodosTable } from './task-page-gitlab-todos-table'
 import { TaskPageGitLabItemsTable } from './task-page-gitlab-items-table'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
-import {
-  getSettingsFocusedExecutionHostId,
-  parseExecutionHostId
-} from '../../../shared/execution-host'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Input } from '@/components/ui/input'
@@ -95,21 +92,12 @@ import IssueSourceSelector, { issueSourceChipClass } from '@/components/github/I
 import { LinearPriorityIcon } from '@/components/linear-priority-icon'
 import { reconcileLinearTeamSelection } from '@/components/task-page-linear-team-selection'
 import {
-  getTaskSourceAvailabilityNotice,
-  getTaskSourceContextSummary
-} from './task-source-context-summary'
-import {
   getGitHubWorkItemWorkspaceSeed,
   getGitLabWorkItemWorkspaceSeed,
   getJiraIssueWorkspaceSeed,
   getTaskPageRepoCacheInput,
-  getTaskPageRepoSourceContext,
-  getTaskSourceHostAvailabilityForHost
+  getTaskPageRepoSourceContext
 } from './task-page-source-context'
-import type {
-  TaskSourceAvailabilityNotice,
-  TaskSourceHostAvailability
-} from './task-source-context-summary'
 import { useConfirmationDialog } from '@/components/confirmation-dialog'
 import {
   getGitHubPRPrimaryReviewer,
@@ -153,8 +141,6 @@ import PullRequestPage from '@/components/PullRequestPage'
 import GitLabItemDialog from '@/components/GitLabItemDialog'
 import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
-import { buildExecutionHostRegistry } from '../../../shared/execution-host-registry'
-import { getHostDisplayLabelOverrides } from '../../../shared/host-setting-overrides'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
 import {
   LinearCollectionNotice,
@@ -182,11 +168,8 @@ import {
   readLinearBoardIssueDragData,
   writeLinearBoardIssueDragData
 } from '@/lib/linear-board-drag-payload'
-import { TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY } from '../../../shared/protocol-version'
 import {
-  getTaskSourceCacheScope,
   getTaskSourceRuntimeSettings,
-  normalizeTaskSourceContext,
   type TaskSourceContext
 } from '../../../shared/task-source-context'
 import { getLinearIssueWorkspaceName } from '../../../shared/workspace-name'
@@ -238,10 +221,6 @@ import {
 import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selectors'
 import { getRepoBackedTaskEmptyState } from '@/components/task-page-empty-state'
 import {
-  getRepoBackedProviderAvailability,
-  type RuntimeProviderPreflightStatus
-} from '@/components/task-source-provider-availability'
-import {
   createTaskPageGitHubStatusStateDraft,
   resolveTaskPageGitHubStatusStateDraft,
   updateTaskPageGitHubStatusLocalState
@@ -292,10 +271,8 @@ import type {
   LinearWorkspaceSelection,
   LinearWorkflowState,
   Repo,
-  TaskProvider,
   TaskViewPresetId
 } from '../../../shared/types'
-import type { PreflightStatus } from '../../../preload/api-types'
 import {
   LINEAR_ISSUE_LIST_MAX,
   clampLinearIssueListLimit
@@ -2520,10 +2497,6 @@ export default function TaskPage(): React.JSX.Element {
     closeTaskPage,
     activeModal,
     repos,
-    sshConnectionStates,
-    sshTargetLabels,
-    runtimeEnvironments,
-    runtimeStatusByEnvironmentId,
     repoMap,
     allWorktrees,
     openModal,
@@ -2535,13 +2508,11 @@ export default function TaskPage(): React.JSX.Element {
     workItemsInvalidationNonce,
     linearStatus,
     linearStatusContextKey,
-    preflightStatus,
     preflightStatusChecked,
     preflightStatusContextKey,
     selectLinearWorkspace,
     searchLinearIssues,
     listLinearIssues,
-    linearListInvalidationToken,
     invalidateLinearIssueLists,
     getCachedLinearIssues,
     getCachedLinearTeams,
@@ -2608,366 +2579,26 @@ export default function TaskPage(): React.JSX.Element {
     taskSource,
     setTaskSource
   } = useTaskPageSourceSelection(taskPageStoreBindings)
-  const runtimePreflightMountedRef = useRef(true)
-  const runtimePreflightRequestedHostIdsRef = useRef<Set<TaskSourceContext['hostId']>>(new Set())
-  const [runtimePreflightStatusByHostId, setRuntimePreflightStatusByHostId] = useState<
-    ReadonlyMap<TaskSourceContext['hostId'], RuntimeProviderPreflightStatus>
-  >(() => new Map())
-  useEffect(
-    () => () => {
-      runtimePreflightMountedRef.current = false
-    },
-    []
-  )
-  const taskSourceRepoContexts = useMemo(
-    () =>
-      taskSource === 'github' || taskSource === 'gitlab'
-        ? selectedRepos
-            .map((repo) => getTaskPageRepoSourceContext(repo, taskSource))
-            .filter((context): context is TaskSourceContext => context !== null)
-        : [],
-    [selectedRepos, taskSource]
-  )
-  const hostRegistryById = useMemo(
-    () =>
-      new Map(
-        buildExecutionHostRegistry({
-          repos,
-          settings,
-          sshTargetLabels,
-          sshConnectionStates,
-          runtimeEnvironments,
-          runtimeStatusByEnvironmentId,
-          hostLabelOverrides: getHostDisplayLabelOverrides(settings)
-        }).map((host) => [host.id, host])
-      ),
-    [
-      repos,
-      settings,
-      sshConnectionStates,
-      sshTargetLabels,
-      runtimeEnvironments,
-      runtimeStatusByEnvironmentId
-    ]
-  )
-  const hostLabelById = useMemo(
-    () => new Map([...hostRegistryById].map(([hostId, host]) => [hostId, host.label])),
-    [hostRegistryById]
-  )
-  const runtimeTaskSourceHostIds = useMemo(() => {
-    if (taskSource !== 'github' && taskSource !== 'gitlab') {
-      return []
-    }
-    const hostIds = new Set<TaskSourceContext['hostId']>()
-    for (const context of taskSourceRepoContexts) {
-      const parsed = parseExecutionHostId(context.hostId)
-      if (parsed?.kind !== 'runtime') {
-        continue
-      }
-      const host = hostRegistryById.get(context.hostId)
-      if (
-        host?.kind !== 'runtime' ||
-        host.health !== 'available' ||
-        !host.capabilities?.includes(TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY)
-      ) {
-        continue
-      }
-      hostIds.add(parsed.id)
-    }
-    return [...hostIds].sort()
-  }, [hostRegistryById, taskSource, taskSourceRepoContexts])
-  useEffect(() => {
-    const unrequestedHostIds = runtimeTaskSourceHostIds.filter(
-      (hostId) => !runtimePreflightRequestedHostIdsRef.current.has(hostId)
-    )
-    if (unrequestedHostIds.length === 0) {
-      return
-    }
-    setRuntimePreflightStatusByHostId((current) => {
-      const next = new Map(current)
-      for (const hostId of unrequestedHostIds) {
-        next.set(hostId, { checked: false, status: null })
-      }
-      return next
-    })
-    for (const hostId of unrequestedHostIds) {
-      runtimePreflightRequestedHostIdsRef.current.add(hostId)
-      const parsed = parseExecutionHostId(hostId)
-      if (parsed?.kind !== 'runtime') {
-        continue
-      }
-      // Why: task sources can span multiple runtime hosts; each runtime owns its own gh/glab install and auth state.
-      void callRuntimeRpc<PreflightStatus>(
-        { kind: 'environment', environmentId: parsed.environmentId },
-        'preflight.check',
-        undefined,
-        { timeoutMs: 15_000 }
-      )
-        .then((status) => {
-          if (!runtimePreflightMountedRef.current) {
-            return
-          }
-          setRuntimePreflightStatusByHostId((current) => {
-            const next = new Map(current)
-            next.set(hostId, { checked: true, status })
-            return next
-          })
-        })
-        .catch(() => {
-          if (!runtimePreflightMountedRef.current) {
-            return
-          }
-          setRuntimePreflightStatusByHostId((current) => {
-            const next = new Map(current)
-            next.set(hostId, { checked: true, status: null })
-            return next
-          })
-        })
-    }
-  }, [runtimeTaskSourceHostIds])
-  const getTaskPickerRepoHostLabel = useCallback(
-    (repo: Repo): string | null => {
-      const provider = taskSource === 'gitlab' ? 'gitlab' : 'github'
-      const context = getTaskPageRepoSourceContext(repo, provider)
-      const hostId = context?.hostId ?? repo.executionHostId ?? 'local'
-      return hostRegistryById.get(hostId)?.label ?? null
-    },
-    [hostRegistryById, taskSource]
-  )
-  const taskSourceHostAvailability = useMemo<TaskSourceHostAvailability[]>(() => {
-    if (taskSource !== 'github' && taskSource !== 'gitlab') {
-      return []
-    }
-    return [
-      ...taskSourceRepoContexts.flatMap((context) => {
-        const host = hostRegistryById.get(context.hostId)
-        const availability = getTaskSourceHostAvailabilityForHost(host, context.hostId)
-        return availability ? [availability] : []
-      }),
-      ...getRepoBackedProviderAvailability({
-        provider: taskSource,
-        contexts: taskSourceRepoContexts,
-        preflightStatus,
-        preflightReady: preflightStatusCurrent && preflightStatusChecked,
-        runtimePreflightStatusByHostId
-      })
-    ]
-  }, [
-    hostRegistryById,
-    preflightStatus,
-    preflightStatusChecked,
+  const {
+    getTaskPickerRepoHostLabel,
+    linearTaskSourceContext,
+    linearListInvalidationVersionForSource,
+    jiraTaskSourceContext,
+    jiraTaskSourceScopeKey,
+    taskSourceAvailabilityNoticeByProvider,
+    taskSourceContextSummary,
+    taskSourceAvailabilityNotice
+  } = useTaskPageProviderContext(taskPageStoreBindings, {
+    providerRuntimeContextKey,
     preflightStatusCurrent,
-    runtimePreflightStatusByHostId,
-    taskSource,
-    taskSourceRepoContexts
-  ])
-  const accountBackedTaskSourceHostId = useMemo(
-    () => getSettingsFocusedExecutionHostId(settings),
-    [settings]
-  )
-  const fallbackTaskSourceProjectId = useMemo(() => {
-    const firstRepoContext = selectedRepos
-      .map((repo) => getTaskPageRepoSourceContext(repo, 'github'))
-      .find((context): context is TaskSourceContext => context !== null)
-    return firstRepoContext?.projectId ?? 'account-backed-task-source'
-  }, [selectedRepos])
-  const linearTaskSourceContext = useMemo(
-    () =>
-      normalizeTaskSourceContext({
-        provider: 'linear',
-        projectId: fallbackTaskSourceProjectId,
-        hostId: accountBackedTaskSourceHostId,
-        providerIdentity: {
-          provider: 'linear',
-          workspaceId:
-            selectedLinearWorkspaceId && selectedLinearWorkspaceId !== 'all'
-              ? selectedLinearWorkspaceId
-              : null,
-          workspaceName:
-            selectedLinearWorkspace?.organizationName ??
-            selectedLinearWorkspace?.displayName ??
-            null
-        },
-        accountLabel:
-          selectedLinearWorkspace?.organizationName ?? selectedLinearWorkspace?.displayName ?? null
-      }),
-    [
-      accountBackedTaskSourceHostId,
-      fallbackTaskSourceProjectId,
-      selectedLinearWorkspace,
-      selectedLinearWorkspaceId
-    ]
-  )
-  // Why: only react to invalidation tokens for this TaskPage source scope.
-  const linearListInvalidationVersionForSource = useMemo(() => {
-    const scope = linearTaskSourceContext
-      ? getTaskSourceCacheScope(linearTaskSourceContext)
-      : 'local'
-    return linearListInvalidationToken.scope === scope ? linearListInvalidationToken.version : 0
-  }, [linearListInvalidationToken, linearTaskSourceContext])
-  const jiraTaskSourceContext = useMemo(
-    () =>
-      normalizeTaskSourceContext({
-        provider: 'jira',
-        projectId: fallbackTaskSourceProjectId,
-        hostId: accountBackedTaskSourceHostId,
-        providerIdentity: {
-          provider: 'jira',
-          siteId: selectedJiraSiteId && selectedJiraSiteId !== 'all' ? selectedJiraSiteId : null,
-          siteUrl: selectedJiraSite?.siteUrl ?? null
-        },
-        accountLabel: selectedJiraSite?.displayName ?? selectedJiraSite?.siteUrl ?? null
-      }),
-    [
-      accountBackedTaskSourceHostId,
-      fallbackTaskSourceProjectId,
-      selectedJiraSite,
-      selectedJiraSiteId
-    ]
-  )
-  const jiraTaskSourceScopeKey = jiraTaskSourceContext
-    ? getTaskSourceCacheScope(jiraTaskSourceContext)
-    : providerRuntimeContextKey
-  const accountBackedTaskSourceHostAvailability = useMemo<TaskSourceHostAvailability[]>(() => {
-    if (taskSource !== 'linear' && taskSource !== 'jira') {
-      return []
-    }
-    const host = hostRegistryById.get(accountBackedTaskSourceHostId)
-    const availability = getTaskSourceHostAvailabilityForHost(host, accountBackedTaskSourceHostId)
-    return availability ? [availability] : []
-  }, [accountBackedTaskSourceHostId, hostRegistryById, taskSource])
-  const taskSourceAvailabilityNoticeByProvider = useMemo<
-    Partial<Record<TaskProvider, TaskSourceAvailabilityNotice>>
-  >(() => {
-    const availabilityForContexts = (
-      provider: Extract<TaskProvider, 'github' | 'gitlab'>,
-      contexts: readonly TaskSourceContext[]
-    ): TaskSourceHostAvailability[] => [
-      ...contexts.flatMap((context) => {
-        const host = hostRegistryById.get(context.hostId)
-        const availability = getTaskSourceHostAvailabilityForHost(host, context.hostId)
-        return availability ? [availability] : []
-      }),
-      ...getRepoBackedProviderAvailability({
-        provider,
-        contexts,
-        preflightStatus,
-        preflightReady: preflightStatusCurrent && preflightStatusChecked,
-        runtimePreflightStatusByHostId
-      })
-    ]
-    const accountHost = hostRegistryById.get(accountBackedTaskSourceHostId)
-    const accountHostAvailability = getTaskSourceHostAvailabilityForHost(
-      accountHost,
-      accountBackedTaskSourceHostId
-    )
-    const accountAvailability = accountHostAvailability ? [accountHostAvailability] : []
-    const labelFor = (provider: TaskProvider): string =>
-      sourceOptions.find((source) => source.id === provider)?.label ?? provider
-    return {
-      github:
-        getTaskSourceAvailabilityNotice({
-          providerLabel: labelFor('github'),
-          sourceCount: selectedRepos.length,
-          hostLabelById,
-          hostAvailability: availabilityForContexts(
-            'github',
-            selectedRepos
-              .map((repo) => getTaskPageRepoSourceContext(repo, 'github'))
-              .filter((context): context is TaskSourceContext => context !== null)
-          )
-        }) ?? undefined,
-      gitlab:
-        getTaskSourceAvailabilityNotice({
-          providerLabel: labelFor('gitlab'),
-          sourceCount: selectedRepos.length,
-          hostLabelById,
-          hostAvailability: availabilityForContexts(
-            'gitlab',
-            selectedRepos
-              .map((repo) => getTaskPageRepoSourceContext(repo, 'gitlab'))
-              .filter((context): context is TaskSourceContext => context !== null)
-          )
-        }) ?? undefined,
-      linear:
-        getTaskSourceAvailabilityNotice({
-          providerLabel: labelFor('linear'),
-          sourceCount: 1,
-          hostLabelById,
-          hostAvailability: accountAvailability
-        }) ?? undefined,
-      jira:
-        getTaskSourceAvailabilityNotice({
-          providerLabel: labelFor('jira'),
-          sourceCount: 1,
-          hostLabelById,
-          hostAvailability: accountAvailability
-        }) ?? undefined
-    }
-  }, [
-    accountBackedTaskSourceHostId,
-    hostRegistryById,
-    hostLabelById,
-    preflightStatus,
-    preflightStatusChecked,
-    preflightStatusCurrent,
-    runtimePreflightStatusByHostId,
     selectedRepos,
-    sourceOptions
-  ])
-  const taskSourceContextSummary = useMemo(() => {
-    const providerLabel =
-      sourceOptions.find((source) => source.id === taskSource)?.label ?? taskSource
-    return getTaskSourceContextSummary({
-      provider: taskSource,
-      providerLabel,
-      repoContexts: taskSourceRepoContexts,
-      hostAvailability:
-        taskSource === 'linear' || taskSource === 'jira'
-          ? accountBackedTaskSourceHostAvailability
-          : taskSourceHostAvailability,
-      accountHostId: accountBackedTaskSourceHostId,
-      hostLabelById,
-      selectedRepoCount: selectedRepos.length,
-      linearWorkspaceName:
-        selectedLinearWorkspace?.organizationName ?? selectedLinearWorkspace?.id ?? null,
-      jiraSiteName: selectedJiraSite?.displayName ?? selectedJiraSite?.siteUrl ?? null
-    })
-  }, [
-    selectedJiraSite,
+    selectedLinearWorkspaceId,
     selectedLinearWorkspace,
-    selectedRepos.length,
+    selectedJiraSiteId,
+    selectedJiraSite,
     sourceOptions,
-    taskSource,
-    accountBackedTaskSourceHostAvailability,
-    accountBackedTaskSourceHostId,
-    hostLabelById,
-    taskSourceHostAvailability,
-    taskSourceRepoContexts
-  ])
-  const taskSourceAvailabilityNotice = useMemo(() => {
-    const providerLabel =
-      sourceOptions.find((source) => source.id === taskSource)?.label ?? taskSource
-    return getTaskSourceAvailabilityNotice({
-      providerLabel,
-      sourceCount:
-        taskSource === 'linear' || taskSource === 'jira'
-          ? 1
-          : Math.max(1, taskSourceRepoContexts.length),
-      hostAvailability:
-        taskSource === 'linear' || taskSource === 'jira'
-          ? accountBackedTaskSourceHostAvailability
-          : taskSourceHostAvailability,
-      hostLabelById
-    })
-  }, [
-    accountBackedTaskSourceHostAvailability,
-    hostLabelById,
-    sourceOptions,
-    taskSource,
-    taskSourceHostAvailability,
-    taskSourceRepoContexts.length
-  ])
+    taskSource
+  })
   const githubEmptyState = useMemo(
     () =>
       getRepoBackedTaskEmptyState({

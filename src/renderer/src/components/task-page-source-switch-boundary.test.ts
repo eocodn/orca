@@ -7,6 +7,14 @@ const TASK_PAGE_SOURCE_SELECTION = readFileSync(
   join(__dirname, 'use-task-page-source-selection.ts'),
   'utf8'
 )
+const TASK_PAGE_PROVIDER_HOSTS = readFileSync(
+  join(__dirname, 'use-task-page-provider-hosts.ts'),
+  'utf8'
+)
+const TASK_PAGE_PROVIDER_CONTEXT = readFileSync(
+  join(__dirname, 'use-task-page-provider-context.ts'),
+  'utf8'
+)
 const TASK_PAGE_STORE_BINDINGS = readFileSync(
   join(__dirname, 'use-task-page-store-bindings.ts'),
   'utf8'
@@ -28,6 +36,8 @@ describe('TaskPage source switching host boundary', () => {
   it('keeps store bindings and source precedence in the controller modules', () => {
     expect(TASK_PAGE_STORE_BINDINGS.split('\n').length).toBeLessThan(600)
     expect(TASK_PAGE_SOURCE_SELECTION.split('\n').length).toBeLessThan(600)
+    expect(TASK_PAGE_PROVIDER_HOSTS.split('\n').length).toBeLessThan(300)
+    expect(TASK_PAGE_PROVIDER_CONTEXT.split('\n').length).toBeLessThan(300)
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageStoreBindings()')
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageSourceSelection(taskPageStoreBindings)')
     expect(TASK_PAGE_SOURCE_SELECTION).toContain('pageData.taskSource ?? defaultTaskSource')
@@ -84,7 +94,7 @@ describe('TaskPage source switching host boundary', () => {
 
   it('checks runtime-owned provider auth on the owning runtime', () => {
     const section = sourceBetween(
-      TASK_PAGE_SOURCE,
+      TASK_PAGE_PROVIDER_HOSTS,
       'const runtimeTaskSourceHostIds = useMemo(() => {',
       'const getTaskPickerRepoHostLabel = useCallback('
     )
@@ -92,7 +102,7 @@ describe('TaskPage source switching host boundary', () => {
     expect(section).toContain('TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY')
     expect(section).toContain("'preflight.check'")
     expect(section).toContain("{ kind: 'environment', environmentId: parsed.environmentId }")
-    expect(TASK_PAGE_SOURCE).toContain('runtimePreflightStatusByHostId')
+    expect(TASK_PAGE_PROVIDER_HOSTS).toContain('runtimePreflightStatusByHostId')
   })
 
   it('preserves exact GitLab project identity when opening or starting from an item', () => {
