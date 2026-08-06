@@ -1,4 +1,5 @@
 import type { PreloadApi } from '../../../preload/api-preload-surface'
+import { getRegisteredClientRuntime } from './client-runtime-resolver'
 
 export type ClientRuntimeRuntimeService = PreloadApi['runtime']
 export type ClientRuntimeRemoteHostService = PreloadApi['runtimeEnvironments']
@@ -47,7 +48,7 @@ export type ClientRuntime = {
   integration: ClientRuntimeIntegrationService
 }
 
-type ClientRuntimeHostAdapter = {
+export type ClientRuntimeHostAdapter = {
   runtime: ClientRuntimeRuntimeService
   runtimeEnvironments: ClientRuntimeRemoteHostService
   remoteWorkspace: ClientRuntimeRemoteWorkspaceService
@@ -110,5 +111,6 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
 }
 
 export function getClientRuntime(): ClientRuntime {
-  return createClientRuntime(window.api)
+  // Resolver registration is performed by the Electron or web entrypoint.
+  return getRegisteredClientRuntime()
 }

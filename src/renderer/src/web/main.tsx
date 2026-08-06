@@ -19,6 +19,8 @@ import {
 import { installWebPreloadApi } from './web-preload-api'
 import { I18nProvider } from '../i18n/I18nProvider'
 import { translate } from '../i18n/i18n'
+import { createWebClientRuntimeAdapter } from '../runtime/web-client-runtime-adapter'
+import { registerClientRuntimeAdapter } from '../runtime/client-runtime-resolver'
 
 const App = lazy(() => import('../App'))
 
@@ -65,6 +67,7 @@ function WebRoot(): React.JSX.Element {
   }
 
   installWebPreloadApi()
+  registerClientRuntimeAdapter(createWebClientRuntimeAdapter(window.api))
   return (
     <Suspense fallback={<div className="min-h-dvh bg-background" />}>
       <App />

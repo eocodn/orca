@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createClientRuntime,
   getClientRuntime,
@@ -16,8 +16,53 @@ import {
   type ClientRuntimeRemoteWorkspaceService,
   type ClientRuntimeShellService
 } from './client-runtime'
+import { createElectronClientRuntimeAdapter } from './electron-client-runtime-adapter'
+import { createWebClientRuntimeAdapter } from './web-client-runtime-adapter'
+import { createTauriClientRuntimeAdapter } from './tauri-client-runtime-adapter'
+import {
+  getRegisteredClientRuntimeKind,
+  registerClientRuntimeAdapter,
+  resetClientRuntimeAdapterForTests
+} from './client-runtime-resolver'
+import { ClientRuntimeCapabilityUnavailableError } from './client-runtime-adapter'
 
 describe('ClientRuntime service boundary', () => {
+  it('characterizes Electron and paired web adapters by preserving API identity', () => {
+    const api = { runtime: {}, fs: {}, git: {} } as never
+
+    const electron = createElectronClientRuntimeAdapter(api)
+    expect(electron.kind).toBe('electron')
+    expect(electron.host).toBe(api)
+
+    const web = createWebClientRuntimeAdapter(api)
+    expect(web.kind).toBe('web')
+    expect(web.host).toBe(api)
+  })
+
+  it('resolves only the explicitly registered adapter and supports concurrent reads', async () => {
+    const api = { runtime: {} } as never
+    registerClientRuntimeAdapter(createWebClientRuntimeAdapter(api))
+    await Promise.all(
+      Array.from({ length: 8 }, async () => {
+        expect(getRegisteredClientRuntimeKind()).toBe('web')
+      })
+    )
+    resetClientRuntimeAdapterForTests()
+  })
+
+  it('reports Tauri capabilities as typed unavailable errors', () => {
+    const tauri = createTauriClientRuntimeAdapter()
+    expect(tauri.kind).toBe('tauri')
+    expect(() => (tauri.host.pty as never as { start: () => void }).start()).toThrow(
+      ClientRuntimeCapabilityUnavailableError
+    )
+    expect(() => (tauri.host.pty as never as { start: () => void }).start()).toThrow(
+      'capability_unavailable'
+    )
+  })
+
+  afterEach(() => resetClientRuntimeAdapterForTests())
+
   it('exposes runtime, git, and remote-host services without changing their contracts', () => {
     const runtime = {
       call: vi.fn(),
@@ -146,6 +191,7 @@ describe('ClientRuntime service boundary', () => {
         shell
       }
     })
+    registerClientRuntimeAdapter(createElectronClientRuntimeAdapter(window.api))
 
     expect(getClientRuntime().runtime).toBe(runtime)
     expect(getClientRuntime().git).toBe(git)
