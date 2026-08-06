@@ -45,21 +45,27 @@ describe('runtime orchestration compatibility authority removal contract', () =>
     ).toBe(true)
   })
 
-  it('keeps WSL/SSH environment interoperability and ordinary pane/terminal fields', () => {
+  it('keeps WSL/SSH interoperability while rejecting the retired hook bridge', () => {
     const source = readProjectFile('src/main/pty/wsl-orca-env.ts')
     for (const field of [
       'ORCA_TERMINAL_HANDLE/u',
       'ORCA_PANE_KEY/u',
       'ORCA_TAB_ID/u',
       'ORCA_WORKTREE_ID/u',
-      'ORCA_AGENT_HOOK_PORT/u',
-      'ORCA_AGENT_HOOK_TOKEN/u',
-      'ORCA_AGENT_HOOK_ENDPOINT',
       'ORCA_ORCHESTRATION_COMPATIBILITY_HOST_KIND/u',
       'ORCA_ORCHESTRATION_COMPATIBILITY_HOST_ID/u',
       'ORCA_ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION/u'
     ]) {
       expect(source, field).toContain(field)
+    }
+    for (const field of [
+      'ORCA_AGENT_HOOK_PORT/u',
+      'ORCA_AGENT_HOOK_TOKEN/u',
+      'ORCA_AGENT_HOOK_ENV/u',
+      'ORCA_AGENT_HOOK_VERSION/u',
+      'ORCA_AGENT_HOOK_ENDPOINT'
+    ]) {
+      expect(source, field).not.toContain(field)
     }
     expect(source).toContain('stampWslOrchestrationCompatibilityHost')
   })

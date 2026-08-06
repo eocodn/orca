@@ -34,10 +34,6 @@ describe('addOrcaWslInteropEnv', () => {
       ORCA_TAB_ID: 'tab-1',
       ORCA_WORKTREE_ID: 'repo::\\\\wsl.localhost\\Ubuntu\\home\\jin\\repo',
       ORCA_AGENT_LAUNCH_TOKEN: 'launch-secret',
-      ORCA_AGENT_HOOK_PORT: '4567',
-      ORCA_AGENT_HOOK_TOKEN: 'token',
-      ORCA_AGENT_HOOK_ENV: 'dev',
-      ORCA_AGENT_HOOK_VERSION: '1',
       ORCA_ORCHESTRATION_COMPATIBILITY_HOST_KIND: 'wsl',
       ORCA_ORCHESTRATION_COMPATIBILITY_HOST_ID: 'local',
       ORCA_ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION: 'Ubuntu'
@@ -87,20 +83,6 @@ describe('addOrcaWslInteropEnv', () => {
     stampWslOrchestrationCompatibilityHost(env, 'local', null)
 
     expect(env).toEqual({})
-  })
-
-  it('does not forward retired hook endpoint coordinates', () => {
-    const windowsEnv: Record<string, string> = {
-      ORCA_AGENT_HOOK_ENDPOINT: 'C:\\Users\\jin\\AppData\\Roaming\\Orca\\agent-hooks\\endpoint.cmd'
-    }
-    addOrcaWslInteropEnv(windowsEnv)
-    expect(windowsEnv.WSLENV).not.toContain('ORCA_AGENT_HOOK_ENDPOINT')
-
-    const guestEnv: Record<string, string> = {
-      ORCA_AGENT_HOOK_ENDPOINT: '/home/jin/.orca-wsl/agent-hooks/port-4567/endpoint.env'
-    }
-    addOrcaWslInteropEnv(guestEnv)
-    expect(guestEnv.WSLENV).not.toContain('ORCA_AGENT_HOOK_ENDPOINT')
   })
 
   it('tags pre-translated Linux setup paths /u so WSLENV does not translate them again (#9206)', () => {
