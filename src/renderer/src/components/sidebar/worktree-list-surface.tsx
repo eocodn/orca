@@ -89,17 +89,10 @@ import {
   SCROLL_TO_CURRENT_WORKSPACE_REVEAL_REQUEST_EVENT,
   type ScrollToCurrentWorkspaceRevealRequestDetail
 } from '@/lib/scroll-to-current-workspace-status'
-import { useRepoHeaderDrag } from './project-header-drag'
-import {
-  getLogicalRepoOrderRankById,
-  getSidebarOrderedRepoHeaderIdsByBucket
-} from './project-header-drop'
-import { useProjectGroupHeaderDrag } from './project-group-header-drag'
-import { getSidebarOrderedProjectGroupHeaderIdsByBucket } from './project-group-header-drop'
+import { getLogicalRepoOrderRankById } from './project-header-drop'
 import {
   buildManualOrderUpdatesForGroupDrop,
   buildManualOrderUpdatesForVisibleGroups,
-  expandDraggedWorktreeIdsForVisibleLineage,
   shouldWriteManualOrderForGroupDrop,
   type WorktreeDragGroup
 } from './worktree-manual-order'
@@ -114,10 +107,7 @@ import {
   updateWorkspaceKanbanSidebarDropTargetVisual
 } from './workspace-kanban-sidebar-drop'
 import { resolveWorkspaceKanbanCardDropCommitTarget } from './workspace-kanban-card-pointer-drag-dom'
-import {
-  getFullDropIndexForWorktreeDragUnit,
-  getWorktreeDragUnitGroups
-} from './worktree-drag-units'
+import { getFullDropIndexForWorktreeDragUnit } from './worktree-drag-units'
 import {
   createSidebarDragPreview,
   isSidebarPointerDragBlocked,
@@ -127,19 +117,10 @@ import {
 import {
   getWorktreeSidebarDragAutoscroll,
   getWorktreeSidebarDragRectsForGroup,
-  refreshWorktreeSidebarDragSession,
-  type WorktreeSidebarDragRect,
-  type WorktreeSidebarDragSession,
   type WorktreeSidebarDragPoint
 } from './worktree-sidebar-drag-autoscroll'
+import { getWorktreeSidebarDragGrab } from './worktree-sidebar-drag-geometry'
 import {
-  getWorktreeSidebarDragGrab,
-  shouldReevaluateWorktreeSidebarDropAnchor,
-  type WorktreeSidebarDragGrab,
-  type WorktreeSidebarDropAnchor
-} from './worktree-sidebar-drag-geometry'
-import {
-  computeWorktreeSidebarDropPreview,
   resolveWorktreeSidebarStatusDropCommitTarget,
   type WorktreeSidebarStatusDropTarget,
   type WorktreeSidebarDropPreview
@@ -159,7 +140,6 @@ import { persistWorktreeSortOrderByHost } from '@/lib/worktree-sort-order-persis
 import {
   getRepoExecutionHostId,
   getSettingsFocusedExecutionHostId,
-  getWorktreeExecutionHostId,
   type ExecutionHostId
 } from '../../../../shared/execution-host'
 import { getRepoHeaderCreateState } from './repo-header-create-state'
@@ -199,19 +179,14 @@ import {
   getWorktreeCardContentIndent,
   getWorktreeCardSurfaceInset
 } from './worktree-list-indentation'
-import { addHostSectionRows, type HostHeaderRow } from './host-section-rows'
+import { addHostSectionRows } from './host-section-rows'
 import { orderHostSectionOptions } from './host-section-order'
-import { useHostHeaderDrag } from './host-header-drag'
 import { buildSidebarHostOptions } from './sidebar-host-options'
 import { translate } from '@/i18n/i18n'
 import { folderWorkspaceKey, getActiveSidebarWorkspaceId } from '../../../../shared/workspace-scope'
 import { getHostDisplayLabelOverrides } from '../../../../shared/host-setting-overrides'
 import { isConfirmedStaleFolderPathStatus } from '../../../../shared/folder-workspace-path-status'
-import {
-  getFolderWorkspaceRevealGroupKeys,
-  getKnownSidebarWorktreeById,
-  sidebarWorkspaceStillExists
-} from './worktree-list-folder-reveal'
+import { getKnownSidebarWorktreeById } from './worktree-list-folder-reveal'
 import {
   filterFolderWorkspacesForVisibleHosts,
   filterProjectGroupsForVisibleHosts,
@@ -222,15 +197,9 @@ import { getRenderedWorktreesInSidebarOrder } from './worktree-sidebar-row-prefe
 import { getCyclableWorktreeIds, resolveCycledWorktreeId } from './worktree-keyboard-cycle'
 import {
   countRecordKeysByReference,
-  getRenderRowSidebarKey,
-  getSidebarRowRevealAncestorKeys,
   handleRepoHeaderActionPointerDown,
   handleRepoHeaderCollapseAffordancePointerDown,
   markSidebarWorktreeActiveImmediately,
-  resolvePendingSidebarReveal,
-  revealMountedWorktreeElement,
-  revealMountedSidebarRowElement,
-  rowKeyMatchesRenderRow,
   stopNestedWorktreeCardBubble,
   stopRepoHeaderMenuEvent,
   stopRepoHeaderKeyboardToggle
@@ -238,6 +207,8 @@ import {
 import { useWorktreeListVirtualizer } from './worktree-list-virtualizer'
 import { useWorktreeListFolderPathStatus } from './worktree-list-folder-path-status'
 import { useWorktreeListKeyboard } from './worktree-list-keyboard'
+import { useWorktreeListRevealEffects } from './worktree-list-reveal-effects'
+import { useWorktreeListDragSession } from './worktree-list-drag-session'
 
 export {
   countRecordKeysByReference,
@@ -276,7 +247,6 @@ function useReusedArrayIdentity<T>(next: T[]): T[] {
 
 // Debounce re-sort after a sortEpoch bump so background score changes don't jar row positions.
 const SORT_SETTLE_MS = 3_000
-const USER_SCROLL_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS = 500
 const EMPTY_PROJECT_GROUPS: readonly ProjectGroup[] = []
 const EMPTY_AGENT_STATUS_BY_PANE_KEY: AppState['agentStatusByPaneKey'] = {}
 const EMPTY_WORKTREE_ID_SET: ReadonlySet<string> = new Set()
@@ -391,11 +361,7 @@ import {
   buildRenderableRows,
   findPreferredRenderRowIndexForWorktree,
   getActiveDescendantOptionId,
-  getPinnedWorktreeRevealCollapsedGroupKeys,
-  getRenderRowOptionId,
   getVirtualRowKey,
-  getWorktreeDragGroups,
-  getWorktreeDragIndexes,
   uniqueWorktreeIds
 } from './worktree-list-row-model'
 
@@ -485,78 +451,20 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
   const [worktreeDragState, setWorktreeDragState] = useState<WorktreeRowDragState>(
     WORKTREE_ROW_DRAG_INITIAL_STATE
   )
-  const [pendingRevealRetryTick, setPendingRevealRetryTick] = useState(0)
   const [documentVisibilityRevision, setDocumentVisibilityRevision] = useState(0)
-  const [highlightedRevealRowKey, setHighlightedRevealRowKey] = useState<string | null>(null)
-  const setRenamingWorktreeId = useAppStore((s) => s.setRenamingWorktreeId)
   const assignWorktreeParent = useAppStore((s) => s.assignWorktreeParent)
   const updateWorktreeLineage = useAppStore((s) => s.updateWorktreeLineage)
   const cyclicLineageIds = useMemo(
     () => getCyclicProjectedWorktreeLineageIds(worktreeLineageById, worktreeMap),
     [worktreeLineageById, worktreeMap]
   )
-  const worktreeDragSessionRef = useRef<WorktreeSidebarDragSession | null>(null)
-  // Why: cross-group hovers hit-test a group the session never captured, so hold
-  // that group's drop decision separately or a card expanding in the target group
-  // moves the insertion line under a still pointer.
-  const statusDropAnchorsRef = useRef<Map<string, WorktreeSidebarDropAnchor>>(new Map())
   const worktreePointerDragRef = useRef<WorktreePointerDrag | null>(null)
   const worktreePointerAutoscrollFrameIdRef = useRef<number | null>(null)
   const worktreePointerAutoscrollLastFrameTimeRef = useRef<number | null>(null)
   const worktreeNativeAutoscrollFrameIdRef = useRef<number | null>(null)
   const worktreeNativeAutoscrollLastFrameTimeRef = useRef<number | null>(null)
   const worktreeNativeLatestPointRef = useRef<WorktreeSidebarDragPoint | null>(null)
-  const pendingRevealRetryRef = useRef<{ worktreeId: string; count: number } | null>(null)
-  const pendingRowRevealRetryRef = useRef<{ rowKey: string; count: number } | null>(null)
-  const pendingRevealFrameIdsRef = useRef<Set<number>>(new Set())
-  const revealHighlightFrameIdRef = useRef<number | null>(null)
-  const revealHighlightTimeoutRef = useRef<number | null>(null)
-  const cancelPendingRevealFrames = useCallback(() => {
-    for (const frameId of pendingRevealFrameIdsRef.current) {
-      window.cancelAnimationFrame(frameId)
-    }
-    pendingRevealFrameIdsRef.current.clear()
-  }, [])
-  const schedulePendingRevealFrame = useCallback((callback: FrameRequestCallback) => {
-    const frameId = window.requestAnimationFrame((time) => {
-      pendingRevealFrameIdsRef.current.delete(frameId)
-      callback(time)
-    })
-    pendingRevealFrameIdsRef.current.add(frameId)
-  }, [])
-  const clearRevealHighlightFrame = useCallback(() => {
-    if (revealHighlightFrameIdRef.current !== null) {
-      window.cancelAnimationFrame(revealHighlightFrameIdRef.current)
-      revealHighlightFrameIdRef.current = null
-    }
-  }, [])
-  const clearRevealHighlightTimeout = useCallback(() => {
-    if (revealHighlightTimeoutRef.current !== null) {
-      window.clearTimeout(revealHighlightTimeoutRef.current)
-      revealHighlightTimeoutRef.current = null
-    }
-  }, [])
-  const flashRevealedRow = useCallback(
-    (rowKey: string) => {
-      clearRevealHighlightTimeout()
-      clearRevealHighlightFrame()
-      // Why: clear before set restarts the CSS glow when revealing the same row repeatedly.
-      setHighlightedRevealRowKey(null)
-      revealHighlightFrameIdRef.current = window.requestAnimationFrame(() => {
-        revealHighlightFrameIdRef.current = null
-        setHighlightedRevealRowKey(rowKey)
-        revealHighlightTimeoutRef.current = window.setTimeout(() => {
-          revealHighlightTimeoutRef.current = null
-          setHighlightedRevealRowKey(null)
-        }, 1500)
-      })
-    },
-    [clearRevealHighlightFrame, clearRevealHighlightTimeout]
-  )
   const suppressWorktreeClickUntilRef = useRef(0)
-  const hasProjectGroups = projectGroups.length > 0
-  const canReorderRepoHeaders = groupBy === 'repo' && projectOrderBy === 'manual'
-  const canReorderProjectGroupHeaders = groupBy === 'repo' && hasProjectGroups
   const moveProjectToGroup = useAppStore((s) => s.moveProjectToGroup)
   const updateProjectGroup = useAppStore((s) => s.updateProjectGroup)
   const lastVisibleRefreshKeyRef = useRef('')
@@ -580,10 +488,6 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       ),
     [projectGroups]
   )
-  const projectGroupByIdForHeaderDrag = useMemo(
-    () => new Map(projectGroups.map((group) => [group.id, group])),
-    [projectGroups]
-  )
 
   useEffect(
     () =>
@@ -598,288 +502,48 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     []
   )
 
-  // Why: reorder keeps scrollTop stable; flag direct scroll input so anchor-restore won't chase the moved row (jumpy drop).
-  const commitRepoReorder = useCallback(
-    (orderedIds: string[]) => {
-      const suppressUntil =
-        window.performance.now() + USER_SCROLL_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS
-      suppressMeasurementAdjustmentUntilRef.current = suppressUntil
-      directScrollInputUntilRef.current = suppressUntil
-      reorderRepos(orderedIds)
-    },
-    [reorderRepos]
-  )
-  const orderedHostIds = useMemo(
-    () =>
-      rows
-        .filter((row): row is HostHeaderRow => row.type === 'host-header')
-        .map((row) => row.hostId),
-    [rows]
-  )
-  const hostDrag = useHostHeaderDrag({
-    orderedHostIds,
-    onCommit: onReorderHostSections,
-    getScrollContainer: () => scrollRef.current
-  })
-  useEffect(() => {
-    onHostDragActiveChange(hostDrag.state.draggingHostId !== null)
-  }, [hostDrag.state.draggingHostId, onHostDragActiveChange])
-  useEffect(() => () => onHostDragActiveChange(false), [onHostDragActiveChange])
-  const worktreeDragGroups = useMemo(() => getWorktreeDragGroups(rows), [rows])
-  const worktreeDragUnitGroups = useMemo(() => getWorktreeDragUnitGroups(rows), [rows])
-  const naturalDragWorktreeIds = useMemo(
-    () =>
-      new Set(
-        rows.flatMap((row) =>
-          row.type === 'item' && row.sectionKey !== PINNED_GROUP_KEY ? [row.worktree.id] : []
-        )
-      ),
-    [rows]
-  )
-  const worktreeLineageDragRows = useMemo(
-    () =>
-      rows
-        .filter((row): row is WorktreeItemRow => row.type === 'item')
-        .filter(
-          (row) =>
-            row.sectionKey !== PINNED_GROUP_KEY || !naturalDragWorktreeIds.has(row.worktree.id)
-        )
-        .map((row) => ({ worktreeId: row.worktree.id, depth: row.depth })),
-    [naturalDragWorktreeIds, rows]
-  )
-  const getReorderDraggedIds = useCallback(
-    (draggedIds: readonly string[]) =>
-      expandDraggedWorktreeIdsForVisibleLineage(worktreeLineageDragRows, draggedIds),
-    [worktreeLineageDragRows]
-  )
-  const getReorderUnitDraggedIds = useCallback(
-    (sourceGroupKey: string, reorderDraggedIds: readonly string[]) => {
-      const group = worktreeDragUnitGroups.find((candidate) => candidate.key === sourceGroupKey)
-      if (!group) {
-        return reorderDraggedIds
-      }
-      const unitIds = new Set(group.worktreeIds)
-      const filtered = reorderDraggedIds.filter((worktreeId) => unitIds.has(worktreeId))
-      return filtered.length > 0 ? filtered : reorderDraggedIds
-    },
-    [worktreeDragUnitGroups]
-  )
-  const { groupKeyByRowKey, groupIndexByRowKey } = useMemo(
-    () => getWorktreeDragIndexes(rows),
-    [rows]
-  )
-  const refreshWorktreeDragSession = useCallback((): boolean => {
-    const session = worktreeDragSessionRef.current
-    const container = scrollRef.current
-    if (!session || !container) {
-      return false
-    }
-
-    const refreshedSession = refreshWorktreeSidebarDragSession({
-      session,
-      groups: worktreeDragGroups,
-      unitGroups: worktreeDragUnitGroups,
-      rects: getWorktreeSidebarDragRectsForGroup(container, session.sourceGroupKey)
-    })
-    worktreeDragSessionRef.current = refreshedSession
-    return refreshedSession !== null
-  }, [worktreeDragGroups, worktreeDragUnitGroups])
-  const computeWorktreeDropForGroup = useCallback(
-    (args: {
-      pointerY: number
-      groupKey: string
-      rects: readonly WorktreeSidebarDragRect[]
-      draggedIds: readonly string[]
-      draggingWorktreeId?: string | null
-      grab?: WorktreeSidebarDragGrab | null
-      anchor?: WorktreeSidebarDropAnchor | null
-    }): WorktreeSidebarDropPreview | null => {
-      const container = scrollRef.current
-      if (!container) {
-        return null
-      }
-      const group = worktreeDragUnitGroups.find((candidate) => candidate.key === args.groupKey)
-      if (!group) {
-        return null
-      }
-      const containerRect = container.getBoundingClientRect()
-      return computeWorktreeSidebarDropPreview({
-        pointerY: args.pointerY,
-        containerTop: containerRect.top,
-        scrollTop: container.scrollTop,
-        rects: args.rects,
-        groupIds: group.worktreeIds,
-        draggedIds: args.draggedIds,
-        draggingWorktreeId: args.draggingWorktreeId,
-        grab: args.grab,
-        anchor: args.anchor
-      })
-    },
-    [worktreeDragUnitGroups]
-  )
-  const computeWorktreeDrop = useCallback(
-    (pointerY: number): WorktreeSidebarDropPreview | null => {
-      const session = worktreeDragSessionRef.current
-      const container = scrollRef.current
-      if (!session || !container) {
-        return null
-      }
-      const scrollTop = container.scrollTop
-      // Why: only real pointer or scroll movement should re-decide the slot; a
-      // card growing under a still pointer must not move it.
-      const anchor = shouldReevaluateWorktreeSidebarDropAnchor({
-        anchor: session.anchor,
-        pointerY,
-        scrollTop
-      })
-        ? null
-        : session.anchor
-      const preview = computeWorktreeDropForGroup({
-        pointerY,
-        groupKey: session.sourceGroupKey,
-        rects: session.rects,
-        draggedIds: session.reorderUnitDraggedIds,
-        draggingWorktreeId: session.draggingWorktreeId,
-        grab: session.grab,
-        anchor
-      })
-      worktreeDragSessionRef.current = {
-        ...session,
-        anchor: preview ? { beforeWorktreeId: preview.dropAnchorId, pointerY, scrollTop } : null
-      }
-      return preview
-    },
-    [computeWorktreeDropForGroup]
-  )
-  const computeWorktreeStatusDrop = useCallback(
-    (args: {
-      pointerY: number
-      status: WorkspaceStatus
-      draggedIds: readonly string[]
-    }): WorktreeSidebarDropPreview | null => {
-      const container = scrollRef.current
-      if (!container) {
-        return null
-      }
-      const groupKey = getWorkspaceStatusGroupKey(args.status)
-      const session = worktreeDragSessionRef.current
-      const scrollTop = container.scrollTop
-      const heldAnchor = statusDropAnchorsRef.current.get(groupKey) ?? null
-      const anchor = shouldReevaluateWorktreeSidebarDropAnchor({
-        anchor: heldAnchor,
-        pointerY: args.pointerY,
-        scrollTop
-      })
-        ? null
-        : heldAnchor
-      const preview = computeWorktreeDropForGroup({
-        pointerY: args.pointerY,
-        groupKey,
-        rects: getWorktreeSidebarDragRectsForGroup(container, groupKey),
-        draggedIds: args.draggedIds,
-        draggingWorktreeId: session?.draggingWorktreeId ?? null,
-        grab: session?.grab ?? null,
-        anchor
-      })
-      if (preview) {
-        statusDropAnchorsRef.current.set(groupKey, {
-          beforeWorktreeId: preview.dropAnchorId,
-          pointerY: args.pointerY,
-          scrollTop
-        })
-      } else {
-        statusDropAnchorsRef.current.delete(groupKey)
-      }
-      return preview
-    },
-    [computeWorktreeDropForGroup]
-  )
+  const {
+    worktreeDragSessionRef,
+    statusDropAnchorsRef,
+    worktreeDragGroups,
+    worktreeDragUnitGroups,
+    groupKeyByRowKey,
+    groupIndexByRowKey,
+    getReorderDraggedIds,
+    getReorderUnitDraggedIds,
+    refreshDragSession: refreshWorktreeDragSession,
+    computeDrop: computeWorktreeDrop,
+    computeStatusDrop: computeWorktreeStatusDrop
+  } = useWorktreeListDragSession({ rows, scrollRef })
   const renderRows = useMemo(() => buildRenderableRows(rows), [rows])
-  const sidebarRepoHeaderIdsByBucket = useMemo(
-    () =>
-      getSidebarOrderedRepoHeaderIdsByBucket(
-        rows.filter((row): row is Row => row.type !== 'host-header')
-      ),
-    [rows]
-  )
-  const sidebarProjectGroupHeaderIdsByBucket = useMemo(
-    () =>
-      getSidebarOrderedProjectGroupHeaderIdsByBucket(
-        rows.filter((row): row is Row => row.type !== 'host-header'),
-        projectGroupByIdForHeaderDrag
-      ),
-    [projectGroupByIdForHeaderDrag, rows]
-  )
-  const repoHeaderIndexByRepoId = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const repoIds of sidebarRepoHeaderIdsByBucket.values()) {
-      repoIds.forEach((repoId, index) => {
-        map.set(repoId, index)
-      })
-    }
-    return map
-  }, [sidebarRepoHeaderIdsByBucket])
-  const repoHeaderBucketByRepoId = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const [bucketKey, repoIds] of sidebarRepoHeaderIdsByBucket) {
-      for (const repoId of repoIds) {
-        map.set(repoId, bucketKey)
-      }
-    }
-    return map
-  }, [sidebarRepoHeaderIdsByBucket])
-  const projectGroupHeaderIndexByGroupId = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const groupIds of sidebarProjectGroupHeaderIdsByBucket.values()) {
-      groupIds.forEach((groupId, index) => {
-        map.set(groupId, index)
-      })
-    }
-    return map
-  }, [sidebarProjectGroupHeaderIdsByBucket])
-  const projectGroupHeaderBucketByGroupId = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const [bucketKey, groupIds] of sidebarProjectGroupHeaderIdsByBucket) {
-      for (const groupId of groupIds) {
-        map.set(groupId, bucketKey)
-      }
-    }
-    return map
-  }, [sidebarProjectGroupHeaderIdsByBucket])
-  const commitProjectGroupOrder = useCallback(
-    (repoId: string, projectGroupId: string | null, order: number) => {
-      void moveProjectToGroup(repoId, projectGroupId, order)
-    },
-    [moveProjectToGroup]
-  )
-  const commitProjectGroupHeaderOrder = useCallback(
-    (groupId: string, tabOrder: number) => {
-      if (!Number.isFinite(tabOrder)) {
-        return
-      }
-      const suppressUntil =
-        window.performance.now() + USER_SCROLL_MEASUREMENT_ADJUSTMENT_SUPPRESS_MS
-      suppressMeasurementAdjustmentUntilRef.current = suppressUntil
-      directScrollInputUntilRef.current = suppressUntil
-      void updateProjectGroup(groupId, { tabOrder })
-    },
-    [updateProjectGroup]
-  )
-  // Drag applies only in manual order; still construct the controller inert for stable hook order.
-  const repoDrag = useRepoHeaderDrag({
-    orderedRepoIds: allRepoIds,
+  const {
+    canReorderRepoHeaders,
+    canReorderProjectGroupHeaders,
+    orderedHostIds,
+    hostDrag,
     sidebarRepoHeaderIdsByBucket,
-    repoById: repoMap,
-    usesProjectGroupOrdering: hasProjectGroups,
-    onCommitRepoOrder: commitRepoReorder,
-    onCommitProjectGroupOrder: commitProjectGroupOrder,
-    getScrollContainer: () => scrollRef.current
-  })
-  const projectGroupDrag = useProjectGroupHeaderDrag({
     sidebarProjectGroupHeaderIdsByBucket,
-    projectGroupById: projectGroupByIdForHeaderDrag,
-    onCommitProjectGroupTabOrder: commitProjectGroupHeaderOrder,
-    getScrollContainer: () => scrollRef.current
+    repoHeaderIndexByRepoId,
+    repoHeaderBucketByRepoId,
+    projectGroupHeaderIndexByGroupId,
+    projectGroupHeaderBucketByGroupId,
+    repoDrag,
+    projectGroupDrag
+  } = useWorktreeListHeaderDrag({
+    rows,
+    projectGroups,
+    allRepoIds,
+    repoMap,
+    groupBy,
+    projectOrderBy,
+    onReorderHostSections,
+    onHostDragActiveChange,
+    reorderRepos,
+    moveProjectToGroup,
+    updateProjectGroup,
+    scrollRef,
+    suppressMeasurementAdjustmentUntilRef,
+    directScrollInputUntilRef
   })
   const [primaryActiveWorktreeRow, setPrimaryActiveWorktreeRow] = useState<{
     worktreeId: string
@@ -984,313 +648,36 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     repoMap,
     sshConnectionStates
   })
-  React.useEffect(() => {
-    if (!pendingRevealWorktree) {
-      return
-    }
-
-    if (agentSendTargetWorktreeId !== pendingRevealWorktree.worktreeId) {
-      const folderGroupKeys = getFolderWorkspaceRevealGroupKeys(
-        pendingRevealWorktree.worktreeId,
-        folderWorkspaces,
-        projectGroups
-      )
-      if (folderGroupKeys.length > 0) {
-        for (const groupKey of folderGroupKeys) {
-          if (collapsedGroups.has(groupKey)) {
-            toggleGroup(groupKey)
-          }
-        }
-      } else {
-        const targetWorktree = worktrees.find((w) => w.id === pendingRevealWorktree.worktreeId)
-        const targetRepo = targetWorktree ? repoMap.get(targetWorktree.repoId) : undefined
-        if (targetWorktree) {
-          const hostId = getWorktreeExecutionHostId(targetWorktree, targetRepo, defaultHostId)
-          const hostGroupKey = `host:${hostId}`
-          if (collapsedGroups.has(hostGroupKey)) {
-            toggleGroup(hostGroupKey)
-          }
-
-          for (const parent of getWorktreeLineageAncestors(
-            targetWorktree,
-            worktreeLineageById,
-            worktreeMap
-          )) {
-            const lineageGroupKey = getLineageGroupKey(parent.id)
-            if (collapsedGroups.has(lineageGroupKey)) {
-              toggleGroup(lineageGroupKey)
-            }
-          }
-
-          const groupKeys =
-            targetWorktree.isPinned && pinnedDisplayPolicy === 'single-location'
-              ? getPinnedWorktreeRevealCollapsedGroupKeys({
-                  worktree: targetWorktree,
-                  collapsedGroups
-                })
-              : getGroupKeysForWorktree(
-                  groupBy,
-                  targetWorktree,
-                  repoMap,
-                  prCache,
-                  workspaceStatuses,
-                  settings,
-                  projectGroups,
-                  projectGrouping
-                )
-          for (const groupKey of groupKeys) {
-            if (collapsedGroups.has(groupKey)) {
-              toggleGroup(groupKey)
-            }
-          }
-        }
-      }
-    }
-
-    let cancelled = false
-    schedulePendingRevealFrame(() => {
-      if (cancelled) {
-        return
-      }
-      const targetWorktreeStillExists = sidebarWorkspaceStillExists(
-        pendingRevealWorktree.worktreeId,
-        worktrees,
-        folderWorkspaces
-      )
-      const targetIndex = findPreferredRenderRowIndexForWorktree(
-        renderRows,
-        pendingRevealWorktree.worktreeId,
-        pinnedDisplayPolicy
-      )
-      const outcome = resolvePendingSidebarReveal({ targetIndex, targetWorktreeStillExists })
-      if (outcome === 'scroll-and-clear') {
-        const targetRow = renderRows[targetIndex]
-        const container = scrollRef.current
-        const retryExactRevealOnNextFrame = () => {
-          const previousRetry = pendingRevealRetryRef.current
-          const nextRetryCount =
-            previousRetry?.worktreeId === pendingRevealWorktree.worktreeId
-              ? previousRetry.count + 1
-              : 1
-          pendingRevealRetryRef.current = {
-            worktreeId: pendingRevealWorktree.worktreeId,
-            count: nextRetryCount
-          }
-          if (nextRetryCount <= 8) {
-            schedulePendingRevealFrame(() => {
-              if (!cancelled) {
-                setPendingRevealRetryTick((tick) => tick + 1)
-              }
-            })
-          } else {
-            pendingRevealRetryRef.current = null
-            clearPendingRevealWorktreeId()
-          }
-        }
-        const revealedOption = container
-          ? revealMountedWorktreeElement(
-              container,
-              pendingRevealWorktree.worktreeId,
-              pendingRevealWorktree.behavior,
-              getRenderRowOptionId(targetRow, pendingRevealWorktree.worktreeId)
-            )
-          : null
-        if (revealedOption) {
-          if (pendingRevealWorktree.highlight) {
-            const revealedRowKey =
-              revealedOption.dataset.worktreeRowKey ?? getRenderRowSidebarKey(targetRow)
-            if (revealedRowKey) {
-              flashRevealedRow(revealedRowKey)
-            }
-          }
-          if (pendingRevealWorktree.beginRename) {
-            setRenamingWorktreeId({
-              worktreeId: pendingRevealWorktree.worktreeId,
-              rowKey: revealedOption.dataset.worktreeRowKey
-            })
-          }
-          pendingRevealRetryRef.current = null
-          clearPendingRevealWorktreeId()
-          return
-        }
-
-        if (targetRow?.type !== 'lineage-group') {
-          // Why: virtual indexing can leave the card edge clipped; stage it into the window, then retry the exact DOM reveal.
-          virtualizer.scrollToIndex(targetIndex, {
-            align: 'auto',
-            behavior: 'auto'
-          })
-          retryExactRevealOnNextFrame()
-          return
-        }
-
-        // Why: for lineage groups the virtual row is only a staging target; jump into the window, then retry the exact reveal.
-        virtualizer.scrollToIndex(targetIndex, {
-          align: 'auto',
-          behavior: 'auto'
-        })
-        retryExactRevealOnNextFrame()
-        return
-      }
-      if (outcome === 'clear') {
-        pendingRevealRetryRef.current = null
-        clearPendingRevealWorktreeId()
-      }
-    })
-    return () => {
-      cancelled = true
-      cancelPendingRevealFrames()
-    }
-  }, [
+  const {
+    highlightedRevealRowKey,
+    cancelPendingRevealFrames,
+    clearRevealHighlightFrame,
+    clearRevealHighlightTimeout
+  } = useWorktreeListRevealEffects({
     pendingRevealWorktree,
+    pendingRevealSidebarRow,
+    clearPendingRevealWorktreeId,
+    clearPendingRevealSidebarRow,
     agentSendTargetWorktreeId,
     groupBy,
     worktrees,
     folderWorkspaces,
     repoMap,
-    prCache,
-    worktreeLineageById,
-    worktreeMap,
-    renderRows,
-    virtualizer,
-    clearPendingRevealWorktreeId,
-    toggleGroup,
-    collapsedGroups,
     defaultHostId,
+    worktreeMap,
+    worktreeLineageById,
+    projectGroups,
+    projectGrouping,
+    pinnedDisplayPolicy,
+    collapsedGroups,
+    toggleGroup,
+    prCache,
     workspaceStatuses,
     settings,
-    pinnedDisplayPolicy,
-    projectGrouping,
-    projectGroups,
-    pendingRevealRetryTick,
-    flashRevealedRow,
-    setRenamingWorktreeId,
-    schedulePendingRevealFrame,
-    cancelPendingRevealFrames
-  ])
-
-  React.useEffect(() => {
-    if (!pendingRevealSidebarRow) {
-      return
-    }
-
-    const isProjectHeaderTarget =
-      pendingRevealSidebarRow.rowKey.startsWith('project-group:') ||
-      pendingRevealSidebarRow.rowKey.startsWith('project:') ||
-      pendingRevealSidebarRow.rowKey.startsWith('repo:')
-    if (isProjectHeaderTarget && groupBy !== 'repo') {
-      return
-    }
-
-    let toggledAncestor = false
-    for (const groupKey of getSidebarRowRevealAncestorKeys({
-      rowKey: pendingRevealSidebarRow.rowKey,
-      repoMap,
-      projectGroups,
-      projectGrouping
-    })) {
-      if (collapsedGroups.has(groupKey)) {
-        toggleGroup(groupKey)
-        toggledAncestor = true
-      }
-    }
-    if (toggledAncestor) {
-      return
-    }
-
-    let cancelled = false
-    const retryPendingReveal = () => {
-      const previousRetry = pendingRowRevealRetryRef.current
-      const nextRetryCount =
-        previousRetry?.rowKey === pendingRevealSidebarRow.rowKey ? previousRetry.count + 1 : 1
-      pendingRowRevealRetryRef.current = {
-        rowKey: pendingRevealSidebarRow.rowKey,
-        count: nextRetryCount
-      }
-      if (nextRetryCount <= 8) {
-        schedulePendingRevealFrame(() => {
-          if (!cancelled) {
-            setPendingRevealRetryTick((tick) => tick + 1)
-          }
-        })
-        return true
-      }
-      return false
-    }
-    schedulePendingRevealFrame(() => {
-      if (cancelled) {
-        return
-      }
-      const targetIndex = renderRows.findIndex((row) =>
-        rowKeyMatchesRenderRow(row, pendingRevealSidebarRow.rowKey)
-      )
-      if (targetIndex === -1) {
-        if (retryPendingReveal()) {
-          return
-        }
-        pendingRowRevealRetryRef.current = null
-        clearPendingRevealSidebarRow()
-        toast.error(
-          translate(
-            'auto.components.sidebar.WorktreeList.sidebarRowMissing',
-            'Target no longer exists'
-          )
-        )
-        return
-      }
-
-      const retryExactRevealOnNextFrame = () => {
-        if (retryPendingReveal()) {
-          return
-        }
-        pendingRowRevealRetryRef.current = null
-        clearPendingRevealSidebarRow()
-      }
-
-      const container = scrollRef.current
-      const revealedElement = container
-        ? revealMountedSidebarRowElement(
-            container,
-            pendingRevealSidebarRow.rowKey,
-            pendingRevealSidebarRow.behavior
-          )
-        : null
-      if (revealedElement) {
-        if (pendingRevealSidebarRow.highlight) {
-          flashRevealedRow(pendingRevealSidebarRow.rowKey)
-        }
-        pendingRowRevealRetryRef.current = null
-        clearPendingRevealSidebarRow()
-        return
-      }
-
-      virtualizer.scrollToIndex(targetIndex, {
-        align: 'auto',
-        behavior: 'auto'
-      })
-      retryExactRevealOnNextFrame()
-    })
-
-    return () => {
-      cancelled = true
-      cancelPendingRevealFrames()
-    }
-  }, [
-    pendingRevealSidebarRow,
-    repoMap,
-    projectGroups,
-    projectGrouping,
-    collapsedGroups,
-    groupBy,
-    toggleGroup,
     renderRows,
     virtualizer,
-    pendingRevealRetryTick,
-    flashRevealedRow,
-    clearPendingRevealSidebarRow,
-    schedulePendingRevealFrame,
-    cancelPendingRevealFrames
-  ])
+    scrollRef
+  })
 
   const prCacheLen = useAppStore((s) => countRecordKeysByReference(s.prCache))
   const issueCacheLen = useAppStore((s) => countRecordKeysByReference(s.issueCache))
