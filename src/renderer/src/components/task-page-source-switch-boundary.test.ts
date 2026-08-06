@@ -3,6 +3,14 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'task-page-surface.tsx'), 'utf8')
+const TASK_PAGE_SOURCE_PROVIDER_TOOLBAR = readFileSync(
+  join(__dirname, 'task-page-source-provider-toolbar.tsx'),
+  'utf8'
+)
+const TASK_PAGE_PROVIDER_DIALOG_STATE = readFileSync(
+  join(__dirname, 'use-task-page-provider-dialog-state.ts'),
+  'utf8'
+)
 const TASK_PAGE_SOURCE_SELECTION = readFileSync(
   join(__dirname, 'use-task-page-source-selection.ts'),
   'utf8'
@@ -58,6 +66,8 @@ describe('TaskPage source switching host boundary', () => {
     expect(TASK_PAGE_GITHUB_ITEM_ROWS.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_GITHUB_ITEM_ACTIONS.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_LINEAR_COLLECTION_VIEWS.split('\n').length).toBeLessThan(400)
+    expect(TASK_PAGE_SOURCE_PROVIDER_TOOLBAR.split('\n').length).toBeLessThan(200)
+    expect(TASK_PAGE_PROVIDER_DIALOG_STATE.split('\n').length).toBeLessThan(300)
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageStoreBindings()')
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageSourceSelection(taskPageStoreBindings)')
     expect(TASK_PAGE_SOURCE_SELECTION).toContain('pageData.taskSource ?? defaultTaskSource')
@@ -88,13 +98,14 @@ describe('TaskPage source switching host boundary', () => {
   it('switches task source without mutating the focused run host', () => {
     const section = sourceBetween(
       TASK_PAGE_SOURCE,
-      '{visibleSourceOptions.map((source) => {',
-      "{taskSource === 'linear' && linearConnected ?"
+      'const handleTaskSourceChange = useCallback(',
+      'const taskPageListChromeHidden = shouldHideTaskPageListChrome('
     )
 
     expect(section).toContain('openTaskPage(')
-    expect(section).toContain('taskSource: source.id')
-    expect(section).toContain('defaultTaskSource: source.id')
+    expect(section).toContain('taskSource: nextSource')
+    expect(section).toContain('defaultTaskSource: nextSource')
+    expect(TASK_PAGE_SOURCE_PROVIDER_TOOLBAR).toContain('onSourceChange(source.id)')
     expect(section).not.toContain('activeRuntimeEnvironmentId')
     expect(section).not.toContain('projectHostSetupId')
     expect(section).not.toContain('workspaceRunContext')
@@ -135,7 +146,7 @@ describe('TaskPage source switching host boundary', () => {
     expect(sourceContextBuilder).toContain('buildGitLabProviderIdentity(gitlabProjectRef)')
 
     const openGitLabDetail = sourceBetween(
-      TASK_PAGE_SOURCE,
+      TASK_PAGE_PROVIDER_DIALOG_STATE,
       'const openGitLabDetailPage = useCallback(',
       'const patchTaskPageWorkItemRows = useCallback('
     )

@@ -58,6 +58,7 @@ import { useTaskPageGitHubIssueCreationState } from './use-task-page-github-issu
 import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
 import { useTaskPageGitHubListDataState } from './use-task-page-github-list-data-state'
 import { useTaskPageJiraProjectListState } from './use-task-page-jira-project-list-state'
+import { useTaskPageLinearTeamListState } from './use-task-page-linear-team-list-state'
 import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
 import { useTaskPageLinearProjectDetailState } from './use-task-page-linear-project-detail-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
@@ -118,7 +119,6 @@ import type {
   JiraIssue,
   JiraProject,
   JiraProjectStatusOrder,
-  JiraPriority,
   LinearIssue,
   LinearProjectDetail,
   LinearProjectSummary,
@@ -134,13 +134,13 @@ import { shouldSuppressEnterSubmit } from '@/lib/new-workspace-enter-guard'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import { isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
 import { linearTeamStates, linearUpdateIssue } from '@/runtime/runtime-linear-client'
-import { jiraListPriorities } from '@/runtime/runtime-jira-client'
 import {
   sortJiraIssues,
   type JiraIssueSortColumn,
   type JiraIssueSortDirection,
   type JiraPrioritiesBySite
 } from './jira-issue-sorter'
+import { useTaskPageJiraPrioritiesState } from './use-task-page-jira-priorities-state'
 import { TaskPageJiraListSurface } from './task-page-jira-list-surface'
 import { TaskPageJiraToolbar } from './task-page-jira-toolbar'
 import { TaskPageGitLabToolbar } from './task-page-gitlab-toolbar'
@@ -816,40 +816,15 @@ export default function TaskPage(): React.JSX.Element {
     return JSON.stringify([...new Set(siteIds)].sort())
   }, [jiraIssues, selectedJiraSiteId])
 
-  useEffect(() => {
-    if (taskSource !== 'jira' || !jiraConnected || jiraOrderBy !== 'priority') {
-      setJiraPrioritiesBySite((current) => (current.size === 0 ? current : new Map()))
-      return
-    }
-    let cancelled = false
-    const jiraPrioritySiteIds = JSON.parse(jiraPrioritySiteIdsKey) as string[]
-    void Promise.all(
-      jiraPrioritySiteIds.map(async (siteId) => {
-        try {
-          return [
-            siteId,
-            await jiraListPriorities(jiraTaskSourceContext ?? settings, siteId)
-          ] as const
-        } catch {
-          return [siteId, [] as JiraPriority[]] as const
-        }
-      })
-    ).then((prioritiesBySite) => {
-      if (!cancelled) {
-        setJiraPrioritiesBySite(new Map(prioritiesBySite))
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [
+  useTaskPageJiraPrioritiesState({
     jiraConnected,
     jiraOrderBy,
     jiraPrioritySiteIdsKey,
     jiraTaskSourceContext,
+    setJiraPrioritiesBySite,
     settings,
     taskSource
-  ])
+  })
 
   const handleJiraSort = useCallback(
     (column: JiraIssueSortColumn) => {
@@ -940,45 +915,17 @@ export default function TaskPage(): React.JSX.Element {
   const [availableTeams, setAvailableTeams] = useState<LinearTeam[]>([])
   const [linearTeamRefreshNonce, setLinearTeamRefreshNonce] = useState(0)
 
-  useEffect(() => {
-    if (!taskResumeApplied) {
-      return
-    }
-    if (taskSource !== 'linear' || !linearConnected) {
-      setAvailableTeams([])
-      return
-    }
-    let cancelled = false
-    const cachedTeams = getCachedLinearTeams(selectedLinearWorkspaceId, {
-      sourceContext: linearTaskSourceContext
-    })
-    // Why: on a workspace switch, drop the prior workspace's teams during the pending fetch but seed from the workspace-scoped cache.
-    setAvailableTeams(cachedTeams ?? [])
-    void listLinearTeams(selectedLinearWorkspaceId, { sourceContext: linearTaskSourceContext })
-      .then((teams) => {
-        if (!cancelled) {
-          setAvailableTeams(teams)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          console.warn('[TaskPage] Failed to fetch Linear teams')
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    taskSource,
-    linearConnected,
-    selectedLinearWorkspaceId,
-    linearTeamRefreshNonce,
-    taskResumeApplied,
+  useTaskPageLinearTeamListState({
     getCachedLinearTeams,
+    linearConnected,
+    linearTeamRefreshNonce,
+    linearTaskSourceContext,
     listLinearTeams,
-    linearTaskSourceContext
-  ])
+    selectedLinearWorkspaceId,
+    setAvailableTeams,
+    taskResumeApplied,
+    taskSource
+  })
 
   const [availableJiraProjects, setAvailableJiraProjects] = useState<JiraProject[]>([])
   const [jiraProjectsLoading, setJiraProjectsLoading] = useState(false)
