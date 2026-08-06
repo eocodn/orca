@@ -121,6 +121,8 @@ export class AgentHookServerRuntime extends AgentHookServerIngest {
     for (const key of this.runtimeObservedStatusPaneKeys) if (belongsToTab(key)) paneKeys.add(key)
     for (const key of this.currentAuthorityObservations.keys())
       if (belongsToTab(key)) paneKeys.add(key)
+    for (const key of this.promptSentDedupeByPaneKey.keys())
+      if (belongsToTab(key)) paneKeys.add(key)
     for (const key of this.persistedAuthorityCommitmentsByPaneKey.keys())
       if (belongsToTab(key)) paneKeys.add(key)
     for (const key of this.hydratedLaunchTokenHashByPaneKey.keys())
