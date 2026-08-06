@@ -2,7 +2,7 @@
 import { type JSX, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { useBrowserAnimatedVisualCycle } from './browser-animated-visual-cycle'
-import { ClaudeIcon } from '@/components/status-bar/icons'
+import { ClaudeIcon } from '@/lib/agent-icon-glyphs'
 import { useShortcutLabel } from '@/hooks/useShortcutLabel'
 import { FeatureWallClickRing } from './FeatureWallClickRing'
 import { translate } from '@/i18n/i18n'
@@ -389,5 +389,4 @@ export function BrowserAnimatedVisual(props: {
     </div>
   )
 }
-
 

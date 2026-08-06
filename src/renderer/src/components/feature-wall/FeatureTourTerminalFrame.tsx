@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { ClaudeIcon } from '../status-bar/icons'
+import { ClaudeIcon } from '@/lib/agent-icon-glyphs'
 import { translate } from '@/i18n/i18n'
 
 export function FeatureTourTerminalFrame(): JSX.Element {

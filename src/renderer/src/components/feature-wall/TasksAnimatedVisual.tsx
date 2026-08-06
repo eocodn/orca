@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { ArrowRight, CircleDot } from 'lucide-react'
 import { AgentStateDot } from '@/components/AgentStateDot'
-import { ClaudeIcon } from '../status-bar/icons'
+import { ClaudeIcon } from '@/lib/agent-icon-glyphs'
 import { FeatureWallClickRing } from './FeatureWallClickRing'
 import { translate } from '@/i18n/i18n'
 

@@ -1,6 +1,6 @@
 import type { JSX, ReactNode, RefObject } from 'react'
 import { cn } from '@/lib/utils'
-import { ClaudeIcon } from '../status-bar/icons'
+import { ClaudeIcon } from '@/lib/agent-icon-glyphs'
 import { CodexInlineIcon } from './feature-tour-preview-glyphs'
 import { translate } from '@/i18n/i18n'
 

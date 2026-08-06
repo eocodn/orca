@@ -1,7 +1,7 @@
 /* The public facade keeps the feature-wall import stable; this module owns the storyboard surface. */
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { ClaudeIcon } from '@/components/status-bar/icons'
+import { ClaudeIcon } from '@/lib/agent-icon-glyphs'
 import { useShortcutLabel } from '@/hooks/useShortcutLabel'
 import { FeatureWallClickRing } from './FeatureWallClickRing'
 import { translate } from '@/i18n/i18n'
@@ -295,4 +295,3 @@ export function CursorIcon(): JSX.Element {
     </svg>
   )
 }
-

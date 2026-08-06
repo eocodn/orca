@@ -1,4 +1,4 @@
-import { ClaudeIcon, OpenAIIcon } from '../../status-bar/icons'
+import { ClaudeIcon, OpenAIIcon } from '@/lib/agent-icon-glyphs'
 import { cn } from '../../../lib/utils'
 import { translate } from '@/i18n/i18n'
 
