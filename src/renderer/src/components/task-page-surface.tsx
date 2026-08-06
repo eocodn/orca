@@ -51,10 +51,12 @@ import { TaskPageLinearIssueBody } from './task-page-linear-issue-body'
 import { useTaskPageLinearComposerState } from './use-task-page-linear-composer-state'
 import { useTaskPageLinearDetailState } from './use-task-page-linear-detail-state'
 import { useTaskPageJiraDetailState } from './use-task-page-jira-detail-state'
+import { useTaskPageJiraIssueCreationState } from './use-task-page-jira-issue-creation-state'
 import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-state'
 import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
 import { useTaskPageGitHubIssueCreationState } from './use-task-page-github-issue-creation-state'
 import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
+import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import {
@@ -140,18 +142,8 @@ import {
 import { shouldSuppressEnterSubmit } from '@/lib/new-workspace-enter-guard'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import { isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
-import {
-  linearCreateIssue,
-  linearGetIssue,
-  linearTeamStates,
-  linearUpdateIssue
-} from '@/runtime/runtime-linear-client'
-import {
-  jiraCreateIssue,
-  jiraGetIssue,
-  jiraListProjects,
-  jiraListPriorities
-} from '@/runtime/runtime-jira-client'
+import { linearTeamStates, linearUpdateIssue } from '@/runtime/runtime-linear-client'
+import { jiraListProjects, jiraListPriorities } from '@/runtime/runtime-jira-client'
 import {
   sortJiraIssues,
   type JiraIssueSortColumn,
@@ -189,10 +181,7 @@ import {
   getLinearIssuePageState,
   type LinearIssueListRow
 } from './task-page-linear-list-model'
-import {
-  buildJiraCreateCustomFields,
-  getJiraProjectSelectionKey
-} from './task-page-jira-create-model'
+import { getJiraProjectSelectionKey } from './task-page-jira-create-model'
 import {
   type GitHubTaskKind,
   type GitHubModeButton,
@@ -2600,188 +2589,38 @@ export default function TaskPage(): React.JSX.Element {
     setSelectedLinearProjectDetail
   })
 
-  const handleCreateNewLinearIssue = useCallback(async (): Promise<void> => {
-    if (!newLinearIssueTargetTeam) {
-      return
-    }
-    const title = newLinearIssueTitle.trim()
-    if (!title || newLinearIssueSubmitting) {
-      return
-    }
-    if (
-      selectedLinearProject &&
-      newLinearIssueProjectId === selectedLinearProject.id &&
-      newLinearIssueTargetTeam.workspaceId !== selectedLinearProject.workspaceId
-    ) {
-      toast.error(
-        translate(
-          'auto.components.TaskPage.1e1b2ad8f2',
-          'Select a team from the project workspace before filing this issue.'
-        )
-      )
-      return
-    }
-    setNewLinearIssueSubmitting(true)
-    const submitProviderRuntimeContextKey = providerRuntimeContextKey
-    try {
-      const result = await linearCreateIssue(linearTaskSourceContext ?? settings, {
-        teamId: newLinearIssueTargetTeam.id,
-        title,
-        description: newLinearIssueBody || undefined,
-        workspaceId: newLinearIssueTargetTeam.workspaceId,
-        stateId: newLinearIssueStateId || undefined,
-        priority: newLinearIssuePriority,
-        assigneeId: newLinearIssueAssigneeId || undefined,
-        projectId: newLinearIssueProjectId || null,
-        labelIds: newLinearIssueLabelIds.length > 0 ? newLinearIssueLabelIds : undefined
-      })
-      if (submitProviderRuntimeContextKey !== providerRuntimeContextKeyRef.current) {
-        return
-      }
-      if (!result.ok) {
-        toast.error(
-          result.error ||
-            translate('auto.components.TaskPage.7437e340b4', 'Failed to create issue.')
-        )
-        return
-      }
-      toast.success(
-        translate('auto.components.TaskPage.cb98f0350c', 'Created {{value0}}', {
-          value0: result.identifier
-        }),
-        {
-          action: result.url
-            ? {
-                label: translate('auto.components.TaskPage.9c57663908', 'View'),
-                onClick: () => window.open(result.url, '_blank')
-              }
-            : undefined
-        }
-      )
-      setNewLinearIssueOpen(false)
-      setNewLinearIssueTitle('')
-      setNewLinearIssueBody('')
-      setNewLinearIssueStateId(null)
-      setNewLinearIssueAssigneeId(null)
-      setNewLinearIssuePriority(0)
-      setNewLinearIssueProjectId(null)
-      setNewLinearIssueLabelIds([])
-      setLinearRefreshNonce((n) => n + 1)
-      useAppStore.getState().recordFeatureInteraction('linear-tasks')
-
-      // Why: auto-select the new issue so the user sees exactly what was filed (mirrors the GitHub create-issue flow).
-      void linearGetIssue(
-        linearTaskSourceContext ?? settings,
-        result.id,
-        newLinearIssueTargetTeam.workspaceId
-      )
-        .then((full) => {
-          if (submitProviderRuntimeContextKey !== providerRuntimeContextKeyRef.current) {
-            return
-          }
-          if (full) {
-            setSelectedLinearIssue(full, { allowOutsideList: true })
-          }
-        })
-        .catch(() => {})
-    } finally {
-      if (submitProviderRuntimeContextKey === providerRuntimeContextKeyRef.current) {
-        setNewLinearIssueSubmitting(false)
-      }
-    }
-  }, [
+  const handleCreateNewLinearIssue = useTaskPageLinearIssueCreationState({
+    linearTaskSourceContext,
+    newLinearIssueAssigneeId,
     newLinearIssueBody,
+    newLinearIssueLabelIds,
+    newLinearIssuePriority,
+    newLinearIssueProjectId,
+    newLinearIssueStateId,
     newLinearIssueSubmitting,
     newLinearIssueTargetTeam,
     newLinearIssueTitle,
-    newLinearIssueStateId,
-    newLinearIssuePriority,
-    newLinearIssueAssigneeId,
-    newLinearIssueProjectId,
-    newLinearIssueLabelIds,
+    newLinearProjectSelected: selectedLinearProject,
     providerRuntimeContextKey,
-    selectedLinearProject,
-    setSelectedLinearIssue,
-    linearTaskSourceContext,
-    settings
-  ])
+    providerRuntimeContextKeyRef,
+    settings,
+    setLinearRefreshNonce,
+    setNewLinearIssueAssigneeId,
+    setNewLinearIssueBody,
+    setNewLinearIssueLabelIds,
+    setNewLinearIssueOpen,
+    setNewLinearIssuePriority,
+    setNewLinearIssueProjectId,
+    setNewLinearIssueStateId,
+    setNewLinearIssueSubmitting,
+    setNewLinearIssueTitle,
+    setSelectedLinearIssue
+  })
 
-  const handleCreateNewJiraIssue = useCallback(async (): Promise<void> => {
-    if (!newJiraIssueTargetProject || !newJiraIssueTargetType) {
-      return
-    }
-    const title = newJiraIssueTitle.trim()
-    if (!title || newJiraIssueSubmitting || hasMissingJiraCreateField || jiraCreateFieldsLoading) {
-      return
-    }
-    const customFields = buildJiraCreateCustomFields(
-      visibleJiraCreateFields,
-      newJiraIssueCustomFieldValues
-    )
-    setNewJiraIssueSubmitting(true)
-    const submitProviderRuntimeContextKey = providerRuntimeContextKey
-    try {
-      const result = await jiraCreateIssue(jiraTaskSourceContext ?? settings, {
-        siteId: newJiraIssueTargetProject.siteId,
-        projectId: newJiraIssueTargetProject.id,
-        issueTypeId: newJiraIssueTargetType.id,
-        title,
-        description: newJiraIssueBody || undefined,
-        customFields
-      })
-      if (submitProviderRuntimeContextKey !== providerRuntimeContextKeyRef.current) {
-        return
-      }
-      if (!result.ok) {
-        toast.error(
-          result.error ||
-            translate('auto.components.TaskPage.aec5feeb69', 'Failed to create Jira issue.')
-        )
-        return
-      }
-      toast.success(
-        translate('auto.components.TaskPage.cb98f0350c', 'Created {{value0}}', {
-          value0: result.key
-        }),
-        {
-          action: result.url
-            ? {
-                label: translate('auto.components.TaskPage.9c57663908', 'View'),
-                onClick: () => window.open(result.url, '_blank')
-              }
-            : undefined
-        }
-      )
-      setNewJiraIssueOpen(false)
-      setNewJiraIssueTitle('')
-      setNewJiraIssueBody('')
-      setNewJiraIssueCustomFieldValues({})
-      setJiraRefreshNonce((n) => n + 1)
-
-      void jiraGetIssue(
-        jiraTaskSourceContext ?? settings,
-        result.key,
-        newJiraIssueTargetProject.siteId
-      )
-        .then((full) => {
-          if (submitProviderRuntimeContextKey !== providerRuntimeContextKeyRef.current) {
-            return
-          }
-          if (full) {
-            // Why: list cache may still be fresh after create; insert the new row locally before selecting so the inspector stays open.
-            setJiraIssues((prev) => [full, ...prev.filter((issue) => issue.key !== full.key)])
-            setSelectedJiraIssue(full)
-          }
-        })
-        .catch(() => {})
-    } finally {
-      if (submitProviderRuntimeContextKey === providerRuntimeContextKeyRef.current) {
-        setNewJiraIssueSubmitting(false)
-      }
-    }
-  }, [
+  const handleCreateNewJiraIssue = useTaskPageJiraIssueCreationState({
     hasMissingJiraCreateField,
     jiraCreateFieldsLoading,
+    jiraTaskSourceContext,
     newJiraIssueBody,
     newJiraIssueCustomFieldValues,
     newJiraIssueSubmitting,
@@ -2789,11 +2628,18 @@ export default function TaskPage(): React.JSX.Element {
     newJiraIssueTargetType,
     newJiraIssueTitle,
     providerRuntimeContextKey,
-    jiraTaskSourceContext,
+    providerRuntimeContextKeyRef,
     settings,
+    setJiraIssues,
+    setJiraRefreshNonce,
+    setNewJiraIssueBody,
+    setNewJiraIssueCustomFieldValues,
+    setNewJiraIssueOpen,
+    setNewJiraIssueSubmitting,
+    setNewJiraIssueTitle,
     setSelectedJiraIssue,
     visibleJiraCreateFields
-  ])
+  })
 
   const githubTasksBusy = tasksLoading || tasksRefreshing || tasksFiltering
 
