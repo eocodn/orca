@@ -5,8 +5,6 @@ import { prChecksCacheSuffix, prCommentsCacheSuffix } from '@/store/slices/githu
 import { getGitHubPRCacheKey, getGitHubRepoCacheKey } from '@/store/slices/github-cache-key'
 import { useActiveWorktree, useRepoById } from '@/store/selectors'
 import { useChecksPanelTerminalWorktree } from './use-checks-panel-terminal-worktree'
-import { openHttpLink } from '@/lib/http-link-routing'
-import { isMacPlatform } from '../terminal-pane/terminal-link-open-hints'
 import { isFolderRepo } from '../../../../shared/repo-kind'
 import type { PRCommentsListSelectionClearRequest } from './pr-comments-list-selection'
 import { ENTRY_REFRESH_GRACE_MS, shouldEntryRefresh } from './checks-entry-refresh'
@@ -24,9 +22,7 @@ import type {
 } from '../../../../shared/hosted-review'
 import { resolveHostedReviewCreationProvider } from '../../../../shared/hosted-review-creation-providers'
 import { normalizeGlobalWindowsRuntimeDefault } from '../../../../shared/project-execution-runtime'
-import { normalizeHostedReviewHeadRef } from '../../../../shared/hosted-review-refs'
 import { getHostedReviewCacheKey, refreshHostedReviewCard } from '@/store/slices/hosted-review'
-import { toast } from 'sonner'
 import { useConfirmationDialog } from '@/components/confirmation-dialog'
 import { type ChecksPanelReview, selectChecksPanelReview } from './checks-panel-review'
 import { selectReviewCacheEntry } from './review-cache-entry-selection'
@@ -38,13 +34,6 @@ import {
 import { installWindowVisibilityTimeoutPoller } from '@/lib/window-visibility-timeout-poller'
 import { resolveChecksPanelReviewLookup } from './checks-panel-review-lookup-authority'
 import { computeChecksPanelConfirmedReadiness, isChecksPanelHardErrorCleared, type ChecksPanelConfirmedReadinessInput } from './checks-panel-review-creation'
-import {
-  cancelRuntimeGeneratePullRequestFields,
-  generateRuntimePullRequestFields,
-  getRuntimeGitScope,
-  
-  type RuntimeGeneratePullRequestFieldsOverrides
-} from '@/runtime/runtime-git-client'
 import {
   buildChecksPanelGitStatusContextKey,
   readChecksPanelPublishActionGitStatus,
@@ -60,15 +49,7 @@ import {
 } from './checks-panel-pr-refresh-request'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
 import { useMountedRef } from '@/hooks/useMountedRef'
-import { gitLabPipelineJobsToPRChecks } from '../../../../shared/gitlab-pipeline-checks'
 import { getWorktreeGitIdentityDisplay } from '@/lib/worktree-git-identity-display'
-import {
-  DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS,
-  resolveSourceControlAiEnabled,
-  resolveSourceControlAiForOperation,
-  resolveSourceControlAiPrCreationDefaults
-} from '../../../../shared/source-control-ai'
-import { getCommitMessageModelDiscoveryHostKeyForScope } from '../../../../shared/commit-message-host-key'
 import type {
   SourceControlActionRecipe,
   SourceControlLaunchActionId
@@ -80,32 +61,10 @@ import {
 import { resolveSourceControlLaunchPlatform } from '@/lib/source-control-launch-platform'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
-import { formatCreateError } from './create-pull-request-review-copy'
+import { getPullRequestGenerationRecordKey, getPullRequestGenerationSeedRestoreKey } from '@/store/slices/pull-request-generation'
 import { stripBaseRef, useCreatePullRequestDialogFields } from './useCreatePullRequestDialogFields'
 import { localizedHostedReviewCopy } from '@/i18n/hosted-review-localized-copy'
-import { translate } from '@/i18n/i18n'
 import type { PRCommentGroup } from '@/lib/pr-comment-groups'
-import { openChecksPanelHostedReviewUrl } from './checks-panel-hosted-review-click-routing'
-import {
-  clearPullRequestGenerationRequiresPushBeforeCreate,
-  createRunningPullRequestGenerationRecord,
-  getPullRequestGenerationRecordKey,
-  getPullRequestGenerationSeedRestoreKey,
-  markPullRequestGenerationRequiresPushBeforeCreate,
-  markPullRequestGenerationTerminalSeedRestored,
-  resolvePullRequestGenerationCancel,
-  resolvePullRequestGenerationFailure,
-  resolvePullRequestGenerationSuccess,
-  shouldHydratePullRequestGenerationResult,
-  type PullRequestFieldRevisions,
-  type PullRequestGenerationContext,
-  type PullRequestGenerationFields
-} from '@/store/slices/pull-request-generation'
-import {
-  fetchGitLabMRDetailsForChecks,
-  gitLabMRCommentsToPRComments,
-  
-} from './checks-panel-runtime-data'
 import { renderChecksPanel } from './checks-panel-runtime-render'
 import { useChecksPanelRefresh } from './checks-panel-refresh-controller'
 import { useChecksPanelCommentActions } from './checks-panel-comment-actions-controller'
@@ -114,6 +73,9 @@ import { useChecksPanelFixChecks } from './checks-panel-ai-fix-controller'
 import { useChecksPanelReviewEffects } from './checks-panel-review-effects'
 import { useChecksPanelGitEffects } from './checks-panel-git-effects'
 import { useChecksPanelFetch } from './checks-panel-fetch-controller'
+import { useChecksPanelLinkActions } from './checks-panel-link-actions'
+import { useChecksPanelCreateAction } from './checks-panel-create-action'
+import { useChecksPanelGeneration } from './checks-panel-generation-controller'
 
 const RUNTIME_SSH_STATUS_REFRESH_MS = 3000
 
@@ -731,329 +693,30 @@ export default function ChecksPanel(): React.JSX.Element {
     record: activePullRequestGenerationRecord
   })
   const createPrPushFirst = activePullRequestGenerationRecord?.requiresPushBeforeCreate === true
-  const handleBranchChangedByPullRequestGeneration = useCallback(
-    async (generationKey: string, context: PullRequestGenerationContext): Promise<void> => {
-      if (!context.worktreeId || !context.worktreePath) {
-        return
-      }
-      // Why: AI PR generation can rebase before summarizing; persist the push requirement since ChecksPanel unmounts when users leave the tab.
-      updatePullRequestGenerationRecord(generationKey, (record) =>
-        markPullRequestGenerationRequiresPushBeforeCreate({
-          record,
-          requestId: context.requestId
-        })
-      )
-      try {
-        await fetchUpstreamStatus(
-          context.worktreeId,
-          context.worktreePath,
-          context.connectionId,
-          undefined,
-          {
-            runtimeTargetSettings: context.runtimeTargetSettings
-          }
-        )
-      } catch (error) {
-        console.warn('[ChecksPanel] post-generation upstream refresh failed', error)
-      }
-    },
-    [fetchUpstreamStatus, updatePullRequestGenerationRecord]
-  )
-  const prCreationDefaults = useMemo(() => {
-    if (!settings) {
-      return DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS
-    }
-    const hostKey = getCommitMessageModelDiscoveryHostKeyForScope(
-      getRuntimeGitScope(settings, repo?.connectionId)
-    )
-    const resolved = resolveSourceControlAiForOperation({
-      settings,
-      repo,
-      operation: 'pullRequest',
-      discoveryHostKey: hostKey,
-      prCreationProductDefaults: DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS
-    })
-    return resolved.ok
-      ? resolved.value.prCreationDefaults
-      : resolveSourceControlAiPrCreationDefaults({
-          settings,
-          repo,
-          prCreationProductDefaults: DEFAULT_SOURCE_CONTROL_AI_PR_CREATION_DEFAULTS
-        })
-  }, [repo, settings])
-  const sourceControlAiActionsVisible = useMemo(
-    () => (settings ? resolveSourceControlAiEnabled({ settings, repo }) : false),
-    [repo, settings]
-  )
-  // Confirmed-only gate: a confirmed composer survives transient refresh failures, but a failure never *opens* a never-confirmed Create.
-  const createComposerOpen =
-    !isFolder && !activeReview && Boolean(branch) && confirmedReadiness.confirmed
-  const handleGeneratePullRequestFieldsForActive = useCallback(
-    async (
-      fields: PullRequestGenerationFields,
-      fieldRevisions: PullRequestFieldRevisions,
-      overrides?: RuntimeGeneratePullRequestFieldsOverrides
-    ): Promise<void> => {
-      if (!repo || !activePullRequestGenerationKey || !activeWorktreePath || !branch) {
-        return
-      }
-      const generationKey = activePullRequestGenerationKey
-      if (
-        useAppStore.getState().pullRequestGenerationRecords[generationKey]?.status === 'running'
-      ) {
-        return
-      }
-      const requestId = allocatePullRequestGenerationRequestId()
-      const context: PullRequestGenerationContext = {
-        worktreeId: activeWorktreeId,
-        worktreePath: activeWorktreePath,
-        connectionId: getConnectionId(activeWorktreeId) ?? undefined,
-        requestId,
-        repoId: repo.id,
-        branch,
-        runtimeTargetSettings: ownerSettings
-      }
-      const seed = { ...fields }
-      const previousRequiresPushBeforeCreate =
-        useAppStore.getState().pullRequestGenerationRecords[generationKey]
-          ?.requiresPushBeforeCreate === true
-      // Why: ChecksPanel unsets the composer on navigate-away; persist the request so generation can finish in the background.
-      const runningRecord = createRunningPullRequestGenerationRecord(context, seed, fieldRevisions)
-      setPullRequestGenerationRecord(
-        generationKey,
-        previousRequiresPushBeforeCreate
-          ? { ...runningRecord, requiresPushBeforeCreate: true }
-          : runningRecord
-      )
-
-      try {
-        const result = await generateRuntimePullRequestFields(
-          {
-            // Why: route generation by the worktree owner captured at click time.
-            settings: context.runtimeTargetSettings,
-            worktreeId: context.worktreeId,
-            worktreePath: context.worktreePath,
-            connectionId: context.connectionId
-          },
-          {
-            base: stripBaseRef(seed.base.trim()),
-            title: seed.title,
-            body: seed.body,
-            draft: seed.draft,
-            provider: hostedReviewCreateProvider,
-            useTemplate: prCreationDefaults.useTemplate
-          },
-          overrides
-        )
-        if (result.branchChangedByPreparation) {
-          await handleBranchChangedByPullRequestGeneration(generationKey, context)
-        }
-        if (result.success) {
-          useAppStore.getState().recordFeatureInteraction('ai-pr-generation')
-        }
-        updatePullRequestGenerationRecord(generationKey, (record) => {
-          if (!result.success) {
-            return resolvePullRequestGenerationFailure({
-              record,
-              requestId,
-              canceled: result.canceled,
-              error: result.canceled ? null : result.error
-            })
-          }
-          return resolvePullRequestGenerationSuccess({
-            record,
-            requestId,
-            result: {
-              base: stripBaseRef(result.fields.base),
-              title: result.fields.title,
-              body: result.fields.body,
-              draft: result.fields.draft
-            }
-          })
-        })
-      } catch (error) {
-        updatePullRequestGenerationRecord(generationKey, (record) =>
-          resolvePullRequestGenerationFailure({
-            record,
-            requestId,
-            error:
-              error instanceof Error ? error.message : 'Failed to generate pull request details'
-          })
-        )
-      }
-    },
-    [
-      activePullRequestGenerationKey,
-      activeWorktreeId,
-      activeWorktreePath,
-      allocatePullRequestGenerationRequestId,
-      branch,
-      handleBranchChangedByPullRequestGeneration,
-      hostedReviewCreateProvider,
-      ownerSettings,
-      prCreationDefaults.useTemplate,
-      repo,
-      setPullRequestGenerationRecord,
-      updatePullRequestGenerationRecord
-    ]
-  )
-  const handleCancelGeneratePullRequestFieldsForActive = useCallback((): void => {
-    if (!activePullRequestGenerationKey) {
-      return
-    }
-    const record = prGenerationRecords[activePullRequestGenerationKey]
-    if (!record || record.status !== 'running') {
-      return
-    }
-    const generationKey = activePullRequestGenerationKey
-    updatePullRequestGenerationRecord(generationKey, (current) => {
-      if (!current || current.context.requestId !== record.context.requestId) {
-        return null
-      }
-      return resolvePullRequestGenerationCancel(current)
-    })
-    void cancelRuntimeGeneratePullRequestFields({
-      // Why: Stop must target the request owner, not the currently focused worktree.
-      settings: record.context.runtimeTargetSettings,
-      worktreeId: record.context.worktreeId,
-      worktreePath: record.context.worktreePath,
-      connectionId: record.context.connectionId
-    }).catch((error) => {
-      updatePullRequestGenerationRecord(generationKey, (current) => {
-        if (!current || current.context.requestId !== record.context.requestId) {
-          return null
-        }
-        return {
-          ...current,
-          status: 'failed',
-          error: error instanceof Error ? error.message : 'Failed to stop pull request generation',
-          hydrated: false
-        }
-      })
-    })
-  }, [activePullRequestGenerationKey, prGenerationRecords, updatePullRequestGenerationRecord])
-  const handlePullRequestGenerationSeedRestored = useCallback((): void => {
-    if (!activePullRequestGenerationKey || !activePullRequestGenerationRecord) {
-      return
-    }
-    const requestId = activePullRequestGenerationRecord.context.requestId
-    updatePullRequestGenerationRecord(activePullRequestGenerationKey, (record) =>
-      markPullRequestGenerationTerminalSeedRestored({
-        record,
-        requestId
-      })
-    )
-  }, [
+  const generation = useChecksPanelGeneration({
     activePullRequestGenerationKey,
     activePullRequestGenerationRecord,
-    updatePullRequestGenerationRecord
-  ])
-  const {
-    aiGenerationEnabled: prAiGenerationEnabled,
-    base: prBase,
-    setBase: setPrBase,
-    title: prTitle,
-    setTitle: setPrTitle,
-    body: prBody,
-    setBody: setPrBody,
-    draft: prDraft,
-    setDraft: setPrDraft,
-    baseQuery: prBaseQuery,
-    setBaseQuery: setPrBaseQuery,
-    baseResults: prBaseResults,
-    setBaseResults: setPrBaseResults,
-    baseSearchError: prBaseSearchError,
-    generating: prGenerating,
-    generateError: prGenerateError,
-    generateDisabled: prGenerateDisabled,
-    generateDisabledReason: prGenerateDisabledReason,
-    handleGenerate: handleGeneratePullRequestFields,
-    handleCancelGenerate: handleCancelGeneratePullRequestFields,
-    applyGeneratedFields: applyGeneratedPullRequestFields,
-    initializedFromEligibility: pullRequestFieldsInitialized
-  } = useCreatePullRequestDialogFields({
-    open: createComposerOpen,
-    repoId: repo?.id ?? '',
-    worktreeId: activeWorktreeId,
-    worktreePath: activeWorktreePath ?? '',
+    activePullRequestGenerationSeedRestoreKey,
+    activeReview,
+    activeWorktreeId,
+    activeWorktreePath,
+    allocatePullRequestGenerationRequestId,
     branch,
-    eligibility: hostedReviewCreation,
+    confirmedReadiness,
+    fetchUpstreamStatus,
+    hostedReviewCreateProvider,
+    hostedReviewCreation,
+    isFolder,
+    ownerSettings,
+    pr,
+    prGenerationRecords,
     repo,
-    settings: ownerSettings,
-    submitting: isCreatingPr,
-    prCreationDefaults,
-    sourceControlAiActionsVisible,
-    // Preserve the draft when a hard refresh error hides the composer so title/body/base survive recovery for the same context.
-    retainDraftWhenClosed: true,
-    generation: {
-      generating: activePullRequestGenerationRecord?.status === 'running',
-      generateError: activePullRequestGenerationRecord?.error ?? null,
-      seedRestoreKey: activePullRequestGenerationSeedRestoreKey,
-      seed: activePullRequestGenerationRecord?.seed ?? null,
-      seedFieldRevisions: activePullRequestGenerationRecord?.seedFieldRevisions ?? null,
-      onSeedRestored: handlePullRequestGenerationSeedRestored,
-      onGenerate: (fields, fieldRevisions, overrides) => {
-        void handleGeneratePullRequestFieldsForActive(fields, fieldRevisions, overrides)
-      },
-      onCancelGenerate: handleCancelGeneratePullRequestFieldsForActive
-    }
-  })
-  useEffect(() => {
-    // Why: PR generation can finish while this composer is hidden by a worktree switch; hydrate once the original composer is visible again.
-    if (
-      !activePullRequestGenerationKey ||
-      !activePullRequestGenerationRecord ||
-      activePullRequestGenerationRecord.status !== 'succeeded' ||
-      !activePullRequestGenerationRecord.result ||
-      activePullRequestGenerationRecord.hydrated ||
-      !pullRequestFieldsInitialized
-    ) {
-      return
-    }
-    if (
-      !shouldHydratePullRequestGenerationResult({
-        record: activePullRequestGenerationRecord
-      })
-    ) {
-      return
-    }
-    applyGeneratedPullRequestFields(
-      activePullRequestGenerationRecord.result,
-      activePullRequestGenerationRecord.seedFieldRevisions
-    )
-    updatePullRequestGenerationRecord(activePullRequestGenerationKey, (record) => {
-      if (
-        !record ||
-        record.context.requestId !== activePullRequestGenerationRecord.context.requestId
-      ) {
-        return null
-      }
-      return {
-        ...record,
-        hydrated: true
-      }
-    })
-  }, [
-    activePullRequestGenerationKey,
-    activePullRequestGenerationRecord,
-    applyGeneratedPullRequestFields,
-    pullRequestFieldsInitialized,
-    updatePullRequestGenerationRecord
-  ])
-  const handlePrBaseChange = useCallback(
-    (value: string): void => {
-      setCreatePrError(null)
-      setPrBase(value)
-    },
-    [setPrBase]
-  )
-  const handlePrTitleChange = useCallback(
-    (value: string): void => {
-      setCreatePrError(null)
-      setPrTitle(value)
-    },
-    [setPrTitle]
-  )
+    setCreatePrError,
+    setPullRequestGenerationRecord,
+    settings,
+    updatePullRequestGenerationRecord,
+  }) as { handleGeneratePullRequestFields: () => Promise<void>; handleGeneratePullRequestFieldsForActive: (...args: never[]) => void; handleCancelGeneratePullRequestFields: () => void; handlePullRequestGenerationSeedRestored: () => void; handlePrBaseChange: (value: string) => void; handlePrTitleChange: (value: string) => void; prAiGenerationEnabled: boolean; prBase: string; setPrBase: (value: string) => void; prTitle: string; setPrTitle: (value: string) => void; prBody: string; setPrBody: (value: string) => void; prDraft: boolean; setPrDraft: (value: boolean) => void; prBaseQuery: string; setPrBaseQuery: (value: string) => void; prBaseResults: unknown[]; setPrBaseResults: (value: unknown[]) => void; prBaseSearchError: string | null; prGenerating: boolean; prGenerateError: string | null; prGenerateDisabled: boolean; prGenerateDisabledReason: string | null; applyGeneratedPullRequestFields: (...args: never[]) => void; pullRequestFieldsInitialized: boolean }
+  const { handleGeneratePullRequestFields, handleGeneratePullRequestFieldsForActive, handleCancelGeneratePullRequestFields, handlePullRequestGenerationSeedRestored, handlePrBaseChange, handlePrTitleChange, prAiGenerationEnabled, prBase, setPrBase, prTitle, setPrTitle, prBody, setPrBody, prDraft, setPrDraft, prBaseQuery, setPrBaseQuery, prBaseResults, setPrBaseResults, prBaseSearchError, prGenerating, prGenerateError, prGenerateDisabled, prGenerateDisabledReason, applyGeneratedPullRequestFields, pullRequestFieldsInitialized } = generation
   const stateRequestKey =
     repo && branch
       ? activeGitLabReview
@@ -1723,421 +1386,54 @@ export default function ChecksPanel(): React.JSX.Element {
     stateRequestKey,
     setIsFixingChecksWithAI
   })
-  // Open hosted review in browser
-  const handleOpenPR = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
-      if (activeReview?.url) {
-        // Why: route through openHttpLink so PR/MR links honor the "open links in app" setting; Shift+Cmd/Ctrl is the escape hatch.
-        openChecksPanelHostedReviewUrl({
-          url: activeReview.url,
-          event: event.nativeEvent,
-          isMac: isMacPlatform(),
-          worktreeId: activeWorktreeId
-        })
-      }
-    },
-    [activeReview, activeWorktreeId]
-  )
-
-  const handleUnlinkPullRequest = useCallback(() => {
-    if (!activeWorktreeId || activeReview?.provider !== 'github' || linkedPR === null) {
-      return
-    }
-    void updateWorktreeMeta(activeWorktreeId, { linkedPR: null })
-  }, [activeReview?.provider, activeWorktreeId, linkedPR, updateWorktreeMeta])
-
-  const handleLinkAnotherPullRequest = useCallback(() => {
-    if (!activeWorktreeId || !activeWorktree || activeReview?.provider !== 'github') {
-      return
-    }
-    openModal('edit-meta', {
-      worktreeId: activeWorktreeId,
-      currentDisplayName: activeWorktree.displayName,
-      currentIssue: activeWorktree.linkedIssue,
-      currentPR: activeWorktree.linkedPR ?? activeReview.number,
-      currentComment: activeWorktree.comment,
-      focus: 'pr',
-      afterSave: ({ updates }: { updates?: { linkedPR?: unknown } }) => {
-        const nextLinkedPR = updates?.linkedPR
-        if (typeof nextLinkedPR === 'number') {
-          void refreshLinkedGitHubPullRequest(nextLinkedPR)
-        }
-      }
-    })
-  }, [activeReview, activeWorktree, activeWorktreeId, openModal, refreshLinkedGitHubPullRequest])
-
-  const pushBeforeCreatePullRequest = useCallback(async (): Promise<boolean> => {
-    if (!activeWorktreeId || !activeWorktree?.path) {
-      return false
-    }
-    const connectionId = activeConnectionId ?? undefined
-    try {
-      await pushBranch(
-        activeWorktreeId,
-        activeWorktree.path,
-        false,
-        connectionId,
-        activeWorktree.pushTarget,
-        { runtimeTargetSettings: ownerSettings }
-      )
-      await fetchUpstreamStatus(activeWorktreeId, activeWorktree.path, connectionId, undefined, {
-        runtimeTargetSettings: ownerSettings
-      })
-      return true
-    } catch {
-      return false
-    }
-  }, [
+  const { handleOpenPR, handleUnlinkPullRequest, handleLinkAnotherPullRequest, pushBeforeCreatePullRequest, handlePublishBranch, handleSyncBranch, handlePullRequestCreated } = useChecksPanelLinkActions({
     activeConnectionId,
-    activeWorktree,
+    activeReview,
     activeWorktreeId,
+    branch,
+    fallbackGitHubPRNumber,
+    fetchHostedReviewForBranch,
     fetchUpstreamStatus,
-    ownerSettings,
-    pushBranch
-  ])
-
-  const handlePublishBranch = useCallback(async (): Promise<void> => {
-    if (
-      !activeWorktreeId ||
-      !activeWorktree?.path ||
-      isPublishingBranch ||
-      isRemoteOperationActive
-    ) {
-      return
-    }
-    const connectionId = activeConnectionId ?? undefined
-    setIsPublishingBranch(true)
-    try {
-      await pushBranch(
-        activeWorktreeId,
-        activeWorktree.path,
-        true,
-        connectionId,
-        activeWorktree.pushTarget,
-        { runtimeTargetSettings: ownerSettings }
-      )
-      await fetchUpstreamStatus(
-        activeWorktreeId,
-        activeWorktree.path,
-        connectionId,
-        activeWorktree.pushTarget,
-        { runtimeTargetSettings: ownerSettings }
-      )
-    } catch {
-      // Store remote actions already surface the publish failure toast.
-    } finally {
-      // Why: publishing changes the upstream boundary the panel uses to decide between Publish, Create PR, and Push & Create PR.
-      setGitStatusRefreshNonce((value) => value + 1)
-      setIsPublishingBranch(false)
-    }
-  }, [
-    activeWorktree,
-    activeWorktreeId,
-    activeConnectionId,
-    fetchUpstreamStatus,
-    isPublishingBranch,
     isRemoteOperationActive,
+    linkedAzureDevOpsPR,
+    linkedBitbucketPR,
+    linkedGitLabMR,
+    linkedGiteaPR,
+    linkedPR,
+    openModal,
     ownerSettings,
-    pushBranch
-  ])
-
-  // Sync via the same runtime-scoped operation and push target as Source Control so a `needs_sync` create blocker is actionable here.
-  const handleSyncBranch = useCallback(async (): Promise<void> => {
-    if (!activeWorktreeId || !activeWorktree?.path || isSyncingBranch || isRemoteOperationActive) {
-      return
-    }
-    const connectionId = activeConnectionId ?? undefined
-    setIsSyncingBranch(true)
-    try {
-      await syncBranch(
-        activeWorktreeId,
-        activeWorktree.path,
-        connectionId,
-        activeWorktree.pushTarget,
-        {
-          runtimeTargetSettings: ownerSettings
-        }
-      )
-      await fetchUpstreamStatus(
-        activeWorktreeId,
-        activeWorktree.path,
-        connectionId,
-        activeWorktree.pushTarget,
-        { runtimeTargetSettings: ownerSettings }
-      )
-    } catch {
-      // Store remote actions already surface the sync failure toast.
-    } finally {
-      // Why: syncing changes ahead/behind, which the panel uses to choose between Sync, Create PR, and Push & Create PR.
-      setGitStatusRefreshNonce((value) => value + 1)
-      setIsSyncingBranch(false)
-    }
-  }, [
-    activeWorktree,
-    activeWorktreeId,
-    activeConnectionId,
-    fetchUpstreamStatus,
-    isSyncingBranch,
-    isRemoteOperationActive,
-    ownerSettings,
-    syncBranch
-  ])
-
-  const handlePullRequestCreated = useCallback(
-    async (result: {
-      provider: HostedReviewProvider
-      number: number
-      url: string
-    }): Promise<void> => {
-      if (!repo || !branch) {
-        return
-      }
-      setRightSidebarOpen(true)
-      setRightSidebarTab('checks')
-      try {
-        if (activeWorktreeId && result.provider === 'github') {
-          await updateWorktreeMeta(activeWorktreeId, { linkedPR: result.number })
-        }
-        if (activeWorktreeId && result.provider === 'gitlab') {
-          await updateWorktreeMeta(activeWorktreeId, { linkedGitLabMR: result.number })
-        }
-        if (activeWorktreeId && result.provider === 'azure-devops') {
-          await updateWorktreeMeta(activeWorktreeId, { linkedAzureDevOpsPR: result.number })
-        }
-        if (activeWorktreeId && result.provider === 'gitea') {
-          await updateWorktreeMeta(activeWorktreeId, { linkedGiteaPR: result.number })
-        }
-        const linkedReviewNumbers = {
-          linkedGitHubPR: result.provider === 'github' ? result.number : linkedPR,
-          fallbackGitHubPR: fallbackGitHubPRNumber,
-          linkedGitLabMR: result.provider === 'gitlab' ? result.number : linkedGitLabMR,
-          linkedBitbucketPR,
-          linkedAzureDevOpsPR:
-            result.provider === 'azure-devops' ? result.number : linkedAzureDevOpsPR,
-          linkedGiteaPR: result.provider === 'gitea' ? result.number : linkedGiteaPR
-        }
-        if (result.provider === 'gitlab') {
-          const refreshedReview = await refreshHostedReviewCard(fetchHostedReviewForBranch, {
-            repoPath: repo.path,
-            repoId: repo.id,
-            branch,
-            ...linkedReviewNumbers
-          })
-          const refreshedGitLabReview =
-            refreshedReview?.provider === 'gitlab' ? refreshedReview : null
-          await fetchGitLabDetails({
-            mrNumberOverride: result.number,
-            headShaOverride: refreshedGitLabReview?.headSha,
-            commitAsCurrent: true
-          })
-          return
-        }
-        if (result.provider !== 'github') {
-          await refreshHostedReviewCard(fetchHostedReviewForBranch, {
-            repoPath: repo.path,
-            repoId: repo.id,
-            branch,
-            ...linkedReviewNumbers
-          })
-          return
-        }
-        await refreshLinkedGitHubPullRequest(result.number)
-      } catch {
-        // The success toast keeps the hosted URL available; Checks can be refreshed manually.
-      }
-    },
-    [
-      branch,
-      fallbackGitHubPRNumber,
-      fetchGitLabDetails,
-      fetchHostedReviewForBranch,
-      linkedAzureDevOpsPR,
-      linkedBitbucketPR,
-      linkedGiteaPR,
-      linkedGitLabMR,
-      linkedPR,
-      refreshLinkedGitHubPullRequest,
-      repo,
-      setRightSidebarOpen,
-      setRightSidebarTab,
-      activeWorktreeId,
-      updateWorktreeMeta
-    ]
-  )
-
-  const handleCreatePullRequest = useCallback(async (): Promise<void> => {
-    if (!repo || !branch || !createComposerOpen || prGenerating || createPrInFlightRef.current) {
-      return
-    }
-
-    const requestContextKey = panelContextKey
-    const isCurrentCreateRequest = (): boolean =>
-      panelContextKeyRef.current === requestContextKey &&
-      createPrInFlightRef.current === requestContextKey
-    const base = stripBaseRef(prBase).trim()
-    const title = prTitle.trim()
-    const worktreePath = activeWorktreePath ?? repo.path
-    if (!title) {
-      setCreatePrError(
-        translate(
-          'auto.components.right.sidebar.SourceControl.f3a8b2c1d0e5',
-          'Enter a {{value0}} title.',
-          {
-            value0: hostedReviewCreateCopy.reviewLabel
-          }
-        )
-      )
-      return
-    }
-    if (!base || stripBaseRef(base).toLowerCase() === stripBaseRef(branch).toLowerCase()) {
-      setCreatePrError(
-        translate(
-          'auto.components.right.sidebar.SourceControl.ae743199cd',
-          'Choose a different base branch before creating a {{value0}}.',
-          { value0: hostedReviewCreateCopy.reviewLabel }
-        )
-      )
-      return
-    }
-
-    createPrInFlightRef.current = requestContextKey
-    setIsCreatingPr(true)
-    setCreatePrError(null)
-    let pushed = false
-    try {
-      const shouldPushBeforeCreate =
-        createPrPushFirst || hostedReviewCreation?.blockedReason === 'needs_push'
-      if (shouldPushBeforeCreate) {
-        const ok = await pushBeforeCreatePullRequest()
-        if (!isCurrentCreateRequest()) {
-          return
-        }
-        if (!ok) {
-          setCreatePrError('Push failed. Resolve the push error, then try again.')
-          return
-        }
-        pushed = true
-      }
-      const result = await createHostedReview(repo.path, {
-        repoId: repo.id,
-        provider: hostedReviewCreateProvider,
-        base,
-        head: normalizeHostedReviewHeadRef(branch),
-        title,
-        body: prBody,
-        draft: prDraft,
-        worktreePath,
-        useTemplate: prCreationDefaults.useTemplate
-      })
-      if (!isCurrentCreateRequest()) {
-        return
-      }
-      if (result.ok) {
-        await handlePullRequestCreated({
-          provider: hostedReviewCreateProvider,
-          number: result.number,
-          url: result.url
-        })
-        if (prCreationDefaults.openAfterCreate) {
-          openHttpLink(result.url, { worktreeId: activeWorktreeId })
-        }
-        if (activePullRequestGenerationKey) {
-          updatePullRequestGenerationRecord(
-            activePullRequestGenerationKey,
-            clearPullRequestGenerationRequiresPushBeforeCreate
-          )
-        }
-        return
-      }
-      if (result.existingReview?.url) {
-        const number = result.existingReview.number
-        toast.success(
-          number
-            ? translate(
-                'auto.components.right.sidebar.ChecksPanel.b6ce28da5b',
-                '{{value0}} #{{value1}} is already open',
-                { value0: hostedReviewCreateCopy.titleLabel, value1: number }
-              )
-            : translate(
-                'auto.components.right.sidebar.ChecksPanel.cf9e69f3be',
-                '{{value0}} is already open',
-                { value0: hostedReviewCreateCopy.titleLabel }
-              ),
-          {
-            action: {
-              label: translate(
-                'auto.components.right.sidebar.ChecksPanel.192e686e57',
-                'Open on {{value0}}',
-                { value0: hostedReviewCreateCopy.providerName }
-              ),
-              onClick: () => window.api.shell.openUrl(result.existingReview!.url)
-            }
-          }
-        )
-        if (number) {
-          await handlePullRequestCreated({
-            provider: hostedReviewCreateProvider,
-            number,
-            url: result.existingReview.url
-          })
-          if (activePullRequestGenerationKey) {
-            updatePullRequestGenerationRecord(
-              activePullRequestGenerationKey,
-              clearPullRequestGenerationRequiresPushBeforeCreate
-            )
-          }
-          return
-        }
-      }
-      setCreatePrError(formatCreateError(result, pushed, hostedReviewCreateCopy.shortLabel))
-    } catch (error) {
-      if (!isCurrentCreateRequest()) {
-        return
-      }
-      setCreatePrError(
-        error instanceof Error
-          ? error.message
-          : translate(
-              'auto.components.right.sidebar.SourceControl.e2b7a1c0d9f4',
-              'Failed to create {{value0}}',
-              { value0: hostedReviewCreateCopy.reviewLabel }
-            )
-      )
-    } finally {
-      if (createPrInFlightRef.current === requestContextKey) {
-        createPrInFlightRef.current = null
-        setIsCreatingPr(false)
-        setGitStatusRefreshNonce((value) => value + 1)
-      }
-    }
-  }, [
-    activeWorktreePath,
-    activeWorktreeId,
+    pr,
+    pushBranch,
+    repo,
+    setGitStatusRefreshNonce,
+    setIsPublishingBranch,
+    setIsSyncingBranch,
+    setRightSidebarOpen,
+    setRightSidebarTab,
+    syncBranch,
+    updateWorktreeMeta,
+  }) as { handleOpenPR: (event: React.MouseEvent<HTMLButtonElement>) => void; handleUnlinkPullRequest: () => void; handleLinkAnotherPullRequest: () => void; pushBeforeCreatePullRequest: () => Promise<boolean>; handlePublishBranch: () => Promise<void>; handleSyncBranch: () => Promise<void>; handlePullRequestCreated: (result: { provider: HostedReviewProvider; number: number; url: string }) => Promise<void> }
+  const handleCreatePullRequest = useChecksPanelCreateAction({
     activePullRequestGenerationKey,
+    activeWorktreeId,
+    activeWorktreePath,
     branch,
     createComposerOpen,
     createHostedReview,
+    createPrInFlightRef,
     createPrPushFirst,
-    handlePullRequestCreated,
-    hostedReviewCreateCopy.providerName,
-    hostedReviewCreateCopy.reviewLabel,
-    hostedReviewCreateCopy.shortLabel,
-    hostedReviewCreateCopy.titleLabel,
+    hostedReviewCreateCopy,
     hostedReviewCreateProvider,
-    hostedReviewCreation?.blockedReason,
+    hostedReviewCreation,
     panelContextKey,
-    prBase,
-    prBody,
-    prCreationDefaults.openAfterCreate,
-    prCreationDefaults.useTemplate,
-    prDraft,
-    prGenerating,
-    prTitle,
-    pushBeforeCreatePullRequest,
+    panelContextKeyRef,
+    prCreationDefaults,
     repo,
-    updatePullRequestGenerationRecord
-  ])
-
+    setCreatePrError,
+    setGitStatusRefreshNonce,
+    setIsCreatingPr,
+    updatePullRequestGenerationRecord,
+  }) as () => Promise<void>
   return renderChecksPanel({
     activeConflictReview,
     activeConnectionId,
@@ -2351,5 +1647,16 @@ export default function ChecksPanel(): React.JSX.Element {
     pullRequestFieldsInitialized,
     handleGeneratePullRequestFields,
     handleCancelGeneratePullRequestFields,
+    isPublishingBranch,
+    isSyncingBranch,
+    prBase,
+    prTitle,
+    prBody,
+    prDraft,
+    prGenerating,
+    isCreatingPr,
+    setPrBase,
+    setPrTitle,
+    applyGeneratedPullRequestFields,
   })
 }
