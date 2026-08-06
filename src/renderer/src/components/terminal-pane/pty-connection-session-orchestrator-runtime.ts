@@ -51,11 +51,6 @@ import {
 } from './terminal-dead-session-reconcile'
 import type { PtyConnectionDeps } from './pty-connection-types'
 import {
-  consumeCommittedPtyShutdownExit,
-  deferPtyShutdownExit,
-  isHostPtySleepPending
-} from './pty-shutdown-exit-deferral'
-import {
   cancelPendingSafeFitContinuations,
   safeFit,
   safeFitAndThen,
@@ -336,6 +331,7 @@ import { createPtyConnectionColdRestoreStartup } from './pty-connection-cold-res
 import { createPtyConnectionStartupCommandDelivery } from './pty-connection-startup-command-delivery'
 import { createPtyConnectionDirectSshRetryController } from './pty-connection-direct-ssh-retry-controller'
 import { createPtyConnectionAgentNotificationController } from './pty-connection-agent-notification-controller'
+import { createPtyConnectionExitController } from './pty-connection-exit-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -1253,51 +1249,6 @@ export function connectPanePty(
     }))
   })
 
-  const focusSurvivingPtyPaneAfterKeptExit = (): void => {
-    if (manager.getActivePane()?.id !== pane.id) {
-      return
-    }
-    const hasPtyBinding = (paneId: number): boolean =>
-      Boolean(deps.paneTransportsRef.current.get(paneId)?.getPtyId())
-    const repairedActiveLeafId =
-      useAppStore.getState().terminalLayoutsByTabId[deps.tabId]?.activeLeafId ?? null
-    const repairedActivePaneId = repairedActiveLeafId
-      ? manager.getNumericIdForLeaf(repairedActiveLeafId)
-      : null
-    const targetPaneId =
-      repairedActivePaneId !== null &&
-      repairedActivePaneId !== pane.id &&
-      hasPtyBinding(repairedActivePaneId)
-        ? repairedActivePaneId
-        : (manager
-            .getPanes()
-            .find((candidate) => candidate.id !== pane.id && hasPtyBinding(candidate.id))?.id ??
-          null)
-    if (targetPaneId !== null) {
-      // Why: when a newborn split PTY dies before output/input, the pane stays
-      // mounted for diagnostics; move live focus to the sibling that still owns a PTY.
-      manager.setActivePane(targetPaneId, {
-        focus: deps.isActiveRef.current && deps.isVisibleRef.current
-      })
-    }
-  }
-
-  // Why: the transport's own exit handler (pty-transport.ts) normally makes
-  // onExit run-at-most-once by clearing connected/ptyId + unregistering BEFORE
-  // calling it. reconcileIfSessionDead drives onExit directly (bypassing that),
-  // so this guards the body so reconcile and any racing real/synthetic pty:exit
-  // for the same id close the pane exactly once. Scoped to the exiting ptyId
-  // (not a bare boolean): an intentional suppressed restart keeps the pane
-  // mounted and rebinds to a NEW ptyId, and that replacement's later real exit
-  // must still run — a one-shot boolean would strand the pane on rebind.
-  let handledExitPtyId: string | null = null
-  // Why: tracks the ptyId of a genuine fresh spawn — onPtySpawn fires only for
-  // fresh spawns, never reattach/coldRestore (pty-transport.ts). Lets the
-  // sole-pane exit branch tell "this newborn shell died on its own" from "a
-  // reattached persisted session was already dead", so a failing .envrc/direnv
-  // on a brand-new worktree keeps its dead terminal visible instead of bouncing
-  // the user to Landing.
-  let spawnedFreshPtyId: string | null = null
   // Why: hibernation suppresses its kill's exit while the pane is hidden, so
   // onExit must not tear the pane down — but the pane still owes the user a
   // wake. Remember the hibernated PTY and exact record; the visibility-resume
@@ -1375,73 +1326,22 @@ export function connectPanePty(
       })
     return claimKey
   }
-  const onExit = (ptyId: string, opts: { preserveRendererBinding?: boolean } = {}): void => {
-    if (handledExitPtyId === ptyId) {
-      return
-    }
-    if (deps.isPtyShutdownPending(ptyId) || isHostPtySleepPending(ptyId, runtimeEnvironmentId)) {
-      // Why: the transport emits exit once; replay it only after a verified commit so rollback keeps renderer state retryable.
-      deferPtyShutdownExit(ptyId, (settlement) => {
-        if (settlement === 'committed') {
-          onExit(ptyId, { preserveRendererBinding: true })
-        }
-      })
-      return
-    }
-    const preserveRendererBinding =
-      opts.preserveRendererBinding === true ||
-      consumeCommittedPtyShutdownExit(ptyId, runtimeEnvironmentId)
-    resetRendererOrderedSeqForPtyExit(ptyId)
-    const currentPaneTransport = deps.paneTransportsRef.current.get(pane.id)
-    if (currentPaneTransport && currentPaneTransport !== transport) {
-      // Why: an old transport can deliver a late exit after this pane has
-      // rebound to a replacement PTY; only clear ownership for the exited id.
-      handledExitPtyId = ptyId
-      if (!preserveRendererBinding) {
-        deps.clearTabPtyId(deps.tabId, ptyId)
-      }
-      deps.consumeSuppressedPtyExit(ptyId)
-      scheduleRuntimeGraphSync()
-      return
-    }
-    handledExitPtyId = ptyId
-    agentCompletionCoordinator.dispose()
-    dropSideEffectFactConsumer()
-    // Why: main clears gate state on PTY exit too; this only resets the
-    // pane-local marker so a reused pane cannot skip re-marking a new PTY.
-    releaseHiddenRendererPtyDelivery()
-    clearPanePtyFitBinding()
-    // Why: the negotiating application died with its PTY; any replacement
-    // session starts with kitty keyboard flags at zero.
-    kittyKeyboardModes.reset()
-    const isSuppressedExit = deps.consumeSuppressedPtyExit(ptyId) || preserveRendererBinding
-    if (!isSuppressedExit) {
-      deps.clearExitedPanePtyLayoutBinding(pane.id, ptyId)
-    }
-    deps.clearRuntimePaneTitle(deps.tabId, pane.id)
-    if (!preserveRendererBinding) {
-      deps.clearTabPtyId(deps.tabId, ptyId)
-    }
-    // Why: if the PTY exits abruptly (Ctrl-D, crash, shell termination) without
-    // first emitting a non-agent title, the cache timer would persist as stale
-    // state. Clear it unconditionally on PTY exit.
-    deps.setCacheTimerStartedAt(cacheKey, null)
-    // Why: a dead terminal has no running agent — remove its explicit status
-    // entry so the hover UI only shows what is running *now*.
-    useAppStore.getState().removeAgentStatus(cacheKey)
-    useAppStore.getState().clearPaneForegroundAgent(cacheKey)
-    // The runtime graph is the CLI's source for live terminal bindings, so
-    // we must republish when a pane loses its PTY instead of waiting for a
-    // broader layout change that may never happen.
-    scheduleRuntimeGraphSync()
-    // Why: intentional restarts suppress the PTY exit ahead of time so the
-    // pane stays mounted and can reconnect in place. Without consuming the
-    // suppression here, split-pane Codex restarts would still close the pane
-    // because this handler runs before the tab-level close logic sees the exit.
-    if (isSuppressedExit) {
-      // Why: the action that suppressed the exit owns whether the leaf binding
-      // is a wake hint or should be discarded; runtime cleanup above is enough.
-      manager.setPaneGpuRendering(pane.id, true)
+  const exitController = createPtyConnectionExitController({
+    pane,
+    manager,
+    deps,
+    cacheKey,
+    getRuntimeEnvironmentId: () => runtimeEnvironmentId,
+    getTransport: () => transport,
+    resetRendererOrderedSeqForExit: (ptyId) => resetRendererOrderedSeqForPtyExit(ptyId),
+    releaseCurrentPaneRuntime: () => {
+      agentCompletionCoordinator.dispose()
+      dropSideEffectFactConsumer()
+      releaseHiddenRendererPtyDelivery()
+      clearPanePtyFitBinding()
+      kittyKeyboardModes.reset()
+    },
+    onSuppressedExit: (ptyId) => {
       const sleepingRecordEntry = getSleepingRecordForPane(useAppStore.getState())
       if (
         sleepingRecordEntry &&
@@ -1478,46 +1378,13 @@ export function connectPanePty(
       } else if (pendingHibernatedWakeTarget?.ptyId === ptyId) {
         pendingHibernatedWakeTarget = null
       }
-      return
-    }
-    manager.setPaneGpuRendering(pane.id, true)
-    const panes = manager.getPanes()
-    if (panes.length <= 1) {
-      // Why: a worktree's sole newborn terminal can die on shell startup — e.g.
-      // a PR branch ships an .envrc whose direnv command fails, so the login
-      // shell exits non-zero immediately. Routing that through onPtyExitRef
-      // closes the only tab, which deactivates the worktree (setActiveWorktree
-      // (null)) and strands the user on the Landing screen for a worktree that
-      // was just created. Keep the dead pane mounted instead (mirrors the
-      // freshly-split guard below) so the direnv error stays visible and the
-      // worktree stays active. Gated on a genuine fresh spawn (onPtySpawn fired
-      // for this ptyId — reattach/coldRestore skip it) that the user never typed
-      // into, so a reattached-dead session or an explicit `exit` still tears
-      // down as before.
-      if (spawnedFreshPtyId === ptyId && !Number.isFinite(lastTerminalInputAt)) {
-        return
-      }
-      deps.onPtyExitRef.current(ptyId)
-      return
-    }
-    if (
-      deps.isVisibleRef.current &&
-      hadExistingPaneTransportAtConnect &&
-      !restoredPtyIdForTransport &&
-      !Number.isFinite(lastTerminalInputAt) &&
-      !hasReceivedPtyOutput
-    ) {
-      // Why: a freshly split pane can lose its newborn PTY during setup; keep
-      // the split visible so the failed session does not immediately collapse.
-      // Hidden panes must close instead: the hidden-delivery gate withholds
-      // their bytes, so "no output" is meaningless there, and keeping one
-      // strands a binding-less pane the exit path never revisits — it remounts
-      // as a permanently blank ghost on reveal.
-      focusSurvivingPtyPaneAfterKeptExit()
-      return
-    }
-    manager.closePane(pane.id)
-  }
+    },
+    getHadExistingPaneTransportAtConnect: () => hadExistingPaneTransportAtConnect,
+    getRestoredPtyIdForTransport: () => restoredPtyIdForTransport,
+    getLastTerminalInputAt: () => lastTerminalInputAt,
+    getHasReceivedPtyOutput: () => hasReceivedPtyOutput
+  })
+  const { onExit } = exitController
 
   // Why: on app restart, restored Claude tabs may already be idle when we first
   // see their title. The agent status tracker only fires onBecameIdle for
@@ -1803,7 +1670,7 @@ export function connectPanePty(
     // newborn shell that dies before any interaction (e.g. failing direnv on a
     // just-created worktree) can be kept visible rather than tearing down the
     // worktree. Reattach/coldRestore skip onPtySpawn (pty-transport.ts).
-    spawnedFreshPtyId = ptyId
+    exitController.noteFreshSpawn(ptyId)
     // Why: Command Code has no prompt-start hook. Seed the visible working row
     // once the PTY exists, then let real hook events refine or complete it.
     bindActivePanePty(ptyId, { seedInitialAgentStatus: true })
@@ -6916,7 +6783,7 @@ export function connectPanePty(
     if (
       !currentPtyId ||
       // Why: this exit was already handled — onExit guards it too, but skipping here avoids a redundant shouldReconcile evaluation.
-      handledExitPtyId === currentPtyId ||
+      exitController.hasHandledExit(currentPtyId) ||
       !shouldReconcileDeadSession({
         ptyId: currentPtyId,
         connectionId: transport.getConnectionId?.(),
@@ -6937,7 +6804,7 @@ export function connectPanePty(
     const requestedPtyId = transport.getPtyId()
     if (
       !requestedPtyId ||
-      requestedPtyId === handledExitPtyId ||
+      exitController.hasHandledExit(requestedPtyId) ||
       requestedPtyId.startsWith(REMOTE_PTY_ID_PREFIX) ||
       transport.getConnectionId?.() != null
     ) {
@@ -6960,7 +6827,7 @@ export function connectPanePty(
         if (
           !currentPtyId ||
           currentPtyId !== requestedPtyId ||
-          handledExitPtyId === currentPtyId ||
+          exitController.hasHandledExit(currentPtyId) ||
           !shouldReconcileMissingSession({
             ptyId: currentPtyId,
             connectionId: transport.getConnectionId?.(),
