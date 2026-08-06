@@ -1,11 +1,14 @@
 import type { PreloadApi } from '../../../preload/api-preload-surface'
 import type { ClientRuntimeHostAdapter } from './client-runtime'
+import type { TauriHostBridge } from './tauri-host-bridge'
 
 export type ClientRuntimeAdapterKind = 'electron' | 'web' | 'tauri'
 
 export type ClientRuntimeAdapter = {
   kind: ClientRuntimeAdapterKind
   host: ClientRuntimeHostAdapter
+  /** Typed Rust host commands; unsupported renderer services remain unavailable. */
+  tauriHost?: TauriHostBridge
 }
 
 export class ClientRuntimeCapabilityUnavailableError extends Error {
