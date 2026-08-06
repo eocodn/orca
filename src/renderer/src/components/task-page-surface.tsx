@@ -21,8 +21,6 @@ import { TaskPageLinearIssueDialog } from './task-page-linear-issue-dialog'
 import { getLinearIssueGridTemplate, getJiraStatusTone } from './task-page-linear-cells'
 import { PRChecksCell, PRMergeCell } from './task-page-github-pr-cells'
 import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
-import { TaskPageLinearIssueList } from './task-page-linear-issue-list'
-import { TaskPageLinearIssueBoard } from './task-page-linear-issue-board'
 import { TaskPageLinearToolbar } from './task-page-linear-toolbar'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
@@ -62,7 +60,7 @@ import GitLabItemDialog from '@/components/GitLabItemDialog'
 import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
-import { LinearCollectionNotice } from '@/components/linear-project-view-surfaces'
+import { TaskPageLinearIssueBody } from './task-page-linear-issue-body'
 import {
   getSingleJiraProjectScope,
   getTaskPageJiraStatusOrderScopeKey,
@@ -110,10 +108,6 @@ import {
   shouldForceLinearIssueListRead,
   teamDerivedFacetsForPrimaryTeamChange
 } from '@/components/task-page-linear-issue-request'
-import {
-  resolveLinearIssueEmptyKind,
-  shouldOfferLinearIssueFetchMore
-} from '@/components/task-page-linear-issue-empty-state'
 import {
   emptyLinearIssueAttributeFilter,
   linearIssueAttributeFilterSignature,
@@ -219,7 +213,6 @@ import {
   getLinearIssuePageState,
   type LinearIssueListRow
 } from './task-page-linear-list-model'
-import { PaginationBar } from './task-page-pagination'
 import {
   buildJiraCreateCustomFields,
   compareJiraProjectsByDisplayLabel,
@@ -5097,259 +5090,87 @@ export default function TaskPage(): React.JSX.Element {
                 shownIssueCount={pagedLinearIssues.length}
               />
 
-              {linearViewMode === 'list' && linearGroupBy === 'none' ? (
-                <div
-                  className="grid h-8 flex-none items-center gap-3 border-b border-border/50 bg-muted/25 px-3 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground max-lg:!hidden lg:grid-cols-[var(--linear-grid-template)] [&>span]:min-w-0 [&>span]:truncate"
-                  style={linearIssueGridStyle}
-                >
-                  <span>{translate('auto.components.TaskPage.37e7ee311e', 'Key')}</span>
-                  <span>{translate('auto.components.TaskPage.b1eaa18ace', 'Issue')}</span>
-                  {effectiveLinearDisplayProperties.has('labels') ? (
-                    <span>{translate('auto.components.TaskPage.d0ca4aa1d0', 'Labels')}</span>
-                  ) : null}
-                  {effectiveLinearDisplayProperties.has('team') ? (
-                    <span>{translate('auto.components.TaskPage.a98cbe7664', 'Team')}</span>
-                  ) : null}
-                  {effectiveLinearDisplayProperties.has('state') ? (
-                    <span>{translate('auto.components.TaskPage.154b0fa623', 'Status')}</span>
-                  ) : null}
-                  {effectiveLinearDisplayProperties.has('assignee') ? (
-                    <span className="text-center">
-                      {translate('auto.components.TaskPage.d2a876ca53', 'Assignee')}
-                    </span>
-                  ) : null}
-                  {effectiveLinearDisplayProperties.has('updated') ? (
-                    <span>{translate('auto.components.TaskPage.f362667d55', 'Updated')}</span>
-                  ) : null}
-                  <span />
-                </div>
-              ) : null}
-
-              <div
-                className="min-h-0 flex-1 overflow-y-auto scrollbar-sleek"
-                style={{ scrollbarGutter: 'stable' }}
-              >
-                {activeLinearIssueError ? (
-                  <div className="border-b border-border px-4 py-4 text-sm text-destructive">
-                    {activeLinearIssueError}
-                  </div>
-                ) : null}
-
-                {activeLinearIssueLoading && activeLinearIssues.length === 0 ? (
-                  <div className="divide-y divide-border/50">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <div key={i} className="px-3 py-3">
-                        <div className="h-4 w-4/5 animate-pulse rounded bg-muted/70" />
-                        <div className="mt-2 h-3 w-3/5 animate-pulse rounded bg-muted/60" />
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {!activeLinearIssueLoading &&
-                activeLinearIssues.length === 0 &&
-                !activeLinearIssueError &&
-                activeLinearIssueHasCollectionError ? (
-                  <div className="px-4 py-10 text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      {translate(
-                        'auto.components.TaskPage.cc8795e07c',
-                        'Unable to load Linear issues'
-                      )}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {translate(
-                        'auto.components.TaskPage.5ed38a49e5',
-                        'Review the workspace error below, then refresh.'
-                      )}
-                    </p>
-                  </div>
-                ) : null}
-
-                {!activeLinearIssueLoading &&
-                activeLinearIssues.length === 0 &&
-                !activeLinearIssueError &&
-                !activeLinearIssueHasCollectionError ? (
-                  <div className="px-4 py-10 text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      {translate('auto.components.TaskPage.903c7af49f', 'No Linear issues found')}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {(() => {
-                        const emptyKind = resolveLinearIssueEmptyKind({
-                          hasContextLabel: Boolean(activeLinearIssueContextLabel),
-                          searchActive: linearSearchActive,
-                          attributeFilter: linearAttributeFilter,
-                          serverIssueCount: activeLinearIssues.length,
-                          filteredIssueCount: filteredLinearIssues.length
-                        })
-                        if (emptyKind === 'context') {
-                          return translate(
-                            'auto.components.TaskPage.25ff84769a',
-                            'No issues match this Linear context.'
-                          )
-                        }
-                        if (emptyKind === 'search') {
-                          return translate(
-                            'auto.components.TaskPage.2bdefbcac3',
-                            'Try a different search query.'
-                          )
-                        }
-                        if (emptyKind === 'server-attribute-filter') {
-                          return translate(
-                            'auto.components.TaskPage.linearEmptyAttributeFilter',
-                            'No issues match the selected filters. Clear a filter or try different criteria.'
-                          )
-                        }
-                        return translate(
-                          'auto.components.TaskPage.linearEmptyUnfilteredScope',
-                          'No issues in this workspace scope. Try searching or adjusting teams.'
-                        )
-                      })()}
-                    </p>
-                  </div>
-                ) : null}
-
-                {!activeLinearIssueLoading &&
-                activeLinearIssues.length > 0 &&
-                filteredLinearIssues.length === 0 ? (
-                  <div className="px-4 py-10 text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      {translate(
-                        'auto.components.TaskPage.618107fab3',
-                        'No fetched issues match the selected teams'
-                      )}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {translate(
-                        'auto.components.TaskPage.592a55611b',
-                        'Try selecting more teams or refreshing; team filters apply to the current fetched issue set.'
-                      )}
-                    </p>
-                    {shouldOfferLinearIssueFetchMore({
-                      emptyKind: 'client-team',
-                      serverHasMore: linearIssuesHasMore
-                    }) ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-3 h-7 text-xs"
-                        onClick={() => {
-                          setLinearIssueLimit((limit) =>
-                            Math.min(
-                              clampLinearIssueListLimit(limit + LINEAR_ITEM_LIMIT),
-                              LINEAR_ISSUE_LIST_MAX
-                            )
-                          )
-                        }}
-                      >
-                        {translate('auto.components.TaskPage.linearFetchMore', 'Fetch more')}
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {linearViewMode === 'board' ? (
-                  <TaskPageLinearIssueBoard
-                    sections={linearBoardSections}
-                    effectiveDisplayProperties={effectiveLinearDisplayProperties}
-                    selectedIssueId={selectedLinearIssueId}
-                    selectedWorkspaceId={selectedLinearWorkspaceId}
-                    statusBoardEnabled={linearStatusBoardEnabled}
-                    dragOverKey={linearBoardDragOverKey}
-                    draggingIssueId={linearBoardDraggingIssueId}
-                    updatingIssueIds={linearBoardUpdatingIssueIds}
-                    sourceContext={linearTaskSourceContext}
-                    onDragStart={handleLinearBoardCardDragStart}
-                    onDragOver={handleLinearBoardDragOver}
-                    onDrop={(section, event) => void handleLinearBoardDrop(section, event)}
-                    onDragEnd={() => {
-                      setLinearBoardDraggingIssueId(null)
-                      setLinearBoardDragOverKey(null)
-                    }}
-                    onOpenIssue={openLinearDetailPage}
-                    onUseIssue={handleUseLinearItem}
-                  />
-                ) : (
-                  <TaskPageLinearIssueList
-                    rows={linearIssueListRows}
-                    effectiveDisplayProperties={effectiveLinearDisplayProperties}
-                    gridStyle={linearIssueGridStyle}
-                    selectedIssueId={selectedLinearIssueId}
-                    selectedWorkspaceId={selectedLinearWorkspaceId}
-                    sourceContext={linearTaskSourceContext}
-                    onOpenIssue={openLinearDetailPage}
-                    onUseIssue={handleUseLinearItem}
-                  />
-                )}
-              </div>
-              {selectedLinearProject && linearProjectTab === 'issues' ? (
-                <>
-                  <LinearCollectionNotice
-                    errors={linearProjectIssuesResult.errors}
-                    hasMore={showLinearEmptyFilteredLoadMore}
-                    count={linearProjectIssuesResult.items.length}
-                    label={translate('auto.components.TaskPage.67662ade50', 'project issues')}
-                    onLoadMore={handleLinearEmptyFilteredLoadMore}
-                    loading={activeLinearIssueLoading}
-                    loadMoreLabel="Fetch more"
-                  />
-                  {showLinearIssuePagination ? (
-                    <div className="flex-none border-t border-border/50 bg-muted/50">
-                      <PaginationBar
-                        currentPage={visibleLinearIssuePage}
-                        totalPages={linearIssueTotalPages}
-                        loadingTarget={activeLinearIssueLoadingTargetPage}
-                        onPageChange={handleLinearIssuePageChange}
-                      />
-                    </div>
-                  ) : null}
-                </>
-              ) : selectedLinearCustomView?.model === 'issue' ? (
-                <>
-                  <LinearCollectionNotice
-                    errors={linearCustomViewIssuesResult.errors}
-                    hasMore={showLinearEmptyFilteredLoadMore}
-                    count={linearCustomViewIssuesResult.items.length}
-                    label={translate('auto.components.TaskPage.be8cf68d9f', 'view issues')}
-                    onLoadMore={handleLinearEmptyFilteredLoadMore}
-                    loading={activeLinearIssueLoading}
-                    loadMoreLabel="Fetch more"
-                  />
-                  {showLinearIssuePagination ? (
-                    <div className="flex-none border-t border-border/50 bg-muted/50">
-                      <PaginationBar
-                        currentPage={visibleLinearIssuePage}
-                        totalPages={linearIssueTotalPages}
-                        loadingTarget={activeLinearIssueLoadingTargetPage}
-                        onPageChange={handleLinearIssuePageChange}
-                      />
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <LinearCollectionNotice
-                    hasMore={showLinearEmptyFilteredLoadMore}
-                    count={linearIssues.length}
-                    label={translate('auto.components.TaskPage.d1e243795c', 'issues')}
-                    onLoadMore={handleLinearEmptyFilteredLoadMore}
-                    loading={activeLinearIssueLoading}
-                    loadMoreLabel="Fetch more"
-                  />
-                  {showLinearIssuePagination ? (
-                    <div className="flex-none border-t border-border/50 bg-muted/50">
-                      <PaginationBar
-                        currentPage={visibleLinearIssuePage}
-                        totalPages={linearIssueTotalPages}
-                        loadingTarget={activeLinearIssueLoadingTargetPage}
-                        onPageChange={handleLinearIssuePageChange}
-                      />
-                    </div>
-                  ) : null}
-                </>
-              )}
+              <TaskPageLinearIssueBody
+                linearViewMode={linearViewMode}
+                linearGroupBy={linearGroupBy}
+                linearIssueGridStyle={linearIssueGridStyle}
+                effectiveLinearDisplayProperties={effectiveLinearDisplayProperties}
+                activeLinearIssueError={activeLinearIssueError}
+                activeLinearIssueLoading={activeLinearIssueLoading}
+                activeLinearIssues={activeLinearIssues}
+                activeLinearIssueHasCollectionError={activeLinearIssueHasCollectionError}
+                activeLinearIssueContextLabel={activeLinearIssueContextLabel}
+                linearSearchActive={linearSearchActive}
+                linearAttributeFilter={linearAttributeFilter}
+                filteredLinearIssues={filteredLinearIssues}
+                linearIssuesHasMore={linearIssuesHasMore}
+                onFetchMore={() => {
+                  setLinearIssueLimit((limit) =>
+                    Math.min(
+                      clampLinearIssueListLimit(limit + LINEAR_ITEM_LIMIT),
+                      LINEAR_ISSUE_LIST_MAX
+                    )
+                  )
+                }}
+                boardProps={{
+                  sections: linearBoardSections,
+                  effectiveDisplayProperties: effectiveLinearDisplayProperties,
+                  selectedIssueId: selectedLinearIssueId,
+                  selectedWorkspaceId: selectedLinearWorkspaceId,
+                  statusBoardEnabled: linearStatusBoardEnabled,
+                  dragOverKey: linearBoardDragOverKey,
+                  draggingIssueId: linearBoardDraggingIssueId,
+                  updatingIssueIds: linearBoardUpdatingIssueIds,
+                  sourceContext: linearTaskSourceContext,
+                  onDragStart: handleLinearBoardCardDragStart,
+                  onDragOver: handleLinearBoardDragOver,
+                  onDrop: (section, event) => void handleLinearBoardDrop(section, event),
+                  onDragEnd: () => {
+                    setLinearBoardDraggingIssueId(null)
+                    setLinearBoardDragOverKey(null)
+                  },
+                  onOpenIssue: openLinearDetailPage,
+                  onUseIssue: handleUseLinearItem
+                }}
+                listProps={{
+                  rows: linearIssueListRows,
+                  effectiveDisplayProperties: effectiveLinearDisplayProperties,
+                  gridStyle: linearIssueGridStyle,
+                  selectedIssueId: selectedLinearIssueId,
+                  selectedWorkspaceId: selectedLinearWorkspaceId,
+                  sourceContext: linearTaskSourceContext,
+                  onOpenIssue: openLinearDetailPage,
+                  onUseIssue: handleUseLinearItem
+                }}
+                collectionErrors={
+                  selectedLinearProject && linearProjectTab === 'issues'
+                    ? linearProjectIssuesResult.errors
+                    : selectedLinearCustomView?.model === 'issue'
+                      ? linearCustomViewIssuesResult.errors
+                      : undefined
+                }
+                collectionCount={
+                  selectedLinearProject && linearProjectTab === 'issues'
+                    ? linearProjectIssuesResult.items.length
+                    : selectedLinearCustomView?.model === 'issue'
+                      ? linearCustomViewIssuesResult.items.length
+                      : linearIssues.length
+                }
+                collectionLabel={
+                  selectedLinearProject && linearProjectTab === 'issues'
+                    ? translate('auto.components.TaskPage.67662ade50', 'project issues')
+                    : selectedLinearCustomView?.model === 'issue'
+                      ? translate('auto.components.TaskPage.be8cf68d9f', 'view issues')
+                      : translate('auto.components.TaskPage.d1e243795c', 'issues')
+                }
+                showLinearEmptyFilteredLoadMore={showLinearEmptyFilteredLoadMore}
+                onLoadMore={handleLinearEmptyFilteredLoadMore}
+                showLinearIssuePagination={showLinearIssuePagination}
+                visibleLinearIssuePage={visibleLinearIssuePage}
+                linearIssueTotalPages={linearIssueTotalPages}
+                activeLinearIssueLoadingTargetPage={activeLinearIssueLoadingTargetPage}
+                onPageChange={handleLinearIssuePageChange}
+              />
             </div>
           )}
         </div>

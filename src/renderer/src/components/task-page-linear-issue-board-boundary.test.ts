@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 const COMPONENT_ROOT = __dirname
 const SURFACE_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-surface.tsx'), 'utf8')
+const BODY_SOURCE = readFileSync(join(COMPONENT_ROOT, 'task-page-linear-issue-body.tsx'), 'utf8')
 
 describe('TaskPage Linear issue board boundary', () => {
   it('keeps Linear board card rendering in a bounded component', () => {
@@ -13,7 +14,8 @@ describe('TaskPage Linear issue board boundary', () => {
     )
 
     expect(BOARD_SOURCE.split('\n').length).toBeLessThan(300)
-    expect(SURFACE_SOURCE).toContain("from './task-page-linear-issue-board'")
+    expect(SURFACE_SOURCE).toContain("from './task-page-linear-issue-body'")
+    expect(BODY_SOURCE).toContain("from './task-page-linear-issue-board'")
     expect(SURFACE_SOURCE).not.toContain('linearBoardSections.map((section) =>')
     expect(BOARD_SOURCE).toContain('export function TaskPageLinearIssueBoard')
     expect(BOARD_SOURCE).toContain('onDrop')
