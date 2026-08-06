@@ -102,7 +102,6 @@ import type { WorktreeSidebarStatusDropTarget } from './worktree-sidebar-drop-pr
 import {
   getReorderedWorktreeIdsToUnnest,
 } from './worktree-lineage-drag-drop'
-import { getPointerDropStatusTarget } from './worktree-list-drop-target'
 import { resolveProjectGroupHeaderColor } from './project-header-color'
 import {
   areWorktreeSelectionsEqual,
