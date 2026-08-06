@@ -112,7 +112,14 @@ fn protocol_error_code(error: ProtocolError) -> String {
         | ProtocolError::EmptyPtyProgram
         | ProtocolError::InvalidPtySize
         | ProtocolError::InvalidPtyTimeout
-        | ProtocolError::EmptyPtyExecutionTarget => "invalid_request",
+        | ProtocolError::EmptyPtyExecutionTarget
+        | ProtocolError::EmptyExecutionWorkspaceId
+        | ProtocolError::EmptyExecutionWorkerId
+        | ProtocolError::InvalidWorkerIncarnation
+        | ProtocolError::InvalidOwnershipLease
+        | ProtocolError::ExecutionTargetRemoteIdentityMismatch
+        | ProtocolError::ResponseMismatch(_)
+        | ProtocolError::InvalidFileBytesWritten => "invalid_request",
     }
     .to_string()
 }
