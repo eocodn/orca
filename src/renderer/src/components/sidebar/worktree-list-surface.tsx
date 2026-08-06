@@ -1040,106 +1040,20 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     onMoveWorktreesToStatusAtIndex
   })
 
-  const handleDocumentDrop = useCallback((event: DragEvent): void => {
-      const session = worktreeDragSessionRef.current
-      if (!session) {
-        return
-      }
-      if (!refreshWorktreeDragSession()) {
-        clearWorktreeDrag()
-        return
-      }
-      const drop = computeWorktreeDrop(event.clientY)
-      if (!drop) {
-        const container = scrollRef.current
-        const target = getEligibleLineageDropTarget(
-          container
-            ? getPointerDropStatusTarget({
-                container,
-                x: event.clientX,
-                y: event.clientY
-              })
-            : { status: null, isPinDrop: false, lineageParentId: null },
-          session.draggedIds
-        )
-        if (target.lineageParentId) {
-          event.preventDefault()
-          event.stopPropagation()
-          commitWorktreeLineageParentDrop(session.draggedIds, target.lineageParentId)
-          clearWorktreeDrag()
-          return
-        }
-        const statusDrop = target.status
-          ? computeWorktreeStatusDrop({
-              pointerY: event.clientY,
-              status: target.status,
-              draggedIds: session.reorderDraggedIds
-            })
-          : null
-        if (target.status && statusDrop) {
-          event.preventDefault()
-          event.stopPropagation()
-          onMoveWorktreesToStatusAtIndex({
-            worktreeIds: session.reorderDraggedIds,
-            status: target.status,
-            dropIndex: statusDrop.dropIndex,
-            groups: worktreeDragGroups
-          })
-          clearWorktreeDrag()
-          return
-        }
-        clearWorktreeDrag()
-        return
-      }
-      // Why: pointer still inside the source group means reorder, not status move; commit here and stop the capture handler.
-      event.preventDefault()
-      event.stopPropagation()
-      onReorderWorktrees({
-        groups: worktreeDragGroups,
-        sourceGroupKey: session.sourceGroupKey,
-        draggedIds: session.reorderDraggedIds,
-        dropIndex: getFullDropIndexForWorktreeDragUnit({
-          groups: worktreeDragUnitGroups,
-          sourceGroupKey: session.sourceGroupKey,
-          dropIndex: drop.dropIndex
-        })
-      })
-      clearReorderedWorktreeParents({
-        draggedIds: session.draggedIds,
-        sourceGroupKey: session.sourceGroupKey
-      })
-      clearWorktreeDrag()
-  }, [
-    clearWorktreeDrag,
-    clearReorderedWorktreeParents,
-    commitWorktreeLineageParentDrop,
-    computeWorktreeDrop,
-    computeWorktreeStatusDrop,
-    getEligibleLineageDropTarget,
-    onMoveWorktreesToStatusAtIndex,
-    onReorderWorktrees,
-    refreshWorktreeDragSession,
-    scrollRef,
-    worktreeDragGroups,
-    worktreeDragUnitGroups
-  ])
-
-  const handleDocumentDragEnd = useCallback(() => {
-    if (worktreeDragSessionRef.current) {
-      clearWorktreeDrag()
-    }
-  }, [clearWorktreeDrag])
-
-  const handleVisibilityChange = useCallback(() => {
-    if (document.visibilityState !== 'visible' && worktreeDragSessionRef.current) {
-      clearWorktreeDrag()
-    }
-  }, [clearWorktreeDrag])
-
   useWorktreeListNativeDocument({
-    onDocumentDrop: handleDocumentDrop,
-    onDocumentDragEnd: handleDocumentDragEnd,
-    onVisibilityChange: handleVisibilityChange
+    scrollRef,
+    dragSessionRef: worktreeDragSessionRef,
+    groups: worktreeDragGroups,
+    unitGroups: worktreeDragUnitGroups,
+    refreshDragSession: refreshWorktreeDragSession,
+    computeDrop: computeWorktreeDrop,
+    computeStatusDrop: computeWorktreeStatusDrop,
+    getEligibleLineageDropTarget,
+    commitLineageParentDrop: commitWorktreeLineageParentDrop,
+    moveWorktreesToStatusAtIndex: onMoveWorktreesToStatusAtIndex,
+    reorderWorktrees: onReorderWorktrees,
+    clearReorderedParents: clearReorderedWorktreeParents,
+    clearDrag: clearWorktreeDrag
   })
 
   // Why: expand here (not the shared hook, used by the flat board) so a dropped parent carries its lineage children (#9083).

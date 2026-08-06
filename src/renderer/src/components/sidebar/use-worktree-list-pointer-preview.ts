@@ -22,7 +22,6 @@ import { getWorktreeSidebarDragGrab } from './worktree-sidebar-drag-geometry'
 import { getPointerDropStatusTarget, shouldPreferSidebarStatusDropTarget } from './worktree-list-drop-target'
 import type { WorktreeSidebarStatusDropTarget, WorktreeSidebarDropPreview } from './worktree-sidebar-drop-preview'
 
-const DRAG_THRESHOLD = 4
 const EMPTY_OFFSETS: ReadonlyMap<string, number> = new Map()
 type StatusTarget = WorktreeSidebarStatusDropTarget & { lineageParentId: string | null }
 type StatusPreview = WorktreeSidebarDropPreview | null
