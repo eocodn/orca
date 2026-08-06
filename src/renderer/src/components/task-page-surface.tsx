@@ -1,15 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import {
-  AlertCircle,
-  ArrowDownUp,
-  ChevronLeft,
-  ExternalLink,
-  Eye,
-  List,
-  LoaderCircle,
-  SlidersHorizontal
-} from 'lucide-react'
+import { AlertCircle, ExternalLink, LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAppStore } from '@/store'
@@ -42,16 +33,6 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { JiraConnectDialog } from '@/components/jira-connect-dialog'
 import { LinearApiKeyDialog } from '@/components/linear-api-key-dialog'
@@ -210,6 +191,7 @@ import {
 import { TaskPageJiraListSurface } from './task-page-jira-list-surface'
 import { TaskPageJiraToolbar } from './task-page-jira-toolbar'
 import { TaskPageGitLabToolbar } from './task-page-gitlab-toolbar'
+import { TaskPageLinearIssueHeader } from './task-page-linear-issue-header'
 import { TaskPageGitHubScopeToolbar } from './task-page-github-scope-toolbar'
 import { TaskPageGitHubTaskToolbar } from './task-page-github-task-toolbar'
 import { TaskPageGitHubSourceDivergence } from './task-page-github-source-divergence'
@@ -5089,150 +5071,31 @@ export default function TaskPage(): React.JSX.Element {
             />
           ) : (
             <div className="flex min-h-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-background shadow-sm">
-              <div className="flex h-10 flex-none items-center justify-between gap-3 border-b border-border/50 bg-muted/35 px-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  {activeLinearIssueContextLabel ? (
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => {
-                        if (selectedLinearProject) {
-                          setLinearProjectTab('overview')
-                          return
-                        }
-                        setSelectedLinearCustomView(null)
-                        setLinearProjectParentView(null)
-                        setTaskResumeState({ linearContext: undefined })
-                      }}
-                      aria-label={translate('auto.components.TaskPage.f397d513e3', 'Back')}
-                    >
-                      <ChevronLeft className="size-3.5" />
-                    </Button>
-                  ) : null}
-                  <div className="min-w-0 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                    {activeLinearIssueContextLabel ??
-                      translate('auto.components.TaskPage.60f68a2ef4', 'Linear issues')}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <div
-                    className="hidden items-center rounded-md border border-border/50 bg-background/70 p-0.5 md:flex"
-                    aria-label={translate(
-                      'auto.components.TaskPage.d47248df4d',
-                      'Linear view mode'
-                    )}
-                  >
-                    {linearViewOptions.map(({ id, label, Icon }) => {
-                      const active = linearViewMode === id
-                      return (
-                        <Tooltip key={id}>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => setLinearViewMode(id)}
-                              aria-label={translate(
-                                'auto.components.TaskPage.af377b13b1',
-                                '{{value0}} view',
-                                { value0: label }
-                              )}
-                              aria-pressed={active}
-                              className={cn(
-                                'inline-flex size-6 items-center justify-center rounded text-muted-foreground transition hover:text-foreground',
-                                active && 'bg-accent text-accent-foreground shadow-xs'
-                              )}
-                            >
-                              <Icon className="size-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {translate('auto.components.TaskPage.af377b13b1', '{{value0}} view', {
-                              value0: label
-                            })}
-                          </TooltipContent>
-                        </Tooltip>
-                      )
-                    })}
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        className="gap-1 border-border/50 bg-background/70 text-[11px]"
-                      >
-                        <SlidersHorizontal className="size-3.5" />
-                        {translate('auto.components.TaskPage.9c57663908', 'View')}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel className="flex items-center gap-2">
-                        <List className="size-3.5" />
-                        {translate('auto.components.TaskPage.9c57663908', 'View')}
-                      </DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        value={linearViewMode}
-                        onValueChange={(value) => setLinearViewMode(value as LinearViewMode)}
-                      >
-                        {linearViewOptions.map(({ id, label, Icon }) => (
-                          <DropdownMenuRadioItem key={id} value={id}>
-                            <Icon className="size-3.5" />
-                            {label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="flex items-center gap-2">
-                        <SlidersHorizontal className="size-3.5" />
-                        {translate('auto.components.TaskPage.5659da12fc', 'Grouping')}
-                      </DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        value={linearGroupBy}
-                        onValueChange={(value) => setLinearGroupBy(value as LinearGroupBy)}
-                      >
-                        {linearGroupOptions.map((option) => (
-                          <DropdownMenuRadioItem key={option.id} value={option.id}>
-                            {option.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="flex items-center gap-2">
-                        <ArrowDownUp className="size-3.5" />
-                        {translate('auto.components.TaskPage.5d2d835467', 'Ordering')}
-                      </DropdownMenuLabel>
-                      <DropdownMenuRadioGroup
-                        value={linearOrderBy}
-                        onValueChange={(value) => setLinearOrderBy(value as LinearOrderBy)}
-                      >
-                        {linearOrderOptions.map((option) => (
-                          <DropdownMenuRadioItem key={option.id} value={option.id}>
-                            {option.label}
-                          </DropdownMenuRadioItem>
-                        ))}
-                      </DropdownMenuRadioGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="flex items-center gap-2">
-                        <Eye className="size-3.5" />
-                        {translate('auto.components.TaskPage.a26a48252e', 'Display properties')}
-                      </DropdownMenuLabel>
-                      {linearDisplayPropertyOptions.map((property) => (
-                        <DropdownMenuCheckboxItem
-                          key={property.id}
-                          checked={effectiveLinearDisplayProperties.has(property.id)}
-                          onSelect={(event) => event.preventDefault()}
-                          onCheckedChange={() => toggleLinearDisplayProperty(property.id)}
-                        >
-                          {property.label}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <div className="text-[11px] text-muted-foreground">
-                    {pagedLinearIssues.length}{' '}
-                    {translate('auto.components.TaskPage.b7bae28b6a', 'shown')}
-                  </div>
-                </div>
-              </div>
+              <TaskPageLinearIssueHeader
+                activeLinearIssueContextLabel={activeLinearIssueContextLabel}
+                onBack={() => {
+                  if (selectedLinearProject) {
+                    setLinearProjectTab('overview')
+                    return
+                  }
+                  setSelectedLinearCustomView(null)
+                  setLinearProjectParentView(null)
+                  setTaskResumeState({ linearContext: undefined })
+                }}
+                linearViewOptions={linearViewOptions}
+                linearViewMode={linearViewMode}
+                onViewModeChange={setLinearViewMode}
+                linearGroupOptions={linearGroupOptions}
+                linearGroupBy={linearGroupBy}
+                onGroupByChange={setLinearGroupBy}
+                linearOrderOptions={linearOrderOptions}
+                linearOrderBy={linearOrderBy}
+                onOrderByChange={setLinearOrderBy}
+                linearDisplayPropertyOptions={linearDisplayPropertyOptions}
+                effectiveLinearDisplayProperties={effectiveLinearDisplayProperties}
+                onToggleDisplayProperty={toggleLinearDisplayProperty}
+                shownIssueCount={pagedLinearIssues.length}
+              />
 
               {linearViewMode === 'list' && linearGroupBy === 'none' ? (
                 <div
