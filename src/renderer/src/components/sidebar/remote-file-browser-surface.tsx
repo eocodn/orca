@@ -1,24 +1,20 @@
 // Concrete surface implementation for RemoteFileBrowser.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getClientRuntime } from '@/runtime/client-runtime'
-import { ChevronRight, Folder, ArrowUp, LoaderCircle, Home, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { getFileTypeIcon } from '@/lib/file-type-icons'
 import {
   decideEnterAction,
   decideEscAction,
   filterEntries,
   isRemoteFileBrowserPathResolveTextTooLarge,
-  isPathMode,
   joinPath,
   parentPath,
   parsePathInput,
-  resolveSegmentStep,
-  shouldDeferRemoteFileBrowserPasteResolve,
   type DirEntry
 } from './remote-file-browser-helpers'
 import { driveBreadcrumbPath, splitBrowsePath } from './remote-file-browser-drive-paths'
+import { useRemoteFileBrowserPathInput } from './remote-file-browser-path-input'
+import { RemoteFileBrowserView } from './remote-file-browser-view'
+import type { RemoteFileBrowserPreviewState } from './remote-file-browser-view'
 import { browseRuntimeServerDirectory } from '@/runtime/runtime-server-directory-browser'
 import { translate } from '@/i18n/i18n'
 import type { FilesystemPathFlavor } from '../../../../shared/types'
@@ -33,21 +29,10 @@ type RemoteFileBrowserProps = (
 }
 
 const FILE_HINT_MS = 2000
-const FILE_HINT_TEXT = "Files can't be opened as a project"
-const PATH_DEBOUNCE_MS = 300
-
 type BrowseResult = {
   resolvedPath: string
   entries: DirEntry[]
   pathFlavor: FilesystemPathFlavor
-}
-
-type PreviewState = {
-  resolvedPath: string
-  entries: DirEntry[]
-  filter: string
-  error: string | null
-  loading: boolean
 }
 
 export function RemoteFileBrowser({
@@ -65,7 +50,7 @@ export function RemoteFileBrowser({
   const [filter, setFilter] = useState('')
   const [fileHint, setFileHint] = useState(false)
   // Drives the list during path mode; separate from committed state so typing doesn't move the Select target before commit.
-  const [preview, setPreview] = useState<PreviewState | null>(null)
+  const [preview, setPreview] = useState<RemoteFileBrowserPreviewState | null>(null)
   const genRef = useRef(0)
   const previewGenRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -223,215 +208,22 @@ export function RemoteFileBrowser({
     }, FILE_HINT_MS)
   }, [])
 
-  // Resolve a path-mode input into preview state; stable callback so paste and the debounce tick share one instance.
-  const resolvePathInput = useCallback(
-    async (raw: string) => {
-      const parsed = parsePathInput(raw, pathFlavor)
-      if (parsed.mode !== 'path') {
-        return
-      }
-      const gen = ++previewGenRef.current
-
-      if (parsed.invalid) {
-        setPreview({
-          resolvedPath: resolvedPath,
-          entries: [],
-          filter: '',
-          error: parsed.invalid,
-          loading: false
-        })
-        return
-      }
-
-      // Pick the base path; `~` needs the resolved home, so fetch and cache it once before resolving.
-      let basePath: string
-      if (parsed.base === 'root') {
-        basePath = '/'
-      } else if (parsed.base === 'drive') {
-        basePath = parsed.driveRoot ?? '/'
-      } else if (parsed.base === 'home') {
-        if (!homePathRef.current) {
-          setPreview({
-            resolvedPath: resolvedPath,
-            entries: [],
-            filter: '',
-            error: null,
-            loading: true
-          })
-          try {
-            const home = await fetchListing('~')
-            if (gen !== previewGenRef.current) {
-              return
-            }
-            homePathRef.current = home.resolvedPath
-          } catch (err) {
-            if (gen !== previewGenRef.current) {
-              return
-            }
-            setPreview({
-              resolvedPath,
-              entries: [],
-              filter: '',
-              error: err instanceof Error ? err.message : String(err),
-              loading: false
-            })
-            return
-          }
-        }
-        basePath = homePathRef.current!
-      } else {
-        basePath = resolvedPath
-      }
-
-      setPreview((prev) => ({
-        resolvedPath: prev?.resolvedPath ?? basePath,
-        entries: prev?.entries ?? [],
-        filter: prev?.filter ?? '',
-        error: null,
-        loading: true
-      }))
-
-      let currentPath = basePath
-      try {
-        for (const segment of parsed.committedSegments) {
-          const listing = await fetchListing(currentPath)
-          if (gen !== previewGenRef.current) {
-            return
-          }
-          const outcome = resolveSegmentStep(segment, currentPath, listing.entries)
-          if (outcome.type === 'error') {
-            setPreview({
-              resolvedPath: currentPath,
-              entries: listing.entries,
-              filter: '',
-              error: outcome.message,
-              loading: false
-            })
-            return
-          }
-          if (outcome.type === 'stay') {
-            if (segment === '..') {
-              currentPath = parentPath(currentPath, listing.pathFlavor)
-            }
-            continue
-          }
-          currentPath = joinPath(currentPath, outcome.name, listing.pathFlavor)
-        }
-
-        const finalListing = await fetchListing(currentPath)
-        if (gen !== previewGenRef.current) {
-          return
-        }
-        lastCommittedPrefixRef.current = committedPrefix(raw)
-        setPreview({
-          resolvedPath: finalListing.resolvedPath,
-          entries: finalListing.entries,
-          filter: parsed.trailingFilter,
-          error: null,
-          loading: false
-        })
-      } catch (err) {
-        if (gen !== previewGenRef.current) {
-          return
-        }
-        setPreview({
-          resolvedPath: currentPath,
-          entries: [],
-          filter: '',
-          error: err instanceof Error ? err.message : String(err),
-          loading: false
-        })
-      }
-    },
-    [resolvedPath, fetchListing, pathFlavor]
-  )
-
   // Filter-mode edits stay local; path-mode edits trigger a debounced resolve, but trailing-filter-only edits stay local too.
-  const handleInputChange = useCallback(
-    (raw: string) => {
-      clearFileHint()
-      setFilter(raw)
-
-      if (isRemoteFileBrowserPathResolveTextTooLarge(raw)) {
-        if (preview) {
-          setPreview(null)
-          previewGenRef.current++
-        }
-        if (debounceTimerRef.current) {
-          clearTimeout(debounceTimerRef.current)
-          debounceTimerRef.current = null
-        }
-        if (pasteResolveTimerRef.current) {
-          clearTimeout(pasteResolveTimerRef.current)
-          pasteResolveTimerRef.current = null
-        }
-        return
-      }
-
-      if (!isPathMode(raw, pathFlavor)) {
-        // Leaving path mode: drop preview immediately so the committed directory reappears without a flicker.
-        if (preview) {
-          setPreview(null)
-          previewGenRef.current++
-        }
-        if (debounceTimerRef.current) {
-          clearTimeout(debounceTimerRef.current)
-          debounceTimerRef.current = null
-        }
-        return
-      }
-
-      const parsed = parsePathInput(raw, pathFlavor)
-      // Fast path: unchanged committed prefix updates only the local filter, so intra-segment typing issues no browseDir call.
-      if (
-        parsed.mode === 'path' &&
-        preview &&
-        !preview.error &&
-        !parsed.invalid &&
-        committedPrefix(raw) === lastCommittedPrefixRef.current
-      ) {
-        // Runs even while preview.loading: unchanged prefix hits the same listing, so blocking keystrokes would only feel laggy.
-        setPreview({ ...preview, filter: parsed.trailingFilter })
-        return
-      }
-
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-      }
-      debounceTimerRef.current = setTimeout(() => {
-        debounceTimerRef.current = null
-        resolvePathInput(raw)
-      }, PATH_DEBOUNCE_MS)
-    },
-    [clearFileHint, preview, resolvePathInput, pathFlavor]
-  )
-
-  const handleInputPaste = useCallback(
-    (e: React.ClipboardEvent<HTMLInputElement>) => {
-      if (e.defaultPrevented) {
-        return
-      }
-      if (shouldDeferRemoteFileBrowserPasteResolve(e.clipboardData.getData('text/plain'))) {
-        return
-      }
-      // Paste resolves immediately (no debounce), but defer a tick so onChange has applied the pasted value to filter.
-      if (pasteResolveTimerRef.current) {
-        clearTimeout(pasteResolveTimerRef.current)
-      }
-      pasteResolveTimerRef.current = setTimeout(() => {
-        pasteResolveTimerRef.current = null
-        if (debounceTimerRef.current) {
-          clearTimeout(debounceTimerRef.current)
-          debounceTimerRef.current = null
-        }
-        const value = inputRef.current?.value ?? ''
-        if (!isRemoteFileBrowserPathResolveTextTooLarge(value) && isPathMode(value, pathFlavor)) {
-          resolvePathInput(value)
-        }
-      }, 0)
-    },
-    [resolvePathInput, pathFlavor]
-  )
+  const { handleInputChange, handleInputPaste } = useRemoteFileBrowserPathInput({
+    pathFlavor,
+    resolvedPath,
+    fetchListing,
+    inputRef,
+    clearFileHint,
+    preview,
+    setPreview,
+    setFilter,
+    previewGenRef,
+    homePathRef,
+    debounceTimerRef,
+    pasteResolveTimerRef,
+    lastCommittedPrefixRef
+  })
 
   // Select always returns the committed directory; disabled during a path preview to avoid a mismatched selection.
   const handleSelect = useCallback(() => {
@@ -592,206 +384,36 @@ export function RemoteFileBrowser({
   const selectDisabled = loading || (isPreviewActive && filter !== '')
 
   return (
-    <div ref={setBrowserRootRef} className="flex flex-col gap-2 min-w-0 w-full">
-      {/* Breadcrumb bar */}
-      <div className="flex items-center gap-0.5 min-h-[28px] overflow-x-auto scrollbar-none">
-        <button
-          type="button"
-          onClick={navigateUp}
-          disabled={resolvedPath === '/' || loading}
-          className="shrink-0 p-1 rounded hover:bg-accent disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-default"
-        >
-          <ArrowUp className="size-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('~')}
-          disabled={loading}
-          className="shrink-0 p-1 rounded hover:bg-accent transition-colors cursor-pointer"
-        >
-          <Home className="size-3.5" />
-        </button>
-        <div className="flex items-center gap-0 text-[11px] text-muted-foreground ml-1 min-w-0">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="shrink-0 hover:text-foreground transition-colors cursor-pointer px-0.5"
-          >
-            /
-          </button>
-          {browseParts.kind === 'drive' && (
-            <>
-              <ChevronRight className="size-2.5 shrink-0 text-muted-foreground/50" />
-              <button
-                type="button"
-                onClick={() => navigate(browseParts.driveRoot)}
-                className={cn(
-                  'truncate max-w-[120px] hover:text-foreground transition-colors cursor-pointer px-0.5',
-                  pathSegments.length === 0 && 'text-foreground font-medium'
-                )}
-              >
-                {browseParts.driveRoot.slice(0, 2)}
-              </button>
-            </>
-          )}
-          {pathSegments.map((segment, i) => (
-            <React.Fragment key={breadcrumbPathTo(i)}>
-              <ChevronRight className="size-2.5 shrink-0 text-muted-foreground/50" />
-              <button
-                type="button"
-                onClick={() => navigate(breadcrumbPathTo(i))}
-                className={cn(
-                  'truncate max-w-[120px] hover:text-foreground transition-colors cursor-pointer px-0.5',
-                  i === pathSegments.length - 1 && 'text-foreground font-medium'
-                )}
-              >
-                {segment}
-              </button>
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
-
-      {/* Filter input */}
-      <div className="relative">
-        <Search className="size-3.5 text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-        <input
-          ref={inputRef}
-          type="text"
-          autoFocus
-          value={filter}
-          onChange={(e) => handleInputChange(e.target.value)}
-          onPaste={handleInputPaste}
-          onKeyDown={handleFilterKeyDown}
-          placeholder={translate(
-            'auto.components.sidebar.RemoteFileBrowser.2300612806',
-            'Type to filter or enter a path…'
-          )}
-          aria-invalid={!!preview?.error}
-          aria-describedby={preview?.error ? 'remote-file-browser-path-error' : undefined}
-          className={cn(
-            'w-full h-7 pl-7 pr-7 text-xs rounded-md bg-background',
-            'border border-border focus:outline-none focus:ring-1 focus:ring-ring',
-            preview?.error && 'border-destructive/60 focus:ring-destructive/60'
-          )}
-        />
-        {showPreviewLoading && (
-          <LoaderCircle className="size-3.5 absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
-      {preview?.error && (
-        <p
-          id="remote-file-browser-path-error"
-          role="alert"
-          className="text-[11px] text-destructive px-0.5 -mt-1"
-        >
-          {preview.error}
-        </p>
-      )}
-
-      {/* File listing */}
-      <div className="border border-border rounded-md overflow-hidden bg-background">
-        <div className="h-[240px] overflow-y-auto scrollbar-sleek">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-full px-4">
-              <p className="text-xs text-destructive text-center">{error}</p>
-            </div>
-          ) : isPreviewActive &&
-            preview!.entries.length === 0 &&
-            !preview!.error &&
-            !preview!.loading ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-muted-foreground">{displayEmptyDirCopy}</p>
-            </div>
-          ) : !isPreviewActive && entries.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-muted-foreground">
-                {translate(
-                  'auto.components.sidebar.RemoteFileBrowser.51001182e3',
-                  'Empty directory'
-                )}
-              </p>
-            </div>
-          ) : displayEntries.length === 0 && !preview?.error ? (
-            // Directory has contents but the filter hides them all — distinct from an empty directory so copy stays accurate.
-            <div className="flex items-center justify-center h-full">
-              <p className="text-xs text-muted-foreground">{displayNoMatchesCopy}</p>
-              <p className="text-xs text-muted-foreground">{displayNoMatchesCopy}</p>
-            </div>
-          ) : (
-            displayEntries.map((entry) => {
-              const FileIcon = getFileTypeIcon(entry.name)
-              return (
-                <button
-                  key={entry.name}
-                  type="button"
-                  onClick={() => handleRowClick(entry)}
-                  onDoubleClick={() => handleRowDoubleClick(entry)}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    inputRef.current?.focus()
-                  }}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left transition-colors cursor-pointer',
-                    'hover:bg-accent/60'
-                  )}
-                >
-                  {entry.isDirectory ? (
-                    <Folder className="size-3.5 text-muted-foreground shrink-0" />
-                  ) : (
-                    <FileIcon className="size-3.5 text-muted-foreground/60 shrink-0" />
-                  )}
-                  <span className="truncate flex-1 min-w-0">{entry.name}</span>
-                  {entry.isDirectory && (
-                    <ChevronRight className="size-3.5 text-muted-foreground/60 shrink-0" />
-                  )}
-                </button>
-              )
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <p
-        className="block text-[10px] text-muted-foreground truncate w-full"
-        title={fileHint ? undefined : resolvedPath}
-      >
-        {fileHint
-          ? FILE_HINT_TEXT
-          : translate(
-              'auto.components.sidebar.RemoteFileBrowser.971d85cc84',
-              'Opens as a project on this host · {{value0}}',
-              { value0: resolvedPath }
-            )}
-      </p>
-      <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onCancel}>
-          {translate('auto.components.sidebar.RemoteFileBrowser.f8b1deb1a4', 'Cancel')}
-        </Button>
-        <Button
-          size="sm"
-          className="h-7 text-xs"
-          onClick={handleSelect}
-          disabled={selectDisabled}
-          title={resolvedPath}
-        >
-          {translate('auto.components.sidebar.RemoteFileBrowser.9e060f5815', 'Select folder')}
-        </Button>
-      </div>
-    </div>
+    <RemoteFileBrowserView
+      setBrowserRootRef={setBrowserRootRef}
+      navigateUp={navigateUp}
+      loading={loading}
+      navigate={navigate}
+      resolvedPath={resolvedPath}
+      browseParts={browseParts}
+      pathSegments={pathSegments}
+      breadcrumbPathTo={breadcrumbPathTo}
+      inputRef={inputRef}
+      filter={filter}
+      handleInputChange={handleInputChange}
+      handleInputPaste={handleInputPaste}
+      handleFilterKeyDown={handleFilterKeyDown}
+      preview={preview}
+      showPreviewLoading={showPreviewLoading}
+      isPreviewActive={isPreviewActive}
+      entries={entries}
+      displayEntries={displayEntries}
+      displayEmptyDirCopy={displayEmptyDirCopy}
+      displayNoMatchesCopy={displayNoMatchesCopy}
+      error={error}
+      handleRowClick={handleRowClick}
+      handleRowDoubleClick={handleRowDoubleClick}
+      fileHint={fileHint}
+      handleSelect={handleSelect}
+      selectDisabled={selectDisabled}
+      onCancel={onCancel}
+    />
   )
-}
-
-// Portion before the final separator; distinguishes filter-only edits from committed-path changes.
-function committedPrefix(raw: string): string {
-  const i = Math.max(raw.lastIndexOf('/'), raw.lastIndexOf('\\'))
-  return i === -1 ? '' : raw.slice(0, i + 1)
 }
 
 function requireRuntimeEnvironmentId(runtimeEnvironmentId: string | undefined): string {

@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getFileTypeIcon } from '@/lib/file-type-icons'
 import { translate } from '@/i18n/i18n'
-import type { FilesystemPathFlavor } from '../../../../shared/types'
 import type { DirEntry } from './remote-file-browser-helpers'
-import { splitBrowsePath } from './remote-file-browser-drive-paths'
+import type { splitBrowsePath } from './remote-file-browser-drive-paths'
 
 export type RemoteFileBrowserPreviewState = {
   resolvedPath: string
@@ -16,13 +15,14 @@ export type RemoteFileBrowserPreviewState = {
   loading: boolean
 }
 
+const FILE_HINT_TEXT = "Files can't be opened as a project"
+
 type RemoteFileBrowserViewProps = {
   setBrowserRootRef: (node: HTMLDivElement | null) => void
   navigateUp: () => void
   loading: boolean
   navigate: (path: string) => void
   resolvedPath: string
-  pathFlavor: FilesystemPathFlavor
   browseParts: ReturnType<typeof splitBrowsePath>
   pathSegments: string[]
   breadcrumbPathTo: (index: number) => string
@@ -48,11 +48,33 @@ type RemoteFileBrowserViewProps = {
 }
 
 export function RemoteFileBrowserView({
-  setBrowserRootRef, navigateUp, loading, navigate, resolvedPath, pathFlavor,
-  browseParts, pathSegments, breadcrumbPathTo, inputRef, filter, handleInputChange,
-  handleInputPaste, handleFilterKeyDown, preview, showPreviewLoading, isPreviewActive,
-  entries, displayEntries, displayEmptyDirCopy, displayNoMatchesCopy, error,
-  handleRowClick, handleRowDoubleClick, fileHint, handleSelect, selectDisabled, onCancel
+  setBrowserRootRef,
+  navigateUp,
+  loading,
+  navigate,
+  resolvedPath,
+  browseParts,
+  pathSegments,
+  breadcrumbPathTo,
+  inputRef,
+  filter,
+  handleInputChange,
+  handleInputPaste,
+  handleFilterKeyDown,
+  preview,
+  showPreviewLoading,
+  isPreviewActive,
+  entries,
+  displayEntries,
+  displayEmptyDirCopy,
+  displayNoMatchesCopy,
+  error,
+  handleRowClick,
+  handleRowDoubleClick,
+  fileHint,
+  handleSelect,
+  selectDisabled,
+  onCancel
 }: RemoteFileBrowserViewProps): React.JSX.Element {
   return (
     <div ref={setBrowserRootRef} className="flex flex-col gap-2 min-w-0 w-full">
@@ -184,7 +206,6 @@ export function RemoteFileBrowserView({
             // Directory has contents but the filter hides them all — distinct from an empty directory so copy stays accurate.
             <div className="flex items-center justify-center h-full">
               <p className="text-xs text-muted-foreground">{displayNoMatchesCopy}</p>
-              <p className="text-xs text-muted-foreground">{displayNoMatchesCopy}</p>
             </div>
           ) : (
             displayEntries.map((entry) => {
@@ -250,7 +271,3 @@ export function RemoteFileBrowserView({
     </div>
   )
 }
-
-
-}
-
