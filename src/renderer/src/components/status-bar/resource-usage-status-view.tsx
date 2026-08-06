@@ -107,7 +107,13 @@ export function ResourceUsageStatusView({
                 </span>
               )}
               {daemonUnreachable && (
-                <AlertTriangle className="size-3 text-yellow-500" aria-label="Daemon unreachable" />
+                <AlertTriangle
+                  className="size-3 text-yellow-500"
+                  aria-label={translate(
+                    'auto.components.status.bar.ResourceUsageStatusSegment.ca95d077db',
+                    'Daemon unreachable'
+                  )}
+                />
               )}
             </button>
           </PopoverTrigger>
@@ -159,17 +165,29 @@ export function ResourceUsageStatusView({
               {translate(
                 'auto.components.status.bar.ResourceUsageStatusSegment.e9a5d3c2b1f0',
                 'Kill {{value0}}?',
-                { value0: killConfirm?.label ?? 'this session' }
+                {
+                  value0:
+                    killConfirm?.label ??
+                    translate(
+                      'auto.components.status.bar.ResourceUsageStatusSegment.138b99bd80',
+                      'this session'
+                    )
+                }
               )}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Force-quits this terminal. Any unsaved work in the pane is lost. This can&apos;t be
-              undone.
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.67c4ecda49',
+                "Force-quits this terminal. Any unsaved work in the pane is lost. This can't be undone."
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setKillConfirm(null)} disabled={killing}>
-              Cancel
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.946d9f94d0',
+                'Cancel'
+              )}
             </Button>
             <Button
               variant="destructive"
@@ -177,7 +195,15 @@ export function ResourceUsageStatusView({
               disabled={killing}
             >
               {killing ? <LoaderCircle className="size-4 animate-spin" /> : null}
-              {killing ? 'Killing…' : 'Kill session'}
+              {killing
+                ? translate(
+                    'auto.components.status.bar.ResourceUsageStatusSegment.41ae4fa725',
+                    'Killing…'
+                  )
+                : translate(
+                    'auto.components.status.bar.ResourceUsageStatusSegment.b10695d6ce',
+                    'Kill session'
+                  )}
             </Button>
           </DialogFooter>
         </DialogContent>

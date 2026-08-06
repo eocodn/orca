@@ -107,13 +107,21 @@ export function ResourceUsageStatusContent({
                 type="button"
                 onClick={() => daemonActions.setPending('restart')}
                 disabled={daemonActions.isBusy}
-                aria-label="Restart daemon"
+                aria-label={translate(
+                  'auto.components.status.bar.ResourceUsageStatusSegment.c9382662bb',
+                  'Restart daemon'
+                )}
                 className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-40"
               >
                 <RotateCw className="size-3" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top">Restart daemon</TooltipContent>
+            <TooltipContent side="top">
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.c9382662bb',
+                'Restart daemon'
+              )}
+            </TooltipContent>
           </Tooltip>
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>
@@ -121,13 +129,21 @@ export function ResourceUsageStatusContent({
                 type="button"
                 onClick={() => daemonActions.setPending('killAll')}
                 disabled={daemonActions.isBusy}
-                aria-label="Kill all sessions"
+                aria-label={translate(
+                  'auto.components.status.bar.ResourceUsageStatusSegment.bd19fd7a59',
+                  'Kill all sessions'
+                )}
                 className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 disabled:opacity-40"
               >
                 <Trash2 className="size-3" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top">Kill all sessions</TooltipContent>
+            <TooltipContent side="top">
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.bd19fd7a59',
+                'Kill all sessions'
+              )}
+            </TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -135,9 +151,17 @@ export function ResourceUsageStatusContent({
         <div className="flex items-start gap-2 border-b border-border bg-yellow-500/10 px-3 py-2 text-[11px]">
           <AlertTriangle className="mt-0.5 size-3 shrink-0 text-yellow-500" />
           <div className="flex-1">
-            <div className="font-medium">Daemon is not responding</div>
+            <div className="font-medium">
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.f8e0d794b4',
+                'Daemon is not responding'
+              )}
+            </div>
             <div className="text-muted-foreground">
-              Resource snapshots and terminal sessions are unavailable.
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.f85af9cda6',
+                'Resource snapshots and terminal sessions are unavailable.'
+              )}
             </div>
           </div>
           <Button
@@ -147,7 +171,10 @@ export function ResourceUsageStatusContent({
             disabled={daemonActions.isBusy}
           >
             <RotateCw className="mr-1 size-3" />
-            Restart
+            {translate(
+              'auto.components.status.bar.ResourceUsageStatusSegment.93b0de3c21',
+              'Restart'
+            )}
           </Button>
         </div>
       )}
@@ -157,7 +184,10 @@ export function ResourceUsageStatusContent({
           role="status"
         >
           <AlertTriangle className="size-3 text-yellow-500" />
-          Terminal sessions unavailable. The list may be stale.
+          {translate(
+            'auto.components.status.bar.ResourceUsageStatusSegment.e7cf14ec78',
+            'Terminal sessions unavailable. The list may be stale.'
+          )}
         </div>
       )}
       {resourceSnapshot && (
@@ -174,7 +204,17 @@ export function ResourceUsageStatusContent({
           </div>
           {orphanCount > 0 && (
             <span className="shrink-0 text-yellow-500" aria-live="polite">
-              {orphanCount} orphan{orphanCount === 1 ? '' : 's'}
+              {orphanCount === 1
+                ? translate(
+                    'auto.components.status.bar.ResourceUsageStatusSegment.30ff2c3c31',
+                    '{{value0}} orphan',
+                    { value0: orphanCount }
+                  )
+                : translate(
+                    'auto.components.status.bar.ResourceUsageStatusSegment.b8f4a2c1d0e3',
+                    '{{value0}} orphans',
+                    { value0: orphanCount }
+                  )}
             </span>
           )}
         </div>
@@ -190,7 +230,10 @@ export function ResourceUsageStatusContent({
                 sortOption === 'name' ? 'font-semibold text-foreground' : 'text-muted-foreground/80'
               )}
             >
-              Name
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.2aa2de6cb9',
+                'Name'
+              )}
             </button>
             <div className="flex items-center gap-2">
               <div className={cn(METRIC_COLUMNS_CLS, 'text-[10px]')}>
@@ -199,7 +242,10 @@ export function ResourceUsageStatusContent({
                   onClick={() => setSortOption('cpu')}
                   className={cn(CPU_COLUMN_CLS, 'hover:text-foreground')}
                 >
-                  CPU
+                  {translate(
+                    'auto.components.status.bar.ResourceUsageStatusSegment.298f4be7f2',
+                    'CPU'
+                  )}
                 </button>
                 <button
                   type="button"
@@ -231,7 +277,10 @@ export function ResourceUsageStatusContent({
           )}
           {unifiedRepos.length === 0 && resourceSnapshot && (
             <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-              Nothing running right now
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.27a74f91f0',
+                'Nothing running right now'
+              )}
             </div>
           )}
           {resourceSnapshot && (
@@ -242,7 +291,12 @@ export function ResourceUsageStatusContent({
             />
           )}
           {!resourceSnapshot && !daemonUnreachable && (
-            <div className="px-3 py-4 text-center text-xs text-muted-foreground">Loading…</div>
+            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+              {translate(
+                'auto.components.status.bar.ResourceUsageStatusSegment.888dad8c55',
+                'Loading…'
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -252,7 +306,13 @@ export function ResourceUsageStatusContent({
           onClick={handleOpenWorkspaceCleanup}
           className="relative inline-flex w-full items-center justify-center rounded-md border border-border/70 px-2.5 py-1.5 text-xs font-medium hover:bg-accent/60"
         >
-          <span className="truncate px-4">Review inactive workspaces ({oldWorkspaceCount})</span>
+          <span className="truncate px-4">
+            {translate(
+              'auto.components.status.bar.ResourceUsageStatusSegment.92924a14e3',
+              'Review inactive workspaces ({{value0}})',
+              { value0: oldWorkspaceCount }
+            )}
+          </span>
           <ChevronRight className="absolute right-2.5 size-3.5 text-muted-foreground" />
         </button>
         {orphanCount > 0 && (
@@ -261,7 +321,17 @@ export function ResourceUsageStatusContent({
             onClick={() => void handleKillOrphans()}
             className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-border/70 px-2.5 py-1.5 text-xs font-medium hover:bg-accent/60"
           >
-            Kill {orphanCount} orphan terminal{orphanCount === 1 ? '' : 's'}
+            {orphanCount === 1
+              ? translate(
+                  'auto.components.status.bar.ResourceUsageStatusSegment.c7e3b1a0d9f2',
+                  'Kill {{value0}} orphan terminal',
+                  { value0: orphanCount }
+                )
+              : translate(
+                  'auto.components.status.bar.ResourceUsageStatusSegment.d8f4c2b1e0a3',
+                  'Kill {{value0}} orphan terminals',
+                  { value0: orphanCount }
+                )}
           </button>
         )}
       </div>
