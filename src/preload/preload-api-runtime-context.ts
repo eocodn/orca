@@ -9,8 +9,6 @@ import type {
   TerminalPreviewDataPayload
 } from '../shared/terminal-preview'
 import type { CliInstallStatus } from '../shared/cli-install-types'
-import type { AgentHookInstallStatus } from '../shared/agent-hook-types'
-import type { CodexConfigSyncStatus } from '../shared/codex-config-sync-types'
 import type { TerminalPaneSplitSource } from '../shared/feature-education-telemetry'
 import type { TerminalTabCreateReply } from '../shared/terminal-reveal-identity'
 import type { ProjectExecutionRuntimeResolution } from '../shared/project-execution-runtime'
@@ -138,12 +136,6 @@ import type {
   RuntimeMobileMarkdownRequest,
   RuntimeMobileMarkdownResponse
 } from '../shared/mobile-markdown-document'
-import type {
-  CodexRateLimitResetResult,
-  GrokAccountStatus,
-  RateLimitRuntimeTarget,
-  RateLimitState
-} from '../shared/rate-limit-types'
 import type { WorkspaceSpaceScanProgress } from '../shared/workspace-space-types'
 import type { WorkspaceCleanupScanProgress } from '../shared/workspace-cleanup'
 import type { WorkspacePortAdvertisedUrlChangedEvent } from '../shared/workspace-ports'
@@ -490,8 +482,6 @@ export type {
   TerminalPreviewConnectResult,
   TerminalPreviewDataPayload,
   CliInstallStatus,
-  AgentHookInstallStatus,
-  CodexConfigSyncStatus,
   TerminalPaneSplitSource,
   TerminalTabCreateReply,
   ProjectExecutionRuntimeResolution,
@@ -593,10 +583,6 @@ export type {
   RemoteWorkspaceChangedEvent,
   RuntimeMobileMarkdownRequest,
   RuntimeMobileMarkdownResponse,
-  CodexRateLimitResetResult,
-  GrokAccountStatus,
-  RateLimitRuntimeTarget,
-  RateLimitState,
   WorkspaceSpaceScanProgress,
   WorkspaceCleanupScanProgress,
   WorkspacePortAdvertisedUrlChangedEvent,

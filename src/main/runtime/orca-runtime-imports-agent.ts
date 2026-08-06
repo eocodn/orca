@@ -160,9 +160,7 @@ export type {
   GitLabMRInlineCommentInput,
   GitLabProjectRef,
   GitLabWorkItem,
-  MRListState,
-  ClaudeRateLimitAccountsState,
-  CodexRateLimitAccountsState
+  MRListState
 } from '../../shared/types'
 export type { TaskSourceContext } from '../../shared/task-source-context'
 export { assertWorktreeUnlockedForRemoval } from '../../shared/worktree-removal'

@@ -25,7 +25,6 @@ import {
 import { registerBrowserEvents } from './ipc-events-browser'
 import { registerTabEvents } from './ipc-events-tabs'
 import { registerSessionEvents } from './ipc-events-session'
-import { registerRateLimitEvents } from './ipc-events-rate-limits'
 import { toRemoteRuntimePtyId } from '@/runtime/runtime-terminal-stream'
 import { dispatchTerminalSideEffectBatch } from '@/components/terminal-pane/terminal-side-effect-facts-handler'
 import {
@@ -557,7 +556,6 @@ export function useIpcEvents(): void {
       isPinnedSessionTab,
       resolveBrowserSessionTabTarget
     })
-    registerRateLimitEvents({ unsubs })
     registerSshEvents({
       unsubs,
       isEffectStopped: () => directSshEffectStopped,

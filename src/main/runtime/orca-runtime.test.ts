@@ -1650,7 +1650,6 @@ describe('OrcaRuntimeService', () => {
     electronMocks.app.isPackaged = true
     let settings = {
       ...store.getSettings(),
-      agentStatusHooksEnabled: true,
       disabledTuiAgents: ['codex', 'claude']
     }
     const updateSettings = vi.fn((updates: Partial<typeof settings>) => {
@@ -1681,7 +1680,6 @@ describe('OrcaRuntimeService', () => {
   it('serializes paired-client hook reconciliation and reads current settings', async () => {
     let settings = {
       ...store.getSettings(),
-      agentStatusHooksEnabled: true,
       disabledTuiAgents: ['codex', 'claude']
     }
     const updateSettings = vi.fn((updates: Partial<typeof settings>) => {
@@ -21966,62 +21964,6 @@ describe('OrcaRuntimeService', () => {
     expect(closeSessionTab).toHaveBeenCalledWith('browser-unified-1', TEST_WORKTREE_ID)
   })
 
-  it('creates mobile session terminals in a headless runtime server', async () => {
-    const spawn = vi.fn().mockResolvedValue({ id: 'pty-headless' })
-    const runtime = new OrcaRuntimeService(store)
-    const persistViewMode = vi.spyOn(
-      runtime as unknown as {
-        persistHeadlessSessionTabProps: (
-          worktreeId: string,
-          tabId: string,
-          props: { viewMode: 'terminal' | 'chat' }
-        ) => void
-      },
-      'persistHeadlessSessionTabProps'
-    )
-    runtime.setPtyController({
-      spawn,
-      write: () => true,
-      kill: () => true,
-      getForegroundProcess: async () => null
-    })
-    runtime.syncWindowGraph(0, { tabs: [], leaves: [] })
-
-    const result = await runtime.createMobileSessionTerminal(`id:${TEST_WORKTREE_ID}`, {
-      viewMode: 'chat'
-    })
-
-    expect(spawn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cwd: TEST_WORKTREE_PATH,
-        worktreeId: TEST_WORKTREE_ID,
-        tabId: expect.stringMatching(UUID_RE),
-        leafId: expect.stringMatching(UUID_RE),
-        persistHostSessionBinding: true,
-        preAllocatedHandle: expect.stringMatching(/^term_/)
-      })
-    )
-    expect(result.tab).toMatchObject({
-      type: 'terminal',
-      status: 'ready',
-      terminal: expect.stringMatching(/^term_/),
-      viewMode: 'chat',
-      isActive: true
-    })
-    expect(persistViewMode).toHaveBeenCalledWith(TEST_WORKTREE_ID, result.tab.parentTabId, {
-      viewMode: 'chat'
-    })
-
-    const listed = await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
-    expect(listed.tabs).toEqual([
-      expect.objectContaining({
-        id: result.tab.id,
-        status: 'ready',
-        terminal: result.tab.terminal
-      })
-    ])
-  })
-
   it('selects a created terminal only for the paired caller', async () => {
     let spawnIndex = 0
     const runtime = new OrcaRuntimeService(store)
@@ -23510,36 +23452,6 @@ describe('OrcaRuntimeService', () => {
     )
     expect(clearedSurface?.type === 'browser' && clearedSurface.color).toBeNull()
     expect(clearedSurface?.type === 'browser' && clearedSurface.isPinned).toBe(false)
-  })
-
-  it('persists headless tab viewMode and surfaces it through a cold rehydrate', async () => {
-    const session = makeWorkspaceSessionWithHeadlessTerminal()
-    const { runtimeStore, getSession } = makeRuntimeStoreWithWorkspaceSession(session)
-    const runtime = new OrcaRuntimeService(runtimeStore as never)
-
-    await runtime.setMobileSessionTabProps(`id:${TEST_WORKTREE_ID}`, {
-      tabId: 'host-tab',
-      viewMode: 'chat'
-    })
-
-    const persisted = getSession().tabsByWorktree[TEST_WORKTREE_ID]!.find(
-      (tab) => tab.id === 'host-tab'
-    )!
-    expect(persisted.viewMode).toBe('chat')
-
-    const live = await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
-    const liveSurface = live.tabs.find(
-      (tab) => tab.type === 'terminal' && tab.parentTabId === 'host-tab'
-    )
-    expect(liveSurface?.type === 'terminal' && liveSurface.viewMode).toBe('chat')
-
-    runtime['mobileSessionTabsByWorktree'].delete(TEST_WORKTREE_ID)
-    runtime['hydrateHeadlessMobileSessionTabsFromWorkspaceSession'](TEST_WORKTREE_ID)
-    const rehydrated = await runtime.listMobileSessionTabs(`id:${TEST_WORKTREE_ID}`)
-    const surface = rehydrated.tabs.find(
-      (tab) => tab.type === 'terminal' && tab.parentTabId === 'host-tab'
-    )
-    expect(surface?.type === 'terminal' && surface.viewMode).toBe('chat')
   })
 
   it('still persists tab props in serve mode after syncWindowGraph(0) (gate does not fire)', async () => {

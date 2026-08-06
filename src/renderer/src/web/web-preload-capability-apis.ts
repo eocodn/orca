@@ -2,11 +2,6 @@ import type { PreloadApi, PreflightStatus, RefreshAgentsResult } from '../../../
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { parseHostAccessLink } from '../../../shared/remote-pairing-address'
 import { verifyRemotePairingRuntimeStatus } from '../../../shared/remote-pairing-verification'
-import type { AiVaultListArgs, AiVaultListResult } from '../../../shared/ai-vault-types'
-import type {
-  AiVaultPrepareSessionResumeArgs,
-  AiVaultPrepareSessionResumeResult
-} from '../../../shared/ai-vault-resume-preparation'
 import type {
   DetectedWorktreeListResult,
   DirEntry,
@@ -18,7 +13,6 @@ import type {
   Repo,
   RemoveWorktreeResult,
   SearchResult,
-  StatsSummary,
   Worktree,
   WorktreeLineage,
   WorkspaceLineage,
@@ -75,7 +69,6 @@ import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-t
 import { normalizeUiLanguage } from '../../../shared/ui-language'
 import { normalizeUsagePercentageDisplay } from '../../../shared/usage-percentage-display'
 import { normalizeStatusBarUsageMode } from '../../../shared/status-bar-usage-mode'
-import type { RateLimitState } from '../../../shared/rate-limit-types'
 import type { RuntimeStatus, RuntimeSyncWindowGraph } from '../../../shared/runtime-types'
 import { assertFileMutationOwnershipCapability } from '../../../shared/file-mutation-ownership'
 import {
@@ -155,8 +148,6 @@ import {
   createWebPreloadApi,
   createRuntimeApi,
   createRuntimeEnvironmentsApi,
-  createAiVaultApi,
-  webAiVaultUnavailableResult,
   createReposApi,
   createWorktreesApi,
   createFileApi,
@@ -437,63 +428,5 @@ export function createNotificationsApi(): NonNullable<Partial<PreloadApi>['notif
       Promise.resolve({ supported: false, platform: getBrowserPlatform(), requested: false }),
     probeDelivery: () => Promise.resolve({ state: 'unsupported' as const, authoritative: false }),
     playSound: () => Promise.resolve({ played: false, reason: 'missing-path' })
-  }
-}
-
-export function createRateLimitsApi(): NonNullable<Partial<PreloadApi>['rateLimits']> {
-  const empty: RateLimitState = {
-    claude: null,
-    codex: null,
-    gemini: null,
-    opencodeGo: null,
-    kimi: null,
-    antigravity: null,
-    minimax: null,
-    grok: null,
-    minimaxCookieConfigured: false,
-    grokAuthConfigured: false,
-    claudeTarget: { runtime: 'host', wslDistro: null },
-    codexTarget: { runtime: 'host', wslDistro: null },
-    inactiveClaudeAccounts: [],
-    inactiveCodexAccounts: []
-  }
-  return {
-    get: () => Promise.resolve(empty),
-    refresh: () => Promise.resolve(empty),
-    refreshCodexForTarget: () => Promise.resolve(empty),
-    // Why: web clients don't own local Codex auth; report the safe no-credit outcome since redemption is desktop-only.
-    consumeCodexResetCredit: () => Promise.resolve({ outcome: 'noCredit', state: empty }),
-    refreshClaudeForTarget: () => Promise.resolve(empty),
-    setPollingInterval: () => Promise.resolve(),
-    fetchInactiveClaudeAccounts: () => Promise.resolve(),
-    fetchInactiveCodexAccounts: () => Promise.resolve(),
-    refreshMiniMax: () => Promise.resolve(empty),
-    refreshGrok: () => Promise.resolve(empty),
-    onUpdate: () => noopUnsubscribe
-  }
-}
-
-export function createMiniMaxCredentialsApi(): NonNullable<
-  Partial<PreloadApi>['minimaxCredentials']
-> {
-  const notConfigured = { configured: false }
-  const unsupportedError = new Error('MiniMax cookie storage is only available in the desktop app.')
-  return {
-    getStatus: () => Promise.resolve(notConfigured),
-    saveCookie: () => Promise.reject(unsupportedError),
-    clearCookie: () => Promise.resolve(notConfigured)
-  }
-}
-
-export function createGrokAccountsApi(): NonNullable<Partial<PreloadApi>['grokAccounts']> {
-  const unsigned = {
-    signedIn: false,
-    email: null,
-    teamId: null,
-    tokenFresh: false,
-    error: null
-  }
-  return {
-    getStatus: () => Promise.resolve(unsigned)
   }
 }

@@ -63,15 +63,6 @@ export type CodexSystemDefaultIdentity = {
   workspaceLabel: string | null
 }
 
-export type CodexRateLimitAccountsState = {
-  accounts: CodexManagedAccountSummary[]
-  activeAccountId: string | null
-  activeAccountIdsByRuntime?: CodexManagedAccountRuntimeSelection
-  /** Resolved identity of the host system-default (real ~/.codex) account.
-   *  Omitted for runtimes where it is not resolved (e.g. per-distro WSL). */
-  systemDefault?: CodexSystemDefaultIdentity
-}
-
 export type CodexManagedAccountRuntimeSelection = {
   host: string | null
   wsl: Record<string, string | null>
@@ -103,12 +94,6 @@ export type ClaudeManagedAccountSummary = {
   createdAt: number
   updatedAt: number
   lastAuthenticatedAt: number
-}
-
-export type ClaudeRateLimitAccountsState = {
-  accounts: ClaudeManagedAccountSummary[]
-  activeAccountId: string | null
-  activeAccountIdsByRuntime?: ClaudeManagedAccountRuntimeSelection
 }
 
 export type ClaudeManagedAccountRuntimeSelection = {

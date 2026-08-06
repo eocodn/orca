@@ -73,34 +73,6 @@ export const styles = StyleSheet.create({
     letterSpacing: -0.3
   },
 
-  /* ─── Stat cards ─── */
-  statsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: spacing.lg
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'rgba(26,26,26,0.6)',
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: spacing.md
-  },
-  statValue: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.3
-  },
-  statLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2
-  },
-
   /* ─── Section heading ─── */
   sectionHeading: {
     fontSize: 11,
@@ -233,53 +205,6 @@ export const styles = StyleSheet.create({
   },
   taskHomeProviderButtonPressed: {
     backgroundColor: colors.bgRaised
-  },
-
-  /* ─── Account usage ─── */
-  accountsCard: {
-    backgroundColor: colors.bgPanel,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.card,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    gap: spacing.sm,
-    marginBottom: spacing.sm
-  },
-  accountsHostLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4
-  },
-  accountsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2
-  },
-  accountsIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: colors.bgRaised,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  accountsInfo: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2
-  },
-  accountsEmail: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  accountsBars: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: 4
   },
 
   /* ─── Quick actions ─── */

@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   Bell,
   Blocks,
   Bot,
@@ -52,7 +51,6 @@ import { getDeveloperPermissionsPaneSearchEntries } from '@/components/settings/
 import { getPrivacyPaneSearchEntries } from '@/components/settings/privacy-search'
 import { getAdvancedPaneSearchEntries } from '@/components/settings/advanced-search'
 import { getShortcutsPaneSearchEntries } from '@/components/settings/shortcuts-search'
-import { getStatsPaneSearchEntries } from '@/components/stats/stats-search'
 import { getExperimentalPaneSearchEntries } from '@/components/settings/experimental-search'
 import { getPluginsPaneSearchEntries } from '@/components/settings/plugins-search'
 import { getRepositoryPaneSearchEntries } from '@/components/settings/repository-search'
@@ -353,17 +351,6 @@ export function buildSettingsNavigationMetadata({
       ),
       icon: Keyboard,
       searchEntries: getShortcutsPaneSearchEntries(),
-      group: 'interface'
-    },
-    {
-      id: 'stats',
-      title: translate('auto.hooks.useSettingsNavigationMetadata.d72a58b5b9', 'Stats & Usage'),
-      description: translate(
-        'auto.hooks.useSettingsNavigationMetadata.b351014180',
-        'Orca stats plus Claude, Codex, OpenCode token analytics and Grok subscription usage.'
-      ),
-      icon: BarChart3,
-      searchEntries: getStatsPaneSearchEntries(),
       group: 'interface'
     },
     ...(showDesktopOnlySettings

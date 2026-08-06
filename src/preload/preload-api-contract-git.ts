@@ -333,12 +333,4 @@ export type PreloadApiGit = {
       }
     ) => Promise<RuntimeEnvironmentSubscriptionHandle>
   }
-  minimaxCredentials: {
-    getStatus: () => Promise<{ configured: boolean }>
-    saveCookie: (cookie: string) => Promise<{ configured: boolean }>
-    clearCookie: () => Promise<{ configured: boolean }>
-  }
-  grokAccounts: {
-    getStatus: () => Promise<GrokAccountStatus>
-  }
 }

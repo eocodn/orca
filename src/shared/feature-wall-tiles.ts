@@ -160,18 +160,6 @@ export const FEATURE_WALL_TILES: readonly FeatureWallTile[] = [
     docsUrl: 'https://www.onorca.dev/docs/model/quick-open'
   },
   {
-    id: 'tile-11',
-    kind: 'media',
-    title: 'Usage & rate-limit aware',
-    caption:
-      'See Claude and Codex usage, rate-limit resets, and hot-swap Codex accounts without re-logging in.',
-    gifPath: 'tile-11.gif',
-    posterPath: 'tile-11.poster.jpg',
-    recordedAtPath: 'tile-11.recorded-at.json',
-    owner: 'usage-rate-limits',
-    docsUrl: 'https://www.onorca.dev/docs/agents/usage-tracking'
-  },
-  {
     id: 'tile-12',
     kind: 'media',
     title: 'PDFs, images, CSV, Markdown',

@@ -30,7 +30,6 @@ const SETTINGS_NAV_TARGETS = [
   'advanced',
   'dev',
   'shortcuts',
-  'stats',
   'ssh',
   'experimental',
   'plugins',

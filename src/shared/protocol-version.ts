@@ -33,11 +33,6 @@ export const FOLDER_WORKSPACE_PATH_STATUS_RUNTIME_CAPABILITY =
   'folder-workspace.path-status.v1' as const
 export const LINEAR_ISSUE_ATTRIBUTE_FILTER_RUNTIME_CAPABILITY =
   'linear.issue-attribute-filter.v1' as const
-// Why: signals the host exposes the Agent Session History scanner over RPC
-// (aiVault.listSessions). Registered unconditionally for every build, so it is a
-// STATIC capability advertised by getStatus() automatically — NOT a runtime
-// conditional like browser.headless.v1.
-export const AI_VAULT_RUNTIME_CAPABILITY = 'aiVault.v1' as const
 // Why: signals a host owns browser pages with no renderer (headless serve via the
 // offscreen backend). Advertised only when that backend is actually available, so
 // clients never fall back to a local desktop browser tab for a remote-owned page.
@@ -89,7 +84,6 @@ export const RUNTIME_CAPABILITIES = [
   WORKTREE_LINKED_WORK_ITEM_CONTEXT_RUNTIME_CAPABILITY,
   FOLDER_WORKSPACE_PATH_STATUS_RUNTIME_CAPABILITY,
   LINEAR_ISSUE_ATTRIBUTE_FILTER_RUNTIME_CAPABILITY,
-  AI_VAULT_RUNTIME_CAPABILITY,
   TERMINAL_QUERY_REPLY_INPUT_RUNTIME_CAPABILITY,
   TERMINAL_PAIRED_PARKING_RUNTIME_CAPABILITY,
   TERMINAL_QUICK_COMMANDS_RUNTIME_CAPABILITY,

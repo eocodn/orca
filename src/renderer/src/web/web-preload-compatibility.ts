@@ -4,11 +4,6 @@ import type { PreloadApi, PreflightStatus, RefreshAgentsResult } from '../../../
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { parseHostAccessLink } from '../../../shared/remote-pairing-address'
 import { verifyRemotePairingRuntimeStatus } from '../../../shared/remote-pairing-verification'
-import type { AiVaultListArgs, AiVaultListResult } from '../../../shared/ai-vault-types'
-import type {
-  AiVaultPrepareSessionResumeArgs,
-  AiVaultPrepareSessionResumeResult
-} from '../../../shared/ai-vault-resume-preparation'
 import type {
   DetectedWorktreeListResult,
   DirEntry,
@@ -20,7 +15,6 @@ import type {
   Repo,
   RemoveWorktreeResult,
   SearchResult,
-  StatsSummary,
   Worktree,
   WorktreeLineage,
   WorkspaceLineage,
@@ -77,7 +71,6 @@ import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-t
 import { normalizeUiLanguage } from '../../../shared/ui-language'
 import { normalizeUsagePercentageDisplay } from '../../../shared/usage-percentage-display'
 import { normalizeStatusBarUsageMode } from '../../../shared/status-bar-usage-mode'
-import type { RateLimitState } from '../../../shared/rate-limit-types'
 import type { RuntimeStatus, RuntimeSyncWindowGraph } from '../../../shared/runtime-types'
 import { assertFileMutationOwnershipCapability } from '../../../shared/file-mutation-ownership'
 import {
@@ -425,8 +418,6 @@ export { createWebPreloadApi } from './web-preload-api-factory'
 export {
   createRuntimeApi,
   createRuntimeEnvironmentsApi,
-  createAiVaultApi,
-  webAiVaultUnavailableResult
 } from './web-preload-runtime-apis'
 export { createReposApi, createWorktreesApi } from './web-preload-repository-apis'
 export {
@@ -450,8 +441,6 @@ export {
   createDeveloperPermissionsApi,
   createSkillsApi,
   createNotificationsApi,
-  createRateLimitsApi,
-  createMiniMaxCredentialsApi,
   createGrokAccountsApi
 } from './web-preload-capability-apis'
 export {

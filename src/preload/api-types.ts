@@ -29,8 +29,7 @@ import type {
   BrowserSetGrabModeResult,
   BrowserViewportOverride,
   PathSource,
-  ShellHydrationFailureReason,
-  StatsSummary
+  ShellHydrationFailureReason
 } from './api-types-external'
 import type { ProjectExecutionRuntimeResolution } from '../shared/project-execution-runtime'
 
@@ -202,8 +201,6 @@ export type ExportApi = {
   >
 }
 
-export type StatsApi = { getSummary: () => Promise<StatsSummary> }
-
 export type DiagnosticsStatusPayload = {
   readonly localFileEnabled: boolean
   readonly bundleEnabled: boolean
@@ -225,7 +222,6 @@ export type DiagnosticsBundlePayload = {
 export type DiagnosticsUploadPayload = { readonly ticketId: string } | { readonly canceled: true }
 
 export * from './api-base'
-export * from './api-usage-chat'
 export * from './api-plugins'
 export * from './api-preload'
 export type { AgentType } from './api-types-external'

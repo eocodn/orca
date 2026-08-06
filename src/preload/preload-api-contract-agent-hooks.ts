@@ -30,8 +30,6 @@ import type {
   SetupScriptImportCandidate,
   ExecutionHostId,
   CliInstallStatus,
-  AgentHookInstallStatus,
-  CodexConfigSyncStatus,
   ShellOpenExternalEditorRequest,
   ShellOpenExternalEditorResult,
   ShellOpenLocalPathResult,
@@ -51,7 +49,6 @@ import type {
   KeybindingFileSnapshot,
   BrowserApi,
   PreflightApi,
-  StatsApi,
   MemoryApi
 } from './preload-api-contract-types'
 export type PreloadApiAgentHooks = {
@@ -92,31 +89,6 @@ export type PreloadApiAgentHooks = {
     getWslInstallStatus: (args?: { distro?: string | null }) => Promise<CliInstallStatus>
     installWsl: (args?: { distro?: string | null }) => Promise<CliInstallStatus>
     removeWsl: (args?: { distro?: string | null }) => Promise<CliInstallStatus>
-  }
-  codexConfigSync: {
-    status: () => Promise<CodexConfigSyncStatus>
-  }
-  agentHooks: {
-    claudeStatus: () => Promise<AgentHookInstallStatus>
-    openClaudeStatus: () => Promise<AgentHookInstallStatus>
-    codexStatus: () => Promise<AgentHookInstallStatus>
-    geminiStatus: () => Promise<AgentHookInstallStatus>
-    antigravityStatus: () => Promise<AgentHookInstallStatus>
-    ampStatus: () => Promise<AgentHookInstallStatus>
-    cursorStatus: () => Promise<AgentHookInstallStatus>
-    droidStatus: () => Promise<AgentHookInstallStatus>
-    commandCodeStatus: () => Promise<AgentHookInstallStatus>
-    grokStatus: () => Promise<AgentHookInstallStatus>
-    copilotStatus: () => Promise<AgentHookInstallStatus>
-    hermesStatus: () => Promise<AgentHookInstallStatus>
-    devinStatus: () => Promise<AgentHookInstallStatus>
-  }
-  agentTrust: {
-    markTrusted: (args: {
-      preset: 'cursor' | 'copilot' | 'codex'
-      workspacePath: string
-      connectionId?: string
-    }) => Promise<void>
   }
   preflight: PreflightApi
   notifications: {
@@ -295,6 +267,5 @@ export type PreloadApiAgentHooks = {
       connectionId?: string | null
     }) => Promise<{ stdout: string; stderr: string; exitCode: number | null; error?: string }>
   }
-  stats: StatsApi
   memory: MemoryApi
 }

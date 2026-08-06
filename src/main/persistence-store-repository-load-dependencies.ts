@@ -124,7 +124,6 @@ import {
 } from '../shared/feature-interactions'
 import { normalizeContextualTourIds } from '../shared/contextual-tours'
 import { normalizeFeatureTipIds } from '../shared/feature-tips'
-import { parseCodexResetCreditAttemptLedger } from '../shared/codex-reset-credit-attempt-ledger'
 import { normalizeManualRepoOrder } from '../shared/manual-repo-order'
 import {
   DEFAULT_WORKSPACE_STATUS_ID,
@@ -374,7 +373,6 @@ export const persistenceLoadDependencies = {
   normalizeFeatureInteractionTelemetryBuckets,
   normalizeContextualTourIds,
   normalizeFeatureTipIds,
-  parseCodexResetCreditAttemptLedger,
   normalizeManualRepoOrder,
   DEFAULT_WORKSPACE_STATUS_ID,
   clampWorkspaceBoardColumnWidth,

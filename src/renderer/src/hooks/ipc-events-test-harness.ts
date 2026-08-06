@@ -188,10 +188,6 @@ export async function loadIpcEventsHarness(
             return () => {}
           }
         }),
-        rateLimits: {
-          get: () => Promise.resolve({ limits: {}, lastUpdatedAt: 0 }),
-          onUpdate: () => () => {}
-        },
         runtime: {
           getTerminalFitOverrides: () => Promise.resolve([]),
           getTerminalDrivers: () => Promise.resolve([]),

@@ -2,11 +2,6 @@ import type { PreloadApi, PreflightStatus, RefreshAgentsResult } from '../../../
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import { parseHostAccessLink } from '../../../shared/remote-pairing-address'
 import { verifyRemotePairingRuntimeStatus } from '../../../shared/remote-pairing-verification'
-import type { AiVaultListArgs, AiVaultListResult } from '../../../shared/ai-vault-types'
-import type {
-  AiVaultPrepareSessionResumeArgs,
-  AiVaultPrepareSessionResumeResult
-} from '../../../shared/ai-vault-resume-preparation'
 import type {
   DetectedWorktreeListResult,
   DirEntry,
@@ -18,7 +13,6 @@ import type {
   Repo,
   RemoveWorktreeResult,
   SearchResult,
-  StatsSummary,
   Worktree,
   WorktreeLineage,
   WorkspaceLineage,
@@ -75,7 +69,6 @@ import { normalizeTerminalCustomThemes } from '../../../shared/terminal-custom-t
 import { normalizeUiLanguage } from '../../../shared/ui-language'
 import { normalizeUsagePercentageDisplay } from '../../../shared/usage-percentage-display'
 import { normalizeStatusBarUsageMode } from '../../../shared/status-bar-usage-mode'
-import type { RateLimitState } from '../../../shared/rate-limit-types'
 import type { RuntimeStatus, RuntimeSyncWindowGraph } from '../../../shared/runtime-types'
 import { assertFileMutationOwnershipCapability } from '../../../shared/file-mutation-ownership'
 import {
@@ -154,8 +147,6 @@ import {
   writeWebClipboardText,
   createRuntimeApi,
   createRuntimeEnvironmentsApi,
-  createAiVaultApi,
-  webAiVaultUnavailableResult,
   createReposApi,
   createWorktreesApi,
   createFileApi,
@@ -176,8 +167,6 @@ import {
   createDeveloperPermissionsApi,
   createSkillsApi,
   createNotificationsApi,
-  createRateLimitsApi,
-  createMiniMaxCredentialsApi,
   createGrokAccountsApi,
   createAccountsApi,
   createUpdaterApi,
@@ -524,33 +513,14 @@ export function createWebPreloadApi(): Partial<PreloadApi> {
     hostedReview: createRuntimeNamespaceApi('hostedReview'),
     linear: createRuntimeNamespaceApi('linear'),
     hooks: createHooksApi(),
-    stats: {
-      getSummary: async () =>
-        callRuntimeResult<StatsSummary>('stats.summary').catch(() => ({
-          totalAgentsSpawned: 0,
-          totalPRsCreated: 0,
-          totalAgentTimeMs: 0,
-          firstEventAt: null
-        }))
-    },
     memory: {
       getSnapshot: () => Promise.resolve(createEmptyMemorySnapshot())
     },
-    aiVault: createAiVaultApi(),
     preflight: createPreflightApi(),
     notifications: createNotificationsApi(),
-    rateLimits: createRateLimitsApi(),
-    minimaxCredentials: createMiniMaxCredentialsApi(),
-    grokAccounts: createGrokAccountsApi(),
     cli: createCliApi(),
     agentHooks: createAgentHooksApi(),
     macosTccPrompts: createMacosTccPromptsApi(),
-    // Why: the desktop derives this from the host filesystem, which the web
-    // client has no view of; reporting synced keeps the warning banner silent.
-    codexConfigSync: {
-      status: () =>
-        Promise.resolve({ state: 'synced', reason: null, systemConfigPath: '' } as const)
-    },
     developerPermissions: createDeveloperPermissionsApi(),
     updater: createUpdaterApi(),
     shell: createShellApi(),

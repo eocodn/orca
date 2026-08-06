@@ -2,7 +2,6 @@ import { useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 import type { SourceControlAiSettingsPatch } from '../../../../shared/source-control-ai-types'
 import { useAppStore } from '../../store'
-import { resolveAppearanceAccordionDeepLink } from './appearance-usage-percentage-search'
 import { isIntentionalAppRestartInProgress } from '@/lib/updater-beforeunload'
 import { registerWindowCloseGuard } from '../window-close-request-coordinator'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
@@ -306,13 +305,6 @@ export function useSettingsPageLifecycle(context: Record<string, any>): Record<s
     }
     pendingNavSectionRef.current = paneSectionId
     pendingScrollTargetRef.current = settingsNavigationTarget.sectionId ?? paneSectionId
-    // Why: ensure Appearance's nested status-bar section is open before scrolling so the row is visible.
-    if (settingsNavigationTarget.pane === 'appearance') {
-      const accordion = resolveAppearanceAccordionDeepLink(settingsNavigationTarget.sectionId)
-      if (accordion) {
-        useAppStore.getState().setAppearanceAccordionDeepLink(accordion)
-      }
-    }
     if (settingsNavigationTarget.intent === 'add-quick-command') {
       setQuickCommandAddIntentSignal((signal) => signal + 1)
     } else if (settingsNavigationTarget.intent === 'add-ssh-host') {

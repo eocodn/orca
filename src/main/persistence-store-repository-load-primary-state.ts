@@ -135,7 +135,6 @@ const {
   normalizeFeatureInteractionTelemetryBuckets,
   normalizeContextualTourIds,
   normalizeFeatureTipIds,
-  parseCodexResetCreditAttemptLedger,
   normalizeManualRepoOrder,
   DEFAULT_WORKSPACE_STATUS_ID,
   clampWorkspaceBoardColumnWidth,

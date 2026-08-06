@@ -14,13 +14,6 @@ export function endpointLabel(endpoint: string): string {
   }
 }
 
-export type StatsSummary = {
-  totalAgentsSpawned: number
-  totalPRsCreated: number
-  totalAgentTimeMs: number
-  firstEventAt: number | null
-}
-
 export type WorktreeSummary = {
   worktreeId: string
   repo: string
@@ -84,24 +77,6 @@ export function clientKey(client: RpcClient): number {
     clientIdentities.set(client, id)
   }
   return id
-}
-
-export function fetchStats(
-  client: RpcClient,
-  hostId: string,
-  setStats: (s: StatsSummary) => void,
-  disposed: () => boolean
-) {
-  sendSingleFlightRequest(client, hostId, 'stats.summary')
-    .then((response) => {
-      if (disposed()) {
-        return
-      }
-      if (response.ok) {
-        setStats(response.result as StatsSummary)
-      }
-    })
-    .catch(() => {})
 }
 
 export function fetchWorktreeInfo(
@@ -215,4 +190,3 @@ export function repoColor(name: string): string {
   }
   return REPO_COLORS[Math.abs(hash) % REPO_COLORS.length]
 }
-

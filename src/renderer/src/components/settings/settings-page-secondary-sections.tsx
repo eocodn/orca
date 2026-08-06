@@ -6,7 +6,6 @@ import { AppearancePane } from './AppearancePane'
 import { InputPane } from './InputPane'
 import { NotificationsPane } from './NotificationsPane'
 import { ShortcutsPane } from './ShortcutsPane'
-import { StatsPane } from '../stats/StatsPane'
 import { RuntimeEnvironmentsPane } from './RuntimeEnvironmentsPane'
 import { SshPane } from './SshPane'
 import { DeveloperPermissionsPane } from './DeveloperPermissionsPane'
@@ -147,18 +146,6 @@ export function SettingsPageSecondarySections({
         bodyClassName={isFocusedShortcutsPane ? 'min-h-0 flex-1 overflow-hidden' : undefined}
       >
         {isSectionMounted('shortcuts') ? <ShortcutsPane /> : null}
-      </SettingsSection>
-
-      <SettingsSection
-        id="stats"
-        title={translate('auto.components.settings.Settings.954a8f5aef', 'Stats & Usage')}
-        description={translate(
-          'auto.components.settings.Settings.8acf3f22e0',
-          'Orca stats plus Claude, Codex, OpenCode token analytics and Grok subscription usage.'
-        )}
-        searchEntries={getSectionSearchEntries('stats')}
-      >
-        {isSectionMounted('stats') ? <StatsPane /> : null}
       </SettingsSection>
 
       <SettingsSection

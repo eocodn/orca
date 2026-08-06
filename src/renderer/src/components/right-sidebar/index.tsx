@@ -46,7 +46,6 @@ import { translate } from '@/i18n/i18n'
 import { RightSidebarPanelContent } from './right-sidebar-panel-content'
 import { useMeasuredWidth } from './right-sidebar-measured-width'
 import { normalizeRightSidebarRoute } from '@/store/right-sidebar-route'
-import { AgentSessionHistoryIcon } from './agent-session-history-icon'
 import { resolveRightSidebarEffectiveTab } from './right-sidebar-effective-tab'
 import {
   isPairedWebClientWindow,
@@ -111,12 +110,6 @@ function RightSidebarInner(): React.JSX.Element {
         icon: Files,
         title: translate('auto.components.right.sidebar.index.8bc2bbc3a0', 'Explorer'),
         shortcut: explorerShortcut === 'Unassigned' ? '' : explorerShortcut
-      },
-      {
-        id: 'vault',
-        icon: AgentSessionHistoryIcon,
-        title: translate('auto.components.right.sidebar.index.aiVaultSessionHistory', 'Agents'),
-        shortcut: ''
       },
       {
         id: 'workspaces',

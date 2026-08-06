@@ -5,7 +5,6 @@ import type {
   AgentType,
   MigrationUnsupportedPtyEntry
 } from './agent-status-types'
-import type { CodexResetCreditAttemptLedger } from './codex-reset-credit-attempt-ledger'
 import type { ContextualTourId } from './contextual-tours'
 import type {
   FeatureInteractionState,
@@ -30,9 +29,9 @@ import type {
   WorkspaceStatusDefinition
 } from './types-worktree'
 import type { GlobalSettings } from './types-settings-global'
-import type { LinearConcreteWorkspaceId, LinearCustomViewModel } from './types-linear-mutations'
 import type { StatusBarUsageMode } from './status-bar-usage-mode'
 import type { UsagePercentageDisplay } from './usage-percentage-display'
+import type { LinearConcreteWorkspaceId, LinearCustomViewModel } from './types-linear-mutations'
 import type { TuiAgent, TaskViewPresetId } from './types-settings-accounts'
 import type { WorkspaceCleanupUIState } from './workspace-cleanup'
 import type { WorkspaceSessionState } from './types-tabs'
@@ -356,9 +355,7 @@ export type PersistedUIState = {
   _grokStatusBarDefaultAdded?: boolean
   statusBarItems: StatusBarItem[]
   statusBarVisible: boolean
-  /** Why: this is client-side presentation, not a provider/account or execution-host setting. */
   usagePercentageDisplay?: UsagePercentageDisplay
-  /** Client-side footer presentation; verbose preserves the pre-roster all-window default. */
   statusBarUsageMode?: StatusBarUsageMode
   dismissedUpdateVersion: string | null
   lastUpdateCheckAt: number | null
@@ -386,9 +383,7 @@ export type PersistedUIState = {
   osc52ClipboardDefaultOnNoticePending?: boolean
   /** One-shot rollout notice for manual project ordering default; absent or true keeps the sidebar callout hidden. */
   projectOrderManualDefaultNoticeDismissed?: boolean
-  /** One-shot notice that usage meters show percent used, not remaining; absent resolves on load (new profiles dismissed, upgraded see it once). */
   usagePercentageDisplayChangeNoticeDismissed?: boolean
-  /** User-hidden empty-state usage CTA; permanently hides the "Connect AI accounts" prompt even if providers are later disconnected. */
   usageEmptyStateDismissed?: boolean
   /** URL for new browser tabs; null = blank tab. */
   browserDefaultUrl?: string | null
@@ -568,5 +563,4 @@ export type PersistedState = {
   /** Main-owned telemetry de-dupe marker; never exposed through PersistedUIState. */
   featureInteractionTelemetryBuckets?: FeatureInteractionTelemetryBucketState
   /** Main-owned reset mutation journal. Never expose this through renderer settings APIs. */
-  codexResetCreditAttemptLedger?: CodexResetCreditAttemptLedger
 }

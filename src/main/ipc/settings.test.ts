@@ -126,7 +126,6 @@ describe('registerSettingsHandlers', () => {
 
   it('does not reconcile hooks when the disabled-agent set is unchanged', async () => {
     const before = {
-      agentStatusHooksEnabled: true,
       disabledTuiAgents: ['codex', 'claude']
     }
     store.getSettings.mockReturnValue(before)
@@ -147,7 +146,6 @@ describe('registerSettingsHandlers', () => {
 
   it('reconciles hooks when the disabled-agent set changes', async () => {
     const before = {
-      agentStatusHooksEnabled: true,
       disabledTuiAgents: ['codex', 'claude']
     }
     const updated = {

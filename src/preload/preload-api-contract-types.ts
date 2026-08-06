@@ -1,6 +1,5 @@
 export type * from './api-types-external'
 export type * from './api-base'
-export type * from './api-usage-chat'
 export type * from './api-plugins'
 export type {
   AgentType,
@@ -12,6 +11,5 @@ export type {
   PreflightApi,
   PreflightRuntimeContext,
   PtyManagementApi,
-  RefreshAgentsResult,
-  StatsApi
+  RefreshAgentsResult
 } from './api-types'

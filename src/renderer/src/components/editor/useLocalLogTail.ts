@@ -119,7 +119,7 @@ export function useLocalLogTail({
                   getClientRuntime().file.stopLocalLogTail({ subscriptionId: session.subscriptionId })
                 )
                 .catch(() => {})
-              console.warn('[ai-vault] stopped live tail at the editor file-size limit')
+              console.warn('[local-log] stopped live tail at the editor file-size limit')
               return
             }
             appendedContent += decoded.content
@@ -130,7 +130,7 @@ export function useLocalLogTail({
         } while (session.pendingRead && !session.closed)
       } catch (error) {
         if (!session.closed) {
-          console.warn('[ai-vault] local log tail read failed', error)
+          console.warn('[local-log] local log tail read failed', error)
         }
       } finally {
         session.reading = false
@@ -226,7 +226,7 @@ export function useLocalLogTail({
         })
         .catch((error) => {
           if (!session.closed) {
-            console.warn('[ai-vault] local log tail watch failed', error)
+            console.warn('[local-log] local log tail watch failed', error)
           }
         })
     }

@@ -276,7 +276,6 @@ export type GlobalSettings = {
   /** Why: closing a terminal with child processes kills foreground work; keep this skip separate from other confirmations. */
   skipCloseTerminalWithRunningProcessConfirm: boolean
   /** Why: a Codex rate-limit reset spends a scarce credit on the live account; keep this skip separate from local confirmations. */
-  skipCodexRateLimitResetConfirm: boolean
   /** Default preset in the new-workspace GitHub task view. */
   defaultTaskViewPreset: TaskViewPresetId
   /** Persisted last-used task source so Tasks reopens to the same provider instead of defaulting to GitHub. */
@@ -317,8 +316,6 @@ export type GlobalSettings = {
   agentDefaultEnv?: Partial<Record<TuiAgent, Record<string, string>>>
   /** One-shot guard for adding yolo-mode default args to untouched agent launch profiles. */
   agentYoloDefaultsMigrated?: boolean
-  /** Why: disabling must persist so startup doesn't reinstall global agent hook entries the user just removed. */
-  agentStatusHooksEnabled: boolean
   /** Dismissed freshness tuples: no write authority, just suppress re-nudging the same official placement/revision. */
   dismissedSkillFreshnessNudges?: string[]
   /** Why: generated tab titles are subjective, so they stay opt-in and manual renames win. */

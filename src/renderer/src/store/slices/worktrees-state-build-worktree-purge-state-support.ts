@@ -220,7 +220,6 @@ export function buildWorktreePurgeState(s: AppState, worktreeIds: string[]): Par
     for (const [id, tab] of Object.entries(omitted)) {
       if (
         tab === 'explorer' ||
-        tab === 'vault' ||
         tab === 'workspaces' ||
         tab === 'source-control' ||
         tab === 'checks' ||

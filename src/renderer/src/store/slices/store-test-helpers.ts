@@ -22,14 +22,9 @@ import { createLinearSlice } from './linear'
 import { createPreflightSlice } from './preflight'
 import { createJiraSlice } from './jira'
 import { createEditorSlice } from './editor'
-import { createStatsSlice } from './stats'
 import { createMemorySlice } from './memory'
 import { createWorkspaceSpaceSlice } from './workspace-space'
-import { createClaudeUsageSlice } from './claude-usage'
-import { createCodexUsageSlice } from './codex-usage'
-import { createOpenCodeUsageSlice } from './opencode-usage'
 import { createBrowserSlice } from './browser'
-import { createRateLimitSlice } from './rate-limits'
 import { createSshSlice } from './ssh'
 import { createRuntimeEnvironmentSshSlice } from './runtime-environment-ssh'
 import { createAgentStatusSlice } from './agent-status'
@@ -73,14 +68,9 @@ export function createTestStore() {
     ...createPreflightSlice(...a),
     ...createJiraSlice(...a),
     ...createEditorSlice(...a),
-    ...createStatsSlice(...a),
     ...createMemorySlice(...a),
     ...createWorkspaceSpaceSlice(...a),
-    ...createClaudeUsageSlice(...a),
-    ...createCodexUsageSlice(...a),
-    ...createOpenCodeUsageSlice(...a),
     ...createBrowserSlice(...a),
-    ...createRateLimitSlice(...a),
     ...createSshSlice(...a),
     ...createRuntimeEnvironmentSshSlice(...a),
     ...createAgentStatusSlice(...a),

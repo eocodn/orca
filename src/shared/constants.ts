@@ -10,8 +10,9 @@ import type {
   WorkspaceSessionState,
   AgentActivityDisplayMode
 } from './types'
-import { EMPTY_CODEX_RESET_CREDIT_ATTEMPT_LEDGER } from './codex-reset-credit-attempt-ledger'
 import { DEFAULT_STATUS_BAR_ITEMS } from './status-bar-defaults'
+import { DEFAULT_USAGE_PERCENTAGE_DISPLAY } from './usage-percentage-display'
+import { DEFAULT_STATUS_BAR_USAGE_MODE } from './status-bar-usage-mode'
 import { DEFAULT_TERMINAL_FONT_WEIGHT } from './terminal-fonts'
 import { getDefaultTerminalQuickCommands } from './terminal-quick-commands'
 import { cloneDefaultWorkspaceStatuses } from './workspace-statuses'
@@ -31,8 +32,6 @@ import {
 import { DEFAULT_SOURCE_CONTROL_GROUP_ORDER } from './source-control-group-order'
 import { DEFAULT_SETUP_AGENT_STARTUP_POLICY } from './setup-agent-startup-policy'
 import { DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT } from './terminal-scrollback-policy'
-import { DEFAULT_USAGE_PERCENTAGE_DISPLAY } from './usage-percentage-display'
-import { DEFAULT_STATUS_BAR_USAGE_MODE } from './status-bar-usage-mode'
 
 export { DEFAULT_STATUS_BAR_ITEMS } from './status-bar-defaults'
 export {
@@ -312,7 +311,6 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     claudeAgentTeamsDefaultDisabledMigrated: true,
     skipDeleteWorktreeConfirm: false,
     skipCloseTerminalWithRunningProcessConfirm: false,
-    skipCodexRateLimitResetConfirm: false,
     defaultTaskViewPreset: 'all',
     defaultTaskSource: 'github',
     visibleTaskProviders: [...TASK_PROVIDERS],
@@ -328,7 +326,6 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     agentDefaultArgs: { ...DEFAULT_TUI_AGENT_ARGS },
     agentDefaultEnv: { ...DEFAULT_TUI_AGENT_ENV },
     agentYoloDefaultsMigrated: true,
-    agentStatusHooksEnabled: true,
     tabAutoGenerateTitle: false,
     confirmClosePinnedTab: true,
     keepComputerAwakeWhileAgentsRun: false,
@@ -417,7 +414,6 @@ export function getDefaultPersistedState(homedir: string): PersistedState {
     legacyPaneKeyAliasEntries: [],
     onboarding: getDefaultOnboardingState(),
     featureInteractionTelemetryBuckets: {},
-    codexResetCreditAttemptLedger: structuredClone(EMPTY_CODEX_RESET_CREDIT_ATTEMPT_LEDGER)
   }
 }
 
@@ -480,8 +476,8 @@ export function getDefaultUIState(): PersistedUIState {
     osc52ClipboardDefaultOnNoticePending: false,
     // Why: only upgraded profiles saw the old ordering, so only they get the one-time notice.
     projectOrderManualDefaultNoticeDismissed: true,
-    // Why: only upgraded profiles saw the old default, so only they get the one-time change notice.
     usagePercentageDisplayChangeNoticeDismissed: true,
+    // Why: only upgraded profiles saw the old default, so only they get the one-time change notice.
     workspaceCleanup: { dismissals: {} },
     featureTipsSeenIds: [],
     featureInteractions: {},

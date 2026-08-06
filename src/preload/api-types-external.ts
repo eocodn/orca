@@ -121,9 +121,7 @@ export type {
   BrowserSessionProfileScope,
   BrowserSessionProfileSource,
   BrowserViewportOverride,
-  ClaudeRateLimitAccountsState,
   ClassifiedError,
-  CodexRateLimitAccountsState,
   CreateWorktreeArgs,
   CreateWorktreeResult,
   CustomPet,
@@ -249,7 +247,6 @@ export type {
   SearchOptions,
   NestedRepoScanResult,
   SearchResult,
-  StatsSummary,
   MemorySnapshot,
   TuiAgent,
   ReleaseBuildListResult,
@@ -343,8 +340,6 @@ export type { ElectronAPI } from '@electron-toolkit/preload'
 export type { BrowserSetAnnotationViewportBridgeArgs } from '../shared/browser-annotation-viewport-bridge'
 export type { CliInstallStatus } from '../shared/cli-install-types'
 export type { E2EConfig } from '../shared/e2e-config'
-export type { AgentHookInstallStatus } from '../shared/agent-hook-types'
-export type { CodexConfigSyncStatus } from '../shared/codex-config-sync-types'
 export type {
   AgentStatusClearIpcPayload,
   AgentStatusIpcPayload,
