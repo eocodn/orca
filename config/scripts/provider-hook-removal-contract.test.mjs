@@ -101,6 +101,22 @@ for (const path of removedFiles) {
 }
 
 for (const path of [
+  'src/main/codex/codex-app-server-session.ts',
+  'src/main/codex/codex-config-mirror.ts',
+  'src/main/codex/codex-home-paths.ts',
+  'src/main/codex/codex-model-provider-config.ts',
+  'src/main/codex/config-toml-runtime-owned-sections.ts',
+  'src/main/codex-cli/command.ts',
+  'src/main/main-process-runtime-startup-preparation.ts',
+  'src/main/pty/codex-home-wsl-env.ts'
+]) {
+  assert.ok(
+    existsSync(resolve(root, path)),
+    `${path} is a retained generic Codex launch/config surface`
+  )
+}
+
+for (const path of [
   'src/main/pi/prefill-extension-source.ts',
   'src/main/opencode/opencode-data-directory.ts'
 ]) {
@@ -200,8 +216,9 @@ assert.ok(
 
 const importRefs = []
 const sourceRoots = ['src/main', 'src/preload', 'src/shared', 'src/relay']
-const providerPattern =
-  /(?:from|import\s*\(|require\s*\()\s*['"][^'"]*\/(?:amp|antigravity|claude|command-code|copilot|cursor|devin|droid|gemini|grok|hermes|kimi|openclaude|mimo)\/(?:hook|statusline|kimi-hook|hook-config)|(?:from|import\s*\(|require\s*\()\s*['"][^'"]*\/codex\/(?:codex-hook|hook-service|hook-trust|codex-real-home-hook|codex-managed-trust|codex-user-hook-trust|codex-wsl-hook|codex-trust-grant|codex-app-server-(?:client|grant))
+const providerPattern = new RegExp(
+  String.raw\`(?:/(?:amp|antigravity|claude|command-code|copilot|cursor|devin|droid|gemini|grok|hermes|kimi|openclaude|mimo)/(?:hook|statusline|kimi-hook|hook-config))|(?:/codex/(?:codex-hook|hook-service|hook-trust|codex-real-home-hook|codex-managed-trust|codex-user-hook-trust|codex-wsl-hook|codex-trust-grant|codex-app-server-(?:client|grant)))\`
+)
 const visit = (directory) => {
   if (!existsSync(directory)) return
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
