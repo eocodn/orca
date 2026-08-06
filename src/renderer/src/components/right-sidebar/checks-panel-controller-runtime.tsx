@@ -1,18 +1,12 @@
 /* Coordinates hosted-review data with focused checks, comments, and actions sections. */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useAppStore, type AppState } from '@/store'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useAppStore } from '@/store'
 import { prChecksCacheSuffix, prCommentsCacheSuffix } from '@/store/slices/github'
 import { getGitHubPRCacheKey, getGitHubRepoCacheKey } from '@/store/slices/github-cache-key'
-import { useActiveWorktree, useRepoById } from '@/store/selectors'
-import { useChecksPanelTerminalWorktree } from './use-checks-panel-terminal-worktree'
 import { isFolderRepo } from '../../../../shared/repo-kind'
-import type { PRInfo, PRCheckDetail, PRComment } from '../../../../shared/types'
-import { getConnectionId } from '@/lib/connection-context'
+import type { PRInfo, PRCheckDetail } from '../../../../shared/types'
 import { pickDefaultSourceControlAgent } from './SourceControl'
-import type { HostedReviewProvider } from '../../../../shared/hosted-review'
-import { resolveHostedReviewCreationProvider } from '../../../../shared/hosted-review-creation-providers'
-import { normalizeGlobalWindowsRuntimeDefault } from '../../../../shared/project-execution-runtime'
-import { getHostedReviewCacheKey, refreshHostedReviewCard } from '@/store/slices/hosted-review'
+import { getHostedReviewCacheKey } from '@/store/slices/hosted-review'
 import { type ChecksPanelReview, selectChecksPanelReview } from './checks-panel-review'
 import { selectReviewCacheEntry } from './review-cache-entry-selection'
 import {
@@ -20,84 +14,19 @@ import {
   checksPanelHostedReviewAsyncResultKey,
   shouldCommitChecksPanelAsyncResult
 } from './checks-panel-async-result-key'
-import { installWindowVisibilityTimeoutPoller } from '@/lib/window-visibility-timeout-poller'
-import { resolveChecksPanelReviewLookup } from './checks-panel-review-lookup-authority'
-import {
-  computeChecksPanelConfirmedReadiness,
-  isChecksPanelHardErrorCleared,
-  type ChecksPanelConfirmedReadinessInput
-} from './checks-panel-review-creation'
-import {
-  buildChecksPanelGitStatusContextKey,
-  readChecksPanelPublishActionGitStatus,
-  readChecksPanelGitStatusSnapshot,
-  shouldCoalesceChecksPanelGitStatusSnapshotRefresh,
-  shouldPollChecksPanelRuntimeSshStatus
-} from './checks-panel-git-status-snapshot'
-import {
-  getChecksPanelForegroundReviewEvidenceKey,
-  resolveChecksPanelPRRefreshRequest,
-  resolveChecksPanelReviewEvidenceProvider
-} from './checks-panel-pr-refresh-request'
-import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
-import { getWorktreeGitIdentityDisplay } from '@/lib/worktree-git-identity-display'
-import type {
-  SourceControlActionRecipe,
-  SourceControlLaunchActionId
-} from '../../../../shared/source-control-ai-actions'
-import {
-  saveSourceControlActionRecipe,
-  type SourceControlAiWriteTarget
-} from '../../../../shared/source-control-ai-recipe-save'
-import { resolveSourceControlLaunchPlatform } from '@/lib/source-control-launch-platform'
-import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
-import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
-import {
-  getPullRequestGenerationRecordKey,
-  getPullRequestGenerationSeedRestoreKey
-} from '@/store/slices/pull-request-generation'
-import { localizedHostedReviewCopy } from '@/i18n/hosted-review-localized-copy'
+import { resolveChecksPanelPRRefreshRequest } from './checks-panel-pr-refresh-request'
+import { resolveChecksPanelReviewContext } from './checks-panel-runtime-review-context'
 import { renderChecksPanel } from './checks-panel-runtime-render'
 import { useChecksPanelRefresh } from './checks-panel-refresh-controller'
-import { useChecksPanelCommentActions } from './checks-panel-comment-actions-controller'
-import { useChecksPanelAiActions } from './checks-panel-ai-actions-controller'
-import { useChecksPanelFixChecks } from './checks-panel-ai-fix-controller'
 import { useChecksPanelReviewEffects } from './checks-panel-review-effects'
-import { useChecksPanelGitEffects } from './checks-panel-git-effects'
-import { useChecksPanelFetch } from './checks-panel-fetch-controller'
-import { useChecksPanelLinkActions } from './checks-panel-link-actions'
-import { useChecksPanelCreateAction } from './checks-panel-create-action'
-import { useChecksPanelGeneration } from './checks-panel-generation-controller'
+import { useChecksPanelRuntimeActions } from './checks-panel-runtime-actions'
 import { useChecksPanelCommentFetch } from './checks-panel-comment-fetch'
 import { useChecksPanelEntryRefresh } from './checks-panel-entry-refresh'
-import { useChecksPanelRuntimeState } from './checks-panel-runtime-state'
-
-const RUNTIME_SSH_STATUS_REFRESH_MS = 3000
-
-// Fingerprint HEAD/dirty/upstream/base/execution-host so a stale snapshot can't keep an enabled Create open when any of them move.
-function buildChecksPanelEligibilityGitFingerprint(input: {
-  headOid: string | null
-  hasUncommittedChanges: boolean | undefined
-  hasUpstream: boolean | undefined
-  ahead: number | undefined
-  behind: number | undefined
-  base: string | null
-  runtimeEnvironmentId: string | null
-  repoConnectionId: string | null
-  localExecutionScope: string | null
-}): string {
-  return JSON.stringify({
-    headOid: input.headOid ?? null,
-    hasUncommittedChanges: input.hasUncommittedChanges ?? null,
-    hasUpstream: input.hasUpstream ?? null,
-    ahead: input.ahead ?? null,
-    behind: input.behind ?? null,
-    base: input.base ?? null,
-    runtimeEnvironmentId: input.runtimeEnvironmentId ?? null,
-    repoConnectionId: input.repoConnectionId ?? null,
-    localExecutionScope: input.localExecutionScope ?? null
-  })
-}
+import { useChecksPanelRuntimePolling } from './checks-panel-runtime-polling'
+import { useChecksPanelReviewRefresh } from './checks-panel-runtime-review-refresh'
+import { useChecksPanelRuntimeDataEffects } from './checks-panel-runtime-data-effects'
+import { useChecksPanelRuntimeGeneration } from './checks-panel-runtime-generation'
+import { useChecksPanelRuntimeFoundation } from './checks-panel-runtime-foundation'
 
 function isGitLabChecksPanelReview(
   review: ChecksPanelReview | null
@@ -107,70 +36,48 @@ function isGitLabChecksPanelReview(
 
 export default function ChecksPanel(): React.JSX.Element {
   // Why: the sidebar stays mounted when closed (perf); gate polling on visibility so we don't fetch checks/comments or poll cwd while hidden.
-  const rightSidebarOpen = useAppStore((s) => s.rightSidebarOpen)
-  const rightSidebarTab = useAppStore((s) => s.rightSidebarTab)
-  const isPanelVisible = rightSidebarOpen && rightSidebarTab === 'checks'
-
-  // Follow the active terminal's cwd so linked-PR/checks track the worktree it's operating in (e.g. across a stack), else the sidebar selection.
-  const defaultActiveWorktree = useActiveWorktree()
-  const { worktree: activeWorktree } = useChecksPanelTerminalWorktree({
-    defaultActiveWorktree,
-    isPanelVisible
-  })
-  const activeWorktreeId = activeWorktree?.id ?? null
-  const repo = useRepoById(activeWorktree?.repoId ?? null)
-  const activeConnectionId = activeWorktreeId
-    ? (getConnectionId(activeWorktreeId) ?? repo?.connectionId ?? null)
-    : null
-  const settings = useAppStore((s) => s.settings)
-  const updateSettings = useAppStore((s) => s.updateSettings)
-  const updateRepo = useAppStore((s) => s.updateRepo)
-  const fetchPRForBranch = useAppStore((s) => s.fetchPRForBranch)
-  const fetchHostedReviewForBranch = useAppStore((s) => s.fetchHostedReviewForBranch)
-  const expireGitHubPRRefreshState = useAppStore((s) => s.expireGitHubPRRefreshState)
-  const getHostedReviewCreationEligibility = useAppStore(
-    (s) => s.getHostedReviewCreationEligibility
-  )
-  const createHostedReview = useAppStore((s) => s.createHostedReview)
-  const enqueueGitHubPRRefresh = useAppStore((s) => s.enqueueGitHubPRRefresh)
-  const conflictOperation = useAppStore((s) =>
-    activeWorktreeId ? (s.gitConflictOperationByWorktree[activeWorktreeId] ?? 'unknown') : 'unknown'
-  )
-  const gitStatusInvalidation = useAppStore((s) =>
-    activeWorktreeId ? s.gitStatusByWorktree[activeWorktreeId] : undefined
-  )
-  const remoteStatusInvalidation = useAppStore((s) =>
-    activeWorktreeId ? s.remoteStatusesByWorktree[activeWorktreeId] : undefined
-  )
-  const isRemoteOperationActive = useAppStore((s) => s.isRemoteOperationActive)
-  const pushBranch = useAppStore((s) => s.pushBranch)
-  const syncBranch = useAppStore((s) => s.syncBranch)
-  const fetchUpstreamStatus = useAppStore((s) => s.fetchUpstreamStatus)
-  const setRightSidebarOpen = useAppStore((s) => s.setRightSidebarOpen)
-  const setRightSidebarTab = useAppStore((s) => s.setRightSidebarTab)
-  const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
-  const updateWorktreeGitIdentity = useAppStore((s) => s.updateWorktreeGitIdentity)
-  const openModal = useAppStore((s) => s.openModal)
-
-  const fetchPRChecks = useAppStore((s) => s.fetchPRChecks)
-  const fetchPRCheckDetails = useAppStore((s) => s.fetchPRCheckDetails)
-  const fetchPRComments = useAppStore((s) => s.fetchPRComments)
-  const addPRConversationComment = useAppStore((s) => s.addPRConversationComment)
-  const addPRReviewCommentReply = useAppStore((s) => s.addPRReviewCommentReply)
-  const resolveReviewThread = useAppStore((s) => s.resolveReviewThread)
-  const detectedAgentIds = useAppStore((s) => s.detectedAgentIds)
-  const remoteDetectedAgentIds = useAppStore((s) => {
-    return typeof activeConnectionId === 'string'
-      ? (s.remoteDetectedAgentIds[activeConnectionId] ?? null)
-      : null
-  })
-
   const {
+    rightSidebarOpen,
+    rightSidebarTab,
+    isPanelVisible,
+    defaultActiveWorktree,
+    activeWorktree,
+    activeWorktreeId,
+    repo,
+    activeConnectionId,
+    settings,
+    updateSettings,
+    updateRepo,
+    fetchPRForBranch,
+    fetchHostedReviewForBranch,
+    expireGitHubPRRefreshState,
+    getHostedReviewCreationEligibility,
+    createHostedReview,
+    enqueueGitHubPRRefresh,
+    conflictOperation,
+    gitStatusInvalidation,
+    remoteStatusInvalidation,
+    isRemoteOperationActive,
+    pushBranch,
+    syncBranch,
+    fetchUpstreamStatus,
+    setRightSidebarOpen,
+    setRightSidebarTab,
+    updateWorktreeMeta,
+    updateWorktreeGitIdentity,
+    openModal,
+    fetchPRChecks,
+    fetchPRCheckDetails,
+    fetchPRComments,
+    addPRConversationComment,
+    addPRReviewCommentReply,
+    resolveReviewThread,
+    detectedAgentIds,
+    remoteDetectedAgentIds,
     checks,
     setChecks,
     checksLoading,
     setChecksLoading,
-    comments,
     setComments,
     commentsLoading,
     setCommentsLoading,
@@ -224,113 +131,39 @@ export default function ChecksPanel(): React.JSX.Element {
     prevChecksRef,
     conflictSummaryRefreshKeyRef,
     panelVisibleSinceRef,
-    foregroundedUnrenderedReviewKeyRef
-  } = useChecksPanelRuntimeState()
-  const isResolvingConflictsWithAI = false
-  commentsRef.current = comments
-  const prGenerationRecords = useAppStore((s) => s.pullRequestGenerationRecords)
-  const allocatePullRequestGenerationRequestId = useAppStore(
-    (s) => s.allocatePullRequestGenerationRequestId
-  )
-  const setPullRequestGenerationRecord = useAppStore((s) => s.setPullRequestGenerationRecord)
-  const updatePullRequestGenerationRecord = useAppStore((s) => s.updatePullRequestGenerationRecord)
-
-  const saveLaunchActionDefault = useCallback(
-    async (
-      target: SourceControlAiWriteTarget,
-      actionId: SourceControlLaunchActionId,
-      recipe: SourceControlActionRecipe
-    ): Promise<void> => {
-      const state = useAppStore.getState()
-      const latestSettings = state.settings
-      if (!latestSettings) {
-        throw new Error('Settings are not loaded.')
-      }
-      const latestRepo =
-        target.type === 'repo'
-          ? (state.repos.find((candidate) => candidate.id === target.repoId) ?? null)
-          : null
-      const result = saveSourceControlActionRecipe({
-        target,
-        settings: latestSettings,
-        repo: latestRepo,
-        actionId,
-        recipe
-      })
-      if ('sourceControlAi' in result) {
-        await updateSettings({ sourceControlAi: result.sourceControlAi })
-        return
-      }
-      await updateRepo(result.target.repoId, result.update)
-    },
-    [updateRepo, updateSettings]
-  )
-  const asyncResultKeyRef = useRef<string>('')
-  const refreshRequestKeyRef = useRef<string | null>(null)
-  const refreshContextKeyRef = useRef<string | null>(null)
-  const gitStatusSnapshotInFlightContextRef = useRef<string | null>(null)
-  const gitStatusSnapshotRerunContextRef = useRef<string | null>(null)
-  const gitStatusSnapshotRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const gitIdentityDisplay = activeWorktree ? getWorktreeGitIdentityDisplay(activeWorktree) : null
-  const detachedHeadDisplay = gitIdentityDisplay?.kind === 'detached' ? gitIdentityDisplay : null
-  const branch = gitIdentityDisplay?.kind === 'branch' ? gitIdentityDisplay.branchName : ''
-  const activeWorktreePath = activeWorktree?.path ?? null
-  const activeWorktreePushTarget = activeWorktree?.pushTarget ?? null
-  const activeSourceControlLaunchPlatform = resolveSourceControlLaunchPlatform({
-    connectionId: activeConnectionId,
-    worktreePath: activeWorktreePath,
-    projectRuntime: activeConnectionId
-      ? undefined
-      : getLocalProjectExecutionRuntimeContext(useAppStore.getState(), activeWorktreeId)
-  })
-  const runtimeEnvironmentId = useAppStore((s) =>
-    getRuntimeEnvironmentIdForWorktree(s, activeWorktreeId)
-  )
-  const ownerSettings = useMemo<AppState['settings']>(
-    () =>
-      !settings
-        ? settings
-        : runtimeEnvironmentId
-          ? { ...settings, activeRuntimeEnvironmentId: runtimeEnvironmentId }
-          : { ...settings, activeRuntimeEnvironmentId: null },
-    [runtimeEnvironmentId, settings]
-  )
-  const repoConnectionId = repo?.connectionId?.trim() || null
-  // Local execution host variant (wsl:{distro} vs host); applies only when local — remote contexts are scoped by runtimeEnvironmentId/connectionId.
-  const localExecutionScope = useMemo<string | null>(() => {
-    if (runtimeEnvironmentId != null || repoConnectionId != null) {
-      return null
-    }
-    const localRuntime = normalizeGlobalWindowsRuntimeDefault(settings?.localWindowsRuntimeDefault)
-    return localRuntime.kind === 'wsl' ? `wsl:${localRuntime.distro ?? ''}` : 'host'
-  }, [runtimeEnvironmentId, repoConnectionId, settings?.localWindowsRuntimeDefault])
-  const sshConnectionStatus = useAppStore((s) =>
-    repoConnectionId ? s.sshConnectionStates.get(repoConnectionId)?.status : undefined
-  )
-  const panelContextKey = buildChecksPanelGitStatusContextKey({
-    repoId: repo?.id,
-    worktreeId: activeWorktreeId,
-    worktreePath: activeWorktreePath,
+    foregroundedUnrenderedReviewKeyRef,
+    isResolvingConflictsWithAI,
+    prGenerationRecords,
+    allocatePullRequestGenerationRequestId,
+    setPullRequestGenerationRecord,
+    updatePullRequestGenerationRecord,
+    asyncResultKeyRef,
+    refreshRequestKeyRef,
+    refreshContextKeyRef,
+    gitStatusSnapshotInFlightContextRef,
+    gitStatusSnapshotRerunContextRef,
+    gitStatusSnapshotRetryTimerRef,
+    gitIdentityDisplay,
+    detachedHeadDisplay,
     branch,
-    linkedGitHubPR: activeWorktree?.linkedPR ?? null,
-    linkedGitLabMR: activeWorktree?.linkedGitLabMR ?? null,
-    linkedBitbucketPR: activeWorktree?.linkedBitbucketPR ?? null,
-    linkedAzureDevOpsPR: activeWorktree?.linkedAzureDevOpsPR ?? null,
-    linkedGiteaPR: activeWorktree?.linkedGiteaPR ?? null,
+    activeWorktreePath,
+    activeWorktreePushTarget,
+    activeSourceControlLaunchPlatform,
     runtimeEnvironmentId,
+    ownerSettings,
     repoConnectionId,
     localExecutionScope,
-    pushTarget: activeWorktreePushTarget
-  })
-  const panelContextKeyRef = useRef(panelContextKey)
-  panelContextKeyRef.current = panelContextKey
-
+    sshConnectionStatus,
+    panelContextKey,
+    panelContextKeyRef,
+    saveLaunchActionDefault
+  } = useChecksPanelRuntimeFoundation()
   const clearTitleInputFocusTimer = useCallback((): void => {
     if (titleInputFocusTimerRef.current !== null) {
       clearTimeout(titleInputFocusTimerRef.current)
       titleInputFocusTimerRef.current = null
     }
-  }, [])
+  }, [titleInputFocusTimerRef])
 
   const setChecksPanelContentRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -536,161 +369,81 @@ export default function ChecksPanel(): React.JSX.Element {
           linkedGiteaPR
         })
       : ''
-  const gitStatusInputs = readChecksPanelGitStatusSnapshot(gitStatusSnapshot, panelContextKey)
-  const gitStatusReadyForPanelContext = gitStatusInputs.hasUncommittedChanges !== undefined
-  const hasUncommittedChanges = gitStatusInputs.hasUncommittedChanges
-  const remoteStatus = gitStatusInputs.remoteStatus
-  const eligibilityHeadOid =
-    gitStatusSnapshot?.contextKey === panelContextKey
-      ? (gitStatusSnapshot.gitIdentity?.head ?? null)
-      : null
-  // Read via a ref so a HEAD move drops confirmed (fingerprint mismatch) without re-triggering the eligibility network call.
+  const reviewContext = resolveChecksPanelReviewContext({
+    activeWorktree,
+    gitStatusInvalidation,
+    gitStatusSnapshot,
+    hardRefreshError,
+    hostedReview,
+    hostedReviewCreationSnapshot,
+    isGitHubReviewContextHint: true,
+    linkedReviewNumber,
+    localExecutionScope,
+    panelContextKey,
+    repo,
+    repoConnectionId,
+    runtimeEnvironmentId,
+    settingsRequestKey: hostedReviewCreationRequestKey,
+    pr,
+    prCachedHasPR,
+    eligibilityReviewLookupOutcome: hostedReviewCreationSnapshot?.data?.reviewLookupOutcome ?? null,
+    remoteStatusInvalidation
+  })
+  const {
+    gitStatusInputs,
+    gitStatusReadyForPanelContext,
+    hasUncommittedChanges,
+    remoteStatus,
+    eligibilityHeadOid,
+    eligibilityGitFingerprint,
+    publishActionGitStatusInputs,
+    publishActionHasUncommittedChanges,
+    publishActionRemoteStatus,
+    hostedReviewCreation,
+    hostedReviewCreateProvider,
+    hostedReviewCreateCopy,
+    hasNonGitHubLinkedReview,
+    isGitHubReviewContext,
+    prCachedHasPRForContext,
+    checksPanelReviewLookup,
+    checksPanelReviewLookupResult,
+    hasUnrenderedReviewEvidence,
+    unrenderedReviewEvidenceIdentity,
+    unrenderedReviewEvidenceProvider,
+    foregroundReviewEvidenceKey,
+    hardErrorObservedAt,
+    confirmedReadinessInput,
+    confirmedReadiness,
+    checksPanelHasHardRefreshError
+  } = reviewContext
   const eligibilityHeadOidRef = useRef(eligibilityHeadOid)
   eligibilityHeadOidRef.current = eligibilityHeadOid
-  const eligibilityGitFingerprint = gitStatusReadyForPanelContext
-    ? buildChecksPanelEligibilityGitFingerprint({
-        headOid: eligibilityHeadOid,
-        hasUncommittedChanges,
-        hasUpstream: remoteStatus?.hasUpstream,
-        ahead: remoteStatus?.ahead,
-        behind: remoteStatus?.behind,
-        base: repo?.worktreeBaseRef ?? null,
-        runtimeEnvironmentId,
-        repoConnectionId,
-        localExecutionScope
-      })
-    : null
-  // Why: Publish can use the worktree poller when the stricter panel snapshot is delayed; still blocked for dirty fallback status.
-  const publishActionGitStatusInputs = readChecksPanelPublishActionGitStatus({
-    snapshot: gitStatusSnapshot,
-    contextKey: panelContextKey,
-    fallbackEntries: gitStatusInvalidation,
-    fallbackRemoteStatus: remoteStatusInvalidation
-  })
-  const publishActionHasUncommittedChanges =
-    publishActionGitStatusInputs.hasUncommittedChanges ?? true
-  const publishActionRemoteStatus = publishActionGitStatusInputs.remoteStatus
-  const hostedReviewCreation =
-    hostedReviewCreationSnapshot?.requestKey === hostedReviewCreationRequestKey
-      ? hostedReviewCreationSnapshot.data
-      : null
-  const hostedReviewCreateProvider = resolveHostedReviewCreationProvider(
-    hostedReviewCreation?.provider
-  )
-  // Only GitHub runs the gh refresh coordinator; re-derive GitHub-ness from linked reviews because resolveHostedReviewCreationProvider defaults null→'github' (can't tell unknown from GitHub), staying GitHub-optimistic pre-eligibility.
-  const hasNonGitHubLinkedReview =
-    activeWorktree?.linkedGitLabMR != null ||
-    activeWorktree?.linkedBitbucketPR != null ||
-    activeWorktree?.linkedAzureDevOpsPR != null ||
-    activeWorktree?.linkedGiteaPR != null
-  const isGitHubReviewContext = hostedReviewCreation
-    ? hostedReviewCreation.provider === 'github'
-    : !hasNonGitHubLinkedReview
-  const hostedReviewCreateCopy = localizedHostedReviewCopy(hostedReviewCreateProvider)
-  // The PR cache isn't push-target scoped, so demote a branch-scoped no-PR to unknown when the eligibility snapshot is for a different context.
-  const prCachedHasPRForContext =
-    hostedReviewCreationSnapshot && hostedReviewCreationSnapshot.contextKey !== panelContextKey
-      ? null
-      : prCachedHasPR
-  // Four-state review evidence so the empty state can never claim "No review found" without accepted evidence.
-  const checksPanelReviewLookupResult = resolveChecksPanelReviewLookup({
-    pr,
-    prCachedHasPR: prCachedHasPRForContext,
-    hostedReview,
-    linkedReviewNumber,
-    eligibilityReviewLookupOutcome: hostedReviewCreation?.reviewLookupOutcome ?? null,
-    eligibilityReview: hostedReviewCreation?.review ?? null
-  })
-  const checksPanelReviewLookup = checksPanelReviewLookupResult.state
-  const hasUnrenderedReviewEvidence =
-    checksPanelReviewLookup === 'positive_unresolved' ||
-    (checksPanelReviewLookup !== 'found' &&
-      hostedReviewCreation?.blockedReason === 'existing_review')
-  const unrenderedReviewEvidenceIdentity =
-    linkedReviewNumber ??
-    hostedReview?.number ??
-    hostedReviewCreation?.review?.number ??
-    checksPanelReviewLookupResult.openReviewUrl ??
-    'unknown'
-  const unrenderedReviewEvidenceProvider = resolveChecksPanelReviewEvidenceProvider({
-    linkedGitHubPR: linkedPR,
-    linkedGitLabMR,
-    linkedBitbucketPR,
-    linkedAzureDevOpsPR,
-    linkedGiteaPR,
-    eligibilityProvider: hostedReviewCreation?.provider,
-    cachedProvider: hostedReview?.provider
-  })
-  const foregroundReviewEvidenceKey = getChecksPanelForegroundReviewEvidenceKey({
-    refreshContextKey,
-    reviewEvidenceIdentity: unrenderedReviewEvidenceIdentity,
-    reviewEvidenceProvider: unrenderedReviewEvidenceProvider,
-    hasUnrenderedReviewEvidence,
-    isGitHubReviewContext
-  })
-  // Confirmed readiness from the last eligibility snapshot, not live canCreate (which would be circular and flap during transient failures).
-  const hardErrorObservedAt =
-    isGitHubReviewContext && hardRefreshError && hardRefreshError.contextKey === panelContextKey
-      ? hardRefreshError.observedAt
-      : undefined
-  const confirmedReadinessInput: ChecksPanelConfirmedReadinessInput = {
-    contextKeyMatches: hostedReviewCreationSnapshot?.contextKey === panelContextKey,
-    eligibility: hostedReviewCreationSnapshot?.data ?? null,
-    eligibilityCompletedAt: hostedReviewCreationSnapshot?.completedAt,
-    eligibilityRequestStartedAt: hostedReviewCreationSnapshot?.requestStartedAt,
-    reviewLookup: checksPanelReviewLookup,
-    hardErrorObservedAt,
-    gitSnapshotMatches:
-      eligibilityGitFingerprint !== null &&
-      hostedReviewCreationSnapshot?.gitFingerprint === eligibilityGitFingerprint,
-    now: Date.now()
-  }
-  const confirmedReadiness = computeChecksPanelConfirmedReadiness(confirmedReadinessInput)
-  // A hard error persists until a qualifying eligibility request clears it; queued/in-flight status no longer un-hides Create.
-  const checksPanelHasHardRefreshError =
-    hardErrorObservedAt !== undefined && !isChecksPanelHardErrorCleared(confirmedReadinessInput)
-  const activePullRequestGenerationKey = getPullRequestGenerationRecordKey({
+  const generation = useChecksPanelRuntimeGeneration({
+    generation: {
+      activeReview,
+      activeWorktreeId,
+      activeWorktreePath,
+      allocatePullRequestGenerationRequestId,
+      branch,
+      confirmedReadiness,
+      fetchUpstreamStatus,
+      hostedReviewCreateProvider,
+      hostedReviewCreation,
+      isFolder,
+      ownerSettings,
+      pr,
+      prGenerationRecords,
+      repo,
+      setCreatePrError,
+      setPullRequestGenerationRecord,
+      settings,
+      updatePullRequestGenerationRecord
+    },
     worktreeId: activeWorktreeId,
     worktreePath: activeWorktreePath,
     repoId: repo?.id,
-    branch
-  })
-  const activePullRequestGenerationRecordCandidate = activePullRequestGenerationKey
-    ? (prGenerationRecords[activePullRequestGenerationKey] ?? null)
-    : null
-  const activePullRequestGenerationRecord =
-    activePullRequestGenerationRecordCandidate &&
-    activePullRequestGenerationRecordCandidate.context.repoId === repo?.id &&
-    activePullRequestGenerationRecordCandidate.context.branch === branch
-      ? activePullRequestGenerationRecordCandidate
-      : null
-  const activePullRequestGenerationSeedRestoreKey = getPullRequestGenerationSeedRestoreKey({
-    recordKey: activePullRequestGenerationKey,
-    record: activePullRequestGenerationRecord
-  })
-  const createPrPushFirst = activePullRequestGenerationRecord?.requiresPushBeforeCreate === true
-  const generation = useChecksPanelGeneration({
-    activePullRequestGenerationKey,
-    activePullRequestGenerationRecord,
-    activePullRequestGenerationSeedRestoreKey,
-    activeReview,
-    activeWorktreeId,
-    activeWorktreePath,
-    allocatePullRequestGenerationRequestId,
     branch,
-    confirmedReadiness,
-    fetchUpstreamStatus,
-    hostedReviewCreateProvider,
-    hostedReviewCreation,
-    isFolder,
-    ownerSettings,
-    pr,
-    prGenerationRecords,
-    repo,
-    setCreatePrError,
-    setPullRequestGenerationRecord,
-    settings,
-    updatePullRequestGenerationRecord
+    records: prGenerationRecords
   }) as {
     handleGeneratePullRequestFields: () => Promise<void>
     handleGeneratePullRequestFieldsForActive: (...args: never[]) => void
@@ -718,6 +471,11 @@ export default function ChecksPanel(): React.JSX.Element {
     prGenerateDisabledReason: string | null
     applyGeneratedPullRequestFields: (...args: never[]) => void
     pullRequestFieldsInitialized: boolean
+    activePullRequestGenerationKey: string | null
+    activePullRequestGenerationRecordCandidate: unknown
+    activePullRequestGenerationRecord: unknown
+    activePullRequestGenerationSeedRestoreKey: string | null
+    createPrPushFirst: boolean
   }
   const {
     handleGeneratePullRequestFields,
@@ -745,7 +503,12 @@ export default function ChecksPanel(): React.JSX.Element {
     prGenerateDisabled,
     prGenerateDisabledReason,
     applyGeneratedPullRequestFields,
-    pullRequestFieldsInitialized
+    pullRequestFieldsInitialized,
+    activePullRequestGenerationKey,
+    activePullRequestGenerationRecordCandidate,
+    activePullRequestGenerationRecord,
+    activePullRequestGenerationSeedRestoreKey,
+    createPrPushFirst
   } = generation
   const stateRequestKey =
     repo && branch
@@ -764,7 +527,7 @@ export default function ChecksPanel(): React.JSX.Element {
   const isCurrentAsyncResult = useCallback(
     (requestKey: string) =>
       shouldCommitChecksPanelAsyncResult(asyncResultKeyRef.current, requestKey),
-    []
+    [asyncResultKeyRef]
   )
   useEffect(() => {
     if (
@@ -773,7 +536,7 @@ export default function ChecksPanel(): React.JSX.Element {
     ) {
       setAgentComposerState(null)
     }
-  }, [agentComposerState?.commentResolution, stateRequestKey])
+  }, [agentComposerState?.commentResolution, setAgentComposerState, stateRequestKey])
 
   useEffect(() => {
     if (foregroundReviewEvidenceKey === null || !isPanelVisible) {
@@ -826,105 +589,76 @@ export default function ChecksPanel(): React.JSX.Element {
     linkedPR,
     prCachedHasPR,
     prFetchedAt,
+    foregroundedUnrenderedReviewKeyRef,
+    panelVisibleSinceRef,
     repo
   ])
 
-  useEffect(() => {
-    if (
-      !shouldPollChecksPanelRuntimeSshStatus({
-        isPanelVisible,
-        runtimeEnvironmentId,
-        repoConnectionId
-      })
-    ) {
-      return undefined
+  const { fetchChecks, fetchGitLabDetails } = useChecksPanelRuntimeDataEffects({
+    git: {
+      activeConnectionId,
+      activeWorktreeId,
+      activeWorktreePath,
+      activeWorktreePushTarget,
+      branch,
+      conflictSummaryRefreshKeyRef,
+      eligibilityHeadOidRef,
+      fallbackGitHubPRNumber,
+      fetchPRForBranch,
+      getHostedReviewCreationEligibility,
+      gitStatusInvalidation,
+      gitStatusReadyForPanelContext,
+      gitStatusSnapshotInFlightContextRef,
+      gitStatusSnapshotRerunContextRef,
+      gitStatusSnapshotRetryTimerRef,
+      hasUncommittedChanges,
+      hostedReviewCreationRequestKey,
+      isFolder,
+      isPanelVisible,
+      linkedAzureDevOpsPR,
+      linkedBitbucketPR,
+      linkedGitLabMR,
+      linkedGiteaPR,
+      linkedPR,
+      localExecutionScope,
+      ownerSettings,
+      panelContextKey,
+      panelContextKeyRef,
+      pr,
+      prCacheKey,
+      remoteStatus,
+      remoteStatusInvalidation,
+      repo,
+      repoConnectionId,
+      runtimeEnvironmentId,
+      setConflictDetailsRefreshing,
+      setGitStatusProbeErrorContextKey,
+      setGitStatusRefreshNonce,
+      setGitStatusSnapshot,
+      setHostedReviewCreationSnapshot,
+      settings,
+      sshConnectionStatus,
+      updateWorktreeGitIdentity
+    },
+    fetch: {
+      activeGitLabReview,
+      asyncResultKeyRef,
+      branch,
+      fetchPRChecks,
+      hostedReviewCacheKey,
+      isCurrentAsyncResult,
+      pollIntervalRef,
+      pr,
+      prCacheKey,
+      prNumber,
+      prevChecksRef,
+      repo,
+      setChecks,
+      setChecksLoading,
+      setComments,
+      setCommentsLoading,
+      settings
     }
-    let skippedInitialRun = false
-    return installWindowVisibilityInterval({
-      run: () => {
-        if (!skippedInitialRun) {
-          skippedInitialRun = true
-          return
-        }
-        const currentContextKey = panelContextKeyRef.current
-        if (
-          shouldCoalesceChecksPanelGitStatusSnapshotRefresh(
-            gitStatusSnapshotInFlightContextRef.current,
-            currentContextKey
-          )
-        ) {
-          gitStatusSnapshotRerunContextRef.current = currentContextKey
-          return
-        }
-        setGitStatusRefreshNonce((value) => value + 1)
-      },
-      intervalMs: RUNTIME_SSH_STATUS_REFRESH_MS
-    })
-  }, [isPanelVisible, repoConnectionId, runtimeEnvironmentId])
-
-  useChecksPanelGitEffects({
-    activeConnectionId,
-    activeWorktreeId,
-    activeWorktreePath,
-    activeWorktreePushTarget,
-    branch,
-    conflictSummaryRefreshKeyRef,
-    eligibilityHeadOidRef,
-    fallbackGitHubPRNumber,
-    fetchPRForBranch,
-    getHostedReviewCreationEligibility,
-    gitStatusInvalidation,
-    gitStatusReadyForPanelContext,
-    gitStatusSnapshotInFlightContextRef,
-    gitStatusSnapshotRerunContextRef,
-    gitStatusSnapshotRetryTimerRef,
-    hasUncommittedChanges,
-    hostedReviewCreationRequestKey,
-    isFolder,
-    isPanelVisible,
-    linkedAzureDevOpsPR,
-    linkedBitbucketPR,
-    linkedGitLabMR,
-    linkedGiteaPR,
-    linkedPR,
-    localExecutionScope,
-    ownerSettings,
-    panelContextKey,
-    panelContextKeyRef,
-    pr,
-    prCacheKey,
-    remoteStatus,
-    remoteStatusInvalidation,
-    repo,
-    repoConnectionId,
-    runtimeEnvironmentId,
-    setConflictDetailsRefreshing,
-    setGitStatusProbeErrorContextKey,
-    setGitStatusRefreshNonce,
-    setGitStatusSnapshot,
-    setHostedReviewCreationSnapshot,
-    settings,
-    sshConnectionStatus,
-    updateWorktreeGitIdentity
-  })
-  const { fetchChecks, fetchGitLabDetails } = useChecksPanelFetch({
-    activeGitLabReview,
-    asyncResultKeyRef,
-    branch,
-    fetchPRChecks,
-    hostedReviewCacheKey,
-    isCurrentAsyncResult,
-    pollIntervalRef,
-    pr,
-    prCacheKey,
-    prNumber,
-    prevChecksRef,
-    repo,
-    setChecks,
-    setChecksLoading,
-    setComments,
-    setCommentsLoading,
-    settings
   }) as {
     fetchChecks: (options?: { force?: boolean; prNumberOverride?: number | null }) => Promise<void>
     fetchGitLabDetails: (options?: {
@@ -933,37 +667,22 @@ export default function ChecksPanel(): React.JSX.Element {
       commitAsCurrent?: boolean
     }) => Promise<void>
   }
-  useEffect(() => {
-    if (activeGitLabReview) {
-      return
-    }
-    if (!prNumber || !isPanelVisible) {
-      setChecks([])
-      return
-    }
-
-    // Reset backoff state on PR change
-    pollIntervalRef.current = 30_000
-    prevChecksRef.current = ''
-    // Why: check status is user-visible; keep visible unfocused windows fresh but stop timers/API work while hidden.
-    return installWindowVisibilityTimeoutPoller({
-      run: () => fetchChecks(),
-      getDelayMs: () => pollIntervalRef.current
-    })
-  }, [activeGitLabReview, fetchChecks, isPanelVisible, prNumber])
-
-  useEffect(() => {
-    if (!activeGitLabReview || !isPanelVisible) {
-      return
-    }
-
-    pollIntervalRef.current = 30_000
-    prevChecksRef.current = ''
-    return installWindowVisibilityTimeoutPoller({
-      run: () => fetchGitLabDetails(),
-      getDelayMs: () => pollIntervalRef.current
-    })
-  }, [activeGitLabReview, fetchGitLabDetails, isPanelVisible])
+  useChecksPanelRuntimePolling({
+    activeGitLabReview,
+    fetchChecks,
+    fetchGitLabDetails,
+    gitStatusSnapshotInFlightContextRef,
+    gitStatusSnapshotRerunContextRef,
+    isPanelVisible,
+    panelContextKeyRef,
+    pollIntervalRef,
+    prevChecksRef,
+    prNumber,
+    runtimeEnvironmentId,
+    repoConnectionId,
+    setGitStatusRefreshNonce,
+    setChecks
+  })
 
   const { fetchComments, handleLoadCheckDetails } = useChecksPanelCommentFetch({
     activeGitLabReview,
@@ -1068,54 +787,9 @@ export default function ChecksPanel(): React.JSX.Element {
     handleEntryRefresh: (options: { refreshChecks: boolean; refreshComments: boolean }) => void
   }
 
-  const refreshHostedReviewAfterMutation = useCallback(async () => {
-    if (!repo || !branch) {
-      return
-    }
-    if (activeReview?.provider === 'gitlab') {
-      const refreshedReview = await refreshHostedReviewCard(fetchHostedReviewForBranch, {
-        repoPath: repo.path,
-        repoId: repo.id,
-        branch,
-        linkedGitHubPR: linkedPR,
-        fallbackGitHubPR: fallbackGitHubPRNumber,
-        linkedGitLabMR,
-        linkedBitbucketPR,
-        linkedAzureDevOpsPR,
-        linkedGiteaPR
-      })
-      const refreshedGitLabReview =
-        refreshedReview?.provider === 'gitlab' ? refreshedReview : activeGitLabReview
-      if (refreshedGitLabReview) {
-        await fetchGitLabDetails({
-          mrNumberOverride: refreshedGitLabReview.number,
-          headShaOverride: refreshedGitLabReview.headSha,
-          commitAsCurrent: true
-        })
-      }
-      return
-    }
-    const refreshedPR = await fetchPRForBranch(repo.path, branch, {
-      force: true,
-      repoId: repo.id,
-      worktreeId: activeWorktreeId ?? undefined,
-      linkedPRNumber: linkedPR,
-      fallbackPRNumber: fallbackGitHubPRNumber
-    })
-    await refreshHostedReviewCard(fetchHostedReviewForBranch, {
-      repoPath: repo.path,
-      repoId: repo.id,
-      branch,
-      linkedGitHubPR: linkedPR,
-      fallbackGitHubPR: refreshedPR?.number ?? fallbackGitHubPRNumber,
-      linkedGitLabMR,
-      linkedBitbucketPR,
-      linkedAzureDevOpsPR,
-      linkedGiteaPR
-    })
-  }, [
+  const refreshHostedReviewAfterMutation = useChecksPanelReviewRefresh({
     activeGitLabReview,
-    activeReview?.provider,
+    activeReview,
     activeWorktreeId,
     branch,
     fallbackGitHubPRNumber,
@@ -1128,7 +802,7 @@ export default function ChecksPanel(): React.JSX.Element {
     linkedGitLabMR,
     linkedPR,
     repo
-  ])
+  })
 
   const detectedAgentsForAI =
     typeof activeConnectionId === 'string' ? remoteDetectedAgentIds : detectedAgentIds
@@ -1158,6 +832,135 @@ export default function ChecksPanel(): React.JSX.Element {
               ? 'Open a GitLab MR before resolving comments.'
               : undefined
 
+  const runtimeActions = useChecksPanelRuntimeActions({
+    comments: {
+      activeConnectionId,
+      activeGitLabReview,
+      activeReview,
+      activeWorktreeId,
+      addPRConversationComment,
+      addPRReviewCommentReply,
+      branch,
+      clearTitleInputFocusTimer,
+      confirm,
+      detectedAgentIds,
+      isCurrentAsyncResult,
+      mountedRef,
+      pr,
+      prCacheKey,
+      prNumber,
+      refreshHostedReviewAfterMutation,
+      remoteDetectedAgentIds,
+      repo,
+      resolveReviewThread,
+      setAgentComposerState,
+      setComments,
+      setEditingTitle,
+      setTitleDraft,
+      setTitleSaving,
+      settings,
+      sourceControlAiActionsVisible,
+      titleInputFocusTimerRef,
+      titleInputRef
+    },
+    ai: {
+      activeConflictReview,
+      activeReview,
+      activeWorktreeId,
+      activeWorktreePath,
+      asyncResultKeyRef,
+      branch,
+      commentsRef,
+      commentsSelectionClearTokenRef,
+      fetchComments,
+      fetchGitLabDetails,
+      fetchHostedReviewForBranch,
+      fetchPRCheckDetails,
+      fetchPRChecks,
+      fetchPRComments,
+      fetchPRForBranch,
+      isCurrentAsyncResult,
+      linkedAzureDevOpsPR,
+      linkedBitbucketPR,
+      linkedGitLabMR,
+      linkedGiteaPR,
+      panelContextKey,
+      panelContextKeyRef,
+      pr,
+      prCacheKey,
+      repo,
+      resolveCommentsWithAIDisabledReason,
+      setAgentComposerState,
+      setChecks,
+      setChecksLoading,
+      setComments,
+      setCommentsLoading,
+      setCommentsSelectionClearRequest,
+      sourceControlAiActionsVisible,
+      stateRequestKey
+    },
+    fixChecks: {
+      activeReview,
+      activeWorktreeId,
+      checks,
+      fetchPRCheckDetails,
+      isCurrentAsyncResult,
+      isFixingChecksWithAI,
+      pr,
+      repo,
+      sourceControlAiActionsVisible,
+      stateRequestKey,
+      setIsFixingChecksWithAI
+    },
+    links: {
+      activeConnectionId,
+      activeReview,
+      activeWorktreeId,
+      branch,
+      fallbackGitHubPRNumber,
+      fetchHostedReviewForBranch,
+      fetchUpstreamStatus,
+      isRemoteOperationActive,
+      linkedAzureDevOpsPR,
+      linkedBitbucketPR,
+      linkedGitLabMR,
+      linkedGiteaPR,
+      linkedPR,
+      openModal,
+      ownerSettings,
+      pr,
+      pushBranch,
+      repo,
+      setGitStatusRefreshNonce,
+      setIsPublishingBranch,
+      setIsSyncingBranch,
+      setRightSidebarOpen,
+      setRightSidebarTab,
+      syncBranch,
+      updateWorktreeMeta
+    },
+    create: {
+      activePullRequestGenerationKey,
+      activeWorktreeId,
+      activeWorktreePath,
+      branch,
+      createComposerOpen,
+      createHostedReview,
+      createPrInFlightRef,
+      createPrPushFirst,
+      hostedReviewCreateCopy,
+      hostedReviewCreateProvider,
+      hostedReviewCreation,
+      panelContextKey,
+      panelContextKeyRef,
+      prCreationDefaults,
+      repo,
+      setCreatePrError,
+      setGitStatusRefreshNonce,
+      setIsCreatingPr,
+      updatePullRequestGenerationRecord
+    }
+  })
   const {
     handleStartEdit,
     handleCancelEdit,
@@ -1167,175 +970,19 @@ export default function ChecksPanel(): React.JSX.Element {
     handleAddPRComment,
     handleEditComment,
     handleDeleteComment,
-    handleReplyToComment
-  } = useChecksPanelCommentActions({
-    activeConnectionId,
-    activeGitLabReview,
-    activeReview,
-    activeWorktreeId,
-    addPRConversationComment,
-    addPRReviewCommentReply,
-    branch,
-    clearTitleInputFocusTimer,
-    confirm,
-    detectedAgentIds,
-    isCurrentAsyncResult,
-    mountedRef,
-    pr,
-    prCacheKey,
-    prNumber,
-    refreshHostedReviewAfterMutation,
-    remoteDetectedAgentIds,
-    repo,
-    resolveReviewThread,
-    setAgentComposerState,
-    setComments,
-    setEditingTitle,
-    setTitleDraft,
-    setTitleSaving,
-    settings,
-    sourceControlAiActionsVisible,
-    titleInputFocusTimerRef,
-    titleInputRef
-  }) as {
-    handleStartEdit: () => void
-    handleCancelEdit: () => void
-    handleSaveTitle: () => Promise<void>
-    handleTitleKeyDown: (event: React.KeyboardEvent) => void
-    handleResolve: (
-      threadId: string,
-      resolve: boolean,
-      options?: { notifyOnFailure?: boolean }
-    ) => Promise<boolean>
-    handleAddPRComment: (body: string) => Promise<{ ok: boolean; error?: string }>
-    handleEditComment: (comment: PRComment, body: string) => Promise<boolean>
-    handleDeleteComment: (comment: PRComment) => Promise<void>
-    handleReplyToComment: (
-      comment: PRComment,
-      body: string
-    ) => Promise<{ ok: boolean; error?: string }>
-  }
-  const { handleResolveConflictsWithAI, handleResolveCommentsWithAI } = useChecksPanelAiActions({
-    activeConflictReview,
-    activeReview,
-    activeWorktreeId,
-    activeWorktreePath,
-    asyncResultKeyRef,
-    branch,
-    commentsRef,
-    commentsSelectionClearTokenRef,
-    fetchComments,
-    fetchGitLabDetails,
-    handleResolve,
-    fetchHostedReviewForBranch,
-    fetchPRCheckDetails,
-    fetchPRChecks,
-    fetchPRComments,
-    fetchPRForBranch,
-    isCurrentAsyncResult,
-    linkedAzureDevOpsPR,
-    linkedBitbucketPR,
-    linkedGitLabMR,
-    linkedGiteaPR,
-    panelContextKey,
-    panelContextKeyRef,
-    pr,
-    prCacheKey,
-    repo,
-    resolveCommentsWithAIDisabledReason,
-    setAgentComposerState,
-    setChecks,
-    setChecksLoading,
-    setComments,
-    setCommentsLoading,
-    setCommentsSelectionClearRequest,
-    sourceControlAiActionsVisible,
-    stateRequestKey
-  }) as {
-    handleResolveConflictsWithAI: () => Promise<void>
-    handleResolveCommentsWithAI: (groups: PRCommentGroup[]) => void
-  }
-  const handleFixChecksWithAI = useChecksPanelFixChecks({
-    activeReview,
-    activeWorktreeId,
-    checks,
-    fetchPRCheckDetails,
-    isCurrentAsyncResult,
-    isFixingChecksWithAI,
-    pr,
-    repo,
-    sourceControlAiActionsVisible,
-    stateRequestKey,
-    setIsFixingChecksWithAI
-  })
-  const {
+    handleReplyToComment,
+    handleResolveConflictsWithAI,
+    handleResolveCommentsWithAI,
+    handleFixChecksWithAI,
     handleOpenPR,
     handleUnlinkPullRequest,
     handleLinkAnotherPullRequest,
     pushBeforeCreatePullRequest,
     handlePublishBranch,
     handleSyncBranch,
-    handlePullRequestCreated
-  } = useChecksPanelLinkActions({
-    activeConnectionId,
-    activeReview,
-    activeWorktreeId,
-    branch,
-    fallbackGitHubPRNumber,
-    fetchHostedReviewForBranch,
-    fetchUpstreamStatus,
-    isRemoteOperationActive,
-    linkedAzureDevOpsPR,
-    linkedBitbucketPR,
-    linkedGitLabMR,
-    linkedGiteaPR,
-    linkedPR,
-    openModal,
-    ownerSettings,
-    pr,
-    pushBranch,
-    repo,
-    setGitStatusRefreshNonce,
-    setIsPublishingBranch,
-    setIsSyncingBranch,
-    setRightSidebarOpen,
-    setRightSidebarTab,
-    syncBranch,
-    updateWorktreeMeta
-  }) as {
-    handleOpenPR: (event: React.MouseEvent<HTMLButtonElement>) => void
-    handleUnlinkPullRequest: () => void
-    handleLinkAnotherPullRequest: () => void
-    pushBeforeCreatePullRequest: () => Promise<boolean>
-    handlePublishBranch: () => Promise<void>
-    handleSyncBranch: () => Promise<void>
-    handlePullRequestCreated: (result: {
-      provider: HostedReviewProvider
-      number: number
-      url: string
-    }) => Promise<void>
-  }
-  const handleCreatePullRequest = useChecksPanelCreateAction({
-    activePullRequestGenerationKey,
-    activeWorktreeId,
-    activeWorktreePath,
-    branch,
-    createComposerOpen,
-    createHostedReview,
-    createPrInFlightRef,
-    createPrPushFirst,
-    hostedReviewCreateCopy,
-    hostedReviewCreateProvider,
-    hostedReviewCreation,
-    panelContextKey,
-    panelContextKeyRef,
-    prCreationDefaults,
-    repo,
-    setCreatePrError,
-    setGitStatusRefreshNonce,
-    setIsCreatingPr,
-    updatePullRequestGenerationRecord
-  }) as () => Promise<void>
+    handlePullRequestCreated,
+    handleCreatePullRequest
+  } = runtimeActions
   return renderChecksPanel({
     activeConflictReview,
     activeConnectionId,
