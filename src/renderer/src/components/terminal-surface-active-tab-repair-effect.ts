@@ -1,11 +1,27 @@
 import { useEffect } from 'react'
 import { resolveRepairedActiveTerminalTabId } from './terminal/active-terminal-repair'
+import type { TerminalTab, WorkspaceVisibleTabType } from '../../../shared/types'
+
+type TerminalSurfaceActiveTabRepairContext = {
+  renderedActiveWorktreeId: string | null
+  activeTabIdByWorktree: Record<string, string | undefined>
+  activeTabType: WorkspaceVisibleTabType
+  activeTabId: string | null
+  tabs: TerminalTab[]
+  setActiveTab: (tabId: string) => void
+}
 
 export function useTerminalSurfaceActiveTabRepairEffect(
-  context: Record<string, any>
+  context: TerminalSurfaceActiveTabRepairContext
 ): void {
-  const { renderedActiveWorktreeId, activeTabIdByWorktree, activeTabType, activeTabId, tabs, setActiveTab } =
-    context
+  const {
+    renderedActiveWorktreeId,
+    activeTabIdByWorktree,
+    activeTabType,
+    activeTabId,
+    tabs,
+    setActiveTab
+  } = context
   useEffect(() => {
     const rememberedTabId = renderedActiveWorktreeId
       ? (activeTabIdByWorktree[renderedActiveWorktreeId] ?? null)
@@ -16,6 +32,15 @@ export function useTerminalSurfaceActiveTabRepairEffect(
       rememberedTabId,
       tabs
     })
-    if (repairedTabId) setActiveTab(repairedTabId)
-  }, [activeTabId, activeTabType, activeTabIdByWorktree, renderedActiveWorktreeId, setActiveTab, tabs])
+    if (repairedTabId) {
+      setActiveTab(repairedTabId)
+    }
+  }, [
+    activeTabId,
+    activeTabType,
+    activeTabIdByWorktree,
+    renderedActiveWorktreeId,
+    setActiveTab,
+    tabs
+  ])
 }

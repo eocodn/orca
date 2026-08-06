@@ -1,10 +1,21 @@
 import { useEffect, useRef } from 'react'
-import { useAppStore } from '../store'
+import type { useAppStore } from '../store'
 import { isWebRuntimeSessionActive } from '@/runtime/web-runtime-session'
-import { resumeSleepingAgentSessionsForWorktree } from '@/lib/resume-sleeping-agent-session'
+import type { resumeSleepingAgentSessionsForWorktree } from '@/lib/resume-sleeping-agent-session'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
+type TerminalSurfaceStore = ReturnType<typeof useAppStore.getState>
 
-export function useTerminalSurfaceStartupEffects(context: Record<string, any>): void {
+type TerminalSurfaceStartupContext = {
+  workspaceSessionReady: boolean
+  activeWorktreeId: string | null
+  hydrationSucceeded: boolean
+  createTab: TerminalSurfaceStore['createTab']
+  reconcileWorktreeTabModel: TerminalSurfaceStore['reconcileWorktreeTabModel']
+  resumeSleepingAgentSessionsForWorktree: typeof resumeSleepingAgentSessionsForWorktree
+  getActiveWorktreeRuntimeEnvironmentId: (worktreeId: string | null) => string | null
+}
+
+export function useTerminalSurfaceStartupEffects(context: TerminalSurfaceStartupContext): void {
   const {
     workspaceSessionReady,
     activeWorktreeId,
@@ -34,7 +45,13 @@ export function useTerminalSurfaceStartupEffects(context: Record<string, any>): 
     }
     // Why: tag this never-visited-worktree tab so its PTY spawn doesn't count as activity and reshuffle the sidebar (explicit New Tab still bumps).
     createTab(activeWorktreeId, undefined, undefined, { pendingActivationSpawn: true })
-  }, [workspaceSessionReady, activeWorktreeId, createTab, reconcileWorktreeTabModel])
+  }, [
+    workspaceSessionReady,
+    activeWorktreeId,
+    createTab,
+    reconcileWorktreeTabModel,
+    getActiveWorktreeRuntimeEnvironmentId
+  ])
 
   const startupResumeWorktreeIdsRef = useRef(new Set<string>())
   useEffect(() => {
@@ -47,7 +64,10 @@ export function useTerminalSurfaceStartupEffects(context: Record<string, any>): 
     startupResumeWorktreeIdsRef.current.add(activeWorktreeId)
     // Why: startup hydration restores the worktree without activateAndRevealWorktree, so orphaned live/quit records need a terminal-surface pass after cold restore.
     resumeSleepingAgentSessionsForWorktree(activeWorktreeId)
-  }, [activeWorktreeId, hydrationSucceeded, workspaceSessionReady])
-
+  }, [
+    activeWorktreeId,
+    hydrationSucceeded,
+    workspaceSessionReady,
+    resumeSleepingAgentSessionsForWorktree
+  ])
 }
-

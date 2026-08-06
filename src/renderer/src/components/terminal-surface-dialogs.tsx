@@ -11,7 +11,18 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 
-export function TerminalSurfaceDialogs(props: Record<string, any>): React.JSX.Element {
+type TerminalSurfaceDialogsProps = {
+  saveDialogFileId: string | null
+  handleSaveDialogCancel: () => void
+  saveDialogFile: { relativePath: string } | null
+  handleSaveDialogDiscard: () => void
+  handleSaveDialogSave: () => void
+  windowCloseDialogOpen: boolean
+  setWindowCloseDialogOpen: (open: boolean) => void
+  confirmNativeWindowClose: () => void
+}
+
+export function TerminalSurfaceDialogs(props: TerminalSurfaceDialogsProps): React.JSX.Element {
   const {
     saveDialogFileId,
     handleSaveDialogCancel,
@@ -27,7 +38,9 @@ export function TerminalSurfaceDialogs(props: Record<string, any>): React.JSX.El
       <Dialog
         open={saveDialogFileId !== null}
         onOpenChange={(open) => {
-          if (!open) handleSaveDialogCancel()
+          if (!open) {
+            handleSaveDialogCancel()
+          }
         }}
       >
         <DialogContent className="max-w-sm">
@@ -42,7 +55,10 @@ export function TerminalSurfaceDialogs(props: Record<string, any>): React.JSX.El
                     '"{{value0}}" has unsaved changes. Do you want to save before closing?',
                     { value0: basename(saveDialogFile.relativePath) }
                   )
-                : translate('auto.components.Terminal.46e08bc5c8', 'This file has unsaved changes.')}
+                : translate(
+                    'auto.components.Terminal.46e08bc5c8',
+                    'This file has unsaved changes.'
+                  )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -61,7 +77,9 @@ export function TerminalSurfaceDialogs(props: Record<string, any>): React.JSX.El
       <Dialog
         open={windowCloseDialogOpen}
         onOpenChange={(open) => {
-          if (!open) setWindowCloseDialogOpen(false)
+          if (!open) {
+            setWindowCloseDialogOpen(false)
+          }
         }}
       >
         <DialogContent className="max-w-sm" showCloseButton={false}>
