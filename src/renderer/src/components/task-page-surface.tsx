@@ -8,8 +8,7 @@ import {
   Eye,
   List,
   LoaderCircle,
-  SlidersHorizontal,
-  X
+  SlidersHorizontal
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -218,6 +217,7 @@ import { TaskPageGitLabToolbar } from './task-page-gitlab-toolbar'
 import { TaskPageGitHubScopeToolbar } from './task-page-github-scope-toolbar'
 import { TaskPageGitHubTaskToolbar } from './task-page-github-task-toolbar'
 import { TaskPageGitHubSourceDivergence } from './task-page-github-source-divergence'
+import { TaskPageSourceProviderToolbar } from './task-page-source-provider-toolbar'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
 import { resolveVisibleTaskProvider } from '../../../shared/task-providers'
 import { translate } from '@/i18n/i18n'
@@ -4630,6 +4630,19 @@ export default function TaskPage(): React.JSX.Element {
     setNewIssueOpen(true)
   }, [selectedRepos])
 
+  const handleTaskSourceChange = useCallback(
+    (nextSource: TaskProvider): void => {
+      taskSourceManuallyChangedRef.current = true
+      openTaskPage({ taskSource: nextSource }, { recordTasksInteraction: false })
+      void updateSettings({ defaultTaskSource: nextSource }).catch(() => {
+        toast.error(
+          translate('auto.components.TaskPage.609532fae7', 'Failed to save default task source.')
+        )
+      })
+    },
+    [openTaskPage, updateSettings]
+  )
+
   const taskPageListChromeHidden = shouldHideTaskPageListChrome({
     taskSource,
     hasGitHubDetail: Boolean(dialogWorkItem),
@@ -4651,87 +4664,14 @@ export default function TaskPage(): React.JSX.Element {
             <section className="flex flex-col gap-2">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div
-                    className="flex min-w-0 flex-wrap items-center gap-2"
-                    data-contextual-tour-target="tasks-source-filters"
-                  >
-                    {/* Why: Close is anchored left with the source icons for one compact band, clear of the app sidebar on the right. */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 rounded-full"
-                          onClick={closeTaskPage}
-                          aria-label={translate(
-                            'auto.components.TaskPage.1a06219d5c',
-                            'Close tasks'
-                          )}
-                        >
-                          <X className="size-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={6}>
-                        {translate('auto.components.TaskPage.4826fd1ad8', 'Close · Esc')}
-                      </TooltipContent>
-                    </Tooltip>
-                    <div className="mx-1 h-5 w-px bg-border/50" aria-hidden />
-                    {visibleSourceOptions.map((source) => {
-                      const active = taskSource === source.id
-                      const sourceAvailabilityNotice =
-                        taskSourceAvailabilityNoticeByProvider[source.id] ?? null
-                      const sourceDisabled = source.disabled || sourceAvailabilityNotice?.blocking
-                      return (
-                        <Tooltip key={source.id}>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              disabled={sourceDisabled}
-                              onClick={() => {
-                                if (sourceAvailabilityNotice?.blocking) {
-                                  return
-                                }
-                                taskSourceManuallyChangedRef.current = true
-                                openTaskPage(
-                                  { taskSource: source.id },
-                                  { recordTasksInteraction: false }
-                                )
-                                void updateSettings({ defaultTaskSource: source.id }).catch(() => {
-                                  toast.error(
-                                    translate(
-                                      'auto.components.TaskPage.609532fae7',
-                                      'Failed to save default task source.'
-                                    )
-                                  )
-                                })
-                              }}
-                              data-task-source={source.id}
-                              aria-label={sourceAvailabilityNotice?.label ?? source.label}
-                              aria-pressed={active}
-                              className={cn(
-                                'group flex h-8 w-8 items-center justify-center rounded-md border transition',
-                                active
-                                  ? 'border-foreground/40 bg-muted/70 text-foreground shadow-sm'
-                                  : 'border-border/40 bg-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-                                sourceDisabled && 'cursor-not-allowed opacity-55'
-                              )}
-                            >
-                              <source.Icon className="size-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {sourceAvailabilityNotice?.label ?? source.label}
-                          </TooltipContent>
-                        </Tooltip>
-                      )
-                    })}
-                    <div
-                      className="hidden min-w-0 max-w-[min(420px,40vw)] items-center rounded-md border border-border/50 bg-muted/35 px-2 py-1 text-xs text-muted-foreground sm:flex"
-                      title={taskSourceContextSummary.title}
-                    >
-                      <span className="truncate">{taskSourceContextSummary.label}</span>
-                    </div>
-                  </div>
+                  <TaskPageSourceProviderToolbar
+                    taskSource={taskSource}
+                    visibleSourceOptions={visibleSourceOptions}
+                    taskSourceAvailabilityNoticeByProvider={taskSourceAvailabilityNoticeByProvider}
+                    taskSourceContextSummary={taskSourceContextSummary}
+                    onClose={closeTaskPage}
+                    onSourceChange={handleTaskSourceChange}
+                  />
                   {taskSource === 'linear' && linearConnected ? (
                     <div className="flex items-center gap-2">
                       <LinearScopeSelector
