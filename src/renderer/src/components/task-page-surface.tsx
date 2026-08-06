@@ -72,6 +72,7 @@ import { useTaskPageGitHubPRChecksState } from './use-task-page-github-pr-checks
 import { useTaskPageGitHubPageNavigationState } from './use-task-page-github-page-navigation-state'
 import { useTaskPageLinearScopeController } from './use-task-page-linear-scope-controller'
 import { useTaskPageLinearToolbarActions } from './use-task-page-linear-toolbar-actions'
+import { useTaskPageJiraToolbarActions } from './use-task-page-jira-toolbar-actions'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -170,7 +171,6 @@ import {
   getLinearIssueListRows,
   type LinearIssueListRow
 } from './task-page-linear-list-model'
-import { getJiraProjectSelectionKey } from './task-page-jira-create-model'
 import {
   type GitHubTaskKind,
   type GitHubModeButton,
@@ -2569,45 +2569,23 @@ export default function TaskPage(): React.JSX.Element {
     [openComposerForJiraItem]
   )
 
-  const selectJiraPreset = useCallback(
-    (preset: JiraPresetId) => {
-      setJiraSearchInput('')
-      setAppliedJiraSearch('')
-      setActiveJiraPreset(preset)
-      setTaskResumeState({ jiraPreset: preset, jiraQuery: '' })
-      setJiraRefreshNonce((n) => n + 1)
-    },
-    [setTaskResumeState]
-  )
-
-  const handleCreateJiraIssue = useCallback(() => {
-    setNewJiraIssueTitle('')
-    setNewJiraIssueBody('')
-    setNewJiraIssueProjectId(
-      sortedAvailableJiraProjects[0]
-        ? getJiraProjectSelectionKey(sortedAvailableJiraProjects[0])
-        : null
-    )
-    setNewJiraIssueProjectQuery('')
-    setNewJiraIssueProjectCommandValue('')
-    setNewJiraIssueTypeId(null)
-    setNewJiraIssueOpen(true)
-  }, [sortedAvailableJiraProjects])
-
-  const submitJiraSearch = useCallback(() => {
-    const trimmed = jiraSearchInput.trim()
-    setJiraSearchInput(trimmed)
-    setAppliedJiraSearch(trimmed)
-    setTaskResumeState({ jiraQuery: trimmed })
-    setJiraRefreshNonce((n) => n + 1)
-  }, [jiraSearchInput, setTaskResumeState])
-
-  const clearJiraSearch = useCallback(() => {
-    setJiraSearchInput('')
-    setAppliedJiraSearch('')
-    setTaskResumeState({ jiraQuery: '' })
-    setJiraRefreshNonce((n) => n + 1)
-  }, [setTaskResumeState])
+  const { clearJiraSearch, handleCreateJiraIssue, selectJiraPreset, submitJiraSearch } =
+    useTaskPageJiraToolbarActions({
+      jiraSearchInput,
+      setActiveJiraPreset,
+      setAppliedJiraSearch,
+      setJiraRefreshNonce,
+      setJiraSearchInput,
+      setNewJiraIssueBody,
+      setNewJiraIssueOpen,
+      setNewJiraIssueProjectCommandValue,
+      setNewJiraIssueProjectId,
+      setNewJiraIssueProjectQuery,
+      setNewJiraIssueTitle,
+      setNewJiraIssueTypeId,
+      setTaskResumeState,
+      sortedAvailableJiraProjects
+    })
 
   const handleGitlabFilterChange = useCallback(
     (filter: GitLabIssueFilter | GitLabTaskFilter) => {
