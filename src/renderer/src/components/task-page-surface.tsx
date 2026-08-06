@@ -43,6 +43,7 @@ import { isGitLabIssueFilter, isGitLabMRFilter } from './task-page-provider-guar
 import { TaskPageJiraErrorBanner } from './task-page-jira-error-banner'
 import { TaskPageGitLabTodosTable } from './task-page-gitlab-todos-table'
 import { TaskPageGitLabItemsTable } from './task-page-gitlab-items-table'
+import { TaskPageGitHubItemsTable } from './task-page-github-items-table'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -353,30 +354,6 @@ const GITHUB_TASK_GRID_CLASS =
   'min-w-[790px] grid-cols-[72px_minmax(320px,1fr)_84px_100px_92px_122px]'
 const GITHUB_PR_TASK_GRID_CLASS =
   'min-w-[1020px] grid-cols-[72px_minmax(360px,2fr)_132px_128px_132px_92px_158px]'
-const GITHUB_TASK_ROW_SURFACE_CLASS =
-  '[background:color-mix(in_srgb,var(--muted)_50%,var(--background))]'
-const GITHUB_TASK_ROW_HOVER_SURFACE_CLASS =
-  'group-hover/github-task-row:[background:color-mix(in_srgb,var(--muted)_70%,var(--background))]'
-
-// Why: the opaque sticky cell covers horizontally scrolled rows behind the title gutter.
-const GITHUB_TASK_STICKY_ID_HEADER_CLASS = cn(
-  'sticky left-3 z-30 before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:bg-inherit',
-  GITHUB_TASK_ROW_SURFACE_CLASS
-)
-const GITHUB_TASK_STICKY_TITLE_HEADER_CLASS = cn(
-  'sticky left-[92px] z-30 border-r border-border/50 before:absolute before:-left-2 before:top-0 before:bottom-0 before:w-2 before:bg-inherit',
-  GITHUB_TASK_ROW_SURFACE_CLASS
-)
-const GITHUB_TASK_STICKY_ID_CELL_CLASS = cn(
-  'sticky left-3 z-20 flex items-center before:absolute before:-left-3 before:top-0 before:bottom-0 before:w-3 before:bg-inherit',
-  GITHUB_TASK_ROW_SURFACE_CLASS,
-  GITHUB_TASK_ROW_HOVER_SURFACE_CLASS
-)
-const GITHUB_TASK_STICKY_TITLE_CELL_CLASS = cn(
-  'sticky left-[92px] z-20 min-w-0 border-r border-border/50 pr-2 before:absolute before:-left-2 before:top-0 before:bottom-0 before:w-2 before:bg-inherit',
-  GITHUB_TASK_ROW_SURFACE_CLASS,
-  GITHUB_TASK_ROW_HOVER_SURFACE_CLASS
-)
 
 type LinearProjectTab = 'overview' | 'issues'
 
@@ -1041,20 +1018,6 @@ function GHStatusCell({
       </PopoverContent>
     </Popover>
   )
-}
-
-function formatPRDelta(item: GitHubWorkItem): string | null {
-  const parts: string[] = []
-  if (typeof item.additions === 'number') {
-    parts.push(`+${item.additions}`)
-  }
-  if (typeof item.deletions === 'number') {
-    parts.push(`-${item.deletions}`)
-  }
-  if (typeof item.changedFiles === 'number') {
-    parts.push(`${item.changedFiles} ${item.changedFiles === 1 ? 'file' : 'files'}`)
-  }
-  return parts.length > 0 ? parts.join(' ') : null
 }
 
 function ReviewChipAvatar({
@@ -8006,577 +7969,48 @@ export default function TaskPage(): React.JSX.Element {
               <ProjectViewWrapper selectedRepoIds={repoSelection} />
             </div>
           ) : taskSource === 'github' ? (
-            <div className="flex min-h-0 min-w-0 max-h-full flex-col overflow-hidden rounded-md rounded-t-none border border-t-0 border-border/50 bg-muted/50 shadow-sm">
-              <div
-                className="min-h-0 flex-initial overflow-auto scrollbar-sleek scrollbar-sleek-lg"
-                style={{ scrollbarGutter: 'stable' }}
-              >
-                <div
-                  // Why: z-40 must beat the rows' sticky left cells (z-20); this stacking context's z sets the whole header's level.
-                  className={cn(
-                    'sticky top-0 z-40 grid gap-2 border-b border-border/50 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground',
-                    GITHUB_TASK_ROW_SURFACE_CLASS,
-                    githubTaskGridClass
-                  )}
-                >
-                  <span className={GITHUB_TASK_STICKY_ID_HEADER_CLASS}>
-                    {translate('auto.components.TaskPage.eb10c32872', 'ID')}
-                  </span>
-                  <span className={GITHUB_TASK_STICKY_TITLE_HEADER_CLASS}>
-                    {translate('auto.components.TaskPage.5eccb3c841', 'Title / Context')}
-                  </span>
-                  {activeGithubTaskKind === 'issues' ? (
-                    <span>{translate('auto.components.TaskPage.8aba10579d', 'Assignees')}</span>
-                  ) : null}
-                  {showPRManagementColumns ? (
-                    <>
-                      <span>{translate('auto.components.TaskPage.f6fa3c97d0', 'Reviewers')}</span>
-                      <span>{translate('auto.components.TaskPage.a7396b05c6', 'Checks')}</span>
-                      <span>{translate('auto.components.TaskPage.443f7dd928', 'Merge')}</span>
-                    </>
-                  ) : (
-                    <span>{translate('auto.components.TaskPage.154b0fa623', 'Status')}</span>
-                  )}
-                  <span>{translate('auto.components.TaskPage.f362667d55', 'Updated')}</span>
-                  <span />
-                </div>
-
-                {tasksError ? (
-                  <div className="border-b border-border px-4 py-4 text-sm text-destructive">
-                    {tasksError}
-                  </div>
-                ) : null}
-
-                {!tasksError && githubUnavailable ? (
-                  // Why: name the GitHub outage explicitly so an empty list isn't misread as an Orca bug; takes priority over the count banner.
-                  <div
-                    role="alert"
-                    className="border-b border-border/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-                  >
-                    {translate(
-                      'auto.components.TaskPage.75a38d7df8',
-                      'GitHub data is temporarily unavailable. Its API may be down, rate-limited, or unreachable. Please try again shortly.'
-                    )}
-                  </div>
-                ) : null}
-
-                {!tasksError && !githubUnavailable && failedCount > 0 ? (
-                  // Why: per-repo partial-failure signal, distinct from a hard IPC reject (tasksError); the two are mutually exclusive.
-                  <div className="border-b border-border/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
-                    {failedCount} {translate('auto.components.TaskPage.7762f4b03a', 'of')}{' '}
-                    {selectedRepos.length}{' '}
-                    {translate('auto.components.TaskPage.d1766fd62d', 'projects failed to load')}
-                  </div>
-                ) : null}
-
-                {perRepoSourceState
-                  .filter((s) => s.error)
-                  .map((s) => {
-                    const err = s.error!
-                    // Why: Retry re-fetches force=true via the shared refresh nonce, invalidating any still-failing in-flight request first.
-                    return (
-                      <div
-                        key={`source-err-${s.repoId}`}
-                        role="alert"
-                        // Why: aria-atomic re-announces the whole banner on a new same-repo error SRs would otherwise miss (stable key → text-only diff).
-                        aria-atomic="true"
-                        className="flex items-center justify-between gap-3 border-b border-border/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-                      >
-                        <span>
-                          {translate(
-                            'auto.components.TaskPage.0c0de0fc0e',
-                            "Couldn't load issues from"
-                          )}{' '}
-                          <span className="font-mono">
-                            {err.source.owner}/{err.source.repo}
-                          </span>{' '}
-                          — {err.message}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRetryIssuesFetch(s.sourceKey)}
-                          disabled={tasksLoading || retryingSourceKeys.has(s.sourceKey)}
-                        >
-                          {retryingSourceKeys.has(s.sourceKey) ? (
-                            <span className="flex items-center gap-1">
-                              <LoaderCircle className="h-3 w-3 animate-spin" />
-                              {translate('auto.components.TaskPage.5b6b2af943', 'Retrying…')}
-                            </span>
-                          ) : (
-                            translate('auto.components.TaskPage.0bfbf62f75', 'Retry')
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  })}
-
-                {unresolvedSourceRepos.map((r) => (
-                  // Why: null-source repos (#9660) render empty like genuine zero — name the repo and offer Retry so a transient resolve blip is recoverable.
-                  <div
-                    key={`source-unresolved-${r.repoId}`}
-                    role="status"
-                    aria-atomic="true"
-                    className="flex items-center justify-between gap-3 border-b border-border/50 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
-                  >
-                    <span>
-                      {translate(
-                        'auto.components.TaskPage.noGithubSourceDetected',
-                        'No GitHub source detected for'
-                      )}{' '}
-                      <span className="font-mono">{r.label}</span> —{' '}
-                      {translate(
-                        'auto.components.TaskPage.noGithubSourceDetectedHint',
-                        'it may have no GitHub remote, or the source could not be resolved.'
-                      )}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRetryIssuesFetch(r.sourceKey)}
-                      disabled={tasksLoading || retryingSourceKeys.has(r.sourceKey)}
-                    >
-                      {retryingSourceKeys.has(r.sourceKey) ? (
-                        <span className="flex items-center gap-1">
-                          <LoaderCircle className="h-3 w-3 animate-spin" />
-                          {translate('auto.components.TaskPage.5b6b2af943', 'Retrying…')}
-                        </span>
-                      ) : (
-                        translate('auto.components.TaskPage.0bfbf62f75', 'Retry')
-                      )}
-                    </Button>
-                  </div>
-                ))}
-
-                {showGitHubTaskSkeletons ? (
-                  // Why: fill a typical viewport with shimmer rows so the table doesn't jump in height when results land.
-                  <div className="divide-y divide-border/50">
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <div key={i} className={cn('grid gap-2 px-3 py-2', githubTaskGridClass)}>
-                        <div className={GITHUB_TASK_STICKY_ID_CELL_CLASS}>
-                          <div className="h-7 w-16 animate-pulse rounded-lg bg-muted/70" />
-                        </div>
-                        <div className={GITHUB_TASK_STICKY_TITLE_CELL_CLASS}>
-                          <div className="h-4 w-3/5 animate-pulse rounded bg-muted/70" />
-                          <div className="mt-2 h-3 w-2/5 animate-pulse rounded bg-muted/60" />
-                        </div>
-                        {!showPRManagementColumns ? (
-                          <div className="flex items-center">
-                            <div className="h-3 w-24 animate-pulse rounded bg-muted/60" />
-                          </div>
-                        ) : null}
-                        {showPRManagementColumns ? (
-                          <>
-                            <div className="flex items-center">
-                              <div className="h-5 w-20 animate-pulse rounded-full bg-muted/70" />
-                            </div>
-                            <div className="flex items-center">
-                              <div className="h-5 w-20 animate-pulse rounded-full bg-muted/70" />
-                            </div>
-                            <div className="flex items-center">
-                              <div className="h-5 w-20 animate-pulse rounded-full bg-muted/70" />
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex items-center">
-                            <div className="h-5 w-14 animate-pulse rounded-full bg-muted/70" />
-                          </div>
-                        )}
-                        <div className="flex items-center">
-                          <div className="h-3 w-20 animate-pulse rounded bg-muted/60" />
-                        </div>
-                        <div className="flex items-center justify-start lg:justify-end">
-                          <div className="h-7 w-16 animate-pulse rounded-xl bg-muted/70" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-
-                {/* Why: hide the empty state while any error banner shows, so "No matching work" doesn't contradict "Couldn't load issues". */}
-                {!showGitHubTaskSkeletons &&
-                filteredWorkItems.length === 0 &&
-                !tasksError &&
-                !githubUnavailable &&
-                failedCount === 0 &&
-                unresolvedSourceRepos.length === 0 &&
-                perRepoSourceState.every((s) => !s.error) ? (
-                  <div className="px-4 py-10 text-center">
-                    <p className="text-base font-medium text-foreground">
-                      {githubEmptyState.title}
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {githubEmptyState.description}
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="divide-y divide-border/50">
-                  {!showGitHubTaskSkeletons &&
-                    filteredWorkItems.map((item) => {
-                      const itemRepo = repoMap.get(item.repoId) ?? null
-                      const attachedWorkspace = findGithubWorkItemWorkspaceAttachment(
-                        allWorktrees,
-                        item.repoId,
-                        item.type,
-                        item.number
-                      )
-                      const attachedWorkspaceLabel = attachedWorkspace
-                        ? getGithubWorkItemWorkspaceAttachmentLabel(attachedWorkspace)
-                        : null
-                      const githubTaskIdPill = (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/40 px-1.5 py-0.5 text-muted-foreground"
-                          aria-label={`${item.type === 'pr' ? (isTaskPageGitHubDraftPR(item) ? 'Draft pull request' : 'Pull request') : 'Issue'} #${item.number}`}
-                        >
-                          {item.type === 'pr' ? (
-                            isTaskPageGitHubDraftPR(item) ? (
-                              <GitPullRequestDraft
-                                className={cn('size-3', getTaskPageGitHubPRIconTone(item))}
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <GitPullRequest
-                                className={cn('size-3', getTaskPageGitHubPRIconTone(item))}
-                                aria-hidden="true"
-                              />
-                            )
-                          ) : (
-                            <CircleDot className="size-3" aria-hidden="true" />
-                          )}
-                          <span className="font-mono text-[11px] font-normal">#{item.number}</span>
-                        </span>
-                      )
-                      return (
-                        // Why: clickable div not a <button> — it nests buttons, and button-in-button is invalid HTML that breaks hydration.
-                        <div
-                          // Why: key on repoId+item.id — repos sharing an upstream reuse item.id, so a bare key collides and React silently drops rows.
-                          key={`${item.repoId}:${item.id}`}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => openGitHubDetailPage(item)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault()
-                              openGitHubDetailPage(item)
-                            }
-                          }}
-                          className={cn(
-                            // Why: hover uses the same opaque muted-70% mix as the sticky ID/Title cells so the left columns match the rest of the row.
-                            'group/github-task-row grid cursor-pointer gap-2 px-3 py-2 text-left transition-colors hover:[background:color-mix(in_srgb,var(--muted)_70%,var(--background))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-                            githubTaskGridClass
-                          )}
-                        >
-                          <div className={GITHUB_TASK_STICKY_ID_CELL_CLASS}>
-                            {isTaskPageGitHubDraftPR(item) ? (
-                              <Tooltip>
-                                <TooltipTrigger asChild>{githubTaskIdPill}</TooltipTrigger>
-                                <TooltipContent side="bottom" sideOffset={6}>
-                                  {translate('auto.components.TaskPage.054bf695cc', 'Draft')}
-                                </TooltipContent>
-                              </Tooltip>
-                            ) : (
-                              githubTaskIdPill
-                            )}
-                          </div>
-
-                          <div className={GITHUB_TASK_STICKY_TITLE_CELL_CLASS}>
-                            <div className="flex min-w-0 items-center gap-2">
-                              <h3 className="truncate text-sm font-semibold text-foreground">
-                                {item.title}
-                              </h3>
-                              {item.type === 'pr' &&
-                              item.state !== 'open' &&
-                              item.state !== 'draft' ? (
-                                <TaskPageGitHubWorkItemStateBadge
-                                  item={item}
-                                  className="shrink-0 px-1.5 py-0"
-                                />
-                              ) : null}
-                              {selectedRepos.length > 1 && itemRepo ? (
-                                // Why: disambiguate rows in the merged multi-repo list; a single-repo view doesn't need it.
-                                <RepoBadgeLabel
-                                  name={itemRepo.displayName}
-                                  color={itemRepo.badgeColor}
-                                  badgeClassName="size-1.5"
-                                  className="shrink-0 text-[11px] text-muted-foreground"
-                                />
-                              ) : null}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                              <span>
-                                {item.author ??
-                                  translate(
-                                    'auto.components.TaskPage.6430594b18',
-                                    'unknown author'
-                                  )}
-                              </span>
-                              {selectedRepos.length === 1 && itemRepo ? (
-                                <span>{itemRepo.displayName}</span>
-                              ) : null}
-                              {item.type === 'pr' && item.state === 'draft' ? (
-                                <>
-                                  <span aria-hidden="true">·</span>
-                                  <span>
-                                    {translate('auto.components.TaskPage.054bf695cc', 'Draft')}
-                                  </span>
-                                </>
-                              ) : null}
-                              {item.type === 'pr' && formatPRDelta(item) ? (
-                                <span className="inline-flex items-center gap-1">
-                                  <Files className="size-3" />
-                                  {formatPRDelta(item)}
-                                </span>
-                              ) : null}
-                              {attachedWorkspaceLabel ? (
-                                <span className="inline-flex min-w-0 items-center gap-1">
-                                  <FolderKanban className="size-3 shrink-0" />
-                                  <span className="truncate">{attachedWorkspaceLabel}</span>
-                                </span>
-                              ) : null}
-                              {item.labels.slice(0, 3).map((label) => (
-                                <span
-                                  key={label}
-                                  className="rounded-full border border-border/50 bg-background/80 px-1.5 py-0 text-[10px] text-muted-foreground"
-                                >
-                                  {label}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-
-                          {!showPRManagementColumns ? (
-                            <div className="min-w-0 flex items-center text-xs text-muted-foreground">
-                              <GHAssigneesCell
-                                item={item}
-                                repo={itemRepo ?? null}
-                                sourceContext={getTaskPageRepoSourceContext(itemRepo, 'github')}
-                              />
-                            </div>
-                          ) : null}
-
-                          {showPRManagementColumns ? (
-                            <>
-                              <div className="flex min-w-0 items-center">
-                                <PRReviewCell
-                                  item={item}
-                                  repo={itemRepo ?? null}
-                                  sourceContext={getTaskPageRepoSourceContext(itemRepo, 'github')}
-                                />
-                              </div>
-
-                              <div className="flex min-w-0 items-center">
-                                <PRChecksCell
-                                  item={item}
-                                  onOpen={() => openGitHubDetailPage(item, 'checks')}
-                                  onLoadChecks={() => ensurePRChecksLoaded(item)}
-                                />
-                              </div>
-
-                              <div className="flex min-w-0 items-center">
-                                <PRMergeCell
-                                  item={item}
-                                  repo={itemRepo ?? null}
-                                  sourceContext={getTaskPageRepoSourceContext(itemRepo, 'github')}
-                                  onRefresh={() => setTaskRefreshNonce((current) => current + 1)}
-                                />
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex items-center">
-                              <GHStatusCell
-                                item={item}
-                                repo={itemRepo ?? null}
-                                sourceContext={getTaskPageRepoSourceContext(itemRepo, 'github')}
-                              />
-                            </div>
-                          )}
-
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center text-[11px] text-muted-foreground">
-                                {formatRelativeTime(item.updatedAt)}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" sideOffset={6}>
-                              {new Date(item.updatedAt).toLocaleString()}
-                            </TooltipContent>
-                          </Tooltip>
-
-                          <div className="flex items-center justify-start gap-1 lg:justify-end">
-                            {item.type === 'pr' ? (
-                              <DropdownMenu modal={false}>
-                                <ButtonGroup>
-                                  <Button
-                                    type="button"
-                                    variant={attachedWorkspace ? 'default' : 'outline'}
-                                    size="xs"
-                                    data-contextual-tour-target="tasks-start-workspace"
-                                    onClick={(event) => {
-                                      event.stopPropagation()
-                                      handleOpenOrUseGitHubWorkItem(item)
-                                    }}
-                                    className={cn(
-                                      'min-w-[72px] gap-1 font-semibold',
-                                      attachedWorkspace ? 'shadow-xs' : 'bg-background/80'
-                                    )}
-                                    aria-label={
-                                      attachedWorkspace
-                                        ? translate(
-                                            'auto.components.TaskPage.67d881244c',
-                                            'Resume workspace attached to PR'
-                                          )
-                                        : translate(
-                                            'auto.components.TaskPage.e4b29c5bcf',
-                                            'Start workspace from PR'
-                                          )
-                                    }
-                                  >
-                                    {attachedWorkspace
-                                      ? translate('auto.components.TaskPage.7753652524', 'Resume')
-                                      : translate('auto.components.TaskPage.7d08e8be0f', 'Start')}
-                                    <ArrowRight className="size-3" />
-                                  </Button>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant={attachedWorkspace ? 'default' : 'outline'}
-                                      size="icon-xs"
-                                      onClick={(event) => event.stopPropagation()}
-                                      className={cn(
-                                        attachedWorkspace ? 'shadow-xs' : 'bg-background/80'
-                                      )}
-                                      aria-label={translate(
-                                        'auto.components.TaskPage.7deb9e59a5',
-                                        'More PR actions'
-                                      )}
-                                    >
-                                      <ChevronDown className="size-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                </ButtonGroup>
-                                <DropdownMenuContent
-                                  align="end"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  {attachedWorkspace ? (
-                                    <DropdownMenuItem onSelect={() => handleUseWorkItem(item)}>
-                                      <Plus className="size-4" />
-                                      {translate(
-                                        'auto.components.TaskPage.b6329379ca',
-                                        'Start new workspace'
-                                      )}
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  <DropdownMenuItem
-                                    onSelect={() => window.api.shell.openUrl(item.url)}
-                                  >
-                                    <ExternalLink className="size-4" />
-                                    {translate(
-                                      'auto.components.TaskPage.c1d1600362',
-                                      'Open in browser'
-                                    )}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <Button
-                                type="button"
-                                // Why: Open resumes an existing workspace — solid primary reads stronger than outline Start (new workspace).
-                                variant={attachedWorkspace ? 'default' : 'outline'}
-                                size="xs"
-                                data-contextual-tour-target="tasks-start-workspace"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  handleOpenOrUseGitHubWorkItem(item)
-                                }}
-                                className={cn(
-                                  'min-w-[72px] gap-1 font-semibold',
-                                  attachedWorkspace ? 'shadow-xs' : 'bg-background/80'
-                                )}
-                                aria-label={
-                                  attachedWorkspace
-                                    ? translate(
-                                        'auto.components.TaskPage.2193a99ec1',
-                                        'Open workspace attached to issue'
-                                      )
-                                    : translate(
-                                        'auto.components.TaskPage.e104fa3d3d',
-                                        'Start workspace from issue'
-                                      )
-                                }
-                              >
-                                {attachedWorkspace
-                                  ? translate('auto.components.TaskPage.606a85c774', 'Open')
-                                  : translate('auto.components.TaskPage.7d08e8be0f', 'Start')}
-                                <ArrowRight className="size-3" />
-                              </Button>
-                            )}
-                            {item.type !== 'pr' ? (
-                              <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
-                                    aria-label={translate(
-                                      'auto.components.TaskPage.66ae7330f6',
-                                      'More actions'
-                                    )}
-                                  >
-                                    <EllipsisVertical className="size-4" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {attachedWorkspace ? (
-                                    <DropdownMenuItem onSelect={() => handleUseWorkItem(item)}>
-                                      <Plus className="size-4" />
-                                      {translate(
-                                        'auto.components.TaskPage.b6329379ca',
-                                        'Start new workspace'
-                                      )}
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  <DropdownMenuItem
-                                    onSelect={() => window.api.shell.openUrl(item.url)}
-                                  >
-                                    <ExternalLink className="size-4" />
-                                    {translate(
-                                      'auto.components.TaskPage.c1d1600362',
-                                      'Open in browser'
-                                    )}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : null}
-                          </div>
-                        </div>
-                      )
-                    })}
-                </div>
-              </div>
-
-              {/* Why: pagination sits outside the scroll container so it stays pinned at the panel bottom instead of scrolling away. */}
-              {filteredWorkItems.length > 0 && !showGitHubTaskSkeletons && totalPages > 1 ? (
-                <div className="flex-none border-t border-border/50 bg-muted/50">
-                  <PaginationBar
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    loadingTarget={loadingTargetPage}
-                    onPageChange={(page) => {
-                      if (pages[page] !== null && pages[page] !== undefined) {
-                        setCurrentPage(page)
-                      } else {
-                        void handleLoadNextPage(page)
-                      }
-                    }}
-                  />
-                </div>
-              ) : null}
-            </div>
+            <TaskPageGitHubItemsTable
+              tasksError={tasksError}
+              githubUnavailable={githubUnavailable}
+              failedCount={failedCount}
+              selectedRepoCount={selectedRepos.length}
+              perRepoSourceState={perRepoSourceState}
+              unresolvedSourceRepos={unresolvedSourceRepos}
+              retryingSourceKeys={retryingSourceKeys}
+              tasksLoading={tasksLoading}
+              handleRetryIssuesFetch={handleRetryIssuesFetch}
+              showGitHubTaskSkeletons={showGitHubTaskSkeletons}
+              filteredWorkItems={filteredWorkItems}
+              githubEmptyState={githubEmptyState}
+              githubTaskGridClass={githubTaskGridClass}
+              activeGithubTaskKind={activeGithubTaskKind}
+              showPRManagementColumns={showPRManagementColumns}
+              rows={{
+                filteredWorkItems,
+                repoMap,
+                allWorktrees,
+                selectedRepoCount: selectedRepos.length,
+                showPRManagementColumns,
+                githubTaskGridClass,
+                formatRelativeTime,
+                openGitHubDetailPage,
+                ensurePRChecksLoaded,
+                handleOpenOrUseGitHubWorkItem,
+                handleUseWorkItem,
+                onRefresh: () => setTaskRefreshNonce((current) => current + 1),
+                GHAssigneesCell,
+                PRReviewCell,
+                PRChecksCell,
+                PRMergeCell,
+                GHStatusCell
+              }}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              loadingTargetPage={loadingTargetPage}
+              pages={pages}
+              setCurrentPage={setCurrentPage}
+              handleLoadNextPage={handleLoadNextPage}
+            />
           ) : taskSource === 'gitlab' && gitlabView === 'todos' ? (
             <TaskPageGitLabTodosTable
               gitlabTodos={gitlabTodos}

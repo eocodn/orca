@@ -15,6 +15,18 @@ const TASK_PAGE_PROVIDER_CONTEXT = readFileSync(
   join(__dirname, 'use-task-page-provider-context.ts'),
   'utf8'
 )
+const TASK_PAGE_GITHUB_ITEMS_TABLE = readFileSync(
+  join(__dirname, 'task-page-github-items-table.tsx'),
+  'utf8'
+)
+const TASK_PAGE_GITHUB_ITEM_ROWS = readFileSync(
+  join(__dirname, 'task-page-github-item-rows.tsx'),
+  'utf8'
+)
+const TASK_PAGE_GITHUB_ITEM_ACTIONS = readFileSync(
+  join(__dirname, 'task-page-github-item-actions.tsx'),
+  'utf8'
+)
 const TASK_PAGE_STORE_BINDINGS = readFileSync(
   join(__dirname, 'use-task-page-store-bindings.ts'),
   'utf8'
@@ -38,6 +50,9 @@ describe('TaskPage source switching host boundary', () => {
     expect(TASK_PAGE_SOURCE_SELECTION.split('\n').length).toBeLessThan(600)
     expect(TASK_PAGE_PROVIDER_HOSTS.split('\n').length).toBeLessThan(300)
     expect(TASK_PAGE_PROVIDER_CONTEXT.split('\n').length).toBeLessThan(300)
+    expect(TASK_PAGE_GITHUB_ITEMS_TABLE.split('\n').length).toBeLessThan(400)
+    expect(TASK_PAGE_GITHUB_ITEM_ROWS.split('\n').length).toBeLessThan(400)
+    expect(TASK_PAGE_GITHUB_ITEM_ACTIONS.split('\n').length).toBeLessThan(400)
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageStoreBindings()')
     expect(TASK_PAGE_SOURCE).toContain('useTaskPageSourceSelection(taskPageStoreBindings)')
     expect(TASK_PAGE_SOURCE_SELECTION).toContain('pageData.taskSource ?? defaultTaskSource')
