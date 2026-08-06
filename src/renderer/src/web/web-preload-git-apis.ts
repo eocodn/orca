@@ -162,7 +162,6 @@ import {
   createWebUiApi,
   createPreflightApi,
   createCliApi,
-  createAgentHooksApi,
   createMacosTccPromptsApi,
   createDeveloperPermissionsApi,
   createSkillsApi,

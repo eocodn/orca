@@ -436,7 +436,6 @@ export { createHooksApi, createWebUiApi } from './web-preload-ui-apis'
 export {
   createPreflightApi,
   createCliApi,
-  createAgentHooksApi,
   createMacosTccPromptsApi,
   createDeveloperPermissionsApi,
   createSkillsApi,

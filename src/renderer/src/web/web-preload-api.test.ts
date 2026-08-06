@@ -165,6 +165,24 @@ function trackPromiseSettled(promise: Promise<unknown>): () => boolean {
   return () => settled
 }
 
+describe('web preload provider-hook parity', () => {
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.doUnmock('./web-runtime-client')
+  })
+
+  it('does not expose removed provider hook or trust APIs', async () => {
+    const { api } = await installApi('Linux')
+
+    expect('agentHooks' in api).toBe(false)
+    expect('agentTrust' in api).toBe(false)
+  })
+})
+
 function installClipboardImageBase64(contentBase64: string): void {
   vi.stubGlobal(
     'FileReader',

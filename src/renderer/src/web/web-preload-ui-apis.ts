@@ -161,7 +161,6 @@ import {
   createRuntimeNamespaceApi,
   createPreflightApi,
   createCliApi,
-  createAgentHooksApi,
   createMacosTccPromptsApi,
   createDeveloperPermissionsApi,
   createSkillsApi,
