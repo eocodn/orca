@@ -317,7 +317,7 @@ pub struct FileWorkerResponse {
     pub operation: FileResponseOperation,
     pub path: String,
     pub bytes: Vec<u8>,
-    pub bytes_written: usize,
+    pub bytes_written: u64,
     pub changed: bool,
 }
 
@@ -328,7 +328,7 @@ impl FileWorkerResponse {
 
     pub fn from_write_request(
         request: &FileWorkerRequest,
-        bytes_written: usize,
+        bytes_written: u64,
         changed: bool,
     ) -> Self {
         Self::from_request(
@@ -344,7 +344,7 @@ impl FileWorkerResponse {
         request: &FileWorkerRequest,
         operation: FileResponseOperation,
         bytes: Vec<u8>,
-        bytes_written: usize,
+        bytes_written: u64,
         changed: bool,
     ) -> Self {
         let path = match &request.operation {
@@ -387,6 +387,9 @@ impl FileWorkerResponse {
         };
         if self.operation != expected_operation || &self.path != expected_path {
             return Err(ProtocolError::ResponseMismatch("operation"));
+        }
+        if self.bytes_written > super::MAX_SAFE_INTEGER {
+            return Err(ProtocolError::InvalidFileBytesWritten);
         }
         match self.operation {
             FileResponseOperation::Read if self.bytes_written == 0 && !self.changed => Ok(()),

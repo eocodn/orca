@@ -221,6 +221,7 @@ pub enum ProtocolError {
     InvalidOwnershipLease,
     ExecutionTargetRemoteIdentityMismatch,
     ResponseMismatch(&'static str),
+    InvalidFileBytesWritten,
 }
 
 impl ProtocolEnvelope {
