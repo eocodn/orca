@@ -111,6 +111,6 @@ export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRu
 }
 
 export function getClientRuntime(): ClientRuntime {
-  // Resolver registration is performed by the Electron or web entrypoint.
+  // Resolver registration is performed by the desktop or web entrypoint.
   return getRegisteredClientRuntime()
 }

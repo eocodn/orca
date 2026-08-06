@@ -50,6 +50,13 @@ describe('ClientRuntime service boundary', () => {
     resetClientRuntimeAdapterForTests()
   })
 
+  it('does not infer an adapter from window.api after registration is cleared', () => {
+    vi.stubGlobal('window', { api: { runtime: {} } })
+    resetClientRuntimeAdapterForTests()
+
+    expect(() => getClientRuntime()).toThrow('ClientRuntime adapter has not been registered.')
+  })
+
   it('reports Tauri capabilities as typed unavailable errors', () => {
     const tauri = createTauriClientRuntimeAdapter()
     expect(tauri.kind).toBe('tauri')

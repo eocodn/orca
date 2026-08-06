@@ -35,7 +35,9 @@ export function createCapabilityUnavailableService<T>(
     return new Proxy(unavailable, {
       apply: unavailable,
       get: (_target, property) => {
-        if (property === 'then') return undefined
+        if (property === 'then') {
+          return undefined
+        }
         return createProxy(path ? `${path}.${String(property)}` : String(property))
       }
     })
