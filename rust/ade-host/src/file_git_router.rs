@@ -282,6 +282,7 @@ pub struct JsonlFileGitWorkerTransport {
 }
 
 pub type JsonlFileGitTransport = JsonlFileGitWorkerTransport;
+pub type JsonlWorkerTransport = JsonlFileGitWorkerTransport;
 
 impl JsonlFileGitWorkerTransport {
     pub fn spawn(
@@ -313,6 +314,17 @@ impl JsonlFileGitWorkerTransport {
             child,
             timeout,
         })
+    }
+
+    pub fn sibling_worker_path() -> Result<std::path::PathBuf, FileGitRouterError> {
+        let executable = std::env::current_exe()
+            .map_err(|error| FileGitRouterError::Transport(error.to_string()))?;
+        let name = if cfg!(windows) {
+            "ade-worker.exe"
+        } else {
+            "ade-worker"
+        };
+        Ok(executable.with_file_name(name))
     }
 
     fn dispatch<Q: serde::Serialize, R: serde::de::DeserializeOwned>(
