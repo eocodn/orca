@@ -32,7 +32,7 @@ import {
   getJiraIssueWorkspaceSeed,
   getTaskPageRepoSourceContext
 } from './task-page-source-context'
-import { parseTaskQuery, stripRepoQualifiers, withQualifier } from '../../../shared/task-query'
+import { parseTaskQuery, withQualifier } from '../../../shared/task-query'
 import {
   buildLinearTeamUrl,
   getLinearOrganizationUrlKeyFromIssueUrl
@@ -69,6 +69,7 @@ import { useTaskPageLinearProjectListDataState } from './use-task-page-linear-pr
 import { useTaskPageLinearIssueListDataState } from './use-task-page-linear-issue-list-data-state'
 import { useTaskPageLinearIssuePaginationState } from './use-task-page-linear-issue-pagination-state'
 import { useTaskPageGitHubPRChecksState } from './use-task-page-github-pr-checks-state'
+import { useTaskPageGitHubPageNavigationState } from './use-task-page-github-page-navigation-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -92,10 +93,7 @@ import {
   type TaskPageRepoSourceState
 } from '@/components/task-page-cache-selectors'
 import { shouldHideTaskPageListChrome } from '@/components/task-page-list-chrome-visibility'
-import {
-  getTaskPagePerRepoLimit,
-  taskPageToGitHubApiPage
-} from '@/components/task-page-work-item-pagination'
+import { getTaskPagePerRepoLimit } from '@/components/task-page-work-item-pagination'
 import { resolveLinearIssueAttributeFilterPrimaryTeam } from '@/components/linear-issue-attribute-filter-primary-team'
 import {
   isLinearIssueSearchActive,
@@ -1664,83 +1662,22 @@ export default function TaskPage(): React.JSX.Element {
     taskSource
   })
 
-  let lastLoadedPageIndex = 0
-  for (let index = 0; index < pages.length; index += 1) {
-    if (pages[index] !== null) {
-      lastLoadedPageIndex = index
-    }
-  }
-  // Why: when counts fail, a full loaded page is enough evidence to expose one more page without faking empty results.
-  const lastLoadedPageFull =
-    (pages[lastLoadedPageIndex]?.length ?? 0) >= Math.max(1, githubPageSize)
-  const fallbackTotalPages = lastLoadedPageFull
-    ? Math.max(pages.length, lastLoadedPageIndex + 2)
-    : Math.max(1, pages.length)
-  const totalPages =
-    countedTotalPages && countedTotalPages > 0
-      ? Math.max(pages.length, countedTotalPages)
-      : fallbackTotalPages
-
-  // Why: load only the clicked page so a high-page jump doesn't exhaust GitHub's Search API rate bucket.
-  const handleLoadNextPage = useCallback(
-    async (targetPage?: number) => {
-      if (paginationLoading || selectedRepos.length === 0) {
-        return
-      }
-      const q = stripRepoQualifiers(appliedTaskSearch.trim())
-      const repoArgs = selectedRepos.map((r) => ({
-        repoId: r.id,
-        path: r.path,
-        executionHostId: r.executionHostId,
-        sourceContext: getTaskPageRepoSourceContext(r, 'github')
-      }))
-      const requestGeneration = paginationGenerationRef.current
-
-      const target = targetPage ?? currentPage + 1
-      setPaginationLoading(true)
-      setLoadingTargetPage(target)
-      try {
-        const { items } = await fetchWorkItemsNextPage(
-          repoArgs,
-          githubPerRepoPageLimit,
-          githubPageSize,
-          q,
-          taskPageToGitHubApiPage(target)
-        )
-        if (paginationGenerationRef.current !== requestGeneration) {
-          return
-        }
-        if (items.length === 0) {
-          return
-        }
-        setPages((previous) => {
-          const next = [...previous]
-          while (next.length <= target) {
-            next.push(null)
-          }
-          next[target] = items
-          return next
-        })
-        setCurrentPage(target)
-      } catch (err) {
-        console.error('Failed to load next page:', err)
-      } finally {
-        if (paginationGenerationRef.current === requestGeneration) {
-          setPaginationLoading(false)
-          setLoadingTargetPage(null)
-        }
-      }
-    },
-    [
-      paginationLoading,
-      selectedRepos,
-      currentPage,
-      appliedTaskSearch,
-      fetchWorkItemsNextPage,
-      githubPageSize,
-      githubPerRepoPageLimit
-    ]
-  )
+  const { handleLoadNextPage, totalPages } = useTaskPageGitHubPageNavigationState({
+    appliedTaskSearch,
+    countedTotalPages,
+    currentPage,
+    fetchWorkItemsNextPage,
+    githubPageSize,
+    githubPerRepoPageLimit,
+    paginationGenerationRef,
+    paginationLoading,
+    pages,
+    selectedRepos,
+    setCurrentPage,
+    setLoadingTargetPage,
+    setPages,
+    setPaginationLoading
+  })
 
   useEffect(() => {
     if (!taskResumeApplied) {
