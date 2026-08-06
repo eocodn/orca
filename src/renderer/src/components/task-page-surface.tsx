@@ -386,6 +386,17 @@ function GHStatusCell({
   repo: Repo | null
   sourceContext?: TaskSourceContext | null
 }): React.JSX.Element {
+  const patchWorkItem = useAppStore((s) => s.patchWorkItem)
+  const [statusStateDraft, setStatusStateDraft] = useState(() =>
+    createTaskPageGitHubStatusStateDraft(item)
+  )
+  const [open, setOpen] = useState(false)
+  const [duplicatePickerOpen, setDuplicatePickerOpen] = useState(false)
+  const [duplicateSearch, setDuplicateSearch] = useState('')
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
+  const duplicateIssueCandidates = useAppStore(
+    useShallow((s) => {
+      if (!duplicatePickerOpen) {
         return []
       }
       const deduped = new Map<number, GitHubWorkItem>()
