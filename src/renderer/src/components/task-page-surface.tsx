@@ -13,16 +13,10 @@ import {
   CircleDot,
   Clock3,
   Copy,
-  EllipsisVertical,
   ExternalLink,
   Eye,
-  Files,
-  GitMerge,
-  GitPullRequest,
-  GitPullRequestDraft,
   List,
   LoaderCircle,
-  Minus,
   Plus,
   RefreshCw,
   Search,
@@ -48,7 +42,6 @@ import { PRChecksCell, PRMergeCell } from './task-page-github-pr-cells'
 import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
 import { Input } from '@/components/ui/input'
 import {
   Command,
@@ -76,7 +69,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -101,7 +93,6 @@ import {
   getTaskPageRepoCacheInput,
   getTaskPageRepoSourceContext
 } from './task-page-source-context'
-import { useConfirmationDialog } from '@/components/confirmation-dialog'
 import {
   getGitHubPRPrimaryReviewer,
   getGitHubPRReviewerRows,
@@ -133,8 +124,7 @@ import { GitHubMarkdownComposer } from '@/components/github/GitHubMarkdownCompos
 import { GitHubUserAvatar } from '@/components/github/github-user-avatar'
 import { buildGitHubRepoUrl, parseGitHubIssueOrPRLink } from '@/lib/github-links'
 import {
-  findGithubWorkItemWorkspaceAttachment,
-  getGithubWorkItemWorkspaceAttachmentLabel
+  findGithubWorkItemWorkspaceAttachment
 } from '@/lib/github-work-item-workspace-attachment'
 import { createGitHubWorkItemWorkspaceInBackground } from '@/lib/github-work-item-background-create'
 import { activateAndRevealWorktree } from '@/lib/worktree-activation'
@@ -191,7 +181,6 @@ import {
   taskPageToGitHubApiPage
 } from '@/components/task-page-work-item-pagination'
 import { sortWorkItemsByNumber } from '../../../shared/work-items'
-import { getChecksLabel, getChecksPillTone } from '@/components/task-page-checks-pill'
 import LinearIssueAttributeFilterDropdowns from '@/components/linear-issue-attribute-filter-dropdowns'
 import { resolveLinearIssueAttributeFilterPrimaryTeam } from '@/components/linear-issue-attribute-filter-primary-team'
 import {
@@ -225,10 +214,6 @@ import {
 } from '@/components/task-page-github-status-state'
 import { TaskPageGitHubWorkItemStateBadge } from '@/components/task-page-github-work-item-status-badge'
 import {
-  getTaskPageGitHubPRIconTone,
-  isTaskPageGitHubDraftPR
-} from '@/components/task-page-github-work-item-status'
-import {
   buildTaskPageGitHubCloseUpdate,
   getTaskPageGitHubDuplicateCandidates,
   getTaskPageGitHubDuplicateTargetErrorMessage,
@@ -240,15 +225,9 @@ import {
   type TaskPageJiraLoadError
 } from '@/components/task-page-jira-load-state'
 import { deriveTaskPagePRCheckSummary } from '@/components/task-page-pr-check-summary'
-import { presentGitHubPRMergeState } from '@/components/github-pr-merge-state'
-import {
-  GITHUB_PR_MERGE_METHOD_LABELS,
-  resolveGitHubPRMergeMethods
-} from '../../../shared/github-pr-merge-methods'
 import type {
   GitHubOwnerRepo,
   GitHubAssignableUser,
-  GitHubPRMergeMethod,
   GitHubIssueUpdate,
   GitHubWorkItem,
   GitLabTodo,
