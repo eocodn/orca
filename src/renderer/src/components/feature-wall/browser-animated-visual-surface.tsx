@@ -49,7 +49,7 @@ import {
   SPLIT_PHASES,
   isSplitPhase,
   TermEntry,
-  TERM_ENTRIES,
+  TERM_ENTRIES
 } from './browser-animated-visual-timing'
 
 import {
@@ -64,7 +64,7 @@ import {
   PlusGlyph,
   TerminalGlyph,
   GlobeGlyph,
-  CursorIcon,
+  CursorIcon
 } from './browser-animated-visual-elements'
 
 export function BrowserAnimatedVisual(props: {
@@ -389,4 +389,3 @@ export function BrowserAnimatedVisual(props: {
     </div>
   )
 }
-
