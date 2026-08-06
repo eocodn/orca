@@ -16,11 +16,9 @@ import type {
 } from '../../../shared/runtime-types'
 import type { AppState } from '../store/types'
 import type { Tab } from '../../../shared/types'
-import {
-  registeredTabs,
-  type OpenFileByWorktreeAndId
-} from './runtime-graph-sync'
+import { registeredTabs, type OpenFileByWorktreeAndId } from './runtime-graph-sync'
 import { resolveRuntimeTerminalTitle } from './runtime-graph-mobile-projections'
+import { resolveTerminalLayoutRoot } from './remote-terminal-layout-resolution'
 
 export function mobileTerminalSurfaceId(parentTabId: string, leafId: string): string {
   return `${parentTabId}::${leafId}`

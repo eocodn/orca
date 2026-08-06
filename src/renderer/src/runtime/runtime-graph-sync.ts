@@ -231,4 +231,8 @@ async function runRuntimeGraphSync(): Promise<void> {
 }
 
 export { syncRuntimeGraph } from './runtime-graph-window-publisher'
-export { buildMobileSessionTabSnapshots } from './runtime-graph-mobile-snapshot-builder'
+export {
+  buildMobileSessionTabSnapshots,
+  getEditorDraftVersionByFileId,
+  isEditorSurfaceTab
+} from './runtime-graph-mobile-snapshot-builder'
