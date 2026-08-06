@@ -2,35 +2,29 @@ import type { ChecksPanelCommentKey } from './checks-panel-comment-actions-types
 /* Title and comment mutation actions for ChecksPanel. */
 import { useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
-import { clearPRCommentsListSelection } from './pr-comments-list-selection'
 import { checksPanelAsyncResultKey } from './checks-panel-async-result-key'
 import { translate } from '@/i18n/i18n'
 import { isMutablePRConversationComment } from './checks-panel-content'
 import { githubProjectHost } from '../../../../shared/github-project-identity'
 import { markPRCommentThreadResolved, restorePRCommentThreadSnapshot } from './pr-comment-thread-resolution'
 import { resolveGitLabMRDiscussionForChecks } from './checks-panel-runtime-data'
-import type { ChecksPanelReview } from './checks-panel-review'
 import type { PRComment } from '../../../../shared/types'
 
 export function useChecksPanelCommentActions<T extends Record<string, unknown>>(context: T & { [K in ChecksPanelCommentKey]: K extends keyof T ? T[K] : never }): Record<string, unknown> {
   const {
-    activeConnectionId,
     activeGitLabReview,
     activeReview,
-    activeWorktreeId,
     addPRConversationComment,
     addPRReviewCommentReply,
     branch,
     clearTitleInputFocusTimer,
     confirm,
-    detectedAgentIds,
     isCurrentAsyncResult,
     mountedRef,
     pr,
     prCacheKey,
     prNumber,
     refreshHostedReviewAfterMutation,
-    remoteDetectedAgentIds,
     repo,
     resolveReviewThread,
     setAgentComposerState,
@@ -214,39 +208,11 @@ const canTargetPRComments = Boolean(repo && prNumber && pr?.prRepo)
 const commentsDisabledReason = canTargetPRComments
   ? undefined
   : 'Commenting requires a GitHub PR repository target.'
-const detectedAgentsForAI =
-  typeof activeConnectionId === 'string' ? remoteDetectedAgentIds : detectedAgentIds
-const noEnabledAgentKnown =
-  detectedAgentsForAI != null &&
-  pickDefaultSourceControlAgent(
-    settings?.defaultTuiAgent,
-    detectedAgentsForAI,
-    settings?.disabledTuiAgents
-  ) == null
-const aiActionDisabledReason = !activeWorktreeId
-  ? 'Select a workspace before launching an AI action.'
-  : noEnabledAgentKnown
-    ? 'No enabled AI agents. Configure agents in Settings.'
-    : undefined
 useEffect(() => {
   if (!sourceControlAiActionsVisible) {
     setAgentComposerState(null)
   }
 }, [sourceControlAiActionsVisible])
-const resolveCommentsWithAIDisabledReason = commentsLoading
-  ? 'Comments are still loading.'
-  : aiActionDisabledReason
-    ? aiActionDisabledReason
-    : !activeReview
-      ? 'Open a PR or MR before launching an AI action.'
-      : !repo
-        ? 'Select a repository before launching an AI action.'
-        : activeReview.provider === 'github' && !prNumber
-          ? 'Open a GitHub PR before resolving comments.'
-          : activeReview.provider === 'gitlab' && !activeGitLabReview
-            ? 'Open a GitLab MR before resolving comments.'
-            : undefined
-
 const handleAddPRComment = useCallback(
   async (body: string) => {
     if (!repo || !prNumber || !pr?.prRepo) {

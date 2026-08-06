@@ -1,4 +1,6 @@
 export type ChecksPanelRenderKey =
+  | 'handleGeneratePullRequestFields'
+  | 'handleCancelGeneratePullRequestFields'
   | 'activeConflictReview'
   | 'activeConnectionId'
   | 'activeGitLabReview'

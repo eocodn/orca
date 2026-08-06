@@ -2,10 +2,8 @@ import type { ChecksPanelAiKey } from './checks-panel-ai-actions-types'
 /* AI actions for ChecksPanel comments and checks. */
 import { useCallback } from 'react'
 import { toast } from 'sonner'
-import { getBrokenChecks, getCheckDetailsPromptKey, buildFixBrokenChecksPrompt } from '../pr-checks-fix-prompt'
 import { buildResolvePullRequestConflictsPrompt } from './SourceControl'
 import { buildPRCommentsResolutionPrompt, isResolvablePRCommentGroup } from '../pr-comments-resolution-prompt'
-import { startFixChecksAgent } from '@/lib/fix-checks-agent-launch'
 import { groupPRComments, type PRCommentGroup } from '@/lib/pr-comment-groups'
 import { translate } from '@/i18n/i18n'
 import type { ChecksPanelReview } from './checks-panel-review'
@@ -18,33 +16,15 @@ export function useChecksPanelAiActions<T extends Record<string, unknown>>(conte
     activeWorktreeId,
     activeWorktreePath,
     asyncResultKeyRef,
-    branch,
     commentsRef,
     commentsSelectionClearTokenRef,
     fetchComments,
     fetchGitLabDetails,
-    fetchHostedReviewForBranch,
-    fetchPRCheckDetails,
-    fetchPRChecks,
-    fetchPRComments,
-    fetchPRForBranch,
-    isCurrentAsyncResult,
-    linkedAzureDevOpsPR,
-    linkedBitbucketPR,
-    linkedGitLabMR,
-    linkedGiteaPR,
-    panelContextKey,
-    panelContextKeyRef,
-    pr,
-    prCacheKey,
+    handleResolve,
     repo,
+    resolveCommentsWithAIDisabledReason,
     setAgentComposerState,
-    setChecks,
-    setChecksLoading,
-    setComments,
-    setCommentsLoading,
     setCommentsSelectionClearRequest,
-    setIsFixingChecksWithAI,
     sourceControlAiActionsVisible,
     stateRequestKey,
   } = context
@@ -220,5 +200,5 @@ const resolveSelectedThreadsAfterLaunch = useCallback(
   },
   [clearSentCommentSelection, handleResolve, refreshCommentsAfterBulkResolve]
 )
-
+  return { handleResolveConflictsWithAI, handleResolveCommentsWithAI, clearSentCommentSelection, refreshCommentsAfterBulkResolve, resolveSelectedThreadsAfterLaunch }
 }

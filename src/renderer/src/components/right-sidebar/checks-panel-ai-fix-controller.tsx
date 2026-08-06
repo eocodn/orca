@@ -17,7 +17,7 @@ export function useChecksPanelFixChecks<T extends Record<string, unknown>>(conte
     sourceControlAiActionsVisible,
     stateRequestKey,
   } = context
-  return useCallback = useCallback(async (): Promise<void> => {
+  return useCallback(async (): Promise<void> => {
   if (
     !sourceControlAiActionsVisible ||
     isFixingChecksWithAI ||

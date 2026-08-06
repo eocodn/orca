@@ -29,7 +29,6 @@ export function renderChecksPanelEmpty<T extends Record<string, unknown>>(contex
     handlePublishBranch,
     handleRefresh,
     handleSyncBranch,
-    hasUncommittedChanges,
     hostedReviewCreateCopy,
     hostedReviewCreateProvider,
     hostedReviewCreation,

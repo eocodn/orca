@@ -3,8 +3,7 @@ import { useCallback } from 'react'
 import type { ChecksPanelRefreshContext } from './checks-panel-refresh-types'
 import { useAppStore } from '@/store'
 import {
-  buildGitHubPRRefreshStateClearToken,
-  getGitHubPRRefreshStateExpiryAt
+  buildGitHubPRRefreshStateClearToken
 } from '@/store/slices/github'
 import { refreshHostedReviewCard } from '@/store/slices/hosted-review'
 import { checksPanelAsyncResultKey } from './checks-panel-async-result-key'
@@ -30,13 +29,11 @@ export function useChecksPanelRefresh<T extends Record<string, unknown>>(context
     branch,
     expireGitHubPRRefreshState,
     fallbackGitHubPRNumber,
-    fetchChecks,
     fetchGitLabDetails,
     fetchHostedReviewForBranch,
     fetchPRChecks,
     fetchPRComments,
     fetchPRForBranch,
-    hasUncommittedChanges,
     isCurrentAsyncResult,
     isFolder,
     isGitLabReviewContext,
@@ -53,12 +50,9 @@ export function useChecksPanelRefresh<T extends Record<string, unknown>>(context
     prCacheKey,
     prNumber,
     prevChecksRef,
-    rawPRRefreshState,
     refreshInFlightRef,
     refreshRequestKeyRef,
-    remoteStatus,
     repo,
-    settings,
     updateWorktreeGitIdentity,
     setChecks,
     setChecksLoading,

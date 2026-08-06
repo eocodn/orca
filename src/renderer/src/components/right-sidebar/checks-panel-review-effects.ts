@@ -9,7 +9,6 @@ export function useChecksPanelReviewEffects<T extends Record<string, unknown>>(c
   const {
     activeWorktreeId,
     branch,
-    expireGitHubPRRefreshState,
     isPanelVisible,
     panelContextKey,
     panelContextKeyRef,
