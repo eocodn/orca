@@ -8,9 +8,6 @@ import {
   Eye,
   List,
   LoaderCircle,
-  Plus,
-  RefreshCw,
-  Search,
   SlidersHorizontal,
   X
 } from 'lucide-react'
@@ -40,7 +37,6 @@ import { TaskPageLinearIssueBoard } from './task-page-linear-issue-board'
 import { TaskPageLinearToolbar } from './task-page-linear-toolbar'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -79,7 +75,7 @@ import {
   buildLinearTeamUrl,
   getLinearOrganizationUrlKeyFromIssueUrl
 } from '../../../shared/linear-links'
-import PRFilterDropdowns, { type PRFilterChange } from '@/components/github/PRFilterDropdowns'
+import type { PRFilterChange } from '@/components/github/PRFilterDropdowns'
 import { buildGitHubRepoUrl } from '@/lib/github-links'
 import { findGithubWorkItemWorkspaceAttachment } from '@/lib/github-work-item-workspace-attachment'
 import { createGitHubWorkItemWorkspaceInBackground } from '@/lib/github-work-item-background-create'
@@ -224,6 +220,7 @@ import { TaskPageJiraSortControls } from './task-page-jira-sort-controls'
 import { TaskPageJiraToolbar } from './task-page-jira-toolbar'
 import { TaskPageGitLabToolbar } from './task-page-gitlab-toolbar'
 import { TaskPageGitHubScopeToolbar } from './task-page-github-scope-toolbar'
+import { TaskPageGitHubTaskToolbar } from './task-page-github-task-toolbar'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
 import { resolveVisibleTaskProvider } from '../../../shared/task-providers'
 import { translate } from '@/i18n/i18n'
@@ -255,7 +252,6 @@ import {
   isVisibleJiraCreateField
 } from './task-page-jira-create-model'
 import {
-  getGitHubTaskKindPresets,
   type GitHubTaskKind,
   type GitHubModeButton,
   type GitLabIssueFilter,
@@ -4637,6 +4633,33 @@ export default function TaskPage(): React.JSX.Element {
     void window.api.shell.openUrl(selectedGitHubRepoExternalLink.url)
   }, [selectedGitHubRepoExternalLink])
 
+  const handleGithubPresetSelect = useCallback(
+    (preset: { id: TaskViewPresetId; query: string }) => {
+      setTaskSearchInput(preset.query)
+      setAppliedTaskSearch(preset.query)
+      setActiveTaskPreset(preset.id)
+      setTaskResumeState({
+        githubItemsPreset: preset.id,
+        githubItemsQuery: preset.query
+      })
+      setTaskRefreshNonce((current) => current + 1)
+    },
+    [setTaskResumeState]
+  )
+
+  const handleCreateGithubIssueFromToolbar = useCallback(() => {
+    const seed = resolveNewIssueOpenSeed({
+      draft: useAppStore.getState().newIssueDraft,
+      selectedRepoIds: selectedRepos.map((repo) => repo.id)
+    })
+    setNewIssueTitle(seed.title)
+    setNewIssueBody(seed.body)
+    setNewIssueLabels(seed.labels)
+    setNewIssueAssignees(seed.assignees)
+    setNewIssueRepoId(seed.repoId)
+    setNewIssueOpen(true)
+  }, [selectedRepos])
+
   const taskPageListChromeHidden = shouldHideTaskPageListChrome({
     taskSource,
     hasGitHubDetail: Boolean(dialogWorkItem),
@@ -4866,167 +4889,27 @@ export default function TaskPage(): React.JSX.Element {
                 ) : null}
 
                 {taskSource === 'github' && githubMode === 'items' ? (
-                  <div
-                    className="min-w-0 rounded-md rounded-b-none border border-border/50 bg-muted/50 px-3 pt-2 pb-0 shadow-sm"
-                    data-contextual-tour-target="tasks-search-presets"
+                  <TaskPageGitHubTaskToolbar
+                    activeGithubTaskKind={activeGithubTaskKind}
+                    activeTaskPreset={activeTaskPreset}
+                    onPresetSelect={handleGithubPresetSelect}
+                    onSetDefaultTaskPreset={handleSetDefaultTaskPreset}
+                    parsedTaskQuery={appliedTaskQuery}
+                    loadedGitHubAuthorLogins={loadedGitHubAuthorLogins}
+                    primaryGithubFilterSlug={primaryGithubFilterSlug}
+                    settings={settings}
+                    onPRFilterChange={applyPRFilterChange}
+                    taskSearchInputRef={taskSearchInputRef}
+                    taskSearchInput={taskSearchInput}
+                    appliedTaskSearch={appliedTaskSearch}
+                    onSearchChange={handleTaskSearchChange}
+                    onSearchKeyDown={handleTaskSearchKeyDown}
+                    onResetSearch={handleResetGithubTaskSearch}
+                    newIssueTargetRepo={Boolean(newIssueTargetRepo)}
+                    onCreateIssue={handleCreateGithubIssueFromToolbar}
+                    githubTasksBusy={githubTasksBusy}
+                    onRefresh={handleRefreshGithubTasks}
                   >
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {getGitHubTaskKindPresets(activeGithubTaskKind).map((option) => {
-                        const active = activeTaskPreset === option.id
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => {
-                              const query = option.query
-                              setTaskSearchInput(query)
-                              setAppliedTaskSearch(query)
-                              setActiveTaskPreset(option.id)
-                              setTaskResumeState({
-                                githubItemsPreset: option.id,
-                                githubItemsQuery: query
-                              })
-                              setTaskRefreshNonce((current) => current + 1)
-                            }}
-                            onContextMenu={(event) => {
-                              event.preventDefault()
-                              handleSetDefaultTaskPreset(option.id)
-                            }}
-                            className={cn(
-                              'rounded-md border px-2 py-1 text-xs transition',
-                              active
-                                ? 'border-border/50 bg-foreground/90 text-background backdrop-blur-md'
-                                : 'border-border/50 bg-transparent text-foreground hover:bg-muted/50'
-                            )}
-                          >
-                            {option.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <PRFilterDropdowns
-                        parsed={appliedTaskQuery}
-                        kind={activeGithubTaskKind}
-                        authorLogins={loadedGitHubAuthorLogins}
-                        primarySlug={primaryGithubFilterSlug}
-                        settings={settings}
-                        onChange={(change) => applyPRFilterChange(change)}
-                      />
-                      <div className="relative min-w-0 flex-1 basis-64">
-                        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                          ref={taskSearchInputRef}
-                          data-github-items-search-input
-                          value={taskSearchInput}
-                          onChange={handleTaskSearchChange}
-                          onKeyDown={handleTaskSearchKeyDown}
-                          placeholder={
-                            activeGithubTaskKind === 'prs'
-                              ? translate(
-                                  'auto.components.TaskPage.eee4df4c66',
-                                  'Search GitHub PRs...'
-                                )
-                              : translate(
-                                  'auto.components.TaskPage.b15ceb409d',
-                                  'Search GitHub issues...'
-                                )
-                          }
-                          className="h-8 rounded-md border-border/50 bg-background pl-8 pr-8 text-xs"
-                        />
-                        {taskSearchInput || appliedTaskSearch ? (
-                          <button
-                            type="button"
-                            aria-label={translate(
-                              'auto.components.TaskPage.b797bdd7c3',
-                              'Clear search'
-                            )}
-                            onClick={handleResetGithubTaskSearch}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
-                          >
-                            <X className="size-4" />
-                          </button>
-                        ) : null}
-                      </div>
-                      <div
-                        className="flex shrink-0 items-center gap-2"
-                        data-contextual-tour-target="tasks-actions"
-                      >
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                // Why: restore a non-empty draft (accidental dismissal recoverable); empty default guards a stale draft after a repo change.
-                                const seed = resolveNewIssueOpenSeed({
-                                  draft: useAppStore.getState().newIssueDraft,
-                                  selectedRepoIds: selectedRepos.map((r) => r.id)
-                                })
-                                setNewIssueTitle(seed.title)
-                                setNewIssueBody(seed.body)
-                                setNewIssueLabels(seed.labels)
-                                setNewIssueAssignees(seed.assignees)
-                                setNewIssueRepoId(seed.repoId)
-                                setNewIssueOpen(true)
-                              }}
-                              disabled={!newIssueTargetRepo}
-                              aria-label={translate(
-                                'auto.components.TaskPage.d3d0998b7d',
-                                'New GitHub issue'
-                              )}
-                              className="size-8 border-border/50 bg-transparent hover:bg-muted/50 backdrop-blur-md supports-[backdrop-filter]:bg-transparent"
-                            >
-                              <Plus className="size-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {translate('auto.components.TaskPage.d3d0998b7d', 'New GitHub issue')}
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={handleRefreshGithubTasks}
-                              disabled={githubTasksBusy}
-                              aria-busy={githubTasksBusy}
-                              aria-label={
-                                githubTasksBusy
-                                  ? translate(
-                                      'auto.components.TaskPage.6ffa6be99f',
-                                      'Refreshing GitHub work'
-                                    )
-                                  : translate(
-                                      'auto.components.TaskPage.ff53631e6f',
-                                      'Refresh GitHub work'
-                                    )
-                              }
-                              className="size-8 cursor-pointer border-border/50 bg-transparent hover:bg-muted/50 backdrop-blur-md disabled:pointer-events-auto disabled:cursor-wait supports-[backdrop-filter]:bg-transparent"
-                            >
-                              {githubTasksBusy ? (
-                                <LoaderCircle className="size-4 animate-spin" />
-                              ) : (
-                                <RefreshCw className="size-4" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" sideOffset={6}>
-                            {githubTasksBusy
-                              ? translate(
-                                  'auto.components.TaskPage.31f81cc334',
-                                  'Refreshing GitHub work…'
-                                )
-                              : translate(
-                                  'auto.components.TaskPage.ff53631e6f',
-                                  'Refresh GitHub work'
-                                )}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
-
                     {(() => {
                       // Why: show the source-slug chip only when the selector can't render (no upstream to toggle); otherwise it duplicates the selector.
                       const rows = perRepoSourceState.filter(
@@ -5084,7 +4967,7 @@ export default function TaskPage(): React.JSX.Element {
                         </div>
                       )
                     })()}
-                  </div>
+                  </TaskPageGitHubTaskToolbar>
                 ) : taskSource === 'linear' && linearConnected ? (
                   <TaskPageLinearToolbar
                     linearModeOptions={linearModeOptions}
