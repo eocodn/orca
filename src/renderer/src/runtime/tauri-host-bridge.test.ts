@@ -132,6 +132,73 @@ describe('Tauri host invoke bridge', () => {
     ).rejects.toMatchObject({ code: 'correlation_mismatch', requestId: 'git-1' })
   })
 
+  it('rejects terminal input before invoking Rust when sequence or failure reason is invalid', async () => {
+    const invoke = vi.fn<TauriInvoke>()
+    const bridge = createTauriHostBridge(invoke)
+
+    await expect(
+      bridge.terminalRequest({
+        envelope: { request_id: 'terminal-1', capability: 'terminal', protocol_version: 1 },
+        terminal_id: 'terminal-1',
+        expected_generation: 0,
+        operation: { type: 'output', sequence: 0, data: 'ready' }
+      })
+    ).rejects.toMatchObject({ code: 'invalid_request' })
+    await expect(
+      bridge.terminalRequest({
+        envelope: { request_id: 'terminal-2', capability: 'terminal', protocol_version: 1 },
+        terminal_id: 'terminal-1',
+        expected_generation: 0,
+        operation: { type: 'fail', reason: '  ' }
+      })
+    ).rejects.toMatchObject({ code: 'invalid_request' })
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('rejects file and terminal responses that reuse a request id with different identity', async () => {
+    const invoke = vi
+      .fn<TauriInvoke>()
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          request_id: 'file-1',
+          capability: 'file',
+          operation: 'read',
+          path: 'other.txt',
+          bytes: [65],
+          bytes_written: 0,
+          changed: false
+        })
+      )
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          request_id: 'terminal-1',
+          capability: 'terminal',
+          protocol_version: 1,
+          operation: 'snapshot',
+          terminal_id: 'other-terminal',
+          generation: 1,
+          status: 'running',
+          exit_code: null,
+          failure_reason: null,
+          output_sequence: 0,
+          tail: ''
+        })
+      )
+    const bridge = createTauriHostBridge(invoke)
+
+    await expect(
+      bridge.fileRequest({ requestId: 'file-1', operation: 'read', path: 'README.md' })
+    ).rejects.toMatchObject({ code: 'correlation_mismatch', requestId: 'file-1' })
+    await expect(
+      bridge.terminalRequest({
+        envelope: { request_id: 'terminal-1', capability: 'terminal', protocol_version: 1 },
+        terminal_id: 'terminal-1',
+        expected_generation: 0,
+        operation: { type: 'start' }
+      })
+    ).rejects.toMatchObject({ code: 'correlation_mismatch', requestId: 'terminal-1' })
+  })
+
   it('normalizes Tauri rejection values without treating them as success', async () => {
     const invoke = vi.fn<TauriInvoke>().mockRejectedValue('request_id_conflict')
     const bridge = createTauriHostBridge(invoke)

@@ -141,6 +141,40 @@ function correlated<T extends { request_id: string }>(
   return result
 }
 
+function correlatedFile(
+  result: TauriFileResult,
+  request: Pick<TauriFileRequestArgs, 'requestId' | 'operation' | 'path'>,
+  command: string
+): TauriFileResult {
+  const requestId = request.requestId
+  if (result.operation !== request.operation || result.path !== request.path) {
+    throw new TauriHostBridgeError(
+      'correlation_mismatch',
+      'Tauri file response does not match the requested operation or path.',
+      command,
+      requestId
+    )
+  }
+  return correlated(result, requestId, command)
+}
+
+function correlatedTerminal(
+  result: TauriTerminalResult,
+  request: TauriTerminalRequest,
+  command: string
+): TauriTerminalResult {
+  const requestId = request.envelope.request_id
+  if (result.terminal_id !== request.terminal_id || result.operation !== request.operation.type) {
+    throw new TauriHostBridgeError(
+      'correlation_mismatch',
+      'Tauri terminal response does not match the requested terminal or operation.',
+      command,
+      requestId
+    )
+  }
+  return correlated(result, requestId, command)
+}
+
 function withOptionalArgs<T extends Record<string, unknown>>(args: T): T {
   return Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined)) as T
 }
@@ -213,7 +247,7 @@ export function createTauriHostBridge(
         await invokeJson(TAURI_HOST_COMMANDS.fileRequest, parsed.data, parsed.data.requestId),
         FileResultSchema
       )
-      return correlated(result, parsed.data.requestId, TAURI_HOST_COMMANDS.fileRequest)
+      return correlatedFile(result, parsed.data, TAURI_HOST_COMMANDS.fileRequest)
     },
 
     async terminalRequest(input) {
@@ -230,11 +264,7 @@ export function createTauriHostBridge(
         ),
         TerminalResultSchema
       )
-      return correlated(
-        result,
-        parsed.data.envelope.request_id,
-        TAURI_HOST_COMMANDS.terminalRequest
-      )
+      return correlatedTerminal(result, parsed.data, TAURI_HOST_COMMANDS.terminalRequest)
     }
   }
 }
