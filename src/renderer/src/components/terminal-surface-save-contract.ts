@@ -9,6 +9,7 @@ export type TerminalSurfaceSaveContext = Pick<
   | 'activeTabId'
   | 'activeTabIdByWorktree'
   | 'setActiveTab'
+  | 'setActiveFile'
   | 'setActiveTabType'
   | 'setActiveWorktree'
   | 'markFileDirty'

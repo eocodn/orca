@@ -26,6 +26,7 @@ export function useTerminalSurfaceSaveController(
     renderedActiveWorktreeId,
     tabs,
     setActiveTab,
+    setActiveFile,
     setActiveTabType,
     setActiveWorktree,
     markFileDirty,
@@ -105,6 +106,7 @@ export function useTerminalSurfaceSaveController(
   }, [
     getNextQueuedEditorClose,
     proceedToNativeWindowClose,
+    setActiveFile,
     setActiveTabType,
     setActiveWorktree,
     windowCloseAfterDirtyRef

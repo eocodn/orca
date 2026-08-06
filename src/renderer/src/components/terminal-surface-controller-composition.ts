@@ -101,6 +101,7 @@ export function useTerminalSurfaceControllerComposition(
     tabs,
     tabsByWorktree,
     setActiveTab,
+    setActiveFile,
     setActiveTabType,
     setActiveWorktree,
     markFileDirty,
