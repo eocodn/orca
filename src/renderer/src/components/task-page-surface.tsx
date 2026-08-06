@@ -23,7 +23,7 @@ import { PRChecksCell, PRMergeCell } from './task-page-github-pr-cells'
 import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
 import { TaskPageLinearToolbar } from './task-page-linear-toolbar'
 import { TaskPageProviderScopeControls } from './task-page-provider-scope-controls'
-import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
+import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
 import { JiraConnectDialog } from '@/components/jira-connect-dialog'
 import { LinearApiKeyDialog } from '@/components/linear-api-key-dialog'
@@ -49,11 +49,11 @@ import GitHubItemDialog, { type ItemDialogTab } from '@/components/GitHubItemDia
 import PullRequestPage from '@/components/PullRequestPage'
 import GitLabItemDialog from '@/components/GitLabItemDialog'
 import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
-import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
 import { TaskPageLinearIssueBody } from './task-page-linear-issue-body'
 import { useTaskPageLinearComposerState } from './use-task-page-linear-composer-state'
 import { useTaskPageJiraComposerState } from './use-task-page-jira-composer-state'
+import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue-state'
 import {
   getSingleJiraProjectScope,
   getTaskPageJiraStatusOrderScopeKey,
@@ -71,7 +71,6 @@ import {
   readLinearBoardIssueDragData,
   writeLinearBoardIssueDragData
 } from '@/lib/linear-board-drag-payload'
-import { getTaskSourceRuntimeSettings } from '../../../shared/task-source-context'
 import { getLinearIssueWorkspaceName } from '../../../shared/workspace-name'
 import {
   buildTaskPageRepoSourceState,
@@ -107,10 +106,8 @@ import {
   type LinearIssueAttributeFilter
 } from '../../../shared/linear-issue-attribute-filter'
 import {
-  isNewIssueDraftContentful,
   resolveNewIssueOpenSeed,
-  resolveUserRepoSwitchReset,
-  resolveVanishedNewIssueRepoReset
+  resolveUserRepoSwitchReset
 } from '@/components/task-page-new-issue-draft'
 import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selectors'
 import { getRepoBackedTaskEmptyState } from '@/components/task-page-empty-state'
@@ -144,7 +141,6 @@ import {
 import { shouldSuppressEnterSubmit } from '@/lib/new-workspace-enter-guard'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import { isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
-import { useRepoAssignees, useRepoLabels } from '@/hooks/useIssueMetadata'
 import {
   linearCreateProject,
   linearCreateIssue,
@@ -713,105 +709,29 @@ export default function TaskPage(): React.JSX.Element {
     setTasksRefreshing(true)
     setTaskRefreshNonce((current) => current + 1)
   }, [])
-  const [newIssueOpen, setNewIssueOpen] = useState(false)
-  const [newIssueTitle, setNewIssueTitle] = useState('')
-  const [newIssueBody, setNewIssueBody] = useState('')
-  const [newIssueLabels, setNewIssueLabels] = useState<string[]>([])
-  const [newIssueAssignees, setNewIssueAssignees] = useState<GitHubAssignableUser[]>([])
-  const [newIssueSubmitting, setNewIssueSubmitting] = useState(false)
-  const [newIssueRepoId, setNewIssueRepoId] = useState<string | null>(null)
-  // Why: session-only draft recovers an in-progress issue across dismissal/remount; read imperatively (not subscribed) so per-keystroke writes don't re-render all of TaskPage.
-  const setNewIssueDraft = useAppStore((s) => s.setNewIssueDraft)
-  const clearNewIssueDraft = useAppStore((s) => s.clearNewIssueDraft)
-
-  // Why: fall back to the first selected repo if the chosen id drops from the selection mid-dialog, so submit always has a valid target.
-  const newIssueTargetRepo = useMemo(
-    () => selectedRepos.find((r) => r.id === newIssueRepoId) ?? selectedRepos[0] ?? null,
-    [selectedRepos, newIssueRepoId]
-  )
-  const newIssueSourceContext = useMemo(
-    () => getTaskPageRepoSourceContext(newIssueTargetRepo, 'github'),
-    [newIssueTargetRepo]
-  )
-  const newIssueRuntimeTarget = useMemo(() => {
-    if (!newIssueTargetRepo?.id) {
-      return null
-    }
-    const repoOwnerSettings = getSettingsForRepoRuntimeOwner(
-      { repos: [newIssueTargetRepo], settings },
-      newIssueTargetRepo.id
-    )
-    const targetSettings =
-      newIssueSourceContext?.provider === 'github'
-        ? {
-            ...repoOwnerSettings,
-            ...getTaskSourceRuntimeSettings(newIssueSourceContext)
-          }
-        : repoOwnerSettings
-    const target = getActiveRuntimeTarget(targetSettings)
-    if (target.kind !== 'environment') {
-      return null
-    }
-    return repos.some((repo) => repo.id === newIssueTargetRepo.id) ? target : null
-  }, [newIssueSourceContext, newIssueTargetRepo, repos, settings])
-  const newIssueRepoLabels = useRepoLabels(
-    newIssueOpen ? (newIssueTargetRepo?.path ?? null) : null,
-    newIssueOpen ? (newIssueTargetRepo?.id ?? null) : null,
-    { runtimeEnvironmentId: newIssueOpen ? (newIssueRuntimeTarget?.environmentId ?? null) : null }
-  )
-  const newIssueRepoAssignees = useRepoAssignees(
-    newIssueOpen ? (newIssueTargetRepo?.path ?? null) : null,
-    newIssueOpen ? (newIssueTargetRepo?.id ?? null) : null,
-    { runtimeEnvironmentId: newIssueOpen ? (newIssueRuntimeTarget?.environmentId ?? null) : null }
-  )
-
-  // Why: only handles the "chosen repo vanished" case; a reactive clear keyed on target id can't tell a restore from a user switch and would wipe the recovery draft.
-  useEffect(() => {
-    const reset = resolveVanishedNewIssueRepoReset(
-      newIssueRepoId,
-      selectedRepos.map((r) => r.id)
-    )
-    if (!reset) {
-      return
-    }
-    setNewIssueLabels([])
-    setNewIssueAssignees([])
-    setNewIssueRepoId(reset.repoId)
-  }, [newIssueRepoId, selectedRepos])
-
-  // Why: content-gated mirror of live fields into the session draft while the modal is open, so dismissal doesn't lose input.
-  useEffect(() => {
-    if (!newIssueOpen) {
-      return
-    }
-    if (
-      isNewIssueDraftContentful({
-        title: newIssueTitle,
-        body: newIssueBody,
-        labels: newIssueLabels,
-        assignees: newIssueAssignees
-      })
-    ) {
-      setNewIssueDraft({
-        title: newIssueTitle,
-        body: newIssueBody,
-        labels: newIssueLabels,
-        assignees: newIssueAssignees,
-        repoId: newIssueRepoId
-      })
-    } else {
-      clearNewIssueDraft()
-    }
-  }, [
+  const {
     newIssueOpen,
+    setNewIssueOpen,
     newIssueTitle,
+    setNewIssueTitle,
     newIssueBody,
+    setNewIssueBody,
     newIssueLabels,
+    setNewIssueLabels,
     newIssueAssignees,
+    setNewIssueAssignees,
+    newIssueSubmitting,
+    setNewIssueSubmitting,
     newIssueRepoId,
+    setNewIssueRepoId,
     setNewIssueDraft,
-    clearNewIssueDraft
-  ])
+    clearNewIssueDraft,
+    newIssueTargetRepo,
+    newIssueSourceContext,
+    newIssueRuntimeTarget,
+    newIssueRepoLabels,
+    newIssueRepoAssignees
+  } = useTaskPageGitHubNewIssueState({ selectedRepos, repos, settings })
 
   const [selectedLinearIssueId, setSelectedLinearIssueId] = useState<string | null>(null)
   const [selectedLinearIssueFallback, setSelectedLinearIssueFallback] =
