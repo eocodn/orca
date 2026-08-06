@@ -210,6 +210,11 @@ import { useWorktreeListKeyboard } from './worktree-list-keyboard'
 import { useWorktreeListRevealEffects } from './worktree-list-reveal-effects'
 import { useWorktreeListDragSession } from './worktree-list-drag-session'
 import { registerWorktreeListPointerListeners } from './worktree-list-pointer-listeners'
+import {
+  registerWorktreeListDocumentDropListener,
+  registerWorktreeListDragEndListener,
+  registerWorktreeListVisibilityListener
+} from './worktree-list-native-listeners'
 
 export {
   countRecordKeysByReference,
@@ -2148,8 +2153,7 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       clearWorktreeDrag()
     }
 
-    document.addEventListener('drop', handleDocumentDrop, true)
-    return () => document.removeEventListener('drop', handleDocumentDrop, true)
+    return registerWorktreeListDocumentDropListener(handleDocumentDrop)
   }, [
     clearWorktreeDrag,
     clearReorderedWorktreeParents,
@@ -2171,8 +2175,7 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       }
     }
 
-    document.addEventListener('dragend', handleDocumentDragEnd, true)
-    return () => document.removeEventListener('dragend', handleDocumentDragEnd, true)
+    return registerWorktreeListDragEndListener(handleDocumentDragEnd)
   }, [clearWorktreeDrag])
 
   useEffect(() => {
@@ -2182,8 +2185,7 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       }
     }
 
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    return registerWorktreeListVisibilityListener(handleVisibilityChange)
   }, [clearWorktreeDrag])
 
   // Why: expand here (not the shared hook, used by the flat board) so a dropped parent carries its lineage children (#9083).
