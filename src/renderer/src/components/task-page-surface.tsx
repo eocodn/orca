@@ -71,6 +71,7 @@ import { useTaskPageLinearIssuePaginationState } from './use-task-page-linear-is
 import { useTaskPageGitHubPRChecksState } from './use-task-page-github-pr-checks-state'
 import { useTaskPageGitHubPageNavigationState } from './use-task-page-github-page-navigation-state'
 import { useTaskPageLinearScopeController } from './use-task-page-linear-scope-controller'
+import { useTaskPageLinearToolbarActions } from './use-task-page-linear-toolbar-actions'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -2492,10 +2493,38 @@ export default function TaskPage(): React.JSX.Element {
       updateSettings
     })
 
-  const handleLinearAccessConnected = useCallback((): void => {
-    setLinearTeamRefreshNonce((n) => n + 1)
-    setLinearRefreshNonce((n) => n + 1)
-  }, [])
+  const {
+    clearLinearSearch,
+    handleCreateLinearItem,
+    handleLinearAccessConnected,
+    submitLinearSearch
+  } = useTaskPageLinearToolbarActions({
+    availableTeams,
+    linearMode,
+    linearSearchInput,
+    selectedLinearProject,
+    setAppliedLinearSearch,
+    setLinearRefreshNonce,
+    setLinearSearchInput,
+    setLinearTeamRefreshNonce,
+    setNewLinearIssueBody,
+    setNewLinearIssueOpen,
+    setNewLinearIssueProjectId,
+    setNewLinearIssueTeamId,
+    setNewLinearIssueTitle,
+    setNewLinearProjectContent,
+    setNewLinearProjectDescription,
+    setNewLinearProjectLabelIds,
+    setNewLinearProjectLeadId,
+    setNewLinearProjectMemberIds,
+    setNewLinearProjectName,
+    setNewLinearProjectOpen,
+    setNewLinearProjectPriority,
+    setNewLinearProjectStartDate,
+    setNewLinearProjectTargetDate,
+    setNewLinearProjectTeamId,
+    setTaskResumeState
+  })
 
   const openComposerForJiraItem = useCallback(
     (issue: JiraIssue): void => {
@@ -2539,46 +2568,6 @@ export default function TaskPage(): React.JSX.Element {
     },
     [openComposerForJiraItem]
   )
-
-  const handleCreateLinearItem = useCallback(() => {
-    if (linearMode === 'projects' && !selectedLinearProject) {
-      setNewLinearProjectName('')
-      setNewLinearProjectDescription('')
-      setNewLinearProjectContent('')
-      setNewLinearProjectTeamId(availableTeams[0]?.id ?? null)
-      setNewLinearProjectLeadId(null)
-      setNewLinearProjectMemberIds([])
-      setNewLinearProjectLabelIds([])
-      setNewLinearProjectPriority(0)
-      setNewLinearProjectStartDate('')
-      setNewLinearProjectTargetDate('')
-      setNewLinearProjectOpen(true)
-      return
-    }
-    setNewLinearIssueTitle('')
-    setNewLinearIssueBody('')
-    const projectTeamId =
-      selectedLinearProject?.teams?.[0]?.id ??
-      availableTeams.find((team) => team.workspaceId === selectedLinearProject?.workspaceId)?.id
-    setNewLinearIssueTeamId(projectTeamId ?? availableTeams[0]?.id ?? null)
-    setNewLinearIssueProjectId(selectedLinearProject?.id ?? null)
-    setNewLinearIssueOpen(true)
-  }, [availableTeams, linearMode, selectedLinearProject])
-
-  const submitLinearSearch = useCallback(() => {
-    const trimmed = linearSearchInput.trim()
-    setLinearSearchInput(trimmed)
-    setAppliedLinearSearch(trimmed)
-    setTaskResumeState({ linearQuery: trimmed, linearMode: 'issues' })
-    setLinearRefreshNonce((n) => n + 1)
-  }, [linearSearchInput, setTaskResumeState])
-
-  const clearLinearSearch = useCallback(() => {
-    setLinearSearchInput('')
-    setAppliedLinearSearch('')
-    setTaskResumeState({ linearQuery: '', linearMode: 'issues' })
-    setLinearRefreshNonce((n) => n + 1)
-  }, [setTaskResumeState])
 
   const selectJiraPreset = useCallback(
     (preset: JiraPresetId) => {
