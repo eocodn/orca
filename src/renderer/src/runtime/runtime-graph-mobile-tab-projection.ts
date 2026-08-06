@@ -1,7 +1,5 @@
 import type { AppState } from '../store/types'
-import type {
-  RuntimeMobileSessionTabGroup
-} from '../../../shared/runtime-types'
+import type { RuntimeMobileSessionTabGroup } from '../../../shared/runtime-types'
 import type { Tab, TabGroup, TabGroupLayoutNode } from '../../../shared/types'
 import {
   getActiveTabNavOrder,

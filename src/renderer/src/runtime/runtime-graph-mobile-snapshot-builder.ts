@@ -1,33 +1,11 @@
-import {
-  collectLeafIdsInOrder,
-  serializePaneTree
-} from '@/components/terminal-pane/layout-serialization'
-import { warnTerminalLifecycleAnomaly } from '@/components/terminal-pane/terminal-lifecycle-diagnostics'
-import { getEagerPtyBufferHandle } from '@/components/terminal-pane/pty-dispatcher'
-import { createBrowserUuid } from '@/lib/browser-uuid'
-import type { PaneManager } from '@/lib/pane-manager/pane-manager'
-import { resolveLeafIdForManager } from '@/lib/pane-manager/pane-key-resolution'
-import { getSystemPrefersDark, resolveEffectiveTerminalAppearance } from '@/lib/terminal-theme'
-import { sanitizeTerminalLayoutPaneTitles } from '@/lib/terminal-pane-title-sanitization'
+import { getSystemPrefersDark } from '@/lib/terminal-theme'
 import type { AppState } from '@/store/types'
 import type {
   RuntimeMobileSessionSnapshotTab,
-  RuntimeMobileSessionTabsSnapshot,
-  RuntimeSyncWindowGraph
+  RuntimeMobileSessionTabsSnapshot
 } from '../../../shared/runtime-types'
-import { isTerminalLeafId } from '../../../shared/stable-pane-id'
 import type { Tab } from '../../../shared/types'
-import { resolveTerminalLayoutRoot } from './remote-terminal-layout-resolution'
-import {
-  type RuntimeMobileSessionSyncKey,
-  buildRuntimeMobileAgentStatusProjectionForTests,
-  canSkipRuntimeMobileSessionSyncKeyBuild,
-  getRuntimeMobileSessionSyncKey,
-  getBrowserTabsByWorktree,
-  resetRuntimeMobileAgentStatusProjectionCacheForTests,
-  runtimeMobileSessionSyncKeysEqual,
-  resolveRuntimeTerminalTitle
-} from './runtime-graph-mobile-projections'
+import { getBrowserTabsByWorktree } from './runtime-graph-mobile-projections'
 import {
   appendFallbackEditorTabsToGroups,
   buildMobileSessionGroupProjection,
@@ -36,39 +14,23 @@ import {
   isWebOnlyMirroredTerminalTab,
   pruneTabGroupLayout
 } from './runtime-graph-mobile-tab-projection'
-import { isMobilePublishableOpenFile } from './runtime-graph-mobile-surface-builders'
 import {
-  registeredTabs,
-  tabRegisteredAt,
-  NO_TRANSPORT_GRACE_MS,
   EMPTY_LAYOUT_BY_WORKTREE,
-  RUNTIME_GRAPH_SYNC_COALESCE_MS,
-  syncScheduled,
-  syncInFlight,
-  syncPendingAfterFlight,
-  syncEnabled,
-  syncTimer,
-  getStoreState,
   nextMobileSessionSnapshotVersion,
   mobileSessionSnapshotCacheByWorktree,
   jsonContentEquals,
   getCachedEditorDraftVersions,
   setCachedEditorDraftVersions,
-  mobileSessionPublicationEpoch,
-  setRuntimeGraphStoreStateGetter,
-  hasRegisteredRuntimeTerminalTab,
-  registerRuntimeTerminalTab,
-  focusRuntimeTerminalSurface,
-  setRuntimeGraphSyncEnabled,
-  clearScheduledRuntimeGraphSync,
-  scheduleRuntimeGraphSync,
-  runRuntimeGraphSync,
-  syncRuntimeGraph,
-  type RegisteredTerminalTab,
-  type OpenFileByWorktreeAndId,
-  type OpenFileIndexes,
-  type FallbackEditorTabTarget
+  mobileSessionPublicationEpoch
 } from './runtime-graph-sync'
+import { stableHashString } from './runtime-graph-mobile-editor-surface'
+import {
+  buildMobileBrowserTab,
+  buildMobileFileTab,
+  buildMobileMarkdownTab,
+  buildMobileTerminalSurfaceTabs,
+  isMobilePublishableOpenFile
+} from './runtime-graph-mobile-surface-builders'
 
 export function buildMobileSessionTabSnapshots(
   state: AppState,
@@ -302,11 +264,3 @@ export function getEditorDraftVersionByFileId(
   setCachedEditorDraftVersions(editorDrafts, versions)
   return versions
 }
-
-import {
-  buildMobileBrowserTab,
-  buildMobileFileTab,
-  buildMobileMarkdownTab,
-  buildMobileTerminalSurfaceTabs,
-  stableHashString
-} from './runtime-graph-mobile-surface-builders'

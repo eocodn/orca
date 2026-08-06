@@ -17,24 +17,21 @@ type TabsProjectionCache = {
   entries: Map<string, TabsProjectionCacheEntry>
   projection: string
 }
-type AgentStatusProjectionCacheEntry = {
-  entry: AppState['agentStatusByPaneKey'][string]
-  projection: string
-}
-type AgentStatusProjectionCache = {
-  source: AppState['agentStatusByPaneKey']
-  entries: Map<string, AgentStatusProjectionCacheEntry>
-  projection: string
-}
 
 const EMPTY_ACTIVE_BROWSER_TAB_ID_BY_WORKTREE: AppState['activeBrowserTabIdByWorktree'] = {}
 const EMPTY_BROWSER_TABS_BY_WORKTREE: AppState['browserTabsByWorktree'] = {}
 const EMPTY_BROWSER_PAGES_BY_WORKSPACE: AppState['browserPagesByWorkspace'] = {}
 const EMPTY_LAYOUT_BY_WORKTREE: AppState['layoutByWorktree'] = {}
 const EMPTY_AGENT_STATUS_BY_PANE_KEY: AppState['agentStatusByPaneKey'] = {}
-const AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS = 30_000
 let cachedTabsProjection: TabsProjectionCache | null = null
-let cachedAgentStatusProjection: AgentStatusProjectionCache | null = null
+
+export {
+  AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS_FOR_TESTS,
+  buildRuntimeMobileAgentStatusProjection,
+  buildRuntimeMobileAgentStatusProjectionForTests,
+  resetRuntimeMobileAgentStatusProjectionCacheForTests
+} from './runtime-graph-mobile-agent-status-projection'
+import { buildRuntimeMobileAgentStatusProjection } from './runtime-graph-mobile-agent-status-projection'
 
 export type RuntimeMobileSessionSyncKey = {
   // Why: compared by reference; reallocation signals a real layout/title change, avoiding stringifying thousands of tabs. See docs/agent-working-pane-typing-lag.md.
@@ -294,78 +291,6 @@ function buildRuntimeMobileEditorDraftsProjection(editorDrafts: AppState['editor
       Object.entries(editorDrafts).map(([fileId, content]) => [fileId, stableHashString(content)])
     )
   )
-}
-
-function serializeRuntimeMobileAgentStatusEntry(
-  paneKey: string,
-  entry: AppState['agentStatusByPaneKey'][string]
-): string {
-  return JSON.stringify({
-    paneKey,
-    entryPaneKey: entry.paneKey,
-    state: entry.state,
-    prompt: entry.prompt,
-    updatedAtBucket: Math.floor(entry.updatedAt / AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS),
-    stateStartedAt: entry.stateStartedAt,
-    agentType: entry.agentType ?? null,
-    terminalTitle: entry.terminalTitle ?? null,
-    stateHistory: entry.stateHistory.map((history) => ({
-      state: history.state,
-      prompt: history.prompt,
-      startedAt: history.startedAt,
-      interrupted: history.interrupted ?? null
-    })),
-    toolName: entry.toolName ?? null,
-    toolInput: entry.toolInput ?? null,
-    // Why: include so a newly-captured AskUserQuestion prompt re-fires the mobile republish even when no other field changed.
-    interactivePrompt: entry.interactivePrompt ?? null,
-    lastAssistantMessage: entry.lastAssistantMessage ?? null,
-    interrupted: entry.interrupted ?? null
-  })
-}
-
-function buildRuntimeMobileAgentStatusProjection(
-  agentStatusByPaneKey: AppState['agentStatusByPaneKey']
-): string {
-  if (cachedAgentStatusProjection?.source === agentStatusByPaneKey) {
-    return cachedAgentStatusProjection.projection
-  }
-
-  // Why per-entry: a status ping replaces one entry and re-spreads the map, so
-  // without this every other live agent — each carrying a 20-entry history and an
-  // 8 KB message — is re-serialized to discover it did not change.
-  const previousEntries = cachedAgentStatusProjection?.entries
-  const entries = new Map<string, AgentStatusProjectionCacheEntry>()
-  const parts: string[] = []
-
-  for (const [paneKey, entry] of Object.entries(agentStatusByPaneKey).sort(([a], [b]) =>
-    a.localeCompare(b)
-  )) {
-    const previous = previousEntries?.get(paneKey)
-    const cached =
-      previous?.entry === entry
-        ? previous
-        : { entry, projection: serializeRuntimeMobileAgentStatusEntry(paneKey, entry) }
-    entries.set(paneKey, cached)
-    parts.push(cached.projection)
-  }
-
-  const projection = `[${parts.join(',')}]`
-  cachedAgentStatusProjection = { source: agentStatusByPaneKey, entries, projection }
-  return projection
-}
-
-export function buildRuntimeMobileAgentStatusProjectionForTests(
-  agentStatusByPaneKey: AppState['agentStatusByPaneKey']
-): string {
-  return buildRuntimeMobileAgentStatusProjection(agentStatusByPaneKey)
-}
-
-export const AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS_FOR_TESTS =
-  AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS
-
-export function resetRuntimeMobileAgentStatusProjectionCacheForTests(): void {
-  cachedAgentStatusProjection = null
 }
 
 export function runtimeMobileSessionSyncKeysEqual(

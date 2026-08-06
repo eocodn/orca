@@ -1,23 +1,8 @@
-import {
-  collectLeafIdsInOrder,
-  serializePaneTree
-} from '@/components/terminal-pane/layout-serialization'
-import { warnTerminalLifecycleAnomaly } from '@/components/terminal-pane/terminal-lifecycle-diagnostics'
-import { getEagerPtyBufferHandle } from '@/components/terminal-pane/pty-dispatcher'
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import type { PaneManager } from '@/lib/pane-manager/pane-manager'
 import { resolveLeafIdForManager } from '@/lib/pane-manager/pane-key-resolution'
-import { getSystemPrefersDark, resolveEffectiveTerminalAppearance } from '@/lib/terminal-theme'
-import { sanitizeTerminalLayoutPaneTitles } from '@/lib/terminal-pane-title-sanitization'
 import type { AppState } from '@/store/types'
-import type {
-  RuntimeMobileSessionSnapshotTab,
-  RuntimeMobileSessionTabsSnapshot,
-  RuntimeSyncWindowGraph
-} from '../../../shared/runtime-types'
-import { isTerminalLeafId } from '../../../shared/stable-pane-id'
-import type { Tab } from '../../../shared/types'
-import { resolveTerminalLayoutRoot } from './remote-terminal-layout-resolution'
+import type { RuntimeMobileSessionTabsSnapshot } from '../../../shared/runtime-types'
 
 export type RegisteredTerminalTab = {
   tabId: string
@@ -205,6 +190,7 @@ import { syncRuntimeGraph } from './runtime-graph-window-publisher'
 export { resolveRuntimeTerminalTitle } from './runtime-graph-mobile-projections'
 export type { RuntimeMobileSessionSyncKey } from './runtime-graph-mobile-projections'
 export {
+  AGENT_STATUS_SYNC_UPDATED_AT_BUCKET_MS_FOR_TESTS,
   buildRuntimeMobileAgentStatusProjectionForTests,
   canSkipRuntimeMobileSessionSyncKeyBuild,
   getRuntimeMobileSessionSyncKey,
