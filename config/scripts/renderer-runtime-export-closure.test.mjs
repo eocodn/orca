@@ -209,6 +209,39 @@ describe('renderer runtime export closure', () => {
     expect(owner).toContain('const transport =')
   })
 
+  it('routes PTY startup delivery through concrete controllers', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const draftController = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-startup-draft-controller.ts'
+    )
+    const resumeController = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-cold-restore-startup.ts'
+    )
+    const commandDelivery = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-startup-command-delivery.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionStartupDraftController } from './pty-connection-startup-draft-controller'"
+    )
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionColdRestoreStartup } from './pty-connection-cold-restore-startup'"
+    )
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionStartupCommandDelivery } from './pty-connection-startup-command-delivery'"
+    )
+    expect(orchestrator).not.toContain('const sendStartupDraftPaste =')
+    expect(orchestrator).not.toContain('const buildColdRestoreAgentResumeStartup =')
+    expect(draftController).toContain('export function createPtyConnectionStartupDraftController(')
+    expect(resumeController).toContain('export function createPtyConnectionColdRestoreStartup(')
+    expect(commandDelivery).toContain('export function createPtyConnectionStartupCommandDelivery(')
+    expect(draftController.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+    expect(resumeController.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+    expect(commandDelivery.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes pane detach policy to the lifecycle policy owner', () => {
     const cleanup = read(
       'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-manager-cleanup.ts'

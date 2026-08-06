@@ -50,7 +50,6 @@ import {
   type HasPty
 } from './terminal-dead-session-reconcile'
 import type { PtyConnectionDeps } from './pty-connection-types'
-import type { SessionRestoredBannerReason } from './session-restored-banner-pane-state'
 import {
   consumeCommittedPtyShutdownExit,
   deferPtyShutdownExit,
@@ -115,9 +114,7 @@ import {
   RESET_TERMINAL_CURSOR_STYLE
 } from './layout-serialization'
 import { buildFreshShellViewportBlankingSequence } from './terminal-restored-viewport'
-import { createShellReadyMarkerScanState, scanForShellReadyMarker } from './shell-ready-marker-scan'
-import { shouldUseShellReadyStartupDelivery } from '../../../../shared/codex-startup-delivery'
-import { resolveSetupAgentSequenceLaunchCommand } from '../../../../shared/setup-agent-sequencing'
+import { scanForShellReadyMarker } from './shell-ready-marker-scan'
 import { getSystemPrefersDark } from '@/lib/terminal-theme'
 import {
   INITIAL_MODE_2031_REPLY_SCAN_STATE,
@@ -157,7 +154,6 @@ import {
   deferTerminalGeometryMutationDuringRebuild
 } from '@/lib/pane-manager/terminal-scroll-intent-rebuild'
 import { createTerminalStructuralReplayCoordinator } from '@/lib/pane-manager/terminal-structural-replay-coordinator'
-import { createBrowserUuid } from '@/lib/browser-uuid'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
 import {
   getProviderSessionClaimKey,
@@ -199,13 +195,10 @@ import {
   markTerminalBracketedPasteInterrupted,
   observeTerminalBracketedPasteModeOutput
 } from './terminal-bracketed-paste'
-import { executeTerminalStartupCommandPaste } from './terminal-startup-command-paste'
 import {
   waitForStableStartupGrid,
   type TerminalStartupGridSettleHandle
 } from './terminal-startup-grid-settle'
-import { getTerminalPasteSshRemotePlatform } from './terminal-paste-ssh-platform'
-import { resolveTerminalPasteRuntime } from './terminal-paste-runtime'
 import { createCommandCodeOutputStatusDetector } from '../../../../shared/command-code-output-status'
 import type { PtyDataMeta } from './pty-dispatcher'
 import { getEagerPtyBufferHandle } from './pty-dispatcher'
@@ -252,36 +245,19 @@ import {
   setCommandCodeDoneSettleExecutor
 } from './command-code-done-settle'
 import { isTerminalTabParked } from './terminal-parked-watcher-registry'
-import {
-  getExecutionHostIdForWorktree,
-  getSettingsForWorktreeRuntimeOwner
-} from '@/lib/worktree-runtime-owner'
+import { getExecutionHostIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { CLIENT_PLATFORM } from '@/lib/new-workspace'
-import { buildAgentResumeStartupPlan } from '@/lib/tui-agent-startup'
 import { resolveAgentStatusTerminalTitle } from '@/lib/agent-status-terminal-title'
-import {
-  resolveTuiAgentLaunchArgs,
-  resolveTuiAgentLaunchEnv
-} from '../../../../shared/tui-agent-launch-defaults'
-import {
-  agentProviderSessionsEqual,
-  isResumableTuiAgent,
-  normalizeAgentProviderSession,
-  type SleepingAgentSessionRecord
-} from '../../../../shared/agent-session-resume'
+import type { SleepingAgentSessionRecord } from '../../../../shared/agent-session-resume'
 import {
   normalizeCompatibleAgentTitleForOwner,
   resolveCompatibleAgentTypeForOwner
 } from '../../../../shared/agent-title-owner'
 import { resolvePaneAgentOwner } from '../../../../shared/pane-agent-owner'
 import { resolveCommittedTitleAgentType } from '@/lib/pane-agent-evidence'
-import { isExpectedAgentProcess } from '../../../../shared/agent-process-recognition'
 import type { TuiAgent } from '../../../../shared/types'
 import { isWslUncPath } from '../../../../shared/wsl-paths'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
-import { createDraftPasteReadyScanner } from '../../../../shared/draft-paste-ready-scanner'
-import { sendAgentDraftPasteContent } from '@/lib/agent-draft-paste-content'
-import { writeTerminalPastePtyInput } from './terminal-pty-paste-writer'
 import {
   AGENT_TASK_COMPLETE_NOTIFICATION_GRACE_MS,
   AGENT_TASK_COMPLETE_NOTIFICATION_MAX_WAIT_MS,
@@ -315,10 +291,7 @@ import {
   HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING,
   REMOTE_PTY_ID_PREFIX,
   SHIFT_ENTER_RECONFIRM_IDLE_MS,
-  SSH_SHELL_READY_STARTUP_FALLBACK_MS,
   STARTUP_CWD_FALLBACK_NOTICE,
-  STARTUP_DRAFT_PASTE_QUIET_MS,
-  STARTUP_DRAFT_PASTE_TIMEOUT_MS,
   SYNCHRONIZED_OUTPUT_END_SEQUENCE,
   SYNCHRONIZED_OUTPUT_MARKER_TAIL_CHARS,
   SYNCHRONIZED_OUTPUT_START_SEQUENCE,
@@ -372,6 +345,9 @@ import { createPtyConnectionCommandInference } from './pty-connection-command-in
 import { createPtyConnectionReattachAgentSignals } from './pty-connection-reattach-agent-signals'
 import { createPtyConnectionInputIntent } from './pty-connection-input-intent'
 import { createPtyConnectionSerializerController } from './pty-connection-serializer-controller'
+import { createPtyConnectionStartupDraftController } from './pty-connection-startup-draft-controller'
+import { createPtyConnectionColdRestoreStartup } from './pty-connection-cold-restore-startup'
+import { createPtyConnectionStartupCommandDelivery } from './pty-connection-startup-command-delivery'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -414,10 +390,8 @@ export function connectPanePty(
   let cleanupHiddenOutputRestoreForegroundDeadline = (): void => {}
   let cleanupHiddenOutputRestoreFloodRepaint = (): void => {}
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
-  let cleanupStartupDraftPasteTimers = (): void => {}
+  let cleanupStartupDelivery = (): void => {}
   let unregisterE2ePtyDataInjection = (): void => {}
-  let startupInjectTimer: ReturnType<typeof setTimeout> | null = null
-  let sshShellReadyFallbackTimer: ReturnType<typeof setTimeout> | null = null
   let agentTaskCompleteNotificationGraceTimer: ReturnType<typeof setTimeout> | null = null
   let agentTaskCompleteNotificationMaxTimer: ReturnType<typeof setTimeout> | null = null
   let agentTaskCompleteStatusUnsubscribe: (() => void) | null = null
@@ -3442,190 +3416,24 @@ export function connectPanePty(
       })
     })
 
-    // Why: for ordinary local startup commands, the local PTY provider already
-    // writes via the shell-ready barrier. terminal-paste and SSH startup
-    // commands stay renderer-delivered so xterm/relay can apply their handling.
-    let pendingStartupCommand: PendingStartupCommand | null =
-      shouldDeliverStartupViaTerminalPaste || connectionId
-        ? paneStartup?.command
-          ? { command: paneStartup.command }
-          : null
-        : null
-    const startupShellReadyCommandHint = resolveSetupAgentSequenceLaunchCommand(
-      paneStartup?.env ?? {},
-      paneStartup?.command
-    )
-    const shouldWaitForSshShellReady =
-      Boolean(connectionId) &&
-      shouldUseShellReadyStartupDelivery({
-        command: startupShellReadyCommandHint,
-        startupCommandDelivery: paneStartup?.startupCommandDelivery
-      }) &&
-      !shouldDeliverStartupViaTerminalPaste
-    const sshShellReadyMarkerScan = shouldWaitForSshShellReady
-      ? createShellReadyMarkerScanState()
-      : null
-    let sshStartupShellReady = !shouldWaitForSshShellReady
-    const markSshStartupShellReady = (): void => {
-      if (sshStartupShellReady) {
-        return
-      }
-      sshStartupShellReady = true
-      if (sshShellReadyFallbackTimer !== null) {
-        clearTimeout(sshShellReadyFallbackTimer)
-        sshShellReadyFallbackTimer = null
-      }
-      schedulePendingStartupCommandDelivery()
-    }
-    const ownsStartupDraftPaste = claimStartupDraftPasteDelivery()
-    const startupDraftReadyScanner = ownsStartupDraftPaste
-      ? createDraftPasteReadyScanner(
-          startupDraftAgentConfig?.draftPasteReadySignal ?? 'render-quiet-after-bracketed-paste'
-        )
-      : null
-    let startupDraftReadinessArmed = false
-    let startupDraftPasteSettled = !ownsStartupDraftPaste
-    let startupDraftPasteInFlight = false
-    let startupDraftInputRecorded = false
-    let startupDraftQuietTimer: ReturnType<typeof setTimeout> | null = null
-    let startupDraftHardTimer: ReturnType<typeof setTimeout> | null = null
-    const clearStartupDraftPasteTimers = (): void => {
-      if (startupDraftQuietTimer !== null) {
-        clearTimeout(startupDraftQuietTimer)
-        startupDraftQuietTimer = null
-      }
-      if (startupDraftHardTimer !== null) {
-        clearTimeout(startupDraftHardTimer)
-        startupDraftHardTimer = null
-      }
-    }
-    cleanupStartupDraftPasteTimers = clearStartupDraftPasteTimers
-    const getStartupDraftPtyId = (): string | null => {
-      const ptyId = transport.getPtyId()
-      if (
-        !ptyId ||
-        disposed ||
-        deps.paneTransportsRef.current.get(pane.id) !== transport ||
-        transport.getPtyId() !== ptyId
-      ) {
-        return null
-      }
-      return ptyId
-    }
-    const sendStartupDraftPaste = (): void => {
-      if (
-        !startupDraftPrompt ||
-        startupDraftPasteSettled ||
-        startupDraftPasteInFlight ||
-        !startupDraftReadinessArmed
-      ) {
-        return
-      }
-      const ptyId = getStartupDraftPtyId()
-      if (!ptyId) {
-        return
-      }
-      startupDraftPasteInFlight = true
-      startupDraftPasteSettled = true
-      startupDraftDelivery.pasteAttempted = true
-      cleanupStartupDraftPasteTimers()
-      const settings = getSettingsForWorktreeRuntimeOwner(useAppStore.getState(), deps.worktreeId)
-      // Why: xterm focus reports share this transport queue. Bypassing it can
-      // race CSI I against the draft on ConPTY and expose a literal `[I` prefix.
-      void sendAgentDraftPasteContent(settings, ptyId, startupDraftPrompt, async (data) => {
-        const accepted = await writeTerminalPastePtyInput(transport, data)
-        if (accepted && !startupDraftInputRecorded) {
-          // Why: this transport write bypasses xterm's user-input signal; keep
-          // the composed draft from being discarded by later hibernation.
-          startupDraftInputRecorded = true
-          recordTerminalInputForHibernation()
-        }
-        return accepted
-      })
-        .catch(() => false)
-        .finally(() => {
-          startupDraftPasteInFlight = false
-        })
-    }
-    const deliverStartupDraftIfAgentOwnsPty = async (): Promise<void> => {
-      if (!startupDraftAgentConfig || startupDraftPasteSettled) {
-        return
-      }
-      const ptyId = getStartupDraftPtyId()
-      if (!ptyId) {
-        return
-      }
-      const settings = getSettingsForWorktreeRuntimeOwner(useAppStore.getState(), deps.worktreeId)
-      try {
-        const process = await inspectRuntimeTerminalProcess(settings, ptyId)
-        const foreground = process.foregroundProcess?.toLowerCase() ?? ''
-        if (
-          getStartupDraftPtyId() === ptyId &&
-          isExpectedAgentProcess(foreground, startupDraftAgentConfig.expectedProcess)
-        ) {
-          sendStartupDraftPaste()
-        }
-      } catch {
-        // Best-effort fallback; the primary path is the PTY readiness marker.
-      }
-    }
-    const armStartupDraftHardTimer = (): void => {
-      if (!startupDraftReadyScanner || startupDraftPasteSettled || startupDraftHardTimer !== null) {
-        return
-      }
-      startupDraftHardTimer = setTimeout(() => {
-        startupDraftHardTimer = null
-        void deliverStartupDraftIfAgentOwnsPty()
-      }, STARTUP_DRAFT_PASTE_TIMEOUT_MS)
-    }
-    const armStartupDraftQuietTimer = (): void => {
-      if (!startupDraftReadyScanner || startupDraftPasteSettled) {
-        return
-      }
-      if (startupDraftQuietTimer !== null) {
-        clearTimeout(startupDraftQuietTimer)
-      }
-      startupDraftQuietTimer = setTimeout(() => {
-        startupDraftQuietTimer = null
-        sendStartupDraftPaste()
-      }, STARTUP_DRAFT_PASTE_QUIET_MS)
-    }
-    const armStartupDraftReadinessObservation = (): void => {
-      if (!startupDraftReadyScanner || startupDraftReadinessArmed) {
-        return
-      }
-      startupDraftReadinessArmed = true
-      armStartupDraftHardTimer()
-    }
-    const observeStartupDraftPasteReadiness = (data: string): void => {
-      if (!startupDraftReadyScanner || !startupDraftReadinessArmed || startupDraftPasteSettled) {
-        return
-      }
-      const scanned = startupDraftReadyScanner.observe(data)
-      if (scanned.ready) {
-        sendStartupDraftPaste()
-        return
-      }
-      if (scanned.armQuietTimer) {
-        armStartupDraftQuietTimer()
-      }
-    }
-    if (ownsStartupDraftPaste && !connectionId && !shouldDeliverStartupViaTerminalPaste) {
-      armStartupDraftReadinessObservation()
-    }
-    let sessionRestoredBannerShown: SessionRestoredBannerReason | null = null
-    const showSessionRestoredBanner = (reason: SessionRestoredBannerReason = 'restored'): void => {
-      // Why: a plain 'restored' banner must not latch out the later 'resume-unavailable'
-      // upgrade — the pane would keep claiming a session it never got back.
-      if (
-        sessionRestoredBannerShown === reason ||
-        sessionRestoredBannerShown === 'resume-unavailable'
-      ) {
-        return
-      }
-      sessionRestoredBannerShown = reason
-      deps.onShowSessionRestoredBanner(pane.id, reason)
-    }
+    const {
+      armStartupDraftReadinessObservation,
+      observeStartupDraftPasteReadiness,
+      dispose: disposeStartupDraftController
+    } = createPtyConnectionStartupDraftController({
+      pane,
+      deps,
+      transport,
+      connectionId,
+      shouldDeliverStartupViaTerminalPaste,
+      startupDraftAgentConfig,
+      startupDraftPrompt,
+      startupDraftDelivery,
+      claimStartupDraftPasteDelivery,
+      isDisposed: () => disposed,
+      recordTerminalInputForHibernation
+    })
+
     const getColdRestoreAgentResumePlatform = (): NodeJS.Platform => {
       if (projectRuntime?.status === 'repair-required') {
         return projectRuntime.repair.preferredRuntime.kind === 'wsl' ? 'linux' : CLIENT_PLATFORM
@@ -3638,193 +3446,51 @@ export function connectPanePty(
       }
       return CLIENT_PLATFORM
     }
-    const buildColdRestoreAgentResumeStartup = (): ColdRestoreAgentResumeStartup | null => {
-      if (pendingStartupCommand) {
-        return null
-      }
-      const state = useAppStore.getState()
-      const entry = state.agentStatusByPaneKey[cacheKey]
-      const sleepingRecordEntry = getSleepingRecordForPane(state)
-      const sleepingRecord = sleepingRecordEntry?.record
-      if (isLegacyWorkerAutomaticResumeBlocked()) {
-        return null
-      }
-      const useLiveEntry = entry && entry.state !== 'done'
-      const agent = useLiveEntry ? entry.agentType : sleepingRecord?.agent
-      if (!agent || !isResumableTuiAgent(agent)) {
-        return null
-      }
-      const providerSession = normalizeAgentProviderSession(
-        useLiveEntry ? entry.providerSession : sleepingRecord?.providerSession
-      )
-      if (!providerSession) {
-        return null
-      }
-      const matchingSleepingLaunchConfig =
-        sleepingRecord?.launchConfig &&
-        (!useLiveEntry ||
-          (sleepingRecord.agent === agent &&
-            agentProviderSessionsEqual(agent, sleepingRecord.providerSession, providerSession)))
-          ? sleepingRecord.launchConfig
-          : undefined
-      const launchConfig =
-        (useLiveEntry && entry ? state.getAgentLaunchConfigForStatusEntry(entry) : undefined) ??
-        matchingSleepingLaunchConfig
-      const resumePlatform = getColdRestoreAgentResumePlatform()
-      const startupPlan = buildAgentResumeStartupPlan({
-        agent,
-        providerSession,
-        cmdOverrides: state.settings?.agentCmdOverrides ?? {},
-        agentArgs:
-          launchConfig !== undefined
-            ? launchConfig.agentArgs
-            : resolveTuiAgentLaunchArgs(agent, state.settings?.agentDefaultArgs),
-        agentEnv:
-          launchConfig !== undefined
-            ? launchConfig.agentEnv
-            : resolveTuiAgentLaunchEnv(agent, state.settings?.agentDefaultEnv),
-        ...(launchConfig?.agentCommand ? { agentCommand: launchConfig.agentCommand } : {}),
-        ...(launchConfig?.ompResumeFilePath
-          ? { ompResumeFilePath: launchConfig.ompResumeFilePath }
-          : {}),
-        platform: resumePlatform
-      })
-      if (!startupPlan) {
-        return null
-      }
-      const coldRestoreLaunchToken = createBrowserUuid()
-      // Why: cold restore means the PTY process is gone but the agent provider
-      // session is still resumable, so the replacement spawn must launch it.
-      return {
-        agent,
-        command: startupPlan.launchCommand,
-        env: {
-          ...startupPlan.env,
-          ORCA_AGENT_LAUNCH_TOKEN: coldRestoreLaunchToken
-        },
-        launchConfig: startupPlan.launchConfig,
-        resumeProviderSession: providerSession,
-        launchToken: coldRestoreLaunchToken,
-        useLiveEntry: Boolean(useLiveEntry),
-        hasSleepingRecord: Boolean(sleepingRecord),
-        sleepingRecordEntry
-      }
+
+    const {
+      sshShellReadyMarkerScan,
+      markSshStartupShellReady,
+      schedulePendingStartupCommandDelivery,
+      hasPendingStartupCommand,
+      setPendingStartupCommand,
+      dispose: disposeStartupCommandDelivery
+    } = createPtyConnectionStartupCommandDelivery({
+      pane,
+      deps,
+      paneStartup,
+      connectionId,
+      transport,
+      shouldDeliverStartupViaTerminalPaste,
+      isNativeWindowsConpty,
+      isDisposed: () => disposed,
+      armStartupDraftReadinessObservation,
+      releaseUnattemptedStartupDraftPasteDelivery
+    })
+
+    const {
+      showSessionRestoredBanner,
+      buildColdRestoreAgentResumeStartup,
+      applyColdRestoreAgentResumeStartup,
+      clearSleepingRecordAfterColdRestoreSpawn,
+      mergeStartupEnvWithPaneIdentity,
+      startFreshColdRestoreAgentResume
+    } = createPtyConnectionColdRestoreStartup({
+      pane,
+      deps,
+      cacheKey,
+      paneIdentityEnv,
+      getColdRestoreAgentResumePlatform,
+      hasPendingStartupCommand,
+      getSleepingRecordForPane,
+      isLegacyWorkerAutomaticResumeBlocked,
+      clearSleepingRecordProviderDuplicates,
+      startFreshSpawn: (startupOverride, options) => startFreshSpawn(startupOverride, options)
+    })
+    cleanupStartupDelivery = () => {
+      disposeStartupDraftController()
+      disposeStartupCommandDelivery()
     }
-    const applyColdRestoreAgentResumeStartup = (
-      startup: ColdRestoreAgentResumeStartup | null
-    ): boolean => {
-      if (!startup) {
-        return false
-      }
-      const state = useAppStore.getState()
-      state.registerAgentLaunchConfig(cacheKey, startup.launchConfig, {
-        agentType: startup.agent,
-        launchToken: startup.launchToken,
-        tabId: deps.tabId,
-        leafId: pane.leafId
-      })
-      return true
-    }
-    const clearSleepingRecordAfterColdRestoreSpawn = (
-      startup: ColdRestoreAgentResumeStartup | null
-    ): void => {
-      if (startup && !startup.useLiveEntry && startup.sleepingRecordEntry) {
-        clearSleepingRecordProviderDuplicates(useAppStore.getState(), startup.sleepingRecordEntry)
-      }
-    }
-    const mergeStartupEnvWithPaneIdentity = (
-      env: Record<string, string> | undefined
-    ): Record<string, string> | undefined =>
-      env
-        ? {
-            ...env,
-            ...paneIdentityEnv,
-            ...(env.ORCA_AGENT_LAUNCH_TOKEN
-              ? { ORCA_AGENT_LAUNCH_TOKEN: env.ORCA_AGENT_LAUNCH_TOKEN }
-              : {})
-          }
-        : undefined
-    const startFreshColdRestoreAgentResume = (
-      startup: ColdRestoreAgentResumeStartup | null = buildColdRestoreAgentResumeStartup(),
-      options: FreshSpawnOptions = {}
-    ): Promise<string | null> => {
-      applyColdRestoreAgentResumeStartup(startup)
-      return startFreshSpawn(startup, options)
-    }
-    // Why: the hibernation wake fires from noteVisibilityResume in the outer
-    // connection scope, long after this deferred-connect closure has run.
     wakeHibernatedAgentPane = () => startFreshColdRestoreAgentResume()
-    const isStartupPasteTargetCurrent = (ptyId: string | null): boolean =>
-      !disposed &&
-      deps.paneTransportsRef.current.get(pane.id) === transport &&
-      transport.getPtyId() === ptyId
-    const runTerminalPasteStartupCommand = async (command: string): Promise<boolean> => {
-      const ptyId = transport.getPtyId()
-      const result = await executeTerminalStartupCommandPaste({
-        command,
-        pane,
-        ptyId,
-        runtime: resolveTerminalPasteRuntime({
-          platform: CLIENT_PLATFORM,
-          ptyId,
-          connectionId,
-          remotePlatform: getTerminalPasteSshRemotePlatform(connectionId),
-          transport,
-          isWindowsConpty: isNativeWindowsConpty
-        }),
-        transport,
-        isTargetCurrent: isStartupPasteTargetCurrent
-      })
-      if (result.status !== 'pasted' || !isStartupPasteTargetCurrent(ptyId)) {
-        return false
-      }
-      return transport.sendInput('\r')
-    }
-    const schedulePendingStartupCommandDelivery = (): void => {
-      if (!pendingStartupCommand) {
-        return
-      }
-      if (!sshStartupShellReady) {
-        if (sshShellReadyFallbackTimer === null) {
-          // Why: some SSH shells cannot emit Orca's ready marker. Prefer the
-          // marker when available, but fall back to the old renderer delivery
-          // behavior instead of dropping the startup command forever.
-          sshShellReadyFallbackTimer = setTimeout(() => {
-            sshShellReadyFallbackTimer = null
-            markSshStartupShellReady()
-          }, SSH_SHELL_READY_STARTUP_FALLBACK_MS)
-        }
-        return
-      }
-      if (startupInjectTimer !== null) {
-        clearTimeout(startupInjectTimer)
-      }
-      startupInjectTimer = setTimeout(() => {
-        startupInjectTimer = null
-        void (async () => {
-          const startup = pendingStartupCommand
-          if (!startup || disposed) {
-            return
-          }
-          if (shouldDeliverStartupViaTerminalPaste) {
-            await waitForTerminalOutputParsed(pane.terminal)
-          }
-          if (pendingStartupCommand !== startup || disposed) {
-            return
-          }
-          const command = startup.command
-          const submitted = shouldDeliverStartupViaTerminalPaste
-            ? await runTerminalPasteStartupCommand(command)
-            : transport.sendInput(`${command}\r`)
-          if (submitted) {
-            armStartupDraftReadinessObservation()
-          } else {
-            releaseUnattemptedStartupDraftPasteDelivery()
-          }
-          pendingStartupCommand = null
-        })()
-      }, 50)
-    }
 
     let freshSpawnFollowResetDisposables: IDisposable[] = []
     cancelFreshSpawnFollowReset = (): void => {
@@ -3899,7 +3565,7 @@ export function connectPanePty(
       if (connectionId && startupOverride?.command) {
         // Why: SSH providers use `command` only as spawn metadata; the renderer
         // must still submit the resume command to the fresh remote shell.
-        pendingStartupCommand = { command: startupOverride.command }
+        setPendingStartupCommand({ command: startupOverride.command })
       }
       const coldRestoreOverride =
         startupOverride && 'launchConfig' in startupOverride
@@ -7769,15 +7435,7 @@ export function connectPanePty(
         const teardown = waitTeardowns.pop()
         teardown?.()
       }
-      if (startupInjectTimer !== null) {
-        clearTimeout(startupInjectTimer)
-        startupInjectTimer = null
-      }
-      if (sshShellReadyFallbackTimer !== null) {
-        clearTimeout(sshShellReadyFallbackTimer)
-        sshShellReadyFallbackTimer = null
-      }
-      cleanupStartupDraftPasteTimers()
+      cleanupStartupDelivery()
       releaseUnattemptedStartupDraftPasteDelivery()
       unregisterAgentHookTerminalLifecycle()
       clearSuppressedTitleSideEffects()
