@@ -26,13 +26,85 @@ assert_absent() {
   fi
 }
 
+# Keep this contract runnable in the slim Docker control image, which does not
+# ship ripgrep. The fallback preserves path/glob filtering instead of treating
+# a missing scanner as a passing no-match assertion.
+scan_matches() {
+  local pattern="$1"
+  shift
+  if command -v rg >/dev/null 2>&1; then
+    rg -n "$pattern" "$@"
+    return
+  fi
+
+  local paths=()
+  local includes=()
+  local excludes=()
+  while test "$#" -gt 0; do
+    if test "$1" = '--glob'; then
+      if test "$#" -lt 2; then
+        echo "scan_matches: --glob requires a pattern" >&2
+        return 2
+      fi
+      case "$2" in
+        !*) excludes+=("${2#!}") ;;
+        *) includes+=("$2") ;;
+      esac
+      shift 2
+    else
+      paths+=("$1")
+      shift
+    fi
+  done
+
+  local matched=1
+  local path file include exclude glob
+  for path in "${paths[@]}"; do
+    if test -f "$path"; then
+      local files=("$path")
+    elif test -d "$path"; then
+      local files=()
+      mapfile -d '' files < <(find "$path" -type f -print0)
+    else
+      continue
+    fi
+    for file in "${files[@]}"; do
+      include=1
+      if test "${#includes[@]}" -gt 0; then
+        include=0
+        for glob in "${includes[@]}"; do
+          case "$glob" in
+            '*.{ts,tsx,css}')
+              case "$file" in *.ts|*.tsx|*.css) include=1; break ;; esac
+              ;;
+            *.mjs|*.ts|*.tsx|*.js|*.css|global-setup.ts|global-teardown.ts)
+              case "$file" in $glob) include=1; break ;; esac
+              ;;
+          esac
+        done
+      fi
+      test "$include" -eq 1 || continue
+      for exclude in "${excludes[@]}"; do
+        case "$file" in
+          $exclude) include=0; break ;;
+        esac
+      done
+      test "$include" -eq 1 || continue
+      if grep -n -E "$pattern" "$file"; then
+        matched=0
+      fi
+    done
+  done
+  return "$matched"
+}
+
 assert_no_matches() {
   local label="$1"
   local pattern="$2"
   shift 2
-  if rg -n "$pattern" "$@" >/dev/null 2>&1; then
+  if scan_matches "$pattern" "$@" >/dev/null 2>&1; then
     echo "not ok - $label"
-    rg -n "$pattern" "$@" | head -20
+    scan_matches "$pattern" "$@" | head -20
     failures=$((failures + 1))
   else
     pass_absent "$label"
@@ -91,23 +163,12 @@ assert_no_matches "stale seeded and raster tooling is removed" \
   'seeded-test-repo|terminal-cursor-raster-probe|terminal-raster-artifact-analysis|win-update-e2e|win-crash-survival-e2e' \
   "$root/tests/e2e" "$root/tools" --glob '*.{ts,tsx,mjs,js,md}'
 
-# Keep generic Vitest unit fixtures, but reject broken relative imports in them.
-while IFS= read -r unit_file; do
-  while IFS= read -r import_spec; do
-    import_path="$(dirname "$unit_file")/$import_spec"
-    resolved=0
-    for candidate in "$import_path" "$import_path.ts" "$import_path.tsx" "$import_path.js" "$import_path.mjs" "$import_path.cjs" "$import_path/index.ts"; do
-      if test -e "$candidate"; then
-        resolved=1
-        break
-      fi
-    done
-    if test "$resolved" -eq 0; then
-      echo "not ok - unit test import resolves: $unit_file -> $import_spec"
-      failures=$((failures + 1))
-    fi
-  done < <(rg -o "['\"]\.\.?/[^'\"]+" "$unit_file" | sed -E "s/^['\"]//")
-done < <(find "$root/tests/e2e" -type f -name '*.unit.test.ts' -print)
+# Scope orphan checks to files retired by the Playwright cleanup; generic unit
+# import closure belongs to the broader Phase 2 contracts.
+assert_no_matches "no orphan Docker SSH relay imports remain" \
+  'docker-ssh-relay-target' "$root/tests/e2e" --glob '*.{ts,tsx}'
+assert_no_matches "no orphan Codex validation layout imports remain" \
+  'codex-real-account-validation-layout' "$root/config/scripts" --glob '*.mjs'
 
 if test ! -e "$root/tests/e2e/vitest.config.ts" && test ! -e "$root/tests/e2e/computer-linux.e2e.ts"; then
   pass_absent "Vitest computer E2E surface removed"

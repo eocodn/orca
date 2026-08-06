@@ -11832,6 +11832,12 @@
             "f10c14dd9d": "Skip the tab-switching. Pick from your GitHub or Linear backlog and start a workspace in one click.",
             "5d6ee181b6": "Open any workspace to return to its terminal, then split panes for tests, logs, and agents."
           },
+          "FeatureTourTerminalFrame": {
+            "8e4a2891c4": "git status",
+            "9367d4e6e0": "On branch feature/workbench",
+            "165f03fe0e": "working tree clean",
+            "6bed05ece2": "ready for changes"
+          },
           "FeatureWallBody": {
             "25ec5356d6": "Setup"
           },

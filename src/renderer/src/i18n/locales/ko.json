@@ -11774,6 +11774,12 @@
             "f10c14dd9d": "탭을 오갈 필요 없이 GitHub 또는 Linear 백로그에서 선택하고 한 번의 클릭으로 워크스페이스를 시작하세요.",
             "5d6ee181b6": "워크스페이스를 열어 terminal로 돌아가고, 테스트와 로그, agents 용으로 패널을 나누세요."
           },
+          "FeatureTourTerminalFrame": {
+            "8e4a2891c4": "git status",
+            "9367d4e6e0": "브랜치 feature/workbench",
+            "165f03fe0e": "작업 트리가 깨끗함",
+            "6bed05ece2": "변경 준비 완료"
+          },
           "FeatureWallBody": {
             "25ec5356d6": "설정"
           },
