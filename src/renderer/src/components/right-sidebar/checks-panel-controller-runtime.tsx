@@ -7,7 +7,6 @@ import { useActiveWorktree, useRepoById } from '@/store/selectors'
 import { useChecksPanelTerminalWorktree } from './use-checks-panel-terminal-worktree'
 import { isFolderRepo } from '../../../../shared/repo-kind'
 import type { PRCommentsListSelectionClearRequest } from './pr-comments-list-selection'
-import { ENTRY_REFRESH_GRACE_MS, shouldEntryRefresh } from './checks-entry-refresh'
 import type {
   PRInfo,
   PRCheckDetail,
@@ -76,6 +75,7 @@ import { useChecksPanelLinkActions } from './checks-panel-link-actions'
 import { useChecksPanelCreateAction } from './checks-panel-create-action'
 import { useChecksPanelGeneration } from './checks-panel-generation-controller'
 import { useChecksPanelCommentFetch } from './checks-panel-comment-fetch'
+import { useChecksPanelEntryRefresh } from './checks-panel-entry-refresh'
 
 const RUNTIME_SSH_STATUS_REFRESH_MS = 3000
 
@@ -999,98 +999,35 @@ export default function ChecksPanel(): React.JSX.Element {
     setGitStatusSnapshot,
     setIsRefreshing,
   }) as () => Promise<void>
-  const handleEntryRefresh = useCallback(
-    (options: { refreshChecks: boolean; refreshComments: boolean }) => {
-      if (!repo || !branch || !activeWorktreeId) {
-        return
-      }
-      // Why: tab entry is automatic UI, not a user refresh; keep coordinator rate-limit guards and only force panes already proven stale.
-      if (isGitLabReviewContext) {
-        void fetchHostedReviewForBranch(repo.path, branch, {
-          force: true,
-          repoId: repo.id,
-          linkedGitHubPR: linkedPR,
-          fallbackGitHubPR: fallbackGitHubPRNumber,
-          currentHeadOid: activeWorktree?.head ?? null,
-          linkedGitLabMR,
-          linkedBitbucketPR,
-          linkedAzureDevOpsPR,
-          linkedGiteaPR
-        })
-        if (activeGitLabReview) {
-          void fetchGitLabDetails()
-        }
-        return
-      }
-      enqueueGitHubPRRefresh(activeWorktreeId, 'active', 80)
-      if (options.refreshChecks) {
-        void fetchChecks({ force: true })
-      }
-      if (options.refreshComments) {
-        void fetchComments({ force: true })
-      }
-    },
-    [
-      activeGitLabReview,
-      activeWorktree?.head,
-      activeWorktreeId,
-      branch,
-      enqueueGitHubPRRefresh,
-      fallbackGitHubPRNumber,
-      fetchChecks,
-      fetchComments,
-      fetchGitLabDetails,
-      fetchHostedReviewForBranch,
-      isGitLabReviewContext,
-      linkedAzureDevOpsPR,
-      linkedBitbucketPR,
-      linkedGiteaPR,
-      linkedGitLabMR,
-      linkedPR,
-      repo
-    ]
-  )
-
-  // Why: force a freshness check on each Checks-tab entry so externally-changed PRs appear without waiting for the cache TTL. See docs/refresh-on-checks-tab.md.
-  const entryKey =
-    isPanelVisible && repo && !isFolder && branch
-      ? `${activeWorktreeId ?? ''}::${activeGitLabReview ? hostedReviewCacheKey : prCacheKey}`
-      : ''
-  const lastEntryKeyRef = useRef<string>('')
-  useEffect(() => {
-    if (!entryKey) {
-      // Reset on hide so reopening the same PR re-evaluates freshness; a prevKey !== currentKey check alone would miss close-and-reopen.
-      lastEntryKeyRef.current = ''
-      return
-    }
-    if (lastEntryKeyRef.current === entryKey) {
-      return
-    }
-    lastEntryKeyRef.current = entryKey
-
-    const now = Date.now()
-    const stale = shouldEntryRefresh({
-      prFetchedAt,
-      checksFetchedAt,
-      commentsFetchedAt,
-      prNumber,
-      now,
-      graceMs: ENTRY_REFRESH_GRACE_MS
-    })
-    if (!stale) {
-      return
-    }
-    const cutoff = now - ENTRY_REFRESH_GRACE_MS
-    const refreshChecks =
-      prNumber !== null && (checksFetchedAt === undefined || checksFetchedAt < cutoff)
-    const refreshComments =
-      prNumber !== null && (commentsFetchedAt === undefined || commentsFetchedAt < cutoff)
-
-    // Reset polling attention state so the forced fetch establishes a fresh baseline instead of colliding with the previous PR's backoff.
-    pollIntervalRef.current = 30_000
-    prevChecksRef.current = ''
-    handleEntryRefresh({ refreshChecks, refreshComments })
-  }, [entryKey, prFetchedAt, checksFetchedAt, commentsFetchedAt, prNumber, handleEntryRefresh])
+  const { handleEntryRefresh } = useChecksPanelEntryRefresh({
+    activeGitLabReview,
+    activeWorktree,
+    activeWorktreeId,
+    branch,
+    checksFetchedAt,
+    commentsFetchedAt,
+    enqueueGitHubPRRefresh,
+    fallbackGitHubPRNumber,
+    fetchChecks,
+    fetchGitLabDetails,
+    fetchHostedReviewForBranch,
+    fetchComments,
+    hostedReviewCacheKey,
+    isFolder,
+    isGitLabReviewContext,
+    isPanelVisible,
+    linkedAzureDevOpsPR,
+    linkedBitbucketPR,
+    linkedGitLabMR,
+    linkedGiteaPR,
+    linkedPR,
+    prCacheKey,
+    prFetchedAt,
+    prNumber,
+    pollIntervalRef,
+    prevChecksRef,
+    repo
+  }) as { handleEntryRefresh: (options: { refreshChecks: boolean; refreshComments: boolean }) => void }
 
   const refreshHostedReviewAfterMutation = useCallback(async () => {
     if (!repo || !branch) {
