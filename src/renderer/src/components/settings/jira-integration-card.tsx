@@ -11,8 +11,8 @@ import {
 import { useAppStore } from '@/store'
 import { IntegrationCardDetails, IntegrationCardShell } from './integration-card-shell'
 import { useIntegrationSubordinateRowClass } from './integration-card-presentation'
-import { getProviderAccountScope } from './provider-account-scope'
-import { ProviderHostScopeControl } from './ProviderHostScopeControl'
+import { RuntimeScopeControl } from './RuntimeScopeControl'
+import { getIntegrationRuntimeScope } from './runtime-scope-copy'
 import { JIRA_INTEGRATION_SECTION_ID } from './task-provider-integration-section-ids'
 import { translate } from '@/i18n/i18n'
 
@@ -37,7 +37,7 @@ export function JiraIntegrationCard(): React.JSX.Element {
   const connected = contextMatches && jiraStatus.connected
   const sites = jiraStatus.sites ?? []
   const siteCount = sites.length || (connected ? 1 : 0)
-  const accountScope = getProviderAccountScope(settings)
+  const runtimeScope = getIntegrationRuntimeScope(settings)
   const credentialCopy = hasRemoteProviderRuntime(settings)
     ? translate(
         'auto.components.settings.task.tracker.integration.cards.2d60ec7921',
@@ -48,7 +48,7 @@ export function JiraIntegrationCard(): React.JSX.Element {
         'Connect a Jira Cloud site with an API token, or a self-hosted Jira with a personal access token or username and password. Credentials are stored locally and encrypted when local runtime storage supports it.'
       )
   const subordinateRowClass = useIntegrationSubordinateRowClass('flex items-center gap-3')
-  const accountScopeRowClass = useIntegrationSubordinateRowClass('text-xs')
+  const runtimeScopeRowClass = useIntegrationSubordinateRowClass('text-xs')
 
   const handleDisconnect = async (siteId?: string): Promise<void> => {
     await disconnectJira(siteId)
@@ -121,13 +121,13 @@ export function JiraIntegrationCard(): React.JSX.Element {
       }
     >
       <IntegrationCardDetails>
-        <ProviderHostScopeControl
+        <RuntimeScopeControl
           labelPrefix={translate(
-            'auto.components.settings.task.tracker.integration.cards.account_scope_prefix',
-            'Account scope'
+            'auto.components.settings.task.tracker.integration.cards.runtime_scope_prefix',
+            'Runtime scope'
           )}
-          scope={accountScope}
-          className={accountScopeRowClass}
+          scope={runtimeScope}
+          className={runtimeScopeRowClass}
         />
         {connected && sites.length > 0 ? (
           <div className="space-y-2">

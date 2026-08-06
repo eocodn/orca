@@ -30,14 +30,6 @@ describe('locale-translation-policy zh round 5', () => {
     ).toBe('托管评审创建默认值')
     expect(
       repairTranslatedValue({
-        key: 'auto.components.settings.AccountsPane.3180536c7a',
-        enValue: 'Codex Accounts',
-        localeValue: 'Codex账户',
-        locale: 'zh'
-      })
-    ).toBe('Codex 账户')
-    expect(
-      repairTranslatedValue({
         key: 'menu.showMobileButton',
         enValue: 'Show Orca Mobile Button',
         localeValue: '显示 Orca 移动按钮',

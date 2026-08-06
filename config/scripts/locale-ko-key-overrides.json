@@ -1940,21 +1940,6 @@
   "auto.components.rightSidebar.FolderWorkspacePrChecksPanel.worktreeCount": {
     "ko": "워크트리 {{value0}}개"
   },
-  "auto.components.settings.AccountsPane.350b2a1aa7": {
-    "ko": "현재 사용 중인"
-  },
-  "auto.components.settings.AccountsPane.7ce0e1907c": {
-    "ko": "). 브라우저의 DevTools -> Network -> opencode.ai 요청 -> Cookie 헤더에서 찾으세요. OpenCode Go 인증은 웹 기반이며 Windows 및 WSL terminals에서 공유됩니다."
-  },
-  "auto.components.settings.AccountsPane.8951c5309f": {
-    "ko": "auth=Fe26.2**…"
-  },
-  "auto.components.settings.AccountsPane.b15ce90870": {
-    "ko": "{{value0}} -> {{value1}}. 이전 세션을 계속하기 전에 실행 중인 Claude terminals을 다시 시작하세요."
-  },
-  "auto.components.settings.AccountsPane.d70a5287a4": {
-    "ko": "자동 조회가 실패할 때 사용할 선택적 워크스페이스 ID 재정의입니다."
-  },
   "auto.components.settings.AdvancedNetworkSettingsSection.0adfce9fa7": {
     "ko": "http, https, SOCKS, SOCKS4, SOCKS5 URL을 지원합니다."
   },
@@ -2260,9 +2245,6 @@
   },
   "auto.components.settings.ProjectWindowsRuntimeSetting.wslUnavailable": {
     "ko": "WSL을 사용할 수 없습니다. 이 프로젝트를 Windows로 전환하거나 WSL을 복구하세요."
-  },
-  "auto.components.settings.ProviderHostScopeControl.change_host": {
-    "ko": "원격 서버 열기"
   },
   "auto.components.settings.QuickCommandsPane.9fcfc29519": {
     "ko": "삽입"
@@ -2984,8 +2966,8 @@
   "auto.components.settings.cli.source.control.integration.cards.8cbc39f862": {
     "ko": "자세히 알아보기"
   },
-  "auto.components.settings.cli.source.control.integration.cards.account_scope_prefix": {
-    "ko": "계정 범위"
+  "auto.components.settings.cli.source.control.integration.cards.runtime_scope_prefix": {
+    "ko": "런타임 범위"
   },
   "auto.components.settings.cli.source.control.integration.cards.faddeb763d": {
     "ko": "이 런타임에서는 아직 GitLab CLI 상태를 사용할 수 없습니다."
@@ -3335,22 +3317,19 @@
   "auto.components.settings.privacy.search.79c319948b": {
     "ko": "사용량"
   },
-  "auto.components.settings.providerAccountScope.localCredentials": {
-    "ko": "이 제공자의 자격 증명과 계정 확인은 이 데스크톱 클라이언트가 소유합니다. 서버 소유 자격 증명은 설정 > 원격 Orca 서버 > 고급에서 편집하세요."
+  "auto.components.settings.runtimeScope.localCredentials": {
+    "ko": "이 제공자의 자격 증명은 이 데스크톱 클라이언트가 소유합니다. 서버 소유 자격 증명은 설정 > 원격 Orca 서버 > 고급에서 편집하세요."
   },
-  "auto.components.settings.providerAccountScope.localMac": {
-    "ko": "로컬 Mac"
-  },
-  "auto.components.settings.providerAccountScope.localRateLimit": {
+  "auto.components.settings.runtimeScope.localRateLimit": {
     "ko": "{{value0}} API 예산은 이 데스크톱 클라이언트의 CLI에서 가져옵니다. 서버 소유 예산을 보려면 설정 > 원격 Orca 서버 > 고급을 사용하세요."
   },
-  "auto.components.settings.providerAccountScope.remoteServer": {
+  "auto.components.settings.runtimeScope.remoteServer": {
     "ko": "원격 서버: {{value0}}"
   },
-  "auto.components.settings.providerAccountScope.remoteServerCredentials": {
-    "ko": "이 공급자의 자격 증명과 계정 확인은 이 원격 서버가 소유합니다. 다른 기본 런타임 범위를 편집하려면 설정 > 원격 Orca 서버 > 고급을 사용하세요."
+  "auto.components.settings.runtimeScope.remoteCredentials": {
+    "ko": "이 공급자의 자격 증명은 이 원격 서버가 소유합니다. 다른 기본 런타임 범위를 편집하려면 설정 > 원격 Orca 서버 > 고급을 사용하세요."
   },
-  "auto.components.settings.providerAccountScope.remoteServerRateLimit": {
+  "auto.components.settings.runtimeScope.remoteRateLimit": {
     "ko": "{{value0}} API 예산은 이 원격 서버의 CLI에서 가져옵니다. 다른 기본 런타임 예산을 보려면 설정 > 원격 Orca 서버 > 고급을 사용하세요."
   },
   "auto.components.settings.quick.commands.search.2d8aff42be": {
@@ -3521,8 +3500,8 @@
   "auto.components.settings.task.tracker.integration.cards.a2c0015fb8": {
     "ko": "확인됨"
   },
-  "auto.components.settings.task.tracker.integration.cards.account_scope_prefix": {
-    "ko": "계정 범위"
+  "auto.components.settings.task.tracker.integration.cards.runtime_scope_prefix": {
+    "ko": "런타임 범위"
   },
   "auto.components.settings.task.tracker.integration.cards.c90f2ef419": {
     "ko": "다시 확인"

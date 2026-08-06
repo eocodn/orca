@@ -230,9 +230,6 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     terminalRightClickToPasteDefaultedForPlatform: true,
     terminalWindowsShell: 'powershell.exe',
     terminalWindowsWslDistro: null,
-    localAccountRuntime: 'auto',
-    localAccountRuntimeDefaultedToAutoForAllUsers: true,
-    localAccountWslDistro: null,
     localWindowsRuntimeDefault: { kind: 'windows-host' },
     // Why: prefer modern PowerShell when installed, falling back to inbox Windows PowerShell.
     terminalWindowsPowerShellImplementation: 'auto',

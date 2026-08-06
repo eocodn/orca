@@ -5,8 +5,8 @@ import { installWindowVisibilityInterval } from '@/lib/window-visibility-interva
 import { useAppStore } from '@/store'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import type { GetRateLimitResult, GitHubRateLimitSnapshot } from '../../../../shared/types'
-import { getProviderRateLimitScope } from '@/components/settings/provider-account-scope'
-import { ProviderHostScopeControl } from '@/components/settings/ProviderHostScopeControl'
+import { RuntimeScopeControl } from '@/components/settings/RuntimeScopeControl'
+import { getRuntimeRateLimitScope } from '@/components/settings/runtime-scope-copy'
 import { translate } from '@/i18n/i18n'
 
 const REFRESH_INTERVAL_MS = 60_000
@@ -172,7 +172,7 @@ function GitHubRateLimitRows({
 export function GitHubRateLimitPanel({ className }: { className?: string }): React.JSX.Element {
   const { snapshot, hasError, isFetching, refresh } = useGitHubRateLimitSnapshot()
   const settings = useAppStore((s) => s.settings)
-  const budgetScope = getProviderRateLimitScope(settings, 'GitHub')
+  const budgetScope = getRuntimeRateLimitScope(settings, 'GitHub')
 
   return (
     <div className={cn('space-y-3 rounded-md border border-border/60 p-3', className)}>
@@ -191,7 +191,7 @@ export function GitHubRateLimitPanel({ className }: { className?: string }): Rea
               'Orca uses REST, Search, and GraphQL through the GitHub CLI.'
             )}
           </p>
-          <ProviderHostScopeControl
+          <RuntimeScopeControl
             labelPrefix={translate(
               'auto.components.github.github.rate.limit.display.budget_scope_prefix',
               'Budget scope'

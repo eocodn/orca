@@ -1,5 +1,4 @@
 import type { SshRemotePtyLease } from '../shared/ssh-types'
-import type { GlobalSettings } from '../shared/types'
 import * as loadDependencies from './persistence-store-repository-load-api'
 import {
   canonicalizePersistedFloatingWorkspaceDirectory,
@@ -422,17 +421,6 @@ export function loadPrimaryRepositoryState(
       ) {
         context.loadNeedsSave = true
       }
-      const localAccountRuntimeAlreadyMigrated =
-        parsed.settings?.localAccountRuntimeDefaultedToAutoForAllUsers === true
-      const migratedLocalAccountRuntime: GlobalSettings['localAccountRuntime'] =
-        localAccountRuntimeAlreadyMigrated
-          ? (parsed.settings?.localAccountRuntime ?? defaults.settings.localAccountRuntime)
-          : parsed.settings?.localAccountRuntime === 'wsl'
-            ? 'wsl'
-            : 'auto'
-      if (!localAccountRuntimeAlreadyMigrated) {
-        context.loadNeedsSave = true
-      }
       if (!autoRenameBranchFromWorkDefaultedOn) {
         context.loadNeedsSave = true
       }
@@ -512,8 +500,6 @@ export function loadPrimaryRepositoryState(
           terminalMacOptionAsAlt: migratedOptionAsAlt,
           terminalMacOptionAsAltMigrated: true,
           localWindowsRuntimeDefault: migratedWindowsRuntimeDefault,
-          localAccountRuntime: migratedLocalAccountRuntime,
-          localAccountRuntimeDefaultedToAutoForAllUsers: true,
           ...migratedOsc52Clipboard,
           floatingTerminalEnabled: migratedFloatingTerminalEnabled,
           floatingTerminalDefaultedForAllUsers: true,
@@ -552,7 +538,7 @@ export function loadPrimaryRepositoryState(
           commitMessageAi: loadDependencies.projectSourceControlAiToLegacyCommitMessageAi(
             migratedSourceControlAi,
             parsed.settings?.commitMessageAi ?? defaults.settings.commitMessageAi
-          ),
+          )
         },
         ui: (() => {
           const rawSort = parsed.ui?.sortBy

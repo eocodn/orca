@@ -6,28 +6,24 @@ import {
   useIntegrationCommandRowClass,
   useIntegrationSubordinateRowClass
 } from './integration-card-presentation'
-import { getProviderAccountScope } from './provider-account-scope'
-import { ProviderHostScopeControl } from './ProviderHostScopeControl'
+import { RuntimeScopeControl } from './RuntimeScopeControl'
+import { getIntegrationRuntimeScope } from './runtime-scope-copy'
 import { usePreflightCardStatuses } from './source-control-preflight-card-status'
 import { translate } from '@/i18n/i18n'
 
-function ProviderAccountScopeDetails({
-  children
-}: {
-  children?: React.ReactNode
-}): React.JSX.Element {
+function RuntimeScopeDetails({ children }: { children?: React.ReactNode }): React.JSX.Element {
   const settings = useAppStore((s) => s.settings)
-  const accountScope = getProviderAccountScope(settings)
+  const runtimeScope = getIntegrationRuntimeScope(settings)
   const subordinateRowClass = useIntegrationSubordinateRowClass('text-xs')
 
   return (
     <IntegrationCardDetails>
-      <ProviderHostScopeControl
+      <RuntimeScopeControl
         labelPrefix={translate(
-          'auto.components.settings.cli.source.control.integration.cards.account_scope_prefix',
-          'Account scope'
+          'auto.components.settings.cli.source.control.integration.cards.runtime_scope_prefix',
+          'Runtime scope'
         )}
-        scope={accountScope}
+        scope={runtimeScope}
         className={subordinateRowClass}
       />
       {children}
@@ -75,7 +71,7 @@ export function GitHubIntegrationCard(): React.JSX.Element {
               : 'Not authenticated'
       }
     >
-      <ProviderAccountScopeDetails>
+      <RuntimeScopeDetails>
         {status !== 'checking' && !connected ? (
           status === 'unavailable' ? (
             <>
@@ -159,7 +155,7 @@ export function GitHubIntegrationCard(): React.JSX.Element {
             </>
           )
         ) : null}
-      </ProviderAccountScopeDetails>
+      </RuntimeScopeDetails>
     </IntegrationCardShell>
   )
 }
@@ -204,7 +200,7 @@ export function GitLabIntegrationCard(): React.JSX.Element {
               : 'Not authenticated'
       }
     >
-      <ProviderAccountScopeDetails>
+      <RuntimeScopeDetails>
         {status !== 'checking' && !connected ? (
           status === 'unavailable' ? (
             <>
@@ -292,7 +288,7 @@ export function GitLabIntegrationCard(): React.JSX.Element {
             </>
           )
         ) : null}
-      </ProviderAccountScopeDetails>
+      </RuntimeScopeDetails>
     </IntegrationCardShell>
   )
 }

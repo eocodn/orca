@@ -9,8 +9,8 @@ import { useAppStore } from '@/store'
 import { IntegrationCardDetails, IntegrationCardShell } from './integration-card-shell'
 import { useIntegrationSubordinateRowClass } from './integration-card-presentation'
 import { LinearAgentSkillInstallCta } from './linear-agent-skill-install-cta'
-import { getProviderAccountScope } from './provider-account-scope'
-import { ProviderHostScopeControl } from './ProviderHostScopeControl'
+import { RuntimeScopeControl } from './RuntimeScopeControl'
+import { getIntegrationRuntimeScope } from './runtime-scope-copy'
 import { LINEAR_INTEGRATION_SECTION_ID } from './task-provider-integration-section-ids'
 import { translate } from '@/i18n/i18n'
 
@@ -37,7 +37,7 @@ export function LinearIntegrationCard(): React.JSX.Element {
   const checking = !contextMatches || !linearStatusChecked
   const connected = contextMatches && linearStatus.connected
   const workspaces = linearStatus.workspaces ?? []
-  const accountScope = getProviderAccountScope(settings)
+  const runtimeScope = getIntegrationRuntimeScope(settings)
   const subordinateRowClass = useIntegrationSubordinateRowClass('flex items-center gap-3')
 
   const handleDisconnect = async (workspaceId?: string): Promise<void> => {
@@ -113,7 +113,7 @@ export function LinearIntegrationCard(): React.JSX.Element {
       }
     >
       <IntegrationCardDetails>
-        <ProviderAccountScopeRow scope={accountScope} />
+        <RuntimeScopeRow scope={runtimeScope} />
         {connected ? (
           <div className="space-y-2">
             {workspaces.map((workspace) => {
@@ -218,14 +218,14 @@ export function LinearIntegrationCard(): React.JSX.Element {
   )
 }
 
-function ProviderAccountScopeRow({ scope }: { scope: ReturnType<typeof getProviderAccountScope> }) {
+function RuntimeScopeRow({ scope }: { scope: ReturnType<typeof getIntegrationRuntimeScope> }) {
   const subordinateRowClass = useIntegrationSubordinateRowClass('text-xs')
 
   return (
-    <ProviderHostScopeControl
+    <RuntimeScopeControl
       labelPrefix={translate(
-        'auto.components.settings.task.tracker.integration.cards.account_scope_prefix',
-        'Account scope'
+        'auto.components.settings.task.tracker.integration.cards.runtime_scope_prefix',
+        'Runtime scope'
       )}
       scope={scope}
       className={subordinateRowClass}

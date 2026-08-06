@@ -37,54 +37,6 @@ const mockApi = {
   cache: {
     getGitHub: vi.fn().mockResolvedValue(null),
     setGitHub: vi.fn().mockResolvedValue(undefined)
-  },
-  claudeUsage: {
-    getScanState: vi.fn().mockResolvedValue({
-      enabled: false,
-      isScanning: false,
-      lastScanStartedAt: null,
-      lastScanCompletedAt: null,
-      lastScanError: null,
-      hasAnyClaudeData: false
-    }),
-    setEnabled: vi.fn().mockResolvedValue({}),
-    refresh: vi.fn().mockResolvedValue({}),
-    getSummary: vi.fn().mockResolvedValue(null),
-    getDaily: vi.fn().mockResolvedValue([]),
-    getBreakdown: vi.fn().mockResolvedValue([]),
-    getRecentSessions: vi.fn().mockResolvedValue([])
-  },
-  codexUsage: {
-    getScanState: vi.fn().mockResolvedValue({
-      enabled: false,
-      isScanning: false,
-      lastScanStartedAt: null,
-      lastScanCompletedAt: null,
-      lastScanError: null,
-      hasAnyCodexData: false
-    }),
-    setEnabled: vi.fn().mockResolvedValue({}),
-    refresh: vi.fn().mockResolvedValue({}),
-    getSummary: vi.fn().mockResolvedValue(null),
-    getDaily: vi.fn().mockResolvedValue([]),
-    getBreakdown: vi.fn().mockResolvedValue([]),
-    getRecentSessions: vi.fn().mockResolvedValue([])
-  },
-  openCodeUsage: {
-    getScanState: vi.fn().mockResolvedValue({
-      enabled: false,
-      isScanning: false,
-      lastScanStartedAt: null,
-      lastScanCompletedAt: null,
-      lastScanError: null,
-      hasAnyOpenCodeData: false
-    }),
-    setEnabled: vi.fn().mockResolvedValue({}),
-    refresh: vi.fn().mockResolvedValue({}),
-    getSummary: vi.fn().mockResolvedValue(null),
-    getDaily: vi.fn().mockResolvedValue([]),
-    getBreakdown: vi.fn().mockResolvedValue([]),
-    getRecentSessions: vi.fn().mockResolvedValue([])
   }
 }
 
