@@ -2,10 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import type { createServer } from 'node:http'
 
 import * as hookShared from './agent-hook-server-shared'
-import {
-  snapshotAgentStatusEntries,
-  snapshotAgentStatusEntry
-} from './agent-status-core'
+import { snapshotAgentStatusEntry } from './agent-status-core'
 import type {
   AgentHookAuthorityAttestation,
   AgentHookAuthorityEvidence,
@@ -181,9 +178,20 @@ export abstract class AgentHookServerBase {
   /** Snapshot of cached statuses in IPC shape. Used by `agentStatus:getSnapshot` after tabs hydrate so the
    *  dashboard catches up on hook events that fired during startup. */
   getStatusSnapshot(): AgentStatusIpcPayload[] {
-    return snapshotAgentStatusEntries(
-      this.state.lastStatusByPaneKey.values() as Iterable<EnrichedAgentHookEventPayload>
-    )
+    return Array.from(this.state.lastStatusByPaneKey.values(), (entry) => {
+      const enriched = entry as EnrichedAgentHookEventPayload
+      const [snapshot] = snapshotAgentStatusEntry(enriched, enriched.paneKey)
+      return snapshot
+        ? {
+            ...snapshot,
+            ...(enriched.providerSession ? { providerSession: enriched.providerSession } : {}),
+            ...(enriched.providerSessionOnly ? { providerSessionOnly: true } : {}),
+            ...(enriched.promptInteractionKey
+              ? { promptInteractionKey: enriched.promptInteractionKey }
+              : {})
+          }
+        : null
+    }).filter((snapshot): snapshot is AgentStatusIpcPayload => snapshot !== null)
   }
 
   /** Provider-session identities, including Pi's metadata-only rows. */
@@ -193,7 +201,21 @@ export abstract class AgentHookServerBase {
 
   getStatusSnapshotForPane(paneKey: string): AgentStatusIpcPayload[] {
     const entry = this.state.lastStatusByPaneKey.get(paneKey)
-    return snapshotAgentStatusEntry(entry as EnrichedAgentHookEventPayload | undefined, paneKey)
+    const enriched = entry as EnrichedAgentHookEventPayload | undefined
+    const [snapshot] = snapshotAgentStatusEntry(enriched, paneKey)
+    if (!snapshot || !enriched) {
+      return []
+    }
+    return [
+      {
+        ...snapshot,
+        ...(enriched.providerSession ? { providerSession: enriched.providerSession } : {}),
+        ...(enriched.providerSessionOnly ? { providerSessionOnly: true } : {}),
+        ...(enriched.promptInteractionKey
+          ? { promptInteractionKey: enriched.promptInteractionKey }
+          : {})
+      }
+    ]
   }
 
   getHydratedAuthorityCommitments(): readonly AgentHookAuthorityEvidence[] {

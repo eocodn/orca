@@ -15,9 +15,6 @@ export type AgentStatusCoreEntry = {
   worktreeId?: string
   connectionId: string | null
   launchToken?: string
-  providerSession?: AgentStatusIpcPayload['providerSession']
-  providerSessionOnly?: boolean
-  promptInteractionKey?: string
   receivedAt: number
   stateStartedAt: number
   payload: ParsedAgentStatusPayload
@@ -33,9 +30,6 @@ export function toAgentStatusIpcPayload(entry: AgentStatusCoreEntry): AgentStatu
     connectionId: entry.connectionId,
     receivedAt: entry.receivedAt,
     stateStartedAt: entry.stateStartedAt,
-    ...(entry.providerSession ? { providerSession: entry.providerSession } : {}),
-    ...(entry.providerSessionOnly ? { providerSessionOnly: true } : {}),
-    ...(entry.promptInteractionKey ? { promptInteractionKey: entry.promptInteractionKey } : {}),
     ...entry.payload
   }
 }
