@@ -3,8 +3,6 @@ import { useShallow } from 'zustand/react/shallow'
 import {
   AlertCircle,
   ArrowDownUp,
-  ArrowRight,
-  ChevronDown,
   ChevronLeft,
   ExternalLink,
   Eye,
@@ -34,11 +32,7 @@ import { PRReviewCell } from './task-page-github-review-cell'
 import { TaskPageGitHubIssueDialog } from './task-page-github-issue-dialog'
 import { TaskPageLinearProjectDialog } from './task-page-linear-project-dialog'
 import { TaskPageLinearIssueDialog } from './task-page-linear-issue-dialog'
-import {
-  LinearStateCell,
-  getLinearIssueGridTemplate,
-  getJiraStatusTone
-} from './task-page-linear-cells'
+import { getLinearIssueGridTemplate, getJiraStatusTone } from './task-page-linear-cells'
 import { PRChecksCell, PRMergeCell } from './task-page-github-pr-cells'
 import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
 import { TaskPageLinearIssueList } from './task-page-linear-issue-list'
@@ -71,7 +65,6 @@ import { LinearScopeSelector } from '@/components/linear-scope-selector'
 import RepoBadgeLabel from '@/components/repo/RepoBadgeLabel'
 import IssueSourceIndicator, { sameGitHubOwnerRepo } from '@/components/github/IssueSourceIndicator'
 import IssueSourceSelector, { issueSourceChipClass } from '@/components/github/IssueSourceSelector'
-import { LinearPriorityIcon } from '@/components/linear-priority-icon'
 import { reconcileLinearTeamSelection } from '@/components/task-page-linear-team-selection'
 import {
   getGitHubWorkItemWorkspaceSeed,

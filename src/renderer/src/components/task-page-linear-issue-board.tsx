@@ -125,9 +125,13 @@ export function TaskPageLinearIssueBoard({
                           event.stopPropagation()
                           onUseIssue(issue)
                         }}
-                        aria-label={translate('auto.components.TaskPage.ff90d0abc7', 'Start workspace from {{value0}}', {
-                          value0: issue.identifier
-                        })}
+                        aria-label={translate(
+                          'auto.components.TaskPage.ff90d0abc7',
+                          'Start workspace from {{value0}}',
+                          {
+                            value0: issue.identifier
+                          }
+                        )}
                       >
                         <ArrowRight className="size-3.5" />
                       </Button>
@@ -138,9 +142,13 @@ export function TaskPageLinearIssueBoard({
                           event.stopPropagation()
                           window.api.shell.openUrl(issue.url)
                         }}
-                        aria-label={translate('auto.components.TaskPage.246bd64aed', 'Open {{value0}} in Linear', {
-                          value0: issue.identifier
-                        })}
+                        aria-label={translate(
+                          'auto.components.TaskPage.246bd64aed',
+                          'Open {{value0}} in Linear',
+                          {
+                            value0: issue.identifier
+                          }
+                        )}
                       >
                         <ExternalLink className="size-3.5" />
                       </Button>
@@ -148,15 +156,24 @@ export function TaskPageLinearIssueBoard({
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                     {effectiveDisplayProperties.has('state') ? (
-                      <LinearStateCell issue={issue} className="px-1.5 py-0.5" sourceContext={sourceContext} />
+                      <LinearStateCell
+                        issue={issue}
+                        className="px-1.5 py-0.5"
+                        sourceContext={sourceContext}
+                      />
                     ) : null}
                     {effectiveDisplayProperties.has('assignee') ? (
                       <span>
-                        {issue.assignee?.displayName ?? translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
+                        {issue.assignee?.displayName ??
+                          translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
                       </span>
                     ) : null}
-                    {effectiveDisplayProperties.has('team') ? <span className="truncate">{teamLabel}</span> : null}
-                    {effectiveDisplayProperties.has('updated') ? <span>{formatRelativeTime(issue.updatedAt)}</span> : null}
+                    {effectiveDisplayProperties.has('team') ? (
+                      <span className="truncate">{teamLabel}</span>
+                    ) : null}
+                    {effectiveDisplayProperties.has('updated') ? (
+                      <span>{formatRelativeTime(issue.updatedAt)}</span>
+                    ) : null}
                   </div>
                   {effectiveDisplayProperties.has('labels') && issue.labels.length > 0 ? (
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
@@ -169,7 +186,9 @@ export function TaskPageLinearIssueBoard({
                         </span>
                       ))}
                       {issue.labels.length > labels.length ? (
-                        <span className="text-[10px] text-muted-foreground">+{issue.labels.length - labels.length}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          +{issue.labels.length - labels.length}
+                        </span>
                       ) : null}
                     </div>
                   ) : null}

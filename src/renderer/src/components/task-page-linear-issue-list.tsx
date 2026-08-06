@@ -101,15 +101,22 @@ export function TaskPageLinearIssueList({
               </div>
               <div className="mt-1 flex min-w-0 items-center gap-1.5 lg:!hidden">
                 {effectiveDisplayProperties.has('state') ? (
-                  <LinearStateCell issue={issue} className="px-1.5 py-0.5" sourceContext={sourceContext} />
+                  <LinearStateCell
+                    issue={issue}
+                    className="px-1.5 py-0.5"
+                    sourceContext={sourceContext}
+                  />
                 ) : null}
                 {effectiveDisplayProperties.has('assignee') ? (
                   <span className="min-w-0 truncate text-[11px] text-muted-foreground">
-                    {issue.assignee?.displayName ?? translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
+                    {issue.assignee?.displayName ??
+                      translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
                   </span>
                 ) : null}
                 {effectiveDisplayProperties.has('team') ? (
-                  <span className="min-w-0 truncate text-[11px] text-muted-foreground">{teamLabel}</span>
+                  <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                    {teamLabel}
+                  </span>
                 ) : null}
               </div>
             </div>
@@ -125,7 +132,9 @@ export function TaskPageLinearIssueList({
                   </span>
                 ))}
                 {issue.labels.length > labels.length ? (
-                  <span className="text-[11px] text-muted-foreground">+{issue.labels.length - labels.length}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    +{issue.labels.length - labels.length}
+                  </span>
                 ) : null}
               </div>
             ) : null}
@@ -152,17 +161,25 @@ export function TaskPageLinearIssueList({
                   <TooltipTrigger asChild>
                     <div
                       className="flex size-5 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/40 text-[10px] text-muted-foreground"
-                      aria-label={issue.assignee?.displayName ?? translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
+                      aria-label={
+                        issue.assignee?.displayName ??
+                        translate('auto.components.TaskPage.42a9160321', 'Unassigned')
+                      }
                     >
                       {issue.assignee?.avatarUrl ? (
-                        <img src={issue.assignee.avatarUrl} alt={issue.assignee.displayName} className="size-5 rounded-full" />
+                        <img
+                          src={issue.assignee.avatarUrl}
+                          alt={issue.assignee.displayName}
+                          className="size-5 rounded-full"
+                        />
                       ) : (
                         (issue.assignee?.displayName?.slice(0, 1) ?? '-')
                       )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" sideOffset={6}>
-                    {issue.assignee?.displayName ?? translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
+                    {issue.assignee?.displayName ??
+                      translate('auto.components.TaskPage.42a9160321', 'Unassigned')}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -192,9 +209,13 @@ export function TaskPageLinearIssueList({
                       event.stopPropagation()
                       onUseIssue(issue)
                     }}
-                    aria-label={translate('auto.components.TaskPage.ff90d0abc7', 'Start workspace from {{value0}}', {
-                      value0: issue.identifier
-                    })}
+                    aria-label={translate(
+                      'auto.components.TaskPage.ff90d0abc7',
+                      'Start workspace from {{value0}}',
+                      {
+                        value0: issue.identifier
+                      }
+                    )}
                   >
                     <ArrowRight className="size-3.5" />
                   </Button>
@@ -212,9 +233,13 @@ export function TaskPageLinearIssueList({
                       event.stopPropagation()
                       window.api.shell.openUrl(issue.url)
                     }}
-                    aria-label={translate('auto.components.TaskPage.246bd64aed', 'Open {{value0}} in Linear', {
-                      value0: issue.identifier
-                    })}
+                    aria-label={translate(
+                      'auto.components.TaskPage.246bd64aed',
+                      'Open {{value0}} in Linear',
+                      {
+                        value0: issue.identifier
+                      }
+                    )}
                   >
                     <ExternalLink className="size-3.5" />
                   </Button>
