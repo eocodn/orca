@@ -26,8 +26,6 @@ import {
 } from './pr-comments-list-selection'
 import { ENTRY_REFRESH_GRACE_MS, shouldEntryRefresh } from './checks-entry-refresh'
 import type {
-  GitLabDiscussionResolveResult,
-  GitLabWorkItemDetails,
   PRInfo,
   PRCheckDetail,
   PRCheckRunDetails,
@@ -115,7 +113,7 @@ import { ChecksPanelCommentsSection } from './checks-panel-comments-section'
 import { ChecksPanelActionsSection } from './checks-panel-actions-section'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
 import { useMountedRef } from '@/hooks/useMountedRef'
-import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
+import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { gitLabPipelineJobsToPRChecks } from '../../../../shared/gitlab-pipeline-checks'
 import { getWorktreeGitIdentityDisplay } from '@/lib/worktree-git-identity-display'
 import { readSourceControlLaunchRecipeAgentId } from '@/lib/source-control-launch-agent-selection'
@@ -164,6 +162,12 @@ import {
   type PullRequestGenerationContext,
   type PullRequestGenerationFields
 } from '@/store/slices/pull-request-generation'
+import {
+  fetchGitLabMRDetailsForChecks,
+  gitLabMRCommentsToPRComments,
+  resolveGitLabMRDiscussionForChecks
+} from './checks-panel-runtime-data'
+import { renderChecksPanel } from './checks-panel-runtime-render'
 
 const RUNTIME_SSH_STATUS_REFRESH_MS = 3000
 const GIT_STATUS_FAILURE_RETRY_MS = 3000
@@ -226,74 +230,6 @@ function isGitLabChecksPanelReview(
   review: ChecksPanelReview | null
 ): review is ChecksPanelReview & { provider: 'gitlab' } {
   return review?.provider === 'gitlab'
-}
-
-function gitLabMRCommentsToPRComments(
-  comments: GitLabWorkItemDetails['comments'] | undefined
-): PRComment[] {
-  return (comments ?? []).map((comment) => {
-    const { reactions: _reactions, ...compatibleComment } = comment
-    // Why: the shared comments renderer expects GitHub reaction enums; GitLab award names are open-ended, so omit them here.
-    return compatibleComment
-  })
-}
-
-async function fetchGitLabMRDetailsForChecks(args: {
-  repoPath: string
-  repoId?: string
-  settings: Parameters<typeof getActiveRuntimeTarget>[0]
-  iid: number
-}): Promise<GitLabWorkItemDetails | null> {
-  const target = getActiveRuntimeTarget(args.settings)
-  if (target.kind === 'environment') {
-    return callRuntimeRpc<GitLabWorkItemDetails | null>(
-      target,
-      'gitlab.workItemDetails',
-      {
-        repo: args.repoId ?? args.repoPath,
-        iid: args.iid,
-        type: 'mr'
-      },
-      { timeoutMs: 30_000 }
-    )
-  }
-  return (await window.api.gl.workItemDetails({
-    repoPath: args.repoPath,
-    repoId: args.repoId,
-    iid: args.iid,
-    type: 'mr'
-  })) as GitLabWorkItemDetails | null
-}
-
-async function resolveGitLabMRDiscussionForChecks(args: {
-  repoPath: string
-  repoId?: string
-  settings: Parameters<typeof getActiveRuntimeTarget>[0]
-  iid: number
-  discussionId: string
-  resolved: boolean
-}): Promise<GitLabDiscussionResolveResult> {
-  const target = getActiveRuntimeTarget(args.settings)
-  if (target.kind === 'environment') {
-    return callRuntimeRpc<GitLabDiscussionResolveResult>(
-      target,
-      'gitlab.resolveMRDiscussion',
-      {
-        repo: args.repoId ?? args.repoPath,
-        iid: args.iid,
-        discussionId: args.discussionId,
-        resolved: args.resolved
-      },
-      { timeoutMs: 30_000 }
-    )
-  }
-  return window.api.gl.resolveMRDiscussion({
-    repoPath: args.repoPath,
-    repoId: args.repoId,
-    iid: args.iid,
-    discussionId: args.discussionId,
-    resolved: args.resolved
-  })
 }
 
 export default function ChecksPanel(): React.JSX.Element {
@@ -3605,485 +3541,191 @@ export default function ChecksPanel(): React.JSX.Element {
     updatePullRequestGenerationRecord
   ])
 
-  // ── Empty state ──
-  if (!activeWorktree) {
-    return (
-      <div className="px-4 py-6">
-        <div className="text-sm font-medium text-foreground">
-          {translate(
-            'auto.components.right.sidebar.ChecksPanel.a4ef4e0832',
-            'No workspace selected'
-          )}
-        </div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          {translate(
-            'auto.components.right.sidebar.ChecksPanel.b5dd73a105',
-            'Select a workspace to view checks'
-          )}
-        </div>
-      </div>
-    )
-  }
-  if (isFolder) {
-    return (
-      <div className="px-4 py-6">
-        <div className="text-sm font-medium text-foreground">
-          {translate('auto.components.right.sidebar.ChecksPanel.976cefd02f', 'Checks unavailable')}
-        </div>
-        <div className="mt-1 text-xs text-muted-foreground">
-          {translate(
-            'auto.components.right.sidebar.ChecksPanel.dda5924a40',
-            'Checks require a Git branch and hosted review context'
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  if (!activeReview) {
-    // Why: mid rebase/merge/cherry-pick HEAD is detached, so "No pull request found" misleads — the PR still exists on the original branch.
-    const operationInProgress = conflictOperation !== 'unknown'
-    const operationLabel =
-      conflictOperation === 'rebase'
-        ? 'Rebase'
-        : conflictOperation === 'merge'
-          ? 'Merge'
-          : conflictOperation === 'cherry-pick'
-            ? 'Cherry-pick'
-            : null
-    const emptyReviewIsGitLab =
-      linkedGitLabMR !== null || hostedReviewCreation?.provider === 'gitlab'
-    const emptyReviewLabel = emptyReviewIsGitLab ? 'merge request' : 'pull request'
-    const emptyReviewShortLabel = emptyReviewIsGitLab ? 'MR' : 'PR'
-    const canPushCreate = hostedReviewCreation?.blockedReason === 'needs_push'
-    const shouldPushBeforeCreateReview = createPrPushFirst || canPushCreate
-    const canPublishBranch =
-      isPublishingBranch ||
-      (!publishActionHasUncommittedChanges &&
-        shouldShowChecksPanelPublishBranchAction({
-          hostedReviewBlockedReason: hostedReviewCreation?.blockedReason,
-          hasUpstream: publishActionRemoteStatus?.hasUpstream,
-          hasCurrentBranch: Boolean(branch)
-        }))
-    // Feed refresh state only for GitHub; surface a sticky hard error so its card and composer suppression persist across retries.
-    const emptyRefreshInput = !isGitHubReviewContext
-      ? undefined
-      : checksPanelHasHardRefreshError && hardRefreshError
-        ? { status: 'error' as const, errorType: hardRefreshError.errorType }
-        : prRefreshState
-          ? {
-              status: prRefreshState.status,
-              errorType: prRefreshState.errorType,
-              skippedReason: prRefreshState.skippedReason,
-              nextAutoRetryAt: prRefreshState.nextAutoRetryAt,
-              retryDisabledUntil: prRefreshState.retryDisabledUntil
-            }
-          : undefined
-    const emptyGitStatusPhase: 'loading' | 'ready' | 'error' =
-      gitStatusInputs.hasUncommittedChanges !== undefined
-        ? 'ready'
-        : gitStatusProbeErrorContextKey === panelContextKey
-          ? 'error'
-          : 'loading'
-    const reviewState = getChecksPanelReviewState({
-      operationLabel,
-      reviewLabel: emptyReviewLabel,
-      reviewShortLabel: emptyReviewShortLabel,
-      providerName: hostedReviewCreateCopy.providerName,
-      isGitHubProvider: hostedReviewCreateProvider === 'github',
-      reviewLookup: checksPanelReviewLookup,
-      openReviewUrl: checksPanelReviewLookupResult.openReviewUrl,
-      eligibilityBlockedReason: hostedReviewCreation?.blockedReason,
-      // Confirmed readiness (not the live create gate) drives composer mode to match preserved-composer semantics.
-      confirmedReadiness: confirmedReadiness.confirmed,
-      confirmedNeedsPush: confirmedReadiness.needsPush,
-      refresh: emptyRefreshInput,
-      gitStatusPhase: emptyGitStatusPhase,
-      hasUpstream: publishActionRemoteStatus?.hasUpstream,
-      hasCurrentBranch: Boolean(branch)
-    })
-    const emptyStateCopy = { title: reviewState.title, description: reviewState.description }
-    const reviewStateAutoRetryText =
-      reviewState.autoRetryAt !== undefined && reviewState.autoRetryAt > Date.now()
-        ? translate(
-            'auto.components.right.sidebar.ChecksPanel.review.auto_retry',
-            'Orca will retry at {{time}}.',
-            { time: new Date(reviewState.autoRetryAt).toLocaleTimeString() }
-          )
-        : null
-    const reviewRecoveryRetryDisabled =
-      reviewState.retryDisabledUntil !== undefined && Date.now() < reviewState.retryDisabledUntil
-    const reviewRecoveryLabelIsRefresh = reviewState.recovery.includes('refresh')
-    // Only offer Retry/Refresh when the selector's recovery set includes it; some states expose none.
-    const reviewShowRetryOrRefresh =
-      reviewState.recovery.includes('retry') || reviewRecoveryLabelIsRefresh
-    const reviewShowOpenReview =
-      reviewState.recovery.includes('open_review') && Boolean(reviewState.openReviewUrl)
-    // A `needs_sync` create blocker must expose Sync Branch, not just guidance copy.
-    const reviewShowSyncBranch = reviewState.workflowAction === 'sync_branch'
-    // Recovery actions render independently of the composer so a preserved composer still exposes Retry during a transient failure.
-    const reviewShowActionRow =
-      canPublishBranch ||
-      reviewShowSyncBranch ||
-      (reviewShowOpenReview && Boolean(reviewState.openReviewUrl)) ||
-      reviewShowRetryOrRefresh
-    return (
-      <div className="px-4 py-6">
-        {detachedHeadDisplay && (
-          <div className="mb-3">
-            <DetachedHeadBadge display={detachedHeadDisplay} side="bottom" />
-          </div>
-        )}
-        <div className="text-sm font-medium text-foreground">{emptyStateCopy.title}</div>
-        <div className="mt-1 text-xs text-muted-foreground">{emptyStateCopy.description}</div>
-        {reviewState.detail ? (
-          <div className="mt-1 text-xs text-muted-foreground">{reviewState.detail}</div>
-        ) : null}
-        {reviewStateAutoRetryText ? (
-          <div className="mt-1 text-xs text-muted-foreground">{reviewStateAutoRetryText}</div>
-        ) : null}
-        {!operationInProgress && createComposerOpen ? (
-          <div className="mt-4 border-t border-border pt-3">
-            <CreateHostedReviewComposer
-              className="p-0"
-              provider={hostedReviewCreateProvider}
-              branch={branch}
-              base={prBase}
-              setBase={handlePrBaseChange}
-              title={prTitle}
-              setTitle={handlePrTitleChange}
-              body={prBody}
-              setBody={setPrBody}
-              draft={prDraft}
-              setDraft={setPrDraft}
-              baseQuery={prBaseQuery}
-              setBaseQuery={setPrBaseQuery}
-              baseResults={prBaseResults}
-              setBaseResults={setPrBaseResults}
-              baseSearchError={prBaseSearchError}
-              aiGenerationEnabled={sourceControlAiActionsVisible && prAiGenerationEnabled}
-              generating={prGenerating}
-              generateDisabled={prGenerateDisabled}
-              generateDisabledReason={prGenerateDisabledReason}
-              generateError={prGenerateError}
-              createError={createPrError}
-              isCreating={isCreatingPr}
-              pushBeforeCreate={shouldPushBeforeCreateReview}
-              primaryAction={{
-                disabled: isCreatingPr || isPublishingBranch || isRemoteOperationActive,
-                title: shouldPushBeforeCreateReview
-                  ? translate(
-                      'auto.components.right.sidebar.ChecksPanel.98f4c37b33',
-                      'Push & Create {{value0}}',
-                      { value0: emptyReviewShortLabel }
-                    )
-                  : translate(
-                      'auto.components.right.sidebar.ChecksPanel.889cdfba04',
-                      'Create {{value0}}',
-                      { value0: emptyReviewShortLabel }
-                    )
-              }}
-              onGenerate={() => void handleGeneratePullRequestFields()}
-              onCancelGenerate={handleCancelGeneratePullRequestFields}
-              onPrimaryAction={() => void handleCreatePullRequest()}
-            />
-          </div>
-        ) : null}
-        {!operationInProgress && reviewShowActionRow && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {canPublishBranch && (
-              <Button
-                size="xs"
-                disabled={isPublishingBranch || isRemoteOperationActive}
-                onClick={handlePublishBranch}
-              >
-                {isPublishingBranch
-                  ? translate('auto.components.right.sidebar.ChecksPanel.fdb27637f2', 'Publishing…')
-                  : translate(
-                      'auto.components.right.sidebar.ChecksPanel.6633c7a1fb',
-                      'Publish Branch'
-                    )}
-              </Button>
-            )}
-            {reviewShowSyncBranch && (
-              <Button
-                size="xs"
-                disabled={isSyncingBranch || isRemoteOperationActive}
-                onClick={() => void handleSyncBranch()}
-              >
-                {isSyncingBranch
-                  ? translate('auto.components.right.sidebar.ChecksPanel.sync.pending', 'Syncing…')
-                  : translate(
-                      'auto.components.right.sidebar.ChecksPanel.sync.branch',
-                      'Sync Branch'
-                    )}
-              </Button>
-            )}
-            {reviewShowOpenReview && reviewState.openReviewUrl ? (
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={isRemoteOperationActive}
-                onClick={(event) =>
-                  openChecksPanelHostedReviewUrl({
-                    url: reviewState.openReviewUrl as string,
-                    event,
-                    isMac: isMacPlatform(),
-                    worktreeId: activeWorktreeId
-                  })
-                }
-              >
-                {translate(
-                  'auto.components.right.sidebar.ChecksPanel.review.open_review',
-                  'Open Review'
-                )}
-              </Button>
-            ) : null}
-            {reviewShowRetryOrRefresh ? (
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={
-                  emptyRefreshing ||
-                  isPublishingBranch ||
-                  isRemoteOperationActive ||
-                  reviewRecoveryRetryDisabled
-                }
-                onClick={() => {
-                  if (!activeWorktreeId) {
-                    return
-                  }
-                  setEmptyRefreshing(true)
-                  void handleRefresh().finally(() => {
-                    setEmptyRefreshing(false)
-                  })
-                }}
-              >
-                {emptyRefreshing
-                  ? translate('auto.components.right.sidebar.ChecksPanel.71026ca2cb', 'Refreshing…')
-                  : reviewRecoveryLabelIsRefresh
-                    ? translate('auto.components.right.sidebar.ChecksPanel.7f4489f370', 'Refresh')
-                    : translate('auto.components.right.sidebar.ChecksPanel.review.retry', 'Retry')}
-              </Button>
-            ) : null}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const reviewShortLabel = activeReview.provider === 'gitlab' ? 'MR' : 'PR'
-  const shouldShowReviewTriageStrip =
-    activeConflictReview !== null || getBrokenChecks(checks).length > 0
-  const hostedReviewModifierHintDestination = resolveChecksPanelHostedReviewModifierDestination(
+  return renderChecksPanel({
+    activeConflictReview,
+    activeConnectionId,
+    activeGitLabReview,
+    activePullRequestGenerationKey,
+    activePullRequestGenerationRecord,
+    activePullRequestGenerationRecordCandidate,
+    activePullRequestGenerationSeedRestoreKey,
+    activeReview,
+    activeSourceControlLaunchPlatform,
+    activeWorktreeId,
+    activeWorktreePath,
+    activeWorktreePushTarget,
+    addPRConversationComment,
+    addPRReviewCommentReply,
+    aiActionDisabledReason,
+    allocatePullRequestGenerationRequestId,
+    asyncResultKeyRef,
+    branch,
+    canTargetPRComments,
+    checksCacheKey,
+    checksFetchedAt,
+    checksPanelHasHardRefreshError,
+    checksPanelReviewLookup,
+    checksPanelReviewLookupResult,
+    clearSentCommentSelection,
+    clearTitleInputFocusTimer,
+    commentsCacheKey,
+    commentsDisabledReason,
+    commentsFetchedAt,
+    commentsRef,
+    commentsSelectionClearTokenRef,
+    confirm,
+    confirmedReadiness,
+    confirmedReadinessInput,
+    conflictOperation,
+    conflictSummaryRefreshKeyRef,
+    createComposerOpen,
+    createHostedReview,
+    createPrInFlightRef,
+    createPrPushFirst,
+    defaultActiveWorktree,
+    detachedHeadDisplay,
+    detectedAgentIds,
+    detectedAgentsForAI,
+    eligibilityGitFingerprint,
+    eligibilityHeadOid,
+    eligibilityHeadOidRef,
+    enqueueGitHubPRRefresh,
+    entryKey,
+    expireGitHubPRRefreshState,
+    fallbackGitHubPRNumber,
+    fetchChecks,
+    fetchComments,
+    fetchGitLabDetails,
+    fetchHostedReviewForBranch,
+    fetchPRCheckDetails,
+    fetchPRChecks,
+    fetchPRComments,
+    fetchPRForBranch,
+    fetchUpstreamStatus,
+    foregroundReviewEvidenceKey,
+    foregroundedUnrenderedReviewKeyRef,
+    getHostedReviewCreationEligibility,
+    gitIdentityDisplay,
+    gitStatusInputs,
+    gitStatusInvalidation,
+    gitStatusReadyForPanelContext,
+    gitStatusSnapshotInFlightContextRef,
+    gitStatusSnapshotRerunContextRef,
+    gitStatusSnapshotRetryTimerRef,
+    handleAddPRComment,
+    handleBranchChangedByPullRequestGeneration,
+    handleCancelEdit,
+    handleCancelGeneratePullRequestFieldsForActive,
+    handleCreatePullRequest,
+    handleDeleteComment,
+    handleEditComment,
+    handleEntryRefresh,
+    handleFixChecksWithAI,
+    handleGeneratePullRequestFieldsForActive,
+    handleLinkAnotherPullRequest,
+    handleLoadCheckDetails,
+    handleOpenPR,
+    handlePrBaseChange,
+    handlePrTitleChange,
+    handlePublishBranch,
+    handlePullRequestCreated,
+    handlePullRequestGenerationSeedRestored,
+    handleRefresh,
+    handleReplyToComment,
+    handleResolve,
+    handleResolveCommentsWithAI,
+    handleResolveConflictsWithAI,
+    handleSaveTitle,
+    handleStartEdit,
+    handleSyncBranch,
+    handleTitleKeyDown,
+    handleUnlinkPullRequest,
+    hardErrorObservedAt,
+    hasNonGitHubLinkedReview,
+    hasUncommittedChanges,
+    hasUnrenderedReviewEvidence,
+    hostedReview,
+    hostedReviewCacheKey,
+    hostedReviewCreateCopy,
+    hostedReviewCreateProvider,
+    hostedReviewCreation,
+    hostedReviewCreationRequestKey,
+    isCurrentAsyncResult,
+    isFolder,
+    isGitHubReviewContext,
+    isGitLabReviewContext,
+    isPanelVisible,
+    isRemoteOperationActive,
+    isResolvingConflictsWithAI,
+    lastEntryKeyRef,
+    linkedAzureDevOpsPR,
+    linkedBitbucketPR,
+    linkedGitLabMR,
+    linkedGiteaPR,
+    linkedPR,
+    linkedReviewNumber,
+    localExecutionScope,
+    mountedRef,
+    noEnabledAgentKnown,
+    openModal,
+    ownerSettings,
+    panelContextKey,
+    panelContextKeyRef,
+    panelVisibleSinceRef,
+    pollIntervalRef,
+    pr,
+    prCacheEntry,
+    prCacheKey,
+    prCachedHasPR,
+    prCachedHasPRForContext,
+    prCreationDefaults,
+    prFetchedAt,
+    prGenerationRecords,
+    prNumber,
+    prRefreshState,
+    prevChecksRef,
+    publishActionGitStatusInputs,
+    publishActionHasUncommittedChanges,
+    publishActionRemoteStatus,
+    pushBeforeCreatePullRequest,
+    pushBranch,
+    rawPRRefreshState,
+    refreshCommentsAfterBulkResolve,
+    refreshContextKey,
+    refreshContextKeyRef,
+    refreshHostedReviewAfterMutation,
+    refreshInFlightRef,
+    refreshLinkedGitHubPullRequest,
+    refreshRequestKeyRef,
+    remoteDetectedAgentIds,
+    remoteStatus,
+    remoteStatusInvalidation,
+    repo,
+    repoConnectionId,
+    resolveCommentsWithAIDisabledReason,
+    resolveReviewThread,
+    resolveSelectedThreadsAfterLaunch,
+    rightSidebarOpen,
+    rightSidebarTab,
+    runtimeEnvironmentId,
+    saveLaunchActionDefault,
+    setChecksPanelContentRef,
+    setPullRequestGenerationRecord,
+    setRightSidebarOpen,
+    setRightSidebarTab,
     settings,
-    Boolean(activeWorktreeId)
-  )
-  return (
-    <div ref={setChecksPanelContentRef} className="flex-1 overflow-auto scrollbar-sleek">
-      {/* Why: surface a background-refresh failure over stale cached PR data so a GitHub outage doesn't look like a normal panel. GitHub-only. */}
-      {activeReview?.provider === 'github' && prRefreshState?.status === 'error' ? (
-        <div
-          role="alert"
-          className="border-b border-border/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-        >
-          {getChecksPanelRefreshErrorBannerLine(prRefreshState.errorType)}
-        </div>
-      ) : null}
-      {/* Hosted review header */}
-      <div className="px-3 py-3 border-b border-border space-y-2.5">
-        {/* Review number + state badge + refresh + open link */}
-        <ChecksPanelReviewHeader
-          review={activeReview}
-          isRefreshing={isRefreshing}
-          canUnlinkPullRequest={linkedPR !== null}
-          modifierHintDestination={hostedReviewModifierHintDestination}
-          onRefresh={() => void handleRefresh()}
-          onOpenReview={handleOpenPR}
-          onUnlinkPullRequest={handleUnlinkPullRequest}
-          onLinkAnotherPullRequest={handleLinkAnotherPullRequest}
-        />
-
-        {detachedHeadDisplay && <DetachedHeadBadge display={detachedHeadDisplay} side="bottom" />}
-
-        {/* Review title */}
-        {editingTitle ? (
-          <div className="flex items-center gap-1">
-            <input
-              ref={titleInputRef}
-              className="flex-1 text-[12px] bg-background border border-border rounded px-2 py-1 text-foreground outline-none focus:ring-1 focus:ring-ring"
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              onKeyDown={handleTitleKeyDown}
-              disabled={titleSaving}
-            />
-            <button
-              className="cursor-pointer rounded p-1 text-emerald-500 transition-colors hover:bg-accent hover:text-emerald-400 disabled:cursor-default disabled:opacity-50"
-              title={translate('auto.components.right.sidebar.ChecksPanel.2ab7fd4b6d', 'Save')}
-              onClick={() => void handleSaveTitle()}
-              disabled={titleSaving}
-            >
-              {titleSaving ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
-              ) : (
-                <Check className="size-3.5" />
-              )}
-            </button>
-            <button
-              className="cursor-pointer rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-default disabled:opacity-50"
-              title={translate('auto.components.right.sidebar.ChecksPanel.058039787c', 'Cancel')}
-              onClick={handleCancelEdit}
-              disabled={titleSaving}
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ) : (
-          <div
-            className="group/title flex items-start gap-1.5 cursor-pointer -mx-1 px-1 py-0.5 rounded hover:bg-accent/40 transition-colors"
-            onClick={handleStartEdit}
-          >
-            <span className="text-[12px] text-foreground leading-snug flex-1">
-              {activeReview.title}
-            </span>
-            <Pencil className="size-3 text-muted-foreground/40 can-hover:opacity-0 group-hover/title:opacity-100 transition-opacity shrink-0 mt-0.5" />
-          </div>
-        )}
-
-        {/* Updated at */}
-        {activeReview.updatedAt && (
-          <ChecksPanelUpdatedAtMetadata
-            reviewShortLabel={reviewShortLabel}
-            updatedAt={activeReview.updatedAt}
-          />
-        )}
-        {/* Merge / Delete Workspace actions */}
-        {activeReview && activeWorktree && repo && (
-          <HostedReviewActions
-            review={activeReview}
-            githubPR={pr}
-            repo={repo}
-            worktree={activeWorktree}
-            onRefreshReview={refreshHostedReviewAfterMutation}
-          />
-        )}
-      </div>
-
-      <ChecksPanelChecksSection
-        review={activeReview}
-        conflictReview={activeConflictReview}
-        checks={checks}
-        checksLoading={checksLoading}
-        contextKey={stateRequestKey}
-        conflictDetailsRefreshing={isRefreshing || conflictDetailsRefreshing}
-        showTriage={shouldShowReviewTriageStrip}
-        aiVisible={sourceControlAiActionsVisible}
-        resolvingConflicts={isResolvingConflictsWithAI}
-        fixingChecks={isFixingChecksWithAI}
-        aiDisabledReason={aiActionDisabledReason}
-        onResolveConflicts={() => void handleResolveConflictsWithAI()}
-        onFixChecks={() => void handleFixChecksWithAI()}
-        onLoadCheckDetails={handleLoadCheckDetails}
-      />
-      <ChecksPanelCommentsSection
-        comments={comments}
-        commentsLoading={commentsLoading}
-        reviewKind={reviewShortLabel}
-        commentsDisabled={!canTargetPRComments}
-        commentsDisabledReason={commentsDisabledReason}
-        selectionContextKey={stateRequestKey}
-        selectionClearRequest={commentsSelectionClearRequest}
-        resolveCommentsWithAIDisabled={Boolean(resolveCommentsWithAIDisabledReason)}
-        resolveCommentsWithAIDisabledReason={resolveCommentsWithAIDisabledReason}
-        onAddComment={pr ? handleAddPRComment : undefined}
-        onResolveSelectedCommentsWithAI={
-          sourceControlAiActionsVisible ? handleResolveCommentsWithAI : undefined
-        }
-        onReply={pr ? handleReplyToComment : undefined}
-        onResolve={pr || activeGitLabReview ? handleResolve : undefined}
-        onEditComment={pr ? handleEditComment : undefined}
-        onDeleteComment={pr ? handleDeleteComment : undefined}
-      />
-      <ChecksPanelActionsSection
-        open={sourceControlAiActionsVisible && agentComposerState !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAgentComposerState(null)
-          }
-        }}
-        actionId={agentComposerState?.actionId ?? 'fixChecks'}
-        title={
-          agentComposerState?.title ??
-          translate('auto.components.right.sidebar.ChecksPanel.7fad8509fe', 'Fix With AI')
-        }
-        description={agentComposerState?.description ?? ''}
-        baseCommandInput={agentComposerState?.prompt ?? ''}
-        worktreeId={activeWorktreeId}
-        groupId={activeWorktreeId}
-        connectionId={activeConnectionId}
-        repoId={repo?.id ?? null}
-        promptDelivery="submit-after-ready"
-        launchPlatform={activeSourceControlLaunchPlatform}
-        launchSource={agentComposerState?.launchSource ?? 'task_page'}
-        savedAgentId={
-          agentComposerState
-            ? readSourceControlLaunchRecipeAgentId(
-                resolveSourceControlActionRecipe({
-                  settings,
-                  repo,
-                  actionId: agentComposerState.actionId
-                })
-              )
-            : null
-        }
-        savedCommandInputTemplate={
-          agentComposerState
-            ? (resolveSourceControlActionRecipe({
-                settings,
-                repo,
-                actionId: agentComposerState.actionId
-              }).commandInputTemplate ?? null)
-            : null
-        }
-        savedAgentArgs={
-          agentComposerState
-            ? (resolveSourceControlActionRecipe({
-                settings,
-                repo,
-                actionId: agentComposerState.actionId
-              }).agentArgs ?? null)
-            : null
-        }
-        onSaveAgentDefault={saveLaunchActionDefault}
-        onLaunched={() => {
-          const launchedState = agentComposerState
-          if (launchedState?.actionId === 'resolveComments' && launchedState.commentResolution) {
-            void resolveSelectedThreadsAfterLaunch(launchedState.commentResolution).catch((err) => {
-              console.warn('Failed to resolve selected review comments after AI launch:', err)
-              toast.error(
-                translate(
-                  'auto.components.right.sidebar.ChecksPanel.495b2f8c4b',
-                  'Started the agent, but could not mark the selected comments resolved.'
-                )
-              )
-            })
-          } else if (launchedState?.actionId === 'resolveConflicts') {
-            toast.success(
-              translate(
-                'auto.components.right.sidebar.ChecksPanel.a0181a8d76',
-                'Started an AI agent for the conflicts.'
-              )
-            )
-          } else {
-            toast.success(
-              translate(
-                'auto.components.right.sidebar.ChecksPanel.2ef90c9819',
-                'Started an AI agent for the broken checks.'
-              )
-            )
-          }
-        }}
-      />
-    </div>
-  )
+    sourceControlAiActionsVisible,
+    sshConnectionStatus,
+    stateRequestKey,
+    syncBranch,
+    titleInputFocusTimerRef,
+    titleInputRef,
+    unrenderedReviewEvidenceIdentity,
+    unrenderedReviewEvidenceProvider,
+    updatePullRequestGenerationRecord,
+    updateRepo,
+    updateSettings,
+    updateWorktreeGitIdentity,
+    updateWorktreeMeta,
+  })
 }

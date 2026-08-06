@@ -1,0 +1,307 @@
+/* Checks panel render branch. */
+// @ts-nocheck
+import React from 'react'
+
+export function renderChecksPanelEmpty(context: Record<string, unknown>): React.JSX.Element {
+  const {
+    activeReview,
+    activeWorktreeId,
+    branch,
+    checksPanelHasHardRefreshError,
+    checksPanelReviewLookup,
+    checksPanelReviewLookupResult,
+    confirmedReadiness,
+    conflictOperation,
+    createComposerOpen,
+    createPrPushFirst,
+    detachedHeadDisplay,
+    gitStatusInputs,
+    handleCreatePullRequest,
+    handlePrBaseChange,
+    handlePrTitleChange,
+    handlePublishBranch,
+    handleRefresh,
+    handleSyncBranch,
+    hasUncommittedChanges,
+    hostedReviewCreateCopy,
+    hostedReviewCreateProvider,
+    hostedReviewCreation,
+    isFolder,
+    isGitHubReviewContext,
+    isRemoteOperationActive,
+    linkedGitLabMR,
+    panelContextKey,
+    prRefreshState,
+    publishActionHasUncommittedChanges,
+    publishActionRemoteStatus,
+    sourceControlAiActionsVisible,
+  } = context
+
+// ── Empty state ──
+if (!activeWorktree) {
+  return (
+    <div className="px-4 py-6">
+      <div className="text-sm font-medium text-foreground">
+        {translate(
+          'auto.components.right.sidebar.ChecksPanel.a4ef4e0832',
+          'No workspace selected'
+        )}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {translate(
+          'auto.components.right.sidebar.ChecksPanel.b5dd73a105',
+          'Select a workspace to view checks'
+        )}
+      </div>
+    </div>
+  )
+}
+if (isFolder) {
+  return (
+    <div className="px-4 py-6">
+      <div className="text-sm font-medium text-foreground">
+        {translate('auto.components.right.sidebar.ChecksPanel.976cefd02f', 'Checks unavailable')}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {translate(
+          'auto.components.right.sidebar.ChecksPanel.dda5924a40',
+          'Checks require a Git branch and hosted review context'
+        )}
+      </div>
+    </div>
+  )
+}
+
+if (!activeReview) {
+  // Why: mid rebase/merge/cherry-pick HEAD is detached, so "No pull request found" misleads — the PR still exists on the original branch.
+  const operationInProgress = conflictOperation !== 'unknown'
+  const operationLabel =
+    conflictOperation === 'rebase'
+      ? 'Rebase'
+      : conflictOperation === 'merge'
+        ? 'Merge'
+        : conflictOperation === 'cherry-pick'
+          ? 'Cherry-pick'
+          : null
+  const emptyReviewIsGitLab =
+    linkedGitLabMR !== null || hostedReviewCreation?.provider === 'gitlab'
+  const emptyReviewLabel = emptyReviewIsGitLab ? 'merge request' : 'pull request'
+  const emptyReviewShortLabel = emptyReviewIsGitLab ? 'MR' : 'PR'
+  const canPushCreate = hostedReviewCreation?.blockedReason === 'needs_push'
+  const shouldPushBeforeCreateReview = createPrPushFirst || canPushCreate
+  const canPublishBranch =
+    isPublishingBranch ||
+    (!publishActionHasUncommittedChanges &&
+      shouldShowChecksPanelPublishBranchAction({
+        hostedReviewBlockedReason: hostedReviewCreation?.blockedReason,
+        hasUpstream: publishActionRemoteStatus?.hasUpstream,
+        hasCurrentBranch: Boolean(branch)
+      }))
+  // Feed refresh state only for GitHub; surface a sticky hard error so its card and composer suppression persist across retries.
+  const emptyRefreshInput = !isGitHubReviewContext
+    ? undefined
+    : checksPanelHasHardRefreshError && hardRefreshError
+      ? { status: 'error' as const, errorType: hardRefreshError.errorType }
+      : prRefreshState
+        ? {
+            status: prRefreshState.status,
+            errorType: prRefreshState.errorType,
+            skippedReason: prRefreshState.skippedReason,
+            nextAutoRetryAt: prRefreshState.nextAutoRetryAt,
+            retryDisabledUntil: prRefreshState.retryDisabledUntil
+          }
+        : undefined
+  const emptyGitStatusPhase: 'loading' | 'ready' | 'error' =
+    gitStatusInputs.hasUncommittedChanges !== undefined
+      ? 'ready'
+      : gitStatusProbeErrorContextKey === panelContextKey
+        ? 'error'
+        : 'loading'
+  const reviewState = getChecksPanelReviewState({
+    operationLabel,
+    reviewLabel: emptyReviewLabel,
+    reviewShortLabel: emptyReviewShortLabel,
+    providerName: hostedReviewCreateCopy.providerName,
+    isGitHubProvider: hostedReviewCreateProvider === 'github',
+    reviewLookup: checksPanelReviewLookup,
+    openReviewUrl: checksPanelReviewLookupResult.openReviewUrl,
+    eligibilityBlockedReason: hostedReviewCreation?.blockedReason,
+    // Confirmed readiness (not the live create gate) drives composer mode to match preserved-composer semantics.
+    confirmedReadiness: confirmedReadiness.confirmed,
+    confirmedNeedsPush: confirmedReadiness.needsPush,
+    refresh: emptyRefreshInput,
+    gitStatusPhase: emptyGitStatusPhase,
+    hasUpstream: publishActionRemoteStatus?.hasUpstream,
+    hasCurrentBranch: Boolean(branch)
+  })
+  const emptyStateCopy = { title: reviewState.title, description: reviewState.description }
+  const reviewStateAutoRetryText =
+    reviewState.autoRetryAt !== undefined && reviewState.autoRetryAt > Date.now()
+      ? translate(
+          'auto.components.right.sidebar.ChecksPanel.review.auto_retry',
+          'Orca will retry at {{time}}.',
+          { time: new Date(reviewState.autoRetryAt).toLocaleTimeString() }
+        )
+      : null
+  const reviewRecoveryRetryDisabled =
+    reviewState.retryDisabledUntil !== undefined && Date.now() < reviewState.retryDisabledUntil
+  const reviewRecoveryLabelIsRefresh = reviewState.recovery.includes('refresh')
+  // Only offer Retry/Refresh when the selector's recovery set includes it; some states expose none.
+  const reviewShowRetryOrRefresh =
+    reviewState.recovery.includes('retry') || reviewRecoveryLabelIsRefresh
+  const reviewShowOpenReview =
+    reviewState.recovery.includes('open_review') && Boolean(reviewState.openReviewUrl)
+  // A `needs_sync` create blocker must expose Sync Branch, not just guidance copy.
+  const reviewShowSyncBranch = reviewState.workflowAction === 'sync_branch'
+  // Recovery actions render independently of the composer so a preserved composer still exposes Retry during a transient failure.
+  const reviewShowActionRow =
+    canPublishBranch ||
+    reviewShowSyncBranch ||
+    (reviewShowOpenReview && Boolean(reviewState.openReviewUrl)) ||
+    reviewShowRetryOrRefresh
+  return (
+    <div className="px-4 py-6">
+      {detachedHeadDisplay && (
+        <div className="mb-3">
+          <DetachedHeadBadge display={detachedHeadDisplay} side="bottom" />
+        </div>
+      )}
+      <div className="text-sm font-medium text-foreground">{emptyStateCopy.title}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{emptyStateCopy.description}</div>
+      {reviewState.detail ? (
+        <div className="mt-1 text-xs text-muted-foreground">{reviewState.detail}</div>
+      ) : null}
+      {reviewStateAutoRetryText ? (
+        <div className="mt-1 text-xs text-muted-foreground">{reviewStateAutoRetryText}</div>
+      ) : null}
+      {!operationInProgress && createComposerOpen ? (
+        <div className="mt-4 border-t border-border pt-3">
+          <CreateHostedReviewComposer
+            className="p-0"
+            provider={hostedReviewCreateProvider}
+            branch={branch}
+            base={prBase}
+            setBase={handlePrBaseChange}
+            title={prTitle}
+            setTitle={handlePrTitleChange}
+            body={prBody}
+            setBody={setPrBody}
+            draft={prDraft}
+            setDraft={setPrDraft}
+            baseQuery={prBaseQuery}
+            setBaseQuery={setPrBaseQuery}
+            baseResults={prBaseResults}
+            setBaseResults={setPrBaseResults}
+            baseSearchError={prBaseSearchError}
+            aiGenerationEnabled={sourceControlAiActionsVisible && prAiGenerationEnabled}
+            generating={prGenerating}
+            generateDisabled={prGenerateDisabled}
+            generateDisabledReason={prGenerateDisabledReason}
+            generateError={prGenerateError}
+            createError={createPrError}
+            isCreating={isCreatingPr}
+            pushBeforeCreate={shouldPushBeforeCreateReview}
+            primaryAction={{
+              disabled: isCreatingPr || isPublishingBranch || isRemoteOperationActive,
+              title: shouldPushBeforeCreateReview
+                ? translate(
+                    'auto.components.right.sidebar.ChecksPanel.98f4c37b33',
+                    'Push & Create {{value0}}',
+                    { value0: emptyReviewShortLabel }
+                  )
+                : translate(
+                    'auto.components.right.sidebar.ChecksPanel.889cdfba04',
+                    'Create {{value0}}',
+                    { value0: emptyReviewShortLabel }
+                  )
+            }}
+            onGenerate={() => void handleGeneratePullRequestFields()}
+            onCancelGenerate={handleCancelGeneratePullRequestFields}
+            onPrimaryAction={() => void handleCreatePullRequest()}
+          />
+        </div>
+      ) : null}
+      {!operationInProgress && reviewShowActionRow && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canPublishBranch && (
+            <Button
+              size="xs"
+              disabled={isPublishingBranch || isRemoteOperationActive}
+              onClick={handlePublishBranch}
+            >
+              {isPublishingBranch
+                ? translate('auto.components.right.sidebar.ChecksPanel.fdb27637f2', 'Publishing…')
+                : translate(
+                    'auto.components.right.sidebar.ChecksPanel.6633c7a1fb',
+                    'Publish Branch'
+                  )}
+            </Button>
+          )}
+          {reviewShowSyncBranch && (
+            <Button
+              size="xs"
+              disabled={isSyncingBranch || isRemoteOperationActive}
+              onClick={() => void handleSyncBranch()}
+            >
+              {isSyncingBranch
+                ? translate('auto.components.right.sidebar.ChecksPanel.sync.pending', 'Syncing…')
+                : translate(
+                    'auto.components.right.sidebar.ChecksPanel.sync.branch',
+                    'Sync Branch'
+                  )}
+            </Button>
+          )}
+          {reviewShowOpenReview && reviewState.openReviewUrl ? (
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={isRemoteOperationActive}
+              onClick={(event) =>
+                openChecksPanelHostedReviewUrl({
+                  url: reviewState.openReviewUrl as string,
+                  event,
+                  isMac: isMacPlatform(),
+                  worktreeId: activeWorktreeId
+                })
+              }
+            >
+              {translate(
+                'auto.components.right.sidebar.ChecksPanel.review.open_review',
+                'Open Review'
+              )}
+            </Button>
+          ) : null}
+          {reviewShowRetryOrRefresh ? (
+            <Button
+              size="xs"
+              variant="outline"
+              disabled={
+                emptyRefreshing ||
+                isPublishingBranch ||
+                isRemoteOperationActive ||
+                reviewRecoveryRetryDisabled
+              }
+              onClick={() => {
+                if (!activeWorktreeId) {
+                  return
+                }
+                setEmptyRefreshing(true)
+                void handleRefresh().finally(() => {
+                  setEmptyRefreshing(false)
+                })
+              }}
+            >
+              {emptyRefreshing
+                ? translate('auto.components.right.sidebar.ChecksPanel.71026ca2cb', 'Refreshing…')
+                : reviewRecoveryLabelIsRefresh
+                  ? translate('auto.components.right.sidebar.ChecksPanel.7f4489f370', 'Refresh')
+                  : translate('auto.components.right.sidebar.ChecksPanel.review.retry', 'Retry')}
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
+}
+
+}
