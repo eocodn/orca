@@ -268,12 +268,8 @@ import {
   registerTerminalSideEffectFactConsumer
 } from './terminal-side-effect-facts-handler'
 import { isRendererHiddenPtyDeliveryGateEnabled } from './terminal-hidden-delivery-gate'
-import type { DirectSshPaneRetryAttempt } from '@/store/slices/direct-ssh-terminal-recovery'
-import { directSshAuthoritiesEqual } from '@/store/slices/direct-ssh-terminal-authority-ledger'
-
 import {
   CURSOR_SHOW_SEQUENCE,
-  DIRECT_SSH_PANE_RETRY_SETTLEMENT_TIMEOUT_MS,
   FOCUS_REPORTING_DISABLE_SEQUENCE,
   FOREGROUND_BUDGET_WINDOW_MS,
   FOREGROUND_GRID_DRIFT_CHECK_MIN_MS,
@@ -348,6 +344,7 @@ import { createPtyConnectionSerializerController } from './pty-connection-serial
 import { createPtyConnectionStartupDraftController } from './pty-connection-startup-draft-controller'
 import { createPtyConnectionColdRestoreStartup } from './pty-connection-cold-restore-startup'
 import { createPtyConnectionStartupCommandDelivery } from './pty-connection-startup-command-delivery'
+import { createPtyConnectionDirectSshRetryController } from './pty-connection-direct-ssh-retry-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -1766,7 +1763,7 @@ export function connectPanePty(
     notifyCodexPaneBoundForStaleSweep(ptyId)
     const tabPtyIds = useAppStore.getState().ptyIdsByTabId?.[deps.tabId] ?? []
     const directSshRetryAttemptId =
-      capturedDirectSshRetryPtyAccepted && directSshRetryAttempt
+      hasCapturedDirectSshRetryPtyAccepted() && directSshRetryAttempt
         ? directSshRetryAttempt.attemptId
         : undefined
     if (
@@ -2222,126 +2219,25 @@ export function connectPanePty(
     !terminalOwnerUnresolved && !connectionOwnerHydrating && runtimeEnvironmentId === null
       ? (worktreeConnectionId ?? null)
       : null
-  type DirectSshRetryLease = Pick<
-    DirectSshPaneRetryAttempt,
-    'attemptId' | 'authority' | 'tabGeneration'
-  >
-  const directSshRetryAttempt: DirectSshRetryLease | undefined = (() => {
-    const pendingAttempt = state.directSshPaneRetryByTabId?.[deps.tabId]
-    const liveBinding = state.directSshLivePtyBindingByTabId?.[deps.tabId]
-    const attempt =
-      pendingAttempt?.authority.targetId === connectionId &&
-      pendingAttempt.tabGeneration === (tab?.generation ?? 0)
-        ? pendingAttempt
-        : liveBinding?.authority.targetId === connectionId &&
-            liveBinding.tabGeneration === (tab?.generation ?? 0)
-          ? liveBinding
-          : undefined
-    return attempt
-  })()
-  const pendingSpawnKey = directSshRetryAttempt
-    ? JSON.stringify([cacheKey, directSshRetryAttempt.attemptId])
-    : cacheKey
-  let capturedDirectSshRetryPtyAccepted = false
-  let directSshPaneRetrySettlementCancelled = false
-  const directSshPaneRetrySettlementTimers = new Set<ReturnType<typeof setTimeout>>()
-  const directSshPaneRetryTimedPromises = new WeakSet<object>()
-  const capturedDirectSshRetryLeaseMatches = (): boolean => {
-    if (!directSshRetryAttempt) {
-      return true
-    }
-    const currentState = useAppStore.getState()
-    const currentConnection = currentState.sshConnectionStates.get(
-      directSshRetryAttempt.authority.targetId
-    )
-    const currentTab = (currentState.tabsByWorktree[deps.worktreeId] ?? []).find(
-      (candidate) => candidate.id === deps.tabId
-    )
-    if (
-      currentConnection?.providerEpoch !== directSshRetryAttempt.authority.providerEpoch ||
-      currentConnection.connectionGeneration !==
-        directSshRetryAttempt.authority.connectionGeneration ||
-      (currentTab?.generation ?? 0) !== directSshRetryAttempt.tabGeneration
-    ) {
-      return false
-    }
-    const pendingAttempt = currentState.directSshPaneRetryByTabId?.[deps.tabId]
-    const pendingMatches =
-      pendingAttempt?.attemptId === directSshRetryAttempt.attemptId &&
-      directSshAuthoritiesEqual(pendingAttempt.authority, directSshRetryAttempt.authority) &&
-      pendingAttempt.tabGeneration === directSshRetryAttempt.tabGeneration
-    const liveBinding = currentState.directSshLivePtyBindingByTabId?.[deps.tabId]
-    const liveBindingMatchesAttempt =
-      liveBinding?.attemptId === directSshRetryAttempt.attemptId &&
-      directSshAuthoritiesEqual(liveBinding.authority, directSshRetryAttempt.authority) &&
-      liveBinding.tabGeneration === directSshRetryAttempt.tabGeneration
-    return pendingMatches || liveBindingMatchesAttempt
-  }
-  const capturedDirectSshRetryStateMatches = (ptyId: string): boolean => {
-    if (!directSshRetryAttempt) {
-      return true
-    }
-    const currentConnection = useAppStore
-      .getState()
-      .sshConnectionStates.get(directSshRetryAttempt.authority.targetId)
-    return (
-      parseAppSshPtyId(ptyId)?.connectionId === directSshRetryAttempt.authority.targetId &&
-      currentConnection?.status === 'connected' &&
-      capturedDirectSshRetryLeaseMatches()
-    )
-  }
-  const claimCapturedDirectSshRetryPty = (ptyId: string): boolean => {
-    if (!capturedDirectSshRetryStateMatches(ptyId)) {
-      return false
-    }
-    capturedDirectSshRetryPtyAccepted = directSshRetryAttempt !== undefined
-    return true
-  }
-  const canAdoptCapturedDirectSshRetryPty = (ptyId: string): boolean => {
-    const canAdopt = capturedDirectSshRetryStateMatches(ptyId)
-    if (canAdopt && directSshRetryAttempt) {
-      capturedDirectSshRetryPtyAccepted = true
-    }
-    return canAdopt
-  }
-  const settleDirectSshPaneRetryAttempt = (
-    attempt: DirectSshRetryLease | undefined,
-    status: 'failed' | 'timed-out'
-  ): void => {
-    if (!attempt) {
-      return
-    }
-    useAppStore.getState().settleDirectSshPaneRetry?.({
-      status,
-      tabId: deps.tabId,
-      attemptId: attempt.attemptId,
-      authority: attempt.authority,
-      tabGeneration: attempt.tabGeneration
-    })
-  }
-  const armDirectSshPaneRetryTimeout = (
-    promise: Promise<unknown>,
-    attempt: DirectSshRetryLease | undefined
-  ): void => {
-    if (!attempt || disposed || directSshPaneRetryTimedPromises.has(promise)) {
-      return
-    }
-    directSshPaneRetryTimedPromises.add(promise)
-    const timer = setTimeout(() => {
-      directSshPaneRetrySettlementTimers.delete(timer)
-      if (directSshPaneRetrySettlementCancelled) {
-        return
-      }
-      settleDirectSshPaneRetryAttempt(attempt, 'timed-out')
-    }, DIRECT_SSH_PANE_RETRY_SETTLEMENT_TIMEOUT_MS)
-    directSshPaneRetrySettlementTimers.add(timer)
-    void promise
-      .finally(() => {
-        directSshPaneRetrySettlementTimers.delete(timer)
-        clearTimeout(timer)
-      })
-      .catch(() => {})
-  }
+  const {
+    directSshRetryAttempt,
+    pendingSpawnKey,
+    hasCapturedDirectSshRetryPtyAccepted,
+    capturedDirectSshRetryLeaseMatches,
+    capturedDirectSshRetryStateMatches,
+    claimCapturedDirectSshRetryPty,
+    canAdoptCapturedDirectSshRetryPty,
+    settleDirectSshPaneRetryAttempt,
+    armDirectSshPaneRetryTimeout,
+    dispose: disposeDirectSshRetryController
+  } = createPtyConnectionDirectSshRetryController({
+    cacheKey,
+    connectionId,
+    worktreeId: deps.worktreeId,
+    tabId: deps.tabId,
+    tabGeneration: tab?.generation ?? 0,
+    isDisposed: () => disposed
+  })
   const shellOverride = tab?.shellOverride
   // Why: a serve/remote-runtime pane has no SSH connectionId and a Linux cwd, so
   // the native-Windows ConPTY heuristic misfires on a Windows client and wrongly
@@ -6223,7 +6119,7 @@ export function connectPanePty(
       syncHiddenRendererPtyDelivery()
       deps.syncPanePtyLayoutBinding(pane.id, ptyId)
       notifyCodexPaneBoundForStaleSweep(ptyId)
-      if (capturedDirectSshRetryPtyAccepted && directSshRetryAttempt) {
+      if (hasCapturedDirectSshRetryPtyAccepted() && directSshRetryAttempt) {
         deps.updateTabPtyId(deps.tabId, ptyId, undefined, directSshRetryAttempt.attemptId)
       } else {
         deps.updateTabPtyId(deps.tabId, ptyId)
@@ -7381,11 +7277,7 @@ export function connectPanePty(
     reconcileIfSessionMissing,
     dispose() {
       disposed = true
-      directSshPaneRetrySettlementCancelled = true
-      for (const timer of directSshPaneRetrySettlementTimers) {
-        clearTimeout(timer)
-      }
-      directSshPaneRetrySettlementTimers.clear()
+      disposeDirectSshRetryController()
       // Why: a stalled xterm replay may never reach its finally; release live-frame credit when this renderer no longer owns the stream.
       for (const chunk of deferredReattachLiveData ?? []) {
         chunk.ackCredit?.()

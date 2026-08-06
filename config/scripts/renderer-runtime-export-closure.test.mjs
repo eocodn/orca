@@ -242,6 +242,23 @@ describe('renderer runtime export closure', () => {
     expect(commandDelivery.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes direct SSH pane retry ownership through its controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-direct-ssh-retry-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionDirectSshRetryController } from './pty-connection-direct-ssh-retry-controller'"
+    )
+    expect(orchestrator).not.toContain('const capturedDirectSshRetryLeaseMatches =')
+    expect(orchestrator).not.toContain('const armDirectSshPaneRetryTimeout =')
+    expect(controller).toContain('export function createPtyConnectionDirectSshRetryController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes pane detach policy to the lifecycle policy owner', () => {
     const cleanup = read(
       'src/renderer/src/components/terminal-pane/terminal-pane-lifecycle-manager-cleanup.ts'
