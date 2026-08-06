@@ -63,11 +63,7 @@ import { useTaskPageLinearProjectIssuesState } from './use-task-page-linear-proj
 import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-state'
 import { useTaskPageLinearCustomViewDataState } from './use-task-page-linear-custom-view-data-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
-import {
-  getSingleJiraProjectScope,
-  getTaskPageJiraStatusOrderScopeKey,
-  loadTaskPageJiraProjectStatusOrder
-} from '@/components/task-page-jira-status-order'
+import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
 import {
   getTaskPresetQuery,
@@ -117,10 +113,7 @@ import {
   resolveUserRepoSwitchReset
 } from '@/components/task-page-new-issue-draft'
 import { getRepoBackedTaskEmptyState } from '@/components/task-page-empty-state'
-import {
-  createTaskPageJiraLoadFailureState,
-  type TaskPageJiraLoadError
-} from '@/components/task-page-jira-load-state'
+import type { TaskPageJiraLoadError } from '@/components/task-page-jira-load-state'
 import { deriveTaskPagePRCheckSummary } from '@/components/task-page-pr-check-summary'
 import type {
   GitHubWorkItem,
@@ -200,7 +193,6 @@ import {
 
 const TASK_SEARCH_DEBOUNCE_MS = 300
 const LINEAR_ITEM_LIMIT = 36
-const JIRA_ITEM_LIMIT = 50
 const PR_CHECKS_EAGER_PREFETCH_LIMIT = 20
 
 const GITHUB_TASK_GRID_CLASS =
@@ -3007,83 +2999,25 @@ export default function TaskPage(): React.JSX.Element {
     setTaskResumeState({ jiraQuery: appliedJiraSearch.trim() })
   }, [appliedJiraSearch, setTaskResumeState, taskResumeApplied])
 
-  useEffect(() => {
-    if (!taskResumeApplied) {
-      return
-    }
-    if (taskSource !== 'jira') {
-      return
-    }
-    if (!jiraConnected) {
-      return
-    }
-
-    let cancelled = false
-    setJiraLoading(true)
-    setJiraError(null)
-    setJiraErrorDetailsOpen(false)
-
-    const trimmed = appliedJiraSearch.trim()
-    const request =
-      trimmed.length > 0
-        ? searchJiraIssues(trimmed, JIRA_ITEM_LIMIT, { sourceContext: jiraTaskSourceContext })
-        : listJiraIssues(activeJiraPreset, JIRA_ITEM_LIMIT, {
-            sourceContext: jiraTaskSourceContext
-          })
-
-    void request
-      .then((issues) => {
-        if (cancelled) {
-          return
-        }
-        setJiraIssues(issues)
-        setJiraLoading(false)
-        const projectScope = getSingleJiraProjectScope(issues)
-        if (!projectScope) {
-          return
-        }
-        const statusOrderScopeKey = getTaskPageJiraStatusOrderScopeKey(
-          jiraTaskSourceScopeKey,
-          projectScope
-        )
-        void loadTaskPageJiraProjectStatusOrder(
-          jiraTaskSourceContext ?? settings,
-          jiraTaskSourceScopeKey,
-          projectScope
-        ).then((order) => {
-          if (!cancelled) {
-            setJiraProjectStatusOrder({
-              order,
-              scopeKey: statusOrderScopeKey
-            })
-          }
-        })
-      })
-      .catch((err) => {
-        if (cancelled) {
-          return
-        }
-        const failureState = createTaskPageJiraLoadFailureState(err)
-        setJiraIssues(failureState.issues)
-        setJiraError(failureState.error)
-        setJiraLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    taskSource,
-    jiraConnected,
-    selectedJiraSiteId,
-    appliedJiraSearch,
+  useTaskPageJiraListDataState({
     activeJiraPreset,
+    appliedJiraSearch,
+    jiraConnected,
     jiraRefreshNonce,
-    taskResumeApplied,
+    selectedJiraSiteId,
     jiraTaskSourceContext,
-    jiraTaskSourceScopeKey
-  ])
+    jiraTaskSourceScopeKey,
+    listJiraIssues,
+    searchJiraIssues,
+    settings,
+    setJiraError,
+    setJiraErrorDetailsOpen,
+    setJiraIssues,
+    setJiraLoading,
+    setJiraProjectStatusOrder,
+    taskResumeApplied,
+    taskSource
+  })
 
   useEffect(() => {
     if (!taskResumeApplied || taskSource !== 'jira') {
