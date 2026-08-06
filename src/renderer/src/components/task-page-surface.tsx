@@ -61,6 +61,7 @@ import { useTaskPageLinearProjectDetailState } from './use-task-page-linear-proj
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
 import { useTaskPageLinearProjectIssuesState } from './use-task-page-linear-project-issues-state'
 import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-state'
+import { useTaskPageLinearCustomViewDataState } from './use-task-page-linear-custom-view-data-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import {
   getSingleJiraProjectScope,
@@ -125,7 +126,6 @@ import type {
   GitHubWorkItem,
   GitLabWorkItem,
   LinearCollectionResult,
-  LinearCustomViewModel,
   LinearCustomViewSummary,
   JiraIssue,
   JiraProject,
@@ -175,8 +175,7 @@ import { groupLinearIssues, type LinearGroupSection } from './task-page-linear-g
 import {
   DEFAULT_LINEAR_DISPLAY_PROPERTIES,
   findLinearWorkflowStateForStatus,
-  getLinearStatusSectionState,
-  mergeLinearCollectionResults
+  getLinearStatusSectionState
 } from './task-page-linear-model'
 import {
   getEffectiveLinearDisplayProperties,
@@ -210,8 +209,6 @@ const GITHUB_PR_TASK_GRID_CLASS =
   'min-w-[1020px] grid-cols-[72px_minmax(360px,2fr)_132px_128px_132px_92px_158px]'
 
 type LinearProjectTab = 'overview' | 'issues'
-
-const LINEAR_CUSTOM_VIEW_MODELS = ['issue', 'project'] satisfies readonly LinearCustomViewModel[]
 
 export default function TaskPage(): React.JSX.Element {
   const taskPageStoreBindings = useTaskPageStoreBindings()
@@ -2931,123 +2928,28 @@ export default function TaskPage(): React.JSX.Element {
     setLinearProjectIssuesResult
   })
 
-  useEffect(() => {
-    if (!taskResumeApplied || taskSource !== 'linear' || linearMode !== 'views') {
-      return
-    }
-    if (!linearConnected || selectedLinearCustomView) {
-      return
-    }
-    let cancelled = false
-    const cachedResults = LINEAR_CUSTOM_VIEW_MODELS.map((model) =>
-      getCachedLinearCustomViews(model, LINEAR_ITEM_LIMIT, undefined, {
-        sourceContext: linearTaskSourceContext
-      })
-    )
-    const allCached = cachedResults.every(
-      (result): result is LinearCollectionResult<LinearCustomViewSummary> => result !== null
-    )
-    if (allCached) {
-      setLinearCustomViewsResult(mergeLinearCollectionResults(cachedResults))
-    }
-    const force = linearRefreshNonce > 0
-    setLinearCustomViewsLoading(force || !allCached)
-    setLinearCustomViewsError(null)
-    // Why: the Views tab already has a Model column, so list both models rather than add a redundant Issues/Projects switch.
-    void Promise.all(
-      LINEAR_CUSTOM_VIEW_MODELS.map((model) =>
-        listLinearCustomViews(model, LINEAR_ITEM_LIMIT, undefined, {
-          force,
-          sourceContext: linearTaskSourceContext
-        })
-      )
-    )
-      .then((result) => {
-        if (!cancelled) {
-          setLinearCustomViewsResult(mergeLinearCollectionResults(result))
-          setLinearCustomViewsLoading(false)
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setLinearCustomViewsError(
-            error instanceof Error ? error.message : 'Failed to load views.'
-          )
-          setLinearCustomViewsLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    taskResumeApplied,
-    taskSource,
-    linearMode,
-    linearConnected,
-    selectedLinearWorkspaceId,
-    selectedLinearCustomView,
-    linearRefreshNonce,
+  useTaskPageLinearCustomViewDataState({
     getCachedLinearCustomViews,
-    listLinearCustomViews,
-    linearTaskSourceContext
-  ])
-
-  useEffect(() => {
-    if (!selectedLinearCustomView?.workspaceId) {
-      setLinearCustomViewIssuesResult({ items: [] })
-      setLinearCustomViewProjectsResult({ items: [] })
-      return
-    }
-    let cancelled = false
-    setLinearCustomViewContentsLoading(true)
-    setLinearCustomViewContentsError(null)
-    const issueLimit = clampLinearIssueListLimit(linearCustomViewIssueLimit)
-    const request =
-      selectedLinearCustomView.model === 'issue'
-        ? listLinearCustomViewIssues(
-            selectedLinearCustomView.id,
-            selectedLinearCustomView.workspaceId,
-            issueLimit,
-            { force: linearRefreshNonce > 0, sourceContext: linearTaskSourceContext }
-          )
-        : listLinearCustomViewProjects(
-            selectedLinearCustomView.id,
-            selectedLinearCustomView.workspaceId,
-            LINEAR_ITEM_LIMIT,
-            { force: linearRefreshNonce > 0, sourceContext: linearTaskSourceContext }
-          )
-    void request
-      .then((result) => {
-        if (cancelled) {
-          return
-        }
-        if (selectedLinearCustomView.model === 'issue') {
-          setLinearCustomViewIssuesResult(result as LinearCollectionResult<LinearIssue>)
-        } else {
-          setLinearCustomViewProjectsResult(result as LinearCollectionResult<LinearProjectSummary>)
-        }
-        setLinearCustomViewContentsLoading(false)
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setLinearCustomViewContentsError(
-            error instanceof Error ? error.message : 'Failed to load view contents.'
-          )
-          setLinearCustomViewContentsLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [
-    linearRefreshNonce,
+    linearConnected,
     linearCustomViewIssueLimit,
+    linearMode,
+    linearRefreshNonce,
+    linearTaskSourceContext,
     listLinearCustomViewIssues,
     listLinearCustomViewProjects,
-    linearTaskSourceContext,
-    selectedLinearCustomView
-  ])
+    listLinearCustomViews,
+    selectedLinearCustomView,
+    selectedLinearWorkspaceId,
+    setLinearCustomViewContentsError,
+    setLinearCustomViewContentsLoading,
+    setLinearCustomViewIssuesResult,
+    setLinearCustomViewProjectsResult,
+    setLinearCustomViewsError,
+    setLinearCustomViewsLoading,
+    setLinearCustomViewsResult,
+    taskResumeApplied,
+    taskSource
+  })
 
   useEffect(() => {
     if (!taskResumeApplied || taskSource !== 'linear') {
