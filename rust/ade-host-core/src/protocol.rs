@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 mod file_git_protocol;
 pub use file_git_protocol::{
-    ExecutionContext, ExecutionTarget, FileResponseOperation, FileWorkerRequest,
-    FileWorkerResponse, GitResponseOperation, GitWorkerRequest, GitWorkerResponse, GitWorktree,
-    OwnershipContext, WorkspaceKind,
+    ExecutionContext, ExecutionTarget, FileResponseOperation, FileWorkerOperation,
+    FileWorkerRequest, FileWorkerResponse, GitResponseOperation, GitWorkerOperation,
+    GitWorkerRequest, GitWorkerResponse, GitWorktree, OwnershipContext, WorkspaceKind,
 };
 
 pub const PROTOCOL_VERSION: u16 = 1;
