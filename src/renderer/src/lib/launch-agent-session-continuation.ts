@@ -68,26 +68,6 @@ async function ensureAgentAvailable(agent: TuiAgent, worktreeId: string): Promis
   return false
 }
 
-async function preflightAgentTrust(args: {
-  agent: TuiAgent
-  workspacePath: string
-  connectionId: string | null | undefined
-}): Promise<void> {
-  const preset = TUI_AGENT_CONFIG[args.agent].preflightTrust
-  if (!preset || !args.workspacePath || !window.api.agentTrust?.markTrusted) {
-    return
-  }
-  try {
-    await window.api.agentTrust.markTrusted({
-      preset,
-      workspacePath: args.workspacePath,
-      ...(args.connectionId ? { connectionId: args.connectionId } : {})
-    })
-  } catch {
-    // Why: a failed best-effort trust write should not discard a prepared handoff.
-  }
-}
-
 export async function launchAgentSessionContinuation({
   agent,
   prompt,
@@ -102,7 +82,6 @@ export async function launchAgentSessionContinuation({
   }
 
   const connectionId = getConnectionIdFromState(useAppStore.getState(), worktreeId)
-  await preflightAgentTrust({ agent, workspacePath, connectionId })
 
   const label = getAgentLabel(agent)
   const result = launchAgentInNewTab({

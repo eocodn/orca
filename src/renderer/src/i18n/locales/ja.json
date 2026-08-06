@@ -5204,10 +5204,7 @@
           "remoteEmptyClaudeAccounts": "{{value0}} に管理対象の Claude アカウントはありません。システム既定の Claude ログインを使用します。アカウントの追加はそのサーバー上で行ってください。",
           "remoteEmptyCodexAccounts": "{{value0}} に管理対象の Codex アカウントはありません。システム既定の Codex ログインを使用します。アカウントの追加はそのサーバー上で行ってください。",
           "codexSystemDefaultCustomProvider": "カスタムプロバイダー — 使用量は追跡されません。",
-          "codexSystemDefaultNeedsSignIn": "{{value0}} の Codex サインインが見つかりません。",
-          "codexConfigSyncMissingSource": "Codex is still using the settings it last synced because {{value0}} is missing. Restore that file to resume syncing.",
-          "codexConfigSyncBlankSource": "Codex is still using the settings it last synced because {{value0}} is empty. That is expected while a synced folder finishes downloading.",
-          "codexConfigSyncUnreadableSource": "Codex is still using the settings it last synced because {{value0}} could not be read. Check that file's permissions."
+          "codexSystemDefaultNeedsSignIn": "{{value0}} の Codex サインインが見つかりません。"
         },
         "AdvancedPane": {
           "40b29e0bf3": "再起動",
@@ -9006,10 +9003,6 @@
           "e5995ce268": "agents 作業中はコンピューターを起きたままにする",
           "95d3031db2": "agents が作業している間、このコンピューターとディスプレイを起きたままにします。蓋を閉じたときの動作は、このデバイスの電源設定に従います。",
           "a42f6fbdd8": "agents が作業している間、このコンピューターとディスプレイを起きたままにします。Orca は電源ポリシーに従い、蓋が閉じているときもこのデバイスを起きたままにするよう要求します。"
-        },
-        "agent-status-hooks-copy": {
-          "7707c15abb": "Agent 状態フック",
-          "a68a642835": "Orca で作業中、待機中、完了の状態を表示します。オフにすると Orca 管理のフックを削除し、再インストールを停止します。"
         },
         "agent-generated-tab-title-copy": {
           "19ad21615a": "タブタイトルを自動生成",

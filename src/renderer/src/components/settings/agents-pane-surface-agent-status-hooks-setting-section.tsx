@@ -30,7 +30,6 @@ import {
   getAgentGeneratedTabTitlesDescription,
   getAgentGeneratedTabTitlesTitle
 } from './agent-generated-tab-title-copy'
-import { getAgentStatusHooksDescription, getAgentStatusHooksTitle } from './agent-status-hooks-copy'
 import {
   SettingsBadge,
   SettingsSegmentedControl,
@@ -60,27 +59,6 @@ import { parseAgentDefaultEnvDraft, stringifyAgentDefaultEnvDraft } from './agen
 export { getAgentsPaneSearchEntries } from './agents-search'
 import { buildAgentAvailabilitySettingsUpdate, createAgentAvailabilityUpdateQueue, enqueueAgentAvailabilityUpdate, AgentAvailabilityControl, AgentPermissionsSetting, AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentsPane } from './agents-pane-surface'
 import type { AgentsPaneProps, AgentAvailabilityUpdateQueueOptions, AgentRowProps, AgentCommandOverrideInputProps, AgentDefaultArgsInputProps, AgentDefaultEnvInputProps, AgentAvailability, AgentAvailabilityControlProps, AgentPermissionsSettingProps, DefaultAgentPillProps } from './agents-pane-surface'
-export function AgentStatusHooksSetting({
-  settings,
-  updateSettings
-}: AgentsPaneProps): React.JSX.Element {
-  const enabled = settings.agentStatusHooksEnabled !== false
-  return (
-    <section className="space-y-3">
-      <SettingsSwitchRow
-        label={getAgentStatusHooksTitle()}
-        description={getAgentStatusHooksDescription()}
-        checked={enabled}
-        onChange={() =>
-          updateSettings({
-            agentStatusHooksEnabled: !enabled
-          })
-        }
-        ariaLabel={getAgentStatusHooksTitle()}
-      />
-    </section>
-  )
-}
 export function AgentGeneratedTabTitlesSetting({
   settings,
   updateSettings

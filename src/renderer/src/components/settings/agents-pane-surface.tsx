@@ -30,7 +30,6 @@ import {
   getAgentGeneratedTabTitlesDescription,
   getAgentGeneratedTabTitlesTitle
 } from './agent-generated-tab-title-copy'
-import { getAgentStatusHooksDescription, getAgentStatusHooksTitle } from './agent-status-hooks-copy'
 import {
   SettingsBadge,
   SettingsSegmentedControl,
@@ -63,7 +62,7 @@ import { AgentsPaneProps, AgentAvailabilityUpdateQueueOptions, AgentRowProps, Ag
 import { AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput } from './agents-pane-surface-agent-command-override-input-section'
 import { AgentRow, DefaultAgentPillProps, DefaultAgentPill } from './agents-pane-surface-agent-row-section'
 import { AgentsPane } from './agents-pane-surface-agents-pane-section'
-import { AgentStatusHooksSetting, AgentGeneratedTabTitlesSetting } from './agents-pane-surface-agent-status-hooks-setting-section'
+import { AgentGeneratedTabTitlesSetting } from './agents-pane-surface-agent-status-hooks-setting-section'
 
-export { buildAgentAvailabilitySettingsUpdate, createAgentAvailabilityUpdateQueue, enqueueAgentAvailabilityUpdate, AgentAvailabilityControl, AgentPermissionsSetting, AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentsPane, AgentStatusHooksSetting, AgentGeneratedTabTitlesSetting }
+export { buildAgentAvailabilitySettingsUpdate, createAgentAvailabilityUpdateQueue, enqueueAgentAvailabilityUpdate, AgentAvailabilityControl, AgentPermissionsSetting, AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentsPane, AgentGeneratedTabTitlesSetting }
 export type { AgentsPaneProps, AgentAvailabilityUpdateQueueOptions, AgentRowProps, AgentCommandOverrideInputProps, AgentDefaultArgsInputProps, AgentDefaultEnvInputProps, AgentAvailability, AgentAvailabilityControlProps, AgentPermissionsSettingProps, DefaultAgentPillProps }

@@ -9,11 +9,6 @@ import {
   getAgentGeneratedTabTitlesSearchKeywords,
   getAgentGeneratedTabTitlesTitle
 } from './agent-generated-tab-title-copy'
-import {
-  getAgentStatusHooksDescription,
-  getAgentStatusHooksSearchKeywords,
-  getAgentStatusHooksTitle
-} from './agent-status-hooks-copy'
 import { getAgentCacheTimerSearchEntries } from './agent-cache-timer-search'
 import { translate } from '@/i18n/i18n'
 import { searchKeywords, translateSearchKeyword, uniqueKeywords } from './settings-search-keywords'
@@ -100,11 +95,6 @@ const getAllAgentsPaneSearchEntries = createLocalizedCatalog(() => [
       ),
       ...translateSearchKeyword('auto.components.settings.agents.search.719f53350c', 'path')
     ]
-  },
-  {
-    title: getAgentStatusHooksTitle(),
-    description: getAgentStatusHooksDescription(),
-    keywords: getAgentStatusHooksSearchKeywords()
   },
   {
     title: getAgentGeneratedTabTitlesTitle(),

@@ -118,9 +118,6 @@ import { pickTuiAgent } from '../../../shared/tui-agent-selection'
 const mockApi = {
   worktrees: {
     resolvePrBase: mocks.resolvePrBase
-  },
-  agentTrust: {
-    markTrusted: vi.fn()
   }
 }
 
@@ -131,9 +128,6 @@ describe('launchWorkItemDirect', () => {
       api: {
         worktrees: {
           resolvePrBase: mocks.resolvePrBase
-        },
-        agentTrust: {
-          markTrusted: mockApi.agentTrust.markTrusted
         }
       }
     })
@@ -189,7 +183,6 @@ describe('launchWorkItemDirect', () => {
     } as typeof mocks.store
     // @ts-expect-error -- test shim
     globalThis.window = { api: mockApi }
-    mockApi.agentTrust.markTrusted.mockResolvedValue(undefined)
   })
 
   it('rejects invalid per-launch CLI arguments before creating a workspace', async () => {
@@ -503,11 +496,6 @@ describe('launchWorkItemDirect', () => {
 
     expect(mocks.store.ensureDetectedAgents).not.toHaveBeenCalled()
     expect(mocks.store.ensureRemoteDetectedAgents).toHaveBeenCalledWith('ssh-1')
-    expect(mockApi.agentTrust.markTrusted).toHaveBeenCalledWith({
-      preset: 'cursor',
-      workspacePath: '/home/orca/repo-worktrees/issue-77',
-      connectionId: 'ssh-1'
-    })
     expect(buildAgentDraftLaunchPlan).toHaveBeenCalledWith({
       agent: 'cursor',
       draft: 'https://github.com/acme/repo/issues/77',

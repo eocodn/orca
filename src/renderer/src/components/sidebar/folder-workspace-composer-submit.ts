@@ -143,29 +143,6 @@ export function buildFolderWorkspaceLinkedStartupPlan(args: {
   return startupPlan
 }
 
-async function preflightFolderWorkspaceAgentTrust(args: {
-  agent: TuiAgent | null
-  workspacePath: string | null
-  connectionId?: string | null
-}): Promise<void> {
-  if (!args.agent || !window.api.agentTrust?.markTrusted) {
-    return
-  }
-  const preflight = TUI_AGENT_CONFIG[args.agent].preflightTrust
-  if (!preflight || !args.workspacePath) {
-    return
-  }
-  try {
-    await window.api.agentTrust.markTrusted({
-      preset: preflight,
-      workspacePath: args.workspacePath,
-      ...(args.connectionId ? { connectionId: args.connectionId } : {})
-    })
-  } catch {
-    // Best-effort: the user can still accept the agent trust prompt manually.
-  }
-}
-
 export async function submitFolderWorkspaceCreate({
   projectGroup,
   name,
@@ -255,11 +232,6 @@ export async function submitFolderWorkspaceCreate({
   if (!workspace) {
     return false
   }
-  await preflightFolderWorkspaceAgentTrust({
-    agent: quickAgent,
-    workspacePath: workspace.folderPath,
-    connectionId: workspace.connectionId ?? projectGroup.connectionId
-  })
   if (startupPlan && !startupPlan.launchToken) {
     // Why: delayed delivery must target the exact pane spawned from this queued
     // startup, so both halves share one renderer-session token.

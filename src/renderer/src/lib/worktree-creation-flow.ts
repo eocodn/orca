@@ -98,33 +98,6 @@ function revealPendingCreation(
   store.setSidebarOpen(true)
 }
 
-async function preflightAgentTrust(
-  request: WorktreeCreationRequest,
-  path: string,
-  connectionId?: string | null
-): Promise<void> {
-  // Why: trust-gated agents (cursor-agent, copilot) consume the bracketed paste
-  // as menu input on first launch. Pre-write the trust artifact before any
-  // terminal spawns. Best-effort — the worktree already exists, so a failure
-  // here must not strand it.
-  if (!request.agent || !window.api.agentTrust?.markTrusted) {
-    return
-  }
-  const preflight = TUI_AGENT_CONFIG[request.agent].preflightTrust
-  if (!preflight) {
-    return
-  }
-  try {
-    await window.api.agentTrust.markTrusted({
-      preset: preflight,
-      workspacePath: path,
-      ...(connectionId ? { connectionId } : {})
-    })
-  } catch {
-    // Best-effort: continue with launch.
-  }
-}
-
 async function executeWorktreeCreation(
   creationId: string,
   request: WorktreeCreationRequest
@@ -213,7 +186,6 @@ async function executeWorktreeCreation(
   if (worktree.path) {
     const repoConnectionId =
       useAppStore.getState().repos.find((repo) => repo.id === worktree.repoId)?.connectionId ?? null
-    await preflightAgentTrust(preparedRequest, worktree.path, repoConnectionId)
   }
 
   // `createWorktree` already inserted the real worktree row. Leaving for an app

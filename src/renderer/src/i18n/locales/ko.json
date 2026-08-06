@@ -5204,10 +5204,7 @@
           "remoteEmptyClaudeAccounts": "{{value0}}에 관리되는 Claude 계정이 없습니다. 해당 서버의 시스템 기본 Claude 로그인을 사용하며, 계정 추가는 그 서버에서 진행하세요.",
           "remoteEmptyCodexAccounts": "{{value0}}에 관리되는 Codex 계정이 없습니다. 해당 서버의 시스템 기본 Codex 로그인을 사용하며, 계정 추가는 그 서버에서 진행하세요.",
           "codexSystemDefaultCustomProvider": "사용자 지정 제공업체 — 사용량을 추적하지 않습니다.",
-          "codexSystemDefaultNeedsSignIn": "{{value0}}에 대한 Codex 로그인을 찾을 수 없습니다.",
-          "codexConfigSyncMissingSource": "Codex is still using the settings it last synced because {{value0}} is missing. Restore that file to resume syncing.",
-          "codexConfigSyncBlankSource": "Codex is still using the settings it last synced because {{value0}} is empty. That is expected while a synced folder finishes downloading.",
-          "codexConfigSyncUnreadableSource": "Codex is still using the settings it last synced because {{value0}} could not be read. Check that file's permissions."
+          "codexSystemDefaultNeedsSignIn": "{{value0}}에 대한 Codex 로그인을 찾을 수 없습니다."
         },
         "AdvancedPane": {
           "40b29e0bf3": "다시 시작",
@@ -8969,10 +8966,6 @@
           "e5995ce268": "agents 작업 중 컴퓨터를 깨어 있게 유지",
           "95d3031db2": "agents가 작업하는 동안 이 컴퓨터와 디스플레이를 깨어 있게 유지합니다. 뚜껑을 닫을 때의 동작은 이 기기의 전원 설정을 따릅니다.",
           "a42f6fbdd8": "agents가 작업하는 동안 이 컴퓨터와 디스플레이를 깨어 있게 유지합니다. Orca는 전원 정책에 따라 뚜껑이 닫혀 있을 때도 이 기기를 깨어 있게 유지하도록 요청합니다."
-        },
-        "agent-status-hooks-copy": {
-          "7707c15abb": "Agent 상태 훅",
-          "a68a642835": "Orca에서 작업 중, 대기 중, 완료 상태를 표시합니다. 끄면 Orca가 관리하는 훅을 제거하고 재설치를 중단합니다."
         },
         "agent-generated-tab-title-copy": {
           "19ad21615a": "탭 제목 자동 생성",

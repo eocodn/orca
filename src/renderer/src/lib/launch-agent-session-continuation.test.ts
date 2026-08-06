@@ -44,9 +44,7 @@ describe('launchAgentSessionContinuation', () => {
       tabId: 'tab-new',
       promptDeliveryResult: Promise.resolve({ delivered: true, failureNotified: false })
     })
-    vi.stubGlobal('window', {
-      api: { agentTrust: { markTrusted: vi.fn(async () => undefined) } }
-    })
+    vi.stubGlobal('window', { api: {} })
   })
 
   afterEach(() => vi.unstubAllGlobals())

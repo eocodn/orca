@@ -246,29 +246,6 @@ export async function launchWorkItemDirect(args: LaunchWorkItemDirectArgs): Prom
         // Non-critical: activation still has the explicit startup below.
       })
     }
-    // Why: agents that gate first-launch behind a "Do you trust this folder?"
-    // menu (cursor-agent, copilot) consume the bracketed paste as menu input.
-    // Pre-write the same trust artifact those CLIs write after the user
-    // accepts so the menu never fires. Best-effort — main swallows errors,
-    // and we guard the IPC presence so a stale preload bundle (which can
-    // ship a renderer that's ahead of the loaded preload) doesn't crash the
-    // launch with "Cannot read properties of undefined".
-    if (effectiveAgent && worktreePath && window.api.agentTrust?.markTrusted) {
-      const preflight = TUI_AGENT_CONFIG[effectiveAgent].preflightTrust
-      if (preflight) {
-        try {
-          await window.api.agentTrust.markTrusted({
-            preset: preflight,
-            workspacePath: worktreePath,
-            ...(repo.connectionId ? { connectionId: repo.connectionId } : {})
-          })
-        } catch {
-          // Best-effort: continue with launch even if the trust write
-          // throws. The user can dismiss the trust menu manually.
-        }
-      }
-    }
-
     ;({ startupPlan, draftLaunchedNatively, startupPlanFailed } =
       buildDirectWorkItemAgentStartupPlan({
         agent: effectiveAgent,

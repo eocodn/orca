@@ -30,7 +30,6 @@ import {
   getAgentGeneratedTabTitlesDescription,
   getAgentGeneratedTabTitlesTitle
 } from './agent-generated-tab-title-copy'
-import { getAgentStatusHooksDescription, getAgentStatusHooksTitle } from './agent-status-hooks-copy'
 import {
   SettingsBadge,
   SettingsSegmentedControl,
@@ -58,7 +57,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { parseAgentDefaultEnvDraft, stringifyAgentDefaultEnvDraft } from './agent-default-env-draft'
 
 export { getAgentsPaneSearchEntries } from './agents-search'
-import { buildAgentAvailabilitySettingsUpdate, createAgentAvailabilityUpdateQueue, enqueueAgentAvailabilityUpdate, AgentAvailabilityControl, AgentPermissionsSetting, AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentStatusHooksSetting, AgentGeneratedTabTitlesSetting } from './agents-pane-surface'
+import { buildAgentAvailabilitySettingsUpdate, createAgentAvailabilityUpdateQueue, enqueueAgentAvailabilityUpdate, AgentAvailabilityControl, AgentPermissionsSetting, AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentGeneratedTabTitlesSetting } from './agents-pane-surface'
 import type { AgentsPaneProps, AgentAvailabilityUpdateQueueOptions, AgentRowProps, AgentCommandOverrideInputProps, AgentDefaultArgsInputProps, AgentDefaultEnvInputProps, AgentAvailability, AgentAvailabilityControlProps, AgentPermissionsSettingProps, DefaultAgentPillProps } from './agents-pane-surface'
 export function AgentsPane({
   settings,
@@ -243,8 +242,6 @@ export function AgentsPane({
         wslDistros={wslDistros}
         wslCapabilitiesLoading={wslCapabilitiesLoading}
       />
-
-      <AgentStatusHooksSetting settings={settings} updateSettings={updateSettings} />
 
       <AgentGeneratedTabTitlesSetting settings={settings} updateSettings={updateSettings} />
 

@@ -11,7 +11,6 @@ const mockToast = {
   success: vi.fn()
 }
 const mockWriteClipboardText = vi.fn(async () => undefined)
-const mockMarkTrusted = vi.fn(async () => undefined)
 const LEAF_ID = '11111111-1111-4111-8111-111111111111'
 
 const store = {
@@ -101,14 +100,10 @@ describe('forkAgentSessionFromPane', () => {
       pasteDraftAfterLaunch: true
     })
     mockWriteClipboardText.mockResolvedValue(undefined)
-    mockMarkTrusted.mockResolvedValue(undefined)
     vi.stubGlobal('window', {
       api: {
         ui: {
           writeTerminalClipboardText: mockWriteClipboardText
-        },
-        agentTrust: {
-          markTrusted: mockMarkTrusted
         },
         platform: {
           get: () => ({ platform: 'win32' })
@@ -180,13 +175,6 @@ describe('forkAgentSessionFromPane', () => {
       groupId: null
     })
 
-    expect(mockMarkTrusted).toHaveBeenCalledWith({
-      preset: 'codex',
-      workspacePath: '/repo/worktrees/auth-feature-fork'
-    })
-    expect(mockMarkTrusted.mock.invocationCallOrder[0]).toBeLessThan(
-      mockLaunchAgentInNewTab.mock.invocationCallOrder[0]
-    )
     expect(mockLaunchAgentInNewTab).toHaveBeenCalled()
   })
 
@@ -210,11 +198,6 @@ describe('forkAgentSessionFromPane', () => {
       groupId: null
     })
 
-    expect(mockMarkTrusted).toHaveBeenCalledWith({
-      preset: 'codex',
-      workspacePath: '/home/u/repo/auth-feature-fork',
-      connectionId: 'ssh-1'
-    })
     expect(mockLaunchAgentInNewTab).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: 'codex',
@@ -297,7 +280,6 @@ describe('forkAgentSessionFromPane', () => {
         path: '/repo/worktrees/auth-feature-fork'
       }
     })
-    mockMarkTrusted.mockRejectedValueOnce(new Error('trust write failed'))
     const { forkAgentSessionFromPane } = await import('./terminal-agent-session-fork')
 
     await forkAgentSessionFromPane({
@@ -307,10 +289,6 @@ describe('forkAgentSessionFromPane', () => {
       groupId: null
     })
 
-    expect(mockMarkTrusted).toHaveBeenCalledWith({
-      preset: 'codex',
-      workspacePath: '/repo/worktrees/auth-feature-fork'
-    })
     expect(mockLaunchAgentInNewTab).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: 'codex',

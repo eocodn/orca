@@ -5245,10 +5245,7 @@
           "remoteEmptyClaudeAccounts": "No managed Claude accounts on {{value0}}. It uses its system default Claude login; add accounts on that server.",
           "remoteEmptyCodexAccounts": "No managed Codex accounts on {{value0}}. It uses its system default Codex login; add accounts on that server.",
           "codexSystemDefaultCustomProvider": "Custom provider — no usage tracked.",
-          "codexSystemDefaultNeedsSignIn": "No Codex sign-in was found for {{value0}}.",
-          "codexConfigSyncMissingSource": "Codex is still using the settings it last synced because {{value0}} is missing. Restore that file to resume syncing.",
-          "codexConfigSyncBlankSource": "Codex is still using the settings it last synced because {{value0}} is empty. That is expected while a synced folder finishes downloading.",
-          "codexConfigSyncUnreadableSource": "Codex is still using the settings it last synced because {{value0}} could not be read. Check that file's permissions."
+          "codexSystemDefaultNeedsSignIn": "No Codex sign-in was found for {{value0}}."
         },
         "AdvancedPane": {
           "40b29e0bf3": "Restart",
@@ -9041,10 +9038,6 @@
           "e5995ce268": "Keep computer awake while agents are working",
           "95d3031db2": "Keeps this computer and display awake while agents are working. Lid-close behavior follows this device's power settings.",
           "a42f6fbdd8": "Keeps this computer and display awake while agents are working. Orca also asks this device to stay awake when the lid is closed, subject to its power policy."
-        },
-        "agent-status-hooks-copy": {
-          "7707c15abb": "Agent status hooks",
-          "a68a642835": "Shows working, waiting, and done states in Orca. Turn off to remove Orca-managed hooks and stop reinstalling them."
         },
         "agent-generated-tab-title-copy": {
           "19ad21615a": "Auto-generate tab titles",

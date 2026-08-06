@@ -194,7 +194,6 @@ export function stubAgentBackgroundSessionWindow(mocks: {
     dispatchEvent: mocks.dispatchEvent,
     api: {
       pty: { spawn: mocks.spawn, write: mocks.write, kill: mocks.kill },
-      agentTrust: { markTrusted: mocks.markTrusted },
       runtime: { call: vi.fn() },
       runtimeEnvironments: {
         call: mocks.runtimeEnvironmentCall,

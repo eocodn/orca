@@ -65,13 +65,6 @@ function makeFolderWorkspace(overrides: Partial<FolderWorkspace> = {}): FolderWo
 describe('submitFolderWorkspaceCreate', () => {
   beforeEach(() => {
     mocks.activateAndRevealFolderWorkspace.mockReturnValue({ primaryTabId: 'tab-1' })
-    Object.assign(window, {
-      api: {
-        agentTrust: {
-          markTrusted: vi.fn().mockResolvedValue(undefined)
-        }
-      }
-    })
   })
 
   afterEach(() => {
@@ -306,10 +299,6 @@ describe('submitFolderWorkspaceCreate', () => {
     expect(startup?.command).toBe('codex')
     expect(startup?.command).not.toContain(linkedWorkItem.url)
     expect(startup?.command).not.toContain('Review this before starting')
-    expect(window.api.agentTrust?.markTrusted).toHaveBeenCalledWith({
-      preset: 'codex',
-      workspacePath: '/repo/platform/hi'
-    })
     expect(mocks.ensureAgentStartupInTerminal).toHaveBeenCalledWith({
       worktreeId: folderWorkspaceKey('folder-workspace-1'),
       primaryTabId: 'tab-1',
@@ -357,11 +346,6 @@ describe('submitFolderWorkspaceCreate', () => {
       onOpenChange: vi.fn()
     })
 
-    expect(window.api.agentTrust?.markTrusted).toHaveBeenCalledWith({
-      preset: 'codex',
-      workspacePath: '/home/alice/platform/Trust remote folder draft',
-      connectionId: 'ssh-1'
-    })
     expect(mocks.ensureAgentStartupInTerminal).toHaveBeenCalledWith(
       expect.objectContaining({
         worktreeId: folderWorkspaceKey('folder-workspace-1'),

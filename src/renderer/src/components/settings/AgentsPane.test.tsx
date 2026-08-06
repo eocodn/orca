@@ -6,7 +6,6 @@ import type { GlobalSettings, TuiAgent } from '../../../../shared/types'
 import { AGENT_CATALOG } from '@/lib/agent-catalog'
 import { useAppStore } from '../../store'
 import { getAgentGeneratedTabTitlesTitle } from './agent-generated-tab-title-copy'
-import { getAgentStatusHooksTitle } from './agent-status-hooks-copy'
 import { getAgentAwakeDescription, getAgentAwakeTitle } from './agent-awake-copy'
 import { AgentAwakeSetting } from './AgentAwakeSetting'
 import { AgentRuntimeSetting } from './AgentRuntimeSetting'
@@ -15,7 +14,6 @@ import {
   AgentAvailabilityControl,
   AgentPermissionsSetting,
   AgentGeneratedTabTitlesSetting,
-  AgentStatusHooksSetting,
   AgentsPane,
   getAgentsPaneSearchEntries,
   buildAgentAvailabilitySettingsUpdate,
@@ -340,27 +338,6 @@ describe('AgentsPane', () => {
 
     expect(updateSettings).toHaveBeenCalledWith({
       keepComputerAwakeWhileAgentsRun: true
-    })
-  })
-
-  it('toggles the agent status hook setting with the next value', () => {
-    const updateSettings = vi.fn()
-    const element = AgentStatusHooksSetting({
-      settings: {
-        ...getDefaultSettings('/tmp'),
-        agentStatusHooksEnabled: true
-      },
-      updateSettings
-    })
-
-    const statusSwitch = findSwitchRow(element, getAgentStatusHooksTitle())
-    expect(statusSwitch.props.checked).toBe(true)
-
-    const onChange = statusSwitch.props.onChange as () => void
-    onChange()
-
-    expect(updateSettings).toHaveBeenCalledWith({
-      agentStatusHooksEnabled: false
     })
   })
 

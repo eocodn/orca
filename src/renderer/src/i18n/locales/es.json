@@ -5219,10 +5219,7 @@
           "remoteEmptyClaudeAccounts": "No hay cuentas de Claude administradas en {{value0}}. Usa su inicio de sesión de Claude predeterminado del sistema; agrega cuentas en ese servidor.",
           "remoteEmptyCodexAccounts": "No hay cuentas de Codex administradas en {{value0}}. Usa su inicio de sesión de Codex predeterminado del sistema; agrega cuentas en ese servidor.",
           "codexSystemDefaultCustomProvider": "Proveedor personalizado — no se registra el uso.",
-          "codexSystemDefaultNeedsSignIn": "No se encontró ningún inicio de sesión de Codex para {{value0}}.",
-          "codexConfigSyncMissingSource": "Codex is still using the settings it last synced because {{value0}} is missing. Restore that file to resume syncing.",
-          "codexConfigSyncBlankSource": "Codex is still using the settings it last synced because {{value0}} is empty. That is expected while a synced folder finishes downloading.",
-          "codexConfigSyncUnreadableSource": "Codex is still using the settings it last synced because {{value0}} could not be read. Check that file's permissions."
+          "codexSystemDefaultNeedsSignIn": "No se encontró ningún inicio de sesión de Codex para {{value0}}."
         },
         "AdvancedPane": {
           "40b29e0bf3": "Reiniciar",
@@ -8984,10 +8981,6 @@
           "e5995ce268": "Mantener la computadora activa mientras los agentes están trabajando",
           "95d3031db2": "Mantiene esta computadora y la pantalla activas mientras los agentes están trabajando. El comportamiento al cerrar la tapa sigue la configuración de energía de este dispositivo.",
           "a42f6fbdd8": "Mantiene esta computadora y la pantalla activas mientras los agentes están trabajando. Orca también le pide a este dispositivo que permanezca activo cuando la tapa está cerrada, sujeto a su política de energía."
-        },
-        "agent-status-hooks-copy": {
-          "7707c15abb": "Hooks de estado del agente",
-          "a68a642835": "Muestra los estados trabajando, esperando y completado en Orca. Desactívalo para quitar los hooks administrados por Orca y dejar de reinstalarlos."
         },
         "agent-generated-tab-title-copy": {
           "19ad21615a": "Generar títulos de pestañas automáticamente",

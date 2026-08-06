@@ -30,7 +30,6 @@ import {
   getAgentGeneratedTabTitlesDescription,
   getAgentGeneratedTabTitlesTitle
 } from './agent-generated-tab-title-copy'
-import { getAgentStatusHooksDescription, getAgentStatusHooksTitle } from './agent-status-hooks-copy'
 import {
   SettingsBadge,
   SettingsSegmentedControl,
@@ -58,7 +57,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { parseAgentDefaultEnvDraft, stringifyAgentDefaultEnvDraft } from './agent-default-env-draft'
 
 export { getAgentsPaneSearchEntries } from './agents-search'
-import { AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentsPane, AgentStatusHooksSetting, AgentGeneratedTabTitlesSetting } from './agents-pane-surface'
+import { AgentCommandOverrideInput, AgentDefaultArgsInput, AgentDefaultEnvInput, AgentRow, DefaultAgentPill, AgentsPane, AgentGeneratedTabTitlesSetting } from './agents-pane-surface'
 import type { DefaultAgentPillProps } from './agents-pane-surface'
 export type AgentsPaneProps = {
   settings: GlobalSettings
