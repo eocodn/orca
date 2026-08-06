@@ -1,53 +1,38 @@
 import { useCallback } from 'react'
 import { useAppStore } from '../store'
 
-export function useTerminalSurfaceActivationActions(context: Record<string, any>): Record<string, any> {
-    const {
-      activeWorktreeId,
-      createTab,
-      setActiveTabType,
-      openNewTerminalTabInActiveWorkspace,
-      setTabBarOrder,
-      launchAgentInNewTab,
-      activeTabId,
-      closeTab,
-      closeBrowserTab,
-      closeFile,
-      setActiveTab,
-      setActiveWorktree,
-      setActiveBrowserTab,
-      setActiveFile,
-      setTabCustomTitle,
-      setTabColor,
-      setActiveBrowserTabType,
-      browserTabsByWorktree,
-      browserDefaultUrl,
-      openFiles,
-      getActiveWorktreeRuntimeEnvironmentId,
-      isWebRuntimeSessionActive,
-      createWebRuntimeSessionTerminal,
-      createWebRuntimeSessionBrowserTab,
-      activateWebRuntimeSessionTab,
-      closeWebRuntimeSessionTab,
-      openNewMarkdownInActiveWorkspace,
-      openNewBrowserTabInActiveWorkspace,
-      createBrowserTab,
-      buildDuplicatedBrowserTabOptions,
-      destroyWorkspaceWebviews,
-      handleCloseFile,
-      queueEditorCloseRequests,
-      closeTerminalTab,
-      browserWorkspaceHasRemoteOwner,
-      focusTerminalTabSurface,
-      toast,
-      translate,
-      resolveDefaultAgentForNewTab,
-      listBoundAgentTabActions,
-      resumeSleepingAgentSessionsForWorktree,
-      terminalProviderHasAuthoritativeSnapshot,
-      consumeSuppressedPtyExit,
-      useAppStore: appStore
-    } = context
+type TerminalSurfaceStore = ReturnType<typeof useAppStore.getState>
+
+type TerminalSurfaceActivationContext = {
+  activeWorktreeId: string | null
+  setActiveTabType: TerminalSurfaceStore['setActiveTabType']
+  setActiveTab: TerminalSurfaceStore['setActiveTab']
+  setActiveBrowserTab: TerminalSurfaceStore['setActiveBrowserTab']
+  getActiveWorktreeRuntimeEnvironmentId: (worktreeId: string | null) => string | null
+  isWebRuntimeSessionActive: (environmentId: string | null) => boolean
+  activateWebRuntimeSessionTab: (args: {
+    worktreeId: string
+    tabId: string
+    environmentId: string
+  }) => Promise<unknown> | void
+  browserWorkspaceHasRemoteOwner: (
+    state: TerminalSurfaceStore,
+    tabId: string,
+    environmentId: string
+  ) => boolean
+}
+
+export function useTerminalSurfaceActivationActions(context: TerminalSurfaceActivationContext) {
+  const {
+    activeWorktreeId,
+    setActiveTabType,
+    setActiveTab,
+    setActiveBrowserTab,
+    getActiveWorktreeRuntimeEnvironmentId,
+    isWebRuntimeSessionActive,
+    activateWebRuntimeSessionTab,
+    browserWorkspaceHasRemoteOwner
+  } = context
   const handleActivateTab = useCallback(
     (tabId: string) => {
       const runtimeEnvironmentId = getActiveWorktreeRuntimeEnvironmentId(activeWorktreeId)
@@ -61,7 +46,14 @@ export function useTerminalSurfaceActivationActions(context: Record<string, any>
       setActiveTab(tabId)
       setActiveTabType('terminal')
     },
-    [activeWorktreeId, setActiveTab, setActiveTabType]
+    [
+      activateWebRuntimeSessionTab,
+      activeWorktreeId,
+      getActiveWorktreeRuntimeEnvironmentId,
+      isWebRuntimeSessionActive,
+      setActiveTab,
+      setActiveTabType
+    ]
   )
 
   const handleTogglePaneExpand = useCallback(
@@ -96,13 +88,20 @@ export function useTerminalSurfaceActivationActions(context: Record<string, any>
       setActiveBrowserTab(tabId)
       setActiveTabType('browser')
     },
-    [activeWorktreeId, setActiveBrowserTab, setActiveTabType]
+    [
+      activateWebRuntimeSessionTab,
+      activeWorktreeId,
+      browserWorkspaceHasRemoteOwner,
+      getActiveWorktreeRuntimeEnvironmentId,
+      isWebRuntimeSessionActive,
+      setActiveBrowserTab,
+      setActiveTabType
+    ]
   )
 
   return {
     handleActivateTab,
     handleTogglePaneExpand,
-    handleActivateBrowserTab,
+    handleActivateBrowserTab
   }
 }
-
