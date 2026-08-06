@@ -4,12 +4,14 @@ import {
   type ClientRuntimeAdapter
 } from './client-runtime-adapter'
 import { createTauriHostBridge, type TauriInvoke } from './tauri-host-bridge'
+import { createClientRuntimeHostService } from './client-runtime-host-services'
 
 /** Tauri exposes only the typed ade-host command bridge; other services stay unavailable. */
 export function createTauriClientRuntimeAdapter(invoke?: TauriInvoke): ClientRuntimeAdapter {
+  const tauriHost = createClientRuntimeHostService(createTauriHostBridge(invoke))
   return {
     kind: 'tauri',
     host: createCapabilityUnavailableService<ClientRuntimeHostAdapter>('tauri'),
-    tauriHost: createTauriHostBridge(invoke)
+    tauriHost
   }
 }

@@ -68,6 +68,39 @@ describe('ClientRuntime service boundary', () => {
     )
   })
 
+  it('connects the typed Tauri host bridge to ClientRuntime host services', async () => {
+    const invoke = vi.fn(async (command: string) => {
+      if (command === 'host_status') {
+        return JSON.stringify({
+          service: 'ade-host',
+          workspace_count: 1,
+          ready_workspaces: 1,
+          source: 'sqlite-snapshot',
+          hostProtocol: { version: 1, capabilities: ['git', 'file', 'terminal'] }
+        })
+      }
+      throw new Error(`unexpected command: ${command}`)
+    })
+    const tauri = createTauriClientRuntimeAdapter(invoke)
+    registerClientRuntimeAdapter(tauri)
+
+    const runtime = getClientRuntime()
+    await expect(runtime.host.hostStatus('state.db')).resolves.toMatchObject({
+      service: 'ade-host',
+      workspace_count: 1
+    })
+    expect(runtime.host).toBe(runtime.tauriHost)
+    expect(invoke).toHaveBeenCalledWith('host_status', { stateDb: 'state.db' })
+  })
+
+  it('keeps host capability unavailable for Electron and Web adapters', () => {
+    const api = { runtime: {}, fs: {}, git: {} } as never
+    registerClientRuntimeAdapter(createElectronClientRuntimeAdapter(api))
+    expect(() => getClientRuntime().host.hostStatus('state.db')).toThrow(
+      ClientRuntimeCapabilityUnavailableError
+    )
+  })
+
   afterEach(() => resetClientRuntimeAdapterForTests())
 
   it('exposes runtime, git, and remote-host services without changing their contracts', () => {

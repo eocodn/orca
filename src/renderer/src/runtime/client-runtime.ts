@@ -1,5 +1,7 @@
 import type { PreloadApi } from '../../../preload/api-preload-surface'
 import { getRegisteredClientRuntime } from './client-runtime-resolver'
+import type { ClientRuntimeHostService } from './client-runtime-host-services'
+import { createCapabilityUnavailableService } from './client-runtime-adapter'
 
 export type ClientRuntimeRuntimeService = PreloadApi['runtime']
 export type ClientRuntimeRemoteHostService = PreloadApi['runtimeEnvironments']
@@ -31,6 +33,10 @@ export type ClientRuntimeIntegrationService = {
 }
 
 export type ClientRuntime = {
+  /** Narrow Rust host command surface; unavailable on Electron/Web adapters. */
+  host: ClientRuntimeHostService
+  /** Alias retained for callers that need to identify the Tauri bridge explicitly. */
+  tauriHost: ClientRuntimeHostService
   runtime: ClientRuntimeRuntimeService
   remoteHost: ClientRuntimeRemoteHostService
   remoteWorkspace: ClientRuntimeRemoteWorkspaceService
@@ -73,12 +79,23 @@ export type ClientRuntimeHostAdapter = {
   jira: PreloadApi['jira']
   hooks: PreloadApi['hooks']
   hostedReview: PreloadApi['hostedReview']
+  /** Optional because Electron/Web adapters do not expose ade-host commands. */
+  tauriHost?: ClientRuntimeHostService
 }
 
 // Why: renderer services must not encode whether their host is desktop preload,
 // Web transport, or the future Rust/Tauri adapter.
-export function createClientRuntime(adapter: ClientRuntimeHostAdapter): ClientRuntime {
+export function createClientRuntime(
+  adapter: ClientRuntimeHostAdapter,
+  unavailableHost: ClientRuntimeHostService = createCapabilityUnavailableService<ClientRuntimeHostService>(
+    'host'
+  ),
+  tauriHost?: ClientRuntimeHostService
+): ClientRuntime {
+  const host = tauriHost ?? adapter.tauriHost ?? unavailableHost
   return {
+    host,
+    tauriHost: host,
     runtime: adapter.runtime,
     remoteHost: adapter.runtimeEnvironments,
     remoteWorkspace: adapter.remoteWorkspace,
