@@ -209,6 +209,7 @@ import { useWorktreeListFolderPathStatus } from './worktree-list-folder-path-sta
 import { useWorktreeListKeyboard } from './worktree-list-keyboard'
 import { useWorktreeListRevealEffects } from './worktree-list-reveal-effects'
 import { useWorktreeListDragSession } from './worktree-list-drag-session'
+import { registerWorktreeListPointerListeners } from './worktree-list-pointer-listeners'
 
 export {
   countRecordKeysByReference,
@@ -1520,14 +1521,11 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
       clearWorktreeDrag()
     }
 
-    window.addEventListener('pointermove', handlePointerMove, { capture: true })
-    window.addEventListener('pointerup', handlePointerUp, { capture: true })
-    window.addEventListener('pointercancel', handlePointerCancel, { capture: true })
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove, { capture: true })
-      window.removeEventListener('pointerup', handlePointerUp, { capture: true })
-      window.removeEventListener('pointercancel', handlePointerCancel, { capture: true })
-    }
+    return registerWorktreeListPointerListeners(
+      handlePointerMove,
+      handlePointerUp,
+      handlePointerCancel
+    )
   }, [
     beginWorktreePointerDrag,
     clearWorktreeDrag,
