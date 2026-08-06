@@ -158,11 +158,7 @@ describe('electron-builder config', () => {
 
   it('unpacks the compiled CommonJS boundary with CLI runtime files', () => {
     expect(electronBuilderConfig.asarUnpack).toEqual(
-      expect.arrayContaining([
-        'out/package.json',
-        'out/cli/**',
-        'out/shared/**'
-      ])
+      expect.arrayContaining(['out/package.json', 'out/cli/**', 'out/shared/**'])
     )
   })
 
@@ -328,10 +324,7 @@ describe('electron-builder config', () => {
       await mkdir(join(resourcesDir, 'node_modules', 'yaml'), { recursive: true })
       await mkdir(join(resourcesDir, 'node_modules', 'zod'), { recursive: true })
 
-      const sources = new Map([
-        ['out\\main\\index.js', 'const z = require("zod")'],
-        ['out\\main\\agent-hooks\\managed-agent-hook-controls.js', 'const YAML = require("yaml")']
-      ])
+      const sources = new Map([['out\\main\\index.js', 'const z = require("zod")']])
       const asar = {
         listPackage: () => [...sources.keys()].map((entry) => `\\${entry}`),
         extractFile: (_asarPath, internalPath) => Buffer.from(sources.get(internalPath), 'utf8')
@@ -341,6 +334,10 @@ describe('electron-builder config', () => {
     } finally {
       await rm(resourcesDir, { recursive: true, force: true })
     }
+  })
+
+  it('does not unpack the retired provider-hook tree', () => {
+    expect(electronBuilderConfig.asarUnpack).not.toContain('out/main/agent-hooks/**')
   })
 
   it('normalizes host-specific asar entry separators', () => {

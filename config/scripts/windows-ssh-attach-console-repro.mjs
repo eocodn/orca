@@ -150,13 +150,7 @@ function parseArgs(args) {
 }
 
 function prepareRelayTree(runDir, nodePtyDir) {
-  for (const filename of [
-    'relay.js',
-    'relay-watcher.js',
-    'managed-hook-runtime.js',
-    NODE_PTY_PATCH_FILENAME,
-    '.version'
-  ]) {
+  for (const filename of ['relay.js', 'relay-watcher.js', NODE_PTY_PATCH_FILENAME, '.version']) {
     copyFileSync(join(relayBuildDir, filename), join(runDir, filename))
   }
   cpSync(nodePtyDir, join(runDir, 'node_modules', 'node-pty'), { recursive: true })

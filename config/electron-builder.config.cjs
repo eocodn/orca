@@ -105,7 +105,7 @@ module.exports = {
     '!resources/win32{,/**/*}'
   ],
   // Why: the CLI entry-point lives in out/cli/ but imports shared modules
-  // from out/shared/ and local hook mutators from out/main/. These paths must be
+  // from out/shared/ and runtime support from out/main/. These paths must be
   // unpacked so that Node's require() can resolve the cross-directory imports
   // when the CLI runs outside the asar archive.
   // Why: daemon-entry.js is forked as a separate Node.js process and must be
@@ -124,7 +124,6 @@ module.exports = {
     'out/package.json',
     'out/cli/**',
     'out/shared/**',
-    'out/main/agent-hooks/**',
     'out/main/codex/**',
     'out/main/daemon-entry.js',
     'out/main/plugin-host-entry.js',
@@ -134,7 +133,7 @@ module.exports = {
     'node_modules/ws/**',
     'node_modules/tweetnacl/**',
     'node_modules/zod/**',
-    'node_modules/yaml/**',
+    'node_modules/yaml/**'
   ],
   afterPack: async (context) => {
     // Why: a Linux runner-image glibc bump silently shipped a node-pty pty.node

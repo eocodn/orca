@@ -51,8 +51,8 @@ describe('CLI imports of main-process modules', () => {
   })
 
   it('finds the imports it is meant to guard', () => {
-    // Why: a broken matcher would make the guard above vacuously pass.
-    expect(findMainImports().length).toBeGreaterThanOrEqual(2)
+    // CLI runtime code now stays behind shared/runtime boundaries; direct main imports are absent.
+    expect(findMainImports()).toEqual([])
     expect(findElectronViteMainEntries().size).toBeGreaterThanOrEqual(2)
   })
 })

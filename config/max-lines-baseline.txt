@@ -3,10 +3,8 @@
 # split the oversized file instead (AGENTS.md → "Do Not Disable Max Lines").
 # Regenerate/prune: pnpm check:max-lines-ratchet --prune   (removes stale entries only)
 inline mobile/src/constants/marine-creatures.ts
-inline src/cli/handlers/orchestration.ts
 inline src/cli/help.ts
 inline src/cli/index.test.ts
-inline src/main/agent-hooks/server.test.ts
 inline src/main/agent-hooks/server.ts
 inline src/main/browser/browser-cookie-import.ts
 inline src/main/browser/browser-guest-ui.ts
@@ -119,7 +117,6 @@ inline src/main/ssh/ssh-connection.test.ts
 inline src/main/ssh/ssh-connection.ts
 inline src/main/ssh/ssh-relay-deploy.ts
 inline src/main/ssh/ssh-relay-session.ts
-inline src/main/star-nag/service.test.ts
 inline src/main/text-generation/commit-message-text-generation.test.ts
 inline src/main/text-generation/commit-message-text-generation.ts
 inline src/main/updater.test.ts
@@ -130,7 +127,6 @@ inline src/main/window/createMainWindow.ts
 inline src/main/workspace-space-analysis.ts
 inline src/preload/api-types.ts
 inline src/preload/index.ts
-inline src/relay/agent-hook-server.ts
 inline src/relay/dispatcher.ts
 inline src/relay/fs-handler.ts
 inline src/relay/git-handler.test.ts
@@ -185,7 +181,6 @@ inline src/renderer/src/components/right-sidebar/index.tsx
 inline src/renderer/src/components/right-sidebar/source-control-dropdown-items.ts
 inline src/renderer/src/components/right-sidebar/useCreatePullRequestDialogFields.ts
 inline src/renderer/src/components/right-sidebar/useFileExplorerDragDrop.ts
-inline src/renderer/src/components/settings/AccountsPane.tsx
 inline src/renderer/src/components/settings/AgentsPane.tsx
 inline src/renderer/src/components/settings/RepositoryHooksSection.tsx
 inline src/renderer/src/components/settings/RuntimeEnvironmentsPane.tsx
@@ -200,7 +195,6 @@ inline src/renderer/src/components/sidebar/WorktreeList.tsx
 inline src/renderer/src/components/sidebar/use-workspace-kanban-area-selection.ts
 inline src/renderer/src/components/sidebar/worktree-list-groups.test.ts
 inline src/renderer/src/components/sidebar/worktree-list-groups.ts
-inline src/renderer/src/components/stats/usage-overview-model.ts
 inline src/renderer/src/components/status-bar/ResourceUsageStatusSegment.tsx
 inline src/renderer/src/components/status-bar/StatusBar.tsx
 inline src/renderer/src/components/status-bar/WorkspaceSpaceManagerPanel.tsx
@@ -275,8 +269,6 @@ inline src/renderer/src/store/slices/worktrees.ts
 inline src/renderer/src/web/web-preload-api.test.ts
 inline src/renderer/src/web/web-preload-api.ts
 inline src/renderer/src/web/web-runtime-client.ts
-inline src/shared/agent-hook-listener.test.ts
-inline src/shared/agent-hook-listener.ts
 inline src/shared/commit-message-agent-spec.ts
 inline src/shared/constants.ts
 inline src/shared/github-project-types.ts

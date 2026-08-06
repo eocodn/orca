@@ -85,9 +85,7 @@ for (const platform of PLATFORMS) {
   // so a companion-only change always deploys beside the matching relay host.
   const relayContent = readFileSync(join(outDir, 'relay.js'))
   const watcherContent = readFileSync(join(outDir, 'relay-watcher.js'))
-  const hash = createHash('sha256')
-    .update(relayContent)
-    .update(watcherContent)
+  const hash = createHash('sha256').update(relayContent).update(watcherContent)
   // Why: changing the remote node-pty patch must select a fresh immutable Windows relay directory.
   if (platform.startsWith('win32-')) {
     hash.update(readFileSync(join(outDir, NODE_PTY_CONSOLE_LIST_PATCH_FILENAME)))
@@ -96,33 +94,6 @@ for (const platform of PLATFORMS) {
   writeFileSync(join(outDir, '.version'), `${RELAY_VERSION}+${contentHash}`)
 
   console.log(`Built relay for ${platform} → ${outDir}/relay.js`)
-}
-
-// WSL agent-hook relay: a hooks-only guest receiver launched inside WSL
-// distros via wsl.exe. Pure Node built-ins (no node-pty/@parcel/watcher),
-// so a single platform-independent bundle suffices; it ships inside the
-// Windows app via the same out/relay extraResources mapping.
-{
-  const wslEntry = join(ROOT, 'src', 'relay', 'wsl-agent-hook-relay.ts')
-  const outDir = join(ROOT, 'out', 'relay', 'wsl')
-  mkdirSync(outDir, { recursive: true })
-  await build({
-    entryPoints: [wslEntry],
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    outfile: join(outDir, 'wsl-agent-hook-relay.js'),
-    sourcemap: false,
-    minify: true,
-    define: {
-      'process.env.NODE_ENV': '"production"'
-    }
-  })
-  const content = readFileSync(join(outDir, 'wsl-agent-hook-relay.js'))
-  const hash = createHash('sha256').update(content).digest('hex').slice(0, 12)
-  writeFileSync(join(outDir, '.version'), `${RELAY_VERSION}+${hash}`)
-  console.log(`Built WSL hook relay → ${outDir}/wsl-agent-hook-relay.js`)
 }
 
 console.log('Relay build complete.')
