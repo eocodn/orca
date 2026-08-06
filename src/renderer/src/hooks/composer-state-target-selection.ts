@@ -1,36 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '@/store'
-import { getAgentLaunchPlatformForRepo } from '@/lib/agent-launch-platform'
-import { getLocalRepoProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
-import { useDetectedAgents } from '@/hooks/useDetectedAgents'
-import { getFolderSourceRepos } from '@/components/sidebar/folder-workspace-composer-helpers'
-import { useFolderWorkspaceComposerPathStatus } from '@/components/sidebar/folder-workspace-composer-path-status'
-import { buildExecutionHostRegistry } from '../../../shared/execution-host-registry'
-import { parseExecutionHostId } from '../../../shared/execution-host'
-import { getHostDisplayLabelOverrides } from '../../../shared/host-setting-overrides'
-import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import { getSelectedRepoSshGate } from '@/lib/new-workspace-ssh-gate'
-import { repoIsRemote } from '../../../shared/agent-launch-remote'
-import { resolveLocalWindowsAgentStartupShell } from '../../../shared/windows-terminal-shell'
-import { isGitRepoKind } from '../../../shared/repo-kind'
 import { isWorkspaceStatusId } from '../../../shared/workspace-statuses'
-import { CLIENT_PLATFORM } from '@/lib/new-workspace'
 import {
   getComposerEligibleRepos,
   resolveComposerActiveRepoId
 } from '@/lib/new-workspace-composer-repo'
-import {
-  resolveWorkspaceCreationRepoId,
-  resolveWorkspaceCreationTarget
-} from '@/lib/project-host-workspace-target'
-import { buildProjectHostSetupOptions } from '@/lib/project-host-setup-options'
-import { buildNewWorkspaceCreateTargetOptions } from '@/lib/new-workspace-project-options'
+import { resolveWorkspaceCreationRepoId } from '@/lib/project-host-workspace-target'
 import {
   resolveInitialWorkspaceRunSeed,
   type UseComposerStateOptions
 } from './composer-state-contracts'
-import type { ProjectGroup, TuiAgent } from '../../../shared/types'
+import { useComposerFolderTargetSelection } from './composer-state-folder-target-selection'
+import { useComposerRepositoryTargetOptions } from './composer-state-repository-target-options'
+import type { ProjectGroup } from '../../../shared/types'
 
 export function useComposerTargetState(options: UseComposerStateOptions) {
   const {
@@ -162,146 +146,53 @@ export function useComposerTargetState(options: UseComposerStateOptions) {
     }
   }, [initialFolderProjectGroupId, projectGroups, selectedProjectGroupId])
   const isProjectGroupTarget = selectedProjectGroup !== null
-  const folderSourceRepos = useMemo(
-    () => getFolderSourceRepos(repos, projectGroups, selectedProjectGroup),
-    [projectGroups, repos, selectedProjectGroup]
-  )
-  const parsedFolderTargetHost = parseExecutionHostId(selectedProjectGroup?.executionHostId)
-  const folderTargetRuntimeEnvironmentId =
-    parsedFolderTargetHost?.kind === 'runtime' ? parsedFolderTargetHost.environmentId : null
-  const folderTargetConnectionId =
-    parsedFolderTargetHost?.kind === 'runtime' ? null : (selectedProjectGroup?.connectionId ?? null)
-  const folderTargetIsRemote =
-    folderTargetConnectionId !== null || folderTargetRuntimeEnvironmentId !== null
-  const folderTargetAgentDetectionTarget = folderTargetRuntimeEnvironmentId
-    ? { kind: 'runtime' as const, environmentId: folderTargetRuntimeEnvironmentId }
-    : folderTargetConnectionId
-      ? { kind: 'ssh' as const, connectionId: folderTargetConnectionId }
-      : selectedProjectGroup
-        ? { kind: 'local' as const }
-        : undefined
-  const folderTargetSshState = folderTargetConnectionId
-    ? (sshConnectionStates.get(folderTargetConnectionId) ?? null)
-    : null
   const {
-    selectedRepoSshStatus: folderTargetSshStatus,
-    selectedRepoRequiresConnection: folderTargetRequiresConnection,
-    selectedRepoConnectInProgress: folderTargetConnectInProgress
-  } = getSelectedRepoSshGate({
-    connectionId: folderTargetConnectionId,
-    status: folderTargetSshState?.status ?? null
+    folderSourceRepos,
+    folderTargetRuntimeEnvironmentId,
+    folderTargetConnectionId,
+    folderTargetIsRemote,
+    folderTargetSshStatus,
+    folderTargetRequiresConnection,
+    folderTargetConnectInProgress,
+    folderPathStatusBlocksCreate,
+    pathStatusProjectError,
+    folderDetectedAgentIds
+  } = useComposerFolderTargetSelection({
+    repos,
+    projectGroups,
+    selectedProjectGroup,
+    sshConnectionStates
   })
-  const { pathStatusBlocksCreate: folderPathStatusBlocksCreate, pathStatusProjectError } =
-    useFolderWorkspaceComposerPathStatus(
-      selectedProjectGroup,
-      true,
-      folderTargetRuntimeEnvironmentId
-    )
-  const { detectedIds: folderDetectedIds } = useDetectedAgents(folderTargetAgentDetectionTarget)
-  const folderDetectedAgentIds = useMemo<Set<TuiAgent> | null>(
-    () => (folderDetectedIds ? new Set(folderDetectedIds) : null),
-    [folderDetectedIds]
-  )
-  const selectedWorkspaceTarget = useMemo(
-    () =>
-      resolveWorkspaceCreationTarget({
-        eligibleRepos,
-        projects,
-        projectHostSetups,
-        draftRepoId: repoId,
-        focusedHostScope: workspaceHostScope
-      }),
-    [eligibleRepos, projectHostSetups, projects, repoId, workspaceHostScope]
-  )
-  const selectedRepo = eligibleRepos.find((repo) => repo.id === repoId)
-  const selectedRepoIsGit = selectedRepo ? isGitRepoKind(selectedRepo) : false
-  const selectedRepoAgentLaunchPlatform = useMemo(() => {
-    if (!selectedRepo) {
-      return CLIENT_PLATFORM
-    }
-    const projectRuntime = selectedRepo.connectionId
-      ? undefined
-      : getLocalRepoProjectExecutionRuntimeContext(
-          {
-            activeRepoId,
-            activeWorktreeId: null,
-            projects,
-            repos,
-            settings,
-            worktreesByRepo
-          },
-          selectedRepo.id,
-          CLIENT_PLATFORM
-        )
-    return getAgentLaunchPlatformForRepo(selectedRepo, projectRuntime)
-  }, [activeRepoId, projects, repos, selectedRepo, settings, worktreesByRepo])
-  // Why: SSH remotes deploy the CLI shim as plain `orca`, so the Linux-only `orca-ide` rename must not apply to remote launch commands.
-  const selectedRepoIsRemote = selectedRepo ? repoIsRemote(selectedRepo) : false
-  const selectedRepoStartupShell = resolveLocalWindowsAgentStartupShell({
-    platform: selectedRepoAgentLaunchPlatform,
-    isRemote: selectedRepoIsRemote,
-    terminalWindowsShell: settings?.terminalWindowsShell
+  const {
+    selectedWorkspaceTarget,
+    selectedRepo,
+    selectedRepoIsGit,
+    selectedRepoAgentLaunchPlatform,
+    selectedRepoIsRemote,
+    selectedRepoStartupShell,
+    selectedRepoProjectId,
+    selectedProjectId,
+    selectedProjectHostSetupId,
+    projectHostSetupOptions,
+    projectOptions,
+    selectedRepoSettings
+  } = useComposerRepositoryTargetOptions({
+    repos,
+    projects,
+    projectGroups,
+    projectHostSetups,
+    activeRepoId,
+    settings,
+    worktreesByRepo,
+    sshConnectionStates,
+    sshTargetLabels,
+    runtimeEnvironments,
+    runtimeStatusByEnvironmentId,
+    eligibleRepos,
+    selectedProjectGroup,
+    repoId,
+    workspaceHostScope
   })
-  const selectedRepoProjectId =
-    selectedWorkspaceTarget.status === 'ready' ? selectedWorkspaceTarget.target.projectId : null
-  const selectedProjectId = selectedProjectGroup
-    ? `project-group:${selectedProjectGroup.id}`
-    : selectedRepoProjectId
-  const selectedProjectHostSetupId =
-    !selectedProjectGroup && selectedWorkspaceTarget.status === 'ready'
-      ? selectedWorkspaceTarget.target.projectHostSetupId
-      : null
-  const hostOptions = useMemo(
-    () =>
-      buildExecutionHostRegistry({
-        repos,
-        settings,
-        sshTargetLabels,
-        sshConnectionStates,
-        runtimeEnvironments,
-        runtimeStatusByEnvironmentId,
-        hostLabelOverrides: getHostDisplayLabelOverrides(settings)
-      }),
-    [
-      repos,
-      settings,
-      sshConnectionStates,
-      sshTargetLabels,
-      runtimeEnvironments,
-      runtimeStatusByEnvironmentId
-    ]
-  )
-  const projectHostSetupOptions = useMemo(
-    () =>
-      buildProjectHostSetupOptions({
-        projectId: selectedRepoProjectId,
-        projectHostSetups,
-        eligibleRepos,
-        hosts: hostOptions
-      }),
-    [eligibleRepos, hostOptions, projectHostSetups, selectedRepoProjectId]
-  )
-  const projectOptions = useMemo(
-    () =>
-      buildNewWorkspaceCreateTargetOptions({
-        projects,
-        projectHostSetups,
-        eligibleRepos,
-        projectGroups,
-        hosts: hostOptions
-      }),
-    [eligibleRepos, hostOptions, projectGroups, projectHostSetups, projects]
-  )
-  const selectedRepoSettings = useMemo(() => {
-    if (!settings) {
-      return settings
-    }
-    // Why: probes and attachment uploads inspect the selected repo, even though creation defaults still follow host scope.
-    return getSettingsForRepoRuntimeOwner(
-      { repos: selectedRepo ? [selectedRepo] : [], settings },
-      selectedRepo?.id ?? null
-    )
-  }, [selectedRepo, settings])
   const selectedRepoConnectionId = selectedRepo?.connectionId ?? null
   const selectedRepoSshState = selectedRepoConnectionId
     ? (sshConnectionStates.get(selectedRepoConnectionId) ?? null)

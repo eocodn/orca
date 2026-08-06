@@ -3,8 +3,9 @@ import {
   getQuickComposerCreateDisabled
 } from '@/lib/new-workspace-create-gates'
 import type { ComposerCardProps } from './composer-state-contracts'
+import type { ComposerCardBuildContext } from './composer-state-card-context'
 
-export function buildComposerCardProps(context: any): {
+export function buildComposerCardProps(context: ComposerCardBuildContext): {
   cardProps: ComposerCardProps
   createDisabled: boolean
 } {
