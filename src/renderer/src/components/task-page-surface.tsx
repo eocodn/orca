@@ -92,7 +92,6 @@ import {
   getTaskPagePerRepoLimit,
   taskPageToGitHubApiPage
 } from '@/components/task-page-work-item-pagination'
-import { sortWorkItemsByNumber } from '../../../shared/work-items'
 import { resolveLinearIssueAttributeFilterPrimaryTeam } from '@/components/linear-issue-attribute-filter-primary-team'
 import {
   isLinearIssueSearchActive,
