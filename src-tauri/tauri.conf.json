@@ -28,6 +28,9 @@
   },
   "bundle": {
     "active": false,
+    "externalBin": [
+      "binaries/ade-worker"
+    ],
     "icon": [
       "../resources/build/icon.png"
     ]

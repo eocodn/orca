@@ -128,3 +128,9 @@ src/renderer/src/i18n/locales/.es-catalog-cache.json
 
 # Bench result JSONs are working artifacts
 tools/benchmarks/results/terminal-pipeline-*.json
+
+# Rust and generated Tauri sidecar build outputs
+/rust/target/
+/src-tauri/target/
+/src-tauri/binaries/ade-worker-*
+/src-tauri/gen/

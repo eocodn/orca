@@ -59,7 +59,7 @@
     "build:electron-vite": "node config/scripts/run-electron-vite-build.mjs",
     "build:electron-vite:parallel": "node config/scripts/run-electron-vite-targets-in-parallel.mjs",
     "build:web": "node config/scripts/run-vite-web-build.mjs && node config/scripts/verify-web-build.mjs",
-    "build:tauri": "pnpm run build:web && pnpm exec tauri build --no-bundle",
+    "build:tauri": "node config/scripts/build-tauri.mjs --no-bundle",
     "build:web-from-renderer": "node config/scripts/project-renderer-web-client.mjs && node config/scripts/verify-web-build.mjs",
     "build:desktop": "pnpm run typecheck && pnpm run build:relay && pnpm run build:cli && pnpm run build:electron-vite && pnpm run build:web-from-renderer",
     "build": "pnpm run build:desktop && pnpm run build:native",
