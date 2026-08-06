@@ -89,7 +89,13 @@ export function useChecksPanelRuntimeActionBridge(
               : args.activeReview.provider === 'gitlab' && !args.activeGitLabReview
                 ? 'Open a GitLab MR before resolving comments.'
                 : undefined)
-  const runtimeActions = useChecksPanelRuntimeActions(args)
+  const runtimeActions = useChecksPanelRuntimeActions({
+    ...args,
+    ai: {
+      ...args.ai,
+      resolveCommentsWithAIDisabledReason
+    }
+  })
   return {
     ...runtimeActions,
     detectedAgentsForAI,
