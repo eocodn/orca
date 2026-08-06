@@ -52,7 +52,6 @@ import {
   getCyclicProjectedWorktreeLineageIds,
   getWorktreeLineageAncestors
 } from './worktree-lineage-projection'
-import { getEmptyProjectPlaceholderRepoIds } from './empty-project-placeholder-repos'
 import {
   VIRTUALIZED_SCROLL_ANCHOR_RECORD_EVENT,
   useVirtualizedScrollAnchor,
@@ -63,7 +62,6 @@ import {
   SCROLL_TO_CURRENT_WORKSPACE_REVEAL_REQUEST_EVENT,
   type ScrollToCurrentWorkspaceRevealRequestDetail
 } from '@/lib/scroll-to-current-workspace-status'
-import { getLogicalRepoOrderRankById } from './project-header-drop'
 import {
   buildManualOrderUpdatesForGroupDrop,
   buildManualOrderUpdatesForVisibleGroups,
@@ -86,11 +84,7 @@ import {
   pruneWorktreeSelection,
   updateWorktreeSelection
 } from './worktree-multi-selection'
-import {
-  getRepoExecutionHostId,
-  getSettingsFocusedExecutionHostId,
-  type ExecutionHostId
-} from '../../../../shared/execution-host'
+import type { ExecutionHostId } from '../../../../shared/execution-host'
 import { getRepoHeaderCreateState } from './repo-header-create-state'
 import { ProjectGroupNameDialog } from './ProjectGroupNameDialog'
 import { ProjectGroupDeleteDialog } from './ProjectGroupDeleteDialog'
@@ -109,14 +103,8 @@ import {
   type NewExternalWorktreesInboxActionState
 } from './new-external-worktrees-inbox-actions'
 import { isEligibleWorktreeParent } from './worktree-parent-candidates'
-import {
-  buildImportedWorktreesCardCandidates,
-  getHiddenImportedWorktrees
-} from './imported-worktrees-card-candidates'
-import {
-  buildNewExternalWorktreesInboxCandidates,
-  toNewExternalWorktreeInboxPreview
-} from './new-external-worktrees-inbox-candidates'
+import { getHiddenImportedWorktrees } from './imported-worktrees-card-candidates'
+import { toNewExternalWorktreeInboxPreview } from './new-external-worktrees-inbox-candidates'
 import {
   WORKTREE_SECTION_HEADER_PADDING_LEFT,
   getFolderBackedRepoWorktreeCardContentIndent,
@@ -129,19 +117,10 @@ import {
   getWorktreeCardSurfaceInset
 } from './worktree-list-indentation'
 import { addHostSectionRows } from './host-section-rows'
-import { orderHostSectionOptions } from './host-section-order'
-import { buildSidebarHostOptions } from './sidebar-host-options'
 import { translate } from '@/i18n/i18n'
 import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
-import { useShallow } from 'zustand/react/shallow'
-import { getHostDisplayLabelOverrides } from '../../../../shared/host-setting-overrides'
 import { isConfirmedStaleFolderPathStatus } from '../../../../shared/folder-workspace-path-status'
 import { getKnownSidebarWorktreeById } from './worktree-list-folder-reveal'
-import {
-  filterFolderWorkspacesForVisibleHosts,
-  filterProjectGroupsForVisibleHosts,
-  getVisibleSidebarHostIdSet
-} from './worktree-list-host-filtering'
 import { getFolderWorkspaceCardPrDisplay } from './folder-workspace-card-pr-display'
 import { getRenderedWorktreesInSidebarOrder } from './worktree-sidebar-row-preference'
 import { getCyclableWorktreeIds, resolveCycledWorktreeId } from './worktree-keyboard-cycle'
@@ -164,6 +143,7 @@ import { useWorktreeListStatusDrop } from './use-worktree-list-status-drop'
 import { useWorktreeListNativeDrag } from './use-worktree-list-native-drag'
 import { useWorktreeListNativeDocument } from './use-worktree-list-native-document'
 import { useWorktreeListSource } from './use-worktree-list-source'
+import { useWorktreeListRowInputs } from './use-worktree-list-row-inputs'
 
 export {
   countRecordKeysByReference,
@@ -1720,124 +1700,43 @@ const WorktreeList = React.memo(function WorktreeList({
     worktreeLineageById,
     worktreeMap
   ])
-  const defaultHostId = getSettingsFocusedExecutionHostId(settings)
-  const visibleHostIdSet = useMemo(
-    () => getVisibleSidebarHostIdSet(visibleWorkspaceHostIds, workspaceHostScope),
-    [visibleWorkspaceHostIds, workspaceHostScope]
-  )
-  const visibleReposForRows = useMemo(() => {
-    if (!visibleHostIdSet) {
-      return repos
-    }
-    return repos.filter((repo) => {
-      const hostId =
-        repo.connectionId || repo.executionHostId ? getRepoExecutionHostId(repo) : defaultHostId
-      return visibleHostIdSet.has(hostId)
-    })
-  }, [defaultHostId, repos, visibleHostIdSet])
-  const visibleProjectGroupsForRows = useMemo(
-    () => filterProjectGroupsForVisibleHosts(projectGroups, visibleHostIdSet, defaultHostId),
-    [defaultHostId, projectGroups, visibleHostIdSet]
-  )
-  const visibleFolderWorkspacesForRows = useMemo(
-    () =>
-      filterFolderWorkspacesForVisibleHosts(
-        folderWorkspaces,
-        projectGroups,
-        visibleHostIdSet,
-        defaultHostId
-      ),
-    [defaultHostId, folderWorkspaces, projectGroups, visibleHostIdSet]
-  )
-  const repoOrder = useMemo(() => {
-    return getLogicalRepoOrderRankById(repos.map((repo) => repo.id))
-  }, [repos])
-  const [importedWorktreeCardActionState, setImportedWorktreeCardActionState] = useState<
-    Map<string, ImportedWorktreeCardActionState>
-  >(new Map())
-  const [newExternalWorktreeInboxActionState, setNewExternalWorktreeInboxActionState] = useState<
-    Map<string, NewExternalWorktreesInboxActionState>
-  >(new Map())
-  const [suppressExternalWorktreeInboxRepoId, setSuppressExternalWorktreeInboxRepoId] = useState<
-    string | null
-  >(null)
-  const importedWorktreesByRepo = useMemo(() => {
-    const forceVisibleRepoIds = new Set(
-      [...importedWorktreeCardActionState.entries()]
-        .filter(([, state]) => state.forceVisible)
-        .map(([repoId]) => repoId)
-    )
-    return buildImportedWorktreesCardCandidates({
-      repos: visibleReposForRows,
-      detectedWorktreesByRepo,
-      filterRepoIds,
-      forceVisibleRepoIds
-    })
-  }, [detectedWorktreesByRepo, filterRepoIds, importedWorktreeCardActionState, visibleReposForRows])
-  const newExternalWorktreesInboxByRepo = useMemo(
-    () =>
-      buildNewExternalWorktreesInboxCandidates({
-        repos: visibleReposForRows,
-        detectedWorktreesByRepo,
-        filterRepoIds
-      }),
-    [detectedWorktreesByRepo, filterRepoIds, visibleReposForRows]
-  )
-  const placeholderRepoIds = useMemo(() => {
-    return getEmptyProjectPlaceholderRepoIds({
-      groupBy,
-      repos: visibleReposForRows,
-      worktreesByRepo,
-      visibleWorktrees,
-      filterRepoIds
-    })
-  }, [filterRepoIds, groupBy, visibleReposForRows, visibleWorktrees, worktreesByRepo])
-  const allRepoIds = useMemo(() => repos.map((r) => r.id), [repos])
-
-  // Why: subscribe on a flat key array (useShallow) so progress ticks don't rebuild the whole row model.
-  // Split on first space — creationId is a UUID (no space) so a space-containing repoId stays intact.
-  const pendingCreationKeys = useAppStore(
-    useShallow((s) =>
-      Object.values(s.pendingWorktreeCreations ?? {}).map(
-        (creation) => `${creation.creationId} ${creation.request.repoId}`
-      )
-    )
-  )
-  const pendingCreations = useMemo(
-    () =>
-      pendingCreationKeys.map((key) => {
-        const separator = key.indexOf(' ')
-        return { creationId: key.slice(0, separator), repoId: key.slice(separator + 1) }
-      }),
-    [pendingCreationKeys]
-  )
-  const hostLabelOverrides = useMemo(() => getHostDisplayLabelOverrides(settings), [settings])
-  const hostOptions = useMemo(
-    () =>
-      buildSidebarHostOptions({
-        repos,
-        sshTargetLabels,
-        sshConnectionStates,
-        settings,
-        runtimeEnvironments,
-        runtimeStatusByEnvironmentId,
-        hostLabelOverrides
-      }),
-    [
-      repos,
-      sshTargetLabels,
-      sshConnectionStates,
-      settings,
-      runtimeEnvironments,
-      runtimeStatusByEnvironmentId,
-      hostLabelOverrides
-    ]
-  )
-  const hostLabelById = useMemo(
-    () => new Map(hostOptions.map((host) => [host.id, host.label])),
-    [hostOptions]
-  )
-
+  const rowInputs = useWorktreeListRowInputs({
+    groupBy,
+    repos,
+    worktreesByRepo,
+    visibleWorktrees,
+    filterRepoIds,
+    detectedWorktreesByRepo,
+    visibleWorkspaceHostIds,
+    workspaceHostScope,
+    projectGroups,
+    folderWorkspaces,
+    settings,
+    sshTargetLabels,
+    sshConnectionStates,
+    runtimeEnvironments,
+    runtimeStatusByEnvironmentId,
+    workspaceHostOrder
+  })
+  const {
+    defaultHostId,
+    visibleProjectGroupsForRows,
+    visibleFolderWorkspacesForRows,
+    repoOrder,
+    importedWorktreeCardActionState,
+    setImportedWorktreeCardActionState,
+    newExternalWorktreeInboxActionState,
+    setNewExternalWorktreeInboxActionState,
+    suppressExternalWorktreeInboxRepoId,
+    setSuppressExternalWorktreeInboxRepoId,
+    importedWorktreesByRepo,
+    newExternalWorktreesInboxByRepo,
+    placeholderRepoIds,
+    allRepoIds,
+    pendingCreations,
+    hostLabelById,
+    orderedHostOptions
+  } = rowInputs
   const rows: Row[] = useMemo(
     () =>
       buildRows(
@@ -1887,10 +1786,6 @@ const WorktreeList = React.memo(function WorktreeList({
       hostLabelById,
       pinnedDisplayPolicy
     ]
-  )
-  const orderedHostOptions = useMemo(
-    () => orderHostSectionOptions(hostOptions, workspaceHostOrder),
-    [hostOptions, workspaceHostOrder]
   )
   const [hostDragActive, setHostDragActive] = useState(false)
   const handleReorderHostSections = useCallback(
@@ -2107,7 +2002,7 @@ const WorktreeList = React.memo(function WorktreeList({
         return next
       })
     },
-    []
+    [setImportedWorktreeCardActionState]
   )
 
   const handleShowImportedWorktrees = useCallback(
@@ -2170,7 +2065,7 @@ const WorktreeList = React.memo(function WorktreeList({
         return next
       })
     },
-    []
+    [setNewExternalWorktreeInboxActionState]
   )
 
   const getNewExternalWorktreeInboxActionArgs = useCallback(
@@ -2239,7 +2134,7 @@ const WorktreeList = React.memo(function WorktreeList({
 
   const handleOpenSuppressExternalWorktreeInbox = useCallback((projectId: string) => {
     setSuppressExternalWorktreeInboxRepoId(projectId)
-  }, [])
+  }, [setSuppressExternalWorktreeInboxRepoId])
 
   const handleConfirmSuppressExternalWorktreeInbox = useCallback(async () => {
     if (!suppressExternalWorktreeInboxRepoId) {
@@ -2260,9 +2155,10 @@ const WorktreeList = React.memo(function WorktreeList({
       setSuppressExternalWorktreeInboxRepoId(null)
     }
   }, [
-    getNewExternalWorktreeInboxActionArgs,
-    newExternalWorktreesInboxByRepo,
-    suppressExternalWorktreeInboxRepoId
+      getNewExternalWorktreeInboxActionArgs,
+      newExternalWorktreesInboxByRepo,
+      setSuppressExternalWorktreeInboxRepoId,
+      suppressExternalWorktreeInboxRepoId
   ])
 
   const handleRemoveProject = useCallback(
