@@ -58,6 +58,7 @@ import { useTaskPageGitHubIssueCreationState } from './use-task-page-github-issu
 import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
 import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
+import { useTaskPageLinearResumeState } from './use-task-page-linear-resume-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import {
   getSingleJiraProjectScope,
@@ -940,100 +941,25 @@ export default function TaskPage(): React.JSX.Element {
     visibleTaskProviders
   ])
 
-  useEffect(() => {
-    const context = taskResumeState?.linearContext
-    if (
-      linearContextResumeAttemptedRef.current ||
-      !taskResumeApplied ||
-      taskSource !== 'linear' ||
-      !linearConnected ||
-      !context
-    ) {
-      return
-    }
-    linearContextResumeAttemptedRef.current = true
-    let cancelled = false
-
-    if (context.kind === 'project') {
-      void fetchLinearProject(context.id, context.workspaceId, {
-        force: true,
-        sourceContext: linearTaskSourceContext
-      })
-        .then((project) => {
-          if (cancelled) {
-            return
-          }
-          if (!project) {
-            setSelectedLinearProject(null)
-            setSelectedLinearProjectDetail(null)
-            setLinearProjectParentView(null)
-            setLinearProjectsError('Saved Linear project was not found.')
-            setTaskResumeState({ linearContext: undefined })
-            return
-          }
-          setSelectedLinearProject(project)
-          setSelectedLinearProjectDetail(project)
-          setLinearMode('projects')
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setSelectedLinearProject(null)
-            setSelectedLinearProjectDetail(null)
-            setLinearProjectParentView(null)
-            setLinearProjectsError('Failed to restore saved Linear project.')
-            setTaskResumeState({ linearContext: undefined })
-          }
-        })
-      return () => {
-        cancelled = true
-      }
-    }
-
-    if (context.kind === 'view' && context.model) {
-      setLinearMode('views')
-      setLinearCustomViewsLoading(true)
-      setLinearCustomViewsError(null)
-      void fetchLinearCustomView(context.id, context.workspaceId, context.model, {
-        force: true,
-        sourceContext: linearTaskSourceContext
-      })
-        .then((restoredView) => {
-          if (cancelled) {
-            return
-          }
-          setLinearCustomViewsLoading(false)
-          if (!restoredView) {
-            setSelectedLinearCustomView(null)
-            setLinearCustomViewsError('Saved Linear view was not found.')
-            setTaskResumeState({ linearContext: undefined })
-            return
-          }
-          setSelectedLinearCustomView(restoredView)
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setSelectedLinearCustomView(null)
-            setLinearCustomViewsLoading(false)
-            setLinearCustomViewsError('Failed to restore saved Linear view.')
-            setTaskResumeState({ linearContext: undefined })
-          }
-        })
-      return () => {
-        cancelled = true
-      }
-    }
-    return undefined
-  }, [
+  useTaskPageLinearResumeState({
     fetchLinearCustomView,
     fetchLinearProject,
-    listLinearCustomViews,
     linearConnected,
+    linearContextResumeAttemptedRef,
     linearTaskSourceContext,
+    setLinearCustomViewsError,
+    setLinearCustomViewsLoading,
+    setLinearMode,
+    setLinearProjectParentView,
+    setLinearProjectsError,
+    setSelectedLinearCustomView,
+    setSelectedLinearProject,
+    setSelectedLinearProjectDetail,
     setTaskResumeState,
     taskResumeApplied,
-    taskResumeState?.linearContext,
+    taskResumeState,
     taskSource
-  ])
+  })
 
   // Why: fetch the full Linear team list so the selector shows all teams, not just those with issues in the fetch window.
   const [availableTeams, setAvailableTeams] = useState<LinearTeam[]>([])
