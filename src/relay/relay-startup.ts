@@ -8,29 +8,15 @@
 import { chmodSync, existsSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  AGENT_HOOK_INSTALL_PLUGINS_METHOD,
-  AGENT_HOOK_NOTIFICATION_METHOD,
-  AGENT_HOOK_REQUEST_REPLAY_METHOD
-} from '../shared/agent-hook-relay'
-import {
-  detectExplicitPiAgentKindFromCommand,
-  isPiCompatibleAgentType
-} from '../shared/pi-agent-kind'
-import { resolveSetupAgentSequenceLaunchCommand } from '../shared/setup-agent-sequencing'
-import {
   DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
   SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
 } from '../shared/ssh-types'
 import { AgentExecHandler } from './agent-exec-handler'
-import { endpointDirForRelaySocket, RelayAgentHookServer } from './agent-hook-server'
 import { expandTilde, RelayContext } from './context'
 import { RelayDispatcher } from './dispatcher'
 import { FsHandler } from './fs-handler'
 import { GitHandler } from './git-handler'
 import { registerRelayPluginHostCallHandlers } from './plugin-host-call-handler'
-import { PluginOverlayManager } from './plugin-overlay'
-import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
-import { assertPluginSourceUnderByteCap } from './plugin-source-limit'
 import { PortScanHandler } from './port-scan-handler'
 import { PreflightHandler } from './preflight-handler'
 import { PtyHandler } from './pty-handler'
@@ -143,7 +129,6 @@ function parseArgs(argv: string[]): {
     detached,
     cliMode,
     sockPath,
-    endpointDir,
     logFile,
     credentialFile
   }
@@ -373,132 +358,6 @@ async function main(): Promise<void> {
     configureRelayGraceTime(params)
   )
 
-  // ── Agent-hook server ─────────────────────────────────────────────
-  // Why: loopback HTTP receiver so remote-PTY agent CLIs post hook events locally, forwarded to Orca as agent.hook notifications. See docs/design/agent-status-over-ssh.md §2-§5.
-  const hookServer = new RelayAgentHookServer({
-    // Why: scope endpoint.env/cmd by socket path so multiple relay daemons on one account can't overwrite each other's hook tokens.
-    endpointDir: endpointDir ?? endpointDirForRelaySocket(sockPath),
-    forward: (envelope) => {
-      // Why: notify is fire-and-forget and drops during reconnect; the per-paneKey cache lets us replay last status after --connect.
-      dispatcher.notify(
-        AGENT_HOOK_NOTIFICATION_METHOD,
-        envelope as unknown as Record<string, unknown>
-      )
-    }
-  })
-  // Why: await the bind before announcing readiness so the first PTY spawn already sees ORCA_AGENT_HOOK_* env; bind failure is soft (log and continue).
-  try {
-    await hookServer.start({ publishEndpoint: false })
-  } catch (err) {
-    relayLogLine(
-      `[relay] agent-hook server failed to start: ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
-
-  // Why: read the augmenter on every spawn so a late (or restarted) hook-server bind still lands in the next PTY's ORCA_AGENT_HOOK_* env.
-  ptyHandler.addEnvAugmenter(() => hookServer.buildPtyEnv())
-
-  // Why: plugin paths resolve on the relay host — OpenCode gets a relay-local overlay; Pi/OMP get extensions in their real remote dirs.
-  const pluginOverlay = new PluginOverlayManager()
-  ptyHandler.addEnvAugmenter((ctx) => {
-    const env: Record<string, string> = {}
-    // Why: prefer paneKey for overlay identity so a renderer remount reusing it lands in the same dir; fall back to pty-id when absent.
-    const overlayId = ctx.paneKey ?? ctx.id
-    if (pluginOverlay.hasOpenCodeSource()) {
-      const sourceDir = resolveOpenCodeSourceConfigDir(ctx.env, ctx.shell)
-      const dir = pluginOverlay.materializeOpenCode(overlayId, sourceDir)
-      if (dir) {
-        env.OPENCODE_CONFIG_DIR = dir
-        env.ORCA_OPENCODE_CONFIG_DIR = dir
-        if (sourceDir) {
-          env.ORCA_OPENCODE_SOURCE_CONFIG_DIR = sourceDir
-        }
-      }
-    }
-    if (pluginOverlay.hasPiSource()) {
-      // Why: install Orca's guarded extension into the launched agent's (Pi vs OMP) real remote dir without redirecting PI_CODING_AGENT_DIR.
-      const launchCommandHint = resolveSetupAgentSequenceLaunchCommand(ctx.env, ctx.command)
-      const explicitKind = isPiCompatibleAgentType(ctx.launchAgent)
-        ? ctx.launchAgent
-        : ctx.launchAgent === undefined
-          ? detectExplicitPiAgentKindFromCommand(launchCommandHint)
-          : null
-      const kind = explicitKind ?? 'pi'
-      const hasLaunchCommand =
-        typeof launchCommandHint === 'string' && launchCommandHint.trim().length > 0
-      const shouldPrepareOmpShadow = kind === 'omp' || !hasLaunchCommand
-      if (kind === 'pi') {
-        const sourceDir = resolvePiSourceAgentDir(ctx.env, ctx.shell, 'pi')
-        // Why: do not mkdir ~/.<agent> on bare shells when the agent home is
-        // missing — unused agents kept recreating deleted homes (#10196).
-        const result = pluginOverlay.materializePi(overlayId, sourceDir, 'pi', {
-          materializeDefaultHome: explicitKind === 'pi'
-        })
-        if (result?.sourceAgentDir) {
-          env.ORCA_PI_SOURCE_AGENT_DIR = result.sourceAgentDir
-        }
-      }
-      if (shouldPrepareOmpShadow) {
-        // Why: prepare OMP's status extension for a bare shell so a typed `omp` gets integration, without making OMP the shell's home.
-        const sourceDir =
-          kind === 'omp'
-            ? resolvePiSourceAgentDir(ctx.env, ctx.shell, 'omp')
-            : ctx.env.ORCA_OMP_SOURCE_AGENT_DIR
-        const result = pluginOverlay.materializePi(overlayId, sourceDir, 'omp', {
-          materializeDefaultHome: explicitKind === 'omp'
-        })
-        // Why: status-only fallback (no sourceAgentDir) is intentional for bare
-        // shells without ~/.omp — still export ORCA_OMP_STATUS_EXTENSION (#10196).
-        if (result?.statusExtensionPath) {
-          env.ORCA_OMP_STATUS_EXTENSION = result.statusExtensionPath
-        }
-        if (result?.sourceAgentDir) {
-          env.ORCA_OMP_SOURCE_AGENT_DIR = result.sourceAgentDir
-        }
-      }
-    }
-    return env
-  })
-
-  // Why: evict pane status cache + overlay dirs on PTY exit so panes don't ghost after reconnect (§5 Path 3) or leak dirs.
-  ptyHandler.setExitListener(({ paneKey, id }) => {
-    if (paneKey) {
-      hookServer.clearPaneState(paneKey)
-    }
-    pluginOverlay.clearOverlay(paneKey ?? id)
-  })
-
-  // Why: forward cached entries as notifications before returning so the response trails all replays, closing a reconnect race. See docs/design/agent-status-over-ssh.md §5 Path 3.
-  dispatcher.onRequest(AGENT_HOOK_REQUEST_REPLAY_METHOD, async () => {
-    const replayed = hookServer.replayCachedPayloadsForPanes()
-    return { replayed }
-  })
-
-  // Why: relay-local installers collapse hundreds of SFTP request/response RTTs to one RPC.
-
-  // Why: plugin sources ship over the wire so an Orca update doesn't force a relay redeploy; cache them per spawn. See docs/design/agent-status-over-ssh.md §4.
-  // Why: bound per-source size so a buggy/hostile Orca can't OOM the relay by pushing a giant string.
-  dispatcher.onRequest(AGENT_HOOK_INSTALL_PLUGINS_METHOD, async (params) => {
-    const opencode = params.opencodePluginSource
-    const pi = params.piExtensionSource
-    const omp = params.ompExtensionSource
-    assertPluginSourceUnderByteCap('opencodePluginSource', opencode)
-    assertPluginSourceUnderByteCap('piExtensionSource', pi)
-    assertPluginSourceUnderByteCap('ompExtensionSource', omp)
-    pluginOverlay.setSources({
-      opencodePluginSource: typeof opencode === 'string' ? opencode : undefined,
-      piExtensionSource: typeof pi === 'string' ? pi : undefined,
-      ompExtensionSource: typeof omp === 'string' ? omp : undefined
-    })
-    return {
-      installed: {
-        opencode: pluginOverlay.hasOpenCodeSource(),
-        pi: pluginOverlay.hasPiSource('pi'),
-        omp: pluginOverlay.hasPiSource('omp')
-      }
-    }
-  })
-
   await runRelaySocketLifecycle({
     dispatcher,
     detached,
@@ -511,7 +370,6 @@ async function main(): Promise<void> {
     ptySourcePublication,
     fsHandler,
     gitHandler,
-    hookServer,
     transportState,
     socketOwnership,
     ownsCurrentSocketPath,

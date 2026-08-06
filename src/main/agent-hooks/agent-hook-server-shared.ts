@@ -1,9 +1,9 @@
-// Why: this main-process adapter keeps listener internals in shared/ (`src/shared/agent-hook-listener.ts`) so the relay can host the same pipeline without Electron. See docs/design/agent-status-over-ssh.md §5.
+// Generic status authority shared by OSC/PTY ingestion and persistence.
 import { createHash } from 'node:crypto'
 
 import { AGENT_KIND_VALUES, type AgentKind } from '../../shared/telemetry-events'
-import { MAX_PANE_KEY_LEN, type AgentHookEventPayload } from '../../shared/agent-hook-listener'
-import type { AgentHookSource } from '../../shared/agent-hook-relay'
+import { MAX_PANE_KEY_LEN, type AgentHookEventPayload } from '../../shared/agent-status-event'
+import type { AgentHookSource } from '../../shared/agent-status-event'
 import {
   type AgentStatusClearIpcPayload,
   type AgentType,

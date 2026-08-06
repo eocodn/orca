@@ -6,7 +6,6 @@ import type { RelayDispatcher } from './dispatcher'
 import type { PtyHandler } from './pty-handler'
 import type { FsHandler } from './fs-handler'
 import type { GitHandler } from './git-handler'
-import type { RelayAgentHookServer } from './agent-hook-server'
 import type { SshPtyConsumerSessionAdapter } from './ssh-pty-consumer-session-adapter'
 import type { RelayPtySourcePublication } from './relay-pty-source-publication'
 import { relayLogLine } from './relay-diagnostic-log'
@@ -50,7 +49,6 @@ export type RelaySocketLifecycleState = {
   ptySourcePublication: RelayPtySourcePublication
   fsHandler: FsHandler
   gitHandler: GitHandler
-  hookServer: RelayAgentHookServer
   transportState: RelaySocketTransportState
   socketOwnership: RelaySocketOwnership
   ownsCurrentSocketPath: () => boolean
@@ -70,7 +68,6 @@ export async function runRelaySocketLifecycle(state: RelaySocketLifecycleState):
     ptySourcePublication,
     fsHandler,
     gitHandler,
-    hookServer,
     transportState,
     socketOwnership,
     ownsCurrentSocketPath,
@@ -359,7 +356,6 @@ export async function runRelaySocketLifecycle(state: RelaySocketLifecycleState):
   try {
     socketServer = await startSocketServer()
     // Why: publish endpoint.env only after socket ownership is proven, so a refused duplicate daemon can't poison hook coordinates.
-    hookServer.publishEndpointFile()
   } catch {
     process.exit(1)
   }
@@ -439,7 +435,6 @@ export async function runRelaySocketLifecycle(state: RelaySocketLifecycleState):
         dispatcher.dispose()
         fsHandler.dispose()
         gitHandler.dispose()
-        hookServer.stop()
         // Why: server.close() unlinks the listen path; skip if a newer relay rebound it, else we strand that newer daemon.
         if (socketServer && ownsCurrentSocketPath()) {
           socketServer.close()

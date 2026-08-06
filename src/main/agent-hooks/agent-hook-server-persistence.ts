@@ -15,13 +15,10 @@ import {
   STATUS_PERSIST_DEBOUNCE_MS
 } from './agent-hook-server-shared'
 import {
-  clearAllListenerCaches,
-  seedClaudeSubagentRosterFromSnapshots,
-  seedCodexStateFromSnapshot,
-  writeEndpointFile,
-  type HookListenerState
-} from '../../shared/agent-hook-listener'
-import { ORCA_HOOK_PROTOCOL_VERSION } from '../../shared/agent-hook-types'
+  clearAllStatusEventCaches,
+  type AgentStatusEventState
+} from '../../shared/agent-status-event'
+import type { ParsedAgentStatusPayload } from '../../shared/agent-status-types'
 
 type EnrichedAgentHookEventPayload = hookShared.EnrichedAgentHookEventPayload
 type PersistedAgentHookEventPayload = hookShared.PersistedAgentHookEventPayload
@@ -38,26 +35,12 @@ export class AgentHookServer extends AgentHookServerRuntime {
     return this.lastStatusFilePath
   }
 
-  protected maybeWriteEndpointFile(): void {
-    if (!this.endpointDir || !this.endpointFilePathCache) {
-      return
-    }
-    this.endpointFileWritten = false
-    const ok = writeEndpointFile(this.endpointDir, this.endpointFilePathCache, {
-      port: this.port,
-      token: this.token,
-      env: this.env,
-      version: ORCA_HOOK_PROTOCOL_VERSION
-    })
-    this.endpointFileWritten = ok
-  }
-
   protected hydrateLastStatusFromDisk(): void {
     if (!this.lastStatusFilePath) {
       return
     }
     // Why: keep hydrate idempotent so a future re-start path can't merge prior-session state.
-    clearAllListenerCaches(this.state)
+    clearAllStatusEventCaches(this.state)
     this.runtimeObservedStatusPaneKeys.clear()
     this.currentAuthorityObservations.clear()
     this.hydratedLaunchTokenHashByPaneKey.clear()
@@ -133,22 +116,13 @@ export class AgentHookServer extends AgentHookServerRuntime {
           entry.payload = hydratedPayload
         }
         this.state.lastStatusByPaneKey.set(resolvedPaneKey, entry)
+        this.seedGenericSubagentRoster(resolvedPaneKey, entry.payload)
         if (entry.connectionId) {
           // Why: a restart can see an earlier wall clock; seed ordering so new events stay after disk state.
           const previousWatermark = this.connectionTimestampWatermarkById.get(entry.connectionId)
           this.connectionTimestampWatermarkById.set(
             entry.connectionId,
             Math.max(previousWatermark ?? -1, entry.receivedAt)
-          )
-        }
-        // Why: restore live child hierarchy immediately; provider-specific reconciliation reaps stale seeds.
-        if (entry.payload.agentType === 'codex') {
-          seedCodexStateFromSnapshot(this.state, resolvedPaneKey, entry.payload)
-        } else if (entry.payload.agentType === 'claude' && entry.payload.subagents) {
-          seedClaudeSubagentRosterFromSnapshots(
-            this.state,
-            resolvedPaneKey,
-            entry.payload.subagents
           )
         }
         hydrated += 1
@@ -184,6 +158,22 @@ export class AgentHookServer extends AgentHookServerRuntime {
     } else if (hydrated > 0) {
       // Why: prime dedup from raw bytes (not re-serialized) only when hydration was lossless.
       this.lastWrittenJson = raw
+    }
+  }
+
+  private seedGenericSubagentRoster(paneKey: string, payload: ParsedAgentStatusPayload): void {
+    if (!Array.isArray(payload.subagents)) return
+    const roster = new Map<string, unknown>()
+    for (const subagent of payload.subagents) {
+      if (typeof subagent !== 'object' || subagent === null) continue
+      const id = (subagent as { id?: unknown }).id
+      if (typeof id === 'string' && id.trim()) roster.set(id, subagent)
+    }
+    if (roster.size === 0) return
+    if (payload.agentType === 'claude') {
+      this.state.claudeSubagentRosterByPaneKey.set(paneKey, roster)
+    } else {
+      this.state.codexSubagentRosterByPaneKey.set(paneKey, roster)
     }
   }
 
@@ -311,7 +301,7 @@ export class AgentHookServer extends AgentHookServerRuntime {
   }
 
   /** Test-only accessor for the per-instance listener state (narrow getter avoids an `as unknown` cast). */
-  _getStateForTests(): HookListenerState {
+  _getStateForTests(): AgentStatusEventState {
     return this.state
   }
 
@@ -322,5 +312,4 @@ export class AgentHookServer extends AgentHookServerRuntime {
   _resetConnectionTimestampWatermarksForTests(): void {
     this.connectionTimestampWatermarkById.clear()
   }
-
 }

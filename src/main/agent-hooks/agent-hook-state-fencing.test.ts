@@ -52,7 +52,7 @@ describe('agent hook state fencing', () => {
   it('rehydrates persisted state idempotently without retaining derived roster entries', async () => {
     const userDataPath = mkdtempSync(join(tmpdir(), 'orca-agent-hook-fencing-'))
     tempDirs.push(userDataPath)
-    const endpointDir = join(userDataPath, 'agent-hooks')
+    const endpointDir = join(userDataPath, 'agent-status')
     mkdirSync(endpointDir, { recursive: true })
     const receivedAt = Date.now()
     writeFileSync(

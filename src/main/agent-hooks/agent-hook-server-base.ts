@@ -10,17 +10,15 @@ import type {
   AgentHookStatusChangeEntry
 } from './agent-hook-server-shared'
 import {
-  clearClaudeAnsweredQuestionWait,
-  createHookListenerState,
-  markClaudeLeadTurnInterrupted,
-  markCodexLeadTurnInterrupted,
+  createAgentStatusEventState,
   type AgentHookEventPayload,
-  type HookListenerState
-} from '../../shared/agent-hook-listener'
+  type AgentStatusEventState
+} from '../../shared/agent-status-event'
 import {
   AGENT_STATUS_STALE_AFTER_MS,
   type AgentStatusIpcPayload,
-  type AgentType
+  type AgentType,
+  type AgentStatusState
 } from '../../shared/agent-status-types'
 import {
   isAgentInterruptInputIntent,
@@ -68,7 +66,7 @@ export abstract class AgentHookServerBase {
   protected endpointFilePathCache: string | null = null
   protected endpointFileWritten = false
   // Why: per-instance (not module-level) so tests can spin up multiple servers without state cross-contamination.
-  protected state: HookListenerState = createHookListenerState()
+  protected state: AgentStatusEventState = createAgentStatusEventState()
   // Why: hydrated rows give UI continuity but aren't evidence of live agent work in this runtime.
   protected runtimeObservedStatusPaneKeys = new Set<string>()
   protected hydratedAuthorityCommitments: readonly AgentHookAuthorityEvidence[] = Object.freeze([])
@@ -129,7 +127,7 @@ export abstract class AgentHookServerBase {
       connectionId: payload.connectionId,
       ...(payload.tabId ? { tabId: payload.tabId } : {}),
       ...(payload.worktreeId ? { worktreeId: payload.worktreeId } : {}),
-      observedAt: 'receivedAt' in payload ? payload.receivedAt : Date.now()
+      observedAt: 'receivedAt' in payload ? (payload.receivedAt ?? Date.now()) : Date.now()
     })
   }
 
@@ -278,9 +276,6 @@ export abstract class AgentHookServerBase {
     if (!existing) {
       return false
     }
-    if (existing.providerSessionOnly) {
-      return false
-    }
     const payload = existing.payload
     const agentType: AgentType | undefined = payload.agentType
     // Why: Droid's Ctrl+C exits the CLI (handled by PTY lifecycle) rather than interrupting the current turn.
@@ -312,18 +307,11 @@ export abstract class AgentHookServerBase {
     }
 
     // Why: keep the Claude lead-turn record in sync, or a later child event re-emits the stale 'working' state and resurrects the cancelled pane.
-    if (agentType === 'claude') {
-      markClaudeLeadTurnInterrupted(this.state, existing.paneKey)
-    }
-    if (agentType === 'codex') {
-      markCodexLeadTurnInterrupted(this.state, existing.paneKey)
-    }
     const inferred = this.applyNormalizedStatus({
       paneKey: existing.paneKey,
       tabId: existing.tabId,
       worktreeId: existing.worktreeId,
       connectionId: existing.connectionId,
-      providerSession: existing.providerSession,
       payload: {
         state: 'done',
         prompt: payload.prompt,
@@ -373,13 +361,12 @@ export abstract class AgentHookServerBase {
       return false
     }
     // Why: sync the listener's lead-turn record too, or a later child event re-emits the stale waiting state and resurrects the card.
-    const restored = clearClaudeAnsweredQuestionWait(this.state, existing.paneKey)
+    const restored: { state: AgentStatusState; interrupted?: boolean } = { state: 'working' }
     const inferred = this.applyNormalizedStatus({
       paneKey: existing.paneKey,
       tabId: existing.tabId,
       worktreeId: existing.worktreeId,
       connectionId: existing.connectionId,
-      providerSession: existing.providerSession,
       payload: {
         state: restored.state,
         prompt: payload.prompt,

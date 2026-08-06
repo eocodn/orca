@@ -1,6 +1,6 @@
 import { AgentHookServerStatus } from './agent-hook-server-status'
 import * as hookShared from './agent-hook-server-shared'
-import { clearPaneCacheState, movePaneCacheState } from '../../shared/agent-hook-listener'
+import { clearPaneCacheState, movePaneCacheState } from '../../shared/agent-status-event'
 import { parseLegacyNumericPaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import type { LegacyPaneKeyAliasEntry } from '../../shared/types'
 

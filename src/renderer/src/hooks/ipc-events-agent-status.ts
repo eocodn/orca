@@ -17,7 +17,6 @@ import {
   resolveAgentStatusIdentity,
   shouldSuppressInheritedTerminalStatus
 } from '../../../shared/agent-status-identity'
-import { isWslHookRelayConnectionId } from '../../../shared/wsl-hook-relay-contract'
 import {
   observeAgentHookCompletionForNotification,
   syncAgentHookCompletionNotificationsForStoreUpdate
@@ -195,10 +194,7 @@ export function registerAgentStatusEvents({ unsubs }: AgentStatusSurfaceContext)
     }
     // Why: drop in-flight events stamped with a dead connection's id after SSH disconnect/reconnect — see docs/design/agent-status-over-ssh.md §5.
     // Why: startup snapshot replay can beat SSH repo hydration; accept when worktreeId matches the tab until repo ownership resolves.
-    // Why: WSL relay stamps a `wsl:<distro>` connectionId but the pane is a local repo (ownership null); normalize so the strict check below doesn't drop it.
-    const ownershipConnectionId = isWslHookRelayConnectionId(data.connectionId)
-      ? null
-      : data.connectionId
+    const ownershipConnectionId = data.connectionId
     const transientClearWatermark =
       typeof data.connectionId === 'string'
         ? transientClearWatermarkByConnectionId.get(data.connectionId)

@@ -1,11 +1,5 @@
-import {
-  clearAllListenerCaches,
-  normalizeHookPayload,
-  parseFormEncodedBody
-} from '../../shared/agent-hook-listener'
-import type { AgentHookEventPayload } from '../../shared/agent-hook-listener'
+import { clearAllStatusEventCaches } from '../../shared/agent-status-event'
 import { AgentHookServer as AgentHookServerImplementation } from './agent-hook-server-persistence'
-import type { AgentHookSource } from './agent-hook-server-shared'
 export {
   equivalentParsedAgentStatusPayload,
   snapshotAgentStatusEntries,
@@ -30,15 +24,8 @@ export {
 export { AgentHookServerImplementation as AgentHookServer }
 export const agentHookServer = new AgentHookServerImplementation()
 export const _internals = {
-  normalizeHookPayload: (
-    source: AgentHookSource,
-    body: unknown,
-    expectedEnv: string
-  ): AgentHookEventPayload | null =>
-    normalizeHookPayload(agentHookServer._getStateForTests(), source, body, expectedEnv),
-  parseFormEncodedBody,
   resetCachesForTests: (): void => {
-    clearAllListenerCaches(agentHookServer._getStateForTests())
+    clearAllStatusEventCaches(agentHookServer._getStateForTests())
     agentHookServer._resetPromptSentDedupeForTests()
     agentHookServer._resetConnectionTimestampWatermarksForTests()
   }

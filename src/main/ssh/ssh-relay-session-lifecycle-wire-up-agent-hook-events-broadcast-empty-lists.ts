@@ -1,12 +1,6 @@
 // Why: single authority for all relay lifecycle state per SSH target (previously scattered across module Maps/Sets with duplicated paths).
 
 import {
-  AGENT_HOOK_NOTIFICATION_METHOD,
-  AGENT_HOOK_REQUEST_REPLAY_METHOD,
-  isRemoteAgentHooksEnabled
-} from '../../shared/agent-hook-relay'
-import { agentHookServer } from '../agent-hooks/server'
-import {
   clearPtyOwnershipForConnection,
   getSshPtyProvider,
   unregisterSshPtyProvider
@@ -49,86 +43,6 @@ type SshPtyLease = foundation.SshPtyLease
 type SshRelayAiVaultHostInfo = foundation.SshRelayAiVaultHostInfo
 
 export const SshRelaySessionMethods8 = {
-  wireUpAgentHookEvents(this: any, mux: SshChannelMultiplexer): void {
-    if (!isRemoteAgentHooksEnabled()) {
-      return
-    }
-    // Why: capture the disposer so teardownProviders can release this handler and re-wiring can't double-register it.
-    this.muxNotificationCleanup?.()
-    this.muxNotificationCleanup = mux.onNotification((method, params) => {
-      if (method !== AGENT_HOOK_NOTIFICATION_METHOD) {
-        return
-      }
-      const envelope = params as {
-        paneKey?: unknown
-        launchToken?: unknown
-        tabId?: unknown
-        worktreeId?: unknown
-        env?: unknown
-        version?: unknown
-        hasExplicitPrompt?: unknown
-        promptInteractionKey?: unknown
-        hookEventName?: unknown
-        toolUseId?: unknown
-        toolAgentId?: unknown
-        toolAgentType?: unknown
-        isReplay?: unknown
-        providerSession?: unknown
-        providerSessionOnly?: unknown
-        payload?: unknown
-      }
-      if (typeof envelope.paneKey !== 'string') {
-        return
-      }
-      // Why: forward env/version verbatim so cross-build warn-once diagnostics fire on remote events too (agent-status-over-ssh.md §3).
-      agentHookServer.ingestRemote(
-        {
-          paneKey: envelope.paneKey,
-          launchToken: typeof envelope.launchToken === 'string' ? envelope.launchToken : undefined,
-          tabId: typeof envelope.tabId === 'string' ? envelope.tabId : undefined,
-          worktreeId: typeof envelope.worktreeId === 'string' ? envelope.worktreeId : undefined,
-          env: typeof envelope.env === 'string' ? envelope.env : undefined,
-          version: typeof envelope.version === 'string' ? envelope.version : undefined,
-          hasExplicitPrompt: envelope.hasExplicitPrompt === true ? true : undefined,
-          promptInteractionKey:
-            typeof envelope.promptInteractionKey === 'string'
-              ? envelope.promptInteractionKey
-              : undefined,
-          hookEventName:
-            typeof envelope.hookEventName === 'string' ? envelope.hookEventName : undefined,
-          toolUseId: typeof envelope.toolUseId === 'string' ? envelope.toolUseId : undefined,
-          toolAgentId: typeof envelope.toolAgentId === 'string' ? envelope.toolAgentId : undefined,
-          toolAgentType:
-            typeof envelope.toolAgentType === 'string' ? envelope.toolAgentType : undefined,
-          isReplay: envelope.isReplay === true ? true : undefined,
-          providerSession: envelope.providerSession,
-          providerSessionOnly: envelope.providerSessionOnly === true ? true : undefined,
-          payload: envelope.payload
-        },
-        this.targetId
-      )
-    })
-
-    // Why: request replay of cached paneKeys only after the handler is wired, so replayed events can't arrive before we subscribe. Best-effort.
-    void mux.request(AGENT_HOOK_REQUEST_REPLAY_METHOD).catch((err) => {
-      const code = (err as { code?: unknown })?.code
-      if (code === -32601 || code === 'CONNECTION_LOST' || code === 'DISPOSED') {
-        return
-      }
-      if (mux.isDisposed()) {
-        return
-      }
-      // Why: suppress the warn when a normal teardown rejects the in-flight request, so reconnect cycles aren't noisy.
-      if (mux.isDisposed()) {
-        return
-      }
-      console.warn(
-        `[ssh-relay-session] agent_hook.requestReplay failed for ${this.targetId}: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      )
-    })
-  },
   teardownProviders(
     this: any,
     reason: 'shutdown' | 'connection_lost',
@@ -136,8 +50,6 @@ export const SshRelaySessionMethods8 = {
   ): void {
     this.muxDisposeCleanup?.()
     this.muxDisposeCleanup = null
-    this.muxNotificationCleanup?.()
-    this.muxNotificationCleanup = null
     for (const cleanup of this.ptyRecoveryNotificationCleanups) {
       cleanup()
     }
@@ -161,11 +73,7 @@ export const SshRelaySessionMethods8 = {
     this.mux = null
     if (reason === 'shutdown') {
       clearPtyOwnershipForConnection(this.targetId)
-    } else {
-      // Why: handlers detached above, so no late event can re-stamp status between this clear and reconnect replay.
-      agentHookServer.clearStatusEntriesForConnection(this.targetId)
     }
-
     const ptyProvider = getSshPtyProvider(this.targetId)
     if (ptyProvider && 'dispose' in ptyProvider) {
       ;(ptyProvider as { dispose: () => void }).dispose()

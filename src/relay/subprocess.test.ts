@@ -14,7 +14,6 @@ import { tmpdir } from 'node:os'
 import { execFileSync, spawn as spawnChild } from 'node:child_process'
 import { build } from 'esbuild'
 import { spawnRelay, type RelayProcess } from './subprocess-test-utils'
-import { getEndpointFileName } from '../shared/agent-hook-listener'
 import { relayTestSocketPath } from './relay-test-socket-path'
 
 const RELAY_TS_ENTRY = path.resolve(__dirname, 'relay.ts')
@@ -327,8 +326,6 @@ describe('Subprocess: Relay entry point', () => {
       const sockPath = path.join(tmpDir, 'relay.sock')
       relay = spawn(['--detached', '--grace-time', '10', '--sock-path', sockPath])
       await relay.sentinelReceived
-      const endpointFile = path.join(tmpDir, 'agent-hooks', 'relay.sock', getEndpointFileName())
-      const endpointBeforeDuplicate = readFileSync(endpointFile, 'utf8')
 
       let duplicateStderr = ''
       const duplicate = spawnChild(
@@ -343,7 +340,6 @@ describe('Subprocess: Relay entry point', () => {
       const duplicateExit = await waitForChildExit(duplicate, 5000)
       expect(duplicateExit.code).toBe(1)
       expect(duplicateStderr).toContain('Socket path already in use')
-      expect(readFileSync(endpointFile, 'utf8')).toBe(endpointBeforeDuplicate)
 
       const bridge = spawn(['--connect', '--sock-path', sockPath])
       try {
