@@ -6,6 +6,25 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes PTY session liveness reconciliation through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-liveness-reconcile-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionSessionLivenessReconcileController } from './pty-connection-session-liveness-reconcile-controller'"
+    )
+    expect(orchestrator).not.toContain('const reconcileIfSessionDead =')
+    expect(orchestrator).not.toContain('const reconcileIfSessionMissing =')
+    expect(controller).toContain(
+      'export function createPtyConnectionSessionLivenessReconcileController('
+    )
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes PTY size reassertion through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

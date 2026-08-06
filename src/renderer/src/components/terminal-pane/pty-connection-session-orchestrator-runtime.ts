@@ -43,11 +43,6 @@ import {
   hasCachedWindowsTerminalCapabilities
 } from '@/lib/windows-terminal-capabilities'
 import { shouldSeedCacheTimerOnInitialTitle } from './cache-timer-seeding'
-import {
-  shouldReconcileDeadSession,
-  shouldReconcileMissingSession,
-  type HasPty
-} from './terminal-dead-session-reconcile'
 import type { PtyConnectionDeps } from './pty-connection-types'
 import {
   cancelPendingSafeFitContinuations,
@@ -256,7 +251,6 @@ import {
   HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
   HIDDEN_OUTPUT_RESTORE_PENDING_CHARS,
   HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING,
-  REMOTE_PTY_ID_PREFIX,
   SHIFT_ENTER_RECONFIRM_IDLE_MS,
   STARTUP_CWD_FALLBACK_NOTICE,
   SYNCHRONIZED_OUTPUT_END_SEQUENCE,
@@ -321,6 +315,7 @@ import { createPtyConnectionResizeForwardingController } from './pty-connection-
 import { createPtyConnectionPaneGeometryController } from './pty-connection-pane-geometry-controller'
 import { createPtyConnectionSpawnSizeReconcileController } from './pty-connection-spawn-size-reconcile-controller'
 import { createPtyConnectionSizeReassertionController } from './pty-connection-size-reassertion-controller'
+import { createPtyConnectionSessionLivenessReconcileController } from './pty-connection-session-liveness-reconcile-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -6420,78 +6415,13 @@ export function connectPanePty(
   connectFallbackTimer = setTimeout(runDeferredConnect, 250)
   connectFrame = requestAnimationFrame(runDeferredConnect)
 
-  // Why: on visibility resume a pane may still be bound to a session reaped while hidden (missed-exit defect); route through onExit's teardown,
-  // re-validating identity at apply time so a reattach racing the listSessions snapshot isn't clobbered.
-  const reconcileIfSessionDead = (
-    liveSessionIds: Set<string>,
-    snapshotRequestedAt?: number
-  ): void => {
-    if (disposed) {
-      return
-    }
-    const currentPtyId = transport.getPtyId()
-    if (
-      !currentPtyId ||
-      // Why: this exit was already handled — onExit guards it too, but skipping here avoids a redundant shouldReconcile evaluation.
-      exitController.hasHandledExit(currentPtyId) ||
-      !shouldReconcileDeadSession({
-        ptyId: currentPtyId,
-        connectionId: transport.getConnectionId?.(),
-        liveSessionIds,
-        ptyBoundAt: activePanePtyBindingBoundAt,
-        snapshotRequestedAt
-      })
-    ) {
-      return
-    }
-    onExit(currentPtyId)
-  }
-
-  const reconcileIfSessionMissing = (
-    hasPty: HasPty,
-    livenessRequestedAt = performance.now()
-  ): void => {
-    const requestedPtyId = transport.getPtyId()
-    if (
-      !requestedPtyId ||
-      exitController.hasHandledExit(requestedPtyId) ||
-      requestedPtyId.startsWith(REMOTE_PTY_ID_PREFIX) ||
-      transport.getConnectionId?.() != null
-    ) {
-      return
-    }
-
-    let livenessPromise: Promise<boolean | null>
-    try {
-      livenessPromise = Promise.resolve(hasPty(requestedPtyId))
-    } catch {
-      return
-    }
-
-    void livenessPromise
-      .then((isLive) => {
-        if (disposed) {
-          return
-        }
-        const currentPtyId = transport.getPtyId()
-        if (
-          !currentPtyId ||
-          currentPtyId !== requestedPtyId ||
-          exitController.hasHandledExit(currentPtyId) ||
-          !shouldReconcileMissingSession({
-            ptyId: currentPtyId,
-            connectionId: transport.getConnectionId?.(),
-            isLive,
-            ptyBoundAt: activePanePtyBindingBoundAt,
-            livenessRequestedAt
-          })
-        ) {
-          return
-        }
-        onExit(currentPtyId)
-      })
-      .catch(() => {})
-  }
+  const sessionLivenessReconcileController = createPtyConnectionSessionLivenessReconcileController({
+    transport,
+    isDisposed: () => disposed,
+    hasHandledExit: exitController.hasHandledExit,
+    getPtyBoundAt: () => activePanePtyBindingBoundAt,
+    onExit
+  })
 
   return {
     syncProcessTracking() {
@@ -6569,8 +6499,8 @@ export function connectPanePty(
         sampleVisiblePaneForegroundAgent()
       }, SHIFT_ENTER_RECONFIRM_IDLE_MS)
     },
-    reconcileIfSessionDead,
-    reconcileIfSessionMissing,
+    reconcileIfSessionDead: sessionLivenessReconcileController.reconcileIfSessionDead,
+    reconcileIfSessionMissing: sessionLivenessReconcileController.reconcileIfSessionMissing,
     dispose() {
       disposed = true
       disposeDirectSshRetryController()
