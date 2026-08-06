@@ -187,10 +187,7 @@ import {
   shouldSuppressCodexAutoApprovalSyntheticTitle,
   shouldSuppressCodexAutoApprovalStatus
 } from './codex-auto-approval-notification-suppression'
-import type {
-  AgentCompletionDispatchMeta,
-  AgentCompletionStatusSnapshot
-} from './agent-completion-coordinator-types'
+import type { AgentCompletionStatusSnapshot } from './agent-completion-coordinator-types'
 import {
   markTerminalBracketedPasteInterrupted,
   observeTerminalBracketedPasteModeOutput
@@ -259,11 +256,6 @@ import type { TuiAgent } from '../../../../shared/types'
 import { isWslUncPath } from '../../../../shared/wsl-paths'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
 import {
-  AGENT_TASK_COMPLETE_NOTIFICATION_GRACE_MS,
-  AGENT_TASK_COMPLETE_NOTIFICATION_MAX_WAIT_MS,
-  canDispatchAgentNotificationAfterGrace
-} from './agent-task-complete-policy'
-import {
   isMainTerminalSideEffectAuthorityForPty,
   registerTerminalSideEffectFactConsumer
 } from './terminal-side-effect-facts-handler'
@@ -312,10 +304,8 @@ import type {
   PendingStartupCommand
 } from './pty-connection-e2e-support'
 import {
-  isAgentTaskCompleteNotificationEnabled,
   isAgentTaskCompleteTrackingEnabled,
-  recordPtyConnectDiagnostic,
-  subscribeAgentTaskCompleteTrackingEnabled
+  recordPtyConnectDiagnostic
 } from './pty-connection-agent-tracking'
 import type { PanePtyBinding } from './pty-connection-agent-tracking'
 import {
@@ -345,6 +335,7 @@ import { createPtyConnectionStartupDraftController } from './pty-connection-star
 import { createPtyConnectionColdRestoreStartup } from './pty-connection-cold-restore-startup'
 import { createPtyConnectionStartupCommandDelivery } from './pty-connection-startup-command-delivery'
 import { createPtyConnectionDirectSshRetryController } from './pty-connection-direct-ssh-retry-controller'
+import { createPtyConnectionAgentNotificationController } from './pty-connection-agent-notification-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -389,16 +380,6 @@ export function connectPanePty(
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   let cleanupStartupDelivery = (): void => {}
   let unregisterE2ePtyDataInjection = (): void => {}
-  let agentTaskCompleteNotificationGraceTimer: ReturnType<typeof setTimeout> | null = null
-  let agentTaskCompleteNotificationMaxTimer: ReturnType<typeof setTimeout> | null = null
-  let agentTaskCompleteStatusUnsubscribe: (() => void) | null = null
-  let agentTaskCompleteSettingsUnsubscribe: (() => void) | null = null
-  let agentTaskCompleteNotificationGeneration = 0
-  let wasAgentTaskCompleteTrackingEnabled = isAgentTaskCompleteTrackingEnabled()
-  let requiresFreshWorkingForAgentTaskCompleteNotification = !wasAgentTaskCompleteTrackingEnabled
-  let wasAgentTaskCompleteOsNotificationEnabled = isAgentTaskCompleteNotificationEnabled()
-  let terminalBellNotificationTimer: ReturnType<typeof setTimeout> | null = null
-  let pendingTerminalBellNotification = false
   let alternateScreenBackgroundRepaintTimer: ReturnType<typeof setTimeout> | null = null
   let shiftEnterReconfirmTimer: ReturnType<typeof setTimeout> | null = null
   let synchronizedForegroundOutputActive = false
@@ -1837,218 +1818,19 @@ export function connectPanePty(
   }
   // ─── Attention signal: BEL ────────────────────────────────────────────
   //
-  // BEL (0x07) is the attention signal. A BEL raises tab- and worktree-level
-  // indicators, and fires an OS notification. The experimental pane marker
-  // clears when the user interacts with the exact pane.
-  //
-  // The one case where BEL falsely fires is when a crashed TUI left DEC
-  // private mode 1004 (focus event reporting) enabled — pane clicks then
-  // emit `\e[I`/`\e[O` into the shell, zsh treats them as unbound keys and
-  // rings the bell. This is specific to terminals with cross-restart
-  // persistence (as we have); our fix is to reset 1004 and friends after
-  // scrollback replay so the mode state matches the fresh shell
-  // underneath. See POST_REPLAY_MODE_RESET in layout-serialization.ts.
-  const onBell = (): void => {
-    // Why: restored Claude Code sessions have been observed to emit a real
-    // standalone BEL some time after daemon snapshot reattach, even when Orca
-    // did not just forward focus/control input. Treat the BEL as authoritative
-    // PTY output here; any product-side suppression should be an explicit UX
-    // decision higher up, not a transport-layer guess.
-    deps.markWorktreeUnread(deps.worktreeId)
-    deps.markTerminalTabUnread(deps.tabId)
-    if (useAppStore.getState().settings?.experimentalTerminalAttention === true) {
-      deps.markTerminalPaneUnread(cacheKey)
-    }
-    // Why: agent CLIs often emit BEL in the same completion burst as their
-    // working->idle title change. Delay only the OS notification so the richer
-    // agent-complete notification can win the main-process worktree cooldown.
-    pendingTerminalBellNotification = true
-    if (!hasPendingAgentTaskCompleteNotification()) {
-      scheduleTerminalBellNotification()
-    }
-  }
-
-  const clearTerminalBellNotificationTimer = (): void => {
-    if (terminalBellNotificationTimer !== null) {
-      clearTimeout(terminalBellNotificationTimer)
-      terminalBellNotificationTimer = null
-    }
-  }
-
-  const scheduleTerminalBellNotification = (): void => {
-    if (terminalBellNotificationTimer !== null) {
-      return
-    }
-    terminalBellNotificationTimer = setTimeout(() => {
-      terminalBellNotificationTimer = null
-      if (disposed) {
-        pendingTerminalBellNotification = false
-        return
-      }
-      if (hasPendingAgentTaskCompleteNotification()) {
-        return
-      }
-      pendingTerminalBellNotification = false
-      deps.dispatchNotification({ source: 'terminal-bell', paneKey: cacheKey })
-    }, AGENT_TASK_COMPLETE_NOTIFICATION_GRACE_MS)
-  }
-
-  const hasPendingAgentTaskCompleteNotification = (): boolean =>
-    isAgentTaskCompleteNotificationEnabled() &&
-    (agentCompletionCoordinator.hasPendingHookDoneCompletion() ||
-      agentTaskCompleteNotificationGraceTimer !== null ||
-      agentTaskCompleteNotificationMaxTimer !== null ||
-      agentTaskCompleteStatusUnsubscribe !== null)
-
-  const clearPendingAgentTaskCompleteNotification = (): void => {
-    if (agentTaskCompleteNotificationGraceTimer !== null) {
-      clearTimeout(agentTaskCompleteNotificationGraceTimer)
-      agentTaskCompleteNotificationGraceTimer = null
-    }
-    if (agentTaskCompleteNotificationMaxTimer !== null) {
-      clearTimeout(agentTaskCompleteNotificationMaxTimer)
-      agentTaskCompleteNotificationMaxTimer = null
-    }
-    if (agentTaskCompleteStatusUnsubscribe !== null) {
-      agentTaskCompleteStatusUnsubscribe()
-      agentTaskCompleteStatusUnsubscribe = null
-    }
-  }
-
-  const syncAgentTaskCompleteTrackingEnabled = (): boolean => {
-    const enabled = isAgentTaskCompleteTrackingEnabled()
-    const osNotificationsEnabled = isAgentTaskCompleteNotificationEnabled()
-    if (
-      !osNotificationsEnabled &&
-      wasAgentTaskCompleteOsNotificationEnabled &&
-      pendingTerminalBellNotification
-    ) {
-      scheduleTerminalBellNotification()
-    }
-    if (!enabled && wasAgentTaskCompleteTrackingEnabled) {
-      // Why: disabling every completion consumer is an event-time boundary.
-      // Drop pending alerts while preserving accepted-hook lifecycle state.
-      agentTaskCompleteNotificationGeneration += 1
-      requiresFreshWorkingForAgentTaskCompleteNotification = true
-      clearPendingAgentTaskCompleteNotification()
-      if (pendingTerminalBellNotification) {
-        scheduleTerminalBellNotification()
-      }
-    } else if (enabled && !wasAgentTaskCompleteTrackingEnabled) {
-      // Why: a pane may have observed work while all completion consumers were
-      // disabled. Re-enabling should not let the next idle event report old work.
-      requiresFreshWorkingForAgentTaskCompleteNotification = true
-    }
-    wasAgentTaskCompleteTrackingEnabled = enabled
-    wasAgentTaskCompleteOsNotificationEnabled = osNotificationsEnabled
-    return enabled
-  }
-
-  const scheduleAgentTaskCompleteNotification = (
-    title: string,
-    options: {
-      allowDoneDetailAfterGrace?: boolean
-      agentStatusSnapshot?: AgentCompletionStatusSnapshot
-      agentCompletionSource?: AgentCompletionDispatchMeta['source']
-    } = {}
-  ): void => {
-    if (
-      !syncAgentTaskCompleteTrackingEnabled() ||
-      requiresFreshWorkingForAgentTaskCompleteNotification
-    ) {
-      return
-    }
-    clearPendingAgentTaskCompleteNotification()
-    let graceElapsed = false
-    const generationAtSchedule = agentTaskCompleteNotificationGeneration
-    const agentStatusAtSchedule = useAppStore.getState().agentStatusByPaneKey[cacheKey]
-    const hasNewerActiveHookStatus = (): boolean => {
-      const currentStatus = useAppStore.getState().agentStatusByPaneKey[cacheKey]
-      const scheduledAgentType = agentStatusAtSchedule?.agentType
-      const currentAgentForScheduledTurn = resolveCompatibleAgentTypeForOwner(
-        currentStatus?.agentType,
-        scheduledAgentType
-      )
-      const hasDifferentKnownAgent = Boolean(
-        currentStatus?.agentType &&
-        scheduledAgentType &&
-        currentStatus.agentType !== 'unknown' &&
-        scheduledAgentType !== 'unknown' &&
-        currentAgentForScheduledTurn !== scheduledAgentType
-      )
-      return (
-        options.agentCompletionSource === 'process-exit' &&
-        isFreshNonDoneAgentStatus(currentStatus) &&
-        (!agentStatusAtSchedule ||
-          currentStatus.state !== agentStatusAtSchedule.state ||
-          currentStatus.stateStartedAt !== agentStatusAtSchedule.stateStartedAt ||
-          hasDifferentKnownAgent)
-      )
-    }
-
-    const dispatch = (): void => {
-      clearPendingAgentTaskCompleteNotification()
-      if (
-        generationAtSchedule !== agentTaskCompleteNotificationGeneration ||
-        !syncAgentTaskCompleteTrackingEnabled() ||
-        hasNewerActiveHookStatus()
-      ) {
-        return
-      }
-      if (disposed) {
-        return
-      }
-      // Why: terminal attention is a visual pane affordance, not an OS
-      // notification. Route through dispatch so stale pane completions are
-      // rejected before unread attention is marked.
-      const shouldDispatchOsNotification = isAgentTaskCompleteNotificationEnabled()
-      pendingTerminalBellNotification = false
-      clearTerminalBellNotificationTimer()
-      deps.dispatchNotification({
-        source: 'agent-task-complete',
-        terminalTitle: title,
-        paneKey: cacheKey,
-        ...(options.agentCompletionSource
-          ? { agentCompletionSource: options.agentCompletionSource }
-          : {}),
-        ...(shouldDispatchOsNotification ? {} : { suppressOsNotification: true }),
-        ...(options.agentStatusSnapshot ? { agentStatusSnapshot: options.agentStatusSnapshot } : {})
-      })
-    }
-
-    const dispatchIfDetailed = (): void => {
-      if (hasNewerActiveHookStatus()) {
-        // Why: the confirmed exit belongs to the row captured above; a replaced
-        // active row means a newer turn started during the notification delay.
-        clearPendingAgentTaskCompleteNotification()
-        return
-      }
-      if (!graceElapsed) {
-        return
-      }
-      const entry = useAppStore.getState().agentStatusByPaneKey[cacheKey]
-      if (canDispatchAgentNotificationAfterGrace(entry, options)) {
-        dispatch()
-      }
-    }
-
-    agentTaskCompleteStatusUnsubscribe = useAppStore.subscribe(dispatchIfDetailed)
-    agentTaskCompleteNotificationGraceTimer = setTimeout(() => {
-      agentTaskCompleteNotificationGraceTimer = null
-      graceElapsed = true
-      dispatchIfDetailed()
-    }, AGENT_TASK_COMPLETE_NOTIFICATION_GRACE_MS)
-    // Why: some agents never surface assistant text through hooks. Keep a hard
-    // cap so task-complete notifications still fire instead of waiting forever.
-    agentTaskCompleteNotificationMaxTimer = setTimeout(
-      dispatch,
-      AGENT_TASK_COMPLETE_NOTIFICATION_MAX_WAIT_MS
-    )
-  }
-  agentTaskCompleteSettingsUnsubscribe = subscribeAgentTaskCompleteTrackingEnabled(() => {
-    if (syncAgentTaskCompleteTrackingEnabled()) {
-      agentCompletionCoordinator.startProcessTracking()
-    }
+  const {
+    onBell,
+    scheduleAgentTaskCompleteNotification,
+    syncAgentTaskCompleteTrackingEnabled,
+    markFreshWorking,
+    clearPendingAgentTaskCompleteNotification,
+    schedulePendingTerminalBellNotification,
+    dispose: disposeAgentNotificationController
+  } = createPtyConnectionAgentNotificationController({
+    deps,
+    paneKey: cacheKey,
+    agentCompletionCoordinator,
+    isDisposed: () => disposed
   })
 
   // ─── Agent task-complete: notification-backed attention ───────────────
@@ -2110,17 +1892,14 @@ export function connectPanePty(
   const onAgentBecameWorking = (): void => {
     suppressNativeWindowsIdleCodexFocusReports = false
     clearSuppressedTitleSideEffects()
-    if (syncAgentTaskCompleteTrackingEnabled()) {
-      requiresFreshWorkingForAgentTaskCompleteNotification = false
+    if (markFreshWorking()) {
       agentCompletionCoordinator.observeTitleWorking()
     }
     // Why: a new API call refreshes the prompt-cache TTL, so clear any running
     // countdown. The timer will restart when the agent becomes idle again.
     deps.setCacheTimerStartedAt(cacheKey, null)
     clearPendingAgentTaskCompleteNotification()
-    if (pendingTerminalBellNotification) {
-      scheduleTerminalBellNotification()
-    }
+    schedulePendingTerminalBellNotification()
   }
   const onAgentExited = (): void => {
     // Why: eligibility can disappear transiently during reconnect, but a
@@ -2341,8 +2120,8 @@ export function connectPanePty(
     } else {
       currentState.setAgentStatus(cacheKey, statusPayload, statusTitle, undefined, routing)
     }
-    if (payload.state === 'working' && syncAgentTaskCompleteTrackingEnabled()) {
-      requiresFreshWorkingForAgentTaskCompleteNotification = false
+    if (payload.state === 'working') {
+      markFreshWorking()
     }
     const storedStatus = useAppStore.getState().agentStatusByPaneKey[cacheKey]
     const notificationPayload =
@@ -2351,8 +2130,8 @@ export function connectPanePty(
         : statusPayload
     // Why: hook lifecycle owns deferred side effects even when alerts are disabled.
     agentCompletionCoordinator.observeHookStatus(notificationPayload)
-    if (payload.state === 'working' && pendingTerminalBellNotification) {
-      scheduleTerminalBellNotification()
+    if (payload.state === 'working') {
+      schedulePendingTerminalBellNotification()
     }
   }
   // Why: when main holds side-effect authority for this PTY's bytes, the
@@ -7331,9 +7110,7 @@ export function connectPanePty(
       releaseUnattemptedStartupDraftPasteDelivery()
       unregisterAgentHookTerminalLifecycle()
       clearSuppressedTitleSideEffects()
-      clearPendingAgentTaskCompleteNotification()
-      pendingTerminalBellNotification = false
-      clearTerminalBellNotificationTimer()
+      disposeAgentNotificationController()
       clearReattachIdleAgentCursorResetTimer()
       if (alternateScreenBackgroundRepaintTimer !== null) {
         clearTimeout(alternateScreenBackgroundRepaintTimer)
@@ -7352,10 +7129,6 @@ export function connectPanePty(
       clearPanePtyFitBinding()
       discardTerminalOutput(pane.terminal)
       unregisterE2ePtyDataInjection()
-      if (agentTaskCompleteSettingsUnsubscribe !== null) {
-        agentTaskCompleteSettingsUnsubscribe()
-        agentTaskCompleteSettingsUnsubscribe = null
-      }
       if (unsubscribeWindowsDoneTerminalModeReset !== null) {
         unsubscribeWindowsDoneTerminalModeReset()
         unsubscribeWindowsDoneTerminalModeReset = null
