@@ -24,7 +24,7 @@ type DragState = Pick<
   ReturnType<typeof useFileExplorerDragDrop>,
   'isRootDragOver' | 'isNativeDragOver' | 'dragSourcePath' | 'nativeDropTargetDir'
 >
-type ExplorerRowsProps = VirtualRowsProps & DragState
+export type ExplorerRowsProps = VirtualRowsProps & DragState
 type ManualRefresh = ReturnType<typeof useFileExplorerManualRefresh>
 
 export type FileExplorerSurfaceViewProps = {
