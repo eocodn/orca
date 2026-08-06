@@ -104,48 +104,9 @@ export function prepareCodexRuntimeHomeForLaunch(
       console.warn('[codex-project-trust] failed to pre-mark launch workspace:', error)
     }
   }
-  // Account routing was removed; an explicit CODEX_HOME remains a supported
-  // user override, while an unset value means Codex should use ~/.codex.
-  const runtimeHomePath = launchEnv?.CODEX_HOME?.trim() || null
-  if (runtimeHomePath === null && target?.runtime === 'host') {
-    startupDeps.ensureRealHomeCodexHookState({
-      hooksEnabled: true,
-      userDataPath: startupDeps.app.getPath('userData')
-    })
-    return null
-  }
-  if (target?.runtime === 'wsl' || runtimeHomePath === null) {
-    return runtimeHomePath
-  }
-  const hookTarget = target
-  const hooksEnabled = true
-  try {
-    // Why: honor the persisted off switch so post-startup launches can't reinstall removed hooks.
-    const status = hooksEnabled
-      ? (startupDeps.codexHookService.installForRuntimeHome(runtimeHomePath, hookTarget) ??
-        startupDeps.codexHookService.install(runtimeHomePath ?? undefined))
-      : (startupDeps.codexHookService.refreshRuntimeUserHooksForRuntimeHome(
-          runtimeHomePath,
-          hookTarget
-        ) ?? startupDeps.codexHookService.refreshRuntimeUserHooks(runtimeHomePath ?? undefined))
-    if (status.state === 'error') {
-      console.warn(
-        `[codex-hook-service] failed to ${
-          hooksEnabled ? 'refresh' : 'refresh user'
-        } runtime hooks before launch`,
-        status.detail
-      )
-    }
-  } catch (error) {
-    // Why: hook install is best-effort launch prep; a malformed hooks file must not block Codex from starting.
-    console.warn(
-      `[codex-hook-service] failed to ${
-        hooksEnabled ? 'refresh' : 'refresh user'
-      } runtime hooks before launch`,
-      error
-    )
-  }
-  return runtimeHomePath
+  // Generic launches preserve an explicit user CODEX_HOME; otherwise Codex
+  // resolves its own default home without an Orca-managed hook side effect.
+  return launchEnv?.CODEX_HOME?.trim() || null
 }
 
 export async function prepareCodexSessionResumeForLaunch(args: {

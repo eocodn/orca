@@ -110,7 +110,7 @@ describe('ssh remote command builders', () => {
     expect(makeRemoteDirectoryCommand(posix, '/home/me/.orca-remote')).toContain('mkdir -p')
     const probe = probeRelayInstalledCommand(posix, '/home/me/relay')
     expect(probe).toContain('test -d')
-    expect(probe).toContain('managed-hook-runtime.js')
+    expect(probe).not.toContain('managed-hook-runtime.js')
   })
 
   it('uses encoded PowerShell for Windows deploy commands', () => {
@@ -120,7 +120,9 @@ describe('ssh remote command builders', () => {
     )
     const probe = probeRelayInstalledCommand(windows, 'C:/Users/me/relay')
     expect(probe).toContain('-EncodedCommand')
-    expect(decodePowerShellCommand(probe)).toContain('managed-hook-runtime.js')
+    const script = decodePowerShellCommand(probe)
+    expect(script).not.toContain('managed-hook-runtime.js')
+    expect(script).not.toContain('$managedHooks')
   })
 
   it('uses a legacy-visible Windows lock directory with an exclusive owner file', () => {

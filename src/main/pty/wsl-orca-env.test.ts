@@ -24,7 +24,7 @@ describe('addOrcaWslInteropEnv', () => {
     expect(env.WSLENV).toBe('FOO/u:ORCA_TERMINAL_HANDLE/u:BAR/p')
   })
 
-  it('marks OMP status and hook env for Windows to WSL import', () => {
+  it('marks generic PTY identity for Windows to WSL import', () => {
     const env: Record<string, string> = {
       ORCA_TERMINAL_HANDLE: 'term_wsl',
       ORCA_USER_DATA_PATH: 'C:\\Users\\jin\\AppData\\Roaming\\Orca',
@@ -48,15 +48,12 @@ describe('addOrcaWslInteropEnv', () => {
     expect(env.WSLENV).toContain('ORCA_TERMINAL_HANDLE/u')
     expect(env.WSLENV).toContain('ORCA_USER_DATA_PATH/p')
     expect(env.WSLENV).toContain('ORCA_CLI_COMMAND/u')
-    expect(env.WSLENV).toContain('ORCA_OMP_STATUS_EXTENSION/p')
+    expect(env.WSLENV).not.toContain('ORCA_OMP_STATUS_EXTENSION')
     expect(env.WSLENV).toContain('ORCA_PANE_KEY/u')
     expect(env.WSLENV).toContain('ORCA_TAB_ID/u')
     expect(env.WSLENV).toContain('ORCA_WORKTREE_ID/u')
     expect(env.WSLENV).toContain('ORCA_AGENT_LAUNCH_TOKEN/u')
-    expect(env.WSLENV).toContain('ORCA_AGENT_HOOK_PORT/u')
-    expect(env.WSLENV).toContain('ORCA_AGENT_HOOK_TOKEN/u')
-    expect(env.WSLENV).toContain('ORCA_AGENT_HOOK_ENV/u')
-    expect(env.WSLENV).toContain('ORCA_AGENT_HOOK_VERSION/u')
+    expect(env.WSLENV).not.toContain('ORCA_AGENT_HOOK_')
     expect(env.WSLENV).toContain('ORCA_ORCHESTRATION_COMPATIBILITY_HOST_KIND/u')
     expect(env.WSLENV).toContain('ORCA_ORCHESTRATION_COMPATIBILITY_HOST_ID/u')
     expect(env.WSLENV).toContain('ORCA_ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION/u')
@@ -92,19 +89,18 @@ describe('addOrcaWslInteropEnv', () => {
     expect(env).toEqual({})
   })
 
-  it('path-translates a Windows hook endpoint but passes a guest-side one untouched', () => {
+  it('does not forward retired hook endpoint coordinates', () => {
     const windowsEnv: Record<string, string> = {
       ORCA_AGENT_HOOK_ENDPOINT: 'C:\\Users\\jin\\AppData\\Roaming\\Orca\\agent-hooks\\endpoint.cmd'
     }
     addOrcaWslInteropEnv(windowsEnv)
-    expect(windowsEnv.WSLENV).toContain('ORCA_AGENT_HOOK_ENDPOINT/p')
+    expect(windowsEnv.WSLENV).not.toContain('ORCA_AGENT_HOOK_ENDPOINT')
 
     const guestEnv: Record<string, string> = {
       ORCA_AGENT_HOOK_ENDPOINT: '/home/jin/.orca-wsl/agent-hooks/port-4567/endpoint.env'
     }
     addOrcaWslInteropEnv(guestEnv)
-    expect(guestEnv.WSLENV).toContain('ORCA_AGENT_HOOK_ENDPOINT/u')
-    expect(guestEnv.WSLENV).not.toContain('ORCA_AGENT_HOOK_ENDPOINT/p')
+    expect(guestEnv.WSLENV).not.toContain('ORCA_AGENT_HOOK_ENDPOINT')
   })
 
   it('tags pre-translated Linux setup paths /u so WSLENV does not translate them again (#9206)', () => {
@@ -165,23 +161,21 @@ describe('addOrcaWslInteropEnv', () => {
     expect(env.WSLENV).toBe('ORCA_TERMINAL_HANDLE/u')
   })
 
-  it('marks the WSL hook relay version for import on relay spawn envs', () => {
+  it('does not forward retired WSL hook relay coordinates', () => {
     const env: Record<string, string> = {
       ORCA_WSL_HOOK_RELAY_VERSION: '0.1.0+abc'
     }
     addOrcaWslInteropEnv(env)
-    expect(env.WSLENV).toBe('ORCA_WSL_HOOK_RELAY_VERSION/u')
+    expect(env.WSLENV).toBe('')
   })
 
-  it('crosses a guest-side OpenCode config overlay untranslated (/u)', () => {
+  it('does not forward retired OpenCode overlay coordinates', () => {
     const env: Record<string, string> = {
       OPENCODE_CONFIG_DIR: '/home/jin/.orca-relay/opencode-overlays/abc',
       ORCA_OPENCODE_CONFIG_DIR: '/home/jin/.orca-relay/opencode-overlays/abc'
     }
     addOrcaWslInteropEnv(env)
-    expect(env.WSLENV).toContain('OPENCODE_CONFIG_DIR/u')
-    expect(env.WSLENV).toContain('ORCA_OPENCODE_CONFIG_DIR/u')
-    expect(env.WSLENV).not.toContain('OPENCODE_CONFIG_DIR/p')
+    expect(env.WSLENV).not.toContain('OPENCODE_CONFIG_DIR')
   })
 
   it('never crosses a Windows OpenCode config dir into the guest', () => {
@@ -194,7 +188,6 @@ describe('addOrcaWslInteropEnv', () => {
     }
     addOrcaWslInteropEnv(env)
     expect(env.WSLENV).not.toContain('OPENCODE_CONFIG_DIR')
-    expect(env.WSLENV).not.toContain('ORCA_OPENCODE_CONFIG_DIR')
   })
 
   it('does not register the OpenCode config vars when they are absent', () => {
@@ -202,6 +195,14 @@ describe('addOrcaWslInteropEnv', () => {
     addOrcaWslInteropEnv(env)
     expect(env.WSLENV).not.toContain('OPENCODE_CONFIG_DIR')
     expect(env.WSLENV).not.toContain('ORCA_OPENCODE_CONFIG_DIR')
+  })
+
+  it('preserves a user OpenCode config path when no Orca overlay is present', () => {
+    const env: Record<string, string> = { OPENCODE_CONFIG_DIR: '/home/jin/.config/opencode' }
+
+    addOrcaWslInteropEnv(env)
+
+    expect(env.WSLENV).toBe('OPENCODE_CONFIG_DIR/u')
   })
 })
 

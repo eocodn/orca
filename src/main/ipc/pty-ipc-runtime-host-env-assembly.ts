@@ -1,34 +1,29 @@
 import { join, delimiter } from 'node:path'
 import { applyTerminalGitCredentialPromptGuard } from './terminal-git-credential-guard'
-import { openCodeHookService } from '../opencode/hook-service'
-import { mimoCodeHookService } from '../mimo/hook-service'
-import { agentHookServer } from '../agent-hooks/server'
-import { piTitlebarExtensionService } from '../pi/titlebar-extension-service'
 import { ensureLinuxTerminalOrcaCliShimDir } from '../cli/linux-terminal-orca-cli-shim'
 import { buildConfiguredProxyEnv } from '../../shared/network-proxy'
 import { resolveSetupAgentSequenceLaunchCommand } from '../../shared/setup-agent-sequencing'
 import { mergePersistedWindowsPath } from '../pty/windows-environment-path'
 import {
-  isPiCompatibleAgentType,
-  detectExplicitPiAgentKindFromCommand
-} from '../../shared/pi-agent-kind'
-import { AGENT_HOOK_RUNTIME_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
-import {
   RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS,
   type BuildPtyHostEnvOptions
 } from './pty-ipc-runtime-host-env-foundation'
-import {
-  clearPiAgentShadowEnv,
-  exposePiManagedExtensionEnv,
-  isMimoLaunchCommand,
-  readInheritedPath,
-  resolveOpenCodeSourceConfigDir,
-  resolvePiAgentSourceDir,
-  resolveScopedPiAgentSourceDir,
-  resolveMimocodeSourceHome,
-  restoreOrStripOverlayEnv,
-  stripInheritedOrcaCodexHomeOverride
-} from './pty-ipc-runtime-host-env-foundation'
+import { AGENT_HOOK_RUNTIME_ENV_KEYS } from './pty-ipc-runtime-host-env-constants'
+import { stripInheritedOrcaCodexHomeOverride } from './pty-ipc-runtime-host-env-foundation'
+
+const RETIRED_AGENT_OVERLAY_ENV_KEYS = [
+  'ORCA_OPENCODE_CONFIG_DIR',
+  'ORCA_OPENCODE_SOURCE_CONFIG_DIR',
+  'ORCA_MIMOCODE_HOME',
+  'ORCA_MIMOCODE_SOURCE_HOME',
+  'ORCA_PI_CODING_AGENT_DIR',
+  'ORCA_PI_SOURCE_AGENT_DIR',
+  'ORCA_OMP_CODING_AGENT_DIR',
+  'ORCA_OMP_SOURCE_AGENT_DIR',
+  'ORCA_OMP_STATUS_EXTENSION',
+  'ORCA_WSL_HOOK_RELAY_VERSION',
+  'ORCA_WSL_HOOK_INSTANCE'
+] as const
 
 export function buildPtyHostEnv(
   id: string,
@@ -41,18 +36,13 @@ export function buildPtyHostEnv(
   for (const key of RETIRED_TERMINAL_ATTRIBUTION_ENV_KEYS) {
     delete baseEnv[key]
   }
+  // Managed hooks and provider overlays are retired; never leak inherited
+  // coordinates into a new PTY, while preserving the user's unprefixed env.
+  for (const key of [...AGENT_HOOK_RUNTIME_ENV_KEYS, ...RETIRED_AGENT_OVERLAY_ENV_KEYS]) {
+    delete baseEnv[key]
+  }
 
-  // Why: local path's baseEnv includes process.env but the daemon path doesn't (fork inheritance, not IPC); check both sources so guards stay in lock-step across spawn paths.
-  const preexistingOpenCodeConfigDir = resolveOpenCodeSourceConfigDir(baseEnv)
   const launchCommandHint = resolveSetupAgentSequenceLaunchCommand(baseEnv, opts.launchCommand)
-  const explicitPiAgentKind = isPiCompatibleAgentType(opts.launchAgent)
-    ? opts.launchAgent
-    : opts.launchAgent === undefined
-      ? detectExplicitPiAgentKindFromCommand(launchCommandHint)
-      : null
-  const piAgentKind = explicitPiAgentKind ?? 'pi'
-  const hasLaunchCommand =
-    typeof launchCommandHint === 'string' && launchCommandHint.trim().length > 0
 
   // Why: unattended agents must fail instead of looping on OS credential prompts; user terminals keep normal Git behavior.
   applyTerminalGitCredentialPromptGuard(baseEnv, {
@@ -60,99 +50,6 @@ export function buildPtyHostEnv(
     isUnattended: opts.launchAgent !== undefined,
     deferGitConfigGuardToHost: opts.deferGitConfigGuardToDaemon
   })
-
-  const shouldPrepareOmpShadow = piAgentKind === 'omp' || !hasLaunchCommand
-  // Why: source shadows are agent-scoped; trusting the other kind's source reintroduces Pi/OMP extension-state shadowing.
-  const preexistingPiAgentDir = resolvePiAgentSourceDir(baseEnv, 'pi')
-  const preexistingOmpAgentDir =
-    piAgentKind === 'omp'
-      ? resolvePiAgentSourceDir(baseEnv, 'omp')
-      : resolveScopedPiAgentSourceDir(baseEnv, 'omp')
-
-  if (opts.agentStatusHooksEnabled) {
-    // Why: OPENCODE_CONFIG_DIR is a single path, not a colon-list; mirror the user's value into an overlay so their plugins and Orca's status plugin coexist. See docs/opencode-config-dir-collision.md.
-    Object.assign(baseEnv, openCodeHookService.buildPtyEnv(id, preexistingOpenCodeConfigDir))
-    if (baseEnv.OPENCODE_CONFIG_DIR) {
-      // Why: ~/.zshrc can re-export the user's default after spawn; shell-ready wrappers restore this PTY-scoped value.
-      baseEnv.ORCA_OPENCODE_CONFIG_DIR = baseEnv.OPENCODE_CONFIG_DIR
-      if (preexistingOpenCodeConfigDir) {
-        // Why: nested Orca terminals inherit the overlay as OPENCODE_CONFIG_DIR; keep the real source so overlays don't mirror overlays.
-        baseEnv.ORCA_OPENCODE_SOURCE_CONFIG_DIR = preexistingOpenCodeConfigDir
-      } else {
-        delete baseEnv.ORCA_OPENCODE_SOURCE_CONFIG_DIR
-      }
-    }
-    if (isMimoLaunchCommand(launchCommandHint)) {
-      const preexistingMimocodeHome = resolveMimocodeSourceHome(baseEnv)
-      Object.assign(baseEnv, mimoCodeHookService.buildPtyEnv(id, preexistingMimocodeHome))
-      if (baseEnv.MIMOCODE_HOME) {
-        baseEnv.ORCA_MIMOCODE_HOME = baseEnv.MIMOCODE_HOME
-        if (preexistingMimocodeHome) {
-          baseEnv.ORCA_MIMOCODE_SOURCE_HOME = preexistingMimocodeHome
-        } else {
-          delete baseEnv.ORCA_MIMOCODE_SOURCE_HOME
-        }
-      }
-    }
-  } else {
-    restoreOrStripOverlayEnv(baseEnv, {
-      primary: 'OPENCODE_CONFIG_DIR',
-      overlay: 'ORCA_OPENCODE_CONFIG_DIR',
-      source: 'ORCA_OPENCODE_SOURCE_CONFIG_DIR'
-    })
-    restoreOrStripOverlayEnv(baseEnv, {
-      primary: 'MIMOCODE_HOME',
-      overlay: 'ORCA_MIMOCODE_HOME',
-      source: 'ORCA_MIMOCODE_SOURCE_HOME'
-    })
-  }
-
-  // Why: strip inherited hook coordinates before injecting this PTY's fresh loopback receiver, so nested-terminal callbacks route to the owning pane.
-  for (const key of AGENT_HOOK_RUNTIME_ENV_KEYS) {
-    delete baseEnv[key]
-  }
-  if (opts.agentStatusHooksEnabled) {
-    Object.assign(baseEnv, agentHookServer.buildPtyEnv())
-  }
-
-  // Why: PI_CODING_AGENT_DIR is the user's config/session root; install only Orca-owned extension files, don't override it.
-  if (opts.agentStatusHooksEnabled) {
-    clearPiAgentShadowEnv(baseEnv, 'pi')
-    clearPiAgentShadowEnv(baseEnv, 'omp')
-    // Why: bare shells historically defaulted to Pi + OMP shadow prep and
-    // created ~/.<agent>/agent even when the user never launches those agents
-    // (#10196). Only create default homes on an explicit Pi/OMP launch;
-    // otherwise install only into an existing agent dir (or userData for OMP
-    // status so a typed `omp` still gets the shell wrapper extension).
-    if (piAgentKind === 'pi') {
-      const piEnv = piTitlebarExtensionService.buildPtyEnv(id, preexistingPiAgentDir, 'pi', {
-        materializeDefaultHome: explicitPiAgentKind === 'pi'
-      })
-      Object.assign(baseEnv, piEnv)
-      exposePiManagedExtensionEnv(baseEnv, 'pi', piEnv)
-    }
-
-    if (shouldPrepareOmpShadow) {
-      const ompEnv = piTitlebarExtensionService.buildPtyEnv(id, preexistingOmpAgentDir, 'omp', {
-        materializeDefaultHome: explicitPiAgentKind === 'omp'
-      })
-      Object.assign(baseEnv, ompEnv)
-      exposePiManagedExtensionEnv(baseEnv, 'omp', ompEnv)
-    }
-  } else {
-    // Why: strip BOTH kinds' shadow vars so a nested PTY can't inherit a stale overlay from either agent.
-    restoreOrStripOverlayEnv(baseEnv, {
-      primary: 'PI_CODING_AGENT_DIR',
-      overlay: 'ORCA_PI_CODING_AGENT_DIR',
-      source: 'ORCA_PI_SOURCE_AGENT_DIR'
-    })
-    restoreOrStripOverlayEnv(baseEnv, {
-      primary: 'PI_CODING_AGENT_DIR',
-      overlay: 'ORCA_OMP_CODING_AGENT_DIR',
-      source: 'ORCA_OMP_SOURCE_AGENT_DIR'
-    })
-    delete baseEnv.ORCA_OMP_STATUS_EXTENSION
-  }
 
   // Why: keep the Codex home override PTY-scoped so dev/prod Orcas don't share hooks through ~/.codex.
   if (opts.skipCodexHomeEnv) {

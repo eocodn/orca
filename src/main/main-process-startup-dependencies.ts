@@ -163,11 +163,6 @@ export type {
   CodexSessionResumePreparation
 } from './runtime/provider-lane-types'
 export { markCodexProjectTrusted } from './agent-trust-presets'
-export { codexHookService } from './codex/hook-service'
-export {
-  ensureRealHomeCodexHookState,
-  isRealHomeCodexHookLaneUsable
-} from './codex/codex-real-home-hook-install'
 export { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from './codex/codex-home-paths'
 export { normalizeRuntimePathForComparison } from '../shared/cross-platform-path'
 export type { AgentProviderSessionMetadata } from '../shared/agent-session-resume'
