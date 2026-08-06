@@ -12,19 +12,11 @@ import {
 } from './worktree-header-section-boundaries'
 import { folderWorkspaceToWorktree } from '../../../../shared/folder-workspace-worktree'
 import { cn } from '@/lib/utils'
-import type {
-  Worktree,
-  Repo,
-  ProjectGroup,
-  WorktreeMeta,
-  WorkspaceStatus
-} from '../../../../shared/types'
+import type { Repo, ProjectGroup, WorktreeMeta, WorkspaceStatus } from '../../../../shared/types'
 import { DEFAULT_SHOW_SLEEPING_WORKSPACES } from '../../../../shared/constants'
 import { rightSidebarShowsPullRequestData } from '@/lib/right-sidebar-visibility'
 import {
-  type Row,
   PINNED_GROUP_KEY,
-  buildRows,
   getGroupKeysForWorktree,
   getLineageGroupKey
 } from './worktree-list-groups'
@@ -74,16 +66,8 @@ import {
 } from './workspace-kanban-sidebar-drop'
 import type { WorktreeSidebarDragPoint } from './worktree-sidebar-drag-autoscroll'
 import type { WorktreeSidebarStatusDropTarget } from './worktree-sidebar-drop-preview'
-import {
-  getReorderedWorktreeIdsToUnnest,
-} from './worktree-lineage-drag-drop'
+import { getReorderedWorktreeIdsToUnnest } from './worktree-lineage-drag-drop'
 import { resolveProjectGroupHeaderColor } from './project-header-color'
-import {
-  areWorktreeSelectionsEqual,
-  getWorktreeSelectionIntent,
-  pruneWorktreeSelection,
-  updateWorktreeSelection
-} from './worktree-multi-selection'
 import type { ExecutionHostId } from '../../../../shared/execution-host'
 import { getRepoHeaderCreateState } from './repo-header-create-state'
 import { ProjectGroupNameDialog } from './ProjectGroupNameDialog'
@@ -116,9 +100,7 @@ import {
   getWorktreeCardContentIndent,
   getWorktreeCardSurfaceInset
 } from './worktree-list-indentation'
-import { addHostSectionRows } from './host-section-rows'
 import { translate } from '@/i18n/i18n'
-import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import { isConfirmedStaleFolderPathStatus } from '../../../../shared/folder-workspace-path-status'
 import { getKnownSidebarWorktreeById } from './worktree-list-folder-reveal'
 import { getFolderWorkspaceCardPrDisplay } from './folder-workspace-card-pr-display'
@@ -128,7 +110,6 @@ import {
   countRecordKeysByReference,
   handleRepoHeaderActionPointerDown,
   handleRepoHeaderCollapseAffordancePointerDown,
-  markSidebarWorktreeActiveImmediately,
   stopNestedWorktreeCardBubble,
   stopRepoHeaderMenuEvent,
   stopRepoHeaderKeyboardToggle
@@ -144,6 +125,8 @@ import { useWorktreeListNativeDrag } from './use-worktree-list-native-drag'
 import { useWorktreeListNativeDocument } from './use-worktree-list-native-document'
 import { useWorktreeListSource } from './use-worktree-list-source'
 import { useWorktreeListRowInputs } from './use-worktree-list-row-inputs'
+import { useWorktreeListSelection } from './use-worktree-list-selection'
+import { useWorktreeListRows } from './use-worktree-list-rows'
 
 export {
   countRecordKeysByReference,
@@ -1626,16 +1609,55 @@ const WorktreeList = React.memo(function WorktreeList({
 }: WorktreeListProps) {
   const source = useWorktreeListSource()
   const {
-    repoMap, worktreeMap, worktreeLineageById, workspaceLineageByChildKey, worktreesByRepo,
-    detectedWorktreesByRepo, currentSidebarWorktreeId, groupBy, setGroupBy, workspaceHostScope,
-    visibleWorkspaceHostIds, workspaceHostOrder, setWorkspaceHostOrder, workspaceStatuses, sortBy, setSortBy,
-    projectOrderBy, showSleepingWorkspaces, hideDefaultBranchWorkspace, hideAutomationGeneratedWorkspaces,
-    hideCliCreatedWorkspaces, hideDetachedHeadWorkspaces, filterRepoIds, openModal, openSettingsPage, openSettingsTarget,
-    updateWorktreeMeta, updateWorktreesMeta, updateRepo, fetchWorktrees, activeView, activeModal, pendingRevealWorktree,
-    pendingRevealSidebarRow, revealWorktreeInSidebar, revealSidebarRow, setWorktreesPinnedAndReveal,
-    clearPendingRevealWorktreeId, clearPendingRevealSidebarRow, agentSendTargetWorktreeId,
-    prCache, hostedReviewCache, settings, pinnedDisplayPolicy, sshTargetLabels,
-    sshConnectionStates, runtimeEnvironments, runtimeStatusByEnvironmentId, visibleWorktrees
+    repoMap,
+    worktreeMap,
+    worktreeLineageById,
+    workspaceLineageByChildKey,
+    worktreesByRepo,
+    detectedWorktreesByRepo,
+    currentSidebarWorktreeId,
+    groupBy,
+    setGroupBy,
+    workspaceHostScope,
+    visibleWorkspaceHostIds,
+    workspaceHostOrder,
+    setWorkspaceHostOrder,
+    workspaceStatuses,
+    sortBy,
+    setSortBy,
+    projectOrderBy,
+    showSleepingWorkspaces,
+    hideDefaultBranchWorkspace,
+    hideAutomationGeneratedWorkspaces,
+    hideCliCreatedWorkspaces,
+    hideDetachedHeadWorkspaces,
+    filterRepoIds,
+    openModal,
+    openSettingsPage,
+    openSettingsTarget,
+    updateWorktreeMeta,
+    updateWorktreesMeta,
+    updateRepo,
+    fetchWorktrees,
+    activeView,
+    activeModal,
+    pendingRevealWorktree,
+    pendingRevealSidebarRow,
+    revealWorktreeInSidebar,
+    revealSidebarRow,
+    setWorktreesPinnedAndReveal,
+    clearPendingRevealWorktreeId,
+    clearPendingRevealSidebarRow,
+    agentSendTargetWorktreeId,
+    prCache,
+    hostedReviewCache,
+    settings,
+    pinnedDisplayPolicy,
+    sshTargetLabels,
+    sshConnectionStates,
+    runtimeEnvironments,
+    runtimeStatusByEnvironmentId,
+    visibleWorktrees
   } = source
   const worktrees = visibleWorktrees
   const collapsedGroups = useAppStore((s) => s.collapsedGroups)
@@ -1720,9 +1742,6 @@ const WorktreeList = React.memo(function WorktreeList({
   })
   const {
     defaultHostId,
-    visibleProjectGroupsForRows,
-    visibleFolderWorkspacesForRows,
-    repoOrder,
     importedWorktreeCardActionState,
     setImportedWorktreeCardActionState,
     newExternalWorktreeInboxActionState,
@@ -1732,62 +1751,28 @@ const WorktreeList = React.memo(function WorktreeList({
     importedWorktreesByRepo,
     newExternalWorktreesInboxByRepo,
     placeholderRepoIds,
-    allRepoIds,
-    pendingCreations,
-    hostLabelById,
-    orderedHostOptions
+    allRepoIds
   } = rowInputs
-  const rows: Row[] = useMemo(
-    () =>
-      buildRows(
-        groupBy,
-        worktrees,
-        repoMap,
-        prCache,
-        effectiveCollapsedGroups,
-        repoOrder,
-        workspaceStatuses,
-        projectOrderBy,
-        worktreeLineageById,
-        worktreeMap,
-        true,
-        settings,
-        visibleProjectGroupsForRows,
-        placeholderRepoIds,
-        importedWorktreesByRepo,
-        newExternalWorktreesInboxByRepo,
-        pendingCreations,
-        projectGrouping,
-        visibleFolderWorkspacesForRows,
-        hostLabelById,
-        defaultHostId,
-        pinnedDisplayPolicy
-      ),
-    [
-      groupBy,
-      worktrees,
-      repoMap,
-      prCache,
-      effectiveCollapsedGroups,
-      defaultHostId,
-      repoOrder,
-      workspaceStatuses,
-      projectOrderBy,
-      worktreeLineageById,
-      worktreeMap,
-      settings,
-      projectGrouping,
-      visibleProjectGroupsForRows,
-      visibleFolderWorkspacesForRows,
-      placeholderRepoIds,
-      importedWorktreesByRepo,
-      newExternalWorktreesInboxByRepo,
-      pendingCreations,
-      hostLabelById,
-      pinnedDisplayPolicy
-    ]
-  )
   const [hostDragActive, setHostDragActive] = useState(false)
+  const { rows, sectionRows, orderedHostOptions, renderedSidebarRowKeys } = useWorktreeListRows({
+    groupBy,
+    worktrees,
+    repoMap,
+    prCache,
+    effectiveCollapsedGroups,
+    workspaceStatuses,
+    projectOrderBy,
+    worktreeLineageById,
+    worktreeMap,
+    settings,
+    projectGrouping,
+    pinnedDisplayPolicy,
+    workspaceHostOrder,
+    workspaceHostScope,
+    visibleWorkspaceHostIds,
+    hostDragActive,
+    rowInputs
+  })
   const handleReorderHostSections = useCallback(
     (orderedVisibleHostIds: ExecutionHostId[]) => {
       const visibleHostIds = new Set(orderedVisibleHostIds)
@@ -1807,48 +1792,6 @@ const WorktreeList = React.memo(function WorktreeList({
     },
     [orderedHostOptions, setWorkspaceHostOrder, workspaceHostOrder]
   )
-  const sectionRows = useMemo(
-    () =>
-      addHostSectionRows({
-        rows,
-        hostOptions: orderedHostOptions,
-        workspaceHostScope,
-        visibleWorkspaceHostIds,
-        defaultHostId,
-        collapsedHostKeys: effectiveCollapsedGroups,
-        forceCollapseHosts: hostDragActive,
-        // Why: projects/workspaces are the primary sidebar object; host sections are only an explicit host-filter view.
-        preferProjectGrouping: true
-      }),
-    [
-      defaultHostId,
-      effectiveCollapsedGroups,
-      hostDragActive,
-      orderedHostOptions,
-      rows,
-      visibleWorkspaceHostIds,
-      workspaceHostScope
-    ]
-  )
-  const renderedSidebarRowKeys = useMemo(() => {
-    const keys = new Set<string>()
-    for (const row of sectionRows) {
-      if (row.type === 'header') {
-        keys.add(row.key)
-      } else if (row.type === 'item') {
-        keys.add(row.rowKey)
-      } else if (row.type === 'folder-workspace') {
-        keys.add(folderWorkspaceKey(row.folderWorkspace.id))
-      } else if (row.type === 'pending-creation') {
-        keys.add(`pending:${row.creationId}`)
-      } else if (row.type === 'imported-worktrees-card') {
-        keys.add(row.key)
-      } else if (row.type === 'new-external-worktrees-inbox') {
-        keys.add(row.key)
-      }
-    }
-    return keys
-  }, [sectionRows])
   // Why: status headers move during wake (inactive -> active); key only on grouping mode so row identity survives.
   const visibleHostResetKey = visibleWorkspaceHostIds?.join(',') ?? 'all'
   const viewportResetKey = `group:${groupBy}:host:${visibleHostResetKey}:lineage`
@@ -1867,99 +1810,19 @@ const WorktreeList = React.memo(function WorktreeList({
       [renderedWorktrees]
     )
   )
-  const [selectedWorktreeIds, setSelectedWorktreeIds] = useState<Set<string>>(new Set())
-  const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null)
-
-  const prunedSelection = pruneWorktreeSelection(
+  const {
     selectedWorktreeIds,
-    selectionAnchorId,
-    renderedWorktreeIds
-  )
-  // Why: filters/grouping can hide selected cards; prune during render so nothing sees stale ids for unrendered worktrees.
-  if (!areWorktreeSelectionsEqual(selectedWorktreeIds, prunedSelection.selectedIds)) {
-    setSelectedWorktreeIds(prunedSelection.selectedIds)
-  }
-  if (selectionAnchorId !== prunedSelection.anchorId) {
-    setSelectionAnchorId(prunedSelection.anchorId)
-  }
-
-  // Why identity reuse: the empty/unchanged-selection case must keep one array
-  // identity — selectForContextMenu and both drag-start handlers depend on
-  // this array, and card memo bail-out depends on those staying stable.
-  const selectedWorktrees = useReusedArrayIdentity(
-    useMemo(() => {
-      if (selectedWorktreeIds.size === 0) {
-        return []
-      }
-      const selected = new Map<string, Worktree>()
-      for (const worktree of renderedWorktrees) {
-        if (selectedWorktreeIds.has(worktree.id) && !selected.has(worktree.id)) {
-          selected.set(worktree.id, worktree)
-        }
-      }
-      return Array.from(selected.values())
-    }, [renderedWorktrees, selectedWorktreeIds])
-  )
-
-  useEffect(() => {
-    if (selectedWorktreeIds.size === 0) {
-      return
-    }
-
-    const clearSelectionOutsideSidebar = (event: PointerEvent): void => {
-      const target = event.target
-      const sidebarContainer = document.querySelector('[data-worktree-sidebar-container]')
-      if (target instanceof Node && sidebarContainer?.contains(target)) {
-        return
-      }
-      setSelectedWorktreeIds(new Set())
-      setSelectionAnchorId(null)
-    }
-
-    document.addEventListener('pointerdown', clearSelectionOutsideSidebar, { capture: true })
-    return () => {
-      document.removeEventListener('pointerdown', clearSelectionOutsideSidebar, { capture: true })
-    }
-  }, [selectedWorktreeIds.size])
-
-  const updateSelectionForGesture = useCallback(
-    (event: React.MouseEvent<HTMLElement>, worktreeId: string): boolean => {
-      const intent = getWorktreeSelectionIntent(event, navigator.userAgent.includes('Mac'))
-      const result = updateWorktreeSelection({
-        visibleIds: renderedWorktreeIds,
-        previousSelectedIds: selectedWorktreeIds,
-        previousAnchorId: selectionAnchorId,
-        targetId: worktreeId,
-        intent
-      })
-      setSelectedWorktreeIds(result.selectedIds)
-      setSelectionAnchorId(result.anchorId)
-      // Plain click navigates; modifier gestures are selection-only so a batch can build without switching away.
-      return intent !== 'replace'
-    },
-    [renderedWorktreeIds, selectedWorktreeIds, selectionAnchorId]
-  )
-
-  const selectForContextMenu = useCallback(
-    (_event: React.MouseEvent<HTMLElement>, worktree: Worktree): readonly Worktree[] => {
-      if (selectedWorktreeIds.has(worktree.id) && selectedWorktreeIds.size > 1) {
-        return selectedWorktrees
-      }
-      setSelectedWorktreeIds(new Set([worktree.id]))
-      setSelectionAnchorId(worktree.id)
-      return [worktree]
-    },
-    [selectedWorktreeIds, selectedWorktrees]
-  )
-
-  const handleImmediateWorktreeActivate = useCallback((worktreeId: string, rowKey?: string) => {
-    // Why: re-rendering the virtualized sidebar on the pointer path adds visible latency; mutate the row directly and let store state reconcile after.
-    markSidebarWorktreeActiveImmediately(worktreeId, rowKey)
-  }, [])
-
-  // Why: full-page nav views aren't scoped to a worktree, so no sidebar card should look selected.
-  const selectedSidebarWorktreeId =
-    activeView === 'tasks' || activeView === 'activity' ? null : currentSidebarWorktreeId
+    selectedWorktrees,
+    updateSelectionForGesture,
+    selectForContextMenu,
+    handleImmediateWorktreeActivate,
+    selectedSidebarWorktreeId
+  } = useWorktreeListSelection({
+    renderedWorktrees,
+    renderedWorktreeIds,
+    activeView,
+    currentSidebarWorktreeId
+  })
 
   // Why layout effect: the Cmd/Ctrl+1–9 handler can fire right after commit; publishing after paint would leave the shortcut cache stale.
   useLayoutEffect(() => {
@@ -2132,9 +1995,12 @@ const WorktreeList = React.memo(function WorktreeList({
     [getNewExternalWorktreeInboxActionArgs, newExternalWorktreesInboxByRepo]
   )
 
-  const handleOpenSuppressExternalWorktreeInbox = useCallback((projectId: string) => {
-    setSuppressExternalWorktreeInboxRepoId(projectId)
-  }, [setSuppressExternalWorktreeInboxRepoId])
+  const handleOpenSuppressExternalWorktreeInbox = useCallback(
+    (projectId: string) => {
+      setSuppressExternalWorktreeInboxRepoId(projectId)
+    },
+    [setSuppressExternalWorktreeInboxRepoId]
+  )
 
   const handleConfirmSuppressExternalWorktreeInbox = useCallback(async () => {
     if (!suppressExternalWorktreeInboxRepoId) {
@@ -2155,10 +2021,10 @@ const WorktreeList = React.memo(function WorktreeList({
       setSuppressExternalWorktreeInboxRepoId(null)
     }
   }, [
-      getNewExternalWorktreeInboxActionArgs,
-      newExternalWorktreesInboxByRepo,
-      setSuppressExternalWorktreeInboxRepoId,
-      suppressExternalWorktreeInboxRepoId
+    getNewExternalWorktreeInboxActionArgs,
+    newExternalWorktreesInboxByRepo,
+    setSuppressExternalWorktreeInboxRepoId,
+    suppressExternalWorktreeInboxRepoId
   ])
 
   const handleRemoveProject = useCallback(

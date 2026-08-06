@@ -2,10 +2,7 @@ import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '@/store'
 import type { ProjectGroup, Repo, Worktree } from '../../../../shared/types'
-import {
-  getRepoExecutionHostId,
-  type ExecutionHostId
-} from '../../../../shared/execution-host'
+import { getRepoExecutionHostId, type ExecutionHostId } from '../../../../shared/execution-host'
 import { getEmptyProjectPlaceholderRepoIds } from './empty-project-placeholder-repos'
 import {
   buildImportedWorktreesCardCandidates,
@@ -22,7 +19,11 @@ import {
 import type { NewExternalWorktreesInboxActionState } from './new-external-worktrees-inbox-actions'
 import { getHostDisplayLabelOverrides } from '../../../../shared/host-setting-overrides'
 import { getSettingsFocusedExecutionHostId } from '../../../../shared/execution-host'
-import { filterFolderWorkspacesForVisibleHosts, filterProjectGroupsForVisibleHosts, getVisibleSidebarHostIdSet } from './worktree-list-host-filtering'
+import {
+  filterFolderWorkspacesForVisibleHosts,
+  filterProjectGroupsForVisibleHosts,
+  getVisibleSidebarHostIdSet
+} from './worktree-list-host-filtering'
 import { getLogicalRepoOrderRankById } from './project-header-drop'
 import { buildSidebarHostOptions, type SidebarHostOption } from './sidebar-host-options'
 import { orderHostSectionOptions } from './host-section-order'
@@ -44,9 +45,13 @@ export type WorktreeListRowInputs = {
   hostLabelById: ReadonlyMap<ExecutionHostId, string>
   orderedHostOptions: readonly SidebarHostOption[]
   importedWorktreeCardActionState: ReadonlyMap<string, ImportedWorktreeCardActionState>
-  setImportedWorktreeCardState: React.Dispatch<React.SetStateAction<Map<string, ImportedWorktreeCardActionState>>>
+  setImportedWorktreeCardState: React.Dispatch<
+    React.SetStateAction<Map<string, ImportedWorktreeCardActionState>>
+  >
   newExternalWorktreeInboxActionState: ReadonlyMap<string, NewExternalWorktreesInboxActionState>
-  setNewExternalWorktreeInboxState: React.Dispatch<React.SetStateAction<Map<string, NewExternalWorktreesInboxActionState>>>
+  setNewExternalWorktreeInboxState: React.Dispatch<
+    React.SetStateAction<Map<string, NewExternalWorktreesInboxActionState>>
+  >
   suppressExternalWorktreeInboxRepoId: string | null
   setSuppressExternalWorktreeInboxRepoId: React.Dispatch<React.SetStateAction<string | null>>
 }
@@ -98,9 +103,8 @@ export function useWorktreeListRowInputs({
       return repos
     }
     return repos.filter((repo) => {
-      const hostId = repo.connectionId || repo.executionHostId
-        ? getRepoExecutionHostId(repo)
-        : defaultHostId
+      const hostId =
+        repo.connectionId || repo.executionHostId ? getRepoExecutionHostId(repo) : defaultHostId
       return visibleHostIdSet.has(hostId)
     })
   }, [defaultHostId, repos, visibleHostIdSet])
@@ -109,16 +113,28 @@ export function useWorktreeListRowInputs({
     [defaultHostId, projectGroups, visibleHostIdSet]
   )
   const visibleFolderWorkspacesForRows = useMemo(
-    () => filterFolderWorkspacesForVisibleHosts(folderWorkspaces, projectGroups, visibleHostIdSet, defaultHostId),
+    () =>
+      filterFolderWorkspacesForVisibleHosts(
+        folderWorkspaces,
+        projectGroups,
+        visibleHostIdSet,
+        defaultHostId
+      ),
     [defaultHostId, folderWorkspaces, projectGroups, visibleHostIdSet]
   )
   const repoOrder = useMemo(
     () => getLogicalRepoOrderRankById(repos.map((repo) => repo.id)),
     [repos]
   )
-  const [importedWorktreeCardActionState, setImportedWorktreeCardActionState] = useState<Map<string, ImportedWorktreeCardActionState>>(new Map())
-  const [newExternalWorktreeInboxActionState, setNewExternalWorktreeInboxActionState] = useState<Map<string, NewExternalWorktreesInboxActionState>>(new Map())
-  const [suppressExternalWorktreeInboxRepoId, setSuppressExternalWorktreeInboxRepoId] = useState<string | null>(null)
+  const [importedWorktreeCardActionState, setImportedWorktreeCardActionState] = useState<
+    Map<string, ImportedWorktreeCardActionState>
+  >(new Map())
+  const [newExternalWorktreeInboxActionState, setNewExternalWorktreeInboxActionState] = useState<
+    Map<string, NewExternalWorktreesInboxActionState>
+  >(new Map())
+  const [suppressExternalWorktreeInboxRepoId, setSuppressExternalWorktreeInboxRepoId] = useState<
+    string | null
+  >(null)
   const importedWorktreesByRepo = useMemo(() => {
     const forceVisibleRepoIds = new Set(
       [...importedWorktreeCardActionState.entries()]
@@ -133,11 +149,23 @@ export function useWorktreeListRowInputs({
     })
   }, [detectedWorktreesByRepo, filterRepoIds, importedWorktreeCardActionState, visibleReposForRows])
   const newExternalWorktreesInboxByRepo = useMemo(
-    () => buildNewExternalWorktreesInboxCandidates({ repos: visibleReposForRows, detectedWorktreesByRepo, filterRepoIds }),
+    () =>
+      buildNewExternalWorktreesInboxCandidates({
+        repos: visibleReposForRows,
+        detectedWorktreesByRepo,
+        filterRepoIds
+      }),
     [detectedWorktreesByRepo, filterRepoIds, visibleReposForRows]
   )
   const placeholderRepoIds = useMemo(
-    () => getEmptyProjectPlaceholderRepoIds({ groupBy, repos: visibleReposForRows, worktreesByRepo, visibleWorktrees, filterRepoIds }),
+    () =>
+      getEmptyProjectPlaceholderRepoIds({
+        groupBy,
+        repos: visibleReposForRows,
+        worktreesByRepo,
+        visibleWorktrees,
+        filterRepoIds
+      }),
     [filterRepoIds, groupBy, visibleReposForRows, visibleWorktrees, worktreesByRepo]
   )
   const allRepoIds = useMemo(() => repos.map((repo) => repo.id), [repos])
@@ -149,24 +177,34 @@ export function useWorktreeListRowInputs({
     )
   )
   const pendingCreations = useMemo(
-    () => pendingCreationKeys.map((key) => {
-      const separator = key.indexOf(' ')
-      return { creationId: key.slice(0, separator), repoId: key.slice(separator + 1) }
-    }),
+    () =>
+      pendingCreationKeys.map((key) => {
+        const separator = key.indexOf(' ')
+        return { creationId: key.slice(0, separator), repoId: key.slice(separator + 1) }
+      }),
     [pendingCreationKeys]
   )
   const hostLabelOverrides = useMemo(() => getHostDisplayLabelOverrides(settings), [settings])
   const hostOptions = useMemo(
-    () => buildSidebarHostOptions({
+    () =>
+      buildSidebarHostOptions({
+        repos,
+        sshTargetLabels,
+        sshConnectionStates,
+        settings,
+        runtimeEnvironments,
+        runtimeStatusByEnvironmentId,
+        hostLabelOverrides
+      }),
+    [
+      hostLabelOverrides,
       repos,
-      sshTargetLabels,
-      sshConnectionStates,
-      settings,
       runtimeEnvironments,
       runtimeStatusByEnvironmentId,
-      hostLabelOverrides
-    }),
-    [hostLabelOverrides, repos, runtimeEnvironments, runtimeStatusByEnvironmentId, settings, sshConnectionStates, sshTargetLabels]
+      settings,
+      sshConnectionStates,
+      sshTargetLabels
+    ]
   )
   const hostLabelById = useMemo(
     () => new Map(hostOptions.map((host) => [host.id, host.label])),
