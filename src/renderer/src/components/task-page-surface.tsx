@@ -57,6 +57,7 @@ import { useTaskPageGitHubNewIssueState } from './use-task-page-github-new-issue
 import { useTaskPageGitHubIssueCreationState } from './use-task-page-github-issue-creation-state'
 import { useTaskPageGitHubPaginationState } from './use-task-page-github-pagination-state'
 import { useTaskPageGitHubListDataState } from './use-task-page-github-list-data-state'
+import { useTaskPageJiraProjectListState } from './use-task-page-jira-project-list-state'
 import { useTaskPageLinearIssueCreationState } from './use-task-page-linear-issue-creation-state'
 import { useTaskPageLinearProjectDetailState } from './use-task-page-linear-project-detail-state'
 import { useTaskPageLinearProjectCreationState } from './use-task-page-linear-project-creation-state'
@@ -133,7 +134,7 @@ import { shouldSuppressEnterSubmit } from '@/lib/new-workspace-enter-guard'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import { isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
 import { linearTeamStates, linearUpdateIssue } from '@/runtime/runtime-linear-client'
-import { jiraListProjects, jiraListPriorities } from '@/runtime/runtime-jira-client'
+import { jiraListPriorities } from '@/runtime/runtime-jira-client'
 import {
   sortJiraIssues,
   type JiraIssueSortColumn,
@@ -982,45 +983,16 @@ export default function TaskPage(): React.JSX.Element {
   const [availableJiraProjects, setAvailableJiraProjects] = useState<JiraProject[]>([])
   const [jiraProjectsLoading, setJiraProjectsLoading] = useState(false)
 
-  useEffect(() => {
-    if (!taskResumeApplied) {
-      return
-    }
-    if (taskSource !== 'jira' || !jiraConnected) {
-      setAvailableJiraProjects([])
-      setJiraProjectsLoading(false)
-      return
-    }
-    let cancelled = false
-    setAvailableJiraProjects([])
-    setJiraProjectsLoading(true)
-    void jiraListProjects(jiraTaskSourceContext ?? settings, selectedJiraSiteId)
-      .then((projects) => {
-        if (!cancelled) {
-          setAvailableJiraProjects(projects)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          console.warn('[TaskPage] Failed to fetch Jira projects')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setJiraProjectsLoading(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [
-    settings,
-    taskSource,
+  useTaskPageJiraProjectListState({
     jiraConnected,
+    jiraTaskSourceContext,
     selectedJiraSiteId,
+    settings,
+    setAvailableJiraProjects,
+    setJiraProjectsLoading,
     taskResumeApplied,
-    jiraTaskSourceContext
-  ])
+    taskSource
+  })
 
   const defaultLinearTeamSelection = settings?.defaultLinearTeamSelection
   const [linearTeamSelection, setLinearTeamSelection] = useState<ReadonlySet<string>>(() => {
