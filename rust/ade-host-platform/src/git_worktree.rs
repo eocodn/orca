@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod contract_tests {
-    use super::{run_worktree_list, GitWorktreeCommandError, GitWorktreeListError};
+    use super::{
+        run_worktree_list, run_worktree_list_with_path_probe, GitWorktreeCommandError,
+        GitWorktreeListError,
+    };
     use crate::git_capability::GitCapabilityCache;
     use std::sync::{Arc, Mutex};
 
@@ -32,6 +35,97 @@ mod contract_tests {
 
         assert_eq!(worktrees[0].path, "/repo/with\nnewline");
         assert_eq!(worktrees[0].head, "abc");
+    }
+
+    #[test]
+    fn decodes_git_quoted_paths_in_legacy_porcelain() {
+        let worktrees =
+            super::parse_worktree_list("worktree \"/repo/with\\nnewline\"\nHEAD abc\n\n", false);
+
+        assert_eq!(worktrees[0].path, "/repo/with\nnewline");
+    }
+
+    #[test]
+    fn probes_legacy_worktree_paths_to_restore_prunable_detection() {
+        let cache = GitCapabilityCache::new();
+        let probed = Arc::new(Mutex::new(Vec::new()));
+        let probed_for_run = Arc::clone(&probed);
+        let worktrees = run_worktree_list_with_path_probe(
+            &cache,
+            |_| {
+                Err(GitWorktreeCommandError {
+                    code: Some(129),
+                    stderr: String::from("unknown option -z"),
+                })
+            },
+            |_| Ok(String::from("worktree /repo/main\nHEAD abc\n\nworktree /repo/missing\nHEAD def\n\nworktree /repo/live\nHEAD ghi\n\n")),
+            move |path| {
+                probed_for_run.lock().unwrap().push(path.to_string());
+                Ok(path.ends_with("live"))
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            probed.lock().unwrap().as_slice(),
+            ["/repo/missing", "/repo/live"]
+        );
+        assert!(!worktrees[0].prunable);
+        assert!(worktrees[1].prunable);
+        assert_eq!(
+            worktrees[1].prunable_reason.as_deref(),
+            Some("missing path")
+        );
+        assert!(!worktrees[2].prunable);
+    }
+
+    #[test]
+    fn preserves_authoritative_probe_errors_without_local_fallback() {
+        let cache = GitCapabilityCache::new();
+        let result = run_worktree_list_with_path_probe(
+            &cache,
+            |_| {
+                Err(GitWorktreeCommandError {
+                    code: Some(129),
+                    stderr: String::from("unknown option -z"),
+                })
+            },
+            |_| {
+                Ok(String::from(
+                    "worktree /repo/main\nHEAD abc\n\nworktree /repo/missing\nHEAD def\n\n",
+                ))
+            },
+            |_| {
+                Err(GitWorktreeCommandError {
+                    code: Some(255),
+                    stderr: String::from("ssh: connection refused"),
+                })
+            },
+        );
+
+        assert!(matches!(result, Err(GitWorktreeListError::PathProbe(_))));
+    }
+
+    #[test]
+    fn does_not_mark_main_bare_or_locked_records_prunable_from_missing_paths() {
+        let cache = GitCapabilityCache::new();
+        let probed = Arc::new(Mutex::new(Vec::new()));
+        let probed_for_run = Arc::clone(&probed);
+        let worktrees = run_worktree_list_with_path_probe(
+            &cache,
+            |_| Err(GitWorktreeCommandError { code: Some(129), stderr: String::from("unknown option -z") }),
+            |_| Ok(String::from(
+                "worktree /repo\nHEAD abc\n\nworktree /repo/bare\nHEAD def\nbare\n\nworktree /repo/locked\nHEAD ghi\nlocked\n\n",
+            )),
+            move |path| {
+                probed_for_run.lock().unwrap().push(path.to_string());
+                Ok(false)
+            },
+        )
+        .unwrap();
+
+        assert!(probed.lock().unwrap().is_empty());
+        assert!(worktrees.iter().all(|worktree| !worktree.prunable));
     }
 
     #[test]
@@ -126,6 +220,10 @@ mod contract_tests {
 
 use crate::git_capability::{GitCapability, GitCapabilityCache, GitCapabilityRunError};
 use serde::Serialize;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 pub const WORKTREE_LIST_Z_ARGS: &[&str] = &["worktree", "list", "--porcelain", "-z"];
 pub const WORKTREE_LIST_ARGS: &[&str] = &["worktree", "list", "--porcelain"];
@@ -152,6 +250,7 @@ pub struct GitWorktreeCommandError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GitWorktreeListError {
     Command(GitCapabilityRunError<GitWorktreeCommandError>),
+    PathProbe(GitWorktreeCommandError),
 }
 
 pub fn run_worktree_list<P, F>(
@@ -174,6 +273,53 @@ where
     Ok(parse_worktree_list(&output, output.contains('\0')))
 }
 
+/// Lists worktrees and probes each path so pre-2.31 Git still reports missing
+/// worktree directories as prunable. The probe is authoritative for the
+/// execution host; callers must not replace probe errors with local guesses.
+pub fn run_worktree_list_with_path_probe<P, F, Q>(
+    cache: &GitCapabilityCache,
+    run_preferred: P,
+    run_fallback: F,
+    path_exists: Q,
+) -> Result<Vec<GitWorktree>, GitWorktreeListError>
+where
+    P: Fn(&[&str]) -> Result<String, GitWorktreeCommandError>,
+    F: Fn(&[&str]) -> Result<String, GitWorktreeCommandError>,
+    Q: Fn(&str) -> Result<bool, GitWorktreeCommandError>,
+{
+    let used_fallback = Arc::new(AtomicBool::new(false));
+    let used_fallback_for_run = Arc::clone(&used_fallback);
+    let mut worktrees = {
+        let fallback = || {
+            used_fallback_for_run.store(true, Ordering::Release);
+            run_fallback(WORKTREE_LIST_ARGS)
+        };
+        let output = cache
+            .run_with_fallback(
+                GitCapability::WorktreeListZ,
+                || run_preferred(WORKTREE_LIST_Z_ARGS),
+                fallback,
+                is_unsupported_worktree_list_z_error,
+            )
+            .map_err(GitWorktreeListError::Command)?;
+        parse_worktree_list(&output, output.contains('\0'))
+    };
+    if !used_fallback.load(Ordering::Acquire) {
+        return Ok(worktrees);
+    }
+    for worktree in &mut worktrees {
+        if worktree.is_main || worktree.is_bare || worktree.locked || worktree.prunable {
+            continue;
+        }
+        let exists = path_exists(&worktree.path).map_err(GitWorktreeListError::PathProbe)?;
+        if !exists {
+            worktree.prunable = true;
+            worktree.prunable_reason = Some(String::from("missing path"));
+        }
+    }
+    Ok(worktrees)
+}
+
 pub fn parse_worktree_list(output: &str, nul_delimited: bool) -> Vec<GitWorktree> {
     let blocks = if nul_delimited && output.contains('\0') {
         split_nul_blocks(output)
@@ -193,7 +339,7 @@ pub fn parse_worktree_list(output: &str, nul_delimited: bool) -> Vec<GitWorktree
 
         for field in fields {
             if let Some(value) = field.strip_prefix("worktree ") {
-                path = Some(value.to_string());
+                path = Some(decode_path(value));
             } else if let Some(value) = field.strip_prefix("HEAD ") {
                 head = value.to_string();
             } else if let Some(value) = field.strip_prefix("branch ") {
@@ -314,4 +460,12 @@ fn decode_annotation(value: &str) -> Option<String> {
         }
     }
     Some(String::from_utf8_lossy(&decoded).into_owned())
+}
+
+fn decode_path(value: &str) -> String {
+    if value.starts_with('"') && value.ends_with('"') {
+        decode_annotation(value).unwrap_or_default()
+    } else {
+        value.to_string()
+    }
 }

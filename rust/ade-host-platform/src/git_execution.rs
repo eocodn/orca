@@ -27,11 +27,18 @@ mod contract_tests {
     fn executes_a_target_specific_git_command_and_parses_authoritative_output() {
         let executor = RecordingExecutor {
             commands: Arc::default(),
-            results: Arc::new(Mutex::new(VecDeque::from([Ok(GitCommandOutput {
-                exit_code: Some(0),
-                stdout: String::from("worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n"),
-                stderr: String::new(),
-            })]))),
+            results: Arc::new(Mutex::new(VecDeque::from([
+                Ok(GitCommandOutput {
+                    exit_code: Some(0),
+                    stdout: String::from("worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n"),
+                    stderr: String::new(),
+                }),
+                Ok(GitCommandOutput {
+                    exit_code: Some(0),
+                    stdout: String::new(),
+                    stderr: String::new(),
+                }),
+            ]))),
         };
 
         let worktrees = run_git_worktree_list(
@@ -139,11 +146,58 @@ mod contract_tests {
         );
         assert!(executor.commands.lock().unwrap().is_empty());
     }
+
+    #[test]
+    fn probes_worktree_paths_on_the_execution_target_for_legacy_git() {
+        let executor = RecordingExecutor {
+            commands: Arc::default(),
+            results: Arc::new(Mutex::new(VecDeque::from([
+                Err(GitCommandExecutionError {
+                    exit_code: Some(129),
+                    stderr: String::from("unknown option -z"),
+                }),
+                Ok(GitCommandOutput {
+                    exit_code: Some(0),
+                    stdout: String::from(
+                        "worktree /repo/main\nHEAD abc\n\nworktree /repo/missing\nHEAD def\n\n",
+                    ),
+                    stderr: String::new(),
+                }),
+                Ok(GitCommandOutput {
+                    exit_code: Some(1),
+                    stdout: String::new(),
+                    stderr: String::new(),
+                }),
+            ]))),
+        };
+        let worktrees = run_git_worktree_list(
+            &ExecutionTarget::Ssh {
+                host: String::from("build.example"),
+            },
+            "/srv/repo",
+            &crate::git_capability::GitCapabilityRegistry::new(),
+            &executor,
+        )
+        .expect("legacy output plus target probe should be authoritative");
+
+        assert!(worktrees[1].prunable);
+        let commands = executor.commands.lock().unwrap();
+        assert_eq!(commands.len(), 3);
+        assert_eq!(commands[2].program, "ssh");
+        assert!(commands[2].args.iter().any(|arg| arg.contains("test")));
+        assert!(commands[2]
+            .args
+            .iter()
+            .any(|arg| arg.contains("/repo/missing")));
+    }
 }
 
 use crate::git_capability::{GitCapabilityHost, GitCapabilityRegistry};
-use crate::git_worktree::{run_worktree_list, GitWorktree, GitWorktreeListError};
+use crate::git_worktree::{
+    run_worktree_list_with_path_probe, GitWorktree, GitWorktreeCommandError, GitWorktreeListError,
+};
 use crate::{build_command, CommandSpec, ExecutionTarget};
+use std::path::Path;
 use std::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -237,7 +291,42 @@ pub fn run_git_worktree_list<E: GitCommandExecutor>(
         }
     };
 
-    run_worktree_list(&cache, run, run).map_err(GitExecutionError::Worktree)
+    let probe = |path: &str| probe_path_exists(target, path, executor);
+    run_worktree_list_with_path_probe(&cache, run, run, probe).map_err(GitExecutionError::Worktree)
+}
+
+fn probe_path_exists<E: GitCommandExecutor>(
+    target: &ExecutionTarget,
+    path: &str,
+    executor: &E,
+) -> Result<bool, GitWorktreeCommandError> {
+    if matches!(target, ExecutionTarget::WindowsNative) {
+        return Ok(Path::new(path).exists());
+    }
+    let command = build_command(target, "test", &["-e", path], None).map_err(|error| {
+        GitWorktreeCommandError {
+            code: None,
+            stderr: format!("platform command error: {error:?}"),
+        }
+    })?;
+    let output = executor
+        .execute(&command)
+        .map_err(|error| GitWorktreeCommandError {
+            code: error.exit_code,
+            stderr: error.stderr,
+        })?;
+    match output.exit_code {
+        Some(0) => Ok(true),
+        Some(1) => Ok(false),
+        code => Err(GitWorktreeCommandError {
+            code,
+            stderr: if output.stderr.is_empty() {
+                String::from("target path existence probe failed")
+            } else {
+                output.stderr
+            },
+        }),
+    }
 }
 
 pub fn execute_git_command(

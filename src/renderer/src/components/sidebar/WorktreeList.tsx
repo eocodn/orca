@@ -76,7 +76,6 @@ import {
   type SmartClass,
   type WorktreeAttention
 } from './smart-attention'
-import { track } from '@/lib/telemetry'
 import { tabHasLivePty } from '@/lib/tab-has-live-pty'
 import { deriveRunningAgentSendTargets } from '@/lib/running-agent-targets'
 import { rightSidebarShowsPullRequestData } from '@/lib/right-sidebar-visibility'
@@ -5093,9 +5092,6 @@ const WorktreeList = React.memo(function WorktreeList({
   // ── Stable sort order ──────────────────────────────────────────
   // Why sortEpoch (not selection): selection side-effects (clearing isUnread, PR-cache refresh) must not reorder the sidebar under the user.
   // Why useMemo not useEffect: order must be computed synchronously before the worktrees memo reads it.
-  // Why a ref alongside the memo: telemetry effects need the last attention map without re-reading store state.
-  const lastAttentionByWorktreeRef = useRef<Map<string, WorktreeAttention> | null>(null)
-
   const sortedIds = useMemo(() => {
     const state = useAppStore.getState()
     const nonArchivedWorktrees = getAllWorktreesFromState(state).filter(
@@ -5118,7 +5114,6 @@ const WorktreeList = React.memo(function WorktreeList({
         nonArchivedWorktrees.sort(
           (a, b) => b.sortOrder - a.sortOrder || compareWorktreeSortLabel(a, b)
         )
-        lastAttentionByWorktreeRef.current = null
         return nonArchivedWorktrees.map((w) => w.id)
       }
     }
@@ -5138,87 +5133,11 @@ const WorktreeList = React.memo(function WorktreeList({
             state.terminalLayoutsByTabId
           )
         : new Map<string, WorktreeAttention>()
-    lastAttentionByWorktreeRef.current = sortBy === 'smart' ? attentionByWorktree : null
     nonArchivedWorktrees.sort(buildWorktreeComparator(sortBy, repoMap, now, attentionByWorktree))
     return nonArchivedWorktrees.map((w) => w.id)
     // debouncedSortEpoch is an intentional trigger not read in the memo; its change (debounced) signals a recompute.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSortEpoch, repoMap, sortBy])
-
-  // Why a ref of prior class: fire class_1_promotion only on transitions into Class 1, not every recompute that stays there.
-  const prevClassByWorktreeIdRef = useRef<Map<string, SmartClass>>(new Map())
-  // Why gate the first observation: an empty prev-class map makes every existing Class-1 worktree look freshly promoted; treat the first pass as a silent baseline.
-  const hasObservedSmartOnceRef = useRef<boolean>(false)
-
-  useEffect(() => {
-    const attention = lastAttentionByWorktreeRef.current
-    if (sortBy !== 'smart' || !attention) {
-      // Why reset: leaving Smart drops the prior-class map (and first-observation gate) so re-entry doesn't fire stale promotions.
-      prevClassByWorktreeIdRef.current = new Map()
-      hasObservedSmartOnceRef.current = false
-      return
-    }
-    const next = new Map<string, SmartClass>()
-    const isFirstObservation = !hasObservedSmartOnceRef.current
-    for (const [worktreeId, info] of attention) {
-      const prev = prevClassByWorktreeIdRef.current.get(worktreeId)
-      if (!isFirstObservation && info.cls === 1 && prev !== 1 && info.cause) {
-        track('smart_sort_class_1_promotion', { cause: info.cause })
-      }
-      next.set(worktreeId, info.cls)
-    }
-    prevClassByWorktreeIdRef.current = next
-    hasObservedSmartOnceRef.current = true
-  }, [sortBy, sortedIds])
-
-  // Why retry on sortedIds: Smart may activate before attention hydrates; fire once, then stay quiet until the user leaves Smart.
-  const hasTrackedSmartDistributionRef = useRef(false)
-  useEffect(() => {
-    if (sortBy !== 'smart') {
-      hasTrackedSmartDistributionRef.current = false
-      return
-    }
-    if (hasTrackedSmartDistributionRef.current) {
-      return
-    }
-    const attention = lastAttentionByWorktreeRef.current
-    if (!attention || attention.size === 0) {
-      return
-    }
-    let class1 = 0
-    let class2 = 0
-    let class3 = 0
-    let class4 = 0
-    for (const info of attention.values()) {
-      if (info.cls === 1) {
-        class1++
-      } else if (info.cls === 2) {
-        class2++
-      } else if (info.cls === 3) {
-        class3++
-      } else {
-        class4++
-      }
-    }
-    track('smart_sort_class_distribution', {
-      class_1: class1,
-      class_2: class2,
-      class_3: class3,
-      class_4: class4,
-      total_worktrees: attention.size
-    })
-    hasTrackedSmartDistributionRef.current = true
-  }, [sortBy, sortedIds])
-
-  // Why fire on the transition: switching away from Smart is the signal; compare via ref so a round-trip doesn't double-fire.
-  const prevSortByRef = useRef(sortBy)
-  useEffect(() => {
-    const prev = prevSortByRef.current
-    prevSortByRef.current = sortBy
-    if (prev === 'smart' && sortBy === 'recent') {
-      track('smart_to_recent_switch', {})
-    }
-  }, [sortBy])
 
   // Why: only persist during live sessions so cold start reads the persisted order instead of overwriting it.
   useEffect(() => {
@@ -5703,7 +5622,7 @@ const WorktreeList = React.memo(function WorktreeList({
 
   const handleCreateForRepo = useCallback(
     (projectId: string) => {
-      openModal('new-workspace-composer', { initialRepoId: projectId, telemetrySource: 'sidebar' })
+      openModal('new-workspace-composer', { initialRepoId: projectId })
     },
     [openModal]
   )
@@ -6041,8 +5960,7 @@ const WorktreeList = React.memo(function WorktreeList({
         return
       }
       openModal('new-workspace-composer', {
-        initialProjectGroupId: projectGroup.id,
-        telemetrySource: 'sidebar'
+        initialProjectGroupId: projectGroup.id
       })
     },
     [openModal]
