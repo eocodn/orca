@@ -31,12 +31,10 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
     toast,
     translate
   } = context
-  // Keyboard shortcuts
   useEffect(() => {
     if (!activeWorktreeId) {
       return
     }
-
     const isMac = navigator.userAgent.includes('Mac')
     const shortcutPlatform: NodeJS.Platform = isMac
       ? 'darwin'
@@ -61,7 +59,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           keybindings
         })
       }
-      // Why: Cmd/Ctrl+T always opens a terminal regardless of active surface; browser tabs have their own chord (Cmd/Ctrl+Shift+B).
       if (!e.repeat && matchShortcut('tab.newTerminal')) {
         e.preventDefault()
         notifyTerminalCapture('tab.newTerminal')
@@ -72,9 +69,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
         handleNewTab()
         return
       }
-
-      // Cmd/Ctrl+Alt+T — launch the default agent in a new tab (per-agent chords launch specific agents).
-      // Why: unlike Cmd+T this never targets the floating panel — agent sessions belong to a worktree.
       if (!e.repeat) {
         const state = useAppStore.getState()
         let agentActionId: KeybindingActionId | null = null
@@ -97,7 +91,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           )) {
             if (matchShortcut(bound.actionId)) {
               agentActionId = bound.actionId
-              // Why: a per-agent chord is explicit, so launch even if detection didn't confirm the binary — a missing CLI fails visibly in the tab.
               agentToLaunch = bound.agent
               break
             }
@@ -119,16 +112,12 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           return
         }
       }
-
-      // Cmd/Ctrl+Shift+T — reopen the most recently closed tab (terminal/browser/editor), Chrome-style; repeats walk back through history.
       if (!e.repeat && matchShortcut('tab.reopenClosed')) {
         e.preventDefault()
         notifyTerminalCapture('tab.reopenClosed')
         useAppStore.getState().reopenClosedTab(activeWorktreeId)
         return
       }
-
-      // Cmd/Ctrl+Shift+B - new browser tab
       if (!e.repeat && matchShortcut('tab.newBrowser')) {
         e.preventDefault()
         notifyTerminalCapture('tab.newBrowser')
@@ -139,8 +128,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
         handleNewBrowserTab()
         return
       }
-
-      // Save active editor file — fallback for when focus is outside the editor (tab bar/sidebar); editor-local handlers own save when the editor is focused.
       if (!e.repeat && matchShortcut('editor.save')) {
         const target = e.target as HTMLElement | null
         const inEditor =
@@ -156,14 +143,11 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           }
         }
       }
-
-      // Why: long/structured files need a discoverable unwrap path without Settings (#9974).
       if (!e.repeat && matchShortcut('editor.toggleWordWrap')) {
         const state = useAppStore.getState()
         if (state.activeTabType === 'editor' && state.activeFileId) {
           e.preventDefault()
           notifyTerminalCapture('editor.toggleWordWrap')
-          // Why: diff surfaces use diffWordWrap; plain editors use editorWordWrap (#10086).
           const activeFile = state.openFiles.find((file) => file.id === state.activeFileId)
           if (activeFile?.mode === 'diff') {
             const wrapOn = state.settings?.diffWordWrap === true
@@ -175,8 +159,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           return
         }
       }
-
-      // Cmd/Ctrl+Shift+M - new markdown file
       if (!e.repeat && matchShortcut('tab.newMarkdown')) {
         e.preventDefault()
         notifyTerminalCapture('tab.newMarkdown')
@@ -196,18 +178,10 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
         void handleNewFile()
         return
       }
-
       if (handleEmptyFloatingWorkspacePanelCloseShortcut(e, shortcutPlatform, keybindings)) {
         return
       }
-
-      // Cmd/Ctrl+W — close active editor/browser tab or terminal pane. Terminal close lives in keyboard-handlers.ts (split panes + confirm dialog).
-      // Why: still preventDefault here so Electron doesn't run its default Cmd+W window-close.
       if (!e.repeat && matchShortcut('tab.close')) {
-        // The floating panel (L2) and its terminal pane handler (L3) own Cmd+W while the panel is
-        // focused. Guard on the event target too — during blur/IME churn activeElement is transiently
-        // body/null while a key still targets a floating xterm, and a main editor/browser being active
-        // would otherwise close the wrong (main) tab. Yield without preventDefault so L3 runs.
         const floatingPanelOwnsEvent =
           isEventTargetInsideFloatingWorkspacePanel(e.target) || floatingWorkspaceFocused
         if (floatingPanelOwnsEvent) {
@@ -226,17 +200,12 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
         }
         return
       }
-
-      // Cmd/Ctrl+Alt+W — close every editor file tab in the active worktree.
-      // Why: reuse the context-menu close-all path so pinned/dirty-file rules stay identical.
       if (!e.repeat && matchShortcut('tab.closeAll')) {
         e.preventDefault()
         notifyTerminalCapture('tab.closeAll')
         handleCloseAllFiles()
         return
       }
-
-      // Ctrl+Tab - quick-toggle to the previously focused tab in this group.
       if (
         matchesRecentTabSwitcherChord(e, shortcutPlatform, keybindings, {
           context,
@@ -252,8 +221,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
         handleSwitchRecentTab()
         return
       }
-
-      // Why: match on e.code, not e.key — macOS Shift+[ reports '{' and Option+[ composes dead-keys, so e.key misses the chord on many layouts.
       const switchSameTypeDirection = matchShortcut('tab.nextSameType')
         ? 1
         : matchShortcut('tab.previousSameType')
@@ -265,7 +232,6 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           ? -1
           : null
       if (!e.repeat && (switchSameTypeDirection !== null || switchAllTypesDirection !== null)) {
-        // Why: share the IPC-path handler and always consume the chord (even single-tab no-op) so it never reaches xterm or the browser guest.
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()
@@ -290,16 +256,12 @@ export function useTerminalSurfaceKeyboard(context: Record<string, any>): void {
           handleSwitchTab(switchSameTypeDirection ?? 1)
         }
       }
-
-      // Ctrl+PageDown/PageUp — switch terminal tabs only. Ctrl on every platform since macOS Cmd+PageUp/Down is an OS desktop-switch shortcut.
-      // Why: reject Shift too so Ctrl+Shift+PageUp/Down stays free for focused terminal/editor consumers.
       const terminalTabDirection = matchShortcut('tab.nextTerminal')
         ? 1
         : matchShortcut('tab.previousTerminal')
           ? -1
           : null
       if (!e.repeat && terminalTabDirection !== null) {
-        // Why: fully consume the chord (preventDefault alone won't stop xterm's listener); else xterm writes \e[5~/\e[6~ escapes to the shell even in the single-terminal no-op case.
         e.preventDefault()
         e.stopPropagation()
         e.stopImmediatePropagation()

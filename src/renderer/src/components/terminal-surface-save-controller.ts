@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getClientRuntime } from '@/runtime/client-runtime'
 import { toast } from 'sonner'
-import { getConnectionId } from '../lib/connection-context'
 import { useAppStore } from '../store'
 import { appendUniqueOpenFileIds } from './terminal/unsaved-close-queue'
-import { isRemoteRuntimePtyId } from '@/runtime/runtime-terminal-inspection'
 import {
   requestEditorSaveQuiesce,
   type EditorRequestFileCloseDetail
 } from './editor/editor-autosave'
 import { translate } from '@/i18n/i18n'
-import { resolveRepairedActiveTerminalTabId } from './terminal/active-terminal-repair'
+import { useTerminalSurfaceWindowCloseActions } from './terminal-surface-window-close-actions'
+import { waitForTerminalFileClosed } from './terminal-surface-file-close-wait'
+import { useTerminalSurfaceActiveTabRepairEffect } from './terminal-surface-active-tab-repair-effect'
 const CLOSE_DIALOG_DEBOUNCE_MS = 200
 export function useTerminalSurfaceSaveController(
   context: Record<string, any>
@@ -37,10 +36,12 @@ export function useTerminalSurfaceSaveController(
     consumeSuppressedPtyExit
   } = context
   const pendingEditorCloseQueueRef = useRef<string[]>([])
-
+  const [saveDialogFileId, setSaveDialogFileId] = useState<string | null>(null)
+  const saveDialogFile = saveDialogFileId
+    ? useAppStore.getState().openFiles.find((file) => file.id === saveDialogFileId) ?? null
+    : null
   // Why: track the file whose save-and-close is in flight so getNextQueuedEditorClose skips it and concurrent close requests can't re-open the dialog over it.
   const inFlightSaveFileIdRef = useRef<string | null>(null)
-
   // Why: gate the Save/Discard/Cancel handlers so a stray carry-over click doesn't act on the next dialog before the user reads it; released after CLOSE_DIALOG_DEBOUNCE_MS.
   const isClosingRef = useRef(false)
   const closeDialogDebounceTimersRef = useRef<Set<number>>(new Set())
@@ -51,81 +52,16 @@ export function useTerminalSurfaceSaveController(
     }, CLOSE_DIALOG_DEBOUNCE_MS)
     closeDialogDebounceTimersRef.current.add(timer)
   }, [])
+  const windowClose = useTerminalSurfaceWindowCloseActions()
+  const {
+    windowCloseDialogOpen,
+    setWindowCloseDialogOpen,
+    windowCloseAfterDirtyRef,
+    confirmNativeWindowClose,
+    proceedToNativeWindowClose
+  } = windowClose
 
-  // Window close confirmation, shown for local terminals with running children (SSH terminals detach/persist via the relay).
-  const [windowCloseDialogOpen, setWindowCloseDialogOpen] = useState(false)
-
-  // Why: defer confirmWindowClose() while tabs are dirty — the beforeunload guard preventDefault()s, so an immediate confirm leaves the window open with no UI.
-  const windowCloseAfterDirtyRef = useRef<{ isQuitting: boolean } | null>(null)
-
-  const confirmNativeWindowClose = useCallback(() => {
-    // Why: capture only after every close guard has committed. A canceled child-
-    // process prompt must not consume App's synthetic/native unload guard.
-    const accepted = window.dispatchEvent(new Event('beforeunload', { cancelable: true }))
-    if (!accepted) {
-      return
-    }
-    getClientRuntime().app.confirmWindowClose()
-  }, [])
-
-  const proceedToNativeWindowClose = useCallback(
-    (isQuitting: boolean) => {
-      if (!isQuitting) {
-        const state = useAppStore.getState()
-        const localPtyIds = Object.entries(state.tabsByWorktree).flatMap(
-          ([worktreeId, worktreeTabs]) => {
-            const connectionId = getConnectionId(worktreeId)
-            if (connectionId !== null) {
-              return []
-            }
-            return worktreeTabs
-              .flatMap((tab) => state.ptyIdsByTabId[tab.id] ?? [])
-              .filter((ptyId) => !isRemoteRuntimePtyId(ptyId))
-          }
-        )
-        if (localPtyIds.length > 0) {
-          void Promise.all(
-            localPtyIds.map((id) => getClientRuntime().terminal.hasChildProcesses(id))
-          ).then((results) => {
-            if (results.some(Boolean)) {
-              setWindowCloseDialogOpen(true)
-            } else {
-              confirmNativeWindowClose()
-            }
-          })
-          return
-        }
-      }
-      confirmNativeWindowClose()
-    },
-    [confirmNativeWindowClose]
-  )
-
-  const waitForFileClosed = useCallback((fileId: string, timeoutMs: number): Promise<boolean> => {
-    if (!useAppStore.getState().openFiles.some((f) => f.id === fileId)) {
-      return Promise.resolve(true)
-    }
-    return new Promise((resolve) => {
-      let unsub: (() => void) | null = null
-      const timeoutId = window.setTimeout(() => {
-        unsub?.()
-        resolve(false)
-      }, timeoutMs)
-      unsub = useAppStore.subscribe((state) => {
-        if (!state.openFiles.some((f) => f.id === fileId)) {
-          window.clearTimeout(timeoutId)
-          unsub?.()
-          resolve(true)
-        }
-      })
-      // Why: zustand only fires subscribers on later changes, so re-check in case the file closed between the guard and subscribe.
-      if (!useAppStore.getState().openFiles.some((f) => f.id === fileId)) {
-        window.clearTimeout(timeoutId)
-        unsub?.()
-        resolve(true)
-      }
-    })
-  }, [])
+  const waitForFileClosed = waitForTerminalFileClosed
 
   const getNextQueuedEditorClose = useCallback((): string | null => {
     // Why: bulk closes enqueue files that may go clean or vanish before reaching the front; drain them so the dialog only blocks on tabs still needing a decision.
@@ -339,34 +275,14 @@ export function useTerminalSurfaceSaveController(
         onRequestEditorClose as EventListener
       )
   }, [queueEditorCloseRequests])
-
-  useEffect(() => {
-    const rememberedTabId = renderedActiveWorktreeId
-      ? (activeTabIdByWorktree[renderedActiveWorktreeId] ?? null)
-      : null
-    // Why: prefer the remembered active tab so a repair on a transient switch render doesn't reset selection to Terminal 1.
-    const repairedTabId = resolveRepairedActiveTerminalTabId({
-      activeTabType,
-      activeTabId,
-      rememberedTabId,
-      tabs
-    })
-    if (!repairedTabId) {
-      return
-    }
-    // Why: run in an effect (Zustand mutation during render trips React's cross-component update warning); keep terminal-only so inactive CLI-created tabs can't steal editor/browser focus.
-    setActiveTab(repairedTabId)
-    // Why: `tabs` is the dependency so the repair reacts to tab-order/content changes, not just scalar IDs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    activeTabId,
-    activeTabType,
-    setActiveTab,
-    tabs,
+  useTerminalSurfaceActiveTabRepairEffect({
+    renderedActiveWorktreeId,
     activeTabIdByWorktree,
-    renderedActiveWorktreeId
-  ])
-
+    activeTabType,
+    activeTabId,
+    tabs,
+    setActiveTab
+  })
   return {
     saveDialogFileId,
     saveDialogFile,

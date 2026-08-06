@@ -1,35 +1,19 @@
 import React, { Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import TabBar from './tab-bar/TabBar'
 import TerminalPane from './terminal-pane/TerminalPane'
 import BrowserPane from './browser-pane/BrowserPane'
-import BrowserPaneOverlayLayer from './browser-pane/BrowserPaneOverlayLayer'
-import TerminalPaneOverlayLayer from './terminal-pane/TerminalPaneOverlayLayer'
-import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
-import AiVaultSessionDropLayer from './tab-group/AiVaultSessionDropLayer'
-import CodexRestartChip from './CodexRestartChip'
 import EditorAutosaveController from './editor/EditorAutosaveController'
 import { lazyWithRetry as lazy } from '@/lib/lazy-with-retry'
-import { basename } from '../lib/path'
 import { translate } from '@/i18n/i18n'
 import {
   findActivityTerminalPortal,
   type ActivityTerminalPortalTarget
 } from './activity/activity-terminal-portal'
-import type { TabGroupLayoutNode } from '../../../shared/types'
 import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../store'
-import { useBrowserAutomationVisibilityForAny } from './browser-pane/browser-automation-visibility'
-import { useBrowserMobileDriverForAny } from '@/lib/pane-manager/browser-mobile-driver-state'
+import { WorktreeSplitSurface } from './terminal-surface-worktree-split-surface'
+import { TerminalSurfaceDialogs } from './terminal-surface-dialogs'
 const EditorPanel = lazy(() => import('./editor/EditorPanel'))
 export type TerminalSurfaceRenderProps = Record<string, any>
 export function TerminalSurfaceMarkup(props: TerminalSurfaceRenderProps): React.JSX.Element {
@@ -341,177 +325,18 @@ export function TerminalSurfaceMarkup(props: TerminalSurfaceRenderProps): React.
         </>
       )}
 
-      {/* Save confirmation dialog */}
-      <Dialog
-        open={saveDialogFileId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleSaveDialogCancel()
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-sm">
-              {translate('auto.components.Terminal.21295c6b8c', 'Unsaved Changes')}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              {saveDialogFile
-                ? translate(
-                    'auto.components.Terminal.61ed600d29',
-                    '"{{value0}}" has unsaved changes. Do you want to save before closing?',
-                    { value0: basename(saveDialogFile.relativePath) }
-                  )
-                : translate(
-                    'auto.components.Terminal.46e08bc5c8',
-                    'This file has unsaved changes.'
-                  )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={handleSaveDialogCancel}>
-              {translate('auto.components.Terminal.f82e9f02df', 'Cancel')}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={handleSaveDialogDiscard}>
-              {translate('auto.components.Terminal.0037b21794', "Don't Save")}
-            </Button>
-            <Button type="button" size="sm" onClick={handleSaveDialogSave}>
-              {translate('auto.components.Terminal.cd51e28d8b', 'Save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Window close confirmation dialog */}
-      <Dialog
-        open={windowCloseDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setWindowCloseDialogOpen(false)
-          }
-        }}
-      >
-        <DialogContent className="max-w-sm" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle className="text-sm">
-              {translate('auto.components.Terminal.2fa9c69ff3', 'Close Window?')}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              {translate(
-                'auto.components.Terminal.7958465754',
-                'There are local terminals with running processes. Close the window anyway?'
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setWindowCloseDialogOpen(false)}
-            >
-              {translate('auto.components.Terminal.f82e9f02df', 'Cancel')}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              autoFocus
-              onClick={() => {
-                setWindowCloseDialogOpen(false)
-                confirmNativeWindowClose()
-              }}
-            >
-              {translate('auto.components.Terminal.73768427cf', 'Close')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TerminalSurfaceDialogs
+        saveDialogFileId={saveDialogFileId}
+        handleSaveDialogCancel={handleSaveDialogCancel}
+        saveDialogFile={saveDialogFile}
+        handleSaveDialogDiscard={handleSaveDialogDiscard}
+        handleSaveDialogSave={handleSaveDialogSave}
+        windowCloseDialogOpen={windowCloseDialogOpen}
+        setWindowCloseDialogOpen={setWindowCloseDialogOpen}
+        confirmNativeWindowClose={confirmNativeWindowClose}
+      />
     </div>
   )
 }
-
-// Why: overlay pins each once-rendered pane (keyed by pane id) to its group's CSS anchor, so cross-group moves avoid terminal remount / webview reload.
-// React.memo: Terminal.tsx re-renders on unrelated store updates; memoize so this surface only re-renders on its own prop changes.
-
-const WorktreeSplitSurface = React.memo(function WorktreeSplitSurface({
-  worktreeId,
-  worktreePath,
-  layout,
-  focusedGroupId,
-  isVisible,
-  shouldMeasureHiddenWorktree,
-  shouldColdParkTerminalPanes,
-  isForceParked,
-  activityTerminalPortals,
-  backgroundMountTabIds,
-  activationDeferredMountTabIds
-}: {
-  worktreeId: string
-  worktreePath: string
-  layout: TabGroupLayoutNode
-  focusedGroupId?: string
-  isVisible: boolean
-  shouldMeasureHiddenWorktree: boolean
-  shouldColdParkTerminalPanes: boolean
-  isForceParked: boolean
-  activityTerminalPortals: ActivityTerminalPortalTarget[]
-  backgroundMountTabIds: ReadonlySet<string> | null
-  activationDeferredMountTabIds: ReadonlySet<string> | null
-}): React.JSX.Element {
-  const browserPageIds = useAppStore(
-    useShallow((state) =>
-      (state.browserTabsByWorktree[worktreeId] ?? []).flatMap((tab) =>
-        tab.pageIds && tab.pageIds.length > 0 ? tab.pageIds : [tab.activePageId ?? tab.id]
-      )
-    )
-  )
-  const hasAutomationVisibleBrowser = useBrowserAutomationVisibilityForAny(browserPageIds)
-  const hasMobileDrivenBrowser = useBrowserMobileDriverForAny(browserPageIds)
-  const shouldKeepPaintable =
-    shouldMeasureHiddenWorktree || hasAutomationVisibleBrowser || hasMobileDrivenBrowser
-
-  return (
-    <div
-      className={
-        isVisible
-          ? 'absolute inset-0 flex'
-          : shouldKeepPaintable
-            ? 'absolute inset-0 flex opacity-0 pointer-events-none'
-            : 'absolute inset-0 hidden'
-      }
-      // Why: paintable-but-hidden webviews must be inert so they stay unreachable by Tab / assistive tech.
-      inert={!isVisible}
-      aria-hidden={!isVisible}
-    >
-      <CodexRestartChip isVisible={isVisible} worktreeId={worktreeId} />
-      <TabGroupSplitLayout
-        layout={layout}
-        worktreeId={worktreeId}
-        focusedGroupId={focusedGroupId}
-        isWorktreeActive={isVisible}
-      />
-      <TerminalPaneOverlayLayer
-        worktreeId={worktreeId}
-        worktreePath={worktreePath}
-        isWorktreeActive={isVisible}
-        coldParkTerminalPanes={shouldColdParkTerminalPanes}
-        isForceParked={isForceParked}
-        shouldMeasureHiddenWorktree={shouldMeasureHiddenWorktree}
-        activityTerminalPortals={activityTerminalPortals}
-        backgroundMountTabIds={backgroundMountTabIds}
-        activationDeferredMountTabIds={activationDeferredMountTabIds}
-      />
-      {isVisible || backgroundMountTabIds === null ? (
-        <>
-          <BrowserPaneOverlayLayer worktreeId={worktreeId} isWorktreeActive={isVisible} />
-        </>
-      ) : null}
-      <AiVaultSessionDropLayer worktreeId={worktreeId} enabled={isVisible} />
-    </div>
-  )
-})
-
-export { WorktreeSplitSurface }
 
 export default TerminalSurfaceMarkup
