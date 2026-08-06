@@ -92,7 +92,7 @@ describe('agent session resume metadata', () => {
     expect(getAgentResumeArgv('devin', { key: 'conversation_id', id: 'x' })).toBeNull()
   })
 
-  it('captures the hook transcript_path for native-chat agents (claude/codex)', () => {
+  it('captures the hook transcript_path for transcript-backed agents (claude/codex)', () => {
     expect(
       extractAgentProviderSession('claude', {
         session_id: 'cs',
@@ -108,7 +108,7 @@ describe('agent session resume metadata', () => {
     ).toEqual({ key: 'session_id', id: 'xs', transcriptPath: '/x/r.jsonl' })
   })
 
-  it('does not attach transcript_path for non-native-chat agents', () => {
+  it('does not attach transcript_path for non-transcript agents', () => {
     expect(
       extractAgentProviderSession('gemini', { session_id: 'gs', transcript_path: '/x/r.jsonl' })
     ).toEqual({ key: 'session_id', id: 'gs' })

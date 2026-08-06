@@ -3,7 +3,6 @@ import { getMobileTerminalActionSheetActions } from './mobile-terminal-action-sh
 
 vi.mock('lucide-react-native', () => ({
   Eraser: vi.fn(),
-  MessageSquare: vi.fn(),
   Monitor: vi.fn(),
   Smartphone: vi.fn(),
   SquareTerminal: vi.fn()
@@ -15,10 +14,7 @@ function buildActions(overrides: Partial<SheetArgs> = {}) {
   return getMobileTerminalActionSheetActions({
     target: { handle: 'terminal-1' },
     tabs: [],
-    isTabChatView: () => false,
-    nativeChatTranscriptIsLocalReadable: true,
     onDismiss: vi.fn(),
-    onToggleChat: vi.fn(),
     isPhoneMode: () => false,
     onToggleDisplayMode: vi.fn(),
     onRename: vi.fn(),

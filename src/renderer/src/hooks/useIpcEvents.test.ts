@@ -1521,9 +1521,7 @@ describe('useIpcEvents updater integration', () => {
       },
       sshTargetLabels: new Map<string, string>([['conn-1', 'Remote']]),
       settings: {
-        terminalFontSize: 13,
-        experimentalNativeChat: false,
-        openAgentTabsInChatByDefault: false
+        terminalFontSize: 13
       }
     }
     vi.doMock('react', async () => {
@@ -1896,8 +1894,6 @@ describe('useIpcEvents updater integration', () => {
       clearTabPtyId: vi.fn(),
       settings: {
         terminalFontSize: 13,
-        experimentalNativeChat: false,
-        openAgentTabsInChatByDefault: false,
         activeRuntimeEnvironmentId: undefined as string | undefined
       }
     }
@@ -1923,7 +1919,7 @@ describe('useIpcEvents updater integration', () => {
             command?: string
             launchConfig?: SleepingAgentLaunchConfig
             launchAgent?: TuiAgent
-            viewMode?: 'terminal' | 'chat'
+            viewMode?: 'terminal'
             title?: string
             ptyId?: string
             activate?: boolean
@@ -1953,7 +1949,7 @@ describe('useIpcEvents updater integration', () => {
             cwd?: string
             launchConfig?: SleepingAgentLaunchConfig
             launchAgent?: TuiAgent
-            viewMode?: 'terminal' | 'chat'
+            viewMode?: 'terminal'
             title?: string
             activate?: boolean
             presentation?: 'background' | 'focused'
@@ -2072,7 +2068,7 @@ describe('useIpcEvents updater integration', () => {
               command?: string
               launchConfig?: SleepingAgentLaunchConfig
               launchAgent?: TuiAgent
-              viewMode?: 'terminal' | 'chat'
+              viewMode?: 'terminal'
               title?: string
               ptyId?: string
               activate?: boolean
@@ -2103,7 +2099,7 @@ describe('useIpcEvents updater integration', () => {
               cwd?: string
               launchConfig?: SleepingAgentLaunchConfig
               launchAgent?: TuiAgent
-              viewMode?: 'terminal' | 'chat'
+              viewMode?: 'terminal'
               title?: string
               activate?: boolean
               presentation?: 'background' | 'focused'
@@ -2401,65 +2397,6 @@ describe('useIpcEvents updater integration', () => {
     queueTabStartupCommand.mockClear()
     focusRuntimeTerminalSurface.mockClear()
     focusTerminalTabSurface.mockClear()
-    storeState.settings = {
-      ...storeState.settings,
-      experimentalNativeChat: true,
-      openAgentTabsInChatByDefault: true
-    }
-    requestTerminalCreateListenerRef.current({
-      requestId: 'req-renderer-backed',
-      worktreeId: 'wt-2',
-      targetGroupId: 'group-left',
-      title: 'Codex',
-      command: 'codex',
-      cwd: '/repo/packages/app',
-      launchConfig: {
-        agentArgs: '--model gpt-5',
-        agentEnv: { CODEX_PROFILE: 'request' }
-      },
-      launchAgent: 'codex',
-      activate: false
-    })
-
-    expect(createTab).toHaveBeenCalledWith('wt-2', 'group-left', undefined, {
-      activate: false,
-      recordInteraction: false,
-      launchAgent: 'codex',
-      viewMode: 'chat',
-      startupCwd: '/repo/packages/app'
-    })
-    expect(setActiveView).not.toHaveBeenCalled()
-    expect(setActiveWorktree).not.toHaveBeenCalled()
-    expect(markWorktreeVisited).not.toHaveBeenCalled()
-    expect(recordWorktreeVisit).not.toHaveBeenCalled()
-    expect(setActiveTabType).not.toHaveBeenCalled()
-    expect(setActiveTab).not.toHaveBeenCalled()
-    expect(revealWorktreeInSidebar).toHaveBeenCalledWith('wt-2')
-    expect(focusRuntimeTerminalSurface).toHaveBeenCalledWith('tab-new', undefined)
-    expect(focusTerminalTabSurface).toHaveBeenCalledWith('tab-new', undefined)
-    expect(dispatchEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'orca-background-mount-terminal-worktree',
-        detail: { worktreeId: 'wt-2', tabIds: ['tab-new'] }
-      })
-    )
-    expect(setTabCustomTitle).toHaveBeenCalledWith('tab-new', 'Codex', {
-      recordInteraction: false
-    })
-    expect(queueTabStartupCommand).toHaveBeenCalledWith('tab-new', {
-      command: 'codex',
-      launchConfig: {
-        agentArgs: '--model gpt-5',
-        agentEnv: { CODEX_PROFILE: 'request' }
-      },
-      launchAgent: 'codex'
-    })
-    expect(replyTerminalCreate).toHaveBeenCalledWith({
-      requestId: 'req-renderer-backed',
-      tabId: 'tab-new',
-      title: 'Codex'
-    })
-
     createTab.mockClear()
     replyTerminalCreate.mockClear()
     storeState.settings.activeRuntimeEnvironmentId = 'focused-runtime'
@@ -2674,8 +2611,7 @@ describe('useIpcEvents updater integration', () => {
     expect(createTab).toHaveBeenCalledWith('wt-2', undefined, undefined, {
       initialPtyId: 'pty-bg',
       activate: false,
-      launchAgent: 'codex',
-      viewMode: 'chat'
+      launchAgent: 'codex'
     })
     expect(setActiveView).not.toHaveBeenCalled()
     expect(setActiveWorktree).not.toHaveBeenCalled()
@@ -2708,22 +2644,6 @@ describe('useIpcEvents updater integration', () => {
       launchAgent: 'codex',
       viewMode: 'terminal'
     })
-
-    createTab.mockClear()
-    storeState.settings.openAgentTabsInChatByDefault = false
-    createTerminalListenerRef.current({
-      worktreeId: 'wt-2',
-      ptyId: 'pty-explicit-chat',
-      launchAgent: 'codex',
-      viewMode: 'chat'
-    })
-    expect(createTab).toHaveBeenCalledWith('wt-2', undefined, undefined, {
-      initialPtyId: 'pty-explicit-chat',
-      activate: false,
-      launchAgent: 'codex',
-      viewMode: 'chat'
-    })
-    storeState.settings.openAgentTabsInChatByDefault = true
 
     createTab.mockClear()
     setActiveView.mockClear()

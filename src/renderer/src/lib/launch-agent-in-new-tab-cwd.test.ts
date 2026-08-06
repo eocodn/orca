@@ -34,10 +34,6 @@ vi.mock('@/lib/connection-context', () => ({
   getConnectionIdFromState: () => null
 }))
 
-vi.mock('@/lib/native-chat-transcript-readability', () => ({
-  isNativeChatTranscriptLocalReadable: () => true
-}))
-
 vi.mock('@/runtime/web-runtime-session', () => ({
   isWebRuntimeSessionActive: mockIsWebRuntimeSessionActive
 }))
@@ -57,10 +53,6 @@ vi.mock('@/components/tab-bar/reconcile-order', () => ({
 vi.mock('@/lib/telemetry', () => ({
   track: vi.fn(),
   tuiAgentToAgentKind: (agent: string) => agent
-}))
-
-vi.mock('@/components/native-chat/native-chat-session-option-cache', () => ({
-  seedNativeChatAppliedSessionOptions: vi.fn()
 }))
 
 describe('launchAgentInNewTab initial cwd', () => {

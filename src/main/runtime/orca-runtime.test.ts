@@ -3783,13 +3783,13 @@ describe('OrcaRuntimeService', () => {
       repoSelector: 'id:folder-repo',
       name: 'folder-session',
       createdWithAgent: 'codex',
-      startup: { command: 'codex', viewMode: 'chat' }
+      startup: { command: 'codex' }
     })
 
     expect(addWorktreeMock).not.toHaveBeenCalled()
     expect(createTerminal).toHaveBeenCalledWith(
       `id:${result.worktree.id}`,
-      expect.objectContaining({ command: 'codex', viewMode: 'chat' })
+      expect.objectContaining({ command: 'codex' })
     )
     expect(result.worktree).toEqual(
       expect.objectContaining({
@@ -5446,14 +5446,14 @@ describe('OrcaRuntimeService', () => {
         repoSelector: TEST_REPO_ID,
         name: 'mobile-setup',
         setupDecision: 'run',
-        startup: { command: 'claude', viewMode: 'chat' }
+        startup: { command: 'claude' }
       })
 
       // Why: runtime provisions setup itself (fire-and-forget) and omits it from the RPC result so the caller doesn't double-spawn.
       expect(result.setup).toBeUndefined()
       expect(createTerminal).toHaveBeenCalledWith(
         `path:${result.worktree.path}`,
-        expect.objectContaining({ viewMode: 'chat' })
+        expect.objectContaining({ command: 'claude' })
       )
       await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2))
       expect(spawn).toHaveBeenNthCalledWith(
@@ -26662,7 +26662,6 @@ describe('OrcaRuntimeService', () => {
                 leafId: HEADLESS_LEAF_ID,
                 ptyId: 'pty-renderer',
                 title: 'Terminal',
-                viewMode: 'chat',
                 isActive: false
               }
             ]
@@ -26688,8 +26687,7 @@ describe('OrcaRuntimeService', () => {
     })
 
     const result = await runtime.createMobileSessionTerminal(`id:${TEST_WORKTREE_ID}`, {
-      activate: false,
-      viewMode: 'chat'
+      activate: false
     })
 
     expect(send).toHaveBeenCalledWith(
@@ -26697,8 +26695,7 @@ describe('OrcaRuntimeService', () => {
       expect.objectContaining({
         worktreeId: TEST_WORKTREE_ID,
         activate: false,
-        source: 'runtime-session',
-        viewMode: 'chat'
+        source: 'runtime-session'
       })
     )
     expect(focusTerminal).not.toHaveBeenCalled()
@@ -27387,8 +27384,7 @@ describe('OrcaRuntimeService', () => {
       })
 
       const create = runtime.createMobileSessionTerminal(`id:${TEST_WORKTREE_ID}`, {
-        activate: true,
-        viewMode: 'chat'
+        activate: true
       })
       let settled = false
       const settledCreate = create.finally(() => {
@@ -27396,7 +27392,7 @@ describe('OrcaRuntimeService', () => {
       })
       await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1))
 
-      // A shell-only snapshot can win the first race but omit launch props; the later PTY rescue must fill the explicit mode.
+      // A shell-only snapshot can win the first race; the later PTY rescue must fill the terminal binding.
       runtime.syncWindowGraph(1, {
         tabs: [],
         leaves: [],
@@ -27438,8 +27434,7 @@ describe('OrcaRuntimeService', () => {
         parentTabId: 'tab-alive',
         leafId,
         status: 'ready',
-        terminal: expect.stringMatching(/^term_/),
-        viewMode: 'chat'
+        terminal: expect.stringMatching(/^term_/)
       })
       expect(closeTerminal).not.toHaveBeenCalled()
     } finally {
@@ -33008,14 +33003,14 @@ describe('OrcaRuntimeService', () => {
       repoSelector: 'id:repo-1',
       name: 'runtime-headless-startup-setup',
       setupDecision: 'run',
-      startup: { command: 'claude', viewMode: 'chat' }
+      startup: { command: 'claude' }
     })
 
     expect(createSetupRunnerScript).toHaveBeenCalled()
     expect(runHook).not.toHaveBeenCalled()
     expect(createTerminal).toHaveBeenCalledWith(
       `id:${result.worktree.id}`,
-      expect.objectContaining({ viewMode: 'chat' })
+      expect.objectContaining({ command: 'claude' })
     )
     // Why: setup is provisioned fire-and-forget; the wait-for-setup guarantee comes from the shell nonce/marker, not JS spawn ordering.
     await vi.waitFor(() => expect(spawn).toHaveBeenCalledTimes(2))

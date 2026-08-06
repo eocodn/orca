@@ -796,7 +796,7 @@ describe('attachMainWindowServices', () => {
           ptyId: string
           title?: string
           cwd?: string
-          viewMode?: 'terminal' | 'chat'
+          viewMode?: 'terminal'
           activate?: boolean
         }
       ) => Promise<{ tabId: string; title?: string }>
@@ -804,8 +804,7 @@ describe('attachMainWindowServices', () => {
     const revealPromise = notifier.revealTerminalSession('wt-1', {
       ptyId: 'pty-1',
       title: 'SSH tmux',
-      cwd: '/repo/packages/web',
-      viewMode: 'chat'
+      cwd: '/repo/packages/web'
     })
     const sentPayload = sendMock.mock.calls.find(
       ([channel]) => channel === 'ui:createTerminal'
@@ -813,7 +812,7 @@ describe('attachMainWindowServices', () => {
     const handler = onMock.mock.calls.find(
       ([channel]) => channel === 'terminal:tabCreateReply'
     )?.[1]
-    expect(sentPayload).toMatchObject({ cwd: '/repo/packages/web', viewMode: 'chat' })
+    expect(sentPayload).toMatchObject({ cwd: '/repo/packages/web' })
 
     handler?.(
       { sender: { send: vi.fn() } },

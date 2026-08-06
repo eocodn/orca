@@ -27,7 +27,10 @@ function removedPathIsEmpty(relativePath) {
 }
 
 const retiredAutomationTests = [
+  'src/cli/format.test.ts',
+  'src/cli/index.test.ts',
   'src/main/persistence.test.ts',
+  'src/main/worktree-removal-authority.test.ts',
   'src/main/active-view-preference.test.ts',
   'src/main/ipc/settings.test.ts',
   'src/main/ipc/worktree-logic.test.ts',

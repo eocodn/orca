@@ -220,7 +220,7 @@ describe('skill discovery', () => {
         expect(root.providers).toEqual(['agent-skills'])
       }
     }
-    // Why: the native-chat picker admits a root when its owner is null, so leaving
+    // Why: the provider picker admits a root when its owner is null, so leaving
     // OMP's home shared would leak OMP-only skills into every other agent's picker.
     expect(
       roots.find((root) => root.path.replace(/\\/g, '/') === '/home/test/.omp/agent/skills')?.owner

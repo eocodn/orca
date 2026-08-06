@@ -65,10 +65,7 @@ const store = {
   queueTabStartupCommand: mockQueueTabStartupCommand,
   setActiveTabType: vi.fn(),
   setTabBarOrder: vi.fn(),
-  setAgentStatus: vi.fn(),
-  seedNativeChatLaunchPrompt: vi.fn(),
-  seedNativeChatLaunchDraft: vi.fn(),
-  markNativeChatLaunchPromptFailed: vi.fn()
+  setAgentStatus: vi.fn()
 }
 
 vi.mock('@/store', () => ({

@@ -380,7 +380,6 @@ describe('session tab RPC methods', () => {
           agentEnv: { CODEX_PROFILE: 'captured' }
         },
         launchAgent: 'codex',
-        viewMode: 'chat',
         activate: true
       })
     )
@@ -401,7 +400,6 @@ describe('session tab RPC methods', () => {
         agentEnv: { CODEX_PROFILE: 'captured' }
       },
       launchAgent: 'codex',
-      viewMode: 'chat',
       activate: true,
       select: undefined,
       clientNavigationId: undefined,

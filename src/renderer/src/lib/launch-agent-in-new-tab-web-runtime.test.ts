@@ -43,9 +43,7 @@ const store = {
   queueTabStartupCommand: vi.fn(),
   setActiveTabType: mocks.setActiveTabType,
   setTabBarOrder: vi.fn(),
-  setAgentStatus: vi.fn(),
-  seedNativeChatLaunchPrompt: vi.fn(),
-  markNativeChatLaunchPromptFailed: vi.fn()
+  setAgentStatus: vi.fn()
 }
 
 vi.mock('@/store', () => ({ useAppStore: { getState: () => store } }))

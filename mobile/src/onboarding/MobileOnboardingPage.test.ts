@@ -17,8 +17,7 @@ vi.mock('react-native', async () => {
 })
 
 vi.mock('lucide-react-native', () => ({
-  BellRing: 'BellRing',
-  MessageSquare: 'MessageSquare'
+  BellRing: 'BellRing'
 }))
 
 describe('MobileOnboardingPage', () => {
@@ -35,10 +34,9 @@ describe('MobileOnboardingPage', () => {
   })
 
   async function renderPage(
-    step: 'session-view' | 'notifications',
-    options: { active?: boolean; busyChoice?: 'chat' | 'enable' | null } = {}
+    step: 'notifications',
+    options: { active?: boolean; busyChoice?: 'enable' | 'skip' | null } = {}
   ) {
-    const onSessionChoice = vi.fn()
     const onNotificationChoice = vi.fn()
     const consoleError = vi.spyOn(console, 'error').mockImplementation((...args) => {
       if (typeof args[0] !== 'string' || !args[0].includes('react-test-renderer is deprecated')) {
@@ -53,13 +51,12 @@ describe('MobileOnboardingPage', () => {
           active: options.active ?? true,
           busyChoice: options.busyChoice ?? null,
           error: null,
-          onSessionChoice,
           onNotificationChoice
         })
       )
     })
     consoleError.mockRestore()
-    return { onSessionChoice, onNotificationChoice }
+    return { onNotificationChoice }
   }
 
   function button(label: string) {
@@ -68,20 +65,11 @@ describe('MobileOnboardingPage', () => {
     )
   }
 
-  it('renders the session choices and sends exactly one selected view', async () => {
-    const callbacks = await renderPage('session-view')
-
-    act(() => button('Open sessions in Chat UI').props.onPress())
-    expect(callbacks.onSessionChoice).toHaveBeenCalledWith('chat')
-    expect(callbacks.onNotificationChoice).not.toHaveBeenCalled()
-  })
-
   it('renders the notification choices and sends the selected option', async () => {
     const callbacks = await renderPage('notifications')
     act(() => button('Skip notifications for now').props.onPress())
 
     expect(callbacks.onNotificationChoice).toHaveBeenCalledWith('skip')
-    expect(callbacks.onSessionChoice).not.toHaveBeenCalled()
   })
 
   it('disables both notification choices while permission is pending', async () => {

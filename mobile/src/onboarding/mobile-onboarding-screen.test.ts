@@ -4,12 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import MobileOnboardingScreen from '../../app/mobile-onboarding'
 
 const mocks = vi.hoisted(() => ({
-  params: { hostId: 'paired-host', steps: 'session-view,notifications' },
+  params: { hostId: 'paired-host', steps: 'notifications' },
   replace: vi.fn(),
   reducedMotionEnabled: false,
   animatedTiming: vi.fn(),
   ensureNotificationPermissions: vi.fn(),
-  saveDefaultSessionView: vi.fn(),
   savePushNotificationsEnabled: vi.fn()
 }))
 
@@ -45,9 +44,6 @@ vi.mock('./MobileOnboardingPage', () => ({ MobileOnboardingPage: 'MobileOnboardi
 vi.mock('../notifications/mobile-notifications', () => ({
   ensureNotificationPermissions: mocks.ensureNotificationPermissions
 }))
-vi.mock('../storage/session-view-preferences', () => ({
-  saveDefaultSessionView: mocks.saveDefaultSessionView
-}))
 vi.mock('../storage/preferences', () => ({
   savePushNotificationsEnabled: mocks.savePushNotificationsEnabled
 }))
@@ -57,14 +53,13 @@ describe('MobileOnboardingScreen', () => {
 
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
-    mocks.params = { hostId: 'paired-host', steps: 'session-view,notifications' }
+    mocks.params = { hostId: 'paired-host', steps: 'notifications' }
     mocks.replace.mockReset()
     mocks.reducedMotionEnabled = false
     mocks.animatedTiming.mockReset().mockReturnValue({
       start: (callback: (result: { finished: boolean }) => void) => callback({ finished: true })
     })
     mocks.ensureNotificationPermissions.mockReset().mockResolvedValue(true)
-    mocks.saveDefaultSessionView.mockReset().mockResolvedValue(undefined)
     mocks.savePushNotificationsEnabled.mockReset().mockResolvedValue(undefined)
   })
 
@@ -90,76 +85,38 @@ describe('MobileOnboardingScreen', () => {
     return renderer!.root.findAllByType('MobileOnboardingPage')
   }
 
-  it('advances from session view to notifications before opening the paired host', async () => {
+  it('saves a skipped notification choice and opens the paired host', async () => {
     await renderScreen()
-    expect(pages().map((page) => page.props.active)).toEqual([true, false])
 
-    await act(async () => pages()[0].props.onSessionChoice('chat'))
-    expect(mocks.saveDefaultSessionView).toHaveBeenCalledWith('chat')
-    expect(pages().map((page) => page.props.active)).toEqual([false, true])
-    expect(mocks.replace).not.toHaveBeenCalled()
+    await act(async () => pages()[0].props.onNotificationChoice('skip'))
 
-    await act(async () => pages()[1].props.onNotificationChoice('skip'))
     expect(mocks.ensureNotificationPermissions).not.toHaveBeenCalled()
     expect(mocks.savePushNotificationsEnabled).toHaveBeenCalledWith(false)
     expect(mocks.replace).toHaveBeenCalledWith('/h/paired-host')
   })
 
-  it('finishes immediately when the plan contains only one outstanding step', async () => {
-    mocks.params = { hostId: 'paired-host', steps: 'session-view' }
+  it('requests notification permission before saving an enabled choice', async () => {
+    mocks.ensureNotificationPermissions.mockResolvedValue(true)
     await renderScreen()
 
-    await act(async () => pages()[0].props.onSessionChoice('terminal'))
+    await act(async () => pages()[0].props.onNotificationChoice('enable'))
+
+    expect(mocks.ensureNotificationPermissions).toHaveBeenCalledTimes(1)
+    expect(mocks.savePushNotificationsEnabled).toHaveBeenCalledWith(true)
     expect(mocks.replace).toHaveBeenCalledWith('/h/paired-host')
   })
 
-  it('keeps the current step retryable when persistence fails', async () => {
-    mocks.params = { hostId: 'paired-host', steps: 'session-view' }
-    mocks.saveDefaultSessionView
+  it('keeps the notification step retryable when persistence fails', async () => {
+    mocks.savePushNotificationsEnabled
       .mockRejectedValueOnce(new Error('storage unavailable'))
       .mockResolvedValueOnce(undefined)
     await renderScreen()
 
-    await act(async () => pages()[0].props.onSessionChoice('chat'))
-    expect(pages()[0].props.error).toBe('Your choice could not be saved. Try again.')
+    await act(async () => pages()[0].props.onNotificationChoice('skip'))
+    expect(pages()[0].props.error).toBe('Notification settings could not be updated. Try again.')
 
-    await act(async () => pages()[0].props.onSessionChoice('chat'))
-    expect(mocks.saveDefaultSessionView).toHaveBeenCalledTimes(2)
+    await act(async () => pages()[0].props.onNotificationChoice('skip'))
+    expect(mocks.savePushNotificationsEnabled).toHaveBeenCalledTimes(2)
     expect(mocks.replace).toHaveBeenCalledWith('/h/paired-host')
-  })
-
-  it('resets carousel state when the route supplies a new onboarding plan', async () => {
-    await renderScreen()
-    await act(async () => pages()[0].props.onSessionChoice('chat'))
-    expect(pages().map((page) => page.props.active)).toEqual([false, true])
-
-    mocks.params = { hostId: 'paired-host', steps: 'notifications' }
-    await act(async () => renderer!.update(createElement(MobileOnboardingScreen)))
-
-    expect(pages()).toHaveLength(1)
-    expect(pages()[0].props).toMatchObject({ step: 'notifications', active: true })
-  })
-
-  it('skips the slide animation when the device requests reduced motion', async () => {
-    mocks.reducedMotionEnabled = true
-    await renderScreen()
-
-    await act(async () => pages()[0].props.onSessionChoice('chat'))
-
-    expect(mocks.animatedTiming).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ duration: 0, useNativeDriver: true })
-    )
-  })
-
-  it('keeps the next decision available if the cosmetic transition is interrupted', async () => {
-    mocks.animatedTiming.mockReturnValue({
-      start: (callback: (result: { finished: boolean }) => void) => callback({ finished: false })
-    })
-    await renderScreen()
-
-    await act(async () => pages()[0].props.onSessionChoice('chat'))
-
-    expect(pages()[1].props).toMatchObject({ active: true, busyChoice: null })
   })
 })

@@ -37,7 +37,6 @@ import {
   ONBOARDING_FLOW_VERSION
 } from '../shared/constants'
 import { folderWorkspaceKey, worktreeWorkspaceKey } from '../shared/workspace-scope'
-import { toRuntimeExecutionHostId, toSshExecutionHostId } from '../shared/execution-host'
 import { SshConnectionStore } from './ssh/ssh-connection-store'
 import { setSourceControlActionDefault } from '../shared/source-control-ai-actions'
 import { LEGACY_DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS } from '../shared/ssh-types'
@@ -6166,7 +6165,7 @@ describe('Store', () => {
     expect(store.getUI().featureTipsSeenIds).toEqual(['cmd-j-palette'])
     expect(store.getUI().contextualToursSeenIds).toEqual(['tasks'])
     expect(store.getUI().featureInteractions).toEqual({
-      tasks: { firstInteractedAt: 100, interactionCount: 1 },
+      tasks: { firstInteractedAt: 100, interactionCount: 1 }
     })
   })
 

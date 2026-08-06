@@ -82,13 +82,13 @@ describe('buildSourceControlManualReviewUrl', () => {
     expect(
       buildSourceControlManualReviewUrl({
         baseRef: 'refs/remotes/origin/main',
-        branchName: 'native-chat-does-not-auto-open',
+        branchName: 'agent-session-does-not-auto-open',
         repoRemoteName: 'origin',
         repoRemoteUrl: 'git@github.com:stablyai/orca.git',
-        upstreamName: 'origin/native-chat-does-not-auto-open'
+        upstreamName: 'origin/agent-session-does-not-auto-open'
       })
     ).toBe(
-      'https://github.com/stablyai/orca/compare/main...native-chat-does-not-auto-open?expand=1'
+      'https://github.com/stablyai/orca/compare/main...agent-session-does-not-auto-open?expand=1'
     )
   })
 

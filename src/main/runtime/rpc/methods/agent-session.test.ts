@@ -285,8 +285,7 @@ describe('agent session RPC methods', () => {
         prompt: 'Fix the race',
         promptDelivery: 'draft',
         agentArgs: '--profile review',
-        launchPreferences: { model: 'gpt-5', effort: 'high' },
-        viewMode: 'chat'
+        launchPreferences: { model: 'gpt-5', effort: 'high' }
       }),
       (response) => replies.push(JSON.parse(response) as RpcResponse),
       { clientId: 'authenticated-device', clientKind: 'runtime' }
@@ -302,8 +301,7 @@ describe('agent session RPC methods', () => {
         prompt: 'Fix the race',
         promptDelivery: 'draft',
         agentArgs: '--profile review',
-        launchPreferences: { model: 'gpt-5', effort: 'high' },
-        viewMode: 'chat'
+        launchPreferences: { model: 'gpt-5', effort: 'high' }
       },
       { clientId: 'authenticated-device', clientKind: 'runtime' }
     )

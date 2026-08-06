@@ -32,7 +32,6 @@ describe('mobile session workspace terminal interactions', () => {
       terminalGestureInputQueuesRef: { current: new Map() },
       terminalGestureInputInFlightRef: { current: new Set() },
       webReadyHandlesRef: { current: new Set() },
-      nativeChatStream: null,
       measureViewportOnce: vi.fn(),
       fileDocs: {},
       sendingRef: { current: false },
@@ -73,12 +72,14 @@ describe('mobile session workspace terminal interactions', () => {
 
     useMobileSessionWorkspaceTerminalInteractions(context, documentActions)
 
-    expect(useMobileSessionTabInteractions).toHaveBeenCalledWith(expect.objectContaining({
-      sessionTabs: context.sessionTabs,
-      readFileTab: documentActions.readFileTab,
-      readMarkdownTab: documentActions.readMarkdownTab,
-      hostId: context.hostId,
-      routeWorktreeName: context.routeWorktreeName
-    }))
+    expect(useMobileSessionTabInteractions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionTabs: context.sessionTabs,
+        readFileTab: documentActions.readFileTab,
+        readMarkdownTab: documentActions.readMarkdownTab,
+        hostId: context.hostId,
+        routeWorktreeName: context.routeWorktreeName
+      })
+    )
   })
 })
