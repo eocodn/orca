@@ -33,6 +33,51 @@ for (const path of removedDirectories) {
 }
 
 const removedFiles = [
+  // Codex provider-hook installation/trust adapters are retired. Generic
+  // Codex CLI/session/config/app-server modules remain below this seam.
+  'src/main/codex/codex-app-server-client.ts',
+  'src/main/codex/codex-app-server-client.test.ts',
+  'src/main/codex/codex-app-server-capability-cache.ts',
+  'src/main/codex/codex-app-server-capability-cache.test.ts',
+  'src/main/codex/codex-app-server-grant-bridge.ts',
+  'src/main/codex/codex-app-server-grant-envelope.ts',
+  'src/main/codex/codex-app-server-grant-entry.ts',
+  'src/main/codex/codex-hook-identity.ts',
+  'src/main/codex/codex-hook-installation.ts',
+  'src/main/codex/codex-hook-reconciliation.ts',
+  'src/main/codex/codex-hook-remote.ts',
+  'src/main/codex/codex-hook-remote.test.ts',
+  'src/main/codex/codex-hook-removal.ts',
+  'src/main/codex/codex-hook-runtime-installation.ts',
+  'src/main/codex/codex-hook-service.ts',
+  'src/main/codex/codex-hook-split-integrity.test.ts',
+  'src/main/codex/codex-hook-status.ts',
+  'src/main/codex/codex-hook-support-a.ts',
+  'src/main/codex/codex-hook-support-api.test.ts',
+  'src/main/codex/codex-hook-support-b.ts',
+  'src/main/codex/codex-hook-trust-grant.test.ts',
+  'src/main/codex/codex-hook-trust-grant.ts',
+  'src/main/codex/codex-managed-trust-reconciliation.ts',
+  'src/main/codex/codex-real-home-hook-install.ts',
+  'src/main/codex/codex-real-home-hook-install.test.ts',
+  'src/main/codex/codex-trust-grant-host.ts',
+  'src/main/codex/codex-trust-grant-ledger.ts',
+  'src/main/codex/codex-user-hook-trust-rebase-client.ts',
+  'src/main/codex/codex-user-hook-trust-rebase.ts',
+  'src/main/codex/codex-wsl-hook-install-plan.ts',
+  'src/main/codex/codex-wsl-hook-install-plan.test.ts',
+  'src/main/codex/hook-service.ts',
+  'src/main/codex/hook-service.test.ts',
+  'src/main/codex/hook-service-trust-grant.test.ts',
+  'src/main/codex/hook-service-wsl-runtime.test.ts',
+  'src/main/codex/hook-trust-promotion.ts',
+  'src/main/codex/hook-trust-promotion.test.ts',
+  'src/main/codex/codex-trust-config-rollback.ts',
+  'src/main/codex/codex-trust-config-rollback.test.ts',
+  'src/main/codex/codex-trust-grant-ledger.test.ts',
+  'src/main/codex/codex-user-hook-trust-rebase-client.test.ts',
+  'src/main/codex/codex-user-hook-trust-rebase.test.ts',
+  'src/main/agent-hooks/managed-hook-timeout.test.ts',
   'src/main/opencode/hook-service.ts',
   'src/main/opencode/hook-service.test.ts',
   'src/main/opencode/hook-plugin-source.ts',
@@ -86,7 +131,11 @@ const retiredBuildTokens = [
   'agent-status.pi-hook-liveness',
   'src/shared/agent-hook-listener',
   'src/relay/agent-hook-server',
-  'src/main/codex/codex-trust-grant-telemetry.ts'
+  'src/main/codex/codex-trust-grant-telemetry.ts',
+  'codex-app-server-grant',
+  'codex-hook-',
+  'hook-service.ts',
+  'hook-trust-promotion'
 ]
 for (const [path, source] of configSources) {
   for (const token of retiredBuildTokens) {
@@ -152,7 +201,7 @@ assert.ok(
 const importRefs = []
 const sourceRoots = ['src/main', 'src/preload', 'src/shared', 'src/relay']
 const providerPattern =
-  /(?:from|import\s*\(|require\s*\()\s*['"][^'"]*\/(?:amp|antigravity|claude|command-code|copilot|cursor|devin|droid|gemini|grok|hermes|kimi|openclaude|mimo)\/(?:hook|statusline|kimi-hook|hook-config)/
+  /(?:from|import\s*\(|require\s*\()\s*['"][^'"]*\/(?:amp|antigravity|claude|command-code|copilot|cursor|devin|droid|gemini|grok|hermes|kimi|openclaude|mimo)\/(?:hook|statusline|kimi-hook|hook-config)|(?:from|import\s*\(|require\s*\()\s*['"][^'"]*\/codex\/(?:codex-hook|hook-service|hook-trust|codex-real-home-hook|codex-managed-trust|codex-user-hook-trust|codex-wsl-hook|codex-trust-grant|codex-app-server-(?:client|grant))
 const visit = (directory) => {
   if (!existsSync(directory)) return
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -196,6 +245,9 @@ for (const path of [
     '/kimi/',
     '/openclaude/',
     '/opencode/hook-',
+    '/codex/codex-hook-',
+    '/codex/hook-service',
+    '/codex/hook-trust-',
     '/mimo/hook-',
     '/pi/agent-status-',
     '/pi/titlebar-extension-'

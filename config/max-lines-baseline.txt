@@ -19,8 +19,6 @@ inline src/main/cli/cli-installer.ts
 inline src/main/cli/wsl-cli-installer.ts
 inline src/main/codex/config-toml-trust.test.ts
 inline src/main/codex/config-toml-trust.ts
-inline src/main/codex/hook-service.test.ts
-inline src/main/codex/hook-service.ts
 inline src/main/daemon/client.ts
 inline src/main/daemon/daemon-health.ts
 inline src/main/daemon/daemon-init.test.ts

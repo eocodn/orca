@@ -16,12 +16,11 @@ type OutputChunk = Rollup.OutputChunk
 // graph still resolves.
 
 // Entries executed as plain Node (ELECTRON_RUN_AS_NODE / no electron runtime):
-// forked daemon, parcel-watcher, and the Codex app-server grant helper.
+// forked daemon and parcel-watcher.
 // require("electron") throws MODULE_NOT_FOUND in all of them.
 const PLAIN_NODE_ENTRY_NAMES = [
   'daemon-entry',
-  'parcel-watcher-process-entry',
-  'codex/codex-app-server-grant-entry'
+  'parcel-watcher-process-entry'
 ] as const
 
 const ELECTRON_REQUIRE_RE = /require\(\s*["']electron["']\s*\)/

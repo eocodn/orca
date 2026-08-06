@@ -203,12 +203,6 @@ export const electronViteConfig: UserConfig = {
           'main-thread-hang-watchdog-entry': resolve(
             'src/main/hang-watchdog/main-thread-hang-watchdog-entry.ts'
           ),
-          // Why: run under ELECTRON_RUN_AS_NODE while the caller blocks on
-          // spawnSync — codex app-server trust grants need a live event loop
-          // but must finish before a Codex pane launch proceeds.
-          'codex/codex-app-server-grant-entry': resolve(
-            'src/main/codex/codex-app-server-grant-entry.ts'
-          ),
         },
         // Why: Rolldown's SSR default is ESM, but Electron and sidecar launchers
         // consume these stable CommonJS paths.
