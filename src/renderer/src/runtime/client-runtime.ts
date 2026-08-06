@@ -81,8 +81,6 @@ export type ClientRuntimeHostAdapter = {
   jira: PreloadApi['jira']
   hooks: PreloadApi['hooks']
   hostedReview: PreloadApi['hostedReview']
-  /** Optional because Electron/Web adapters do not expose ade-host commands. */
-  tauriHost?: ClientRuntimeHostService
 }
 
 // Why: renderer services must not encode whether their host is desktop preload,
@@ -94,7 +92,7 @@ export function createClientRuntime(
   ),
   tauriHost?: ClientRuntimeHostService
 ): ClientRuntime {
-  const host = tauriHost ?? adapter.tauriHost ?? unavailableHost
+  const host = tauriHost ?? unavailableHost
   return {
     host,
     tauriHost: host,
