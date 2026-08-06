@@ -53,6 +53,7 @@ import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
 import { TaskPageLinearIssueBody } from './task-page-linear-issue-body'
+import { useTaskPageLinearComposerState } from './use-task-page-linear-composer-state'
 import {
   getSingleJiraProjectScope,
   getTaskPageJiraStatusOrderScopeKey,
@@ -145,20 +146,13 @@ import {
 import { shouldSuppressEnterSubmit } from '@/lib/new-workspace-enter-guard'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
 import { isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
-import {
-  useRepoAssignees,
-  useRepoLabels,
-  useTeamStates,
-  useTeamMembers,
-  useTeamLabels
-} from '@/hooks/useIssueMetadata'
+import { useRepoAssignees, useRepoLabels } from '@/hooks/useIssueMetadata'
 import {
   linearCreateProject,
   linearCreateIssue,
   linearGetIssue,
   linearTeamStates,
-  linearUpdateIssue,
-  linearListProjects
+  linearUpdateIssue
 } from '@/runtime/runtime-linear-client'
 import {
   jiraCreateIssue,
@@ -2095,139 +2089,69 @@ export default function TaskPage(): React.JSX.Element {
       jiraPrioritiesBySite
     )
   }, [displayedJiraIssues, jiraOrderBy, jiraOrderDirection, jiraPrioritiesBySite])
-  // New Linear project dialog state
-  const [newLinearProjectOpen, setNewLinearProjectOpen] = useState(false)
-  const [newLinearProjectName, setNewLinearProjectName] = useState('')
-  const [newLinearProjectDescription, setNewLinearProjectDescription] = useState('')
-  const [newLinearProjectContent, setNewLinearProjectContent] = useState('')
-  const [newLinearProjectTeamId, setNewLinearProjectTeamId] = useState<string | null>(null)
-  const [newLinearProjectLeadId, setNewLinearProjectLeadId] = useState<string | null>(null)
-  const [newLinearProjectMemberIds, setNewLinearProjectMemberIds] = useState<string[]>([])
-  const [newLinearProjectLabelIds, setNewLinearProjectLabelIds] = useState<string[]>([])
-  const [newLinearProjectPriority, setNewLinearProjectPriority] = useState<number>(0)
-  const [newLinearProjectStartDate, setNewLinearProjectStartDate] = useState('')
-  const [newLinearProjectTargetDate, setNewLinearProjectTargetDate] = useState('')
-  const [newLinearProjectSubmitting, setNewLinearProjectSubmitting] = useState(false)
-
-  const newLinearProjectTargetTeam = useMemo(
-    () => availableTeams.find((t) => t.id === newLinearProjectTeamId) ?? availableTeams[0] ?? null,
-    [availableTeams, newLinearProjectTeamId]
-  )
-  const newLinearProjectMembers = useTeamMembers(
-    newLinearProjectOpen ? (newLinearProjectTargetTeam?.id ?? null) : null,
-    settings,
-    newLinearProjectTargetTeam?.workspaceId
-  )
-  const newLinearProjectLabels = useTeamLabels(
-    newLinearProjectOpen ? (newLinearProjectTargetTeam?.id ?? null) : null,
-    settings,
-    newLinearProjectTargetTeam?.workspaceId
-  )
-
-  useEffect(() => {
-    setNewLinearProjectLeadId(null)
-    setNewLinearProjectMemberIds([])
-    setNewLinearProjectLabelIds([])
-  }, [newLinearProjectTargetTeam?.id, newLinearProjectTargetTeam?.workspaceId])
-
-  // New Linear issue dialog state
-  const [newLinearIssueOpen, setNewLinearIssueOpen] = useState(false)
-  const [newLinearIssueTitle, setNewLinearIssueTitle] = useState('')
-  const [newLinearIssueBody, setNewLinearIssueBody] = useState('')
-  const [newLinearIssueTeamId, setNewLinearIssueTeamId] = useState<string | null>(null)
-  const [newLinearIssueSubmitting, setNewLinearIssueSubmitting] = useState(false)
-
-  const [newLinearIssueStateId, setNewLinearIssueStateId] = useState<string | null>(null)
-  const [newLinearIssueAssigneeId, setNewLinearIssueAssigneeId] = useState<string | null>(null)
-  const [newLinearIssuePriority, setNewLinearIssuePriority] = useState<number>(0)
-  const [newLinearIssueProjectId, setNewLinearIssueProjectId] = useState<string | null>(null)
-  const [newLinearIssueLabelIds, setNewLinearIssueLabelIds] = useState<string[]>([])
-
-  const newLinearIssueTargetTeam = useMemo(
-    () => availableTeams.find((t) => t.id === newLinearIssueTeamId) ?? availableTeams[0] ?? null,
-    [availableTeams, newLinearIssueTeamId]
-  )
-
-  const [newLinearIssueProjects, setNewLinearIssueProjects] = useState<LinearProjectSummary[]>([])
-  const [newLinearIssueProjectsLoading, setNewLinearIssueProjectsLoading] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    if (!newLinearIssueOpen || !linearConnected || !newLinearIssueTargetTeam) {
-      setNewLinearIssueProjects([])
-      setNewLinearIssueProjectsLoading(false)
-      return
-    }
-    setNewLinearIssueProjectsLoading(true)
-    const targetWorkspaceId =
-      newLinearIssueTargetTeam.workspaceId ||
-      (selectedLinearWorkspaceId !== 'all' ? selectedLinearWorkspaceId : null)
-    linearListProjects(linearTaskSourceContext ?? settings, undefined, 100, targetWorkspaceId)
-      .then((p) => {
-        if (!cancelled) {
-          setNewLinearIssueProjects(p.items)
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) {
-          setNewLinearIssueProjectsLoading(false)
-        }
-      })
-    return () => {
-      // Why: project lists are workspace-scoped; stale responses must not populate the composer after a team/workspace switch.
-      cancelled = true
-    }
-  }, [
-    linearConnected,
+  const {
+    newLinearProjectOpen,
+    setNewLinearProjectOpen,
+    newLinearProjectName,
+    setNewLinearProjectName,
+    newLinearProjectDescription,
+    setNewLinearProjectDescription,
+    newLinearProjectContent,
+    setNewLinearProjectContent,
+    setNewLinearProjectTeamId,
+    newLinearProjectLeadId,
+    setNewLinearProjectLeadId,
+    newLinearProjectMemberIds,
+    setNewLinearProjectMemberIds,
+    newLinearProjectLabelIds,
+    setNewLinearProjectLabelIds,
+    newLinearProjectPriority,
+    setNewLinearProjectPriority,
+    newLinearProjectStartDate,
+    setNewLinearProjectStartDate,
+    newLinearProjectTargetDate,
+    setNewLinearProjectTargetDate,
+    newLinearProjectSubmitting,
+    setNewLinearProjectSubmitting,
+    newLinearProjectTargetTeam,
+    newLinearProjectMembers,
+    newLinearProjectLabels,
     newLinearIssueOpen,
+    setNewLinearIssueOpen,
+    newLinearIssueTitle,
+    setNewLinearIssueTitle,
+    newLinearIssueBody,
+    setNewLinearIssueBody,
+    newLinearIssueTeamId,
+    setNewLinearIssueTeamId,
+    newLinearIssueSubmitting,
+    setNewLinearIssueSubmitting,
+    newLinearIssueStateId,
+    setNewLinearIssueStateId,
+    newLinearIssueAssigneeId,
+    setNewLinearIssueAssigneeId,
+    newLinearIssuePriority,
+    setNewLinearIssuePriority,
+    newLinearIssueProjectId,
+    setNewLinearIssueProjectId,
+    newLinearIssueLabelIds,
+    setNewLinearIssueLabelIds,
     newLinearIssueTargetTeam,
-    linearTaskSourceContext,
+    newLinearIssueProjects,
+    setNewLinearIssueProjects,
+    newLinearIssueProjectsLoading,
+    setNewLinearIssueProjectsLoading,
+    newLinearStates,
+    newLinearMembers,
+    newLinearLabels
+  } = useTaskPageLinearComposerState({
+    availableTeams,
     settings,
-    selectedLinearWorkspaceId
-  ])
-
-  useEffect(() => {
-    // Why: the selected team can change indirectly when the Linear teams/workspace list refreshes, even if the picker value didn't.
-    setNewLinearIssueStateId(null)
-    setNewLinearIssueAssigneeId(null)
-    setNewLinearIssuePriority(0)
-    if (
-      selectedLinearProject &&
-      selectedLinearProject.workspaceId === newLinearIssueTargetTeam?.workspaceId
-    ) {
-      setNewLinearIssueProjectId(selectedLinearProject.id)
-    } else {
-      setNewLinearIssueProjectId(null)
-    }
-    setNewLinearIssueLabelIds([])
-  }, [newLinearIssueTargetTeam?.id, newLinearIssueTargetTeam?.workspaceId, selectedLinearProject])
-
-  const newLinearStates = useTeamStates(
-    linearConnected ? newLinearIssueTargetTeam?.id || null : null,
-    settings,
-    newLinearIssueTargetTeam?.workspaceId
-  )
-  const newLinearMembers = useTeamMembers(
-    linearConnected ? newLinearIssueTargetTeam?.id || null : null,
-    settings,
-    newLinearIssueTargetTeam?.workspaceId
-  )
-  const newLinearLabels = useTeamLabels(
-    linearConnected ? newLinearIssueTargetTeam?.id || null : null,
-    settings,
-    newLinearIssueTargetTeam?.workspaceId
-  )
-
-  useEffect(() => {
-    if (newLinearStates.data.length > 0 && !newLinearIssueStateId) {
-      const defaultState =
-        newLinearStates.data.find((s) => s.type === 'unstarted') || newLinearStates.data[0]
-      if (defaultState) {
-        setNewLinearIssueStateId(defaultState.id)
-      }
-    }
-  }, [newLinearStates.data, newLinearIssueStateId])
+    linearConnected,
+    selectedLinearWorkspaceId,
+    selectedLinearProject,
+    linearTaskSourceContext
+  })
 
   const [linearConnectOpen, setLinearConnectOpen] = useState(false)
   const [jiraConnectOpen, setJiraConnectOpen] = useState(false)
