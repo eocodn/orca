@@ -94,6 +94,7 @@ describe('ClientRuntime service boundary', () => {
     expect(runtime.host.git.gitWorktreeList).toBe(runtime.host.gitWorktreeList)
     expect(runtime.host.file.fileRequest).toBe(runtime.host.fileRequest)
     expect(runtime.host.terminal.terminalRequest).toBe(runtime.host.terminalRequest)
+    expect(runtime.host.pty.ptyRequest).toBe(runtime.host.ptyRequest)
     expect(invoke).toHaveBeenCalledWith('host_status', { stateDb: 'state.db' })
   })
 

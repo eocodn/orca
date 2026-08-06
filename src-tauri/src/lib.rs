@@ -1,5 +1,4 @@
-mod pty_contract;
-mod pty_target;
+mod pty_host_state;
 mod terminal_contract;
 
 use ade_host_core::protocol::{
@@ -14,7 +13,7 @@ use ade_host_platform::{git_worktree::GitWorktree, ExecutionTarget};
 use ade_host_store::store::{
     HostStore, StoredExecutionTarget, StoredWorkspace, StoredWorkspaceKind, StoredWorkspaceLocation,
 };
-use pty_contract::{execute_shared_pty_request, PtyExecutionState};
+use pty_host_state::{TauriPtyHostError, TauriPtyHostState};
 use serde::Serialize;
 use terminal_contract::{execute_terminal_request, TerminalExecutionState};
 
@@ -295,11 +294,27 @@ fn terminal_request(
 }
 
 #[tauri::command]
+fn pty_host_status(
+    state: tauri::State<'_, TauriPtyHostState>,
+) -> Result<String, TauriPtyHostError> {
+    state.status_json()
+}
+
+#[tauri::command]
+fn claim_pty_workspace(
+    request_id: String,
+    workspace_id: String,
+    state: tauri::State<'_, TauriPtyHostState>,
+) -> Result<String, TauriPtyHostError> {
+    state.claim_workspace_json(&request_id, &workspace_id)
+}
+
+#[tauri::command]
 fn pty_request(
     request: HostPtyRequest,
-    state: tauri::State<'_, PtyExecutionState>,
-) -> Result<String, String> {
-    execute_shared_pty_request(&request, &state)
+    state: tauri::State<'_, TauriPtyHostState>,
+) -> Result<String, TauriPtyHostError> {
+    state.route_json(request)
 }
 
 #[tauri::command]
@@ -324,7 +339,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(GitExecutionState::default())
         .manage(TerminalExecutionState::default())
-        .manage(PtyExecutionState::default())
+        .manage(TauriPtyHostState::start())
         .invoke_handler(tauri::generate_handler![
             host_status,
             register_workspace,
@@ -332,6 +347,8 @@ pub fn run() {
             git_worktree_list,
             file_request,
             terminal_request,
+            pty_host_status,
+            claim_pty_workspace,
             pty_request
         ])
         .run(tauri::generate_context!())

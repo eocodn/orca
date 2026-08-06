@@ -9,6 +9,7 @@ export type ClientRuntimeHostService = TauriHostBridge & {
   git: Pick<TauriHostBridge, 'gitWorktreeList'>
   file: Pick<TauriHostBridge, 'fileRequest'>
   terminal: Pick<TauriHostBridge, 'terminalRequest'>
+  pty: Pick<TauriHostBridge, 'ptyHostStatus' | 'claimPtyWorkspace' | 'ptyRequest'>
 }
 
 export function createClientRuntimeHostService(bridge: TauriHostBridge): ClientRuntimeHostService {
@@ -17,6 +18,11 @@ export function createClientRuntimeHostService(bridge: TauriHostBridge): ClientR
     workspace: { registerWorkspace: bridge.registerWorkspace },
     git: { gitWorktreeList: bridge.gitWorktreeList },
     file: { fileRequest: bridge.fileRequest },
-    terminal: { terminalRequest: bridge.terminalRequest }
+    terminal: { terminalRequest: bridge.terminalRequest },
+    pty: {
+      ptyHostStatus: bridge.ptyHostStatus,
+      claimPtyWorkspace: bridge.claimPtyWorkspace,
+      ptyRequest: bridge.ptyRequest
+    }
   }
 }

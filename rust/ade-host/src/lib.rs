@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 pub mod file_git_router;
 pub mod pty_router;
+pub mod pty_service;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HostCliOptions {

@@ -1,14 +1,18 @@
-use ade_host::pty_router::{JsonlWorkerTransport, PtyHostRouter, WorkerIdentity};
-use ade_host_core::ownership::{OwnershipCommand, OwnershipRuntime};
-use ade_host_core::protocol::{PtyOperation, PtyRequest};
+use ade_host::pty_router::WorkerIdentity;
+use ade_host::pty_service::PtyHostService;
+use ade_host_core::protocol::{PtyOperation, PtyRequest, PtyStatus};
 use std::time::Duration;
+
+const WORKSPACE_ID: &str = "workspace";
+const WORKER_ID: &str = "worker";
+const SESSION_ID: &str = "session";
 
 fn request(id: &str, session_generation: Option<u64>, operation: PtyOperation) -> PtyRequest {
     PtyRequest::new(
         id,
-        "workspace",
-        "worker",
-        "session",
+        WORKSPACE_ID,
+        WORKER_ID,
+        SESSION_ID,
         session_generation,
         operation,
     )
@@ -16,84 +20,103 @@ fn request(id: &str, session_generation: Option<u64>, operation: PtyOperation) -
 
 #[test]
 fn routes_shared_pty_lifecycle_through_real_jsonl_worker() {
-    let worker_path = std::env::var_os("ADE_WORKER_BIN")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../target/debug/ade-worker")
-        });
+    let worker_path = worker_path();
     assert!(
         worker_path.exists(),
         "worker binary missing: {}",
         worker_path.display()
     );
 
-    let ownership = OwnershipRuntime::new();
-    let acquired = ownership
-        .apply(OwnershipCommand::Acquire {
-            operation_id: "acquire".into(),
-            workspace_id: "workspace".into(),
-            worker_id: "worker".into(),
-            worker_incarnation: 1,
-        })
-        .expect("ownership acquire");
-    ownership
-        .apply(OwnershipCommand::ClaimReady {
-            operation_id: "ready".into(),
-            token: acquired.token.expect("lease token"),
-        })
-        .expect("ownership ready");
-
-    let transport = JsonlWorkerTransport::spawn(
+    let service = PtyHostService::spawn(
         worker_path,
         WorkerIdentity {
-            worker_id: "worker".into(),
+            worker_id: WORKER_ID.into(),
             worker_incarnation: 1,
         },
         Duration::from_secs(3),
     )
     .expect("worker process");
-    let router = PtyHostRouter::new(ownership, Box::new(transport));
+    service
+        .claim_workspace("claim", WORKSPACE_ID)
+        .expect("explicit workspace claim");
 
-    let started = router
-        .route(request(
-            "start",
-            None,
-            PtyOperation::Start {
-                program: "sh".into(),
-                args: vec!["-c".into(), "printf ready; sleep 1".into()],
-                current_dir: None,
-                execution_target: None,
-                cols: 80,
-                rows: 24,
-            },
-        ))
+    let started = service
+        .route(request("start", None, start_operation()))
         .expect("start");
     let generation = started.session_generation;
     assert!(generation > 0);
-    router
+
+    service
         .route(request(
             "write",
             Some(generation),
             PtyOperation::Write {
-                input: "input\n".into(),
+                input: exit_command().into(),
             },
         ))
         .expect("write");
-    router
-        .route(request("poll", Some(generation), PtyOperation::Poll))
-        .expect("poll");
-    router
+    let completed = service
         .route(request(
             "wait",
             Some(generation),
             PtyOperation::Wait { timeout_ms: 2_000 },
         ))
         .expect("wait");
-    router
-        .route(request(
-            "terminate",
-            Some(generation),
-            PtyOperation::Terminate,
-        ))
-        .expect("terminate");
+
+    assert_eq!(completed.status, PtyStatus::Exited);
+    assert_eq!(completed.exit_code, Some(0));
+    assert!(
+        completed.tail.contains("host-worker-ok"),
+        "{}",
+        completed.tail
+    );
+}
+
+fn worker_path() -> std::path::PathBuf {
+    std::env::var_os("ADE_WORKER_BIN")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| {
+            let name = if cfg!(windows) {
+                "ade-worker.exe"
+            } else {
+                "ade-worker"
+            };
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../target/debug")
+                .join(name)
+        })
+}
+
+#[cfg(windows)]
+fn start_operation() -> PtyOperation {
+    PtyOperation::Start {
+        program: "cmd.exe".into(),
+        args: vec![],
+        current_dir: None,
+        execution_target: None,
+        cols: 80,
+        rows: 24,
+    }
+}
+
+#[cfg(not(windows))]
+fn start_operation() -> PtyOperation {
+    PtyOperation::Start {
+        program: "/bin/sh".into(),
+        args: vec![],
+        current_dir: None,
+        execution_target: None,
+        cols: 80,
+        rows: 24,
+    }
+}
+
+#[cfg(windows)]
+fn exit_command() -> &'static str {
+    "echo host-worker-ok & exit\r\n"
+}
+
+#[cfg(not(windows))]
+fn exit_command() -> &'static str {
+    "printf 'host-worker-ok\\n'; exit\n"
 }

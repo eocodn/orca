@@ -210,9 +210,11 @@ describe('Tauri host invoke bridge', () => {
     await expect(bridge.hostStatus('state.db')).rejects.toBeInstanceOf(TauriHostBridgeError)
   })
 
-  it('does not expose the duplicate-registry pty_request command', () => {
+  it('exposes only the host-routed PTY command set', () => {
     const bridge = createTauriHostBridge(vi.fn<TauriInvoke>())
-    expect(TAURI_HOST_COMMANDS).not.toHaveProperty('ptyRequest')
-    expect(bridge).not.toHaveProperty('ptyRequest')
+    expect(TAURI_HOST_COMMANDS.ptyHostStatus).toBe('pty_host_status')
+    expect(TAURI_HOST_COMMANDS.claimPtyWorkspace).toBe('claim_pty_workspace')
+    expect(TAURI_HOST_COMMANDS.ptyRequest).toBe('pty_request')
+    expect(bridge.ptyRequest).toBeTypeOf('function')
   })
 })

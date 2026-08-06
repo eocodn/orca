@@ -147,3 +147,44 @@ export type TauriFileRequestArgs = Omit<z.input<typeof FileRequestArgsSchema>, '
 export type TauriFileResult = z.infer<typeof FileResultSchema>
 export type TauriTerminalRequest = z.input<typeof TerminalRequestSchema>
 export type TauriTerminalResult = z.infer<typeof TerminalResultSchema>
+
+export const PtyHostStatusSchema = z.discriminatedUnion('state', [
+  z
+    .object({
+      service: z.literal('ade-host-pty'),
+      state: z.literal('ready'),
+      worker_id: NonBlank,
+      worker_incarnation: PositiveSafeInteger,
+      failure_reason: z.null()
+    })
+    .strict(),
+  z
+    .object({
+      service: z.literal('ade-host-pty'),
+      state: z.literal('unavailable'),
+      worker_id: z.null(),
+      worker_incarnation: z.null(),
+      failure_reason: NonBlank
+    })
+    .strict()
+])
+
+export const ClaimPtyWorkspaceArgsSchema = z
+  .object({ requestId: RequestId, workspaceId: RequestId })
+  .strict()
+
+export const PtyWorkspaceClaimSchema = z
+  .object({
+    request_id: RequestId,
+    workspace_id: RequestId,
+    worker_id: RequestId,
+    worker_incarnation: PositiveSafeInteger,
+    lease_id: PositiveSafeInteger,
+    changed: z.boolean(),
+    state: z.literal('owned')
+  })
+  .strict()
+
+export type TauriPtyHostStatus = z.infer<typeof PtyHostStatusSchema>
+export type TauriClaimPtyWorkspaceArgs = z.input<typeof ClaimPtyWorkspaceArgsSchema>
+export type TauriPtyWorkspaceClaim = z.infer<typeof PtyWorkspaceClaimSchema>

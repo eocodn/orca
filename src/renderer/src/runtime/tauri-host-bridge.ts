@@ -1,5 +1,5 @@
 import { invoke as tauriInvoke } from '@tauri-apps/api/core'
-import type { z } from 'zod'
+import type { HostPtyRequest, HostPtyResponse } from '../../../shared/host-pty-protocol'
 import {
   FileRequestArgsSchema,
   FileResultSchema,
@@ -10,48 +10,44 @@ import {
   RegisterWorkspaceArgsSchema,
   TerminalRequestSchema,
   TerminalResultSchema,
+  type TauriClaimPtyWorkspaceArgs,
   type TauriFileRequestArgs,
   type TauriFileResult,
   type TauriGitWorktreeListArgs,
   type TauriGitWorktreeListResult,
   type TauriHostStatus,
+  type TauriPtyHostStatus,
+  type TauriPtyWorkspaceClaim,
   type TauriRegisterWorkspaceArgs,
   type TauriTerminalRequest,
   type TauriTerminalResult
 } from './tauri-host-bridge-schemas'
+import {
+  TauriHostBridgeError,
+  correlated,
+  correlatedFile,
+  correlatedTerminal,
+  normalizeInvokeError,
+  parseResponse,
+  requestError,
+  type TauriHostBridgeErrorCode
+} from './tauri-host-bridge-response'
+import { createTauriPtyBridge } from './tauri-host-pty-bridge'
 
-/** Tauri command names are an explicit allow-list; pty_request is intentionally absent. */
+export { TauriHostBridgeError, type TauriHostBridgeErrorCode }
+
 export const TAURI_HOST_COMMANDS = Object.freeze({
   hostStatus: 'host_status',
   registerWorkspace: 'register_workspace',
   gitWorktreeList: 'git_worktree_list',
   fileRequest: 'file_request',
-  terminalRequest: 'terminal_request'
+  terminalRequest: 'terminal_request',
+  ptyHostStatus: 'pty_host_status',
+  claimPtyWorkspace: 'claim_pty_workspace',
+  ptyRequest: 'pty_request'
 } as const)
 
 export type TauriInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>
-
-export type TauriHostBridgeErrorCode =
-  | 'capability_unavailable'
-  | 'invalid_request'
-  | 'malformed_response'
-  | 'correlation_mismatch'
-  | 'invoke_failed'
-  | (string & {})
-
-export class TauriHostBridgeError extends Error {
-  readonly name = 'TauriHostBridgeError'
-
-  constructor(
-    readonly code: TauriHostBridgeErrorCode,
-    message: string,
-    readonly command: string,
-    readonly requestId?: string,
-    readonly cause?: unknown
-  ) {
-    super(message)
-  }
-}
 
 export type TauriHostBridge = {
   hostStatus: (stateDb: string) => Promise<TauriHostStatus>
@@ -59,120 +55,9 @@ export type TauriHostBridge = {
   gitWorktreeList: (args: TauriGitWorktreeListArgs) => Promise<TauriGitWorktreeListResult>
   fileRequest: (args: TauriFileRequestArgs) => Promise<TauriFileResult>
   terminalRequest: (request: TauriTerminalRequest) => Promise<TauriTerminalResult>
-}
-
-function requestError(command: string, error: z.ZodError): TauriHostBridgeError {
-  return new TauriHostBridgeError('invalid_request', error.message, command, undefined, error)
-}
-
-function parseResponse<T>(command: string, raw: unknown, schema: z.ZodType<T>): T {
-  if (typeof raw !== 'string') {
-    throw new TauriHostBridgeError(
-      'malformed_response',
-      'Tauri command returned a non-string response.',
-      command
-    )
-  }
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(raw)
-  } catch (error) {
-    throw new TauriHostBridgeError(
-      'malformed_response',
-      'Tauri command returned invalid JSON.',
-      command,
-      undefined,
-      error
-    )
-  }
-  const result = schema.safeParse(parsed)
-  if (!result.success) {
-    throw new TauriHostBridgeError(
-      'malformed_response',
-      result.error.message,
-      command,
-      undefined,
-      result.error
-    )
-  }
-  return result.data
-}
-
-function normalizeInvokeError(
-  command: string,
-  error: unknown,
-  requestId?: string
-): TauriHostBridgeError {
-  if (error instanceof TauriHostBridgeError) {
-    return error
-  }
-  const objectError =
-    typeof error === 'object' && error !== null
-      ? (error as { code?: unknown; message?: unknown })
-      : undefined
-  const code =
-    typeof error === 'string' && /^[a-z][a-z0-9_]*$/.test(error)
-      ? error
-      : typeof objectError?.code === 'string' && /^[a-z][a-z0-9_]*$/.test(objectError.code)
-        ? objectError.code
-        : 'invoke_failed'
-  const message =
-    typeof error === 'string'
-      ? error
-      : typeof objectError?.message === 'string'
-        ? objectError.message
-        : 'Tauri command invocation failed.'
-  return new TauriHostBridgeError(code, message, command, requestId, error)
-}
-
-function correlated<T extends { request_id: string }>(
-  result: T,
-  requestId: string,
-  command: string
-): T {
-  if (result.request_id !== requestId) {
-    throw new TauriHostBridgeError(
-      'correlation_mismatch',
-      `Tauri response request_id ${result.request_id} does not match ${requestId}.`,
-      command,
-      requestId
-    )
-  }
-  return result
-}
-
-function correlatedFile(
-  result: TauriFileResult,
-  request: Pick<TauriFileRequestArgs, 'requestId' | 'operation' | 'path'>,
-  command: string
-): TauriFileResult {
-  const requestId = request.requestId
-  if (result.operation !== request.operation || result.path !== request.path) {
-    throw new TauriHostBridgeError(
-      'correlation_mismatch',
-      'Tauri file response does not match the requested operation or path.',
-      command,
-      requestId
-    )
-  }
-  return correlated(result, requestId, command)
-}
-
-function correlatedTerminal(
-  result: TauriTerminalResult,
-  request: TauriTerminalRequest,
-  command: string
-): TauriTerminalResult {
-  const requestId = request.envelope.request_id
-  if (result.terminal_id !== request.terminal_id || result.operation !== request.operation.type) {
-    throw new TauriHostBridgeError(
-      'correlation_mismatch',
-      'Tauri terminal response does not match the requested terminal or operation.',
-      command,
-      requestId
-    )
-  }
-  return correlated(result, requestId, command)
+  ptyHostStatus: () => Promise<TauriPtyHostStatus>
+  claimPtyWorkspace: (args: TauriClaimPtyWorkspaceArgs) => Promise<TauriPtyWorkspaceClaim>
+  ptyRequest: (request: HostPtyRequest) => Promise<HostPtyResponse>
 }
 
 function withOptionalArgs<T extends Record<string, unknown>>(args: T): T {
@@ -187,14 +72,13 @@ export function createTauriHostBridge(
     args: Record<string, unknown>,
     requestId?: string
   ): Promise<unknown> => {
-    let raw: unknown
     try {
-      raw = await invoke<string>(command, args)
+      return await invoke<string>(command, args)
     } catch (error) {
       throw normalizeInvokeError(command, error, requestId)
     }
-    return raw
   }
+  const pty = createTauriPtyBridge(invokeJson, TAURI_HOST_COMMANDS)
 
   return {
     async hostStatus(stateDb) {
@@ -265,6 +149,8 @@ export function createTauriHostBridge(
         TerminalResultSchema
       )
       return correlatedTerminal(result, parsed.data, TAURI_HOST_COMMANDS.terminalRequest)
-    }
+    },
+
+    ...pty
   }
 }

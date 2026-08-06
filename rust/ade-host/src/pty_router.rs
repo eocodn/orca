@@ -33,6 +33,25 @@ pub enum RouterError {
     Transport(String),
 }
 
+impl RouterError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::WorkspaceUnowned => "workspace_unowned",
+            Self::WorkerMismatch => "worker_mismatch",
+            Self::StaleWorkerIncarnation => "stale_worker_incarnation",
+            Self::RequestIdConflict => "request_id_conflict",
+            Self::RequestInFlight => "request_in_flight",
+            Self::WorkerError(_) => "worker_error",
+            Self::Timeout => "timeout",
+            Self::Eof => "eof",
+            Self::MalformedResponse => "malformed_response",
+            Self::ResponseMismatch(_) => "response_mismatch",
+            Self::Transport(_) => "transport_error",
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct WorkerTransportError {
