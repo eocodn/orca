@@ -59,7 +59,6 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import TaskProjectSourceCombobox from '@/components/task-project-source-combobox'
 import { JiraConnectDialog } from '@/components/jira-connect-dialog'
 import { LinearApiKeyDialog } from '@/components/linear-api-key-dialog'
 import { LinearScopeSelector } from '@/components/linear-scope-selector'
@@ -224,6 +223,7 @@ import {
 import { TaskPageJiraSortControls } from './task-page-jira-sort-controls'
 import { TaskPageJiraToolbar } from './task-page-jira-toolbar'
 import { TaskPageGitLabToolbar } from './task-page-gitlab-toolbar'
+import { TaskPageGitHubScopeToolbar } from './task-page-github-scope-toolbar'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
 import { resolveVisibleTaskProvider } from '../../../shared/task-providers'
 import { translate } from '@/i18n/i18n'
@@ -257,6 +257,7 @@ import {
 import {
   getGitHubTaskKindPresets,
   type GitHubTaskKind,
+  type GitHubModeButton,
   type GitLabIssueFilter,
   type GitLabTaskFilter,
   type JiraPresetId,
@@ -4592,7 +4593,7 @@ export default function TaskPage(): React.JSX.Element {
     [setGitlabFilter, setGitlabRefreshNonce]
   )
 
-  const handleGitlabRepoSelectionChange = useCallback(
+  const handleTaskRepoSelectionChange = useCallback(
     (next: ReadonlySet<string>) => {
       const normalized = normalizeTaskRepoSelection(eligibleRepos, next)
       setRepoSelection(normalized)
@@ -4605,7 +4606,7 @@ export default function TaskPage(): React.JSX.Element {
     [eligibleRepos, setRepoSelection, updateSettings]
   )
 
-  const handleGitlabSelectAll = useCallback(() => {
+  const handleTaskSelectAll = useCallback(() => {
     const allIds = new Set(taskPickerRepos.map((repo) => repo.id))
     setRepoSelection(allIds)
     void updateSettings({ defaultRepoSelection: null }).catch(() => {
@@ -4614,6 +4615,27 @@ export default function TaskPage(): React.JSX.Element {
       )
     })
   }, [setRepoSelection, taskPickerRepos, updateSettings])
+
+  const handleGithubModeChange = useCallback(
+    (mode: GitHubModeButton['id']) => {
+      if (mode === 'project') {
+        setGithubMode('project')
+        setTaskResumeState({ githubMode: 'project' })
+        return
+      }
+      setGithubMode('items')
+      setTaskResumeState({ githubMode: 'items' })
+      handleSelectGithubTaskKind(mode)
+    },
+    [handleSelectGithubTaskKind, setTaskResumeState]
+  )
+
+  const openSelectedGithubRepo = useCallback(() => {
+    if (!selectedGitHubRepoExternalLink?.url) {
+      return
+    }
+    void window.api.shell.openUrl(selectedGitHubRepoExternalLink.url)
+  }, [selectedGitHubRepoExternalLink])
 
   const taskPageListChromeHidden = shouldHideTaskPageListChrome({
     taskSource,
@@ -4827,119 +4849,20 @@ export default function TaskPage(): React.JSX.Element {
                 ) : null}
 
                 {taskSource === 'github' ? (
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    {projectModeVisible ? (
-                      <div className="flex items-center gap-1 text-xs">
-                        {githubModeButtons.map((mode) => {
-                          const active =
-                            mode.id === 'project'
-                              ? githubMode === 'project'
-                              : githubMode === 'items' && activeGithubTaskKind === mode.id
-                          return (
-                            <button
-                              key={mode.id}
-                              type="button"
-                              onClick={() => {
-                                if (mode.id === 'project') {
-                                  setGithubMode('project')
-                                  setTaskResumeState({ githubMode: 'project' })
-                                  return
-                                }
-                                setGithubMode('items')
-                                setTaskResumeState({ githubMode: 'items' })
-                                handleSelectGithubTaskKind(mode.id)
-                              }}
-                              className={cn(
-                                'rounded-md border px-2 py-1 text-xs transition',
-                                active
-                                  ? 'border-border/50 bg-foreground/90 text-background'
-                                  : 'border-border/50 bg-transparent text-foreground hover:bg-muted/50'
-                              )}
-                            >
-                              {mode.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    ) : null}
-                    {/* Why: Project rows are repo-scoped, so the selection must stay visible in both GitHub modes. */}
-                    <div className="min-w-0 max-w-[220px] shrink-0">
-                      <TaskProjectSourceCombobox
-                        groups={taskPickerGroups}
-                        selected={repoSelection}
-                        getRepoHostLabel={getTaskPickerRepoHostLabel}
-                        onChange={(next) => {
-                          const normalized = normalizeTaskRepoSelection(eligibleRepos, next)
-                          setRepoSelection(normalized)
-                          void updateSettings({ defaultRepoSelection: [...normalized] }).catch(
-                            () => {
-                              toast.error(
-                                translate(
-                                  'auto.components.TaskPage.dfd72673e7',
-                                  'Failed to save project selection.'
-                                )
-                              )
-                            }
-                          )
-                        }}
-                        onSelectAll={() => {
-                          const allIds = new Set(taskPickerRepos.map((r) => r.id))
-                          setRepoSelection(allIds)
-                          void updateSettings({ defaultRepoSelection: null }).catch(() => {
-                            toast.error(
-                              translate(
-                                'auto.components.TaskPage.dfd72673e7',
-                                'Failed to save project selection.'
-                              )
-                            )
-                          })
-                        }}
-                        triggerClassName="h-8 w-auto max-w-[220px] rounded-md border border-border/50 bg-muted/50 px-2 text-xs font-medium shadow-sm transition hover:bg-muted/50 focus:ring-2 focus:ring-ring/20 focus:outline-none"
-                      />
-                    </div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => {
-                            if (!selectedGitHubRepoExternalLink?.url) {
-                              return
-                            }
-                            void window.api.shell.openUrl(selectedGitHubRepoExternalLink.url)
-                          }}
-                          aria-label={
-                            selectedGitHubRepoExternalLink
-                              ? translate(
-                                  'auto.components.TaskPage.8d1e17a3ef',
-                                  'Open {{value0}} in GitHub',
-                                  { value0: selectedGitHubRepoExternalLink.label }
-                                )
-                              : translate(
-                                  'auto.components.TaskPage.d1132848f8',
-                                  'Select one GitHub project to open in GitHub'
-                                )
-                          }
-                          className="h-8 w-8 rounded-md border-border/50 bg-muted/50 text-foreground shadow-sm transition hover:bg-muted/50"
-                        >
-                          <ExternalLink className="size-3.5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" sideOffset={6}>
-                        {selectedGitHubRepoExternalLink
-                          ? translate(
-                              'auto.components.TaskPage.8d1e17a3ef',
-                              'Open {{value0}} in GitHub',
-                              { value0: selectedGitHubRepoExternalLink.label }
-                            )
-                          : translate(
-                              'auto.components.TaskPage.bc46d8204e',
-                              'Select one project to open in GitHub'
-                            )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <TaskPageGitHubScopeToolbar
+                    projectModeVisible={projectModeVisible}
+                    githubModeButtons={githubModeButtons}
+                    githubMode={githubMode}
+                    activeGithubTaskKind={activeGithubTaskKind}
+                    onModeChange={handleGithubModeChange}
+                    groups={taskPickerGroups}
+                    selected={repoSelection}
+                    getRepoHostLabel={getTaskPickerRepoHostLabel}
+                    onRepoSelectionChange={handleTaskRepoSelectionChange}
+                    onSelectAll={handleTaskSelectAll}
+                    selectedGitHubRepoExternalLink={selectedGitHubRepoExternalLink}
+                    onOpenExternal={openSelectedGithubRepo}
+                  />
                 ) : null}
 
                 {taskSource === 'github' && githubMode === 'items' ? (
@@ -5222,8 +5145,8 @@ export default function TaskPage(): React.JSX.Element {
                     groups={taskPickerGroups}
                     selected={repoSelection}
                     getRepoHostLabel={getTaskPickerRepoHostLabel}
-                    onRepoSelectionChange={handleGitlabRepoSelectionChange}
-                    onSelectAll={handleGitlabSelectAll}
+                    onRepoSelectionChange={handleTaskRepoSelectionChange}
+                    onSelectAll={handleTaskSelectAll}
                     gitlabLoading={gitlabLoading}
                     gitlabTodosLoading={gitlabTodosLoading}
                     onRefresh={() => setGitlabRefreshNonce((n) => n + 1)}
