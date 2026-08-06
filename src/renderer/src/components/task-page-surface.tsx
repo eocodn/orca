@@ -38,6 +38,7 @@ import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { useTaskPageStoreBindings } from './use-task-page-store-bindings'
 import { useTaskPageSourceSelection } from './use-task-page-source-selection'
+import { isGitLabIssueFilter, isGitLabMRFilter } from './task-page-provider-guards'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import {
   getSettingsFocusedExecutionHostId,
@@ -363,16 +364,6 @@ import {
   type LinearOrderBy,
   type LinearViewMode
 } from '@/components/task-page-localized-options'
-
-function isGitLabMRFilter(value: GitLabTaskFilter | GitLabIssueFilter): value is GitLabTaskFilter {
-  return value === 'opened' || value === 'merged' || value === 'closed' || value === 'all'
-}
-
-function isGitLabIssueFilter(
-  value: GitLabTaskFilter | GitLabIssueFilter
-): value is GitLabIssueFilter {
-  return value === 'opened' || value === 'assigned-to-me'
-}
 
 const TASK_SEARCH_DEBOUNCE_MS = 300
 const LINEAR_ITEM_LIMIT = 36
