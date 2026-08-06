@@ -48,6 +48,16 @@ export type ChecksPanelRuntimeActions = {
     url: string
   }) => Promise<void>
   handleCreatePullRequest: () => Promise<void>
+  canTargetPRComments: boolean
+  commentsDisabledReason: string | undefined
+  clearSentCommentSelection: (reviewContextKey: string) => void
+  refreshCommentsAfterBulkResolve: (provider: 'github' | 'gitlab') => Promise<void>
+  resolveSelectedThreadsAfterLaunch: (resolution: {
+    reviewContextKey: string
+    provider: 'github' | 'gitlab'
+    selectedThreadIds: string[]
+    selectedGroups: PRCommentGroup[]
+  }) => Promise<void>
 }
 
 export function useChecksPanelRuntimeActions(
@@ -66,10 +76,20 @@ export function useChecksPanelRuntimeActions(
     | 'handleSyncBranch'
     | 'handlePullRequestCreated'
     | 'handleCreatePullRequest'
-  >
+    | 'canTargetPRComments'
+    | 'commentsDisabledReason'
+    | 'clearSentCommentSelection'
+    | 'refreshCommentsAfterBulkResolve'
+    | 'resolveSelectedThreadsAfterLaunch'
+  > &
+    Pick<ChecksPanelRuntimeActions, 'canTargetPRComments' | 'commentsDisabledReason'>
   const ai = useChecksPanelAiActions({ ...args.ai, handleResolve: comments.handleResolve }) as Pick<
     ChecksPanelRuntimeActions,
-    'handleResolveConflictsWithAI' | 'handleResolveCommentsWithAI'
+    | 'handleResolveConflictsWithAI'
+    | 'handleResolveCommentsWithAI'
+    | 'clearSentCommentSelection'
+    | 'refreshCommentsAfterBulkResolve'
+    | 'resolveSelectedThreadsAfterLaunch'
   >
   const handleFixChecksWithAI = useChecksPanelFixChecks(args.fixChecks) as () => Promise<void>
   const links = useChecksPanelLinkActions(args.links) as Pick<

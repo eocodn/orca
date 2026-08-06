@@ -197,7 +197,6 @@ export type ChecksPanelRenderKey =
   | 'updateSettings'
   | 'updateWorktreeGitIdentity'
   | 'updateWorktreeMeta'
-;
 export type ChecksPanelRenderContext<T extends Record<string, unknown>> = T & {
-  [K in ChecksPanelRenderKey]: K extends keyof T ? T[K] : never
+  [K in ChecksPanelRenderKey as K extends keyof T ? never : K]?: never
 }
