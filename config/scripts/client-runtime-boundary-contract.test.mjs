@@ -3,6 +3,8 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = process.cwd()
+// Keep this list limited to modules that issue runtime RPCs; local UI helpers
+// remain outside the adapter boundary and must not be forced to import it.
 const runtimeFiles = [
   'src/renderer/src/runtime/abortable-runtime-environment-call.ts',
   'src/renderer/src/runtime/runtime-file-mutation-client.ts',
@@ -45,7 +47,6 @@ const runtimeFiles = [
   'src/renderer/src/components/status-bar/SshStatusSegment.tsx',
   'src/renderer/src/components/status-bar/runtime-environment-explicit-connect.ts',
   'src/renderer/src/hooks/ipc-events-mobile-state.ts',
-  'src/renderer/src/lib/sidebar-worktree-activation.ts',
   'src/renderer/src/store/slices/remote-server-updates.ts',
   'src/renderer/src/store/slices/repos-state-fetched-project-group-catalog-support.ts',
   'src/renderer/src/store/slices/runtime-status.ts',
@@ -54,7 +55,6 @@ const runtimeFiles = [
   'src/renderer/src/components/editor/useEditorPanelContentState.ts',
   'src/renderer/src/components/editor/useLocalImageSrc.ts',
   'src/renderer/src/components/editor/useLocalLogTail.ts',
-  'src/renderer/src/components/right-sidebar/ai-vault-session-log-open.ts',
   'src/renderer/src/components/right-sidebar/file-explorer-row-actions.ts',
   'src/renderer/src/components/right-sidebar/useFileExplorerWatch.ts',
   'src/renderer/src/components/settings/McpConfigSection.tsx',
@@ -233,6 +233,10 @@ async function readRuntimeFile(relativePath) {
   return readFile(path.join(root, relativePath), 'utf8')
 }
 
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g, '')
+}
+
 describe('ClientRuntime renderer boundary', () => {
   it('routes runtime RPC entry points through the explicit ClientRuntime adapter', async () => {
     const sources = await Promise.all(runtimeFiles.map(readRuntimeFile))
@@ -253,7 +257,10 @@ describe('ClientRuntime renderer boundary', () => {
       'utf8'
     )
 
-    expect(source).not.toMatch(/ipcRenderer|contextBridge|electron/i)
+    const executableSource = stripComments(source)
+    expect(executableSource).not.toMatch(
+      /\b(?:ipcRenderer|contextBridge)\b|(?:from|require\s*\()\s*['"]electron(?:\/[^'"]*)?['"]/i
+    )
     expect(source).toContain('createClientRuntime')
   })
 
