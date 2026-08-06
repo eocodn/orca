@@ -119,6 +119,10 @@ export function useTerminalSurfaceCreationActions(context: TerminalSurfaceCreati
     [
       activeWorktreeId,
       createTab,
+      createWebRuntimeSessionTerminal,
+      focusTerminalTabSurface,
+      getActiveWorktreeRuntimeEnvironmentId,
+      isWebRuntimeSessionActive,
       openNewTerminalTabInActiveWorkspace,
       setActiveTabType,
       setTabBarOrder
@@ -150,7 +154,7 @@ export function useTerminalSurfaceCreationActions(context: TerminalSurfaceCreati
         )
       }
     },
-    [activeWorktreeId]
+    [activeWorktreeId, launchAgentInNewTab, toast, translate]
   )
 
   const handleNewBrowserTab = useCallback(() => {
@@ -178,7 +182,15 @@ export function useTerminalSurfaceCreationActions(context: TerminalSurfaceCreati
       title: translate('auto.components.Terminal.37da0d736f', 'New Browser Tab'),
       focusAddressBar: true
     })
-  }, [activeWorktreeId, createBrowserTab, openNewBrowserTabInActiveWorkspace])
+  }, [
+    activeWorktreeId,
+    createBrowserTab,
+    createWebRuntimeSessionBrowserTab,
+    getActiveWorktreeRuntimeEnvironmentId,
+    isWebRuntimeSessionActive,
+    openNewBrowserTabInActiveWorkspace,
+    translate
+  ])
 
   const handleOpenEntry = useCallback(async (args: TabCreateEntryArgs) => {
     await openTabBarEntry(args)
@@ -212,7 +224,15 @@ export function useTerminalSurfaceCreationActions(context: TerminalSurfaceCreati
         ...buildDuplicatedBrowserTabOptions(source)
       })
     },
-    [activeWorktreeId, createBrowserTab]
+    [
+      activeWorktreeId,
+      browserWorkspaceHasRemoteOwner,
+      buildDuplicatedBrowserTabOptions,
+      createBrowserTab,
+      createWebRuntimeSessionBrowserTab,
+      getActiveWorktreeRuntimeEnvironmentId,
+      isWebRuntimeSessionActive
+    ]
   )
 
   const handleNewFile = useCallback(async () => {

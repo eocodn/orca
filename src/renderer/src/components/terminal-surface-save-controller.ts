@@ -105,9 +105,9 @@ export function useTerminalSurfaceSaveController(
   }, [
     getNextQueuedEditorClose,
     proceedToNativeWindowClose,
-    setActiveFile,
     setActiveTabType,
-    setActiveWorktree
+    setActiveWorktree,
+    windowCloseAfterDirtyRef
   ])
 
   const queueEditorCloseRequests = useCallback(
@@ -122,7 +122,7 @@ export function useTerminalSurfaceSaveController(
       )
       advanceEditorCloseQueue()
     },
-    [advanceEditorCloseQueue]
+    [advanceEditorCloseQueue, windowCloseAfterDirtyRef]
   )
 
   const handleCloseFile = useCallback(
@@ -250,7 +250,7 @@ export function useTerminalSurfaceSaveController(
     windowCloseAfterDirtyRef.current = null
     setSaveDialogFileId(null)
     releaseCloseDialogGuardAfterDebounce()
-  }, [releaseCloseDialogGuardAfterDebounce])
+  }, [releaseCloseDialogGuardAfterDebounce, windowCloseAfterDirtyRef])
 
   useEffect(() => {
     const onRequestEditorClose = (event: Event): void => {

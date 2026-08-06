@@ -84,5 +84,12 @@ export function useTerminalSurfaceBackgroundMountEffects(
       }
       timers.clear()
     }
-  }, [])
+  }, [
+    activationDeferredMountTabIdsByWorktreeRef,
+    backgroundMountTabIdsByWorktreeRef,
+    measurableBackgroundWorktreeIdsRef,
+    measurableBackgroundWorktreeTimersRef,
+    mountedWorktreeIdsRef,
+    setBackgroundMountRevision
+  ])
 }

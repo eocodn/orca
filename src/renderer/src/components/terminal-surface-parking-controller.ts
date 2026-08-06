@@ -103,10 +103,11 @@ export function useTerminalSurfaceParkingController(
       }
       timers.clear()
     }
-  }, [])
+  }, [terminalWorktreeParkingTimersRef])
   useTerminalSurfaceBackgroundMountEffects(context)
   useTerminalSurfaceParkingPolicyEffect({
     ...context,
+    parkingRevision: `${backgroundMountRevision}:${terminalParkingRevision}`,
     measurableBackgroundWorktreeTimersRef,
     backgroundMountTabIdsByWorktreeRef,
     activationDeferredMountTabIdsByWorktreeRef,
@@ -212,6 +213,8 @@ export function useTerminalSurfaceParkingController(
     getEffectiveLayoutForWorktree,
     groupsByWorktree,
     effectiveParkedTerminalWorktreeIds,
+    measurableBackgroundWorktreeIdsRef,
+    mountedWorktreeIdsRef,
     pendingStartupByTabId,
     renderedActiveWorktreeId,
     tabsByWorktree,

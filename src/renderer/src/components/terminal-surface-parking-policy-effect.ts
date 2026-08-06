@@ -4,13 +4,17 @@ import { haveSameTerminalIdSet } from './terminal-surface-parking-model'
 import {
   TERMINAL_WORKTREE_COLD_PARK_DELAY_MS,
   canParkTerminalWorktreeRenderers,
-  selectColdParkedTerminalWorktrees
+  selectColdParkedTerminalWorktrees,
+  type TerminalWorktreeColdParkCandidate
 } from './terminal-pane/terminal-hidden-view-parking'
 import { getTerminalWorktreeColdParkRecheckDelayMs } from './terminal-pane/terminal-cold-park-recheck-deadlines'
-import { canWatcherCoverParkedTerminalTab } from './terminal-pane/terminal-parked-tab-watchers'
+import { canWatcherCoverParkedTerminalTabs } from './terminal-pane/terminal-parked-tab-watchers'
 import {
+  TERMINAL_HIDDEN_WORKTREE_RETENTION_TTL_MS,
+  hasPendingRetentionSpawnWork,
   selectForceParkEvictableTabIds,
-  selectRetentionForceParkedTerminalWorktrees
+  selectRetentionForceParkedTerminalWorktrees,
+  type TerminalWorktreeRetentionCandidate
 } from './terminal-pane/terminal-hidden-worktree-retention'
 import { selectEvictionExemptTerminalTabIds } from './terminal-pane/terminal-eviction-exempt-tabs'
 import { captureForceParkedWorktreeBuffers } from './terminal-pane/force-park-buffer-capture'
@@ -19,10 +23,10 @@ import {
   getTerminalParkingPolicyOverrides,
   recordTerminalWorktreeParkingDebugVerdicts
 } from './terminal-pane/terminal-parking-e2e-overrides'
-
 type TerminalSurfaceParkingPolicyContext = {
   activeView: AppState['activeView']
   renderedActiveWorktreeId: string | null
+  parkingRevision: string
   terminalWorktreeParkingTimersRef: MutableRefObject<Map<string, number>>
   activityTerminalPortals: readonly { worktreeId: string; tabId: string }[]
   workspaceSurfaces: readonly { id: string; path: string }[]
@@ -43,18 +47,19 @@ type TerminalSurfaceParkingPolicyContext = {
   setEvictionExemptTerminalTabIds: Dispatch<SetStateAction<ReadonlySet<string>>>
   setTerminalParkingRevision: (updater: (revision: number) => number) => void
 }
-
 export function useTerminalSurfaceParkingPolicyEffect(
   context: TerminalSurfaceParkingPolicyContext
 ): void {
   const {
     activeView,
     renderedActiveWorktreeId,
+    parkingRevision,
     terminalWorktreeParkingTimersRef,
     activityTerminalPortals,
     workspaceSurfaces,
     terminalWorktreeHiddenSinceRef,
     mountedWorktreeIdsRef,
+    measurableBackgroundWorktreeIdsRef,
     measuringTerminalWorktreeIdsRef,
     terminalWorktreeParkCooldownUntilRef,
     tabsByWorktree,
@@ -69,8 +74,9 @@ export function useTerminalSurfaceParkingPolicyEffect(
     setEvictionExemptTerminalTabIds,
     setTerminalParkingRevision
   } = context
-
   useEffect(() => {
+    // Revision key invalidates ref-backed parking state after mount and timer events.
+    void parkingRevision
     const parkingTimers = terminalWorktreeParkingTimersRef.current
     for (const timer of parkingTimers.values()) {
       window.clearTimeout(timer)
@@ -141,19 +147,8 @@ export function useTerminalSurfaceParkingPolicyEffect(
       restorePolicy,
       ...overrides
     })
-    const watcherCoverageByTabId = new Map<string, boolean>()
-    const worktreeTabsAreWatcherCovered = (worktreeId: string, tabs: TerminalTab[]): boolean =>
-      tabs.every((tab) => {
-        const cached = watcherCoverageByTabId.get(tab.id)
-        if (cached !== undefined) {
-          return cached
-        }
-        const covered = canWatcherCoverParkedTerminalTab(worktreeId, tab)
-        watcherCoverageByTabId.set(tab.id, covered)
-        return covered
-      })
     for (const worktreeId of Array.from(nextParkedTerminalWorktreeIds)) {
-      if (!worktreeTabsAreWatcherCovered(worktreeId, tabsByWorktree[worktreeId] ?? [])) {
+      if (!canWatcherCoverParkedTerminalTabs(worktreeId, tabsByWorktree[worktreeId] ?? [])) {
         nextParkedTerminalWorktreeIds.delete(worktreeId)
       }
     }
@@ -179,7 +174,7 @@ export function useTerminalSurfaceParkingPolicyEffect(
           hasActivityTerminalPortal: candidate.hasActivityTerminalPortal,
           parkCooldownUntilMs: candidate.parkCooldownUntilMs ?? null,
           ordinaryParkingCovers:
-            parkEligible && worktreeTabsAreWatcherCovered(candidate.worktreeId, tabs),
+            parkEligible && canWatcherCoverParkedTerminalTabs(candidate.worktreeId, tabs),
           hasPendingSpawnWork: tabs.some((tab) =>
             hasPendingRetentionSpawnWork(tab, pendingStartupByTabId)
           )
@@ -279,13 +274,23 @@ export function useTerminalSurfaceParkingPolicyEffect(
   }, [
     activeView,
     activityTerminalPortals,
-    backgroundMountRevision,
+    parkingRevision,
+    forceParkedCaptureDoneRef,
+    measurableBackgroundWorktreeIdsRef,
+    measuringTerminalWorktreeIdsRef,
+    mountedWorktreeIdsRef,
     pendingStartupByTabId,
     pairedRuntimeParkingEnvironmentIds,
     renderedActiveWorktreeId,
+    setEvictionExemptTerminalTabIds,
+    setForceParkedTerminalWorktreeIds,
+    setParkedTerminalWorktreeIds,
+    setTerminalParkingRevision,
+    terminalWorktreeHiddenSinceRef,
+    terminalWorktreeParkCooldownUntilRef,
+    terminalWorktreeParkingTimersRef,
     tabsByWorktree,
     terminalParkingEnabled,
-    terminalParkingRevision,
     terminalRetentionBudgetEnabled,
     terminalSshParkingEnabled,
     workspaceSurfaces

@@ -1,39 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAppStore } from '../store'
 import type { TerminalSurfaceKeyboardContext } from './terminal-surface-keyboard-contract'
 
 export function useTerminalSurfaceKeyboard(context: TerminalSurfaceKeyboardContext): void {
-  const {
-    activeWorktreeId,
-    keybindings,
-    terminalShortcutPolicy,
-    handleNewBrowserTab,
-    handleNewFile,
-    handleNewTab,
-    handleNewAgentTab,
-    handleCloseTab,
-    handleCloseBrowserTab,
-    closeBrowserTab,
-    handleCloseFile,
-    handleCloseAllFiles,
-    createFloatingWorkspaceTerminalTab,
-    createFloatingWorkspaceBrowserTab,
-    isFloatingWorkspacePanelFocused,
-    switchFloatingWorkspaceTab,
-    keybindingMatchesAction,
-    showTerminalShortcutCaptureNotification,
-    getKeybindingContext,
-    handleSwitchRecentTab,
-    handleSwitchTab,
-    handleSwitchTabAcrossAllTypes,
-    handleSwitchTerminalTab,
-    createFloatingWorkspaceMarkdownTab,
-    handleEmptyFloatingWorkspacePanelCloseShortcut,
-    isEventTargetInsideFloatingWorkspacePanel,
-    matchesRecentTabSwitcherChord,
-    toast,
-    translate
-  } = context
+  const contextRef = useRef(context)
+  contextRef.current = context
+  const { activeWorktreeId } = context
   useEffect(() => {
     if (!activeWorktreeId) {
       return
@@ -45,6 +17,35 @@ export function useTerminalSurfaceKeyboard(context: TerminalSurfaceKeyboardConte
         ? 'win32'
         : 'linux'
     const onKeyDown = (e: KeyboardEvent): void => {
+      const {
+        activeWorktreeId,
+        keybindings,
+        terminalShortcutPolicy,
+        handleNewBrowserTab,
+        handleNewFile,
+        handleNewTab,
+        handleNewAgentTab,
+        handleCloseBrowserTab,
+        handleCloseFile,
+        handleCloseAllFiles,
+        createFloatingWorkspaceTerminalTab,
+        createFloatingWorkspaceBrowserTab,
+        isFloatingWorkspacePanelFocused,
+        switchFloatingWorkspaceTab,
+        keybindingMatchesAction,
+        showTerminalShortcutCaptureNotification,
+        getKeybindingContext,
+        handleSwitchRecentTab,
+        handleSwitchTab,
+        handleSwitchTabAcrossAllTypes,
+        handleSwitchTerminalTab,
+        createFloatingWorkspaceMarkdownTab,
+        handleEmptyFloatingWorkspacePanelCloseShortcut,
+        isEventTargetInsideFloatingWorkspacePanel,
+        matchesRecentTabSwitcherChord,
+        toast,
+        translate
+      } = contextRef.current
       const context = getKeybindingContext(e.target)
       const floatingWorkspaceFocused = isFloatingWorkspacePanelFocused()
       const matchShortcut = (actionId: KeybindingActionId): boolean =>
@@ -277,18 +278,5 @@ export function useTerminalSurfaceKeyboard(context: TerminalSurfaceKeyboardConte
     }
     window.addEventListener('keydown', onKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true })
-  }, [
-    activeWorktreeId,
-    handleNewBrowserTab,
-    handleNewFile,
-    handleNewTab,
-    handleNewAgentTab,
-    handleCloseTab,
-    handleCloseBrowserTab,
-    closeBrowserTab,
-    handleCloseFile,
-    handleCloseAllFiles,
-    keybindings,
-    terminalShortcutPolicy
-  ])
+  }, [activeWorktreeId])
 }

@@ -92,6 +92,13 @@ export function canWatcherCoverParkedTerminalTab(
   )
 }
 
+export function canWatcherCoverParkedTerminalTabs(
+  worktreeId: string,
+  tabs: readonly ParkableTerminalTabModel[]
+): boolean {
+  return tabs.every((tab) => canWatcherCoverParkedTerminalTab(worktreeId, tab))
+}
+
 function startParkedTabWatchers(
   worktreeId: string,
   tab: ParkableTerminalTabModel,

@@ -58,9 +58,12 @@ export function useTerminalSurfaceCloseActions(context: TerminalSurfaceCloseCont
     browserWorkspaceHasRemoteOwner,
     consumeSuppressedPtyExit
   } = context
-  const handleCloseTab = useCallback((tabId: string) => {
-    closeTerminalTab(tabId)
-  }, [])
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      closeTerminalTab(tabId)
+    },
+    [closeTerminalTab]
+  )
 
   const handleCloseBrowserTab = useCallback(
     (tabId: string) => {
@@ -129,7 +132,6 @@ export function useTerminalSurfaceCloseActions(context: TerminalSurfaceCloseCont
       setActiveBrowserTab,
       setActiveFile,
       setActiveTab,
-      setActiveTabType,
       setActiveWorktree
     ]
   )
