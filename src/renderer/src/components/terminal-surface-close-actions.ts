@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { useAppStore, type AppState } from '../store'
+import { isPinnedEditorFileTab, isPinnedVisibleTab } from './terminal-surface-tab-guards'
 import type {
   closeWebRuntimeSessionTab,
   isWebRuntimeSessionActive
@@ -7,6 +8,7 @@ import type {
 import type { browserWorkspaceHasRemoteOwner } from '@/runtime/remote-browser-tab-ownership'
 import type { closeTerminalTab } from './terminal/terminal-tab-actions'
 import type { destroyWorkspaceWebviews } from '../store/slices/browser-webview-cleanup'
+import { shouldDeferParkedPtyExitTabClose } from './terminal-pane/terminal-parked-tab-watchers'
 
 type TerminalSurfaceCloseContext = Pick<
   AppState,
@@ -15,10 +17,10 @@ type TerminalSurfaceCloseContext = Pick<
   | 'closeBrowserTab'
   | 'closeFile'
   | 'setActiveTab'
+  | 'setActiveTabType'
   | 'setActiveWorktree'
   | 'setActiveBrowserTab'
   | 'setActiveFile'
-  | 'setActiveTabType'
   | 'consumeSuppressedPtyExit'
 > & {
   getActiveWorktreeRuntimeEnvironmentId: (worktreeId: string) => string | null
@@ -49,6 +51,7 @@ export function useTerminalSurfaceCloseActions(context: TerminalSurfaceCloseCont
     setActiveWorktree,
     setActiveBrowserTab,
     setActiveFile,
+    setActiveTabType,
     getActiveWorktreeRuntimeEnvironmentId,
     isWebRuntimeSessionActive,
     closeWebRuntimeSessionTab,
@@ -132,6 +135,7 @@ export function useTerminalSurfaceCloseActions(context: TerminalSurfaceCloseCont
       setActiveBrowserTab,
       setActiveFile,
       setActiveTab,
+      setActiveTabType,
       setActiveWorktree
     ]
   )

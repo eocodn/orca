@@ -50,8 +50,10 @@ function Terminal(): React.JSX.Element | null {
   const terminalState = useTerminalSurfaceState()
   const {
     activeWorktreeId,
+    activeTabId,
     renderedActiveWorktreeId,
     activeView,
+    workspaceSurfaces,
     createTab,
     workspaceSessionReady,
     hydrationSucceeded,
@@ -62,6 +64,7 @@ function Terminal(): React.JSX.Element | null {
     terminalShortcutPolicy,
     setActiveTabType,
     browserTabsByWorktree,
+    closeBrowserTab,
     setActiveBrowserTab,
     reconcileWorktreeTabModel,
     activeWorktreeBrowserTabIdsKey,
@@ -94,7 +97,10 @@ function Terminal(): React.JSX.Element | null {
     handleCloseBrowserTab,
     handlePtyExit,
     handleCloseAllFiles,
-    handleCloseFile
+    handleCloseFile,
+    proceedToNativeWindowClose,
+    queueEditorCloseRequests,
+    windowCloseAfterDirtyRef
   } = composedControllers
   useTerminalSurfaceStartupEffects({
     workspaceSessionReady,

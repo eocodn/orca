@@ -3,9 +3,12 @@ import { toast } from 'sonner'
 import { useAppStore } from '../store'
 import { appendUniqueOpenFileIds } from './terminal/unsaved-close-queue'
 import {
+  ORCA_EDITOR_REQUEST_FILE_CLOSE_EVENT,
+  ORCA_EDITOR_SAVE_AND_CLOSE_EVENT,
   requestEditorSaveQuiesce,
   type EditorRequestFileCloseDetail
 } from './editor/editor-autosave'
+import { isPinnedActiveEditorTab } from './terminal-surface-tab-guards'
 import { translate } from '@/i18n/i18n'
 import { useTerminalSurfaceWindowCloseActions } from './terminal-surface-window-close-actions'
 import { waitForTerminalFileClosed } from './terminal-surface-file-close-wait'

@@ -1,6 +1,10 @@
 import { useEffect, type MutableRefObject } from 'react'
 import { useAppStore } from '../store'
 import {
+  BACKGROUND_MOUNT_TERMINAL_WORKTREE_EVENT,
+  type BackgroundMountTerminalWorktreeDetail
+} from '@/constants/terminal'
+import {
   applyBackgroundMountTabRestriction,
   revealActivationDeferredTabs,
   takeAllPendingBackgroundTerminalWorktreeMounts,

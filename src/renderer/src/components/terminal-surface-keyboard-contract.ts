@@ -19,6 +19,7 @@ import type {
 } from '../hooks/ipc-tab-switch'
 import type { translate } from '@/i18n/i18n'
 import type { toast } from 'sonner'
+import type { TuiAgent } from '../../../shared/types'
 
 export type TerminalSurfaceKeyboardContext = Pick<
   AppState,

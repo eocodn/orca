@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { getClientRuntime } from '@/runtime/client-runtime'
 import { useAppStore } from '../store'
 type TerminalSurfaceStore = ReturnType<typeof useAppStore.getState>
@@ -22,8 +22,8 @@ type TerminalSurfaceEffectsContext = {
     target: Window
   ) => void
   proceedToNativeWindowClose: (isQuitting: boolean) => void
-  queueEditorCloseRequests: (fileIds: string[], options?: { isQuitting?: boolean }) => void
-  windowCloseAfterDirtyRef: { current: boolean }
+  queueEditorCloseRequests: (fileIds: string[], options?: { isQuitting: boolean }) => void
+  windowCloseAfterDirtyRef: MutableRefObject<{ isQuitting: boolean } | null>
 }
 
 export function useTerminalSurfaceEffects(context: TerminalSurfaceEffectsContext): void {

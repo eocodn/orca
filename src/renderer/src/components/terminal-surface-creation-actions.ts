@@ -12,6 +12,8 @@ import type {
   isWebRuntimeSessionActive
 } from '@/runtime/web-runtime-session'
 import type { toast } from 'sonner'
+import type { TabCreateEntryArgs } from './tab-bar/tab-create-entry-action'
+import type { TuiAgent } from '../../../shared/types'
 
 type TerminalSurfaceCreationContext = Pick<
   AppState,

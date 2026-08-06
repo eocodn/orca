@@ -16,7 +16,10 @@ import {
   combineTerminalWorktreeParkIds,
   useManualTerminalWorktreeParking
 } from './terminal-pane/use-manual-terminal-worktree-parking'
-import type { getEffectiveLayout } from './terminal/split-group-mount'
+import {
+  anyMountedWorktreeHasLayout as computeAnyMountedWorktreeHasLayout,
+  type getEffectiveLayout
+} from './terminal/split-group-mount'
 
 export type TerminalSurfaceParkingContext = {
   activeView: AppState['activeView']

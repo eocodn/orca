@@ -15,6 +15,7 @@ import { listBoundAgentTabActions, resolveDefaultAgentForNewTab } from '@/lib/ag
 import { focusTerminalTabSurface } from '@/lib/focus-terminal-tab-surface'
 import { buildDuplicatedBrowserTabOptions } from '@/lib/duplicate-browser-tab-options'
 import { browserWorkspaceHasRemoteOwner } from '@/runtime/remote-browser-tab-ownership'
+import { destroyWorkspaceWebviews } from '../store/slices/browser-webview-cleanup'
 import { closeTerminalTab } from './terminal/terminal-tab-actions'
 import { useTerminalSurfaceSaveController } from './terminal-surface-save-controller'
 import { useTerminalSurfaceParkingController } from './terminal-surface-parking-controller'
@@ -57,6 +58,7 @@ export function useTerminalSurfaceControllerComposition(
     workspaceSessionReady,
     hydrationSucceeded,
     startupWorktreeRefreshCompleted,
+    activeView,
     workspaceSurfaces,
     pendingStartupByTabId,
     terminalParkingEnabled,
@@ -76,6 +78,7 @@ export function useTerminalSurfaceControllerComposition(
     measuringTerminalWorktreeIdsRef,
     terminalWorktreeParkCooldownUntilRef,
     terminalWorktreeParkingTimersRef,
+    activityTerminalPortals,
     createTab,
     closeTab,
     setTabCustomTitle,

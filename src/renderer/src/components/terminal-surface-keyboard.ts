@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../store'
 import type { TerminalSurfaceKeyboardContext } from './terminal-surface-keyboard-contract'
+import { getConnectionId } from '../lib/connection-context'
+import { listBoundAgentTabActions, resolveDefaultAgentForNewTab } from '@/lib/agent-tab-shortcuts'
+import { ORCA_EDITOR_REQUEST_CMD_SAVE_EVENT } from './editor/editor-autosave'
+import type { KeybindingActionId } from '../../../shared/keybindings'
+import type { TuiAgent } from '../../../shared/types'
 
 export function useTerminalSurfaceKeyboard(context: TerminalSurfaceKeyboardContext): void {
   const contextRef = useRef(context)
