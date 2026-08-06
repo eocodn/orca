@@ -322,6 +322,7 @@ fn jsonl_transport_requires_error_correlation_and_replays_terminal_failure() {
         transport.dispatch_file(&request),
         Err(FileGitRouterError::ResponseMismatch("request_id"))
     );
+    drop(transport);
     let _ = fs::remove_file(path);
 }
 
@@ -366,6 +367,7 @@ fn jsonl_timeout_poisons_transport_before_late_response_can_be_reused() {
         transport.dispatch_file(&request),
         Err(FileGitRouterError::Timeout)
     );
+    drop(transport);
     let _ = fs::remove_file(path);
 }
 
@@ -410,6 +412,7 @@ fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
         transport.dispatch_file(&request),
         Err(FileGitRouterError::Eof)
     );
+    drop(transport);
     fs::remove_file(crash).unwrap();
 
     let malformed = make_worker("#!/bin/sh\nIFS= read -r line\nprintf '%s\\n' 'not-json'\n");
@@ -430,5 +433,6 @@ fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
         transport.dispatch_file(&request),
         Err(FileGitRouterError::MalformedResponse)
     );
+    drop(transport);
     fs::remove_file(malformed).unwrap();
 }
