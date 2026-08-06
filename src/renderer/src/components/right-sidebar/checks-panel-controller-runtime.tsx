@@ -6,16 +6,10 @@ import { getGitHubPRCacheKey, getGitHubRepoCacheKey } from '@/store/slices/githu
 import { useActiveWorktree, useRepoById } from '@/store/selectors'
 import { useChecksPanelTerminalWorktree } from './use-checks-panel-terminal-worktree'
 import { isFolderRepo } from '../../../../shared/repo-kind'
-import type {
-  PRInfo,
-  PRCheckDetail,
-  PRComment
-} from '../../../../shared/types'
+import type { PRInfo, PRCheckDetail, PRComment } from '../../../../shared/types'
 import { getConnectionId } from '@/lib/connection-context'
 import { pickDefaultSourceControlAgent } from './SourceControl'
-import type {
-  HostedReviewProvider
-} from '../../../../shared/hosted-review'
+import type { HostedReviewProvider } from '../../../../shared/hosted-review'
 import { resolveHostedReviewCreationProvider } from '../../../../shared/hosted-review-creation-providers'
 import { normalizeGlobalWindowsRuntimeDefault } from '../../../../shared/project-execution-runtime'
 import { getHostedReviewCacheKey, refreshHostedReviewCard } from '@/store/slices/hosted-review'
@@ -28,7 +22,11 @@ import {
 } from './checks-panel-async-result-key'
 import { installWindowVisibilityTimeoutPoller } from '@/lib/window-visibility-timeout-poller'
 import { resolveChecksPanelReviewLookup } from './checks-panel-review-lookup-authority'
-import { computeChecksPanelConfirmedReadiness, isChecksPanelHardErrorCleared, type ChecksPanelConfirmedReadinessInput } from './checks-panel-review-creation'
+import {
+  computeChecksPanelConfirmedReadiness,
+  isChecksPanelHardErrorCleared,
+  type ChecksPanelConfirmedReadinessInput
+} from './checks-panel-review-creation'
 import {
   buildChecksPanelGitStatusContextKey,
   readChecksPanelPublishActionGitStatus,
@@ -54,7 +52,10 @@ import {
 import { resolveSourceControlLaunchPlatform } from '@/lib/source-control-launch-platform'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
-import { getPullRequestGenerationRecordKey, getPullRequestGenerationSeedRestoreKey } from '@/store/slices/pull-request-generation'
+import {
+  getPullRequestGenerationRecordKey,
+  getPullRequestGenerationSeedRestoreKey
+} from '@/store/slices/pull-request-generation'
 import { localizedHostedReviewCopy } from '@/i18n/hosted-review-localized-copy'
 import { renderChecksPanel } from './checks-panel-runtime-render'
 import { useChecksPanelRefresh } from './checks-panel-refresh-controller'
@@ -463,7 +464,7 @@ export default function ChecksPanel(): React.JSX.Element {
     rawPRRefreshState,
     repo,
     setHardRefreshError,
-    setPrRefreshStateNow,
+    setPrRefreshStateNow
   })
   // Why: select only timestamps, not whole cache records, so the entry-refresh effect doesn't re-run on every cache mutation. See docs/refresh-on-checks-tab.md.
   const prFetchedAt = useAppStore((s) =>
@@ -689,9 +690,63 @@ export default function ChecksPanel(): React.JSX.Element {
     setCreatePrError,
     setPullRequestGenerationRecord,
     settings,
-    updatePullRequestGenerationRecord,
-  }) as { handleGeneratePullRequestFields: () => Promise<void>; handleGeneratePullRequestFieldsForActive: (...args: never[]) => void; handleCancelGeneratePullRequestFields: () => void; handlePullRequestGenerationSeedRestored: () => void; handlePrBaseChange: (value: string) => void; handlePrTitleChange: (value: string) => void; prAiGenerationEnabled: boolean; prBase: string; setPrBase: (value: string) => void; prTitle: string; setPrTitle: (value: string) => void; prBody: string; setPrBody: (value: string) => void; prDraft: boolean; setPrDraft: (value: boolean) => void; prBaseQuery: string; setPrBaseQuery: (value: string) => void; prBaseResults: unknown[]; setPrBaseResults: (value: unknown[]) => void; prBaseSearchError: string | null; prGenerating: boolean; prGenerateError: string | null; prGenerateDisabled: boolean; prGenerateDisabledReason: string | null; applyGeneratedPullRequestFields: (...args: never[]) => void; pullRequestFieldsInitialized: boolean }
-  const { handleGeneratePullRequestFields, handleGeneratePullRequestFieldsForActive, handleCancelGeneratePullRequestFields, handlePullRequestGenerationSeedRestored, handlePrBaseChange, handlePrTitleChange, prAiGenerationEnabled, prBase, setPrBase, prTitle, setPrTitle, prBody, setPrBody, prDraft, setPrDraft, prBaseQuery, setPrBaseQuery, prBaseResults, setPrBaseResults, prBaseSearchError, prGenerating, prGenerateError, prGenerateDisabled, prGenerateDisabledReason, applyGeneratedPullRequestFields, pullRequestFieldsInitialized } = generation
+    updatePullRequestGenerationRecord
+  }) as {
+    handleGeneratePullRequestFields: () => Promise<void>
+    handleGeneratePullRequestFieldsForActive: (...args: never[]) => void
+    handleCancelGeneratePullRequestFields: () => void
+    handlePullRequestGenerationSeedRestored: () => void
+    handlePrBaseChange: (value: string) => void
+    handlePrTitleChange: (value: string) => void
+    prAiGenerationEnabled: boolean
+    prBase: string
+    setPrBase: (value: string) => void
+    prTitle: string
+    setPrTitle: (value: string) => void
+    prBody: string
+    setPrBody: (value: string) => void
+    prDraft: boolean
+    setPrDraft: (value: boolean) => void
+    prBaseQuery: string
+    setPrBaseQuery: (value: string) => void
+    prBaseResults: unknown[]
+    setPrBaseResults: (value: unknown[]) => void
+    prBaseSearchError: string | null
+    prGenerating: boolean
+    prGenerateError: string | null
+    prGenerateDisabled: boolean
+    prGenerateDisabledReason: string | null
+    applyGeneratedPullRequestFields: (...args: never[]) => void
+    pullRequestFieldsInitialized: boolean
+  }
+  const {
+    handleGeneratePullRequestFields,
+    handleGeneratePullRequestFieldsForActive,
+    handleCancelGeneratePullRequestFields,
+    handlePullRequestGenerationSeedRestored,
+    handlePrBaseChange,
+    handlePrTitleChange,
+    prAiGenerationEnabled,
+    prBase,
+    setPrBase,
+    prTitle,
+    setPrTitle,
+    prBody,
+    setPrBody,
+    prDraft,
+    setPrDraft,
+    prBaseQuery,
+    setPrBaseQuery,
+    prBaseResults,
+    setPrBaseResults,
+    prBaseSearchError,
+    prGenerating,
+    prGenerateError,
+    prGenerateDisabled,
+    prGenerateDisabledReason,
+    applyGeneratedPullRequestFields,
+    pullRequestFieldsInitialized
+  } = generation
   const stateRequestKey =
     repo && branch
       ? activeGitLabReview
@@ -850,7 +905,7 @@ export default function ChecksPanel(): React.JSX.Element {
     setHostedReviewCreationSnapshot,
     settings,
     sshConnectionStatus,
-    updateWorktreeGitIdentity,
+    updateWorktreeGitIdentity
   })
   const { fetchChecks, fetchGitLabDetails } = useChecksPanelFetch({
     activeGitLabReview,
@@ -869,8 +924,15 @@ export default function ChecksPanel(): React.JSX.Element {
     setChecksLoading,
     setComments,
     setCommentsLoading,
-    settings,
-  }) as { fetchChecks: (options?: { force?: boolean; prNumberOverride?: number | null }) => Promise<void>; fetchGitLabDetails: (options?: { mrNumberOverride?: number | null; headShaOverride?: string | null; commitAsCurrent?: boolean }) => Promise<void> }
+    settings
+  }) as {
+    fetchChecks: (options?: { force?: boolean; prNumberOverride?: number | null }) => Promise<void>
+    fetchGitLabDetails: (options?: {
+      mrNumberOverride?: number | null
+      headShaOverride?: string | null
+      commitAsCurrent?: boolean
+    }) => Promise<void>
+  }
   useEffect(() => {
     if (activeGitLabReview) {
       return
@@ -972,7 +1034,7 @@ export default function ChecksPanel(): React.JSX.Element {
     setCommentsLoading,
     setEligibilityRefreshNonce,
     setGitStatusSnapshot,
-    setIsRefreshing,
+    setIsRefreshing
   }) as () => Promise<void>
   const { handleEntryRefresh } = useChecksPanelEntryRefresh({
     activeGitLabReview,
@@ -1002,7 +1064,9 @@ export default function ChecksPanel(): React.JSX.Element {
     pollIntervalRef,
     prevChecksRef,
     repo
-  }) as { handleEntryRefresh: (options: { refreshChecks: boolean; refreshComments: boolean }) => void }
+  }) as {
+    handleEntryRefresh: (options: { refreshChecks: boolean; refreshComments: boolean }) => void
+  }
 
   const refreshHostedReviewAfterMutation = useCallback(async () => {
     if (!repo || !branch) {
@@ -1094,7 +1158,17 @@ export default function ChecksPanel(): React.JSX.Element {
               ? 'Open a GitLab MR before resolving comments.'
               : undefined
 
-  const { handleStartEdit, handleCancelEdit, handleSaveTitle, handleTitleKeyDown, handleResolve, handleAddPRComment, handleEditComment, handleDeleteComment, handleReplyToComment } = useChecksPanelCommentActions({
+  const {
+    handleStartEdit,
+    handleCancelEdit,
+    handleSaveTitle,
+    handleTitleKeyDown,
+    handleResolve,
+    handleAddPRComment,
+    handleEditComment,
+    handleDeleteComment,
+    handleReplyToComment
+  } = useChecksPanelCommentActions({
     activeConnectionId,
     activeGitLabReview,
     activeReview,
@@ -1122,8 +1196,25 @@ export default function ChecksPanel(): React.JSX.Element {
     settings,
     sourceControlAiActionsVisible,
     titleInputFocusTimerRef,
-    titleInputRef,
-  }) as { handleStartEdit: () => void; handleCancelEdit: () => void; handleSaveTitle: () => Promise<void>; handleTitleKeyDown: (event: React.KeyboardEvent) => void; handleResolve: (threadId: string, resolve: boolean, options?: { notifyOnFailure?: boolean }) => Promise<boolean>; handleAddPRComment: (body: string) => Promise<{ ok: boolean; error?: string }>; handleEditComment: (comment: PRComment, body: string) => Promise<boolean>; handleDeleteComment: (comment: PRComment) => Promise<void>; handleReplyToComment: (comment: PRComment, body: string) => Promise<{ ok: boolean; error?: string }> }
+    titleInputRef
+  }) as {
+    handleStartEdit: () => void
+    handleCancelEdit: () => void
+    handleSaveTitle: () => Promise<void>
+    handleTitleKeyDown: (event: React.KeyboardEvent) => void
+    handleResolve: (
+      threadId: string,
+      resolve: boolean,
+      options?: { notifyOnFailure?: boolean }
+    ) => Promise<boolean>
+    handleAddPRComment: (body: string) => Promise<{ ok: boolean; error?: string }>
+    handleEditComment: (comment: PRComment, body: string) => Promise<boolean>
+    handleDeleteComment: (comment: PRComment) => Promise<void>
+    handleReplyToComment: (
+      comment: PRComment,
+      body: string
+    ) => Promise<{ ok: boolean; error?: string }>
+  }
   const { handleResolveConflictsWithAI, handleResolveCommentsWithAI } = useChecksPanelAiActions({
     activeConflictReview,
     activeReview,
@@ -1159,8 +1250,11 @@ export default function ChecksPanel(): React.JSX.Element {
     setCommentsLoading,
     setCommentsSelectionClearRequest,
     sourceControlAiActionsVisible,
-    stateRequestKey,
-  }) as { handleResolveConflictsWithAI: () => Promise<void>; handleResolveCommentsWithAI: (groups: PRCommentGroup[]) => void }
+    stateRequestKey
+  }) as {
+    handleResolveConflictsWithAI: () => Promise<void>
+    handleResolveCommentsWithAI: (groups: PRCommentGroup[]) => void
+  }
   const handleFixChecksWithAI = useChecksPanelFixChecks({
     activeReview,
     activeWorktreeId,
@@ -1174,7 +1268,15 @@ export default function ChecksPanel(): React.JSX.Element {
     stateRequestKey,
     setIsFixingChecksWithAI
   })
-  const { handleOpenPR, handleUnlinkPullRequest, handleLinkAnotherPullRequest, pushBeforeCreatePullRequest, handlePublishBranch, handleSyncBranch, handlePullRequestCreated } = useChecksPanelLinkActions({
+  const {
+    handleOpenPR,
+    handleUnlinkPullRequest,
+    handleLinkAnotherPullRequest,
+    pushBeforeCreatePullRequest,
+    handlePublishBranch,
+    handleSyncBranch,
+    handlePullRequestCreated
+  } = useChecksPanelLinkActions({
     activeConnectionId,
     activeReview,
     activeWorktreeId,
@@ -1199,8 +1301,20 @@ export default function ChecksPanel(): React.JSX.Element {
     setRightSidebarOpen,
     setRightSidebarTab,
     syncBranch,
-    updateWorktreeMeta,
-  }) as { handleOpenPR: (event: React.MouseEvent<HTMLButtonElement>) => void; handleUnlinkPullRequest: () => void; handleLinkAnotherPullRequest: () => void; pushBeforeCreatePullRequest: () => Promise<boolean>; handlePublishBranch: () => Promise<void>; handleSyncBranch: () => Promise<void>; handlePullRequestCreated: (result: { provider: HostedReviewProvider; number: number; url: string }) => Promise<void> }
+    updateWorktreeMeta
+  }) as {
+    handleOpenPR: (event: React.MouseEvent<HTMLButtonElement>) => void
+    handleUnlinkPullRequest: () => void
+    handleLinkAnotherPullRequest: () => void
+    pushBeforeCreatePullRequest: () => Promise<boolean>
+    handlePublishBranch: () => Promise<void>
+    handleSyncBranch: () => Promise<void>
+    handlePullRequestCreated: (result: {
+      provider: HostedReviewProvider
+      number: number
+      url: string
+    }) => Promise<void>
+  }
   const handleCreatePullRequest = useChecksPanelCreateAction({
     activePullRequestGenerationKey,
     activeWorktreeId,
@@ -1220,7 +1334,7 @@ export default function ChecksPanel(): React.JSX.Element {
     setCreatePrError,
     setGitStatusRefreshNonce,
     setIsCreatingPr,
-    updatePullRequestGenerationRecord,
+    updatePullRequestGenerationRecord
   }) as () => Promise<void>
   return renderChecksPanel({
     activeConflictReview,
@@ -1445,6 +1559,6 @@ export default function ChecksPanel(): React.JSX.Element {
     isCreatingPr,
     setPrBase,
     setPrTitle,
-    applyGeneratedPullRequestFields,
+    applyGeneratedPullRequestFields
   })
 }

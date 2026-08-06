@@ -45,7 +45,9 @@ export function useChecksPanelRuntimeState() {
   const [isPublishingBranch, setIsPublishingBranch] = useState(false)
   const [isSyncingBranch, setIsSyncingBranch] = useState(false)
   const [isFixingChecksWithAI, setIsFixingChecksWithAI] = useState(false)
-  const [agentComposerState, setAgentComposerState] = useState<ChecksAgentComposerState | null>(null)
+  const [agentComposerState, setAgentComposerState] = useState<ChecksAgentComposerState | null>(
+    null
+  )
   const [hostedReviewCreationSnapshot, setHostedReviewCreationSnapshot] = useState<{
     requestKey: string
     contextKey: string
@@ -62,8 +64,12 @@ export function useChecksPanelRuntimeState() {
     errorType: PRRefreshErrorType
     contextKey: string
   } | null>(null)
-  const [gitStatusSnapshot, setGitStatusSnapshot] = useState<ChecksPanelGitStatusSnapshot | null>(null)
-  const [gitStatusProbeErrorContextKey, setGitStatusProbeErrorContextKey] = useState<string | null>(null)
+  const [gitStatusSnapshot, setGitStatusSnapshot] = useState<ChecksPanelGitStatusSnapshot | null>(
+    null
+  )
+  const [gitStatusProbeErrorContextKey, setGitStatusProbeErrorContextKey] = useState<string | null>(
+    null
+  )
   const [gitStatusRefreshNonce, setGitStatusRefreshNonce] = useState(0)
   const [eligibilityRefreshNonce, setEligibilityRefreshNonce] = useState(0)
   const [editingTitle, setEditingTitle] = useState(false)
