@@ -6,23 +6,19 @@ import { getGitHubPRCacheKey, getGitHubRepoCacheKey } from '@/store/slices/githu
 import { useActiveWorktree, useRepoById } from '@/store/selectors'
 import { useChecksPanelTerminalWorktree } from './use-checks-panel-terminal-worktree'
 import { isFolderRepo } from '../../../../shared/repo-kind'
-import type { PRCommentsListSelectionClearRequest } from './pr-comments-list-selection'
 import type {
   PRInfo,
   PRCheckDetail,
-  PRComment,
-  PRRefreshErrorType
+  PRComment
 } from '../../../../shared/types'
 import { getConnectionId } from '@/lib/connection-context'
 import { pickDefaultSourceControlAgent } from './SourceControl'
 import type {
-  HostedReviewCreationEligibility,
   HostedReviewProvider
 } from '../../../../shared/hosted-review'
 import { resolveHostedReviewCreationProvider } from '../../../../shared/hosted-review-creation-providers'
 import { normalizeGlobalWindowsRuntimeDefault } from '../../../../shared/project-execution-runtime'
 import { getHostedReviewCacheKey, refreshHostedReviewCard } from '@/store/slices/hosted-review'
-import { useConfirmationDialog } from '@/components/confirmation-dialog'
 import { type ChecksPanelReview, selectChecksPanelReview } from './checks-panel-review'
 import { selectReviewCacheEntry } from './review-cache-entry-selection'
 import {
@@ -38,8 +34,7 @@ import {
   readChecksPanelPublishActionGitStatus,
   readChecksPanelGitStatusSnapshot,
   shouldCoalesceChecksPanelGitStatusSnapshotRefresh,
-  shouldPollChecksPanelRuntimeSshStatus,
-  type ChecksPanelGitStatusSnapshot
+  shouldPollChecksPanelRuntimeSshStatus
 } from './checks-panel-git-status-snapshot'
 import {
   getChecksPanelForegroundReviewEvidenceKey,
@@ -47,7 +42,6 @@ import {
   resolveChecksPanelReviewEvidenceProvider
 } from './checks-panel-pr-refresh-request'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
-import { useMountedRef } from '@/hooks/useMountedRef'
 import { getWorktreeGitIdentityDisplay } from '@/lib/worktree-git-identity-display'
 import type {
   SourceControlActionRecipe,
@@ -62,7 +56,6 @@ import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-co
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { getPullRequestGenerationRecordKey, getPullRequestGenerationSeedRestoreKey } from '@/store/slices/pull-request-generation'
 import { localizedHostedReviewCopy } from '@/i18n/hosted-review-localized-copy'
-import type { PRCommentGroup } from '@/lib/pr-comment-groups'
 import { renderChecksPanel } from './checks-panel-runtime-render'
 import { useChecksPanelRefresh } from './checks-panel-refresh-controller'
 import { useChecksPanelCommentActions } from './checks-panel-comment-actions-controller'
@@ -76,24 +69,9 @@ import { useChecksPanelCreateAction } from './checks-panel-create-action'
 import { useChecksPanelGeneration } from './checks-panel-generation-controller'
 import { useChecksPanelCommentFetch } from './checks-panel-comment-fetch'
 import { useChecksPanelEntryRefresh } from './checks-panel-entry-refresh'
+import { useChecksPanelRuntimeState } from './checks-panel-runtime-state'
 
 const RUNTIME_SSH_STATUS_REFRESH_MS = 3000
-
-type HostedReviewCreationSnapshot = {
-  requestKey: string
-  /** Panel context key (repo/worktree/branch/host) at request time. */
-  contextKey: string
-  repoId: string
-  worktreeId: string | null
-  branch: string
-  /** Wall-clock time the eligibility request started (hard-error clear ordering). */
-  requestStartedAt: number
-  /** Wall-clock time the eligibility result settled (confirmed freshness window). */
-  completedAt: number
-  /** Git snapshot fingerprint used for this eligibility (confirmed freshness). */
-  gitFingerprint: string
-  data: HostedReviewCreationEligibility
-}
 
 // Fingerprint HEAD/dirty/upstream/base/execution-host so a stale snapshot can't keep an enabled Create open when any of them move.
 function buildChecksPanelEligibilityGitFingerprint(input: {
@@ -120,19 +98,6 @@ function buildChecksPanelEligibilityGitFingerprint(input: {
   })
 }
 
-type ChecksAgentComposerState = {
-  actionId: SourceControlLaunchActionId
-  title: string
-  description: string
-  prompt: string
-  launchSource: 'conflict_resolution' | 'task_page'
-  commentResolution?: {
-    reviewContextKey: string
-    provider: ChecksPanelReview['provider']
-    selectedThreadIds: string[]
-    selectedGroups: PRCommentGroup[]
-  }
-}
 function isGitLabChecksPanelReview(
   review: ChecksPanelReview | null
 ): review is ChecksPanelReview & { provider: 'gitlab' } {
@@ -199,58 +164,68 @@ export default function ChecksPanel(): React.JSX.Element {
       : null
   })
 
-  const [checks, setChecks] = useState<PRCheckDetail[]>([])
-  const [checksLoading, setChecksLoading] = useState(false)
-  const [comments, setComments] = useState<PRComment[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
-  const commentsRef = useRef<PRComment[]>([])
-  const [commentsSelectionClearRequest, setCommentsSelectionClearRequest] =
-    useState<PRCommentsListSelectionClearRequest | null>(null)
-  const commentsSelectionClearTokenRef = useRef(0)
-  const [emptyRefreshing, setEmptyRefreshing] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const refreshInFlightRef = useRef(false)
-  const [conflictDetailsRefreshing, setConflictDetailsRefreshing] = useState(false)
-  const createPrInFlightRef = useRef<string | null>(null)
-  const [isCreatingPr, setIsCreatingPr] = useState(false)
-  const [createPrError, setCreatePrError] = useState<string | null>(null)
-  const [isPublishingBranch, setIsPublishingBranch] = useState(false)
-  const [isSyncingBranch, setIsSyncingBranch] = useState(false)
+  const {
+    checks,
+    setChecks,
+    checksLoading,
+    setChecksLoading,
+    comments,
+    setComments,
+    commentsLoading,
+    setCommentsLoading,
+    commentsRef,
+    commentsSelectionClearRequest,
+    setCommentsSelectionClearRequest,
+    commentsSelectionClearTokenRef,
+    emptyRefreshing,
+    setEmptyRefreshing,
+    isRefreshing,
+    setIsRefreshing,
+    refreshInFlightRef,
+    conflictDetailsRefreshing,
+    setConflictDetailsRefreshing,
+    createPrInFlightRef,
+    isCreatingPr,
+    setIsCreatingPr,
+    createPrError,
+    setCreatePrError,
+    isPublishingBranch,
+    setIsPublishingBranch,
+    isSyncingBranch,
+    setIsSyncingBranch,
+    isFixingChecksWithAI,
+    setIsFixingChecksWithAI,
+    agentComposerState,
+    setAgentComposerState,
+    hostedReviewCreationSnapshot,
+    setHostedReviewCreationSnapshot,
+    hardRefreshError,
+    setHardRefreshError,
+    gitStatusSnapshot,
+    setGitStatusSnapshot,
+    gitStatusProbeErrorContextKey,
+    setGitStatusProbeErrorContextKey,
+    gitStatusRefreshNonce,
+    setGitStatusRefreshNonce,
+    eligibilityRefreshNonce,
+    setEligibilityRefreshNonce,
+    editingTitle,
+    setEditingTitle,
+    titleDraft,
+    setTitleDraft,
+    titleSaving,
+    setTitleSaving,
+    titleInputRef,
+    titleInputFocusTimerRef,
+    pollIntervalRef,
+    mountedRef,
+    confirm,
+    prevChecksRef,
+    conflictSummaryRefreshKeyRef,
+    panelVisibleSinceRef,
+    foregroundedUnrenderedReviewKeyRef
+  } = useChecksPanelRuntimeState()
   const isResolvingConflictsWithAI = false
-  const [isFixingChecksWithAI, setIsFixingChecksWithAI] = useState(false)
-  const [agentComposerState, setAgentComposerState] = useState<ChecksAgentComposerState | null>(
-    null
-  )
-  const [hostedReviewCreationSnapshot, setHostedReviewCreationSnapshot] =
-    useState<HostedReviewCreationSnapshot | null>(null)
-  // Sticky record of the latest hard refresh error so Create can't flap back until a qualifying eligibility request clears it.
-  const [hardRefreshError, setHardRefreshError] = useState<{
-    observedAt: number
-    errorType: PRRefreshErrorType
-    contextKey: string
-  } | null>(null)
-  const [gitStatusSnapshot, setGitStatusSnapshot] = useState<ChecksPanelGitStatusSnapshot | null>(
-    null
-  )
-  // Context key whose git-status probe failed with no snapshot, so the empty state can distinguish "checking branch status" from "could not check".
-  const [gitStatusProbeErrorContextKey, setGitStatusProbeErrorContextKey] = useState<string | null>(
-    null
-  )
-  const [gitStatusRefreshNonce, setGitStatusRefreshNonce] = useState(0)
-  // Bumped by manual Retry/Refresh so eligibility re-runs even when Git state is unchanged (e.g. an auth fix must still clear the hard error).
-  const [eligibilityRefreshNonce, setEligibilityRefreshNonce] = useState(0)
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [titleDraft, setTitleDraft] = useState('')
-  const [titleSaving, setTitleSaving] = useState(false)
-  const titleInputRef = useRef<HTMLInputElement>(null)
-  const titleInputFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pollIntervalRef = useRef(30_000) // start at 30s, backs off to 120s
-  const mountedRef = useMountedRef()
-  const confirm = useConfirmationDialog()
-  const prevChecksRef = useRef<string>('')
-  const conflictSummaryRefreshKeyRef = useRef<string | null>(null)
-  const panelVisibleSinceRef = useRef<number | null>(null)
-  const foregroundedUnrenderedReviewKeyRef = useRef<string | null>(null)
   commentsRef.current = comments
   const prGenerationRecords = useAppStore((s) => s.pullRequestGenerationRecords)
   const allocatePullRequestGenerationRequestId = useAppStore(
