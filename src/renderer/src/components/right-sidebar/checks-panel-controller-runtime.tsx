@@ -15,7 +15,10 @@ import {
   shouldCommitChecksPanelAsyncResult
 } from './checks-panel-async-result-key'
 import { resolveChecksPanelPRRefreshRequest } from './checks-panel-pr-refresh-request'
-import { resolveChecksPanelReviewContext } from './checks-panel-runtime-review-context'
+import {
+  buildChecksPanelHostedReviewCreationRequestKey,
+  resolveChecksPanelReviewContext
+} from './checks-panel-runtime-review-context'
 import { renderChecksPanel } from './checks-panel-runtime-render'
 import { useChecksPanelReviewEffects } from './checks-panel-review-effects'
 import { useChecksPanelRuntimeActions } from './checks-panel-runtime-actions'
@@ -332,41 +335,22 @@ export default function ChecksPanel(): React.JSX.Element {
     commentsCacheKey ? s.commentsCache[commentsCacheKey]?.fetchedAt : undefined
   )
 
-  const hostedReviewCreationRequestKey =
-    repo && branch
-      ? JSON.stringify({
-          repoId: repo.id,
-          repoPath: repo.path,
-          worktreeId: activeWorktreeId ?? null,
-          worktreePath: activeWorktreePath,
-          runtimeEnvironmentId,
-          connectionId: repoConnectionId,
-          branch,
-          base: repo.worktreeBaseRef ?? null,
-          hasUncommittedChanges:
-            gitStatusSnapshot?.contextKey === panelContextKey
-              ? gitStatusSnapshot.hasUncommittedChanges
-              : null,
-          hasUpstream:
-            gitStatusSnapshot?.contextKey === panelContextKey
-              ? (gitStatusSnapshot.remoteStatus?.hasUpstream ?? null)
-              : null,
-          ahead:
-            gitStatusSnapshot?.contextKey === panelContextKey
-              ? (gitStatusSnapshot.remoteStatus?.ahead ?? null)
-              : null,
-          behind:
-            gitStatusSnapshot?.contextKey === panelContextKey
-              ? (gitStatusSnapshot.remoteStatus?.behind ?? null)
-              : null,
-          linkedGitHubPR: linkedPR,
-          fallbackGitHubPR: fallbackGitHubPRNumber,
-          linkedGitLabMR,
-          linkedBitbucketPR,
-          linkedAzureDevOpsPR,
-          linkedGiteaPR
-        })
-      : ''
+  const hostedReviewCreationRequestKey = buildChecksPanelHostedReviewCreationRequestKey({
+    repo,
+    branch,
+    worktreeId: activeWorktreeId,
+    worktreePath: activeWorktreePath,
+    runtimeEnvironmentId,
+    repoConnectionId,
+    snapshot: gitStatusSnapshot,
+    panelContextKey,
+    linkedPR,
+    fallbackGitHubPRNumber,
+    linkedGitLabMR,
+    linkedBitbucketPR,
+    linkedAzureDevOpsPR,
+    linkedGiteaPR
+  })
   const reviewContext = resolveChecksPanelReviewContext({
     activeWorktree,
     gitStatusInvalidation,

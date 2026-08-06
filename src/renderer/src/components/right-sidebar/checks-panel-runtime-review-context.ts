@@ -74,6 +74,48 @@ export type ChecksPanelReviewContext = {
   checksPanelHasHardRefreshError: boolean
 }
 
+export function buildChecksPanelHostedReviewCreationRequestKey(input: {
+  repo: { id: string; path: string; worktreeBaseRef?: string | null } | null
+  branch: string
+  worktreeId: string | null
+  worktreePath: string | null
+  runtimeEnvironmentId: string | null
+  repoConnectionId: string | null
+  snapshot: ChecksPanelGitStatusSnapshot | null
+  panelContextKey: string
+  linkedPR: number | null
+  fallbackGitHubPRNumber: number | null
+  linkedGitLabMR: number | null
+  linkedBitbucketPR: number | null
+  linkedAzureDevOpsPR: number | null
+  linkedGiteaPR: number | null
+}): string {
+  if (!input.repo || !input.branch) {
+    return ''
+  }
+  const snapshot = input.snapshot?.contextKey === input.panelContextKey ? input.snapshot : null
+  return JSON.stringify({
+    repoId: input.repo.id,
+    repoPath: input.repo.path,
+    worktreeId: input.worktreeId,
+    worktreePath: input.worktreePath,
+    runtimeEnvironmentId: input.runtimeEnvironmentId,
+    connectionId: input.repoConnectionId,
+    branch: input.branch,
+    base: input.repo.worktreeBaseRef ?? null,
+    hasUncommittedChanges: snapshot?.hasUncommittedChanges ?? null,
+    hasUpstream: snapshot?.remoteStatus?.hasUpstream ?? null,
+    ahead: snapshot?.remoteStatus?.ahead ?? null,
+    behind: snapshot?.remoteStatus?.behind ?? null,
+    linkedGitHubPR: input.linkedPR,
+    fallbackGitHubPR: input.fallbackGitHubPRNumber,
+    linkedGitLabMR: input.linkedGitLabMR,
+    linkedBitbucketPR: input.linkedBitbucketPR,
+    linkedAzureDevOpsPR: input.linkedAzureDevOpsPR,
+    linkedGiteaPR: input.linkedGiteaPR
+  })
+}
+
 export function resolveChecksPanelReviewContext(input: {
   activeWorktree: {
     linkedPR?: number | null
