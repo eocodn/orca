@@ -7652,8 +7652,8 @@ describe('Store', () => {
   })
 
   it('hydrates legacy numeric agent status cache through the pane identity migration', async () => {
-    const agentHooksDir = join(testState.dir, 'agent-hooks')
-    mkdirSync(agentHooksDir, { recursive: true })
+    const agentStatusDir = join(testState.dir, 'agent-status')
+    mkdirSync(agentStatusDir, { recursive: true })
     writeDataFile({
       schemaVersion: 1,
       repos: [],
@@ -7690,7 +7690,7 @@ describe('Store', () => {
       }
     })
     writeFileSync(
-      join(agentHooksDir, 'last-status.json'),
+      join(agentStatusDir, 'last-status.json'),
       JSON.stringify({
         version: 2,
         entries: {
@@ -7710,7 +7710,7 @@ describe('Store', () => {
 
     const store = await createStore()
     const { agentHookServer } = await import('./agent-hooks/server')
-    await agentHookServer.start({ env: 'production', userDataPath: testState.dir })
+    await agentHookServer.hydrate({ env: 'production', userDataPath: testState.dir })
     try {
       const layout = store.getWorkspaceSession().terminalLayoutsByTabId.tab1
       const leafId = layout.root?.type === 'leaf' ? layout.root.leafId : null
@@ -7734,8 +7734,8 @@ describe('Store', () => {
   })
 
   it('hydrates split-pane legacy numeric agent status rows onto the matching remapped leaves', async () => {
-    const agentHooksDir = join(testState.dir, 'agent-hooks')
-    mkdirSync(agentHooksDir, { recursive: true })
+    const agentStatusDir = join(testState.dir, 'agent-status')
+    mkdirSync(agentStatusDir, { recursive: true })
     writeDataFile({
       schemaVersion: 1,
       repos: [],
@@ -7779,7 +7779,7 @@ describe('Store', () => {
     })
     const now = Date.now()
     writeFileSync(
-      join(agentHooksDir, 'last-status.json'),
+      join(agentStatusDir, 'last-status.json'),
       JSON.stringify({
         version: 2,
         entries: {
@@ -7808,7 +7808,7 @@ describe('Store', () => {
 
     const store = await createStore()
     const { agentHookServer } = await import('./agent-hooks/server')
-    await agentHookServer.start({ env: 'production', userDataPath: testState.dir })
+    await agentHookServer.hydrate({ env: 'production', userDataPath: testState.dir })
     try {
       const layout = store.getWorkspaceSession().terminalLayoutsByTabId.tab1
       const firstLeafId =
@@ -7846,8 +7846,8 @@ describe('Store', () => {
   })
 
   it('hydrates split-pane legacy status rows even when PTY leaf bindings are absent', async () => {
-    const agentHooksDir = join(testState.dir, 'agent-hooks')
-    mkdirSync(agentHooksDir, { recursive: true })
+    const agentStatusDir = join(testState.dir, 'agent-status')
+    mkdirSync(agentStatusDir, { recursive: true })
     writeDataFile({
       schemaVersion: 1,
       repos: [],
@@ -7890,7 +7890,7 @@ describe('Store', () => {
     })
     const now = Date.now()
     writeFileSync(
-      join(agentHooksDir, 'last-status.json'),
+      join(agentStatusDir, 'last-status.json'),
       JSON.stringify({
         version: 2,
         entries: {
@@ -7919,7 +7919,7 @@ describe('Store', () => {
 
     const store = await createStore()
     const { agentHookServer } = await import('./agent-hooks/server')
-    await agentHookServer.start({ env: 'production', userDataPath: testState.dir })
+    await agentHookServer.hydrate({ env: 'production', userDataPath: testState.dir })
     try {
       const layout = store.getWorkspaceSession().terminalLayoutsByTabId.tab1
       const firstLeafId =
@@ -7957,8 +7957,8 @@ describe('Store', () => {
   })
 
   it('persists legacy pane-key aliases after the layout has been normalized', async () => {
-    const agentHooksDir = join(testState.dir, 'agent-hooks')
-    mkdirSync(agentHooksDir, { recursive: true })
+    const agentStatusDir = join(testState.dir, 'agent-status')
+    mkdirSync(agentStatusDir, { recursive: true })
     writeDataFile({
       schemaVersion: 1,
       repos: [],
@@ -8018,7 +8018,7 @@ describe('Store', () => {
 
     const now = Date.now()
     writeFileSync(
-      join(agentHooksDir, 'last-status.json'),
+      join(agentStatusDir, 'last-status.json'),
       JSON.stringify({
         version: 2,
         entries: {
@@ -8038,7 +8038,7 @@ describe('Store', () => {
 
     await createStore()
     const { agentHookServer } = await import('./agent-hooks/server')
-    await agentHookServer.start({ env: 'production', userDataPath: testState.dir })
+    await agentHookServer.hydrate({ env: 'production', userDataPath: testState.dir })
     try {
       expect(agentHookServer.getStatusSnapshot()).toEqual([
         expect.objectContaining({

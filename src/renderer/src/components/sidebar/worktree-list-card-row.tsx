@@ -2,6 +2,7 @@ import type React from 'react'
 import WorktreeCard, { type ActiveSurfaceVariant } from './WorktreeCard'
 import type { WorktreeListCardRowProps } from './worktree-list-types'
 import { PINNED_GROUP_KEY } from './worktree-list-groups'
+import { getWorktreeOptionId } from './worktree-list-row-dom'
 
 export function WorktreeListCardRow({
   itemRow,
@@ -98,7 +99,7 @@ export function WorktreeListCardRow({
   return (
     <div
       key={itemRow.rowKey}
-      id={`worktree-option-${itemRow.rowKey}`}
+      id={getWorktreeOptionId(itemRow.rowKey)}
       role="option"
       aria-selected={selectedWorktreeIds.has(itemRow.worktree.id)}
       aria-current={isActiveWorktree ? 'page' : undefined}

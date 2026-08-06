@@ -84,7 +84,7 @@ export type PaneKeyAliasEntry = {
   authorityVerified: boolean
 }
 
-// Why: co-located with the endpoint file in userData/agent-hooks/ so hook-server cross-restart artifacts stay together.
+// Why: co-located with the endpoint file in userData/agent-status/ so status cross-restart artifacts stay together.
 export const LAST_STATUS_FILE_NAME = 'last-status.json'
 export const ASSISTANT_MESSAGE_RETRY_ATTEMPTS = 5
 export const ASSISTANT_MESSAGE_RETRY_MS = 50

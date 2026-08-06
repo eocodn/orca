@@ -17,6 +17,7 @@ import { FolderPathStatusIndicator } from './worktree-list-host-header'
 import type { ImportedWorktreeCardActionState } from './imported-worktrees-card-actions'
 import type { NewExternalWorktreesInboxActionState } from './new-external-worktrees-inbox-actions'
 import type { WorktreeListContentRowProps } from './worktree-list-types'
+import { getWorktreeOptionId } from './worktree-list-row-dom'
 
 export function WorktreeListContentRow({
   itemKey,
@@ -173,7 +174,7 @@ export function WorktreeListFolderRow({
 }: WorktreeListFolderRowProps): React.JSX.Element {
   return (
     <div
-      id={`worktree-option-${folderWorktree.id}`}
+      id={getWorktreeOptionId(folderWorktree.id)}
       role="option"
       aria-selected={selectedWorktreeIds.has(folderWorktree.id)}
       aria-current={activeWorktreeId === folderWorktree.id ? 'page' : undefined}

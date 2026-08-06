@@ -3,7 +3,7 @@
  *
  * `recordCoalescedCrashBreadcrumb` does `coalescedBreadcrumbs.set(coalesceKey, …)`
  * with no TTL prune and no size cap. Production keys are `agent:${agentType}:${state}`,
- * and agentType reaches this store (via relay/SSH ingestRemote + OSC observed-status)
+ * and agentType reaches this store (via SSH ingestRemoteStatus + OSC observed-status)
  * as an OPEN string — only length-trimmed to 40 chars, never enum-checked — so the key
  * space is unbounded over a long multi-agent/SSH session. The only shrink path was the
  * test-only clear. (The sibling `breadcrumbs` array is already bounded to 30.)

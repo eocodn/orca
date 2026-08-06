@@ -1,4 +1,4 @@
-import type { AgentHookSource } from './agent-hook-relay'
+import type { AgentHookSource } from './agent-status-event'
 import type { AgentStatusState } from './agent-status-types'
 import type { TuiAgent } from './types'
 

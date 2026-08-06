@@ -8,6 +8,7 @@ import { ProjectHeaderActions } from './ProjectHeaderActions'
 import { FolderPathStatusIndicator } from './worktree-list-host-header'
 import { WorktreeListHeaderActions } from './worktree-list-header-actions'
 import type { WorktreeListHeaderRowProps } from './worktree-list-types'
+import { getWorktreeOptionId } from './worktree-list-row-dom'
 
 export function WorktreeListHeaderRow({
   row,
@@ -71,7 +72,7 @@ export function WorktreeListHeaderRow({
       style={isActiveStickyHeader ? undefined : { transform: getVirtualRowTransform(start) }}
     >
       <div
-        id={`worktree-option-${row.key}`}
+        id={getWorktreeOptionId(row.key)}
         role="button"
         tabIndex={0}
         aria-expanded={showHeaderCollapseAffordance ? !isHeaderCollapsed : undefined}
