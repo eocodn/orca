@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-export const RequestId = z.string().min(1)
-export const PathSchema = z.string().min(1)
+const NonBlank = z.string().refine((value) => value.trim().length > 0)
+export const RequestId = NonBlank
+export const PathSchema = NonBlank
 const SafeInteger = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
 const ExecutionTarget = z.enum(['windows-native', 'wsl2', 'ssh'])
 const WorkspaceKind = z.enum(['folder', 'git-worktree'])
