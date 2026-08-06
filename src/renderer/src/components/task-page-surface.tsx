@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useShallow } from 'zustand/react/shallow'
 import {
   AlertCircle,
@@ -37,14 +36,12 @@ import {
 import { toast } from 'sonner'
 
 import { useAppStore } from '@/store'
-import { useAllWorktrees, useRepoMap } from '@/store/selectors'
+import { useTaskPageStoreBindings } from './use-task-page-store-bindings'
+import { useTaskPageSourceSelection } from './use-task-page-source-selection'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
-import { getLocalPreflightContext, localPreflightContextKey } from '@/lib/local-preflight-context'
-import { getProviderRuntimeContextKey } from '@/lib/provider-runtime-context'
 import {
   getSettingsFocusedExecutionHostId,
-  parseExecutionHostId,
-  getRepoExecutionHostId
+  parseExecutionHostId
 } from '../../../shared/execution-host'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -99,7 +96,6 @@ import {
   getTaskSourceContextSummary
 } from './task-source-context-summary'
 import {
-  buildGitLabProviderIdentity,
   getGitHubWorkItemWorkspaceSeed,
   getGitLabWorkItemWorkspaceSeed,
   getJiraIssueWorkspaceSeed,
@@ -154,10 +150,7 @@ import PullRequestPage from '@/components/PullRequestPage'
 import GitLabItemDialog from '@/components/GitLabItemDialog'
 import ProjectViewWrapper from '@/components/github-project/ProjectViewWrapper'
 import { getSettingsForRepoRuntimeOwner } from '@/lib/repo-runtime-owner'
-import {
-  buildExecutionHostRegistry,
-  type ExecutionHostRegistryEntry
-} from '../../../shared/execution-host-registry'
+import { buildExecutionHostRegistry } from '../../../shared/execution-host-registry'
 import { getHostDisplayLabelOverrides } from '../../../shared/host-setting-overrides'
 import LinearIssueWorkspace from '@/components/LinearIssueWorkspace'
 import {
@@ -176,8 +169,6 @@ import {
 import { JiraIcon } from '@/components/icons/JiraIcon'
 import { cn } from '@/lib/utils'
 import {
-  getLinkedWorkItemSuggestedName,
-  getLinkedWorkItemWorkspaceName,
   getTaskPresetQuery,
   PER_REPO_FETCH_LIMIT,
   CROSS_REPO_DISPLAY_LIMIT
@@ -188,7 +179,6 @@ import {
   readLinearBoardIssueDragData,
   writeLinearBoardIssueDragData
 } from '@/lib/linear-board-drag-payload'
-import { projectHostSetupProjectionFromRepos } from '../../../shared/project-host-setup-projection'
 import { TASK_SOURCE_CONTEXT_RUNTIME_CAPABILITY } from '../../../shared/protocol-version'
 import {
   getTaskSourceCacheScope,
@@ -245,12 +235,6 @@ import {
 import { findTaskPageJiraIssue } from '@/components/task-page-jira-cache-selectors'
 import { getRepoBackedTaskEmptyState } from '@/components/task-page-empty-state'
 import {
-  getDefaultTaskRepoSelection,
-  getTaskEligibleRepos,
-  getTaskProjectPickerGroups,
-  normalizeTaskRepoSelection
-} from '@/components/task-page-default-repo-selection'
-import {
   getRepoBackedProviderAvailability,
   type RuntimeProviderPreflightStatus
 } from '@/components/task-source-provider-availability'
@@ -277,7 +261,6 @@ import {
 } from '@/components/task-page-jira-load-state'
 import { deriveTaskPagePRCheckSummary } from '@/components/task-page-pr-check-summary'
 import { presentGitHubPRMergeState } from '@/components/github-pr-merge-state'
-import { buildJiraCreateTextAdf } from '@/components/jira-create-adf'
 import {
   GITHUB_PR_MERGE_METHOD_LABELS,
   resolveGitHubPRMergeMethods
@@ -310,14 +293,13 @@ import type {
   TaskViewPresetId
 } from '../../../shared/types'
 import type { PreflightStatus } from '../../../preload/api-types'
-import type { GitLabProjectRef } from '../../../shared/gitlab-types'
 import {
   LINEAR_ISSUE_LIST_MAX,
   clampLinearIssueListLimit
 } from '../../../shared/linear-issue-read-limits'
 import { shouldSuppressEnterSubmit } from '@/lib/new-workspace-enter-guard'
 import { useContextualTour } from '@/components/contextual-tours/use-contextual-tour'
-import { getScreenSubmitShortcutLabel, isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
+import { isScreenSubmitShortcut } from '@/lib/screen-submit-shortcut'
 import {
   useRepoAssignees,
   useRepoLabels,
@@ -349,11 +331,7 @@ import {
 } from './jira-issue-sorter'
 import { TaskPageJiraSortControls } from './task-page-jira-sort-controls'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
-import {
-  normalizeVisibleTaskProviders,
-  restoreAvailableDefaultTaskProvider,
-  resolveVisibleTaskProvider
-} from '../../../shared/task-providers'
+import { resolveVisibleTaskProvider } from '../../../shared/task-providers'
 import { translate } from '@/i18n/i18n'
 import {
   formatRelativeTime,
@@ -366,27 +344,14 @@ import { groupLinearIssues, type LinearGroupSection } from './task-page-linear-g
 import { PaginationBar } from './task-page-pagination'
 import {
   buildJiraCreateCustomFields,
-  buildJiraCreateFieldValue,
   compareJiraProjectsByDisplayLabel,
-  findJiraCreateAllowedValue,
   getJiraCreateAllowedValueLabel,
-  getJiraCreateOptionPayload,
   getJiraProjectSelectionKey,
   isVisibleJiraCreateField
 } from './task-page-jira-create-model'
 import {
-  getGitHubModeButtons,
   getGitHubTaskKindPresets,
-  getGitLabIssueFilters,
-  getGitLabMRFilters,
-  getJiraPresets,
-  getLinearDisplayProperties,
-  getLinearGroupOptions,
-  getLinearModeOptions,
-  getLinearOrderOptions,
   getLinearPriorityLabel,
-  getLinearViewOptions,
-  getSourceOptions,
   type GitHubTaskKind,
   type GitLabIssueFilter,
   type GitLabTaskFilter,
@@ -2600,231 +2565,107 @@ const hasUpstreamCandidateDivergence = (
   !sameGitHubOwnerRepo(s.sources.originCandidate, s.sources.upstreamCandidate)
 
 export default function TaskPage(): React.JSX.Element {
-  useTranslation()
-  const settings = useAppStore((s) => s.settings)
-  const persistedUIReady = useAppStore((s) => s.persistedUIReady)
-  const taskResumeState = useAppStore((s) => s.taskResumeState)
-  const setTaskResumeState = useAppStore((s) => s.setTaskResumeState)
-  const pageData = useAppStore((s) => s.taskPageData)
-  const openTaskPage = useAppStore((s) => s.openTaskPage)
-  const closeTaskPage = useAppStore((s) => s.closeTaskPage)
-  const activeModal = useAppStore((s) => s.activeModal)
-  const repos = useAppStore((s) => s.repos)
-  const sshConnectionStates = useAppStore((s) => s.sshConnectionStates)
-  const sshTargetLabels = useAppStore((s) => s.sshTargetLabels)
-  const runtimeEnvironments = useAppStore((s) => s.runtimeEnvironments)
-  const runtimeStatusByEnvironmentId = useAppStore((s) => s.runtimeStatusByEnvironmentId)
-  const repoMap = useRepoMap()
-  const allWorktrees = useAllWorktrees()
-  const openModal = useAppStore((s) => s.openModal)
-  const updateSettings = useAppStore((s) => s.updateSettings)
-  const fetchWorkItemsAcrossRepos = useAppStore((s) => s.fetchWorkItemsAcrossRepos)
-  const fetchPRChecks = useAppStore((s) => s.fetchPRChecks)
-  const getCachedWorkItems = useAppStore((s) => s.getCachedWorkItems)
-  const setIssueSourcePreference = useAppStore((s) => s.setIssueSourcePreference)
-  // Why: bumped after cache eviction to re-run the fetch effect — eviction alone won't, since its deps don't include workItemsCache.
-  const workItemsInvalidationNonce = useAppStore((s) => s.workItemsInvalidationNonce)
-  const linearStatus = useAppStore((s) => s.linearStatus)
-  const linearStatusChecked = useAppStore((s) => s.linearStatusChecked)
-  const linearStatusContextKey = useAppStore((s) => s.linearStatusContextKey)
-  const preflightStatus = useAppStore((s) => s.preflightStatus)
-  const preflightStatusChecked = useAppStore((s) => s.preflightStatusChecked)
-  const preflightStatusContextKey = useAppStore((s) => s.preflightStatusContextKey)
-  const selectLinearWorkspace = useAppStore((s) => s.selectLinearWorkspace)
-  const searchLinearIssues = useAppStore((s) => s.searchLinearIssues)
-  const listLinearIssues = useAppStore((s) => s.listLinearIssues)
-  const linearListInvalidationToken = useAppStore((s) => s.linearListInvalidationToken)
-  const invalidateLinearIssueLists = useAppStore((s) => s.invalidateLinearIssueLists)
-  const getCachedLinearIssues = useAppStore((s) => s.getCachedLinearIssues)
-  const getCachedLinearTeams = useAppStore((s) => s.getCachedLinearTeams)
-  const listLinearTeams = useAppStore((s) => s.listLinearTeams)
-  const getCachedLinearProjects = useAppStore((s) => s.getCachedLinearProjects)
-  const listLinearProjectsFromStore = useAppStore((s) => s.listLinearProjects)
-  const fetchLinearProject = useAppStore((s) => s.fetchLinearProject)
-  const listLinearProjectIssues = useAppStore((s) => s.listLinearProjectIssues)
-  const getCachedLinearCustomViews = useAppStore((s) => s.getCachedLinearCustomViews)
-  const listLinearCustomViews = useAppStore((s) => s.listLinearCustomViews)
-  const fetchLinearCustomView = useAppStore((s) => s.fetchLinearCustomView)
-  const listLinearCustomViewIssues = useAppStore((s) => s.listLinearCustomViewIssues)
-  const listLinearCustomViewProjects = useAppStore((s) => s.listLinearCustomViewProjects)
-  const patchLinearIssue = useAppStore((s) => s.patchLinearIssue)
-  const checkLinearConnection = useAppStore((s) => s.checkLinearConnection)
-  const refreshPreflightStatus = useAppStore((s) => s.refreshPreflightStatus)
-  const expectedPreflightContextKey = useAppStore((s) =>
-    localPreflightContextKey(getLocalPreflightContext(s))
-  )
-  const jiraStatus = useAppStore((s) => s.jiraStatus)
-  const jiraStatusChecked = useAppStore((s) => s.jiraStatusChecked)
-  const jiraStatusContextKey = useAppStore((s) => s.jiraStatusContextKey)
-  const selectJiraSite = useAppStore((s) => s.selectJiraSite)
-  const searchJiraIssues = useAppStore((s) => s.searchJiraIssues)
-  const listJiraIssues = useAppStore((s) => s.listJiraIssues)
-  const checkJiraConnection = useAppStore((s) => s.checkJiraConnection)
-  const providerRuntimeContextKey = getProviderRuntimeContextKey(settings)
-  const providerRuntimeContextKeyRef = useRef(providerRuntimeContextKey)
-  providerRuntimeContextKeyRef.current = providerRuntimeContextKey
-  const linearStatusCurrent = linearStatusContextKey === providerRuntimeContextKey
-  const jiraStatusCurrent = jiraStatusContextKey === providerRuntimeContextKey
-  const preflightStatusCurrent = preflightStatusContextKey === expectedPreflightContextKey
-  const linearStatusReady = linearStatusCurrent && linearStatusChecked
-  const jiraStatusReady = jiraStatusCurrent && jiraStatusChecked
-  const linearConnected = linearStatusCurrent && linearStatus.connected
-  const jiraConnected = jiraStatusCurrent && jiraStatus.connected
-  const submitShortcutLabel = getScreenSubmitShortcutLabel()
-  const eligibleRepos = useMemo(() => getTaskEligibleRepos(repos), [repos])
-
-  // Why: initial selection precedence — explicit preselection > persisted defaultRepoSelection > all eligible; preselection wins so "open tasks for this repo" lands single-repo.
-  const resolvedInitialSelection = useMemo<ReadonlySet<string>>(() => {
-    const preferred = pageData.preselectedRepoId
-    if (preferred && eligibleRepos.some((repo) => repo.id === preferred)) {
-      return new Set([preferred])
-    }
-    const persisted = settings?.defaultRepoSelection
-    if (Array.isArray(persisted)) {
-      const filtered = persisted.filter((id) => eligibleRepos.some((r) => r.id === id))
-      if (filtered.length > 0) {
-        return normalizeTaskRepoSelection(eligibleRepos, new Set(filtered))
-      }
-      // Why: empty after filtering (all persisted repos removed) falls through to the automatic default so the page never renders an empty selection.
-    }
-    return getDefaultTaskRepoSelection(eligibleRepos)
-  }, [eligibleRepos, pageData.preselectedRepoId, settings?.defaultRepoSelection])
-
-  const [repoSelection, setRepoSelection] = useState<ReadonlySet<string>>(resolvedInitialSelection)
-  const taskPickerGroups = useMemo(
-    () => getTaskProjectPickerGroups(eligibleRepos, repoSelection),
-    [eligibleRepos, repoSelection]
-  )
-  const taskPickerRepos = useMemo(
-    () => taskPickerGroups.map((group) => group.repo),
-    [taskPickerGroups]
-  )
-
-  // Why: prune removed repos and preserve sticky-all (selection == all projects stays == all), without recreating the Set each time and churning the fetch effect.
-  const prevTaskPickerCountRef = useRef(taskPickerRepos.length)
-  useEffect(() => {
-    const prevCount = prevTaskPickerCountRef.current
-    prevTaskPickerCountRef.current = taskPickerRepos.length
-    const eligibleIds = new Set(eligibleRepos.map((r) => r.id))
-    const wasAll = repoSelection.size === prevCount && prevCount > 0
-    const pruned = new Set<string>()
-    for (const id of repoSelection) {
-      if (eligibleIds.has(id)) {
-        pruned.add(id)
-      }
-    }
-    if (wasAll) {
-      const allNow = new Set(taskPickerRepos.map((repo) => repo.id))
-      if (!areStringSetsEqual(allNow, repoSelection)) {
-        setRepoSelection(allNow)
-      }
-      return
-    }
-    if (pruned.size === 0 && eligibleIds.size === 0) {
-      return
-    }
-    const normalized = normalizeTaskRepoSelection(eligibleRepos, pruned)
-    if (!areStringSetsEqual(normalized, repoSelection)) {
-      setRepoSelection(normalized)
-    }
-  }, [eligibleRepos, repoSelection, taskPickerRepos])
-
-  const selectedRepos = useMemo(
-    () => eligibleRepos.filter((r) => repoSelection.has(r.id)),
-    [eligibleRepos, repoSelection]
-  )
-
-  // Why: many affordances need *a* repo; use the first selected as default, while cross-repo dialogs still let the user override per-action.
-  const primaryRepo = selectedRepos[0] ?? null
-  const linearWorkspaces = linearStatus.workspaces ?? []
-  const selectedLinearWorkspaceId =
-    linearStatus.selectedWorkspaceId ??
-    linearStatus.activeWorkspaceId ??
-    linearWorkspaces[0]?.id ??
-    null
-  const selectedLinearWorkspace =
-    selectedLinearWorkspaceId && selectedLinearWorkspaceId !== 'all'
-      ? (linearWorkspaces.find((workspace) => workspace.id === selectedLinearWorkspaceId) ?? null)
-      : null
-  const jiraSites = useMemo(() => jiraStatus.sites ?? [], [jiraStatus.sites])
-  const selectedJiraSiteId =
-    jiraStatus.selectedSiteId ?? jiraStatus.activeSiteId ?? jiraSites[0]?.id ?? null
-  const selectedJiraSite =
-    selectedJiraSiteId && selectedJiraSiteId !== 'all'
-      ? (jiraSites.find((site) => site.id === selectedJiraSiteId) ?? null)
-      : null
-  const preferredVisibleTaskProviders = useMemo(
-    () => normalizeVisibleTaskProviders(settings?.visibleTaskProviders),
-    [settings?.visibleTaskProviders]
-  )
-  const defaultTaskSource = settings?.defaultTaskSource ?? 'github'
-  const visibleTaskProviders = useMemo(
-    () =>
-      restoreAvailableDefaultTaskProvider(
-        preferredVisibleTaskProviders,
-        {
-          gitlabInstalled: preflightStatusCurrent && preflightStatus?.glab?.installed === true,
-          linearConnected: linearConnected === true
-        },
-        defaultTaskSource
-      ),
-    [
-      defaultTaskSource,
-      linearConnected,
-      preferredVisibleTaskProviders,
-      preflightStatusCurrent,
-      preflightStatus?.glab?.installed
-    ]
-  )
-  const sourceOptions = getSourceOptions()
-  const githubModeButtons = getGitHubModeButtons()
-  const linearModeOptions = getLinearModeOptions()
-  const jiraPresets = getJiraPresets()
-  const gitLabIssueFilters = getGitLabIssueFilters()
-  const gitLabMRFilters = getGitLabMRFilters()
-  const linearViewOptions = getLinearViewOptions()
-  const linearGroupOptions = getLinearGroupOptions()
-  const linearOrderOptions = getLinearOrderOptions()
-  const linearDisplayPropertyOptions = getLinearDisplayProperties()
-  const visibleSourceOptions = useMemo(
-    () => sourceOptions.filter((source) => visibleTaskProviders.includes(source.id)),
-    [sourceOptions, visibleTaskProviders]
-  )
-  const hideTaskSource = useCallback(
-    (provider: TaskProvider, label: string) => {
-      const visibleWithoutProvider = preferredVisibleTaskProviders.filter(
-        (visibleProvider) => visibleProvider !== provider
-      )
-      // Why: an empty provider list normalizes to "all providers", so keep one other source visible or hiding this one has no effect.
-      const nextVisibleTaskProviders: TaskProvider[] =
-        visibleWithoutProvider.length > 0 ? visibleWithoutProvider : ['github']
-      const nextDefaultTaskSource = resolveVisibleTaskProvider(
-        defaultTaskSource,
-        nextVisibleTaskProviders
-      )
-
-      void updateSettings({
-        visibleTaskProviders: nextVisibleTaskProviders,
-        defaultTaskSource: nextDefaultTaskSource
-      }).catch(() => {
-        toast.error(
-          translate('auto.components.TaskPage.e9139db03f', 'Failed to hide {{value0}}.', {
-            value0: label
-          })
-        )
-      })
-    },
-    [defaultTaskSource, preferredVisibleTaskProviders, updateSettings]
-  )
-
-  // Why: seed preset + query synchronously so the first fetch issues one request; a prior post-mount re-seed caused a throwaway empty-query fetch, doubling time-to-first-paint.
-  const defaultTaskViewPreset = normalizeGitHubTaskPreset(settings?.defaultTaskViewPreset ?? 'all')
-  const initialTaskQuery = getTaskPresetQuery(defaultTaskViewPreset)
-
-  const preferredTaskSource = pageData.taskSource ?? defaultTaskSource
-  const [taskSource, setTaskSource] = useState<TaskProvider>(
-    resolveVisibleTaskProvider(preferredTaskSource, visibleTaskProviders)
-  )
+  const taskPageStoreBindings = useTaskPageStoreBindings()
+  const {
+    settings,
+    persistedUIReady,
+    taskResumeState,
+    setTaskResumeState,
+    pageData,
+    openTaskPage,
+    closeTaskPage,
+    activeModal,
+    repos,
+    sshConnectionStates,
+    sshTargetLabels,
+    runtimeEnvironments,
+    runtimeStatusByEnvironmentId,
+    repoMap,
+    allWorktrees,
+    openModal,
+    updateSettings,
+    fetchWorkItemsAcrossRepos,
+    fetchPRChecks,
+    getCachedWorkItems,
+    setIssueSourcePreference,
+    workItemsInvalidationNonce,
+    linearStatus,
+    linearStatusChecked,
+    linearStatusContextKey,
+    preflightStatus,
+    preflightStatusChecked,
+    preflightStatusContextKey,
+    selectLinearWorkspace,
+    searchLinearIssues,
+    listLinearIssues,
+    linearListInvalidationToken,
+    invalidateLinearIssueLists,
+    getCachedLinearIssues,
+    getCachedLinearTeams,
+    listLinearTeams,
+    getCachedLinearProjects,
+    listLinearProjectsFromStore,
+    fetchLinearProject,
+    listLinearProjectIssues,
+    getCachedLinearCustomViews,
+    listLinearCustomViews,
+    fetchLinearCustomView,
+    listLinearCustomViewIssues,
+    listLinearCustomViewProjects,
+    patchLinearIssue,
+    checkLinearConnection,
+    refreshPreflightStatus,
+    expectedPreflightContextKey,
+    jiraStatus,
+    jiraStatusChecked,
+    jiraStatusContextKey,
+    selectJiraSite,
+    searchJiraIssues,
+    listJiraIssues,
+    checkJiraConnection
+  } = taskPageStoreBindings
+  const {
+    providerRuntimeContextKey,
+    providerRuntimeContextKeyRef,
+    preflightStatusCurrent,
+    linearStatusReady,
+    jiraStatusReady,
+    linearConnected,
+    jiraConnected,
+    submitShortcutLabel,
+    eligibleRepos,
+    resolvedInitialSelection,
+    taskPickerGroups,
+    taskPickerRepos,
+    repoSelection,
+    setRepoSelection,
+    selectedRepos,
+    primaryRepo,
+    linearWorkspaces,
+    selectedLinearWorkspaceId,
+    selectedLinearWorkspace,
+    jiraSites,
+    selectedJiraSiteId,
+    selectedJiraSite,
+    visibleTaskProviders,
+    sourceOptions,
+    githubModeButtons,
+    linearModeOptions,
+    jiraPresets,
+    gitLabIssueFilters,
+    gitLabMRFilters,
+    linearViewOptions,
+    linearGroupOptions,
+    linearOrderOptions,
+    linearDisplayPropertyOptions,
+    visibleSourceOptions,
+    hideTaskSource,
+    defaultTaskViewPreset,
+    initialTaskQuery,
+    preferredTaskSource,
+    taskSource,
+    setTaskSource
+  } = useTaskPageSourceSelection(taskPageStoreBindings)
   const runtimePreflightMountedRef = useRef(true)
   const runtimePreflightRequestedHostIdsRef = useRef<Set<TaskSourceContext['hostId']>>(new Set())
   const [runtimePreflightStatusByHostId, setRuntimePreflightStatusByHostId] = useState<

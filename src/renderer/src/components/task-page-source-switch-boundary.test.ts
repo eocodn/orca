@@ -2,7 +2,19 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'TaskPage.tsx'), 'utf8')
+const TASK_PAGE_SOURCE = readFileSync(join(__dirname, 'task-page-surface.tsx'), 'utf8')
+const TASK_PAGE_SOURCE_SELECTION = readFileSync(
+  join(__dirname, 'use-task-page-source-selection.ts'),
+  'utf8'
+)
+const TASK_PAGE_STORE_BINDINGS = readFileSync(
+  join(__dirname, 'use-task-page-store-bindings.ts'),
+  'utf8'
+)
+const TASK_PAGE_SOURCE_CONTEXT = readFileSync(
+  join(__dirname, 'task-page-source-context.ts'),
+  'utf8'
+)
 
 function sourceBetween(source: string, startPattern: string, endPattern: string): string {
   const start = source.indexOf(startPattern)
@@ -13,6 +25,15 @@ function sourceBetween(source: string, startPattern: string, endPattern: string)
 }
 
 describe('TaskPage source switching host boundary', () => {
+  it('keeps store bindings and source precedence in the controller modules', () => {
+    expect(TASK_PAGE_STORE_BINDINGS.split('\n').length).toBeLessThan(600)
+    expect(TASK_PAGE_SOURCE_SELECTION.split('\n').length).toBeLessThan(600)
+    expect(TASK_PAGE_SOURCE).toContain('useTaskPageStoreBindings()')
+    expect(TASK_PAGE_SOURCE).toContain('useTaskPageSourceSelection(taskPageStoreBindings)')
+    expect(TASK_PAGE_SOURCE_SELECTION).toContain('pageData.taskSource ?? defaultTaskSource')
+    expect(TASK_PAGE_SOURCE_SELECTION).toContain('resolveVisibleTaskProvider(preferredTaskSource')
+  })
+
   it('renders GitHub item details from the task-detail page owner only', () => {
     const detailSection = sourceBetween(
       TASK_PAGE_SOURCE,
@@ -51,7 +72,7 @@ describe('TaskPage source switching host boundary', () => {
 
   it('treats missing remote task-source capability as source unavailable', () => {
     const section = sourceBetween(
-      TASK_PAGE_SOURCE,
+      TASK_PAGE_SOURCE_CONTEXT,
       'function getTaskSourceHostAvailabilityForHost',
       'function getTaskPageRepoCacheInput'
     )
@@ -76,7 +97,7 @@ describe('TaskPage source switching host boundary', () => {
 
   it('preserves exact GitLab project identity when opening or starting from an item', () => {
     const sourceContextBuilder = sourceBetween(
-      TASK_PAGE_SOURCE,
+      TASK_PAGE_SOURCE_CONTEXT,
       'function getTaskPageRepoSourceContext',
       'function getTaskSourceHostAvailabilityForHost'
     )
