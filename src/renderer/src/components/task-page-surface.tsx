@@ -68,6 +68,7 @@ import { useTaskPageLinearCustomViewDataState } from './use-task-page-linear-cus
 import { useTaskPageLinearProjectListDataState } from './use-task-page-linear-project-list-data-state'
 import { useTaskPageLinearIssueListDataState } from './use-task-page-linear-issue-list-data-state'
 import { useTaskPageLinearIssuePaginationState } from './use-task-page-linear-issue-pagination-state'
+import { useTaskPageGitHubPRChecksState } from './use-task-page-github-pr-checks-state'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -111,7 +112,6 @@ import {
 } from '@/components/task-page-new-issue-draft'
 import { getRepoBackedTaskEmptyState } from '@/components/task-page-empty-state'
 import type { TaskPageJiraLoadError } from '@/components/task-page-jira-load-state'
-import { deriveTaskPagePRCheckSummary } from '@/components/task-page-pr-check-summary'
 import type {
   GitHubWorkItem,
   GitLabWorkItem,
@@ -188,7 +188,6 @@ import {
 
 const TASK_SEARCH_DEBOUNCE_MS = 300
 const LINEAR_ITEM_LIMIT = 36
-const PR_CHECKS_EAGER_PREFETCH_LIMIT = 20
 
 const GITHUB_TASK_GRID_CLASS =
   'min-w-[790px] grid-cols-[72px_minmax(320px,1fr)_84px_100px_92px_122px]'
@@ -1655,47 +1654,15 @@ export default function TaskPage(): React.JSX.Element {
     ? GITHUB_PR_TASK_GRID_CLASS
     : GITHUB_TASK_GRID_CLASS
 
-  const ensurePRChecksLoaded = useCallback(
-    (item: GitHubWorkItem): void => {
-      if (item.type !== 'pr' || item.checksSummary) {
-        return
-      }
-      const repo = repoMap.get(item.repoId)
-      if (!repo) {
-        return
-      }
-      const requestedHeadSha = item.headSha
-      const requestedPRRepo = item.prRepo ?? null
-      void fetchPRChecks(
-        repo.path,
-        item.number,
-        item.branchName,
-        item.headSha,
-        item.prRepo ?? null,
-        { repoId: repo.id, sourceContext: getTaskPageRepoSourceContext(repo, 'github') }
-      ).then((checks) => {
-        patchTaskPageWorkItemRows(
-          { id: item.id, repoId: item.repoId },
-          { checksSummary: deriveTaskPagePRCheckSummary(checks) },
-          (currentItem) =>
-            currentItem.type === 'pr' &&
-            currentItem.headSha === requestedHeadSha &&
-            sameOptionalGitHubOwnerRepo(currentItem.prRepo, requestedPRRepo)
-        )
-      })
-    },
-    [fetchPRChecks, patchTaskPageWorkItemRows, repoMap]
-  )
-
-  useEffect(() => {
-    if (taskSource !== 'github' || githubMode !== 'items' || !showPRManagementColumns) {
-      return
-    }
-
-    for (const item of filteredWorkItems.slice(0, PR_CHECKS_EAGER_PREFETCH_LIMIT)) {
-      ensurePRChecksLoaded(item)
-    }
-  }, [ensurePRChecksLoaded, filteredWorkItems, githubMode, showPRManagementColumns, taskSource])
+  const { ensurePRChecksLoaded } = useTaskPageGitHubPRChecksState({
+    fetchPRChecks,
+    filteredWorkItems,
+    githubMode,
+    patchTaskPageWorkItemRows,
+    repoMap,
+    showPRManagementColumns,
+    taskSource
+  })
 
   let lastLoadedPageIndex = 0
   for (let index = 0; index < pages.length; index += 1) {
