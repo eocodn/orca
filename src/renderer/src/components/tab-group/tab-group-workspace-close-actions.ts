@@ -103,8 +103,6 @@ export function useTabGroupWorkspaceCloseActions(
         destroyWorkspaceWebviews(browserState.browserPagesByWorkspace, item.entityId)
         closeBrowserTab(item.entityId)
         closeUnifiedTab(item.id)
-      } else if (item.contentType === 'simulator') {
-        closeUnifiedTab(item.id)
       } else {
         const canCloseTab = closeEditorIfUnreferenced(item.entityId, item.id)
         if (!canCloseTab) {
@@ -164,8 +162,6 @@ export function useTabGroupWorkspaceCloseActions(
           closeUnifiedTab(item.id)
         } else if (item.contentType === 'terminal') {
           closeTab(item.entityId)
-        } else if (item.contentType === 'simulator') {
-          closeUnifiedTab(item.id)
         } else {
           const canCloseTab = closeEditorIfUnreferenced(item.entityId, item.id)
           if (canCloseTab) {
@@ -252,7 +248,6 @@ export function useTabGroupWorkspaceCloseActions(
     },
     [closeMany, group, groupTabs]
   )
-
 
   return {
     closeEditorIfUnreferenced,

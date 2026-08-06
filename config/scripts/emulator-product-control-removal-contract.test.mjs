@@ -22,7 +22,12 @@ const rendererSimulatorRemovalFiles = [
   'src/renderer/src/components/floating-terminal/floating-terminal-panel-state.ts',
   'src/renderer/src/components/floating-terminal/floating-terminal-panel-tab-actions.ts',
   'src/renderer/src/components/floating-terminal/floating-terminal-panel-render-content.tsx',
-  'src/renderer/src/components/floating-terminal/floating-terminal-panel-render-titlebar.tsx'
+  'src/renderer/src/components/floating-terminal/floating-terminal-panel-render-titlebar.tsx',
+  'src/renderer/src/components/tab-group/tab-group-workspace-close-actions.ts',
+  'src/renderer/src/components/tab-group/tab-group-workspace-activation-actions.ts',
+  'src/renderer/src/components/tab-group/tab-drag-preview-activation.ts',
+  'src/renderer/src/components/tab-group/tab-drag-data.ts',
+  'src/renderer/src/web/web-preload-ui-apis.ts'
 ]
 
 const retiredSimulatorTests = [
@@ -58,8 +63,10 @@ describe('emulator product-control removal contract', () => {
   })
 
   it('closes renderer imports and branches for the removed simulator surface', () => {
-    const staleSimulatorImport = /(?:simulator-palette-search|open-mobile-emulator-tab|ensure-simulator-tab|emulator-pane|MobileEmulatorTabIntroCallout|mobile-emulator-tab-intro-visibility)/
-    const staleSimulatorBranch = /mobileEmulatorEnabled|newSimulator|contentType\s*!==?\s*['"]simulator['"]|contentType\s*===\s*['"]simulator['"]|['"]simulator['"]\s*\)|['"]simulator['"]\s*\]/
+    const staleSimulatorImport =
+      /(?:simulator-palette-search|open-mobile-emulator-tab|ensure-simulator-tab|emulator-pane|MobileEmulatorTabIntroCallout|mobile-emulator-tab-intro-visibility)/
+    const staleSimulatorBranch =
+      /mobileEmulatorEnabled|newSimulator|onNewSimulatorTab|activeSimulatorTab|contentType\s*!==?\s*['"]simulator['"]|contentType\s*===\s*['"]simulator['"]|['"]simulator['"]\s*\)|['"]simulator['"]\s*\]/
     for (const relativePath of rendererSimulatorRemovalFiles) {
       const source = readProjectFile(relativePath)
       expect(source, relativePath).not.toMatch(staleSimulatorImport)
