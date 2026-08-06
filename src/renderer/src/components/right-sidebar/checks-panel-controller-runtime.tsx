@@ -62,7 +62,6 @@ import { resolveSourceControlLaunchPlatform } from '@/lib/source-control-launch-
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { getPullRequestGenerationRecordKey, getPullRequestGenerationSeedRestoreKey } from '@/store/slices/pull-request-generation'
-import { stripBaseRef, useCreatePullRequestDialogFields } from './useCreatePullRequestDialogFields'
 import { localizedHostedReviewCopy } from '@/i18n/hosted-review-localized-copy'
 import type { PRCommentGroup } from '@/lib/pr-comment-groups'
 import { renderChecksPanel } from './checks-panel-runtime-render'
