@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes PTY resize forwarding through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-resize-forwarding-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionResizeForwardingController } from './pty-connection-resize-forwarding-controller'"
+    )
+    expect(orchestrator).not.toContain('const forwardPtyResize =')
+    expect(orchestrator).not.toContain('const onHeldPtyResizeFlush =')
+    expect(controller).toContain('export function createPtyConnectionResizeForwardingController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes remote viewport claim state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

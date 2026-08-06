@@ -91,11 +91,6 @@ import {
   windowsEastAsianOutputPrefersRenderRefresh
 } from '@/lib/pane-manager/terminal-complex-script'
 import {
-  PANE_PTY_RESIZE_HOLD_FLUSH_EVENT,
-  queuePanePtyResizeIfHeld,
-  type PanePtyResizeHoldFlushDetail
-} from '@/lib/pane-manager/pane-pty-resize-hold'
-import {
   buildPostReplayLiveAgentReattachReset,
   POST_REPLAY_LIVE_AGENT_SNAPSHOT_RESET,
   POST_REPLAY_LIVE_SNAPSHOT_RESET,
@@ -329,6 +324,7 @@ import { createPtyConnectionDirectSshRetryController } from './pty-connection-di
 import { createPtyConnectionAgentNotificationController } from './pty-connection-agent-notification-controller'
 import { createPtyConnectionExitController } from './pty-connection-exit-controller'
 import { createPtyConnectionRemoteViewportClaimController } from './pty-connection-remote-viewport-claim-controller'
+import { createPtyConnectionResizeForwardingController } from './pty-connection-resize-forwarding-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2422,59 +2418,18 @@ export function connectPanePty(
     getCurrentTransport: () => deps.paneTransportsRef.current.get(pane.id)
   })
 
-  const shouldSuppressDesktopPtyResize = (): boolean => {
-    const currentPtyId = transport.getPtyId()
-    return Boolean(
-      currentPtyId && (getFitOverrideForPty(currentPtyId) || isPtyLocked(currentPtyId))
-    )
-  }
-
-  const isRendererPtyResizeAuthoritative = (): boolean => {
-    if (deps.isVisibleRef.current) {
-      return true
-    }
-    // Why: hidden-tab layout churn is not authoritative; visible resume
-    // owns correction, and hidden SIGWINCH can reset full-screen TUIs.
-    return false
-  }
-
-  const forwardPtyResize = (cols: number, rows: number): void => {
-    if (!isRendererPtyResizeAuthoritative()) {
-      return
-    }
-    // Why: when a mobile-fit override is active OR mobile is currently the
-    // driver of this PTY, the PTY is already at phone dims and any desktop
-    // resize is wrong. Suppress resize forwarding to avoid spurious SIGWINCH
-    // signals (TUI flicker / wrap corruption). Both checks are needed:
-    // - getFitOverrideForPty covers the "phone-fit dims" state.
-    // - isPtyLocked covers the broader "mobile driving" state, including
-    //   transitions where override may not be set (e.g. legacy code paths).
-    // The pty:resize IPC has a defense-in-depth twin. See
-    // docs/mobile-presence-lock.md.
-    if (shouldSuppressDesktopPtyResize()) {
-      return
-    }
-    if (queuePanePtyResizeIfHeld(pane.container, cols, rows)) {
-      return
-    }
-    transport.resize(cols, rows, { claim: true })
-  }
-
-  const onHeldPtyResizeFlush = (event: Event): void => {
-    const detail = (event as CustomEvent<PanePtyResizeHoldFlushDetail>).detail
-    if (!detail) {
-      return
-    }
-    forwardPtyResize(detail.cols, detail.rows)
-  }
-  pane.container.addEventListener(PANE_PTY_RESIZE_HOLD_FLUSH_EVENT, onHeldPtyResizeFlush)
-
-  const onResizeDisposable = pane.terminal.onResize(({ cols, rows }) => {
-    if (suppressStructuralReplayPtyResize || suppressViewportClaimTerminalResize) {
-      return
-    }
-    forwardPtyResize(cols, rows)
+  const resizeForwardingController = createPtyConnectionResizeForwardingController({
+    pane,
+    deps,
+    transport,
+    shouldSkipTerminalResize: () =>
+      suppressStructuralReplayPtyResize || suppressViewportClaimTerminalResize
   })
+  const {
+    forward: forwardPtyResize,
+    shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
+    isAuthoritative: isRendererPtyResizeAuthoritative
+  } = resizeForwardingController
 
   // Why: a rewrite chunk can enter AND exit the alternate screen in one parse
   // (fast-quitting TUI), netting buffer.active.type back to 'normal'; counting
@@ -6937,9 +6892,8 @@ export function connectPanePty(
       onDataDisposable.dispose()
       userInputActivityDisposable?.dispose()
       terminalCapabilityRepliesDisposable.dispose()
-      onResizeDisposable.dispose()
+      resizeForwardingController.dispose()
       onBufferChangeDisposable?.dispose()
-      pane.container.removeEventListener(PANE_PTY_RESIZE_HOLD_FLUSH_EVENT, onHeldPtyResizeFlush)
       geometryReportObserver?.disconnect()
       if (pendingGeometryReportRaf !== null) {
         cancelAnimationFrame(pendingGeometryReportRaf)
