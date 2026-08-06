@@ -4,14 +4,7 @@ import { CircleX } from 'lucide-react'
 import { useAppStore } from '@/store'
 import { createLineageToggleHandlerCache } from './worktree-lineage-toggle-handler-cache'
 import { reuseArrayIfEqual } from './worktree-agent-row-selectors'
-import type { AppState } from '@/store/types'
-import {
-  getAllWorktreesFromState,
-  useAllWorktrees,
-  useProjectHostSetupProjection,
-  useRepoMap,
-  useWorktreeMap
-} from '@/store/selectors'
+import { useProjectHostSetupProjection } from '@/store/selectors'
 import { WorktreeSidebarDropIndicator } from './WorktreeSidebarDropIndicator'
 import {
   getProjectGroupHeaderSectionEndByGroupId,
@@ -27,22 +20,13 @@ import type {
   WorkspaceStatus
 } from '../../../../shared/types'
 import { DEFAULT_SHOW_SLEEPING_WORKSPACES } from '../../../../shared/constants'
-import { buildWorktreeComparator, compareWorktreeSortLabel } from './smart-sort'
-import {
-  buildAttentionByWorktree,
-  hasFreshAttributedAgentStatus,
-  type WorktreeAttention
-} from './smart-attention'
-import { tabHasLivePty } from '@/lib/tab-has-live-pty'
-import { deriveRunningAgentSendTargets } from '@/lib/running-agent-targets'
 import { rightSidebarShowsPullRequestData } from '@/lib/right-sidebar-visibility'
 import {
   type Row,
   PINNED_GROUP_KEY,
   buildRows,
   getGroupKeysForWorktree,
-  getLineageGroupKey,
-  getPinnedWorktreeDisplayPolicy
+  getLineageGroupKey
 } from './worktree-list-groups'
 import {
   buildLineageRowRekeyMap,
@@ -61,7 +45,6 @@ import {
 import { useWorkspaceStatusDocumentDrop } from './use-workspace-status-drop'
 import {
   computeClearFilterActions,
-  computeVisibleWorktreeIds,
   setVisibleWorktreeIds,
   sidebarHasActiveFilters
 } from './visible-worktrees'
@@ -69,13 +52,7 @@ import {
   getCyclicProjectedWorktreeLineageIds,
   getWorktreeLineageAncestors
 } from './worktree-lineage-projection'
-import { getWorktreeIdsWithLiveAgent } from '@/lib/worktree-activity-state'
 import { getEmptyProjectPlaceholderRepoIds } from './empty-project-placeholder-repos'
-import {
-  getVisibleWorktreeBrowserActivityTabs,
-  getVisibleWorktreeTerminalActivityTabs
-} from './visible-worktree-activity-inputs'
-import { selectWorktreeListReviewCacheInputs } from './worktree-list-review-cache-inputs'
 import {
   VIRTUALIZED_SCROLL_ANCHOR_RECORD_EVENT,
   useVirtualizedScrollAnchor,
@@ -109,7 +86,6 @@ import {
   pruneWorktreeSelection,
   updateWorktreeSelection
 } from './worktree-multi-selection'
-import { persistWorktreeSortOrderByHost } from '@/lib/worktree-sort-order-persistence'
 import {
   getRepoExecutionHostId,
   getSettingsFocusedExecutionHostId,
@@ -156,7 +132,8 @@ import { addHostSectionRows } from './host-section-rows'
 import { orderHostSectionOptions } from './host-section-order'
 import { buildSidebarHostOptions } from './sidebar-host-options'
 import { translate } from '@/i18n/i18n'
-import { folderWorkspaceKey, getActiveSidebarWorkspaceId } from '../../../../shared/workspace-scope'
+import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
+import { useShallow } from 'zustand/react/shallow'
 import { getHostDisplayLabelOverrides } from '../../../../shared/host-setting-overrides'
 import { isConfirmedStaleFolderPathStatus } from '../../../../shared/folder-workspace-path-status'
 import { getKnownSidebarWorktreeById } from './worktree-list-folder-reveal'
@@ -186,6 +163,7 @@ import { useWorktreeListPointerDragController } from './use-worktree-list-pointe
 import { useWorktreeListStatusDrop } from './use-worktree-list-status-drop'
 import { useWorktreeListNativeDrag } from './use-worktree-list-native-drag'
 import { useWorktreeListNativeDocument } from './use-worktree-list-native-document'
+import { useWorktreeListSource } from './use-worktree-list-source'
 
 export {
   countRecordKeysByReference,
@@ -223,14 +201,7 @@ function useReusedArrayIdentity<T>(next: T[]): T[] {
 }
 
 // Debounce re-sort after a sortEpoch bump so background score changes don't jar row positions.
-const SORT_SETTLE_MS = 3_000
 const EMPTY_PROJECT_GROUPS: readonly ProjectGroup[] = []
-const EMPTY_AGENT_STATUS_BY_PANE_KEY: AppState['agentStatusByPaneKey'] = {}
-const EMPTY_WORKTREE_ID_SET: ReadonlySet<string> = new Set()
-const EMPTY_TABS_BY_WORKTREE: AppState['tabsByWorktree'] = {}
-const EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID: AppState['terminalLayoutsByTabId'] = {}
-const EMPTY_PTY_IDS_BY_TAB_ID: AppState['ptyIdsByTabId'] = {}
-const EMPTY_RUNTIME_PANE_TITLES_BY_TAB_ID: AppState['runtimePaneTitlesByTabId'] = {}
 const NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK = (): void => {}
 const WORKTREE_SIDEBAR_SCROLL_STYLE: React.CSSProperties = {
   // Why: TanStack Virtual owns scroll correction; native overflow anchoring fights it and causes jumps.
@@ -736,7 +707,12 @@ const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktreeViewp
     worktreeDragSessionRef.current = null
     statusDropAnchorsRef.current.clear()
     setWorktreeDragState(WORKTREE_ROW_DRAG_INITIAL_STATE)
-  }, [cancelWorktreeNativeAutoscroll, cleanupWorktreePointerDrag])
+  }, [
+    cancelWorktreeNativeAutoscroll,
+    cleanupWorktreePointerDrag,
+    statusDropAnchorsRef,
+    worktreeDragSessionRef
+  ])
 
   const setScrollRootRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -1668,277 +1644,19 @@ const WorktreeList = React.memo(function WorktreeList({
   onWorkspaceBoardDragPreviewCommit = NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK,
   onWorkspaceBoardDragPreviewCancel = NOOP_WORKSPACE_BOARD_DRAG_PREVIEW_CALLBACK
 }: WorktreeListProps) {
-  // ── Granular selectors (each is a primitive or shallow-stable ref) ──
-  const allWorktrees = useAllWorktrees()
-  const repoMap = useRepoMap()
-  const worktreeMap = useWorktreeMap()
-  const worktreeLineageById = useAppStore((s) => s.worktreeLineageById)
-  const workspaceLineageByChildKey = useAppStore((s) => s.workspaceLineageByChildKey)
-  const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
-  const detectedWorktreesByRepo = useAppStore((s) => s.detectedWorktreesByRepo)
-  const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
-  const activeWorkspaceKey = useAppStore((s) => s.activeWorkspaceKey)
-  const currentSidebarWorktreeId = useMemo(
-    () => getActiveSidebarWorkspaceId(activeWorkspaceKey, activeWorktreeId),
-    [activeWorkspaceKey, activeWorktreeId]
-  )
-  const groupBy = useAppStore((s) => s.groupBy)
-  const setGroupBy = useAppStore((s) => s.setGroupBy)
-  const workspaceHostScope = useAppStore((s) => s.workspaceHostScope)
-  const visibleWorkspaceHostIds = useAppStore((s) => s.visibleWorkspaceHostIds)
-  const workspaceHostOrder = useAppStore((s) => s.workspaceHostOrder)
-  const setWorkspaceHostOrder = useAppStore((s) => s.setWorkspaceHostOrder)
-  const workspaceStatuses = useAppStore((s) => s.workspaceStatuses)
-  const sortBy = useAppStore((s) => s.sortBy)
-  const setSortBy = useAppStore((s) => s.setSortBy)
-  const projectOrderBy = useAppStore((s) => s.projectOrderBy)
-  const showSleepingWorkspaces = useAppStore((s) => s.showSleepingWorkspaces)
-  const agentStatusEpoch = useAppStore((s) => (!showSleepingWorkspaces ? s.agentStatusEpoch : 0))
-  const hideDefaultBranchWorkspace = useAppStore((s) => s.hideDefaultBranchWorkspace)
-  const hideAutomationGeneratedWorkspaces = useAppStore((s) => s.hideAutomationGeneratedWorkspaces)
-  const hideCliCreatedWorkspaces = useAppStore((s) => s.hideCliCreatedWorkspaces)
-  const hideDetachedHeadWorkspaces = useAppStore((s) => s.hideDetachedHeadWorkspaces)
-  const filterRepoIds = useAppStore((s) => s.filterRepoIds)
-  const openModal = useAppStore((s) => s.openModal)
-  const openSettingsPage = useAppStore((s) => s.openSettingsPage)
-  const openSettingsTarget = useAppStore((s) => s.openSettingsTarget)
-  const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
-  const updateWorktreesMeta = useAppStore((s) => s.updateWorktreesMeta)
-  const updateRepo = useAppStore((s) => s.updateRepo)
-  const fetchWorktrees = useAppStore((s) => s.fetchWorktrees)
-  const activeView = useAppStore((s) => s.activeView)
-  const activeModal = useAppStore((s) => s.activeModal)
-  const pendingRevealWorktree = useAppStore((s) => s.pendingRevealWorktree)
-  const pendingRevealSidebarRow = useAppStore((s) => s.pendingRevealSidebarRow)
-  const revealWorktreeInSidebar = useAppStore((s) => s.revealWorktreeInSidebar)
-  const revealSidebarRow = useAppStore((s) => s.revealSidebarRow)
-  const setWorktreesPinnedAndReveal = useAppStore((s) => s.setWorktreesPinnedAndReveal)
-  const clearPendingRevealWorktreeId = useAppStore((s) => s.clearPendingRevealWorktreeId)
-  const clearPendingRevealSidebarRow = useAppStore((s) => s.clearPendingRevealSidebarRow)
-  const agentSendPopoverTargetMode = useAppStore((s) => s.agentSendPopoverTargetMode)
-  // Why: eligibility only matters while the picker is open; when closed, don't subscribe to wake-time layout churn.
-  const agentTargetStatusByPaneKey = useAppStore((s) =>
-    agentSendPopoverTargetMode ? s.agentStatusByPaneKey : EMPTY_AGENT_STATUS_BY_PANE_KEY
-  )
-  const agentTargetStatusEpoch = useAppStore((s) =>
-    agentSendPopoverTargetMode ? s.agentStatusEpoch : 0
-  )
-  const agentTargetTabsByWorktree = useAppStore((s) =>
-    agentSendPopoverTargetMode ? s.tabsByWorktree : EMPTY_TABS_BY_WORKTREE
-  )
-  const agentTargetTerminalLayoutsByTabId = useAppStore((s) =>
-    agentSendPopoverTargetMode ? s.terminalLayoutsByTabId : EMPTY_TERMINAL_LAYOUTS_BY_TAB_ID
-  )
-  const agentTargetPtyIdsByTabId = useAppStore((s) =>
-    agentSendPopoverTargetMode ? s.ptyIdsByTabId : EMPTY_PTY_IDS_BY_TAB_ID
-  )
-  const agentTargetRuntimePaneTitlesByTabId = useAppStore((s) =>
-    agentSendPopoverTargetMode ? s.runtimePaneTitlesByTabId : EMPTY_RUNTIME_PANE_TITLES_BY_TAB_ID
-  )
-  const agentSendTargetWorktreeId = useMemo(() => {
-    void agentTargetStatusEpoch
-    if (!agentSendPopoverTargetMode) {
-      return null
-    }
-    const targets = deriveRunningAgentSendTargets(
-      {
-        agentStatusByPaneKey: agentTargetStatusByPaneKey,
-        tabsByWorktree: agentTargetTabsByWorktree,
-        terminalLayoutsByTabId: agentTargetTerminalLayoutsByTabId,
-        ptyIdsByTabId: agentTargetPtyIdsByTabId,
-        runtimePaneTitlesByTabId: agentTargetRuntimePaneTitlesByTabId
-      },
-      agentSendPopoverTargetMode.worktreeId
-    )
-    return targets.some((target) => target.status === 'eligible')
-      ? agentSendPopoverTargetMode.worktreeId
-      : null
-  }, [
-    // Why: eligibility can flip when the stale-boundary scheduler bumps this epoch without replacing the status map.
-    agentTargetStatusEpoch,
-    agentSendPopoverTargetMode,
-    agentTargetStatusByPaneKey,
-    agentTargetTabsByWorktree,
-    agentTargetTerminalLayoutsByTabId,
-    agentTargetPtyIdsByTabId,
-    agentTargetRuntimePaneTitlesByTabId
-  ])
-
-  // Read tabsByWorktree when needed for filtering or sorting
-  const needsActivityMaps = !showSleepingWorkspaces || sortBy === 'smart'
-  const tabsByWorktree = useAppStore((s) =>
-    needsActivityMaps ? getVisibleWorktreeTerminalActivityTabs(s.tabsByWorktree) : null
-  )
-  const ptyIdsByTabId = useAppStore((s) => (needsActivityMaps ? s.ptyIdsByTabId : null))
-  const browserTabsByWorktree = useAppStore((s) =>
-    !showSleepingWorkspaces ? getVisibleWorktreeBrowserActivityTabs(s.browserTabsByWorktree) : null
-  )
-
-  const cardProps = useAppStore((s) => s.worktreeCardProperties)
-
-  const { prCache, hostedReviewCache } = useAppStore(
-    useShallow((s) => selectWorktreeListReviewCacheInputs(s, groupBy, cardProps))
-  )
-  const settings = useAppStore((s) => s.settings)
-  const pinnedDisplayPolicy = getPinnedWorktreeDisplayPolicy(settings)
-  const sshTargetLabels = useAppStore((s) => s.sshTargetLabels)
-  const sshConnectionStates = useAppStore((s) => s.sshConnectionStates)
-  const runtimeEnvironments = useAppStore((s) => s.runtimeEnvironments)
-  const runtimeStatusByEnvironmentId = useAppStore((s) => s.runtimeStatusByEnvironmentId)
-
-  const sortEpoch = useAppStore((s) => s.sortEpoch)
-
-  // Non-archived count — detects structural changes (add/remove) so the debounce below can apply immediately.
-  const worktreeCount = useMemo(() => {
-    let count = 0
-    for (const worktree of allWorktrees) {
-      if (!worktree.isArchived) {
-        count++
-      }
-    }
-    return count
-  }, [allWorktrees])
-
-  // Why debounce: scores are time-decaying, so recomputing on every sortEpoch bump makes worktrees jump; settle to coalesce.
-  // Structural changes (add/remove) bypass the debounce so a new worktree appears at its sorted position immediately.
-  const [debouncedSortEpoch, setDebouncedSortEpoch] = useState(sortEpoch)
-  const prevWorktreeCountRef = useRef(worktreeCount)
-  useEffect(() => {
-    if (debouncedSortEpoch === sortEpoch) {
-      return
-    }
-
-    const structuralChange = worktreeCount !== prevWorktreeCountRef.current
-    prevWorktreeCountRef.current = worktreeCount
-
-    // Why: manual drag/drop is direct manipulation; the settle-window delay would make a successful drop look broken.
-    if (structuralChange || sortBy === 'manual') {
-      setDebouncedSortEpoch(sortEpoch)
-      return
-    }
-
-    const timer = setTimeout(() => setDebouncedSortEpoch(sortEpoch), SORT_SETTLE_MS)
-    return () => clearTimeout(timer)
-  }, [sortEpoch, debouncedSortEpoch, worktreeCount, sortBy])
-
-  // Why a latching ref: a live signal makes Smart authoritative for the session, even after that activity ends.
-  const sessionHasHadLiveSmartSignal = useRef(false)
-
-  // ── Stable sort order ──────────────────────────────────────────
-  // Why sortEpoch (not selection): selection side-effects (clearing isUnread, PR-cache refresh) must not reorder the sidebar under the user.
-  // Why useMemo not useEffect: order must be computed synchronously before the worktrees memo reads it.
-  const sortedIds = useMemo(() => {
-    const state = useAppStore.getState()
-    const nonArchivedWorktrees = getAllWorktreesFromState(state).filter(
-      (worktree) => !worktree.isArchived
-    )
-    const now = Date.now()
-
-    // Why cold-start detection: agent-status hydrates async, so the warm comparator would collapse all to Class 4; keep the persisted order until a live signal appears.
-    if (sortBy === 'smart' && !sessionHasHadLiveSmartSignal.current) {
-      // Why tabHasLivePty over tab.ptyId: slept terminals keep tab.ptyId as a wake hint, so it'd falsely keep cold-start ordering off.
-      const hasAnyLivePty = Object.values(state.tabsByWorktree)
-        .flat()
-        .some((tab) => tabHasLivePty(state.ptyIdsByTabId, tab.id))
-      if (
-        hasAnyLivePty ||
-        hasFreshAttributedAgentStatus(state.agentStatusByPaneKey, now, state.tabsByWorktree)
-      ) {
-        sessionHasHadLiveSmartSignal.current = true
-      } else {
-        nonArchivedWorktrees.sort(
-          (a, b) => b.sortOrder - a.sortOrder || compareWorktreeSortLabel(a, b)
-        )
-        return nonArchivedWorktrees.map((w) => w.id)
-      }
-    }
-
-    const currentTabs = state.tabsByWorktree
-    // Why precompute: hot sort — build the attention map once so the O(N log N) comparator does O(1) lookups.
-    const attentionByWorktree =
-      sortBy === 'smart'
-        ? buildAttentionByWorktree(
-            nonArchivedWorktrees,
-            currentTabs,
-            state.agentStatusByPaneKey,
-            state.runtimePaneTitlesByTabId,
-            state.ptyIdsByTabId,
-            now,
-            state.migrationUnsupportedByPtyId,
-            state.terminalLayoutsByTabId
-          )
-        : new Map<string, WorktreeAttention>()
-    nonArchivedWorktrees.sort(buildWorktreeComparator(sortBy, repoMap, now, attentionByWorktree))
-    return nonArchivedWorktrees.map((w) => w.id)
-    // debouncedSortEpoch is an intentional trigger not read in the memo; its change (debounced) signals a recompute.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSortEpoch, repoMap, sortBy])
-
-  // Why: only persist during live sessions so cold start reads the persisted order instead of overwriting it.
-  useEffect(() => {
-    if (sortBy !== 'smart' || sortedIds.length === 0 || !sessionHasHadLiveSmartSignal.current) {
-      return
-    }
-    // Why: sortOrder lives in each host's worktreeMeta, so persist each host's ids on that host.
-    const state = useAppStore.getState()
-    persistWorktreeSortOrderByHost(state, sortedIds)
-  }, [sortedIds, sortBy])
-
-  // Flatten/filter/sort via the shared utility so card order matches Cmd+1–9 numbering.
-  const recomputedVisibleWorktrees = useMemo(() => {
-    void agentStatusEpoch
-    const ids = computeVisibleWorktreeIds(worktreesByRepo, sortedIds, {
-      filterRepoIds,
-      showSleepingWorkspaces,
-      tabsByWorktree,
-      ptyIdsByTabId,
-      browserTabsByWorktree,
-      // Why snapshot on agentStatusEpoch: update membership immediately without repainting on every hook ping.
-      worktreeIdsWithLiveAgent: showSleepingWorkspaces
-        ? EMPTY_WORKTREE_ID_SET
-        : getWorktreeIdsWithLiveAgent(
-            useAppStore.getState().agentStatusByPaneKey,
-            tabsByWorktree,
-            Date.now()
-          ),
-      hideDefaultBranchWorkspace,
-      hideAutomationGeneratedWorkspaces,
-      hideCliCreatedWorkspaces,
-      hideDetachedHeadWorkspaces,
-      repoMap,
-      workspaceHostScope,
-      visibleWorkspaceHostIds,
-      defaultHostId: getSettingsFocusedExecutionHostId(settings),
-      worktreeLineageById,
-      forcedVisibleWorktreeIds: agentSendTargetWorktreeId ? [agentSendTargetWorktreeId] : undefined
-    })
-    return ids.map((id) => worktreeMap.get(id)).filter((w): w is Worktree => w != null)
-  }, [
-    agentSendTargetWorktreeId,
-    agentStatusEpoch,
-    filterRepoIds,
-    showSleepingWorkspaces,
-    hideDefaultBranchWorkspace,
-    hideAutomationGeneratedWorkspaces,
-    hideCliCreatedWorkspaces,
-    hideDetachedHeadWorkspaces,
-    workspaceHostScope,
-    visibleWorkspaceHostIds,
-    settings,
-    repoMap,
-    tabsByWorktree,
-    ptyIdsByTabId,
-    browserTabsByWorktree,
-    sortedIds,
-    worktreeMap,
-    worktreeLineageById,
-    worktreesByRepo
-  ])
-  // Why: agentStatusEpoch bumps recompute this memo even when membership and
-  // order are unchanged; keeping the previous identity stops the whole
-  // rows/sectionRows/renderedWorktrees chain from churning per epoch.
-  const visibleWorktrees = useReusedArrayIdentity(recomputedVisibleWorktrees)
-
+  const source = useWorktreeListSource()
+  const {
+    repoMap, worktreeMap, worktreeLineageById, workspaceLineageByChildKey, worktreesByRepo,
+    detectedWorktreesByRepo, currentSidebarWorktreeId, groupBy, setGroupBy, workspaceHostScope,
+    visibleWorkspaceHostIds, workspaceHostOrder, setWorkspaceHostOrder, workspaceStatuses, sortBy, setSortBy,
+    projectOrderBy, showSleepingWorkspaces, hideDefaultBranchWorkspace, hideAutomationGeneratedWorkspaces,
+    hideCliCreatedWorkspaces, hideDetachedHeadWorkspaces, filterRepoIds, openModal, openSettingsPage, openSettingsTarget,
+    updateWorktreeMeta, updateWorktreesMeta, updateRepo, fetchWorktrees, activeView, activeModal, pendingRevealWorktree,
+    pendingRevealSidebarRow, revealWorktreeInSidebar, revealSidebarRow, setWorktreesPinnedAndReveal,
+    clearPendingRevealWorktreeId, clearPendingRevealSidebarRow, agentSendTargetWorktreeId,
+    prCache, hostedReviewCache, settings, pinnedDisplayPolicy, sshTargetLabels,
+    sshConnectionStates, runtimeEnvironments, runtimeStatusByEnvironmentId, visibleWorktrees
+  } = source
   const worktrees = visibleWorktrees
   const collapsedGroups = useAppStore((s) => s.collapsedGroups)
   const toggleGroup = useAppStore((s) => s.toggleCollapsedGroup)
