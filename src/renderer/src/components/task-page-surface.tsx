@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { AlertCircle, ExternalLink, LoaderCircle } from 'lucide-react'
+import { LoaderCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAppStore } from '@/store'
@@ -22,19 +22,11 @@ import { getLinearIssueGridTemplate, getJiraStatusTone } from './task-page-linea
 import { PRChecksCell, PRMergeCell } from './task-page-github-pr-cells'
 import { TaskPageLinearCollectionViews } from './task-page-linear-collection-views'
 import { TaskPageLinearToolbar } from './task-page-linear-toolbar'
+import { TaskPageProviderScopeControls } from './task-page-provider-scope-controls'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { JiraConnectDialog } from '@/components/jira-connect-dialog'
 import { LinearApiKeyDialog } from '@/components/linear-api-key-dialog'
-import { LinearScopeSelector } from '@/components/linear-scope-selector'
 import { reconcileLinearTeamSelection } from '@/components/task-page-linear-team-selection'
 import {
   getGitHubWorkItemWorkspaceSeed,
@@ -4643,114 +4635,41 @@ export default function TaskPage(): React.JSX.Element {
                     onClose={closeTaskPage}
                     onSourceChange={handleTaskSourceChange}
                   />
-                  {taskSource === 'linear' && linearConnected ? (
-                    <div className="flex items-center gap-2">
-                      <LinearScopeSelector
-                        workspaces={linearWorkspaces}
-                        selectedWorkspaceId={selectedLinearWorkspaceId}
-                        teams={linearTeamOptions}
-                        selectedTeamIds={linearTeamSelection}
-                        teamSelectionIsStickyAll={defaultLinearTeamSelection == null}
-                        onWorkspaceChange={handleLinearWorkspaceChange}
-                        onTeamSelectionChange={handleLinearTeamSelectionChange}
-                        onAddTeamAccess={() => setLinearConnectOpen(true)}
-                        onOpen={handleLinearScopeOpen}
-                      />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() => {
-                              if (!selectedLinearTeamForExternalLink?.url) {
-                                return
-                              }
-                              void window.api.shell.openUrl(selectedLinearTeamForExternalLink.url)
-                            }}
-                            disabled={!selectedLinearTeamForExternalLink}
-                            aria-label={
-                              selectedLinearTeamForExternalLink
-                                ? translate(
-                                    'auto.components.TaskPage.246bd64aed',
-                                    'Open {{value0}} in Linear',
-                                    { value0: selectedLinearTeamForExternalLink.name }
-                                  )
-                                : translate(
-                                    'auto.components.TaskPage.8029e2bd4d',
-                                    'Select one Linear team to open in Linear'
-                                  )
-                            }
-                            className="h-8 w-8 rounded-md border-border/50 bg-muted/50 text-foreground shadow-sm transition hover:bg-muted/50"
-                          >
-                            <ExternalLink className="size-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>
-                          {selectedLinearTeamForExternalLink
-                            ? translate(
-                                'auto.components.TaskPage.246bd64aed',
-                                'Open {{value0}} in Linear',
-                                { value0: selectedLinearTeamForExternalLink.name }
-                              )
-                            : translate(
-                                'auto.components.TaskPage.2af3ab5c58',
-                                'Select one team to open in Linear'
-                              )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  ) : null}
-                  {taskSource === 'jira' && jiraConnected ? (
-                    <div className="flex items-center gap-2">
-                      {jiraSites.length > 1 ? (
-                        <Select
-                          value={selectedJiraSiteId ?? undefined}
-                          onValueChange={(value) => {
-                            setSelectedJiraIssueKey(null)
-                            setSelectedJiraIssueFallback(null)
-                            setJiraIssues([])
-                            setJiraError(null)
-                            setJiraLoading(true)
-                            void selectJiraSite(value).catch(() => {
-                              toast.error(
-                                translate(
-                                  'auto.components.TaskPage.d09b7631b7',
-                                  'Failed to switch Jira site.'
-                                )
-                              )
-                            })
-                          }}
-                        >
-                          <SelectTrigger className="h-8 w-[220px] rounded-md border-border/50 bg-muted/50 text-xs font-medium shadow-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">
-                              {translate('auto.components.TaskPage.e592d99051', 'All Jira sites')}
-                            </SelectItem>
-                            {jiraSites.map((site) => (
-                              <SelectItem key={site.id} value={site.id}>
-                                {site.displayName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : null}
-                    </div>
-                  ) : null}
+                  <TaskPageProviderScopeControls
+                    showLinearScope={taskSource === 'linear' && linearConnected}
+                    linearScopeProps={{
+                      workspaces: linearWorkspaces,
+                      selectedWorkspaceId: selectedLinearWorkspaceId,
+                      teams: linearTeamOptions,
+                      selectedTeamIds: linearTeamSelection,
+                      teamSelectionIsStickyAll: defaultLinearTeamSelection == null,
+                      onWorkspaceChange: handleLinearWorkspaceChange,
+                      onTeamSelectionChange: handleLinearTeamSelectionChange,
+                      onAddTeamAccess: () => setLinearConnectOpen(true),
+                      onOpen: handleLinearScopeOpen
+                    }}
+                    selectedLinearTeamForExternalLink={selectedLinearTeamForExternalLink}
+                    showJiraSiteSelector={taskSource === 'jira' && jiraConnected}
+                    jiraSites={jiraSites}
+                    selectedJiraSiteId={selectedJiraSiteId}
+                    onJiraSiteChange={(value) => {
+                      setSelectedJiraIssueKey(null)
+                      setSelectedJiraIssueFallback(null)
+                      setJiraIssues([])
+                      setJiraError(null)
+                      setJiraLoading(true)
+                      void selectJiraSite(value).catch(() => {
+                        toast.error(
+                          translate(
+                            'auto.components.TaskPage.d09b7631b7',
+                            'Failed to switch Jira site.'
+                          )
+                        )
+                      })
+                    }}
+                    taskSourceAvailabilityNotice={taskSourceAvailabilityNotice}
+                  />
                 </div>
-
-                {taskSourceAvailabilityNotice ? (
-                  <div
-                    role="status"
-                    className="flex max-w-3xl items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-                    title={taskSourceAvailabilityNotice.title}
-                  >
-                    <AlertCircle className="size-3.5 flex-none" />
-                    <span className="min-w-0 truncate">{taskSourceAvailabilityNotice.label}</span>
-                  </div>
-                ) : null}
 
                 {taskSource === 'github' ? (
                   <TaskPageGitHubScopeToolbar
