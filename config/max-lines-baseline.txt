@@ -8,8 +8,6 @@ inline src/cli/help.ts
 inline src/cli/index.test.ts
 inline src/main/agent-hooks/server.test.ts
 inline src/main/agent-hooks/server.ts
-inline src/main/amp/hook-service.ts
-inline src/main/antigravity/hook-service.ts
 inline src/main/browser/browser-cookie-import.ts
 inline src/main/browser/browser-guest-ui.ts
 inline src/main/browser/browser-manager-grab.test.ts
@@ -25,7 +23,6 @@ inline src/main/codex/config-toml-trust.test.ts
 inline src/main/codex/config-toml-trust.ts
 inline src/main/codex/hook-service.test.ts
 inline src/main/codex/hook-service.ts
-inline src/main/copilot/hook-service.ts
 inline src/main/daemon/client.ts
 inline src/main/daemon/daemon-health.ts
 inline src/main/daemon/daemon-init.test.ts
@@ -56,7 +53,6 @@ inline src/main/gitlab/client-mr.test.ts
 inline src/main/gitlab/client.ts
 inline src/main/gitlab/issues.ts
 inline src/main/gitlab/work-item-details.ts
-inline src/main/hermes/hook-service.ts
 inline src/main/hooks.test.ts
 inline src/main/hooks.ts
 inline src/main/index.ts
@@ -93,7 +89,6 @@ inline src/main/linear/client.ts
 inline src/main/linear/issues.ts
 inline src/main/linear/projects.ts
 inline src/main/memory/collector.ts
-inline src/main/opencode/hook-service.ts
 inline src/main/persistence.test.ts
 inline src/main/persistence.ts
 inline src/main/ports/advertised-url-watcher.ts

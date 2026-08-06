@@ -2,6 +2,10 @@ import { createHash, randomBytes } from 'node:crypto'
 import type { createServer } from 'node:http'
 
 import * as hookShared from './agent-hook-server-shared'
+import {
+  snapshotAgentStatusEntries,
+  snapshotAgentStatusEntry
+} from './agent-status-core'
 import type {
   AgentHookAuthorityAttestation,
   AgentHookAuthorityEvidence,
@@ -36,7 +40,6 @@ const {
   agentTypeToPromptSentAgentKind,
   equivalentInterruptAgentType,
   isValidPaneKey,
-  toAgentStatusIpcPayload,
   CLOSED_AGENT_STATUS_TAB_IDS_MAX,
   CLOSED_AGENT_STATUS_PANE_KEYS_MAX
 } = hookShared
@@ -178,8 +181,8 @@ export abstract class AgentHookServerBase {
   /** Snapshot of cached statuses in IPC shape. Used by `agentStatus:getSnapshot` after tabs hydrate so the
    *  dashboard catches up on hook events that fired during startup. */
   getStatusSnapshot(): AgentStatusIpcPayload[] {
-    return Array.from(this.state.lastStatusByPaneKey.values(), (entry) =>
-      toAgentStatusIpcPayload(entry as EnrichedAgentHookEventPayload)
+    return snapshotAgentStatusEntries(
+      this.state.lastStatusByPaneKey.values() as Iterable<EnrichedAgentHookEventPayload>
     )
   }
 
@@ -190,7 +193,7 @@ export abstract class AgentHookServerBase {
 
   getStatusSnapshotForPane(paneKey: string): AgentStatusIpcPayload[] {
     const entry = this.state.lastStatusByPaneKey.get(paneKey)
-    return entry ? [toAgentStatusIpcPayload(entry as EnrichedAgentHookEventPayload)] : []
+    return snapshotAgentStatusEntry(entry as EnrichedAgentHookEventPayload | undefined, paneKey)
   }
 
   getHydratedAuthorityCommitments(): readonly AgentHookAuthorityEvidence[] {

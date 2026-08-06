@@ -5,10 +5,8 @@ import {
   normalizeAgentStatusPayload,
   type ParsedAgentStatusPayload
 } from '../../shared/agent-status-types'
-import {
-  equivalentParsedAgentStatusPayload,
-  isValidPiProviderSessionOnly
-} from './agent-hook-server-shared'
+import { equivalentParsedAgentStatusPayload } from './agent-status-core'
+import { isValidPiProviderSessionOnly } from './agent-hook-server-shared'
 import { parsePaneKey } from '../../shared/stable-pane-id'
 import {
   MAX_PANE_KEY_LEN,

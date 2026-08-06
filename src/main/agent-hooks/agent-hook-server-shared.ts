@@ -6,7 +6,6 @@ import { MAX_PANE_KEY_LEN, type AgentHookEventPayload } from '../../shared/agent
 import type { AgentHookSource } from '../../shared/agent-hook-relay'
 import {
   type AgentStatusClearIpcPayload,
-  type AgentStatusIpcPayload,
   type AgentType,
   type AgentStatusState,
   type ParsedAgentStatusPayload,
@@ -308,41 +307,6 @@ export function authorityCommitmentsMatch(
     left.connectionId === right.connectionId &&
     left.tabId === right.tabId &&
     left.worktreeId === right.worktreeId
-  )
-}
-
-export function toAgentStatusIpcPayload(
-  entry: EnrichedAgentHookEventPayload
-): AgentStatusIpcPayload {
-  return {
-    paneKey: entry.paneKey,
-    ...(entry.launchToken ? { launchToken: entry.launchToken } : {}),
-    tabId: entry.tabId,
-    worktreeId: entry.worktreeId,
-    connectionId: entry.connectionId,
-    receivedAt: entry.receivedAt,
-    stateStartedAt: entry.stateStartedAt,
-    ...(entry.providerSession ? { providerSession: entry.providerSession } : {}),
-    ...(entry.providerSessionOnly ? { providerSessionOnly: true } : {}),
-    ...(entry.promptInteractionKey ? { promptInteractionKey: entry.promptInteractionKey } : {}),
-    ...entry.payload
-  }
-}
-
-// Why: OSC never carries model/children; omit both so an equivalent OSC ping preserves the hook-cached identity graph.
-export function equivalentParsedAgentStatusPayload(
-  a: ParsedAgentStatusPayload,
-  b: ParsedAgentStatusPayload
-): boolean {
-  return (
-    a.state === b.state &&
-    a.prompt === b.prompt &&
-    a.agentType === b.agentType &&
-    a.toolName === b.toolName &&
-    a.toolInput === b.toolInput &&
-    a.interactivePrompt === b.interactivePrompt &&
-    a.lastAssistantMessage === b.lastAssistantMessage &&
-    a.interrupted === b.interrupted
   )
 }
 
