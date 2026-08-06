@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes deferred startup grid scheduling through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-startup-grid-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'"
+    )
+    expect(orchestrator).not.toContain('let startupGridSettleHandle:')
+    expect(orchestrator).not.toContain('const runDeferredConnect =')
+    expect(controller).toContain('export function createPtyConnectionStartupGridController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes PTY session liveness reconciliation through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

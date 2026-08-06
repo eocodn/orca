@@ -167,10 +167,6 @@ import {
   markTerminalBracketedPasteInterrupted,
   observeTerminalBracketedPasteModeOutput
 } from './terminal-bracketed-paste'
-import {
-  waitForStableStartupGrid,
-  type TerminalStartupGridSettleHandle
-} from './terminal-startup-grid-settle'
 import { createCommandCodeOutputStatusDetector } from '../../../../shared/command-code-output-status'
 import type { PtyDataMeta } from './pty-dispatcher'
 import { getEagerPtyBufferHandle } from './pty-dispatcher'
@@ -298,7 +294,6 @@ import {
   waitForSshConnection
 } from './pty-connection-routing-policy'
 import type { UserInitiatedSshConnectOutcome } from './pty-connection-routing-policy'
-import { isSetupSplitGeometryReady } from './pty-connection-split-geometry'
 import { createPtyConnectionStartupState } from './pty-connection-startup-state'
 import { createPtyConnectionCommandInference } from './pty-connection-command-inference'
 import { createPtyConnectionReattachAgentSignals } from './pty-connection-reattach-agent-signals'
@@ -316,6 +311,7 @@ import { createPtyConnectionPaneGeometryController } from './pty-connection-pane
 import { createPtyConnectionSpawnSizeReconcileController } from './pty-connection-spawn-size-reconcile-controller'
 import { createPtyConnectionSizeReassertionController } from './pty-connection-size-reassertion-controller'
 import { createPtyConnectionSessionLivenessReconcileController } from './pty-connection-session-liveness-reconcile-controller'
+import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -343,11 +339,6 @@ export function connectPanePty(
   exposeE2eTerminalPtyOutputDebug()
   let disposed = false
   const structuralReplayCoordinator = createTerminalStructuralReplayCoordinator(pane.terminal)
-  let connectFrame: number | null = null
-  let connectFallbackTimer: ReturnType<typeof setTimeout> | null = null
-  let startupGridSettleHandle: TerminalStartupGridSettleHandle | null = null
-  let startupGridSettledForConnect = false
-  let connectStarted = false
   let unregisterBacklogRecovery: (() => void) | null = null
   let unregisterDocumentVisibilityRecovery: (() => void) | null = null
   let cancelHiddenOutputSnapshotScrollRestore = (): void => {}
@@ -2468,87 +2459,7 @@ export function connectPanePty(
   })
   const reconcileSpawnedPtySize = spawnSizeReconcileController.reconcileAfterSpawn
 
-  // Defer PTY spawn/attach to next frame so FitAddon has time to calculate
-  // the correct terminal dimensions from the laid-out container.
-  const cancelScheduledConnectFrame = (): void => {
-    if (connectFrame !== null) {
-      if (typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(connectFrame)
-      }
-      connectFrame = null
-    }
-  }
-  const measureStartupGrid = (): { cols: number; rows: number } | null => {
-    if (!safeFit(pane)) {
-      return null
-    }
-    const cols = pane.terminal.cols
-    const rows = pane.terminal.rows
-    return cols > 0 && rows > 0 ? { cols, rows } : null
-  }
-  const shouldSettleStartupGridBeforeConnect = (): boolean =>
-    Boolean(paneStartup?.command) &&
-    deps.isVisibleRef.current &&
-    !connectionId &&
-    runtimeEnvironmentId === null
-  const isStartupGridReadyForConnect = (): boolean => {
-    const setupSplitDirection = paneStartup?.waitForSetupSplitDirection
-    if (!setupSplitDirection) {
-      return true
-    }
-    // Why: the setup split reparents the main pane before its xterm grid
-    // necessarily reflects the new flex geometry; wait for both to agree.
-    return isSetupSplitGeometryReady(pane, manager, setupSplitDirection)
-  }
-  const settleStartupGridBeforeConnect = (connect: () => void): void => {
-    startupGridSettleHandle?.cancel()
-    let settledSynchronously = false
-    // Why: local startup commands can launch a TUI before the split-pane grid
-    // has settled; spawn from a briefly stable grid so the TUI paints cleanly.
-    const handle = waitForStableStartupGrid({
-      isAlive: () => !disposed,
-      isReadyToSettle: paneStartup?.waitForSetupSplitDirection
-        ? isStartupGridReadyForConnect
-        : undefined,
-      measure: measureStartupGrid,
-      onSettled: () => {
-        settledSynchronously = true
-        startupGridSettleHandle = null
-        connect()
-      },
-      requestFrame: (callback) => requestAnimationFrame(callback),
-      cancelFrame: (handle) => {
-        if (typeof cancelAnimationFrame === 'function') {
-          cancelAnimationFrame(handle)
-        }
-      }
-    })
-    if (!settledSynchronously) {
-      startupGridSettleHandle = handle
-    }
-  }
-  const runDeferredConnect = (): void => {
-    if (connectStarted) {
-      return
-    }
-    if (!startupGridSettledForConnect && shouldSettleStartupGridBeforeConnect()) {
-      cancelScheduledConnectFrame()
-      if (connectFallbackTimer !== null) {
-        clearTimeout(connectFallbackTimer)
-        connectFallbackTimer = null
-      }
-      settleStartupGridBeforeConnect(() => {
-        startupGridSettledForConnect = true
-        runDeferredConnect()
-      })
-      return
-    }
-    connectStarted = true
-    cancelScheduledConnectFrame()
-    if (connectFallbackTimer !== null) {
-      clearTimeout(connectFallbackTimer)
-      connectFallbackTimer = null
-    }
+  const performDeferredConnect = (): void => {
     if (disposed) {
       return
     }
@@ -6411,9 +6322,18 @@ export function connectPanePty(
     scheduleRuntimeGraphSync()
   }
 
-  // Why: Wayland/CI compositors can starve rAF while timers/CDP stay responsive; the terminal must still start its PTY once.
-  connectFallbackTimer = setTimeout(runDeferredConnect, 250)
-  connectFrame = requestAnimationFrame(runDeferredConnect)
+  const startupGridController = createPtyConnectionStartupGridController({
+    pane,
+    manager,
+    startupCommand: paneStartup?.command,
+    waitForSetupSplitDirection: paneStartup?.waitForSetupSplitDirection,
+    connectionId,
+    runtimeEnvironmentId,
+    isVisible: () => deps.isVisibleRef.current,
+    isDisposed: () => disposed,
+    connect: performDeferredConnect
+  })
+  startupGridController.schedule()
 
   const sessionLivenessReconcileController = createPtyConnectionSessionLivenessReconcileController({
     transport,
@@ -6523,8 +6443,7 @@ export function connectPanePty(
       structuralReplayCoordinator.dispose()
       cancelFreshSpawnFollowReset()
       spawnSizeReconcileController.dispose()
-      startupGridSettleHandle?.cancel()
-      startupGridSettleHandle = null
+      startupGridController.dispose()
       sizeReassertionController.dispose()
       // Why: a pane unmount must never leave its PTY delivery gated — the parked watcher or remounted pane re-decides.
       releaseHiddenRendererPtyDelivery()
@@ -6573,14 +6492,6 @@ export function connectPanePty(
       if (unsubscribeWindowsDoneTerminalModeReset !== null) {
         unsubscribeWindowsDoneTerminalModeReset()
         unsubscribeWindowsDoneTerminalModeReset = null
-      }
-      if (connectFrame !== null) {
-        // Why: cancel the queued connect frame so a disposed pane (StrictMode/split-group remount) can't reattach the PTY and steal the live pane's handler wiring.
-        cancelScheduledConnectFrame()
-      }
-      if (connectFallbackTimer !== null) {
-        clearTimeout(connectFallbackTimer)
-        connectFallbackTimer = null
       }
       imeCompositionRouteDisposable.dispose()
       onDataDisposable.dispose()
