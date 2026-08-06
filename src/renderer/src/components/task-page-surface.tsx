@@ -74,6 +74,7 @@ import { useTaskPageLinearScopeController } from './use-task-page-linear-scope-c
 import { useTaskPageLinearToolbarActions } from './use-task-page-linear-toolbar-actions'
 import { useTaskPageJiraToolbarActions } from './use-task-page-jira-toolbar-actions'
 import { useTaskPageSourceSynchronization } from './use-task-page-source-synchronization'
+import { useTaskPagePersistedContextHydration } from './use-task-page-persisted-context-hydration'
 import { useTaskPageProviderDialogState } from './use-task-page-provider-dialog-state'
 import { useTaskPageJiraListDataState } from './use-task-page-jira-list-data-state'
 import { cn } from '@/lib/utils'
@@ -152,13 +153,11 @@ import { TaskPageGitHubTaskToolbar } from './task-page-github-task-toolbar'
 import { TaskPageGitHubSourceDivergence } from './task-page-github-source-divergence'
 import { TaskPageSourceProviderToolbar } from './task-page-source-provider-toolbar'
 import { bindTaskPageJiraItemSourceContext } from './task-page-jira-item-source-context'
-import { resolveVisibleTaskProvider } from '../../../shared/task-providers'
 import { translate } from '@/i18n/i18n'
 import {
   formatRelativeTime,
   getDefaultPresetForGitHubTaskKind,
   getGitHubTaskKind,
-  normalizeGitHubTaskPreset,
   scopeGitHubTaskSearch
 } from './task-page-query-model'
 import { groupLinearIssues, type LinearGroupSection } from './task-page-linear-grouping'
@@ -816,58 +815,28 @@ export default function TaskPage(): React.JSX.Element {
     [jiraOrderBy]
   )
 
-  useEffect(() => {
-    if (taskResumeAppliedRef.current || !persistedUIReady || !settings) {
-      return
-    }
-
-    setTaskSource(
-      resolveVisibleTaskProvider(
-        pageData.taskSource ?? settings.defaultTaskSource,
-        visibleTaskProviders
-      )
-    )
-    setRepoSelection(resolvedInitialSelection)
-
-    const nextGithubMode = taskResumeState?.githubMode ?? 'items'
-    setGithubMode(nextGithubMode)
-
-    const preset = taskResumeState?.githubItemsPreset
-    if (preset === null) {
-      const query = taskResumeState?.githubItemsQuery ?? ''
-      setTaskSearchInput(query)
-      setAppliedTaskSearch(query)
-      setActiveTaskPreset(null)
-    } else {
-      const presetId = normalizeGitHubTaskPreset(preset ?? settings.defaultTaskViewPreset)
-      const query = getTaskPresetQuery(presetId)
-      setTaskSearchInput(query)
-      setAppliedTaskSearch(query)
-      setActiveTaskPreset(presetId)
-    }
-
-    const linearQuery = taskResumeState?.linearQuery ?? ''
-    setLinearMode(taskResumeState?.linearMode ?? 'issues')
-    setLinearSearchInput(linearQuery)
-    setAppliedLinearSearch(linearQuery)
-
-    const jiraPreset = taskResumeState?.jiraPreset ?? 'assigned'
-    const jiraQuery = taskResumeState?.jiraQuery ?? ''
-    setActiveJiraPreset(jiraPreset)
-    setJiraSearchInput(jiraQuery)
-    setAppliedJiraSearch(jiraQuery)
-
-    // Why: settings/UI hydrate async; apply the restored Tasks context exactly once so later source/filter clicks stay local.
-    taskResumeAppliedRef.current = true
-    setTaskResumeApplied(true)
-  }, [
+  useTaskPagePersistedContextHydration({
+    pageTaskSource: pageData.taskSource,
     persistedUIReady,
-    settings,
-    pageData.taskSource,
     resolvedInitialSelection,
+    setActiveJiraPreset,
+    setActiveTaskPreset,
+    setAppliedJiraSearch,
+    setAppliedLinearSearch,
+    setAppliedTaskSearch,
+    setGithubMode,
+    setJiraSearchInput,
+    setLinearMode,
+    setLinearSearchInput,
+    setRepoSelection,
+    setTaskResumeApplied,
+    setTaskSearchInput,
+    setTaskSource,
+    settings,
+    taskResumeAppliedRef,
     taskResumeState,
     visibleTaskProviders
-  ])
+  })
 
   useTaskPageLinearResumeState({
     fetchLinearCustomView,
