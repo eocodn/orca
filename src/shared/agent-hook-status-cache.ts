@@ -5,26 +5,29 @@ import {
 } from './agent-hook-listener'
 import { AGENT_STATUS_STALE_AFTER_MS } from './agent-status-types'
 
-export const MAX_AGENT_HOOK_STATUS_CACHE_PANES = 500
+export const MAX_AGENT_STATUS_CACHE_PANES = 500
+/** Transitional export for callers that still compile against the hook-era name. */
+export const MAX_AGENT_HOOK_STATUS_CACHE_PANES = MAX_AGENT_STATUS_CACHE_PANES
 
-export type AgentHookStatusCacheEviction = {
+export type AgentStatusCacheEviction = {
   paneKey: string
   entry: AgentHookEventPayload
 }
+export type AgentHookStatusCacheEviction = AgentStatusCacheEviction
 
-export function upsertBoundedAgentHookStatus(
+export function upsertBoundedAgentStatus(
   state: HookListenerState,
   entry: AgentHookEventPayload,
   options: { maxPanes?: number; now?: number } = {}
-): AgentHookStatusCacheEviction[] {
-  const maxPanes = options.maxPanes ?? MAX_AGENT_HOOK_STATUS_CACHE_PANES
+): AgentStatusCacheEviction[] {
+  const maxPanes = options.maxPanes ?? MAX_AGENT_STATUS_CACHE_PANES
   if (!Number.isSafeInteger(maxPanes) || maxPanes < 1) {
     throw new RangeError('Agent hook status cache limit must be a positive safe integer')
   }
 
   state.lastStatusByPaneKey.delete(entry.paneKey)
   state.lastStatusByPaneKey.set(entry.paneKey, entry)
-  const evicted: AgentHookStatusCacheEviction[] = []
+  const evicted: AgentStatusCacheEviction[] = []
   const now = options.now ?? Date.now()
   while (state.lastStatusByPaneKey.size > maxPanes) {
     const paneKey = selectEvictionCandidate(state, entry.paneKey, now)
@@ -40,6 +43,8 @@ export function upsertBoundedAgentHookStatus(
   }
   return evicted
 }
+
+export const upsertBoundedAgentHookStatus = upsertBoundedAgentStatus
 
 function selectEvictionCandidate(
   state: HookListenerState,
