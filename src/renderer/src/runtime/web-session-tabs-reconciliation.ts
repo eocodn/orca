@@ -83,6 +83,7 @@ import {
 } from './web-agent-session-handoff'
 import { getRuntimeEnvironmentRevision } from './runtime-environment-revision'
 import { applyPreparedWebSessionTabsSnapshot } from './web-session-tabs-reconciliation-application'
+import type { WebSessionTabsSyncState } from './web-session-tabs-tracking'
 
 export function applyWebSessionTabsSnapshot(
   state: WebSessionTabsSyncState,
@@ -93,9 +94,86 @@ export function applyWebSessionTabsSnapshot(
   return applyPreparedWebSessionTabsSnapshot(state, rawSnapshot, environmentId, now)
 }
 
-export { WEB_SESSION_GROUP_PREFIX, SessionTabsStreamEvent, SessionTabsListAllResult, SnapshotFreshness, latestSessionTabsSnapshotByWorktree, replayableSessionTabsSnapshotByWorktree, lastHostTerminalTabCountByWorktree, hostSessionTabIdByLocalKey, TerminalSurface, ReadyTerminalSurface, ReadyBrowserSurface, ReadyEditorSurface, MirroredTerminalTab, MirroredBrowserTab, MirroredEditorTab, WebSessionTabsSyncState, isSessionTabsListAllResult, sessionTabsFreshnessKey, rememberHostTerminalTabCount, getLastKnownHostTerminalTabCount, getLatestWebSessionTabsPublicationEpoch, acceptReplayedWebSessionTabsSnapshot, shouldApplyWebSessionTabsSnapshot, shouldBootstrapInitialWebRuntimeTerminal, shouldRespawnWebRuntimeTerminalAfterWake, shouldSyncRuntimeSessionTabs, shouldSyncAllRuntimeSessionTabs, resetWebSessionTabsSnapshotFreshnessForTests, _getWebSessionTabsTrackingCountsForTest, clearWebSessionTabsTrackingForWorktree, clearWebSessionTabsTrackingForEnvironment, hostSessionTabMappingKey, resolveHostSessionTabIdForWebSessionTab } from './web-session-tabs-tracking'
-export { isReadyTerminalTab, isTerminalSurfaceTab, isReadyBrowserTab, isReadyEditorTab, localEditorFileId, editorSourceFileId, isRuntimeTerminalTabForEnvironment, isMirroredTerminalSurfaceId, chooseRemoteTerminalLayout, shouldReplaceTerminalTab, buildMirroredTerminalTabs, toMirroredPaneKey, remapHostAgentStatus, isMirroredAgentPaneKeyForTabs, buildMirroredAgentStatusPatch } from './web-session-tabs-terminal-projection'
-export { buildTerminalUnifiedTab, buildBrowserUnifiedTab, buildEditorUnifiedTab, findExistingEditorUnifiedTab, buildMirroredEditorTabs, findBrowserWorkspaceForRemotePage, browserWorkspaceHasRemoteEnvironmentPage, buildMirroredBrowserTabs } from './web-session-tabs-surface-projection'
-export { chooseTargetGroupId, collectLayoutGroupIds, buildHostGroupIdByTabId, pruneTabGroupLayout, appendTabGroupLayout, tabGroupLayoutEqual, mapHostRecentTabIds, buildHostToLocalTabIdMap, updateHostSessionTabIdMappings, buildMirroredHostGroups } from './web-session-tabs-group-layout'
-export { applyWebSessionTabsSnapshots, applyFreshWebSessionTabsSnapshot, applyFreshWebSessionTabsSnapshots, applyWebSessionTabsStorePatch } from './web-session-tabs-apply-api'
+export {
+  WEB_SESSION_GROUP_PREFIX,
+  latestSessionTabsSnapshotByWorktree,
+  replayableSessionTabsSnapshotByWorktree,
+  lastHostTerminalTabCountByWorktree,
+  hostSessionTabIdByLocalKey,
+  isSessionTabsListAllResult,
+  sessionTabsFreshnessKey,
+  rememberHostTerminalTabCount,
+  getLastKnownHostTerminalTabCount,
+  getLatestWebSessionTabsPublicationEpoch,
+  acceptReplayedWebSessionTabsSnapshot,
+  shouldApplyWebSessionTabsSnapshot,
+  shouldBootstrapInitialWebRuntimeTerminal,
+  shouldRespawnWebRuntimeTerminalAfterWake,
+  shouldSyncRuntimeSessionTabs,
+  shouldSyncAllRuntimeSessionTabs,
+  resetWebSessionTabsSnapshotFreshnessForTests,
+  _getWebSessionTabsTrackingCountsForTest,
+  clearWebSessionTabsTrackingForWorktree,
+  clearWebSessionTabsTrackingForEnvironment,
+  hostSessionTabMappingKey,
+  resolveHostSessionTabIdForWebSessionTab
+} from './web-session-tabs-tracking'
+export type {
+  SessionTabsStreamEvent,
+  SessionTabsListAllResult,
+  SnapshotFreshness,
+  TerminalSurface,
+  ReadyTerminalSurface,
+  ReadyBrowserSurface,
+  ReadyEditorSurface,
+  MirroredTerminalTab,
+  MirroredBrowserTab,
+  MirroredEditorTab,
+  WebSessionTabsSyncState
+} from './web-session-tabs-tracking'
+export {
+  isReadyTerminalTab,
+  isTerminalSurfaceTab,
+  isReadyBrowserTab,
+  isReadyEditorTab,
+  localEditorFileId,
+  editorSourceFileId,
+  isRuntimeTerminalTabForEnvironment,
+  isMirroredTerminalSurfaceId,
+  chooseRemoteTerminalLayout,
+  shouldReplaceTerminalTab,
+  buildMirroredTerminalTabs,
+  toMirroredPaneKey,
+  remapHostAgentStatus,
+  isMirroredAgentPaneKeyForTabs,
+  buildMirroredAgentStatusPatch
+} from './web-session-tabs-terminal-projection'
+export {
+  buildTerminalUnifiedTab,
+  buildBrowserUnifiedTab,
+  buildEditorUnifiedTab,
+  findExistingEditorUnifiedTab,
+  buildMirroredEditorTabs,
+  findBrowserWorkspaceForRemotePage,
+  browserWorkspaceHasRemoteEnvironmentPage,
+  buildMirroredBrowserTabs
+} from './web-session-tabs-surface-projection'
+export {
+  chooseTargetGroupId,
+  collectLayoutGroupIds,
+  buildHostGroupIdByTabId,
+  pruneTabGroupLayout,
+  appendTabGroupLayout,
+  tabGroupLayoutEqual,
+  mapHostRecentTabIds,
+  buildHostToLocalTabIdMap,
+  updateHostSessionTabIdMappings,
+  buildMirroredHostGroups
+} from './web-session-tabs-group-layout'
+export {
+  applyWebSessionTabsSnapshots,
+  applyFreshWebSessionTabsSnapshot,
+  applyFreshWebSessionTabsSnapshots,
+  applyWebSessionTabsStorePatch
+} from './web-session-tabs-apply-api'
 export { useWebSessionTabsSync } from './web-session-tabs-sync-hook'

@@ -415,10 +415,7 @@ export {
   writeWebClipboardText
 } from './web-preload-clipboard'
 export { createWebPreloadApi } from './web-preload-api-factory'
-export {
-  createRuntimeApi,
-  createRuntimeEnvironmentsApi,
-} from './web-preload-runtime-apis'
+export { createRuntimeApi, createRuntimeEnvironmentsApi } from './web-preload-runtime-apis'
 export { createReposApi, createWorktreesApi } from './web-preload-repository-apis'
 export {
   createFileApi,
@@ -439,8 +436,7 @@ export {
   createMacosTccPromptsApi,
   createDeveloperPermissionsApi,
   createSkillsApi,
-  createNotificationsApi,
-  createGrokAccountsApi
+  createNotificationsApi
 } from './web-preload-capability-apis'
 export {
   createAccountsApi,

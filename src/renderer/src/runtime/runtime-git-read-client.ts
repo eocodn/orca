@@ -52,6 +52,50 @@ async function callLocalGitStatus(
   }
 }
 
+export async function getRuntimeGitStatus(
+  context: RuntimeGitContext,
+  options?: {
+    includeIgnored?: boolean
+    bypassEffectiveUpstreamNegativeCache?: boolean
+    reuseLineStats?: boolean
+    signal?: AbortSignal
+  }
+): Promise<GitStatusResult> {
+  const target = getActiveRuntimeTarget(context.settings)
+  const includeIgnoredArgs = options?.includeIgnored ? { includeIgnored: true } : {}
+  const upstreamCacheBypassArgs = options?.bypassEffectiveUpstreamNegativeCache
+    ? { bypassEffectiveUpstreamNegativeCache: true }
+    : {}
+  const lineStatsReuseArgs = options?.reuseLineStats ? { reuseLineStats: true } : {}
+  if (target.kind === 'local' || !context.worktreeId) {
+    return callLocalGitStatus(
+      {
+        worktreePath: resolveLocalWorktreePath(context),
+        connectionId: context.connectionId,
+        ...includeIgnoredArgs,
+        ...upstreamCacheBypassArgs,
+        ...lineStatsReuseArgs
+      },
+      options?.signal
+    )
+  }
+  return callRuntimeRpc<GitStatusResult>(
+    target,
+    'git.status',
+    {
+      worktree: toRuntimeWorktreeSelector(context.worktreeId),
+      ...includeIgnoredArgs,
+      ...upstreamCacheBypassArgs,
+      ...lineStatsReuseArgs
+    },
+    {
+      timeoutMs: 15_000,
+      // Why: the steady safety refresh stays pooled; callers reject stale results and timeout bounds the request.
+      ...(options?.reuseLineStats ? {} : { signal: options?.signal })
+    }
+  )
+}
+
 export async function getRuntimeGitSubmoduleStatus(
   context: RuntimeGitContext,
   submodulePath: string,

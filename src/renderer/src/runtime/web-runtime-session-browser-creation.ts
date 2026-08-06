@@ -7,10 +7,10 @@ import { recordWebSessionFocusIntent } from './web-session-focus-intent'
 import {
   captureRuntimeEnvironmentCall,
   captureWebSessionIntentOwner,
-  isWebRuntimeSessionActive,
   matchesWebSessionIntentOwner
 } from './web-runtime-session-terminal-creation'
 import {
+  isWebRuntimeSessionActive,
   refreshWebRuntimeSessionTabsSnapshot,
   selectWebRuntimeSessionWorktree,
   stageWebRuntimeBrowserTab
