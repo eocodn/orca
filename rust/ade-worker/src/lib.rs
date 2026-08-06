@@ -4,6 +4,7 @@ use std::fmt::Write as _;
 pub mod jsonl_transport;
 pub mod pty_registry;
 pub mod pty_target;
+pub mod worker_dispatch;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct WorkerCliOptions {

@@ -1,10 +1,12 @@
 fn main() {
     if std::env::args().nth(1).as_deref() == Some("--jsonl") {
-        let registry = ade_worker::pty_registry::PtyWorkerRegistry::default();
-        if let Err(error) = ade_worker::jsonl_transport::serve_jsonl(
+        let pty_registry = ade_worker::pty_registry::PtyWorkerRegistry::default();
+        let file_git_registry = ade_worker::worker_dispatch::FileGitWorkerRegistry::default();
+        if let Err(error) = ade_worker::jsonl_transport::serve_mixed_jsonl(
             std::io::BufReader::new(std::io::stdin()),
             std::io::stdout(),
-            &registry,
+            &pty_registry,
+            &file_git_registry,
         ) {
             eprintln!("ade-worker jsonl error: {error}");
             std::process::exit(2);
