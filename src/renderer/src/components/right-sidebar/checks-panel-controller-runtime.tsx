@@ -4,7 +4,7 @@ import { useAppStore } from '@/store'
 import { prChecksCacheSuffix, prCommentsCacheSuffix } from '@/store/slices/github'
 import { getGitHubPRCacheKey, getGitHubRepoCacheKey } from '@/store/slices/github-cache-key'
 import { isFolderRepo } from '../../../../shared/repo-kind'
-import type { PRInfo, PRCheckDetail } from '../../../../shared/types'
+import type { PRInfo } from '../../../../shared/types'
 import { pickDefaultSourceControlAgent } from './SourceControl'
 import { getHostedReviewCacheKey } from '@/store/slices/hosted-review'
 import { type ChecksPanelReview, selectChecksPanelReview } from './checks-panel-review'
@@ -17,15 +17,13 @@ import {
 import { resolveChecksPanelPRRefreshRequest } from './checks-panel-pr-refresh-request'
 import { resolveChecksPanelReviewContext } from './checks-panel-runtime-review-context'
 import { renderChecksPanel } from './checks-panel-runtime-render'
-import { useChecksPanelRefresh } from './checks-panel-refresh-controller'
 import { useChecksPanelReviewEffects } from './checks-panel-review-effects'
 import { useChecksPanelRuntimeActions } from './checks-panel-runtime-actions'
-import { useChecksPanelCommentFetch } from './checks-panel-comment-fetch'
-import { useChecksPanelEntryRefresh } from './checks-panel-entry-refresh'
 import { useChecksPanelRuntimePolling } from './checks-panel-runtime-polling'
 import { useChecksPanelReviewRefresh } from './checks-panel-runtime-review-refresh'
 import { useChecksPanelRuntimeDataEffects } from './checks-panel-runtime-data-effects'
 import { useChecksPanelRuntimeGeneration } from './checks-panel-runtime-generation'
+import { useChecksPanelRuntimeReviewEffects } from './checks-panel-runtime-review-effects'
 import { useChecksPanelRuntimeFoundation } from './checks-panel-runtime-foundation'
 
 function isGitLabChecksPanelReview(
@@ -684,108 +682,101 @@ export default function ChecksPanel(): React.JSX.Element {
     setChecks
   })
 
-  const { fetchComments, handleLoadCheckDetails } = useChecksPanelCommentFetch({
-    activeGitLabReview,
-    branch,
-    checksPanelAsyncResultKey,
-    fetchPRCheckDetails,
-    fetchPRComments,
-    isCurrentAsyncResult,
-    isPanelVisible,
-    pr,
-    prCacheKey,
-    prNumber,
-    repo,
-    setComments,
-    setCommentsLoading
-  }) as {
-    fetchComments: (options?: {
-      force?: boolean
-      prNumberOverride?: number | null
-      prRepoOverride?: PRInfo['prRepo'] | null
-    }) => Promise<void>
-    handleLoadCheckDetails: (check: PRCheckDetail) => Promise<unknown>
-  }
-
-  const handleRefresh = useChecksPanelRefresh({
-    activeConnectionId,
-    activeGitLabReview,
-    activeWorktreeId,
-    activeWorktreePath,
-    activeWorktreePushTarget,
-    asyncResultKeyRef,
-    branch,
-    expireGitHubPRRefreshState,
-    fallbackGitHubPRNumber,
-    fetchChecks,
-    fetchGitLabDetails,
-    fetchHostedReviewForBranch,
-    fetchPRChecks,
-    fetchPRComments,
-    fetchPRForBranch,
-    hasUncommittedChanges,
-    isCurrentAsyncResult,
-    isFolder,
-    isGitLabReviewContext,
-    linkedAzureDevOpsPR,
-    linkedBitbucketPR,
-    linkedGitLabMR,
-    linkedGiteaPR,
-    linkedPR,
-    ownerSettings,
-    panelContextKey,
-    panelContextKeyRef,
-    pollIntervalRef,
-    pr,
-    prCacheKey,
-    prNumber,
-    prevChecksRef,
-    rawPRRefreshState,
-    refreshInFlightRef,
-    refreshRequestKeyRef,
-    remoteStatus,
-    repo,
-    settings,
-    updateWorktreeGitIdentity,
-    setChecks,
-    setChecksLoading,
-    setComments,
-    setCommentsLoading,
-    setEligibilityRefreshNonce,
-    setGitStatusSnapshot,
-    setIsRefreshing
-  }) as () => Promise<void>
-  const { handleEntryRefresh } = useChecksPanelEntryRefresh({
-    activeGitLabReview,
-    activeWorktree,
-    activeWorktreeId,
-    branch,
-    checksFetchedAt,
-    commentsFetchedAt,
-    enqueueGitHubPRRefresh,
-    fallbackGitHubPRNumber,
-    fetchChecks,
-    fetchGitLabDetails,
-    fetchHostedReviewForBranch,
-    fetchComments,
-    hostedReviewCacheKey,
-    isFolder,
-    isGitLabReviewContext,
-    isPanelVisible,
-    linkedAzureDevOpsPR,
-    linkedBitbucketPR,
-    linkedGitLabMR,
-    linkedGiteaPR,
-    linkedPR,
-    prCacheKey,
-    prFetchedAt,
-    prNumber,
-    pollIntervalRef,
-    prevChecksRef,
-    repo
-  }) as {
-    handleEntryRefresh: (options: { refreshChecks: boolean; refreshComments: boolean }) => void
-  }
+  const runtimeReviewEffects = useChecksPanelRuntimeReviewEffects({
+    comments: {
+      activeGitLabReview,
+      branch,
+      checksPanelAsyncResultKey,
+      fetchPRCheckDetails,
+      fetchPRComments,
+      isCurrentAsyncResult,
+      isPanelVisible,
+      pr,
+      prCacheKey,
+      prNumber,
+      repo,
+      setComments,
+      setCommentsLoading
+    },
+    refresh: {
+      activeConnectionId,
+      activeGitLabReview,
+      activeWorktreeId,
+      activeWorktreePath,
+      activeWorktreePushTarget,
+      asyncResultKeyRef,
+      branch,
+      expireGitHubPRRefreshState,
+      fallbackGitHubPRNumber,
+      fetchChecks,
+      fetchGitLabDetails,
+      fetchHostedReviewForBranch,
+      fetchPRChecks,
+      fetchPRComments,
+      fetchPRForBranch,
+      hasUncommittedChanges,
+      isCurrentAsyncResult,
+      isFolder,
+      isGitLabReviewContext,
+      linkedAzureDevOpsPR,
+      linkedBitbucketPR,
+      linkedGitLabMR,
+      linkedGiteaPR,
+      linkedPR,
+      ownerSettings,
+      panelContextKey,
+      panelContextKeyRef,
+      pollIntervalRef,
+      pr,
+      prCacheKey,
+      prNumber,
+      prevChecksRef,
+      rawPRRefreshState,
+      refreshInFlightRef,
+      refreshRequestKeyRef,
+      remoteStatus,
+      repo,
+      settings,
+      updateWorktreeGitIdentity,
+      setChecks,
+      setChecksLoading,
+      setComments,
+      setCommentsLoading,
+      setEligibilityRefreshNonce,
+      setGitStatusSnapshot,
+      setIsRefreshing
+    },
+    entry: {
+      activeGitLabReview,
+      activeWorktree,
+      activeWorktreeId,
+      branch,
+      checksFetchedAt,
+      commentsFetchedAt,
+      enqueueGitHubPRRefresh,
+      fallbackGitHubPRNumber,
+      fetchChecks,
+      fetchGitLabDetails,
+      fetchHostedReviewForBranch,
+      hostedReviewCacheKey,
+      isFolder,
+      isGitLabReviewContext,
+      isPanelVisible,
+      linkedAzureDevOpsPR,
+      linkedBitbucketPR,
+      linkedGitLabMR,
+      linkedGiteaPR,
+      linkedPR,
+      prCacheKey,
+      prFetchedAt,
+      prNumber,
+      pollIntervalRef,
+      prevChecksRef,
+      repo
+    }
+  })
+  const { fetchComments, handleLoadCheckDetails, handleRefresh, handleEntryRefresh } =
+    runtimeReviewEffects
 
   const refreshHostedReviewAfterMutation = useChecksPanelReviewRefresh({
     activeGitLabReview,
