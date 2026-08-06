@@ -28,7 +28,6 @@ import {
   deliverTerminalDataWithDeferredCredit,
   takeCurrentTerminalDeliveryCredit
 } from '@/lib/pane-manager/terminal-delivery-credit'
-import { serializeWithAbsoluteCursor } from '../../../../shared/terminal-serialize-absolute-cursor'
 import { isTerminalQueryReply } from '../../../../shared/terminal-query-reply'
 import type { PtyBufferSnapshot, PtyConnectResult } from './pty-transport'
 import type { IpcPtyTransportOptions, PtyTransportRecoveryState } from './pty-transport-types'
@@ -128,11 +127,7 @@ import {
 } from '../../../../shared/terminal-color-scheme-protocol'
 import { warnTerminalLifecycleAnomaly } from './terminal-lifecycle-diagnostics'
 import { subscribeToTerminalUserInput } from './terminal-user-input-signal'
-import {
-  hasPtySerializer,
-  registerPtySerializer,
-  registerPtyTitleSource
-} from './pty-buffer-serializer'
+import { hasPtySerializer } from './pty-buffer-serializer'
 import { inspectRuntimeTerminalProcess } from '@/runtime/runtime-terminal-inspection'
 // Why: a restored pane's stale-account prompt can only be raised once a PTY is
 // actually attached — nothing is inspectable while the session hydrates.
@@ -152,7 +147,6 @@ import {
 } from '@/lib/pane-manager/windows-pty-compatibility'
 import { recordTerminalOutput } from '@/lib/pane-manager/pane-scroll'
 import { ensureArabicShapingJoinerForText } from '@/lib/pane-manager/terminal-arabic-shaping-joiner'
-import { clearTerminalScrollbackAndFollowOutput } from '@/lib/pane-manager/terminal-scrollback-clear'
 import {
   enforceTerminalCurrentScrollIntent,
   getTerminalScrollIntentKind,
@@ -377,6 +371,7 @@ import { createPtyConnectionStartupState } from './pty-connection-startup-state'
 import { createPtyConnectionCommandInference } from './pty-connection-command-inference'
 import { createPtyConnectionReattachAgentSignals } from './pty-connection-reattach-agent-signals'
 import { createPtyConnectionInputIntent } from './pty-connection-input-intent'
+import { createPtyConnectionSerializerController } from './pty-connection-serializer-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -3429,121 +3424,23 @@ export function connectPanePty(
       deps.onPtyErrorRef?.current?.(pane.id, message)
     }
 
-    // Why: shared registration so both fresh-spawn and reattach paths install
-    // the same SerializeAddon-backed serializer plus the onTitleChange wrapper
-    // that drives lastTitle parity for mobile subscribers. Wires the resulting
-    // unregister into onDataDisposable.dispose so disposal stays a single
-    // teardown point. See docs/mobile-prefer-renderer-scrollback.md.
-    const registerPaneSerializerFor = (ptyId: string): void => {
-      // Why: StrictMode mounts panes twice; the first mount is disposed
-      // before the second runs, but its pty:spawn IPC may have resolved by
-      // the time `disposed` flips. Without this guard, the disposed first
-      // mount would register against a torn-down xterm and replace the live
-      // second-mount registration via owner-token shadowing.
-      if (disposed) {
-        return
-      }
-      const unregisterSerializer = registerPtySerializer(
-        ptyId,
-        async (opts) => {
-          try {
-            if (isTerminalWritePipelineCertifiedDead(pane.terminal)) {
-              return null
-            }
-            await waitForTerminalOutputParsed(pane.terminal)
-            // Certification can land while the serializer waits for an older
-            // write; never publish a fossil frame from a dead renderer.
-            if (isTerminalWritePipelineCertifiedDead(pane.terminal)) {
-              return null
-            }
-            // Why: alt-screen TUIs (vim, claude-code) hold transient state in
-            // the alternate screen. The hydration path requests
-            // altScreenForcesZeroRows so normal-buffer scrollback isn't bled
-            // into the seed when the user is mid-TUI; the read-fallback path
-            // omits it because it wants the user's currently-visible content.
-            const alt = pane.terminal.buffer.active.type === 'alternate'
-            // Why serializeWithAbsoluteCursor: SerializeAddon's relative
-            // cursor restore lands one column short when replay of a
-            // margin-filling final row leaves the target wrap-pending.
-            const data =
-              opts?.altScreenForcesZeroRows && alt
-                ? serializeWithAbsoluteCursor(pane.serializeAddon, pane.terminal, { scrollback: 0 })
-                : serializeWithAbsoluteCursor(pane.serializeAddon, pane.terminal, {
-                    scrollback: opts?.scrollbackRows
-                  })
-            return {
-              data,
-              cols: pane.terminal.cols,
-              rows: pane.terminal.rows,
-              ...(rendererOrderedPtyId === ptyId && rendererOrderedSeq !== null
-                ? { seq: rendererOrderedSeq }
-                : {})
-            }
-          } catch {
-            return null
-          }
-        },
-        () => {
-          clearHiddenOutputRestoreState()
-          discardTerminalOutput(pane.terminal)
-          clearTerminalScrollbackAndFollowOutput(pane.terminal)
-        }
-      )
-      const unregisterTitleSource = registerPtyTitleSource(ptyId, (handler) =>
-        pane.terminal.onTitleChange(handler)
-      )
-      const origOnDataDisposableDispose = onDataDisposable.dispose.bind(onDataDisposable)
-      onDataDisposable.dispose = () => {
-        unregisterTitleSource()
-        unregisterSerializer()
-        origOnDataDisposableDispose()
-      }
-    }
-
-    let replayWriteQueue = Promise.resolve()
-    const settlePaneSerializerAfterReplay = async (
-      ptyId: string,
-      generation: number
-    ): Promise<void> => {
-      try {
-        await replayWriteQueue
-        if (disposed || transport.getPtyId() !== ptyId) {
-          await getClientRuntime()
-            .terminal.clearPendingPaneSerializer(cacheKey, generation)
-            .catch(() => {})
-          return
-        }
-        await waitForTerminalOutputParsed(pane.terminal)
-        if (!disposed && transport.getPtyId() === ptyId) {
-          await getClientRuntime().terminal.settlePaneSerializer(cacheKey, generation)
-          return
-        }
-      } catch {
-        // Clear below so a failed parser/replay cannot leave the pane generation pending.
-      }
-      await getClientRuntime()
-        .terminal.clearPendingPaneSerializer(cacheKey, generation)
-        .catch(() => {})
-    }
-    const reportRemoteRendererSerializerReady = (): void => {
-      const ptyId = transport.getPtyId()
-      if (!ptyId || !isRemoteRuntimePtyId(ptyId)) {
-        return
-      }
-      if (!hasPtySerializer(ptyId)) {
-        registerPaneSerializerFor(ptyId)
-      }
-      // Why: onSubscribed follows the snapshot callback, but replay drains
-      // asynchronously; join it and xterm's parser before reporting readiness.
-      void replayWriteQueue
-        .then(() => waitForTerminalOutputParsed(pane.terminal))
-        .then(() => {
-          if (!disposed && transport.getPtyId() === ptyId) {
-            void getClientRuntime().terminal.reportRendererSerializerReady?.(ptyId)
-          }
-        })
-        .catch(() => {})
-    }
+    const {
+      state: serializerControllerState,
+      registerPaneSerializerFor,
+      settlePaneSerializerAfterReplay,
+      reportRemoteRendererSerializerReady
+    } = createPtyConnectionSerializerController({
+      pane,
+      cacheKey,
+      transport,
+      onDataDisposable,
+      isDisposed: () => disposed,
+      clearHiddenOutputRestoreState: () => clearHiddenOutputRestoreState(),
+      getRendererOrderedFrame: () => ({
+        ptyId: rendererOrderedPtyId,
+        seq: rendererOrderedSeq
+      })
+    })
 
     // Why: for ordinary local startup commands, the local PTY provider already
     // writes via the shell-ready barrier. terminal-paste and SSH startup
@@ -4511,7 +4408,7 @@ export function connectPanePty(
         pendingReplayData?.streamGeneration ?? transportStreamGeneration
       beginReattachLiveDataDeferral(scheduledStreamGeneration)
       let replayCompleted = false
-      replayWriteQueue = replayWriteQueue
+      serializerControllerState.replayWriteQueue = serializerControllerState.replayWriteQueue
         .catch(() => undefined)
         .then(() =>
           structuralReplayCoordinator.run(
