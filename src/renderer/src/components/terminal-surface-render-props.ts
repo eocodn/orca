@@ -1,4 +1,8 @@
-export function buildTerminalSurfaceRenderProps(context: Record<string, any>): Record<string, any> {
+import type { TerminalSurfaceRenderProps } from './terminal-surface-render'
+
+export function buildTerminalSurfaceRenderProps(
+  context: TerminalSurfaceRenderProps
+): TerminalSurfaceRenderProps {
   const {
     renderedActiveWorktreeId,
     effectiveActiveLayout,
