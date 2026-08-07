@@ -316,6 +316,7 @@ import { createPtyConnectionAttachController } from './pty-connection-attach-con
 import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-candidate'
 import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
+import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2639,6 +2640,54 @@ export function connectPanePty(
       }
     }
 
+    const createFreshSpawnController = () =>
+      createPtyConnectionFreshSpawnController({
+        transport,
+        cacheKey,
+        runtimeEnvironmentId,
+        cols,
+        rows,
+        captureTransportOutputCallbacks,
+        getTransportStreamGeneration: () => transportStreamGeneration,
+        setConnectInFlightSince: (value) => {
+          transportConnectInFlightSince = value
+        },
+        mergeStartupEnvWithPaneIdentity,
+        shouldDeclareHiddenAtSpawn,
+        claimCapturedDirectSshRetryPty,
+        declarePendingPaneSerializer: (paneKey) =>
+          getClientRuntime().terminal.declarePendingPaneSerializer(paneKey),
+        clearPendingPaneSerializer: (paneKey, generation) =>
+          getClientRuntime().terminal.clearPendingPaneSerializer(paneKey, generation),
+        settlePaneSerializer: (paneKey, generation) =>
+          getClientRuntime().terminal.settlePaneSerializer(paneKey, generation),
+        registerEffectiveLaunchConfig,
+        hasPaneStartupLaunchConfig: () => Boolean(paneStartup?.launchConfig),
+        clearRegisteredStartupLaunchConfig,
+        writeStartupCwdFallbackNotice: () => {
+          writeTerminalOutput(pane.terminal, STARTUP_CWD_FALLBACK_NOTICE, {
+            foreground: shouldWritePtyOutputForeground(deps.isVisibleRef.current)
+          })
+        },
+        showSessionRestoredBanner,
+        clearSleepingRecordAfterColdRestoreSpawn,
+        getActivePanePtyBinding: () => activePanePtyBinding,
+        bindActivePanePty: (ptyId) => {
+          // Why: daemon createOrAttach can make a fresh request adopt an existing PTY without emitting onPtySpawn.
+          bindActivePanePty(ptyId, {
+            updateTabPtyId: 'if-missing',
+            sampleVisibleForegroundAgent: true
+          })
+        },
+        reconcileSpawnedPtySize,
+        isRemoteRuntimePtyId,
+        hasPtySerializer,
+        registerPaneSerializerFor,
+        hasConnection: () => Boolean(connectionId),
+        schedulePendingStartupCommandDelivery,
+        reportError
+      })
+
     const startFreshSpawn = (
       startupOverride?: PendingStartupCommand | null,
       options: FreshSpawnOptions = {}
@@ -2669,155 +2718,7 @@ export function connectPanePty(
         // must still submit the resume command to the fresh remote shell.
         setPendingStartupCommand({ command: startupOverride.command })
       }
-      const coldRestoreOverride =
-        startupOverride && 'launchConfig' in startupOverride
-          ? (startupOverride as ColdRestoreAgentResumeStartup)
-          : null
-      // Why: pre-signal the main process so its cooperation gate suppresses
-      // the daemon-snapshot seed for this paneKey. We issue declare and the
-      // spawn back-to-back without awaiting, because Electron's
-      // ipcRenderer→ipcMain channel preserves order across consecutive invoke
-      // calls from the same renderer. The cooperation gate at pty:spawn time
-      // sees pendingByPaneKey populated. Settle/clear later echoes the gen
-      // token captured here. See docs/mobile-prefer-renderer-scrollback.md.
-      const preSignalPromise = runtimeEnvironmentId
-        ? Promise.resolve(null)
-        : getClientRuntime()
-            .terminal.declarePendingPaneSerializer(cacheKey)
-            .catch(() => null)
-
-      transportConnectInFlightSince = Date.now()
-      const outputCallbacks = captureTransportOutputCallbacks(reportError)
-      const spawnedRaw = transport.connect({
-        url: '',
-        cols,
-        rows,
-        ...(startupOverride?.command ? { command: startupOverride.command } : {}),
-        ...(startupOverride?.env
-          ? { env: mergeStartupEnvWithPaneIdentity(startupOverride.env) }
-          : {}),
-        ...(coldRestoreOverride ? { launchConfig: coldRestoreOverride.launchConfig } : {}),
-        ...(coldRestoreOverride
-          ? { resumeProviderSession: coldRestoreOverride.resumeProviderSession }
-          : {}),
-        ...(coldRestoreOverride ? { launchToken: coldRestoreOverride.launchToken } : {}),
-        ...(coldRestoreOverride ? { launchAgent: coldRestoreOverride.agent } : {}),
-        ...(shouldDeclareHiddenAtSpawn() ? { initiallyHidden: true } : {}),
-        callbacks: outputCallbacks.callbacks
-      })
-
-      void Promise.resolve(spawnedRaw)
-        .catch(() => null)
-        .finally(() => {
-          transportConnectInFlightSince = null
-        })
-      const processedSpawnPromise: Promise<string | null> = Promise.resolve(spawnedRaw)
-        .then(async (spawnedPtyId) => {
-          if (outputCallbacks.generation !== transportStreamGeneration) {
-            const gen = await preSignalPromise
-            if (typeof gen === 'number') {
-              void getClientRuntime()
-                .terminal.clearPendingPaneSerializer(cacheKey, gen)
-                .catch(() => {})
-            }
-            return null
-          }
-          const resolvedPtyId =
-            spawnedPtyId && typeof spawnedPtyId === 'object' && 'id' in spawnedPtyId
-              ? spawnedPtyId.id
-              : typeof spawnedPtyId === 'string'
-                ? spawnedPtyId
-                : transport.getPtyId()
-          if (resolvedPtyId && !claimCapturedDirectSshRetryPty(resolvedPtyId)) {
-            return null
-          }
-          if (spawnedPtyId && typeof spawnedPtyId === 'object' && 'id' in spawnedPtyId) {
-            registerEffectiveLaunchConfig(spawnedPtyId.launchConfig, {
-              ...(coldRestoreOverride ? { launchToken: coldRestoreOverride.launchToken } : {}),
-              ...(coldRestoreOverride ? { launchAgent: coldRestoreOverride.agent } : {})
-            })
-          }
-          if (resolvedPtyId) {
-            if (
-              spawnedPtyId &&
-              typeof spawnedPtyId === 'object' &&
-              spawnedPtyId.startupCwdFallback?.kind === 'worktree'
-            ) {
-              writeTerminalOutput(pane.terminal, STARTUP_CWD_FALLBACK_NOTICE, {
-                foreground: shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-              })
-            }
-            if (
-              spawnedPtyId &&
-              typeof spawnedPtyId === 'object' &&
-              spawnedPtyId.agentResumeUnavailable
-            ) {
-              // Why: main dropped the resume argv, so this pane is a NEW session —
-              // the plain restored banner would claim the old one came back.
-              showSessionRestoredBanner('resume-unavailable')
-            } else if (coldRestoreOverride?.hasSleepingRecord) {
-              showSessionRestoredBanner()
-            }
-            clearSleepingRecordAfterColdRestoreSpawn(coldRestoreOverride)
-          } else if (
-            paneStartup?.launchConfig ||
-            (startupOverride && 'launchConfig' in startupOverride)
-          ) {
-            // Why: delayed draft/follow-up delivery keys off this launch
-            // registry. If spawn produced no PTY, the launch is no longer a
-            // viable delivery target and must not wait for a future pane.
-            clearRegisteredStartupLaunchConfig()
-          }
-          if (
-            resolvedPtyId &&
-            spawnedPtyId &&
-            typeof spawnedPtyId === 'object' &&
-            'id' in spawnedPtyId &&
-            activePanePtyBinding !== resolvedPtyId &&
-            transport.getPtyId() === resolvedPtyId
-          ) {
-            // Why: daemon createOrAttach can turn an apparent fresh spawn into
-            // a reattach; the transport skips onPtySpawn there to preserve recency.
-            bindActivePanePty(resolvedPtyId, {
-              updateTabPtyId: 'if-missing',
-              sampleVisibleForegroundAgent: true
-            })
-          }
-          if (resolvedPtyId) {
-            reconcileSpawnedPtySize(resolvedPtyId, cols, rows)
-          }
-          const gen = await preSignalPromise
-          if (resolvedPtyId && (typeof gen === 'number' || isRemoteRuntimePtyId(resolvedPtyId))) {
-            if (!isRemoteRuntimePtyId(resolvedPtyId) || !hasPtySerializer(resolvedPtyId)) {
-              registerPaneSerializerFor(resolvedPtyId)
-            }
-            if (typeof gen === 'number') {
-              void getClientRuntime()
-                .terminal.settlePaneSerializer(cacheKey, gen)
-                .catch(() => {})
-            }
-          } else if (typeof gen === 'number') {
-            void getClientRuntime()
-              .terminal.clearPendingPaneSerializer(cacheKey, gen)
-              .catch(() => {})
-          }
-          if (resolvedPtyId && connectionId) {
-            schedulePendingStartupCommandDelivery()
-          }
-          return resolvedPtyId
-        })
-        .catch(async () => {
-          if (paneStartup?.launchConfig || (startupOverride && 'launchConfig' in startupOverride)) {
-            clearRegisteredStartupLaunchConfig()
-          }
-          const gen = await preSignalPromise
-          if (typeof gen === 'number') {
-            void getClientRuntime()
-              .terminal.clearPendingPaneSerializer(cacheKey, gen)
-              .catch(() => {})
-          }
-          return null
-        })
+      const processedSpawnPromise = createFreshSpawnController().spawn(startupOverride)
       return trackPtyConnectionSpawn({
         pendingSpawnKey,
         spawnPromise: processedSpawnPromise,

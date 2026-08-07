@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes fresh-spawn connect and result settlement through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-fresh-spawn-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'"
+    )
+    expect(orchestrator).not.toContain('const spawnedRaw = transport.connect(')
+    expect(orchestrator).not.toContain('const processedSpawnPromise:')
+    expect(controller).toContain('export function createPtyConnectionFreshSpawnController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes fresh-spawn registry settlement through its concrete tracker', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
