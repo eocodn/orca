@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes SSH deferred-connect entry policy through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const route = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-route.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'"
+    )
+    expect(orchestrator).not.toContain('const gate = resolveSshPaneConnectGate({')
+    expect(orchestrator).not.toContain('if (gate.enterDeferredFlow &&')
+    expect(route).toContain('export function runPtyConnectionSshDeferredRoute(')
+    expect(route.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes deferred SSH connect composition through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
