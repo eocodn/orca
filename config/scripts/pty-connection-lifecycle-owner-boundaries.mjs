@@ -174,6 +174,25 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes restored snapshot sequence reconciliation through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-snapshot-reconciliation-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionRestoredSnapshotReconciliationController')
+    expect(orchestrator).not.toContain('let restoredSnapshotBaselineSeq:')
+    expect(orchestrator).not.toContain('let restoredSnapshotBaselinePtyId:')
+    expect(orchestrator).not.toContain('let restoredSnapshotExpectedStartSeq:')
+    expect(orchestrator).not.toContain('let restoredSnapshotDeliveryWindowStartSeq:')
+    expect(owner).toContain(
+      'export function createPtyConnectionRestoredSnapshotReconciliationController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

@@ -153,6 +153,7 @@ import {
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRendererSequenceExitResetController } from './pty-connection-renderer-sequence-exit-reset-controller'
+import { createPtyConnectionRestoredSnapshotReconciliationController } from './pty-connection-restored-snapshot-reconciliation-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPtyConnectionTitleCompletionDeferralController } from './pty-connection-title-completion-deferral-controller'
@@ -2733,54 +2734,8 @@ export function connectPanePty(
       pendingDeliveryStartSeq?: number
     } | null = null
     let hiddenOutputRestoreFloodRepaintTimer: ReturnType<typeof setTimeout> | null = null
-    // Why: after a snapshot restore, main can still drain ACK-backlog chunks
-    // whose bytes the snapshot already covers — writing them unguarded
-    // duplicates visible output. Track the restored baseline seq (per PTY)
-    // and the expected next chunk start so dataCallback can drop/slice
-    // overlaps and detect seq gaps from main-side pending-cap trims whose
-    // one-shot marker was already consumed.
-    let restoredSnapshotBaselineSeq: number | null = null
-    let restoredSnapshotBaselinePtyId: string | null = null
-    let restoredSnapshotExpectedStartSeq: number | null = null
-    // Why: main samples its pending renderer-delivery queue with the snapshot.
-    // Chunks at or below this seq can never be backlog duplicates (delivery is
-    // once-and-in-order), so the dedupe window is (windowStart, baseline].
-    let restoredSnapshotDeliveryWindowStartSeq: number | null = null
-
-    function setRestoredSnapshotBaseline(
-      ptyId: string,
-      snapshot: { seq?: number; pendingDeliveryStartSeq?: number }
-    ): void {
-      if (typeof snapshot.seq !== 'number') {
-        clearRestoredSnapshotBaseline()
-        return
-      }
-      const windowStartSeq =
-        typeof snapshot.pendingDeliveryStartSeq === 'number'
-          ? Math.min(snapshot.pendingDeliveryStartSeq, snapshot.seq)
-          : null
-      if (windowStartSeq !== null && windowStartSeq >= snapshot.seq) {
-        // Why: main reported an empty undelivered backlog — no chunk at or
-        // below the snapshot seq can ever arrive again (delivery is once and
-        // in order) and a future pending-cap trim re-arms the out-of-band
-        // marker. Arming a baseline anyway would misread live chunks from a
-        // foreign seq domain (restarted counter / synthetic injection) as
-        // duplicates or trim gaps and silently drop genuinely-new output.
-        clearRestoredSnapshotBaseline()
-        return
-      }
-      restoredSnapshotBaselineSeq = snapshot.seq
-      restoredSnapshotBaselinePtyId = ptyId
-      restoredSnapshotExpectedStartSeq = snapshot.seq
-      restoredSnapshotDeliveryWindowStartSeq = windowStartSeq
-    }
-
-    function clearRestoredSnapshotBaseline(): void {
-      restoredSnapshotBaselineSeq = null
-      restoredSnapshotBaselinePtyId = null
-      restoredSnapshotExpectedStartSeq = null
-      restoredSnapshotDeliveryWindowStartSeq = null
-    }
+    const restoredSnapshotReconciliationController =
+      createPtyConnectionRestoredSnapshotReconciliationController()
     let mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     let hiddenStartupRendererQueryPending = ''
@@ -3273,67 +3228,11 @@ export function connectPanePty(
       return chunk.data.slice(offset)
     }
 
-    type RestoredSnapshotReconciliation =
-      | { action: 'write'; data: string; meta: PtyDataMeta | undefined }
-      | { action: 'drop-duplicate' }
-      | { action: 'force-fresh-restore' }
-
-    // Why: same slicing as getChunkDataAfterSnapshot but for post-restore live chunks, which main's ACK backlog can still deliver at/before the snapshot seq (and can trim seq ranges silently).
-    function reconcileChunkAgainstRestoredSnapshot(
-      data: string,
-      meta: PtyDataMeta | undefined
-    ): RestoredSnapshotReconciliation {
-      if (restoredSnapshotBaselineSeq === null) {
-        return { action: 'write', data, meta }
-      }
-      if (transport.getPtyId() !== restoredSnapshotBaselinePtyId) {
-        clearRestoredSnapshotBaseline()
-        return { action: 'write', data, meta }
-      }
-      if (typeof meta?.seq !== 'number') {
-        // Why: seq-less chunks (no runtime metering) can't be reconciled; pass them through like getChunkDataAfterSnapshot.
-        return { action: 'write', data, meta }
-      }
-      if (
-        restoredSnapshotDeliveryWindowStartSeq !== null &&
-        meta.seq <= restoredSnapshotDeliveryWindowStartSeq
-      ) {
-        // Why: all still-deliverable bytes started after this seq and delivery is in-order, so this can't be a backlog dup — it's a new seq domain; retire the baseline and write.
-        clearRestoredSnapshotBaseline()
-        return { action: 'write', data, meta }
-      }
-      const rawLength = meta.rawLength ?? data.length
-      const startSeq = meta.seq - rawLength
-      const expectedStartSeq = restoredSnapshotExpectedStartSeq
-      restoredSnapshotExpectedStartSeq = Math.max(expectedStartSeq ?? meta.seq, meta.seq)
-      if (expectedStartSeq !== null && startSeq > expectedStartSeq) {
-        // Why: the chunk starts past the continuity point — bytes between were dropped (pending-cap trim); only a fresh snapshot heals the gap.
-        return { action: 'force-fresh-restore' }
-      }
-      if (meta.seq <= restoredSnapshotBaselineSeq) {
-        return { action: 'drop-duplicate' }
-      }
-      if (startSeq >= restoredSnapshotBaselineSeq) {
-        return { action: 'write', data, meta }
-      }
-      if (rawLength !== data.length) {
-        // Why: renderer-only OSC stripping makes raw seq offsets unmappable onto cleaned text; refetch instead of risking duplicate output.
-        return { action: 'force-fresh-restore' }
-      }
-      const sliced = data.slice(restoredSnapshotBaselineSeq - startSeq)
-      return {
-        action: 'write',
-        data: sliced,
-        // Why: keep seq metadata consistent with the sliced payload so a later queue drain slices against accurate offsets.
-        meta: { ...meta, rawLength: sliced.length }
-      }
-    }
-
     const recordRendererOrderedSeq = rendererSequenceController.recordOrdered
 
     rendererSequenceExitResetController.bindRuntime({
-      getRestoredSnapshotBaselinePtyId: () => restoredSnapshotBaselinePtyId,
-      clearRestoredSnapshotBaseline,
+      getRestoredSnapshotBaselinePtyId: restoredSnapshotReconciliationController.getBaselinePtyId,
+      clearRestoredSnapshotBaseline: restoredSnapshotReconciliationController.clear,
       resetRendererSequenceForPtyExit: rendererSequenceController.resetForPtyExit
     })
 
@@ -3365,8 +3264,8 @@ export function connectPanePty(
             return 'refetch'
           }
           // Why: advance the continuity point so reconciliation neither re-drops drained chunks as duplicates nor misreads the next live chunk as a gap.
-          if (typeof chunk.seq === 'number' && restoredSnapshotExpectedStartSeq !== null) {
-            restoredSnapshotExpectedStartSeq = Math.max(restoredSnapshotExpectedStartSeq, chunk.seq)
+          if (typeof chunk.seq === 'number') {
+            restoredSnapshotReconciliationController.advanceExpectedSeq(chunk.seq)
           }
           if (data) {
             writePtyOutputToXterm(data, true)
@@ -3501,10 +3400,10 @@ export function connectPanePty(
         pendingData += sliced ?? chunk.data
       }
       if (replayingSnapshot && replayedSeq !== null) {
-        setRestoredSnapshotBaseline(expectedPtyId, replayingSnapshot)
+        restoredSnapshotReconciliationController.setBaseline(expectedPtyId, replayingSnapshot)
         for (const chunk of pendingChunks) {
-          if (typeof chunk.seq === 'number' && restoredSnapshotExpectedStartSeq !== null) {
-            restoredSnapshotExpectedStartSeq = Math.max(restoredSnapshotExpectedStartSeq, chunk.seq)
+          if (typeof chunk.seq === 'number') {
+            restoredSnapshotReconciliationController.advanceExpectedSeq(chunk.seq)
           }
         }
       }
@@ -3602,7 +3501,7 @@ export function connectPanePty(
       if (transport.getPtyId() !== hiddenOutputRestorePtyId) {
         // Why: renderer backlog is tied to the old PTY stream; after reattach it must not delay or replay before the new PTY.
         clearHiddenOutputRestoreState()
-        clearRestoredSnapshotBaseline()
+        restoredSnapshotReconciliationController.clear()
         clearPaneMode2031State()
         // Why: flood-backpressure evidence is per PTY stream too.
         resetHiddenOutputRestoreFloodSuppression()
@@ -3886,7 +3785,7 @@ export function connectPanePty(
             return
           }
           // Why: everything at/before snapshot.seq is now painted; chunks still draining from main's ACK backlog below it are duplicates to suppress.
-          setRestoredSnapshotBaseline(currentPtyId, snapshot)
+          restoredSnapshotReconciliationController.setBaseline(currentPtyId, snapshot)
           hiddenOutputRestoreReplayingSnapshot = null
           const needsFreshSnapshot = hiddenOutputRestoreFreshSnapshotNeeded
           hiddenOutputRestoreFreshSnapshotNeeded = false
@@ -4046,7 +3945,11 @@ export function connectPanePty(
         syncHiddenRendererPtyDelivery()
       }
       // Post-restore reconciliation: drop chunks the snapshot covers, force a fresh restore for unmappable seq gaps; runs after byte observers, before any xterm write.
-      const reconciliation = reconcileChunkAgainstRestoredSnapshot(data, meta)
+      const reconciliation = restoredSnapshotReconciliationController.reconcile(
+        transport.getPtyId(),
+        data,
+        meta
+      )
       if (reconciliation.action === 'drop-duplicate') {
         return
       }
@@ -4054,7 +3957,7 @@ export function connectPanePty(
         // Why gated (rc.7.perf loop): foreground-flood seq gaps are our own backpressure drops; snapshot-per-gap IS the loop, so retire the baseline and heal post-flood.
         if (foreground && isForegroundRestoreBackpressureContext()) {
           noteHiddenOutputRestoreFloodBackpressure()
-          clearRestoredSnapshotBaseline()
+          restoredSnapshotReconciliationController.clear()
           // fall through with the ORIGINAL data/meta — post-gap bytes are new
         } else {
           // Why: capture in-flight BEFORE the mark — on a visible pane the mark starts the restore synchronously and must not flag itself.
@@ -4456,7 +4359,7 @@ export function connectPanePty(
               writeReplayData(modelSnapshot.pendingEscapeTailAnsi)
             }
             // Why: main sampled its delivery backlog with the snapshot; the baseline drops/slices deferred and live chunks the snapshot already covers.
-            setRestoredSnapshotBaseline(ptyId, modelSnapshot)
+            restoredSnapshotReconciliationController.setBaseline(ptyId, modelSnapshot)
             recordRendererOrderedSeq(modelSnapshot)
             sendFocusedReattachFocusInAfterReplay(ptyId, attemptGeneration)
             if (connectResult?.coldRestore && !isRemoteRuntimePtyId(ptyId)) {
