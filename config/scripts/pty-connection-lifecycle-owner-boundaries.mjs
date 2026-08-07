@@ -306,6 +306,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore pending live queue state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-pending-live-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestorePendingLiveController')
+    expect(orchestrator).not.toContain('let hiddenOutputRestorePendingChunks:')
+    expect(orchestrator).not.toContain('let hiddenOutputRestorePendingChars =')
+    expect(orchestrator).not.toContain('let hiddenOutputRestorePendingOverflow =')
+    expect(owner).toContain('export function createPtyConnectionHiddenRestorePendingLiveController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes certified-dead restore recovery claims through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

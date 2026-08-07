@@ -141,6 +141,10 @@ import { createPtyConnectionHiddenRestoreDeferredRetryController } from './pty-c
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
 import { createPtyConnectionHiddenRestoreFreshnessController } from './pty-connection-hidden-restore-freshness-controller'
 import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
+import {
+  createPtyConnectionHiddenRestorePendingLiveController,
+  type HiddenRestorePendingLiveChunk
+} from './pty-connection-hidden-restore-pending-live-controller'
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
@@ -262,7 +266,6 @@ import {
   CURSOR_SHOW_SEQUENCE,
   FOCUS_REPORTING_DISABLE_SEQUENCE,
   HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
-  HIDDEN_OUTPUT_RESTORE_PENDING_CHARS,
   HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING,
   STARTUP_CWD_FALLBACK_NOTICE,
   TERMINAL_FOCUS_IN_SEQUENCE,
@@ -2694,17 +2697,8 @@ export function connectPanePty(
       }
     }
 
-    type PendingHiddenOutputRestoreChunk = {
-      data: string
-      seq?: number
-      rawLength?: number
-    }
-
     let hiddenOutputRestoreNeeded = false
     let hiddenOutputRestoreInFlight: Promise<void> | null = null
-    let hiddenOutputRestorePendingChunks: PendingHiddenOutputRestoreChunk[] = []
-    let hiddenOutputRestorePendingChars = 0
-    let hiddenOutputRestorePendingOverflow = false
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
       generation: number
@@ -2723,6 +2717,8 @@ export function connectPanePty(
     const hiddenRestoreFreshnessController = createPtyConnectionHiddenRestoreFreshnessController()
     const hiddenRestoreReplayBaselineController =
       createPtyConnectionHiddenRestoreReplayBaselineController()
+    const hiddenRestorePendingLiveController =
+      createPtyConnectionHiddenRestorePendingLiveController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -2733,8 +2729,7 @@ export function connectPanePty(
       createPtyConnectionHiddenRestoreForegroundDeadlineController({
         isDisposed: () => disposed,
         isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
-        hasPending: () =>
-          hiddenOutputRestorePendingChunks.length > 0 || hiddenOutputRestorePendingOverflow,
+        hasPending: hiddenRestorePendingLiveController.hasPending,
         getRestorePtyId: () => hiddenOutputRestorePtyId,
         getCurrentPtyId: () => transport.getPtyId(),
         getRestoreGeneration: () => hiddenOutputRestoreGeneration,
@@ -3165,38 +3160,25 @@ export function connectPanePty(
       }
       hiddenOutputRestorePtyId = ptyId
       hiddenOutputRestoreNeeded = true
-      if (hiddenOutputRestorePendingOverflow) {
-        // Why: the overflow latch discards everything queued at the next drain, so queueing more only grows the discard; salvage queries, drop content.
-        salvageRendererQueriesFromDiscardedRestoreData(data)
-        hiddenRestoreForegroundDeadlineController.arm()
-        return
-      }
-      if (hiddenOutputRestorePendingChars + data.length > HIDDEN_OUTPUT_RESTORE_PENDING_CHARS) {
-        const discardedChunks = hiddenOutputRestorePendingChunks
-        hiddenOutputRestorePendingChunks = []
-        hiddenOutputRestorePendingChars = 0
-        hiddenOutputRestorePendingOverflow = true
-        for (const chunk of discardedChunks) {
-          salvageRendererQueriesFromDiscardedRestoreData(chunk.data)
-        }
-        salvageRendererQueriesFromDiscardedRestoreData(data)
-        hiddenRestoreForegroundDeadlineController.arm()
-        return
-      }
-      const pending: PendingHiddenOutputRestoreChunk = { data }
+      const pending: HiddenRestorePendingLiveChunk = { data }
       if (typeof meta?.seq === 'number') {
         pending.seq = meta.seq
       }
       if (typeof meta?.rawLength === 'number') {
         pending.rawLength = meta.rawLength
       }
-      hiddenOutputRestorePendingChunks.push(pending)
-      hiddenOutputRestorePendingChars += data.length
+      const queueResult = hiddenRestorePendingLiveController.enqueue(pending)
+      if (queueResult.kind === 'discarded') {
+        // Why: overflow drops content, but renderer-owned query replies still need salvage.
+        for (const chunk of queueResult.chunks) {
+          salvageRendererQueriesFromDiscardedRestoreData(chunk.data)
+        }
+      }
       hiddenRestoreForegroundDeadlineController.arm()
     }
 
     function getChunkDataAfterSnapshot(
-      chunk: PendingHiddenOutputRestoreChunk,
+      chunk: HiddenRestorePendingLiveChunk,
       snapshotSeq: number | undefined
     ): string | null {
       if (typeof snapshotSeq !== 'number' || typeof chunk.seq !== 'number') {
@@ -3233,15 +3215,12 @@ export function connectPanePty(
     function drainPendingLiveChunksAfterSnapshot(
       snapshotSeq: number | undefined
     ): 'drained' | 'overflow' | 'refetch' {
-      if (hiddenOutputRestorePendingOverflow) {
-        hiddenOutputRestorePendingOverflow = false
+      if (hiddenRestorePendingLiveController.takeOverflow()) {
         discardPendingLiveChunksSalvagingQueries()
         return 'overflow'
       }
-      while (hiddenOutputRestorePendingChunks.length > 0) {
-        const chunks = hiddenOutputRestorePendingChunks
-        hiddenOutputRestorePendingChunks = []
-        hiddenOutputRestorePendingChars = 0
+      while (hiddenRestorePendingLiveController.hasQueuedChunks()) {
+        const chunks = hiddenRestorePendingLiveController.takeBatch()
         for (const [index, chunk] of chunks.entries()) {
           const data = getChunkDataAfterSnapshot(chunk, snapshotSeq)
           if (data === null) {
@@ -3261,8 +3240,7 @@ export function connectPanePty(
             recordRendererOrderedSeq(chunk)
           }
         }
-        if (hiddenOutputRestorePendingOverflow) {
-          hiddenOutputRestorePendingOverflow = false
+        if (hiddenRestorePendingLiveController.takeOverflow()) {
           discardPendingLiveChunksSalvagingQueries()
           return 'overflow'
         }
@@ -3271,18 +3249,14 @@ export function connectPanePty(
     }
 
     function discardPendingLiveChunksSalvagingQueries(): void {
-      const discarded = hiddenOutputRestorePendingChunks
-      hiddenOutputRestorePendingChunks = []
-      hiddenOutputRestorePendingChars = 0
+      const discarded = hiddenRestorePendingLiveController.discardAll()
       for (const chunk of discarded) {
         salvageRendererQueriesFromDiscardedRestoreData(chunk.data)
       }
     }
 
     function clearPendingLiveChunksDuringRestore(): void {
-      hiddenOutputRestorePendingChunks = []
-      hiddenOutputRestorePendingChars = 0
-      hiddenOutputRestorePendingOverflow = false
+      hiddenRestorePendingLiveController.clear()
       hiddenRestoreFreshnessController.reset()
       hiddenRestoreScheduleController.cancel()
       hiddenRestoreDeferredRetryController.reset()
@@ -3297,10 +3271,8 @@ export function connectPanePty(
         resetHiddenOutputRestoreIfPtyChanged()
         return
       }
-      const pendingChunks = hiddenOutputRestorePendingOverflow
-        ? []
-        : hiddenOutputRestorePendingChunks.slice()
-      const hadPendingOverflow = hiddenOutputRestorePendingOverflow
+      const { chunks: pendingChunks, overflow: hadPendingOverflow } =
+        hiddenRestorePendingLiveController.takeForAbandon()
       const replayingSnapshot = hiddenRestoreReplayBaselineController.take()
       hiddenOutputRestoreGeneration += 1
       if (
@@ -3313,9 +3285,6 @@ export function connectPanePty(
       hiddenOutputRestoreInFlight = null
       hiddenOutputRestoreNeeded = false
       hiddenOutputRestorePtyId = null
-      hiddenOutputRestorePendingChunks = []
-      hiddenOutputRestorePendingChars = 0
-      hiddenOutputRestorePendingOverflow = false
       hiddenRestoreFreshnessController.reset()
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
@@ -3573,7 +3542,7 @@ export function connectPanePty(
       }
       resetHiddenOutputRestoreIfPtyChanged()
       const ptyId = hiddenOutputRestorePtyId ?? transport.getPtyId()
-      if (!hiddenOutputRestoreNeeded && hiddenOutputRestorePendingChunks.length === 0) {
+      if (!hiddenOutputRestoreNeeded && !hiddenRestorePendingLiveController.hasQueuedChunks()) {
         return false
       }
       if (!canUseHiddenOutputSnapshot(ptyId)) {
@@ -3597,7 +3566,8 @@ export function connectPanePty(
               hiddenOutputRestorePtyId !== scheduledPtyId ||
               transport.getPtyId() !== scheduledPtyId ||
               !canUseHiddenOutputSnapshot(scheduledPtyId) ||
-              (!hiddenOutputRestoreNeeded && hiddenOutputRestorePendingChunks.length === 0) ||
+              (!hiddenOutputRestoreNeeded &&
+                !hiddenRestorePendingLiveController.hasQueuedChunks()) ||
               !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
             ) {
               return
@@ -3717,7 +3687,7 @@ export function connectPanePty(
         if (hiddenOutputRestoreInFlight === trackedHiddenOutputRestore) {
           hiddenOutputRestoreInFlight = null
         }
-        if (hiddenOutputRestorePendingChunks.length > 0 || hiddenOutputRestorePendingOverflow) {
+        if (hiddenRestorePendingLiveController.hasPending()) {
           hiddenOutputRestoreNeeded = true
           hiddenRestoreForegroundDeadlineController.arm()
         }
