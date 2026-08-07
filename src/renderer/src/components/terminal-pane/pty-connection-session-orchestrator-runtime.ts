@@ -132,6 +132,7 @@ import {
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionAlternateScreenRepaintController } from './pty-connection-alternate-screen-repaint-controller'
+import { createPtyConnectionCommandFinishedStatusDropController } from './pty-connection-command-finished-status-drop-controller'
 import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
@@ -794,12 +795,8 @@ export function connectPanePty(
       deps.updateTabTitle(deps.tabId, neutralTitle)
     }
   }
-  let deferredCommandFinishedStatusDrop: (() => void) | null = null
-  const settleDeferredCommandFinishedStatusDrop = (): void => {
-    const dropStatus = deferredCommandFinishedStatusDrop
-    deferredCommandFinishedStatusDrop = null
-    dropStatus?.()
-  }
+  const commandFinishedStatusDropController =
+    createPtyConnectionCommandFinishedStatusDropController()
   const isForegroundTrackingAllowed = (id: string): boolean => {
     if (isRemoteRuntimePtyId(id) || parseAppSshPtyId(id) !== null) {
       return false
@@ -870,9 +867,9 @@ export function connectPanePty(
         useAppStore.getState().clearAgentLaunchConfig(cacheKey)
         return
       }
-      settleDeferredCommandFinishedStatusDrop()
+      commandFinishedStatusDropController.settle()
     },
-    onCommandFinishedUnavailable: settleDeferredCommandFinishedStatusDrop,
+    onCommandFinishedUnavailable: commandFinishedStatusDropController.settle,
     onVisibleForegroundSettled: visibleForegroundSampleController.settle
   })
   // Why: one command-finished policy whether the signal arrives as bytes
@@ -904,14 +901,8 @@ export function connectPanePty(
       }
       dropCommandFinishedStatusIfSameTurn(entry)
     }
-    if (shouldDeferStatusDrop) {
-      // Why: keep the concrete pane identity routable while the local process
-      // check distinguishes a leaked nested-shell D from a genuine agent exit.
-      deferredCommandFinishedStatusDrop = dropStatus
-      return
-    }
-    deferredCommandFinishedStatusDrop = null
-    dropStatus()
+    // Why: keep the concrete pane identity routable while local process evidence settles.
+    commandFinishedStatusDropController.handle(dropStatus, shouldDeferStatusDrop)
   }
   const sampleVisiblePaneForegroundAgent = visibleForegroundSampleController.request
   setStartAcceptedInferredCommand((agent) => {
@@ -947,7 +938,7 @@ export function connectPanePty(
     onCommandStarted: () => {
       // Why: a new command invalidates cleanup waiting on the previous D; only
       // a later confirmed shell boundary may retire this pane's live identity.
-      deferredCommandFinishedStatusDrop = null
+      commandFinishedStatusDropController.clear()
       visibleForegroundSampleController.reset()
       // Why: typed commands can be aliases, so they only widen the bounded
       // process-confirmation window; they never become routing evidence.
@@ -5228,7 +5219,7 @@ export function connectPanePty(
       onBufferChangeDisposable?.dispose()
       paneGeometryController.dispose()
       commandLifecycle.dispose()
-      deferredCommandFinishedStatusDrop = null
+      commandFinishedStatusDropController.dispose()
       visibleForegroundSampleController.dispose()
       paneForegroundAgentTracker.dispose()
       agentCompletionCoordinator.dispose()

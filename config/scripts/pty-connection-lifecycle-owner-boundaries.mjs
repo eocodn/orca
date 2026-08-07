@@ -251,4 +251,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionVisibleForegroundSampleController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes deferred command-finished status drop through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-command-finished-status-drop-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionCommandFinishedStatusDropController')
+    expect(orchestrator).not.toContain(
+      'let deferredCommandFinishedStatusDrop: (() => void) | null = null'
+    )
+    expect(owner).toContain(
+      'export function createPtyConnectionCommandFinishedStatusDropController('
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
