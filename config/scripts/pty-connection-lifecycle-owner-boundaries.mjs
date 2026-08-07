@@ -203,4 +203,21 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionTitleOnlyInterruptController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes Droid reconfirm debounce state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-droid-reconfirmation-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionDroidReconfirmationController')
+    expect(orchestrator).not.toContain(
+      'let shiftEnterReconfirmTimer: ReturnType<typeof setTimeout> | null = null'
+    )
+    expect(orchestrator).not.toContain('SHIFT_ENTER_RECONFIRM_IDLE_MS')
+    expect(owner).toContain('export function createPtyConnectionDroidReconfirmationController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

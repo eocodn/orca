@@ -131,6 +131,7 @@ import {
   isPassiveCompletedHibernationEvidence
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
+import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
@@ -247,7 +248,6 @@ import {
   HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
   HIDDEN_OUTPUT_RESTORE_PENDING_CHARS,
   HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING,
-  SHIFT_ENTER_RECONFIRM_IDLE_MS,
   STARTUP_CWD_FALLBACK_NOTICE,
   TERMINAL_FOCUS_IN_SEQUENCE,
   TERMINAL_FOCUS_OUT_SEQUENCE
@@ -352,7 +352,6 @@ export function connectPanePty(
   let cleanupStartupDelivery = (): void => {}
   let unregisterE2ePtyDataInjection = (): void => {}
   let alternateScreenBackgroundRepaintTimer: ReturnType<typeof setTimeout> | null = null
-  let shiftEnterReconfirmTimer: ReturnType<typeof setTimeout> | null = null
   let suppressStructuralReplayPtyResize = false
   // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
   // output plumbing inside the connect frame; lifecycle hooks (visibility
@@ -943,6 +942,12 @@ export function connectPanePty(
     // Why: hook rows can suppress display-only sampling, but cannot restore
     // byte authority after this function explicitly revoked routing trust.
     sampleVisiblePaneForegroundAgent(true)
+  })
+  const droidReconfirmationController = createPtyConnectionDroidReconfirmationController({
+    reconfirm: () => {
+      requestKnownDroidReconfirmation()
+      sampleVisiblePaneForegroundAgent()
+    }
   })
   const commandLifecycle = createTerminalCommandLifecycle({
     onCommandStarted: () => {
@@ -5156,15 +5161,7 @@ export function connectPanePty(
       sampleVisiblePaneForegroundAgent()
     },
     requestDroidReconfirmation() {
-      if (shiftEnterReconfirmTimer !== null) {
-        clearTimeout(shiftEnterReconfirmTimer)
-      }
-      // Why: confirm the Droid composer only after the Shift+Enter burst goes idle, to preserve rapid multiline input.
-      shiftEnterReconfirmTimer = setTimeout(() => {
-        shiftEnterReconfirmTimer = null
-        requestKnownDroidReconfirmation()
-        sampleVisiblePaneForegroundAgent()
-      }, SHIFT_ENTER_RECONFIRM_IDLE_MS)
+      droidReconfirmationController.request()
     },
     reconcileIfSessionDead: sessionLivenessReconcileController.reconcileIfSessionDead,
     reconcileIfSessionMissing: sessionLivenessReconcileController.reconcileIfSessionMissing,
@@ -5195,13 +5192,10 @@ export function connectPanePty(
       clearPendingTerminalInputWrite()
       interruptInference.dispose()
       titleOnlyInterruptController.dispose()
+      droidReconfirmationController.dispose()
       // Why release, not cancel: the pending settle belongs to the turn, not to
       // this pane — a park mid-settle hands it to the parked watcher instead.
       releaseCommandCodeDoneSettleExecutor()
-      if (shiftEnterReconfirmTimer !== null) {
-        clearTimeout(shiftEnterReconfirmTimer)
-        shiftEnterReconfirmTimer = null
-      }
       // Why: resolve in-flight passphrase-gate waits so their zustand subscribers + async IIFEs don't hang when the pane is torn down before SSH state changes.
       while (waitTeardowns.length > 0) {
         const teardown = waitTeardowns.pop()
