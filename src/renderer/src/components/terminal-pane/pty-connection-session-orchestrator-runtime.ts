@@ -137,6 +137,7 @@ import { createPtyConnectionDroidReconfirmationController } from './pty-connecti
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
+import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import {
   REATTACH_LIVE_DATA_MAX_CHARS,
@@ -342,7 +343,9 @@ export function connectPanePty(
   // Why sampled here: the host disposes this tab's park watcher in the effect
   // that follows this mount, so connect time is the only moment a pane can tell
   // a reveal remount from an in-place reattach.
-  let mountFollowsTerminalPark = isTerminalTabParked(deps.tabId)
+  const parkMountEvidenceController = createPtyConnectionParkMountEvidenceController(
+    isTerminalTabParked(deps.tabId)
+  )
   exposeE2eTerminalPtyOutputDebug()
   let disposed = false
   const terminalActivityController = createPtyConnectionTerminalActivityController()
@@ -4540,9 +4543,8 @@ export function connectPanePty(
       // the probe; a later in-place reconnect on this same mount must not buy a
       // second timeout before the relay paint.
       const revealFollowsTerminalPark =
-        mountFollowsTerminalPark &&
+        parkMountEvidenceController.consume() &&
         (connectResult?.isReattach === true || isRemoteRuntimePtyId(ptyId))
-      mountFollowsTerminalPark = false
       // Why: ordinary parking destroys xterm. Rebuild from the authoritative
       // host snapshot before releasing queued live bytes; null falls back to
       // the subscribe screen without keeping the old xterm mounted.
@@ -4932,7 +4934,7 @@ export function connectPanePty(
         hasSleepingAgentSession,
         currentTabLivePtyIds: storeSnapshot.ptyIdsByTabId[deps.tabId] ?? [],
         runtimeEnvironmentId,
-        mountFollowsTerminalPark,
+        mountFollowsTerminalPark: parkMountEvidenceController.peek(),
         worktreeId: deps.worktreeId,
         legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked(),
         isRemoteRuntimePtyId,

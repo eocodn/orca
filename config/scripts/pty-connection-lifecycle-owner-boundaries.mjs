@@ -361,4 +361,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionTerminalActivityController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes terminal-park mount evidence through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-park-mount-evidence-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionParkMountEvidenceController')
+    expect(orchestrator).not.toContain(
+      'let mountFollowsTerminalPark = isTerminalTabParked(deps.tabId)'
+    )
+    expect(owner).toContain('export function createPtyConnectionParkMountEvidenceController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
