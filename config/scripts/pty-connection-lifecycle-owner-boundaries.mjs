@@ -174,4 +174,17 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionReattachLiveDataController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes initial cache-timer seed state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read('src/renderer/src/components/terminal-pane/cache-timer-seeding.ts')
+
+    expect(orchestrator).toContain('createInitialCacheTimerSeedController')
+    expect(orchestrator).not.toContain('let hasConsideredInitialCacheTimerSeed = false')
+    expect(orchestrator).not.toContain('let allowInitialIdleCacheSeed = false')
+    expect(owner).toContain('export function createInitialCacheTimerSeedController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

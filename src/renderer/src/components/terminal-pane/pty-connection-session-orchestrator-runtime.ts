@@ -39,7 +39,7 @@ import {
   getCachedWindowsTerminalCapabilities,
   hasCachedWindowsTerminalCapabilities
 } from '@/lib/windows-terminal-capabilities'
-import { shouldSeedCacheTimerOnInitialTitle } from './cache-timer-seeding'
+import { createInitialCacheTimerSeedController } from './cache-timer-seeding'
 import type { PtyConnectionDeps } from './pty-connection-types'
 import {
   cancelPendingSafeFitContinuations,
@@ -1355,8 +1355,12 @@ export function connectPanePty(
   // working→idle transitions, so the cache timer would never start for these
   // sessions. We only allow this one-time seed for reattached PTYs; fresh
   // Claude launches also start idle, but they have no prompt cache yet.
-  let hasConsideredInitialCacheTimerSeed = false
-  let allowInitialIdleCacheSeed = false
+  const initialCacheTimerSeedController = createInitialCacheTimerSeedController({
+    getExistingTimerStartedAt: () => useAppStore.getState().cacheTimerByKey[cacheKey],
+    getPromptCacheTimerEnabled: () =>
+      useAppStore.getState().settings?.promptCacheTimerEnabled ?? null,
+    seed: () => deps.setCacheTimerStartedAt(cacheKey, Date.now())
+  })
 
   const resolveCurrentAgentStatusRouting = () => {
     const ptyId = activePanePtyBinding ?? transport.getPtyId()
@@ -1421,20 +1425,7 @@ export function connectPanePty(
       deps.updateTabTitle(deps.tabId, paneTitle)
     }
 
-    if (!hasConsideredInitialCacheTimerSeed) {
-      hasConsideredInitialCacheTimerSeed = true
-      const state = useAppStore.getState()
-      if (
-        shouldSeedCacheTimerOnInitialTitle({
-          rawTitle,
-          allowInitialIdleSeed: allowInitialIdleCacheSeed,
-          existingTimerStartedAt: state.cacheTimerByKey[cacheKey],
-          promptCacheTimerEnabled: state.settings?.promptCacheTimerEnabled ?? null
-        })
-      ) {
-        deps.setCacheTimerStartedAt(cacheKey, Date.now())
-      }
-    }
+    initialCacheTimerSeedController.observeTitle(rawTitle)
   }
 
   const applyInitialAgentStatus = (terminalTitle?: string): void => {
@@ -5066,9 +5057,7 @@ export function connectPanePty(
           tabId: deps.tabId,
           worktreeId: deps.worktreeId,
           leafId: deps.restoredLeafId ?? pane.leafId,
-          setAllowInitialIdleCacheSeed: (value) => {
-            allowInitialIdleCacheSeed = value
-          },
+          setAllowInitialIdleCacheSeed: initialCacheTimerSeedController.setAllowed,
           recordDiagnostic: recordPtyConnectDiagnostic,
           buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
           isDisposed: () => disposed,
@@ -5090,9 +5079,7 @@ export function connectPanePty(
           pendingSpawnKey,
           transport,
           directSshRetryAttempt,
-          setAllowInitialIdleCacheSeed: (value) => {
-            allowInitialIdleCacheSeed = value
-          },
+          setAllowInitialIdleCacheSeed: initialCacheTimerSeedController.setAllowed,
           recordDiagnostic: recordPtyConnectDiagnostic,
           attachRetainedLegacyPty: attachController.attachRetainedLegacyPty,
           removeDeferredSshSessionId: () =>

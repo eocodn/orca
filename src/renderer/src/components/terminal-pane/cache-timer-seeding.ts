@@ -28,3 +28,40 @@ export function shouldSeedCacheTimerOnInitialTitle(args: {
   // countdown there is incorrect.
   return promptCacheTimerEnabled !== false
 }
+
+type InitialCacheTimerSeedControllerArgs = {
+  getExistingTimerStartedAt: () => number | null | undefined
+  getPromptCacheTimerEnabled: () => boolean | null
+  seed: () => void
+}
+
+export function createInitialCacheTimerSeedController({
+  getExistingTimerStartedAt,
+  getPromptCacheTimerEnabled,
+  seed
+}: InitialCacheTimerSeedControllerArgs) {
+  let considered = false
+  let allowed = false
+
+  return {
+    setAllowed(value: boolean): void {
+      allowed = value
+    },
+    observeTitle(rawTitle: string): void {
+      if (considered) {
+        return
+      }
+      considered = true
+      if (
+        shouldSeedCacheTimerOnInitialTitle({
+          rawTitle,
+          allowInitialIdleSeed: allowed,
+          existingTimerStartedAt: getExistingTimerStartedAt(),
+          promptCacheTimerEnabled: getPromptCacheTimerEnabled()
+        })
+      ) {
+        seed()
+      }
+    }
+  }
+}

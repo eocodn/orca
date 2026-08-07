@@ -330,6 +330,10 @@ type MockTransport = {
 
 const scheduleRuntimeGraphSync = vi.fn()
 const shouldSeedCacheTimerOnInitialTitle = vi.fn(() => false)
+const createInitialCacheTimerSeedController = vi.fn(() => ({
+  setAllowed: vi.fn(),
+  observeTitle: vi.fn()
+}))
 const scheduleTerminalWebglAtlasRecovery = vi.fn()
 
 let mockStoreState: StoreState
@@ -386,6 +390,7 @@ vi.mock('@/lib/agent-status', async (importOriginal) => {
 })
 
 vi.mock('./cache-timer-seeding', () => ({
+  createInitialCacheTimerSeedController,
   shouldSeedCacheTimerOnInitialTitle
 }))
 
