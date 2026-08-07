@@ -315,6 +315,7 @@ import { createPtyConnectionStartupGridController } from './pty-connection-start
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
 import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-candidate'
+import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -6011,43 +6012,27 @@ export function connectPanePty(
       }
     } else {
       allowInitialIdleCacheSeed = false
-      const pendingSpawn = pendingSpawnByPaneKey.get(pendingSpawnKey)
-      if (pendingSpawn) {
-        recordPtyConnectDiagnostic(`pane=${pane.id} -> PENDING SPAWN`)
-        armDirectSshPaneRetryTimeout(pendingSpawn, directSshRetryAttempt)
-        void pendingSpawn
-          .then((spawnedPtyId) => {
-            if (disposed) {
-              return
-            }
-            if (transport.getPtyId()) {
-              return
-            }
-            if (!spawnedPtyId) {
-              // Why: React StrictMode can mount+spawn then immediately remount; if the first mount produced no PTY id,
-              // the remounted pane must issue its own spawn instead of attaching to a completed-but-empty promise (a dead surface).
-              if (!isWebTerminalSurfaceTabId(deps.tabId)) {
-                console.warn(
-                  `Pending PTY spawn for tab ${deps.tabId} resolved without a PTY id, retrying fresh spawn`
-                )
-              }
-              if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
-                startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
-              } else {
-                startFreshSpawn()
-              }
-              return
-            }
-            if (!canAdoptCapturedDirectSshRetryPty(spawnedPtyId)) {
-              return
-            }
-            // Why: this reuses a PTY spawned by an earlier mount, so no later spawn event will bind this remounted pane's DOM/container.
-            attachController.adoptPendingSpawn(spawnedPtyId)
-          })
-          .catch((err) => {
-            reportError(err instanceof Error ? err.message : String(err))
-          })
-      } else {
+      const pendingSpawnController = createPtyConnectionPendingSpawnController({
+        pendingSpawnKey,
+        tabId: deps.tabId,
+        paneId: pane.id,
+        transport,
+        directSshRetryAttempt,
+        armDirectSshPaneRetryTimeout,
+        isDisposed: () => disposed,
+        canAdoptCapturedDirectSshRetryPty,
+        adoptPendingSpawn: attachController.adoptPendingSpawn,
+        onMissingSpawn: () => {
+          if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
+            startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
+          } else {
+            startFreshSpawn()
+          }
+        },
+        reportError,
+        recordDiagnostic: recordPtyConnectDiagnostic
+      })
+      if (!pendingSpawnController.join()) {
         recordPtyConnectDiagnostic(`pane=${pane.id} -> FRESH SPAWN`)
         if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
           startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
