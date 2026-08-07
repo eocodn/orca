@@ -6,6 +6,22 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes non-reattach attach and spawn decisions through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-spawn-route.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'"
+    )
+    expect(orchestrator).not.toContain('} else if (attachPtyId) {')
+    expect(owner).toContain('export function runPtyConnectionAttachSpawnRoute(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes fresh-shell restored viewport preparation through its concrete owner', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

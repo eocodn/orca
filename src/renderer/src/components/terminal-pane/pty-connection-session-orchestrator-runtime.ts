@@ -318,6 +318,7 @@ import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
+import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -5871,53 +5872,53 @@ export function connectPanePty(
           })
         }
       })
-    } else if (attachPtyId) {
-      // Why: mirrored web-leaf panes must attach to their exact remote PTY, not spawn a replacement host tab.
-      // eagerLivePtyId covers a still-live background PTY (e.g. an automation agent) with a live eager buffer to adopt.
-      recordPtyConnectDiagnostic(`pane=${pane.id} -> ATTACH detached=${attachPtyId}`)
-      allowInitialIdleCacheSeed = false
-      if (legacyAttachOnlyPtyId) {
-        if (attachController.attachRetainedLegacyPty(legacyAttachOnlyPtyId) && connectionId) {
-          useAppStore.getState().removeDeferredSshSessionId(deps.tabId)
-        }
-      } else {
-        // Why: surface synchronous attach failures via reportError so the pane shows a diagnostic instead of a blank surface.
-        // On throw, clear the stale ptyId from the tab and fresh-spawn — else the next remount reads the same dead id and loops here.
-        if (!attachController.attachDetachedPty(attachPtyId, attachUsesEagerBuffer)) {
-          deps.clearTabPtyId(deps.tabId, attachPtyId)
-          startFreshSpawn()
-        }
-      }
     } else {
-      allowInitialIdleCacheSeed = false
-      const pendingSpawnController = createPtyConnectionPendingSpawnController({
-        pendingSpawnKey,
-        tabId: deps.tabId,
+      runPtyConnectionAttachSpawnRoute({
         paneId: pane.id,
-        transport,
-        directSshRetryAttempt,
-        armDirectSshPaneRetryTimeout,
-        isDisposed: () => disposed,
-        canAdoptCapturedDirectSshRetryPty,
-        adoptPendingSpawn: attachController.adoptPendingSpawn,
-        onMissingSpawn: () => {
+        tabId: deps.tabId,
+        attachPtyId,
+        legacyAttachOnlyPtyId,
+        attachUsesEagerBuffer,
+        hasSshConnection: Boolean(connectionId),
+        setAllowInitialIdleCacheSeed: (value) => {
+          allowInitialIdleCacheSeed = value
+        },
+        recordDiagnostic: recordPtyConnectDiagnostic,
+        attachRetainedLegacyPty: attachController.attachRetainedLegacyPty,
+        removeDeferredSshSessionId: () =>
+          useAppStore.getState().removeDeferredSshSessionId(deps.tabId),
+        attachDetachedPty: attachController.attachDetachedPty,
+        clearTabPtyId: deps.clearTabPtyId,
+        startFreshSpawn,
+        joinPendingSpawn: () =>
+          createPtyConnectionPendingSpawnController({
+            pendingSpawnKey,
+            tabId: deps.tabId,
+            paneId: pane.id,
+            transport,
+            directSshRetryAttempt,
+            armDirectSshPaneRetryTimeout,
+            isDisposed: () => disposed,
+            canAdoptCapturedDirectSshRetryPty,
+            adoptPendingSpawn: attachController.adoptPendingSpawn,
+            onMissingSpawn: () => {
+              if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
+                startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
+              } else {
+                startFreshSpawn()
+              }
+            },
+            reportError,
+            recordDiagnostic: recordPtyConnectDiagnostic
+          }).join(),
+        startFreshOrColdRestore: () => {
           if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
             startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
           } else {
             startFreshSpawn()
           }
-        },
-        reportError,
-        recordDiagnostic: recordPtyConnectDiagnostic
-      })
-      if (!pendingSpawnController.join()) {
-        recordPtyConnectDiagnostic(`pane=${pane.id} -> FRESH SPAWN`)
-        if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
-          startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
-        } else {
-          startFreshSpawn()
         }
-      }
+      })
     }
     scheduleRuntimeGraphSync()
   }
