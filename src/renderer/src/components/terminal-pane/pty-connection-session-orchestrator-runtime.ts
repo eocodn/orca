@@ -131,6 +131,7 @@ import {
   isPassiveCompletedHibernationEvidence
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
+import { createPtyConnectionAlternateScreenRepaintController } from './pty-connection-alternate-screen-repaint-controller'
 import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
@@ -351,7 +352,7 @@ export function connectPanePty(
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   let cleanupStartupDelivery = (): void => {}
   let unregisterE2ePtyDataInjection = (): void => {}
-  let alternateScreenBackgroundRepaintTimer: ReturnType<typeof setTimeout> | null = null
+  let disposeAlternateScreenRepaintController = (): void => {}
   let suppressStructuralReplayPtyResize = false
   // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
   // output plumbing inside the connect frame; lifecycle hooks (visibility
@@ -3844,19 +3845,21 @@ export function connectPanePty(
       transport.resize(cols, rows)
     }
 
+    const alternateScreenRepaintController = createPtyConnectionAlternateScreenRepaintController({
+      repaint: pulseVisibleLocalPtySizeForTuiRepaint
+    })
+    disposeAlternateScreenRepaintController = alternateScreenRepaintController.dispose
+
     function skipBackgroundAlternateScreenOutput(data: string): void {
       writeHiddenStartupRendererQueries(data)
       renderRiskController.resetSkippedHidden()
       hiddenRendererStateDirty = true
       recordHiddenRendererSkip(data.length)
       const ptyId = transport.getPtyId()
-      if (!ptyId || alternateScreenBackgroundRepaintTimer !== null) {
+      if (!ptyId) {
         return
       }
-      pulseVisibleLocalPtySizeForTuiRepaint(ptyId)
-      alternateScreenBackgroundRepaintTimer = setTimeout(() => {
-        alternateScreenBackgroundRepaintTimer = null
-      }, 100)
+      alternateScreenRepaintController.request(ptyId)
     }
 
     function resetHiddenOutputRestoreIfPtyChanged(): void {
@@ -5207,10 +5210,7 @@ export function connectPanePty(
       clearSuppressedTitleSideEffects()
       disposeAgentNotificationController()
       clearReattachIdleAgentCursorResetTimer()
-      if (alternateScreenBackgroundRepaintTimer !== null) {
-        clearTimeout(alternateScreenBackgroundRepaintTimer)
-        alternateScreenBackgroundRepaintTimer = null
-      }
+      disposeAlternateScreenRepaintController()
       cleanupHiddenOutputRestoreDeferredRetry()
       cleanupHiddenOutputRestoreForegroundDeadline()
       cleanupHiddenOutputRestoreFloodRepaint()

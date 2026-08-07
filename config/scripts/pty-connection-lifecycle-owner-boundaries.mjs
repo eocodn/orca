@@ -220,4 +220,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionDroidReconfirmationController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes alternate-screen repaint cooldown through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-alternate-screen-repaint-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionAlternateScreenRepaintController')
+    expect(orchestrator).not.toContain(
+      'let alternateScreenBackgroundRepaintTimer: ReturnType<typeof setTimeout> | null = null'
+    )
+    expect(owner).toContain('export function createPtyConnectionAlternateScreenRepaintController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
