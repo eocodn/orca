@@ -138,6 +138,7 @@ import {
   type HiddenRestorePendingLiveChunk
 } from './pty-connection-hidden-restore-pending-live-controller'
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
+import { createPtyConnectionHiddenRestoreRequestController } from './pty-connection-hidden-restore-request-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRestoreScrollTicketController } from './pty-connection-hidden-restore-scroll-ticket-controller'
 import { createPtyConnectionHiddenRestoreSnapshotLoopController } from './pty-connection-hidden-restore-snapshot-loop-controller'
@@ -3269,84 +3270,44 @@ export function connectPanePty(
         }
       })
 
-    function requestHiddenOutputRestoreIfNeeded(opts?: { bypassScheduler?: boolean }): boolean {
-      // Why: once the write pipeline is probe-certified dead a restore can never parse; recovery owns the pane and the remount gets a fresh xterm + restore.
-      if (isTerminalWritePipelineCertifiedDead(pane.terminal)) {
-        // Why the re-kick: certification's recovery request can be budget-declined or cancelled by a sibling remount; without this, a revealed dead pane keeps the stale frame forever.
-        if (!disposed && certifiedDeadRestoreRecoveryController.claim()) {
-          const storePtyId = useAppStore.getState().ptyIdsByTabId?.[deps.tabId]?.[0] ?? null
-          void requestTerminalPaneRecovery({
-            tabId: deps.tabId,
-            ptyId: transport.getPtyId() ?? storePtyId,
-            reason: 'restore-blocked',
-            terminalRecoveryGeneration,
-            terminalRecoveryInstanceId: terminalRecoveryInstance.id
-          })
-        }
-        return false
-      }
-      resetHiddenOutputRestoreIfPtyChanged()
-      const ptyId = hiddenRestoreIdentityController.getPtyId() ?? transport.getPtyId()
-      if (
-        !hiddenRestoreIdentityController.isNeeded() &&
-        !hiddenRestorePendingLiveController.hasQueuedChunks()
-      ) {
-        return false
-      }
-      if (!canUseHiddenOutputSnapshot(ptyId)) {
-        return false
-      }
-      hiddenRestoreIdentityController.bindPty(ptyId)
-      if (hiddenRestoreTaskController.isInFlight()) {
-        hiddenRestoreForegroundDeadlineController.arm()
-        return true
-      }
-      if (!opts?.bypassScheduler) {
-        const priority = foregroundLatencyController.isActiveSplitPane() ? 'active' : 'inactive'
-        if (priority === 'inactive') {
-          const scheduledPtyId = ptyId
-          const scheduledGeneration = hiddenRestoreIdentityController.getGeneration()
-          // Why: resume can reveal many split panes at once; spread inactive replays across frames so xterm scrollback replay doesn't block return.
-          hiddenRestoreScheduleController.scheduleInactive(() => {
-            if (
-              disposed ||
-              hiddenRestoreIdentityController.getGeneration() !== scheduledGeneration ||
-              hiddenRestoreIdentityController.getPtyId() !== scheduledPtyId ||
-              transport.getPtyId() !== scheduledPtyId ||
-              !canUseHiddenOutputSnapshot(scheduledPtyId) ||
-              (!hiddenRestoreIdentityController.isNeeded() &&
-                !hiddenRestorePendingLiveController.hasQueuedChunks()) ||
-              !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-            ) {
-              return
-            }
-            requestHiddenOutputRestoreIfNeeded({ bypassScheduler: true })
-          })
-          return true
-        }
-        hiddenRestoreScheduleController.cancel()
-      }
-      hiddenRestoreDeferredRetryController.clear()
+    const hiddenRestoreRequestController = createPtyConnectionHiddenRestoreRequestController({
+      isDisposed: () => disposed,
+      isWritePipelineCertifiedDead: () => isTerminalWritePipelineCertifiedDead(pane.terminal),
+      claimCertifiedDeadRecovery: certifiedDeadRestoreRecoveryController.claim,
+      requestCertifiedDeadRecovery: () => {
+        const storePtyId = useAppStore.getState().ptyIdsByTabId?.[deps.tabId]?.[0] ?? null
+        void requestTerminalPaneRecovery({
+          tabId: deps.tabId,
+          ptyId: transport.getPtyId() ?? storePtyId,
+          reason: 'restore-blocked',
+          terminalRecoveryGeneration,
+          terminalRecoveryInstanceId: terminalRecoveryInstance.id
+        })
+      },
+      resetIfPtyChanged: resetHiddenOutputRestoreIfPtyChanged,
+      getRestorePtyId: hiddenRestoreIdentityController.getPtyId,
+      getCurrentPtyId: () => transport.getPtyId(),
+      isRestoreNeeded: hiddenRestoreIdentityController.isNeeded,
+      hasQueuedChunks: hiddenRestorePendingLiveController.hasQueuedChunks,
+      canUseSnapshot: canUseHiddenOutputSnapshot,
+      bindRestorePty: hiddenRestoreIdentityController.bindPty,
+      isTaskInFlight: hiddenRestoreTaskController.isInFlight,
+      armForegroundDeadline: hiddenRestoreForegroundDeadlineController.arm,
+      isActiveSplitPane: foregroundLatencyController.isActiveSplitPane,
+      getRestoreGeneration: hiddenRestoreIdentityController.getGeneration,
+      scheduleInactive: hiddenRestoreScheduleController.scheduleInactive,
+      cancelScheduled: hiddenRestoreScheduleController.cancel,
+      isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
+      clearDeferredRetry: hiddenRestoreDeferredRetryController.clear,
+      runRestoreTask: hiddenRestoreSnapshotLoopController.run,
+      trackTask: hiddenRestoreTaskController.track,
+      hasPendingLive: hiddenRestorePendingLiveController.hasPending,
+      markRestoreNeeded: hiddenRestoreIdentityController.markNeeded,
+      isDeferredRetry: hiddenRestoreDeferredRetryController.isDeferred
+    })
 
-      const hiddenOutputRestoreTask = hiddenRestoreSnapshotLoopController.run()
-      hiddenRestoreTaskController.track(hiddenOutputRestoreTask, () => {
-        // Why: a replay settling after teardown must not respawn zero-work restore tasks from pending live state.
-        if (disposed) {
-          return
-        }
-        if (hiddenRestorePendingLiveController.hasPending()) {
-          hiddenRestoreIdentityController.markNeeded()
-          hiddenRestoreForegroundDeadlineController.arm()
-        }
-        if (
-          !hiddenRestoreDeferredRetryController.isDeferred() &&
-          hiddenRestoreIdentityController.isNeeded() &&
-          shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-        ) {
-          requestHiddenOutputRestoreIfNeeded()
-        }
-      })
-      return true
+    function requestHiddenOutputRestoreIfNeeded(opts?: { bypassScheduler?: boolean }): boolean {
+      return hiddenRestoreRequestController.request(opts)
     }
 
     hiddenDeliveryController.bindRuntime({
