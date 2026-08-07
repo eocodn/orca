@@ -277,20 +277,39 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes restored PTY candidate selection through its concrete resolver', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-route-observation.ts'
     )
     const resolver = read(
       'src/renderer/src/components/terminal-pane/pty-connection-attach-candidate.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(owner).toContain(
       "import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-candidate'"
     )
-    expect(orchestrator).not.toContain('const candidateReattachSessionId =')
-    expect(orchestrator).not.toContain('const candidateHasEagerBuffer =')
+    expect(owner).not.toContain('const candidateReattachSessionId =')
+    expect(owner).not.toContain('const candidateHasEagerBuffer =')
     expect(resolver).toContain('export function resolvePtyConnectionAttachCandidate(')
     expect(resolver.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
+  it('routes attach-route observation and cleanup through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-route-observation.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { preparePtyConnectionAttachRouteObservation } from './pty-connection-attach-route-observation'"
+    )
+    expect(orchestrator).not.toContain('const existingPtyClaimedBySibling = Boolean(')
+    expect(orchestrator).not.toContain(
+      'if (sleptRemoteRuntimeSessionId) {\n      deps.syncPanePtyLayoutBinding(pane.id, null)'
+    )
+    expect(owner).toContain('export function preparePtyConnectionAttachRouteObservation(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
   it('routes PTY attach execution through its concrete controller', () => {

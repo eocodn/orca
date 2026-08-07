@@ -310,7 +310,7 @@ import { createPtyConnectionSessionLivenessReconcileController } from './pty-con
 import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
-import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-candidate'
+import { preparePtyConnectionAttachRouteObservation } from './pty-connection-attach-route-observation'
 import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
@@ -5632,27 +5632,18 @@ export function connectPanePty(
     )?.ptyId
     const hasSleepingAgentSession = Boolean(getSleepingRecordForPane(storeSnapshot))
 
-    // Why: the tab-level fallback must not steal a PTY a setup sibling already published while the main pane waited for split geometry.
-    const existingPtyClaimedBySibling = Boolean(
-      existingPtyId &&
-      Array.from(deps.paneTransportsRef.current.entries()).some(
-        ([candidatePaneId, candidateTransport]) =>
-          candidatePaneId !== pane.id && candidateTransport.getPtyId() === existingPtyId
-      )
-    )
     const {
       sleptRemoteRuntimeSessionId,
-      detachedLivePtyId,
-      detachedRemoteLeafPtyId,
-      eagerLivePtyId,
       legacyAttachOnlyPtyId,
       deferredReattachSessionId,
       attachPtyId,
       attachUsesEagerBuffer
-    } = resolvePtyConnectionAttachCandidate({
+    } = preparePtyConnectionAttachRouteObservation({
+      paneId: pane.id,
+      tabId: deps.tabId,
       restoredPtyId,
       existingPtyId,
-      existingPtyClaimedBySibling,
+      pendingSpawnKey,
       hadExistingPaneTransportAtConnect,
       hasSleepingAgentSession,
       currentTabLivePtyIds: storeSnapshot.ptyIdsByTabId[deps.tabId] ?? [],
@@ -5663,18 +5654,20 @@ export function connectPanePty(
       isRemoteRuntimePtyId,
       hasEagerBuffer: (ptyId) => Boolean(getEagerPtyBufferHandle(ptyId)),
       canRestorePairedParkedTerminal,
-      isSessionOwnedByWorktree
+      isSessionOwnedByWorktree,
+      // Why: the tab fallback must not steal a PTY a setup sibling published while the main pane waited for split geometry.
+      isPtyClaimedBySibling: (ptyId) =>
+        Array.from(deps.paneTransportsRef.current.entries()).some(
+          ([candidatePaneId, candidateTransport]) =>
+            candidatePaneId !== pane.id && candidateTransport.getPtyId() === ptyId
+        ),
+      clearPanePtyLayoutBinding: (ptyId) => deps.syncPanePtyLayoutBinding(pane.id, ptyId),
+      clearTabPtyId: deps.clearTabPtyId,
+      recordDiagnostic: recordPtyConnectDiagnostic
     })
     const sleptRemoteColdRestoreStartup = sleptRemoteRuntimeSessionId
       ? buildColdRestoreAgentResumeStartup()
       : null
-    if (sleptRemoteRuntimeSessionId) {
-      deps.syncPanePtyLayoutBinding(pane.id, null)
-      deps.clearTabPtyId(deps.tabId, sleptRemoteRuntimeSessionId)
-    }
-    recordPtyConnectDiagnostic(
-      `pane=${pane.id} tab=${deps.tabId} restored=${restoredPtyId} existing=${existingPtyId} detached=${detachedRemoteLeafPtyId ?? detachedLivePtyId} reattach=${deferredReattachSessionId} hasTransport=${hadExistingPaneTransportAtConnect} pendingKey=${pendingSpawnKey}`
-    )
 
     if (deferredReattachSessionId) {
       runPtyConnectionDeferredReattach({
