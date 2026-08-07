@@ -290,6 +290,7 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
       setRenamingWorktreeId={setRenamingWorktreeId}
       lineageChildAriaLabel={lineageChildAriaLabel}
       lineageCollapsed={lineageCollapsed}
+      showLineageChildChip={showLineageChildChip}
       onLineageToggle={onLineageToggle}
       childWorkspaceShortLabel={childWorkspaceShortLabel}
       lineageChildren={lineageChildren}

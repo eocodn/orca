@@ -22,6 +22,7 @@ export type WorktreeCardParentContext = {
   setRenamingWorktreeId: WorktreeCardContentProps['setRenamingWorktreeId']
   lineageChildAriaLabel: string
   lineageCollapsed: boolean
+  showLineageChildChip: boolean
   onLineageToggle?: WorktreeCardContentProps['onLineageToggle']
   childWorkspaceShortLabel: string
   lineageChildren?: React.ReactNode
@@ -58,6 +59,7 @@ export function WorktreeCardParent(context: WorktreeCardParentContext): React.JS
     setRenamingWorktreeId,
     lineageChildAriaLabel,
     lineageCollapsed,
+    showLineageChildChip,
     onLineageToggle,
     childWorkspaceShortLabel,
     lineageChildren
@@ -85,7 +87,6 @@ export function WorktreeCardParent(context: WorktreeCardParentContext): React.JS
     showDeleteQuickAction,
     showRepoBadgeInMetaRow,
     showHostContextBadge,
-    showIdentityInNewCard,
     showBranch,
     showDetachedHeadInMetaRow,
     showConflictOperationBadge,
@@ -95,8 +96,7 @@ export function WorktreeCardParent(context: WorktreeCardParentContext): React.JS
     remoteBranchConflict,
     showInlineAgentList,
     agentActivityDisplayMode,
-    compactInlineAgentRows,
-    showLineageChildChip
+    compactInlineAgentRows
   } = runtime
   const {
     handleRenameTitle,
@@ -152,7 +152,7 @@ export function WorktreeCardParent(context: WorktreeCardParentContext): React.JS
     showRepoBadgeInMetaRow,
     showHostContextBadge,
     hostContextLabel,
-    showIdentityInNewCard,
+    showIdentityInNewCard: metadata.showIdentityInNewCard,
     identityDisplay: metadata.identityDisplay,
     hasHoverDetails,
     showBranch,
