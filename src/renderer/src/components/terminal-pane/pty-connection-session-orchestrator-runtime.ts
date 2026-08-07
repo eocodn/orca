@@ -44,8 +44,7 @@ import type { PtyConnectionDeps } from './pty-connection-types'
 import {
   cancelPendingSafeFitContinuations,
   safeFit,
-  safeFitAndThen,
-  type SafeFitContinuationHandle
+  safeFitAndThen
 } from '@/lib/pane-manager/pane-tree-ops'
 import { bindPanePtyId, getFitOverrideForPty } from '@/lib/pane-manager/mobile-fit-overrides'
 import { isPtyLocked } from '@/lib/pane-manager/mobile-driver-state'
@@ -140,6 +139,7 @@ import { createPtyConnectionForegroundRenderController } from './pty-connection-
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
+import { createPtyConnectionPendingFitController } from './pty-connection-pending-fit-controller'
 import { createPtyConnectionRemoteOutputPauseController } from './pty-connection-remote-output-pause-controller'
 import { createPtyConnectionRecoverySubscriptionsController } from './pty-connection-recovery-subscriptions-controller'
 import { createPtyConnectionSideEffectFactConsumerController } from './pty-connection-side-effect-fact-consumer-controller'
@@ -356,8 +356,7 @@ export function connectPanePty(
   const structuralReplayCoordinator = createTerminalStructuralReplayCoordinator(pane.terminal)
   const recoverySubscriptionsController = createPtyConnectionRecoverySubscriptionsController()
   let cancelHiddenOutputSnapshotScrollRestore = (): void => {}
-  let pendingHiddenSnapshotFit: SafeFitContinuationHandle | null = null
-  let pendingReattachFit: SafeFitContinuationHandle | null = null
+  const pendingFitController = createPtyConnectionPendingFitController()
   let cancelFreshSpawnFollowReset = (): void => {}
   let disposeReattachLiveDataController = (): void => {}
   let cleanupHiddenOutputRestoreDeferredRetry = (): void => {}
@@ -2608,10 +2607,7 @@ export function connectPanePty(
     const captureTransportOutputCallbacks = (onError: (message: string) => void) => {
       // Why: a new stream generation cannot inherit an old replay's pending
       // destination-grid fit or keep its live-data waiter open.
-      pendingHiddenSnapshotFit?.cancel()
-      pendingHiddenSnapshotFit = null
-      pendingReattachFit?.cancel()
-      pendingReattachFit = null
+      pendingFitController.cancelAll()
       const generation = streamGenerationController.advance()
       const isCurrent = (): boolean => !disposed && streamGenerationController.isCurrent(generation)
       return {
@@ -3633,8 +3629,7 @@ export function connectPanePty(
     }
 
     function cancelSnapshotScrollRestore(): void {
-      pendingHiddenSnapshotFit?.cancel()
-      pendingHiddenSnapshotFit = null
+      pendingFitController.cancelHidden()
       const scrollRestore = hiddenOutputSnapshotScrollRestore
       if (!scrollRestore) {
         return
@@ -3833,13 +3828,11 @@ export function connectPanePty(
                 },
                 { shouldContinue: isCurrentRestore, retryIfUnmeasurable: true }
               )
-              pendingHiddenSnapshotFit = fit
+              pendingFitController.setHidden(fit)
               try {
                 await fit.completion
               } finally {
-                if (pendingHiddenSnapshotFit === fit) {
-                  pendingHiddenSnapshotFit = null
-                }
+                pendingFitController.clearHiddenIf(fit)
               }
               if (isCurrentRestore()) {
                 scheduleReattachIdleAgentCursorReset()
@@ -4676,14 +4669,12 @@ export function connectPanePty(
             },
             { shouldContinue: isCurrentReattachPayload, retryIfUnmeasurable: true }
           )
-          pendingReattachFit = fit
+          pendingFitController.setReattach(fit)
           let fitCompleted = false
           try {
             fitCompleted = await fit.completion
           } finally {
-            if (pendingReattachFit === fit) {
-              pendingReattachFit = null
-            }
+            pendingFitController.clearReattachIf(fit)
           }
           if (fitCompleted && isCurrentReattachPayload() && deps.isVisibleRef.current) {
             // Why: reattach resize is fire-and-forget; verify the provider's applied grid while this reveal still owns the visible pane.
@@ -4986,8 +4977,7 @@ export function connectPanePty(
       // Why: a stalled xterm replay may never reach its finally; release live-frame credit when this renderer no longer owns the stream.
       disposeReattachLiveDataController()
       cancelPendingSafeFitContinuations(pane)
-      pendingHiddenSnapshotFit = null
-      pendingReattachFit = null
+      pendingFitController.clearAll()
       // Why: park/reconnect/remount doesn't advance the recovery epoch, so invalidate this xterm or its delayed retry could hit the next instance.
       terminalRecoveryInstance.unregister()
       unregisterUndeliverableWriteHandler()

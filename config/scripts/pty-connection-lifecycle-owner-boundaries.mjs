@@ -494,4 +494,19 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionRecoverySubscriptionsController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes pending safe-fit identities through their concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-pending-fit-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionPendingFitController')
+    expect(orchestrator).not.toContain('let pendingHiddenSnapshotFit:')
+    expect(orchestrator).not.toContain('let pendingReattachFit:')
+    expect(owner).toContain('export function createPtyConnectionPendingFitController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
