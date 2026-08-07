@@ -1,20 +1,11 @@
 import type {
   FolderWorkspace,
-  GlobalSettings,
-  SetupSplitDirection,
-  Tab,
-  TuiAgent,
   WorktreeDefaultTabsLaunch,
   WorktreeSetupLaunch
 } from '../../../shared/types'
-import type { EventProps } from '../../../shared/telemetry-events'
-import type { StartupCommandDelivery } from '../../../shared/codex-startup-delivery'
-import type {
-  AgentProviderSessionMetadata,
-  SleepingAgentLaunchConfig
-} from '../../../shared/agent-session-resume'
 import { useAppStore } from '@/store'
 import type { PendingSidebarWorktreeReveal } from '@/store/slices/ui'
+import { setWorktreeNavActivator } from '@/store/slices/worktree-nav-history'
 import {
   activateWebRuntimeSessionWorktree,
   createWebRuntimeSessionTerminal,
@@ -26,15 +17,8 @@ import {
   beginWebRuntimeWakeTerminalRespawn,
   endWebRuntimeWakeTerminalRespawn
 } from '@/runtime/web-runtime-wake-terminal-respawn'
-import {
-  setWorktreeNavActivator,
-  setWorktreeNavViewActivator
-} from '@/store/slices/worktree-nav-history'
 import { resumeSleepingAgentSessionsForWorktree } from '@/lib/resume-sleeping-agent-session'
-import {
-  getRuntimeEnvironmentIdForWorktree,
-  type WorktreeRuntimeOwnerState
-} from '@/lib/worktree-runtime-owner'
+import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { folderWorkspaceKey, parseWorkspaceKey } from '../../../shared/workspace-scope'
 import {
   folderWorkspaceActivationBlocked,
@@ -54,7 +38,6 @@ export type {
   WorktreeStartupPayload
 } from './worktree-activation-types'
 export { resolveStartupLaunchDraftText } from './worktree-activation-types'
-
 
 function ensureFolderWorkspaceInitialTerminal(
   folderWorkspace: FolderWorkspace,
@@ -289,6 +272,14 @@ export function ensureWebRuntimeWorktreeTerminalAfterWake(worktreeId: string): v
 
 export { ensureWorktreeHasInitialTerminal } from './worktree-activation-terminal'
 
+/** Routes rendered sidebar workspace keys through the matching activation path. */
+export function activateAndRevealWorkspace(workspaceId: string): ActivateAndRevealResult | false {
+  const workspaceScope = parseWorkspaceKey(workspaceId)
+  if (workspaceScope?.type === 'folder') {
+    return activateAndRevealFolderWorkspace(workspaceScope.folderWorkspaceId)
+  }
+  return activateAndRevealWorktree(workspaceId)
+}
 
-export { activateAndRevealWorkspace } from './worktree-activation-nav-history'
-
+// Why: nav-history cannot import activation without recreating the store import cycle.
+setWorktreeNavActivator(activateAndRevealWorkspace)
