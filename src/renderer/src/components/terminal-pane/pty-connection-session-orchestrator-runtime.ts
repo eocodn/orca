@@ -135,6 +135,7 @@ import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
+import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
@@ -2463,6 +2464,11 @@ export function connectPanePty(
     }
     const { cols, rows, reportError } = preflight
 
+    const rendererSequenceController = createPtyConnectionRendererSequenceController({
+      getPtyId: () => transport.getPtyId(),
+      sliceDataAfterSequence: (data, meta, sequence) =>
+        getChunkDataAfterSnapshot({ data, seq: meta?.seq, rawLength: meta?.rawLength }, sequence)
+    })
     const reattachReplayController = createPtyConnectionReattachReplayController({
       getPtyId: () => transport.getPtyId(),
       getStreamGeneration: () => transportStreamGeneration,
@@ -2492,10 +2498,7 @@ export function connectPanePty(
       onDataDisposable,
       isDisposed: () => disposed,
       clearHiddenOutputRestoreState: () => clearHiddenOutputRestoreState(),
-      getRendererOrderedFrame: () => ({
-        ptyId: rendererOrderedPtyId,
-        seq: rendererOrderedSeq
-      }),
+      getRendererOrderedFrame: rendererSequenceController.getOrderedFrame,
       whenReplayIdle: reattachReplayController.whenIdle
     })
 
@@ -2951,10 +2954,6 @@ export function connectPanePty(
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     let hiddenStartupRendererQueryPending = ''
     let hiddenRendererStateDirty = false
-    let rendererOrderedPtyId: string | null = null
-    let rendererOrderedSeq: number | null = null
-    let rendererChannelSeqPtyId: string | null = null
-    let rendererChannelSeq: number | null = null
 
     function canUseMainBufferSnapshot(ptyId: string | null): ptyId is string {
       return Boolean(ptyId) && !isRemoteRuntimePtyId(ptyId)
@@ -3613,76 +3612,19 @@ export function connectPanePty(
       }
     }
 
-    function recordRendererOrderedSeq(meta?: Pick<PtyDataMeta, 'seq'>): void {
-      if (typeof meta?.seq !== 'number') {
-        return
-      }
-      const ptyId = transport.getPtyId()
-      if (!ptyId) {
-        return
-      }
-      if (rendererOrderedPtyId !== ptyId) {
-        rendererOrderedPtyId = ptyId
-        rendererOrderedSeq = meta.seq
-        return
-      }
-      rendererOrderedSeq = Math.max(rendererOrderedSeq ?? 0, meta.seq)
-    }
+    const recordRendererOrderedSeq = rendererSequenceController.recordOrdered
 
     resetRendererOrderedSeqForPtyExit = (exitedPtyId: string): void => {
       // Why: an exit ends this ptyId's seq domain; a revived id restarts main's counter, so both seq high-water marks (ordered + restored baseline) must reset here or they drop revived bytes as duplicates.
       if (restoredSnapshotBaselinePtyId === exitedPtyId) {
         clearRestoredSnapshotBaseline()
       }
-      if (rendererOrderedPtyId === exitedPtyId) {
-        rendererOrderedPtyId = null
-        rendererOrderedSeq = null
-      }
-      if (rendererChannelSeqPtyId === exitedPtyId) {
-        rendererChannelSeqPtyId = null
-        rendererChannelSeq = null
-      }
+      rendererSequenceController.resetForPtyExit(exitedPtyId)
     }
 
-    function observeRendererOrderedSeqRegression(meta: PtyDataMeta | undefined): void {
-      if (typeof meta?.seq !== 'number') {
-        return
-      }
-      const ptyId = transport.getPtyId()
-      if (!ptyId) {
-        return
-      }
-      if (rendererChannelSeqPtyId !== ptyId) {
-        rendererChannelSeqPtyId = ptyId
-        rendererChannelSeq = meta.seq
-        return
-      }
-      if (rendererChannelSeq !== null && meta.seq < rendererChannelSeq) {
-        // Why: pty:data is FIFO, so seq regresses only when a session revived without an observed exit and restarted its counter; drop the stale baseline.
-        if (rendererOrderedPtyId === ptyId) {
-          rendererOrderedPtyId = null
-          rendererOrderedSeq = null
-        }
-      }
-      rendererChannelSeq = meta.seq
-    }
-
-    function getHiddenRendererDataAfterOrderedSeq(
-      data: string,
-      meta: PtyDataMeta | undefined
-    ): string | null {
-      if (
-        rendererOrderedPtyId === null ||
-        rendererOrderedSeq === null ||
-        transport.getPtyId() !== rendererOrderedPtyId
-      ) {
-        return data
-      }
-      return getChunkDataAfterSnapshot(
-        { data, seq: meta?.seq, rawLength: meta?.rawLength },
-        rendererOrderedSeq
-      )
-    }
+    const observeRendererOrderedSeqRegression = rendererSequenceController.observeChannel
+    const getHiddenRendererDataAfterOrderedSeq =
+      rendererSequenceController.getHiddenDataAfterOrdered
 
     // 'drained' = painted all queued bytes; 'overflow' = queue blew its cap (stream outran fetch+replay); 'refetch' = offsets unmappable, need a fresher snapshot.
     function drainPendingLiveChunksAfterSnapshot(

@@ -135,4 +135,23 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionSynchronizedForegroundController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes renderer sequence high-water state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-renderer-sequence-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'"
+    )
+    expect(orchestrator).not.toContain('let rendererOrderedPtyId: string | null = null')
+    expect(orchestrator).not.toContain('let rendererOrderedSeq: number | null = null')
+    expect(orchestrator).not.toContain('let rendererChannelSeqPtyId: string | null = null')
+    expect(orchestrator).not.toContain('let rendererChannelSeq: number | null = null')
+    expect(owner).toContain('export function createPtyConnectionRendererSequenceController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
