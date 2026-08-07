@@ -69,8 +69,6 @@ import {
 } from '@/lib/pane-manager/terminal-complex-script'
 import {
   buildPostReplayLiveAgentReattachReset,
-  POST_REPLAY_LIVE_AGENT_SNAPSHOT_RESET,
-  POST_REPLAY_LIVE_SNAPSHOT_RESET,
   POST_REPLAY_MODE_RESET,
   POST_REPLAY_REATTACH_RESET
 } from './layout-serialization'
@@ -142,6 +140,7 @@ import {
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRestoreScrollTicketController } from './pty-connection-hidden-restore-scroll-ticket-controller'
+import { createPtyConnectionHiddenRestoreSnapshotReplayController } from './pty-connection-hidden-restore-snapshot-replay-controller'
 import { createPtyConnectionHiddenRestoreTaskController } from './pty-connection-hidden-restore-task-controller'
 import { createPtyConnectionHiddenRendererQueryController } from './pty-connection-hidden-renderer-query-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
@@ -3182,135 +3181,45 @@ export function connectPanePty(
       })
     }
 
-    async function applyMainBufferSnapshot(snapshot: {
-      data: string
-      cols: number
-      rows: number
-      seq?: number
-      pendingDeliveryStartSeq?: number
-      alternateScreen?: boolean
-      scrollbackAnsi?: string
-      pendingEscapeTailAnsi?: string
-    }): Promise<void> {
-      const restorePtyId = transport.getPtyId()
-      const restoreGeneration = hiddenRestoreIdentityController.getGeneration()
-      if (hiddenRestoreScrollTicketController.hasCurrent()) {
-        cancelSnapshotScrollRestore()
-      }
-      const scrollRestore = hiddenRestoreScrollTicketController.begin(
-        restorePtyId,
-        restoreGeneration
-      )
-      const colsBeforeReplay = pane.terminal.cols
-      const rowsBeforeReplay = pane.terminal.rows
-      const hasSnapshotDimensions = hasPositiveTerminalDimensions(snapshot.cols, snapshot.rows)
-      try {
-        await structuralReplayCoordinator.run(
-          async () => {
-            if (
-              disposed ||
-              !hiddenRestoreScrollTicketController.isCurrent(
-                scrollRestore,
-                transport.getPtyId(),
-                hiddenRestoreIdentityController.getGeneration()
-              )
-            ) {
-              return
-            }
-            hiddenRestoreScrollTicketController.markStarted(scrollRestore)
-            hiddenRestoreReplayBaselineController.begin(snapshot)
-            discardTerminalOutput(pane.terminal)
-            if (
-              hasSnapshotDimensions &&
-              (pane.terminal.cols !== snapshot.cols || pane.terminal.rows !== snapshot.rows)
-            ) {
-              // Why: xterm parses writes later; hold snapshot dimensions until the FIFO sentinel completes so serialized wraps stay exact.
-              resizeSuppressionController.runStructural(() => {
-                pane.terminal.resize(snapshot.cols, snapshot.rows)
-              })
-            }
-            // Why shared: the SSH reattach model paint inlines the same
-            // choreography (coordinator nesting would deadlock there); one
-            // builder keeps the alt-screen branches from drifting.
-            for (const replayChunk of buildMainModelSnapshotReplayWrites(snapshot)) {
-              writeReplayData(replayChunk)
-            }
-            // Why: live agents own ?25l/?1004h; a forced ?1004l here would silence focus events until restart (agents enable focus reporting only at startup).
-            writeReplayData(
-              hasLiveAgentReattachStatusOrTitleSignal()
-                ? POST_REPLAY_LIVE_AGENT_SNAPSHOT_RESET
-                : POST_REPLAY_LIVE_SNAPSHOT_RESET
-            )
-            if (snapshot.pendingEscapeTailAnsi) {
-              // Why last: snapshot taken mid-escape; re-arm as the FINAL replay write (any later ESC aborts it) so the live tail completes it, not render literally (Bug E / #7329).
-              writeReplayData(snapshot.pendingEscapeTailAnsi)
-            }
-            hiddenRendererQueryController.markClean()
-            recordRendererOrderedSeq(snapshot)
-            renderRiskController.resetHidden()
-            recordTerminalOutput(pane.terminal)
-            await waitForTerminalReplayWritesParsed(pane.terminal)
-          },
-          {
-            shouldRestore: () =>
-              !disposed &&
-              hiddenRestoreScrollTicketController.isCurrent(
-                scrollRestore,
-                transport.getPtyId(),
-                hiddenRestoreIdentityController.getGeneration()
-              ),
-            afterRestore: async () => {
-              const isCurrentRestore = (): boolean =>
-                !disposed &&
-                hiddenRestoreScrollTicketController.isCurrent(
-                  scrollRestore,
-                  transport.getPtyId(),
-                  hiddenRestoreIdentityController.getGeneration()
-                )
-              if (!isCurrentRestore()) {
-                return
-              }
-              const currentPtyId = transport.getPtyId()
-              if (!currentPtyId || getFitOverrideForPty(currentPtyId)) {
-                return
-              }
-              const fit = safeFitAndThen(
-                pane,
-                'hidden-snapshot-pty-resize',
-                () => {
-                  if (!isCurrentRestore() || transport.getPtyId() !== currentPtyId) {
-                    return
-                  }
-                  const replayChangedDimensions = hasSnapshotDimensions
-                    ? pane.terminal.cols !== snapshot.cols || pane.terminal.rows !== snapshot.rows
-                    : pane.terminal.cols !== colsBeforeReplay ||
-                      pane.terminal.rows !== rowsBeforeReplay
-                  if (replayChangedDimensions && isRendererPtyResizeAuthoritative()) {
-                    transport.resize(pane.terminal.cols, pane.terminal.rows)
-                    if (!isRemoteRuntimePtyId(currentPtyId)) {
-                      // Why: redundant SIGWINCH makes alt-screen TUIs rebuild their scroll viewport to the top on tab return.
-                      getClientRuntime().terminal.signal(currentPtyId, 'SIGWINCH')
-                    }
-                  }
-                },
-                { shouldContinue: isCurrentRestore, retryIfUnmeasurable: true }
-              )
-              pendingFitController.setHidden(fit)
-              try {
-                await fit.completion
-              } finally {
-                pendingFitController.clearHiddenIf(fit)
-              }
-              if (isCurrentRestore()) {
-                scheduleReattachIdleAgentCursorReset()
-              }
-            }
-          }
-        )
-      } finally {
-        hiddenRestoreScrollTicketController.clearIf(scrollRestore)
-      }
-    }
+    const hiddenRestoreSnapshotReplayController =
+      createPtyConnectionHiddenRestoreSnapshotReplayController({
+        terminal: pane.terminal,
+        isDisposed: () => disposed,
+        getPtyId: () => transport.getPtyId(),
+        getRestoreGeneration: hiddenRestoreIdentityController.getGeneration,
+        scrollTickets: hiddenRestoreScrollTicketController,
+        cancelCurrentScrollRestore: cancelSnapshotScrollRestore,
+        runStructuralReplay: structuralReplayCoordinator.run,
+        beginReplayBaseline: hiddenRestoreReplayBaselineController.begin,
+        discardOutput: () => discardTerminalOutput(pane.terminal),
+        runStructuralResize: (operation) => {
+          resizeSuppressionController.runStructural(operation)
+        },
+        writeReplayData,
+        shouldUseLiveAgentReset: hasLiveAgentReattachStatusOrTitleSignal,
+        markRendererQueriesClean: hiddenRendererQueryController.markClean,
+        recordRendererOrderedSeq,
+        resetRenderRisk: renderRiskController.resetHidden,
+        recordOutput: () => recordTerminalOutput(pane.terminal),
+        waitForReplayWritesParsed: () => waitForTerminalReplayWritesParsed(pane.terminal),
+        hasFitOverride: (ptyId) => Boolean(getFitOverrideForPty(ptyId)),
+        startFit: (_ptyId, shouldContinue, onFitted) =>
+          safeFitAndThen(pane, 'hidden-snapshot-pty-resize', onFitted, {
+            shouldContinue,
+            retryIfUnmeasurable: true
+          }),
+        setPendingFit: pendingFitController.setHidden,
+        clearPendingFitIf: pendingFitController.clearHiddenIf,
+        isRendererPtyResizeAuthoritative,
+        resizePty: (cols, rows) => {
+          transport.resize(cols, rows)
+        },
+        shouldSignalSigwinch: (ptyId) => !isRemoteRuntimePtyId(ptyId),
+        signalSigwinch: (ptyId) => {
+          getClientRuntime().terminal.signal(ptyId, 'SIGWINCH')
+        },
+        scheduleIdleCursorReset: scheduleReattachIdleAgentCursorReset
+      })
 
     function requestHiddenOutputRestoreIfNeeded(opts?: { bypassScheduler?: boolean }): boolean {
       // Why: once the write pipeline is probe-certified dead a restore can never parse; recovery owns the pane and the remount gets a fresh xterm + restore.
@@ -3426,7 +3335,7 @@ export function connectPanePty(
           }
           hiddenRestoreDeferredRetryController.resetAttempts()
           restoreIterations += 1
-          await applyMainBufferSnapshot(snapshot)
+          await hiddenRestoreSnapshotReplayController.apply(snapshot)
           if (
             disposed ||
             hiddenRestoreIdentityController.getGeneration() !== restoreGeneration ||
@@ -3859,7 +3768,7 @@ export function connectPanePty(
       // while the relay replay is a 100KiB raw-byte tail; prefer the model on
       // reveal. Only a non-empty 'headless'-sourced snapshot qualifies — the
       // renderer-serializer fallback has no mounted xterm after a park. The
-      // paint happens inline in the snapshot-branch style: applyMainBufferSnapshot
+      // paint happens inline in the hidden snapshot replay style
       // would nest structuralReplayCoordinator.run inside the reattach task and
       // deadlock on the coordinator's tail chain.
       // Memoized: the prefetch and the payload task share one probe result, so a
@@ -3982,7 +3891,7 @@ export function connectPanePty(
             }
             kittyKeyboardModes.scanReplay(modelData)
             // Why shared: park+reveal of an alt-screen TUI needs the same
-            // ?1049l/?1049h rebuild as applyMainBufferSnapshot (main strips
+            // ?1049l/?1049h rebuild as hidden snapshot replay (main strips
             // the ?1049h marker when splitting scrollbackAnsi) — inlined here
             // because nesting structuralReplayCoordinator would deadlock.
             for (const replayChunk of buildMainModelSnapshotReplayWrites(modelSnapshot)) {
