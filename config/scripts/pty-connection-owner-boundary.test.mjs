@@ -113,11 +113,14 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-session.ts'
+    )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-deferred-reattach-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(session).toContain(
       "import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'"
     )
     expect(orchestrator).not.toContain(
@@ -146,8 +149,8 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes reattach failure fallback through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const restoredSession = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-session.ts'
     )
     const restoredComposition = read(
       'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-fallback.ts'
@@ -167,7 +170,7 @@ describe('PTY connection owner boundaries', () => {
       2
     )
     expect(composition).toContain('runPtyConnectionSavedSshReattach({')
-    expect(orchestrator).toContain('runPtyConnectionDeferredReattach({')
+    expect(restoredSession).toContain('runPtyConnectionDeferredReattach({')
     expect(controller).toContain('export function createPtyConnectionReattachFallbackController(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
@@ -176,16 +179,47 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-session.ts'
+    )
     const owner = read(
       'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-fallback.ts'
     )
 
     expect(orchestrator).toContain(
+      "import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'"
+    )
+    expect(session).toContain(
       "import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'"
     )
     expect(orchestrator).not.toContain('createPtyConnectionReattachFallbackController({')
     expect(owner).toContain('export function createPtyConnectionRestoredReattachFallback(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
+  it('routes restored reattach composition through its concrete session owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-session.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'"
+    )
+    expect(orchestrator).not.toContain('createFallbackHandlers: (sessionId, coldRestoreStartup) =>')
+    expect(session).toContain(
+      "import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'"
+    )
+    expect(session).toContain('export function runPtyConnectionRestoredReattachSession(')
+    expect(session.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
   it('routes non-reattach attach and spawn decisions through its concrete owner', () => {

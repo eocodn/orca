@@ -317,8 +317,7 @@ import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
 import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'
-import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'
-import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
+import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'
 import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'
 import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'
 
@@ -5678,34 +5677,28 @@ export function connectPanePty(
     }
 
     if (deferredReattachSessionId) {
-      runPtyConnectionDeferredReattach({
+      runPtyConnectionRestoredReattachSession({
         paneId: pane.id,
+        tabId: deps.tabId,
+        worktreeId: deps.worktreeId,
+        leafId: deps.restoredLeafId ?? pane.leafId,
         sessionId: deferredReattachSessionId,
         setAllowInitialIdleCacheSeed: (value) => {
           allowInitialIdleCacheSeed = value
         },
         recordDiagnostic: recordPtyConnectDiagnostic,
         buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
-        createFallbackHandlers: (sessionId, coldRestoreStartup) =>
-          createPtyConnectionRestoredReattachFallback({
-            sessionId,
-            coldRestoreStartup,
-            paneId: pane.id,
-            tabId: deps.tabId,
-            worktreeId: deps.worktreeId,
-            leafId: deps.restoredLeafId ?? pane.leafId,
-            isDisposed: () => disposed,
-            getTransportStreamGeneration: () => transportStreamGeneration,
-            isCurrentAuthority: isCapturedDirectSshReattachCurrent,
-            rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
-            isRejectedSessionExpired: (error) =>
-              Boolean(connectionId && isSshSessionExpiredError(error)),
-            clearPaneBinding: () => deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId),
-            clearTabBinding: () => deps.clearTabPtyId(deps.tabId, sessionId),
-            startFreshColdRestore: startFreshColdRestoreAgentResume,
-            reportError,
-            warnLifecycleAnomaly: warnTerminalLifecycleAnomaly
-          }),
+        isDisposed: () => disposed,
+        getTransportStreamGeneration: () => transportStreamGeneration,
+        isCurrentAuthority: isCapturedDirectSshReattachCurrent,
+        rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
+        isRejectedSessionExpired: (error) =>
+          Boolean(connectionId && isSshSessionExpiredError(error)),
+        clearPaneBinding: (sessionId) => deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId),
+        clearTabBinding: (sessionId) => deps.clearTabPtyId(deps.tabId, sessionId),
+        startFreshColdRestore: startFreshColdRestoreAgentResume,
+        reportError,
+        warnLifecycleAnomaly: warnTerminalLifecycleAnomaly,
         attemptReattach: reattachAttemptController.attempt
       })
     } else {
