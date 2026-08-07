@@ -148,6 +148,7 @@ import {
 } from './pty-connection-hidden-restore-pending-live-controller'
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
+import { createPtyConnectionHiddenRestoreTaskController } from './pty-connection-hidden-restore-task-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
@@ -2698,7 +2699,6 @@ export function connectPanePty(
       }
     }
 
-    let hiddenOutputRestoreInFlight: Promise<void> | null = null
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
       generation: number
@@ -2716,6 +2716,7 @@ export function connectPanePty(
     const hiddenRestorePendingLiveController =
       createPtyConnectionHiddenRestorePendingLiveController()
     const hiddenRestoreIdentityController = createPtyConnectionHiddenRestoreIdentityController()
+    const hiddenRestoreTaskController = createPtyConnectionHiddenRestoreTaskController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -2811,7 +2812,7 @@ export function connectPanePty(
     function isForegroundRestoreBackpressureContext(): boolean {
       return (
         shouldWritePtyOutputForeground(deps.isVisibleRef.current) &&
-        (hiddenOutputRestoreInFlight !== null ||
+        (hiddenRestoreTaskController.isInFlight() ||
           hiddenRestoreFloodBackpressureController.isSuppressed())
       )
     }
@@ -2832,7 +2833,7 @@ export function connectPanePty(
         return
       }
       // Why: a marker during an in-flight restore means that snapshot may predate the drop, so a fresh one must follow; capture BEFORE the mark, which starts a restore synchronously on a visible pane.
-      const restoreWasInFlight = hiddenOutputRestoreInFlight !== null
+      const restoreWasInFlight = hiddenRestoreTaskController.isInFlight()
       markHiddenOutputRestoreNeeded()
       if (restoreWasInFlight) {
         hiddenRestoreFreshnessController.markNeeded()
@@ -3088,7 +3089,7 @@ export function connectPanePty(
       writeHiddenStartupRendererQueries(data)
       markHiddenOutputRestoreNeeded()
       hiddenRendererQueryStateController.markDirty()
-      if (hiddenOutputRestoreInFlight) {
+      if (hiddenRestoreTaskController.isInFlight()) {
         hiddenRestoreFreshnessController.markNeeded()
       }
       recordHiddenRendererSkip(data.length)
@@ -3280,7 +3281,7 @@ export function connectPanePty(
         // Why: flood abandonment stops recovery bookkeeping, but its already-queued replay must keep the rebuild bracket and final pin.
         hiddenOutputSnapshotScrollRestore.generation = nextRestoreGeneration
       }
-      hiddenOutputRestoreInFlight = null
+      hiddenRestoreTaskController.abandon()
       hiddenRestoreFreshnessController.reset()
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
@@ -3546,7 +3547,7 @@ export function connectPanePty(
         return false
       }
       hiddenRestoreIdentityController.bindPty(ptyId)
-      if (hiddenOutputRestoreInFlight) {
+      if (hiddenRestoreTaskController.isInFlight()) {
         hiddenRestoreForegroundDeadlineController.arm()
         return true
       }
@@ -3577,7 +3578,7 @@ export function connectPanePty(
       }
       hiddenRestoreDeferredRetryController.clear()
 
-      hiddenOutputRestoreInFlight = (async () => {
+      const hiddenOutputRestoreTask = (async () => {
         // Backstop (rc.7.perf loop): bound how many snapshot fetch+replay rounds one task burns before yielding to the live stream.
         let restoreIterations = 0
         while (!disposed) {
@@ -3679,12 +3680,7 @@ export function connectPanePty(
           hiddenRestoreIdentityController.markNeeded()
         }
       })()
-      const hiddenOutputRestoreTask = hiddenOutputRestoreInFlight
-      let trackedHiddenOutputRestore: Promise<void>
-      trackedHiddenOutputRestore = hiddenOutputRestoreTask.finally(() => {
-        if (hiddenOutputRestoreInFlight === trackedHiddenOutputRestore) {
-          hiddenOutputRestoreInFlight = null
-        }
+      hiddenRestoreTaskController.track(hiddenOutputRestoreTask, () => {
         if (hiddenRestorePendingLiveController.hasPending()) {
           hiddenRestoreIdentityController.markNeeded()
           hiddenRestoreForegroundDeadlineController.arm()
@@ -3697,7 +3693,6 @@ export function connectPanePty(
           requestHiddenOutputRestoreIfNeeded()
         }
       })
-      hiddenOutputRestoreInFlight = trackedHiddenOutputRestore
       return true
     }
 
@@ -3816,7 +3811,7 @@ export function connectPanePty(
           // fall through with the ORIGINAL data/meta — post-gap bytes are new
         } else {
           // Why: capture in-flight BEFORE the mark — on a visible pane the mark starts the restore synchronously and must not flag itself.
-          const restoreWasInFlight = hiddenOutputRestoreInFlight !== null
+          const restoreWasInFlight = hiddenRestoreTaskController.isInFlight()
           markHiddenOutputRestoreNeeded()
           if (restoreWasInFlight) {
             hiddenRestoreFreshnessController.markNeeded()
@@ -3877,7 +3872,7 @@ export function connectPanePty(
       } else if (shouldSkipHiddenRendererOutput(foreground, orderedRendererData)) {
         skipHiddenRendererOutput(orderedRendererData)
       } else if (
-        (hiddenRestoreIdentityController.isNeeded() || hiddenOutputRestoreInFlight) &&
+        (hiddenRestoreIdentityController.isNeeded() || hiddenRestoreTaskController.isInFlight()) &&
         restoreAppliesToCurrentPty
       ) {
         if (foreground) {
@@ -3886,7 +3881,7 @@ export function connectPanePty(
           }
           queueLiveChunkDuringRestore(orderedRendererData, rendererMeta)
           requestHiddenOutputRestoreIfNeeded()
-        } else if (hiddenOutputRestoreInFlight) {
+        } else if (hiddenRestoreTaskController.isInFlight()) {
           renderRiskController.resetSkippedHidden()
           hiddenRestoreIdentityController.markNeeded()
           hiddenRestoreFreshnessController.markNeeded()
