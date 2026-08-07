@@ -147,6 +147,7 @@ import { createPtyConnectionRendererSequenceController } from './pty-connection-
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPtyConnectionTitleCompletionDeferralController } from './pty-connection-title-completion-deferral-controller'
+import { createPtyConnectionStreamGenerationController } from './pty-connection-stream-generation-controller'
 import { createPtyConnectionTransportSettleController } from './pty-connection-transport-settle-controller'
 import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
 import { createPtyConnectionWindowsDoneStatusController } from './pty-connection-windows-done-status-controller'
@@ -1897,7 +1898,7 @@ export function connectPanePty(
   const hadExistingPaneTransportAtConnect = deps.paneTransportsRef.current.size > 0
   let lastTerminalInputAt = Number.NEGATIVE_INFINITY
   let hasReceivedPtyOutput = false
-  let transportStreamGeneration = 0
+  const streamGenerationController = createPtyConnectionStreamGenerationController()
   const markTerminalInputSent = (): void => {
     lastTerminalInputAt = performance.now()
     // Why: input must probe a wedged xterm even when the PTY produces no renderer output.
@@ -2352,7 +2353,7 @@ export function connectPanePty(
     })
     const reattachReplayController = createPtyConnectionReattachReplayController({
       getPtyId: () => transport.getPtyId(),
-      getStreamGeneration: () => transportStreamGeneration,
+      getStreamGeneration: streamGenerationController.getCurrent,
       isDisposed: () => disposed,
       writeReplayDataAsync: (data) => writeReplayDataAsync(data),
       rememberPayloadAgentSignal: rememberReattachPayloadAgentSignal,
@@ -2483,7 +2484,7 @@ export function connectPanePty(
         cols,
         rows,
         captureTransportOutputCallbacks,
-        getTransportStreamGeneration: () => transportStreamGeneration,
+        getTransportStreamGeneration: streamGenerationController.getCurrent,
         setConnectInFlightSince: transportSettleController.setInFlightSince,
         mergeStartupEnvWithPaneIdentity,
         shouldDeclareHiddenAtSpawn,
@@ -2639,14 +2640,14 @@ export function connectPanePty(
 
     const sendFocusedReattachFocusInAfterReplay = (
       expectedPtyId: string | null = transport.getPtyId(),
-      expectedStreamGeneration = transportStreamGeneration
+      expectedStreamGeneration = streamGenerationController.getCurrent()
     ): void => {
       const scheduledGeneration = getReplayPayloadSignalGeneration()
       void waitForTerminalOutputParsed(pane.terminal).then(() => {
         const currentPtyId = transport.getPtyId()
         if (
           disposed ||
-          expectedStreamGeneration !== transportStreamGeneration ||
+          !streamGenerationController.isCurrent(expectedStreamGeneration) ||
           currentPtyId !== expectedPtyId
         ) {
           return
@@ -2693,8 +2694,8 @@ export function connectPanePty(
       pendingHiddenSnapshotFit = null
       pendingReattachFit?.cancel()
       pendingReattachFit = null
-      const generation = (transportStreamGeneration += 1)
-      const isCurrent = (): boolean => !disposed && generation === transportStreamGeneration
+      const generation = streamGenerationController.advance()
+      const isCurrent = (): boolean => !disposed && streamGenerationController.isCurrent(generation)
       return {
         generation,
         callbacks: {
@@ -4169,7 +4170,7 @@ export function connectPanePty(
 
     const reattachLiveDataController = createPtyConnectionReattachLiveDataController({
       getPtyId: () => transport.getPtyId(),
-      getStreamGeneration: () => transportStreamGeneration,
+      getStreamGeneration: streamGenerationController.getCurrent,
       isDisposed: () => disposed,
       takeDeliveryCredit: takeCurrentTerminalDeliveryCredit,
       deliverWithDeferredCredit: deliverTerminalDataWithDeferredCredit,
@@ -4180,9 +4181,9 @@ export function connectPanePty(
     const dataCallback = (
       data: string,
       meta?: PtyDataMeta,
-      streamGeneration = transportStreamGeneration
+      streamGeneration = streamGenerationController.getCurrent()
     ): void => {
-      if (streamGeneration !== transportStreamGeneration) {
+      if (!streamGenerationController.isCurrent(streamGeneration)) {
         return
       }
       if (reattachLiveDataController.defer(data, meta, streamGeneration)) {
@@ -4348,7 +4349,7 @@ export function connectPanePty(
 
     const finishReattachLiveDataDeferral = (
       deliver: boolean,
-      acceptedGeneration = transportStreamGeneration
+      acceptedGeneration = streamGenerationController.getCurrent()
     ): void => {
       const settlement = reattachLiveDataController.finish(deliver, acceptedGeneration)
       if (settlement && settlement.deliveredChunks > 0) {
@@ -4359,7 +4360,7 @@ export function connectPanePty(
             disposed ||
             !deps.isVisibleRef.current ||
             transport.getPtyId() !== settlement.ptyId ||
-            transportStreamGeneration !== settlement.streamGeneration
+            !streamGenerationController.isCurrent(settlement.streamGeneration)
           ) {
             return
           }
@@ -4382,12 +4383,12 @@ export function connectPanePty(
       result: PtyConnectResult | string | void,
       staleSessionId?: string | null,
       coldRestoreStartup?: ColdRestoreAgentResumeStartup | null,
-      attemptGeneration = transportStreamGeneration
+      attemptGeneration = streamGenerationController.getCurrent()
     ): Promise<boolean> => {
       if (disposed) {
         return false
       }
-      if (attemptGeneration !== transportStreamGeneration) {
+      if (!streamGenerationController.isCurrent(attemptGeneration)) {
         return false
       }
       const connectResult =
@@ -4455,7 +4456,9 @@ export function connectPanePty(
       const isCurrentReattachPayload = (): boolean => {
         const currentPtyId = transport.getPtyId()
         return (
-          !disposed && attemptGeneration === transportStreamGeneration && currentPtyId === ptyId
+          !disposed &&
+          streamGenerationController.isCurrent(attemptGeneration) &&
+          currentPtyId === ptyId
         )
       }
       if (!isCurrentReattachPayload()) {
@@ -4818,7 +4821,7 @@ export function connectPanePty(
       cols,
       rows,
       captureTransportOutputCallbacks,
-      getTransportStreamGeneration: () => transportStreamGeneration,
+      getTransportStreamGeneration: streamGenerationController.getCurrent,
       beginLiveDataDeferral: beginReattachLiveDataDeferral,
       finishLiveDataDeferral: finishReattachLiveDataDeferral,
       handleReattachResult,
@@ -4890,7 +4893,7 @@ export function connectPanePty(
           buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
           clearPaneMode2031State,
           clearHiddenOutputRestoreState,
-          getTransportStreamGeneration: () => transportStreamGeneration,
+          getTransportStreamGeneration: streamGenerationController.getCurrent,
           isCurrentReattachAuthority: isCapturedDirectSshReattachCurrent,
           rejectObsoleteReattachAuthority: rejectObsoleteDirectSshReattach,
           isSessionExpiredError: isSshSessionExpiredError,
@@ -4958,7 +4961,7 @@ export function connectPanePty(
           recordDiagnostic: recordPtyConnectDiagnostic,
           buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
           isDisposed: () => disposed,
-          getTransportStreamGeneration: () => transportStreamGeneration,
+          getTransportStreamGeneration: streamGenerationController.getCurrent,
           isCurrentAuthority: isCapturedDirectSshReattachCurrent,
           rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
           isRejectedSessionExpired: (error) =>

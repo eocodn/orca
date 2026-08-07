@@ -332,4 +332,18 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionTitleCompletionDeferralController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes transport stream generation through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-stream-generation-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionStreamGenerationController')
+    expect(orchestrator).not.toContain('let transportStreamGeneration = 0')
+    expect(owner).toContain('export function createPtyConnectionStreamGenerationController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
