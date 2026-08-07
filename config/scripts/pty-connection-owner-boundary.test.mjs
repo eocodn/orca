@@ -179,6 +179,9 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const normalSession = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-normal-route-session.ts'
+    )
     const session = read(
       'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-session.ts'
     )
@@ -186,9 +189,8 @@ describe('PTY connection owner boundaries', () => {
       'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-fallback.ts'
     )
 
-    expect(orchestrator).toContain(
-      "import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'"
-    )
+    expect(normalSession).toContain('runPtyConnectionRestoredReattachSession')
+    expect(normalSession).toContain("from './pty-connection-restored-reattach-session'")
     expect(orchestrator).not.toContain(
       "import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'"
     )
@@ -204,13 +206,15 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const normalSession = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-normal-route-session.ts'
+    )
     const session = read(
       'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-session.ts'
     )
 
-    expect(orchestrator).toContain(
-      "import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'"
-    )
+    expect(normalSession).toContain('runPtyConnectionRestoredReattachSession')
+    expect(normalSession).toContain("from './pty-connection-restored-reattach-session'")
     expect(orchestrator).not.toContain(
       "import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'"
     )
@@ -242,13 +246,15 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const normalSession = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-normal-route-session.ts'
+    )
     const session = read(
       'src/renderer/src/components/terminal-pane/pty-connection-attach-spawn-session.ts'
     )
 
-    expect(orchestrator).toContain(
-      "import { runPtyConnectionAttachSpawnSession } from './pty-connection-attach-spawn-session'"
-    )
+    expect(normalSession).toContain('runPtyConnectionAttachSpawnSession')
+    expect(normalSession).toContain("from './pty-connection-attach-spawn-session'")
     expect(orchestrator).not.toContain(
       "import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'"
     )
@@ -265,15 +271,50 @@ describe('PTY connection owner boundaries', () => {
     expect(session.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes normal PTY session execution through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-normal-route-session.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionNormalRouteSession } from './pty-connection-normal-route-session'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionAttachSpawnSession } from './pty-connection-attach-spawn-session'"
+    )
+    expect(orchestrator).not.toContain('if (deferredReattachSessionId) {')
+    expect(session).toContain(
+      "import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'"
+    )
+    expect(session).toContain('runPtyConnectionRestoredReattachSession')
+    expect(session).toContain("from './pty-connection-restored-reattach-session'")
+    expect(session).toContain('runPtyConnectionAttachSpawnSession')
+    expect(session).toContain("from './pty-connection-attach-spawn-session'")
+    expect(session).toContain('export function runPtyConnectionNormalRouteSession(')
+    expect(session.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes fresh-vs-cold restore selection through its concrete owner', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-normal-route-session.ts'
     )
     const owner = read(
       'src/renderer/src/components/terminal-pane/pty-connection-fresh-or-cold-restore.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(session).toContain(
       "import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'"
     )
     expect(orchestrator).not.toContain(

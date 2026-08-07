@@ -6,7 +6,7 @@ type PendingSpawnTransport = {
   getPtyId: () => string | null
 }
 
-type PtyConnectionAttachSpawnSessionArgs = {
+export type PtyConnectionAttachSpawnSessionArgs = {
   paneId: number
   tabId: string
   attachPtyId: string | null

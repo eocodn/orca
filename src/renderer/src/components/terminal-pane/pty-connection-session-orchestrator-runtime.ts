@@ -311,13 +311,11 @@ import { createPtyConnectionStartupGridController } from './pty-connection-start
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
 import { preparePtyConnectionAttachRouteObservation } from './pty-connection-attach-route-observation'
-import { runPtyConnectionAttachSpawnSession } from './pty-connection-attach-spawn-session'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
-import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'
-import { runPtyConnectionRestoredReattachSession } from './pty-connection-restored-reattach-session'
+import { runPtyConnectionNormalRouteSession } from './pty-connection-normal-route-session'
 import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'
 import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'
 
@@ -5664,25 +5662,17 @@ export function connectPanePty(
       clearTabPtyId: deps.clearTabPtyId,
       recordDiagnostic: recordPtyConnectDiagnostic
     })
-    const sleptRemoteColdRestoreStartup = sleptRemoteRuntimeSessionId
-      ? buildColdRestoreAgentResumeStartup()
-      : null
-    const startFreshOrColdRestore = (): void => {
-      runPtyConnectionFreshOrColdRestore({
-        coldRestoreStartup: sleptRemoteColdRestoreStartup,
-        hasSleepingAgentSession,
-        startFreshColdRestore: startFreshColdRestoreAgentResume,
-        startFreshSpawn
-      })
-    }
-
-    if (deferredReattachSessionId) {
-      runPtyConnectionRestoredReattachSession({
+    runPtyConnectionNormalRouteSession({
+      sleptRemoteRuntimeSessionId,
+      deferredReattachSessionId,
+      hasSleepingAgentSession,
+      buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
+      startFreshColdRestore: startFreshColdRestoreAgentResume,
+      restoredReattach: {
         paneId: pane.id,
         tabId: deps.tabId,
         worktreeId: deps.worktreeId,
         leafId: deps.restoredLeafId ?? pane.leafId,
-        sessionId: deferredReattachSessionId,
         setAllowInitialIdleCacheSeed: (value) => {
           allowInitialIdleCacheSeed = value
         },
@@ -5696,13 +5686,11 @@ export function connectPanePty(
           Boolean(connectionId && isSshSessionExpiredError(error)),
         clearPaneBinding: (sessionId) => deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId),
         clearTabBinding: (sessionId) => deps.clearTabPtyId(deps.tabId, sessionId),
-        startFreshColdRestore: startFreshColdRestoreAgentResume,
         reportError,
         warnLifecycleAnomaly: warnTerminalLifecycleAnomaly,
         attemptReattach: reattachAttemptController.attempt
-      })
-    } else {
-      runPtyConnectionAttachSpawnSession({
+      },
+      attachSpawn: {
         paneId: pane.id,
         tabId: deps.tabId,
         attachPtyId,
@@ -5722,15 +5710,14 @@ export function connectPanePty(
         attachDetachedPty: attachController.attachDetachedPty,
         clearTabPtyId: deps.clearTabPtyId,
         startFreshSpawn,
-        startFreshOrColdRestore,
         armDirectSshPaneRetryTimeout,
         isDisposed: () => disposed,
         canAdoptCapturedDirectSshRetryPty,
         adoptPendingSpawn: attachController.adoptPendingSpawn,
         reportError
-      })
-    }
-    scheduleRuntimeGraphSync()
+      },
+      scheduleRuntimeGraphSync
+    })
   }
 
   const startupGridController = createPtyConnectionStartupGridController({

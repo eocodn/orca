@@ -12,7 +12,7 @@ type TerminalLifecycleDetails = {
   reason: string
 }
 
-type PtyConnectionRestoredReattachSessionArgs = {
+export type PtyConnectionRestoredReattachSessionArgs = {
   paneId: number
   tabId: string
   worktreeId: string
