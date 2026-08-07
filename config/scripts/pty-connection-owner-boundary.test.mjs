@@ -189,19 +189,46 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes non-reattach attach and spawn decisions through its concrete owner', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-spawn-session.ts'
     )
     const owner = read(
       'src/renderer/src/components/terminal-pane/pty-connection-attach-spawn-route.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(session).toContain(
       "import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'"
     )
-    expect(orchestrator).not.toContain('} else if (attachPtyId) {')
+    expect(session).not.toContain('} else if (attachPtyId) {')
     expect(owner).toContain('export function runPtyConnectionAttachSpawnRoute(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
+  it('routes attach/spawn and pending adoption composition through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-spawn-session.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionAttachSpawnSession } from './pty-connection-attach-spawn-session'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'"
+    )
+    expect(session).toContain(
+      "import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'"
+    )
+    expect(session).toContain(
+      "import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'"
+    )
+    expect(session).toContain('export function runPtyConnectionAttachSpawnSession(')
+    expect(session.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
   it('routes fresh-vs-cold restore selection through its concrete owner', () => {
@@ -298,17 +325,17 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes pending-spawn adoption through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const session = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-spawn-session.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-pending-spawn-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(session).toContain(
       "import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'"
     )
-    expect(orchestrator).not.toContain('const pendingSpawn = pendingSpawnByPaneKey.get(')
+    expect(session).not.toContain('const pendingSpawn = pendingSpawnByPaneKey.get(')
     expect(controller).toContain('export function createPtyConnectionPendingSpawnController(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })

@@ -311,12 +311,11 @@ import { createPtyConnectionStartupGridController } from './pty-connection-start
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
 import { preparePtyConnectionAttachRouteObservation } from './pty-connection-attach-route-observation'
-import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'
+import { runPtyConnectionAttachSpawnSession } from './pty-connection-attach-spawn-session'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
-import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'
 import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'
 import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'
 import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
@@ -5710,13 +5709,16 @@ export function connectPanePty(
         attemptReattach: reattachAttemptController.attempt
       })
     } else {
-      runPtyConnectionAttachSpawnRoute({
+      runPtyConnectionAttachSpawnSession({
         paneId: pane.id,
         tabId: deps.tabId,
         attachPtyId,
         legacyAttachOnlyPtyId,
         attachUsesEagerBuffer,
         hasSshConnection: Boolean(connectionId),
+        pendingSpawnKey,
+        transport,
+        directSshRetryAttempt,
         setAllowInitialIdleCacheSeed: (value) => {
           allowInitialIdleCacheSeed = value
         },
@@ -5727,22 +5729,12 @@ export function connectPanePty(
         attachDetachedPty: attachController.attachDetachedPty,
         clearTabPtyId: deps.clearTabPtyId,
         startFreshSpawn,
-        joinPendingSpawn: () =>
-          createPtyConnectionPendingSpawnController({
-            pendingSpawnKey,
-            tabId: deps.tabId,
-            paneId: pane.id,
-            transport,
-            directSshRetryAttempt,
-            armDirectSshPaneRetryTimeout,
-            isDisposed: () => disposed,
-            canAdoptCapturedDirectSshRetryPty,
-            adoptPendingSpawn: attachController.adoptPendingSpawn,
-            onMissingSpawn: startFreshOrColdRestore,
-            reportError,
-            recordDiagnostic: recordPtyConnectDiagnostic
-          }).join(),
-        startFreshOrColdRestore
+        startFreshOrColdRestore,
+        armDirectSshPaneRetryTimeout,
+        isDisposed: () => disposed,
+        canAdoptCapturedDirectSshRetryPty,
+        adoptPendingSpawn: attachController.adoptPendingSpawn,
+        reportError
       })
     }
     scheduleRuntimeGraphSync()
