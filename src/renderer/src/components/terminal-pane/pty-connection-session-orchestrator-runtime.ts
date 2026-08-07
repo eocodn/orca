@@ -130,6 +130,7 @@ import { createPtyConnectionAlternateScreenRepaintController } from './pty-conne
 import { createPtyConnectionAgentIdleTerminalModeController } from './pty-connection-agent-idle-terminal-mode-controller'
 import { createPtyConnectionBufferSwitchController } from './pty-connection-buffer-switch-controller'
 import { createPtyConnectionCommandFinishedStatusDropController } from './pty-connection-command-finished-status-drop-controller'
+import { createPtyConnectionCertifiedDeadRestoreRecoveryController } from './pty-connection-certified-dead-restore-recovery-controller'
 import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
 import { createPtyConnectionE2eDataInjectionController } from './pty-connection-e2e-data-injection-controller'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
@@ -2717,9 +2718,6 @@ export function connectPanePty(
     // Why: hidden recovery state belongs to one PTY stream. Reattach/restart
     // can reuse the pane object for a different session before visibility.
     let hiddenOutputRestorePtyId: string | null = null
-    // One recovery re-kick per xterm instance. Generation-aware cooldown and
-    // window-cap retries keep a fresh-but-wedged replacement from fossilizing.
-    let certifiedDeadRestoreRecoveryRequested = false
     let hiddenOutputRestoreGeneration = 0
     // Why: queued replay writes still paint after deadline abandonment; the
     // fallback drain must not write snapshot-covered live bytes a second time.
@@ -2730,6 +2728,8 @@ export function connectPanePty(
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
     const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
+    const certifiedDeadRestoreRecoveryController =
+      createPtyConnectionCertifiedDeadRestoreRecoveryController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -3576,8 +3576,7 @@ export function connectPanePty(
       // Why: once the write pipeline is probe-certified dead a restore can never parse; recovery owns the pane and the remount gets a fresh xterm + restore.
       if (isTerminalWritePipelineCertifiedDead(pane.terminal)) {
         // Why the re-kick: certification's recovery request can be budget-declined or cancelled by a sibling remount; without this, a revealed dead pane keeps the stale frame forever.
-        if (!certifiedDeadRestoreRecoveryRequested && !disposed) {
-          certifiedDeadRestoreRecoveryRequested = true
+        if (!disposed && certifiedDeadRestoreRecoveryController.claim()) {
           const storePtyId = useAppStore.getState().ptyIdsByTabId?.[deps.tabId]?.[0] ?? null
           void requestTerminalPaneRecovery({
             tabId: deps.tabId,
