@@ -318,13 +318,9 @@ import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spaw
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
 import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'
 import { createPtyConnectionReattachFallbackController } from './pty-connection-reattach-fallback-controller'
-import { runPtyConnectionSavedSshReattach } from './pty-connection-saved-ssh-reattach-controller'
 import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
-import { waitForUserInitiatedSshConnect } from './pty-connection-ssh-prompt-wait-controller'
-import { runPtyConnectionSshPromptAdmission } from './pty-connection-ssh-prompt-admission-controller'
-import { runPtyConnectionSshConnectSettlement } from './pty-connection-ssh-connect-settlement-controller'
-import { runPtyConnectionDeferredSshConnect } from './pty-connection-deferred-ssh-connect-controller'
 import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'
+import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -5582,90 +5578,41 @@ export function connectPanePty(
         legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked(),
         recordRouteDiagnostic: (message) => console.warn(message),
         dispatchDeferredFlow: (pendingSessionId) => {
-          void runPtyConnectionDeferredSshConnect({
-            runPromptAdmission: () =>
-              runPtyConnectionSshPromptAdmission({
-                needsPassphrasePrompt: () =>
-                  getClientRuntime().ssh.needsPassphrasePrompt({ targetId: connectionId }),
-                isCurrentAuthority: () => !disposed && capturedDirectSshRetryLeaseMatches(),
-                isAlreadyConnected: () =>
-                  useAppStore.getState().sshConnectionStates.get(connectionId)?.status ===
-                  'connected',
-                waitForUserConnect: () =>
-                  waitForUserInitiatedSshConnect({
-                    getStatus: () =>
-                      useAppStore.getState().sshConnectionStates.get(connectionId)?.status,
-                    subscribe: (listener) => useAppStore.subscribe(() => listener()),
-                    isDisposed: () => disposed,
-                    waitTeardowns,
-                    outcomeForStatus: sshPromptConnectOutcomeForStatus
-                  }),
-                warnProbeFailure: (error) =>
-                  console.warn('[pty-connection] needsPassphrasePrompt probe failed:', error),
-                reportError
-              }),
-            runSettlement: () =>
-              runPtyConnectionSshConnectSettlement({
-                waitForConnection: () => waitForSshConnection(connectionId),
-                isCurrentAuthority: () => !disposed && capturedDirectSshRetryLeaseMatches(),
-                isDisposed: () => disposed,
-                removeDeferredReconnectTarget: () =>
-                  useAppStore.getState().removeDeferredSshReconnectTarget(connectionId),
-                reportError,
-                onConnected: () =>
-                  runPtyConnectionSavedSshReattach({
-                    pendingSessionId,
-                    legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked(),
-                    attachRetainedLegacyPty: attachController.attachRetainedLegacyPty,
-                    removeDeferredSession: () =>
-                      useAppStore.getState().removeDeferredSshSessionId(deps.tabId),
-                    scheduleRuntimeGraphSync,
-                    startFreshColdRestore: () => startFreshColdRestoreAgentResume(),
-                    buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
-                    clearPaneMode2031State,
-                    clearHiddenOutputRestoreState,
-                    createFallbackHandlers: (sessionId, coldRestoreStartup) =>
-                      createPtyConnectionReattachFallbackController({
-                        sessionId,
-                        isDisposed: () => disposed,
-                        rejectRejectedWhenDisposed: true,
-                        getTransportStreamGeneration: () => transportStreamGeneration,
-                        isCurrentAuthority: isCapturedDirectSshReattachCurrent,
-                        rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
-                        isRejectedSessionExpired: isSshSessionExpiredError,
-                        clearBindings: () => {
-                          deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId)
-                          deps.clearTabPtyId(deps.tabId, sessionId)
-                        },
-                        clearBindingsOnRejectedError: false,
-                        startFreshColdRestore: () =>
-                          startFreshColdRestoreAgentResume(coldRestoreStartup, {
-                            forceBlankRestoredViewport: true
-                          }),
-                        reportError,
-                        warnRejected: () => {},
-                        reportRejectedError: false,
-                        warnRejectedError: false
-                      }),
-                    attemptReattach: reattachAttemptController.attempt,
-                    logAttempt: (sessionId) =>
-                      console.warn(
-                        `[pty-connection] Attempting reattach for tab=${deps.tabId} sessionId=${sessionId}`
-                      ),
-                    logResult: (result) =>
-                      console.warn(
-                        `[pty-connection] Reattach result for tab=${deps.tabId}:`,
-                        result
-                          ? {
-                              sessionExpired: (result as Record<string, unknown>).sessionExpired,
-                              replay: !!(result as Record<string, unknown>).replay
-                            }
-                          : 'undefined'
-                      ),
-                    logRejected: (error) =>
-                      console.warn(`[pty-connection] Reattach FAILED for tab=${deps.tabId}:`, error)
-                  })
-              })
+          void runPtyConnectionSshDeferredSession({
+            tabId: deps.tabId,
+            pendingSessionId,
+            needsPassphrasePrompt: () =>
+              getClientRuntime().ssh.needsPassphrasePrompt({ targetId: connectionId }),
+            getSshStatus: () =>
+              useAppStore.getState().sshConnectionStates.get(connectionId)?.status,
+            subscribeSshStatus: (listener) => useAppStore.subscribe(() => listener()),
+            outcomeForStatus: sshPromptConnectOutcomeForStatus,
+            isCurrentAuthority: () => !disposed && capturedDirectSshRetryLeaseMatches(),
+            isDisposed: () => disposed,
+            waitTeardowns,
+            waitForConnection: () => waitForSshConnection(connectionId),
+            removeDeferredReconnectTarget: () =>
+              useAppStore.getState().removeDeferredSshReconnectTarget(connectionId),
+            reportError,
+            legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked,
+            attachRetainedLegacyPty: attachController.attachRetainedLegacyPty,
+            removeDeferredSession: () =>
+              useAppStore.getState().removeDeferredSshSessionId(deps.tabId),
+            scheduleRuntimeGraphSync,
+            startFreshColdRestore: startFreshColdRestoreAgentResume,
+            buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
+            clearPaneMode2031State,
+            clearHiddenOutputRestoreState,
+            getTransportStreamGeneration: () => transportStreamGeneration,
+            isCurrentReattachAuthority: isCapturedDirectSshReattachCurrent,
+            rejectObsoleteReattachAuthority: rejectObsoleteDirectSshReattach,
+            isSessionExpiredError: isSshSessionExpiredError,
+            clearBindings: (sessionId) => {
+              deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId)
+              deps.clearTabPtyId(deps.tabId, sessionId)
+            },
+            attemptReattach: reattachAttemptController.attempt,
+            logWarning: (...args) => console.warn(...args)
           })
         }
       })

@@ -6,6 +6,24 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes deferred SSH saved-session composition through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'"
+    )
+    expect(orchestrator).not.toContain('runPtyConnectionDeferredSshConnect({')
+    expect(orchestrator).not.toContain('runPtyConnectionSshConnectSettlement({')
+    expect(orchestrator).not.toContain('runPtyConnectionSavedSshReattach({')
+    expect(controller).toContain('export function runPtyConnectionSshDeferredSession(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes SSH deferred-connect entry policy through its concrete owner', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
@@ -24,17 +42,17 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes deferred SSH connect composition through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const composition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-deferred-ssh-connect-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(composition).toContain(
       "import { runPtyConnectionDeferredSshConnect } from './pty-connection-deferred-ssh-connect-controller'"
     )
-    expect(orchestrator).not.toContain(
+    expect(composition).not.toContain(
       'const promptAdmission = await runPtyConnectionSshPromptAdmission('
     )
     expect(controller).toContain('export async function runPtyConnectionDeferredSshConnect(')
@@ -42,49 +60,49 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes shared SSH connection settlement through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const composition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-ssh-connect-settlement-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(composition).toContain(
       "import { runPtyConnectionSshConnectSettlement } from './pty-connection-ssh-connect-settlement-controller'"
     )
-    expect(orchestrator).not.toContain('const connectResult = await waitForSshConnection(')
+    expect(composition).not.toContain('const connectResult = await waitForSshConnection(')
     expect(controller).toContain('export async function runPtyConnectionSshConnectSettlement(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
   it('routes SSH prompt admission through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const composition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-ssh-prompt-admission-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(composition).toContain(
       "import { runPtyConnectionSshPromptAdmission } from './pty-connection-ssh-prompt-admission-controller'"
     )
-    expect(orchestrator).not.toContain('let needsPrompt = false')
+    expect(composition).not.toContain('let needsPrompt = false')
     expect(controller).toContain('export async function runPtyConnectionSshPromptAdmission(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
   it('routes user-initiated SSH connect waiting through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const composition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-ssh-prompt-wait-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(composition).toContain(
       "import { waitForUserInitiatedSshConnect } from './pty-connection-ssh-prompt-wait-controller'"
     )
-    expect(orchestrator).not.toContain(
+    expect(composition).not.toContain(
       'const outcome = await new Promise<UserInitiatedSshConnectOutcome>'
     )
     expect(controller).toContain('export function waitForUserInitiatedSshConnect(')
@@ -110,17 +128,17 @@ describe('PTY connection owner boundaries', () => {
   })
 
   it('routes saved SSH session reattach through its concrete controller', () => {
-    const orchestrator = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    const composition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-saved-ssh-reattach-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(composition).toContain(
       "import { runPtyConnectionSavedSshReattach } from './pty-connection-saved-ssh-reattach-controller'"
     )
-    expect(orchestrator).not.toContain(
+    expect(composition).not.toContain(
       'if (pendingSessionId) {\n            if (isLegacyWorkerAutomaticResumeBlocked())'
     )
     expect(controller).toContain('export function runPtyConnectionSavedSshReattach(')
@@ -131,15 +149,21 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const composition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
+    )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-reattach-fallback-controller.ts'
     )
+    const fallbackUsers = `${orchestrator}\n${composition}`
 
-    expect(orchestrator).toContain(
+    expect(fallbackUsers).toContain(
       "import { createPtyConnectionReattachFallbackController } from './pty-connection-reattach-fallback-controller'"
     )
-    expect(orchestrator.match(/createPtyConnectionReattachFallbackController\(\{/g)).toHaveLength(2)
-    expect(orchestrator).toContain('runPtyConnectionSavedSshReattach({')
+    expect(fallbackUsers.match(/createPtyConnectionReattachFallbackController\(\{/g)).toHaveLength(
+      2
+    )
+    expect(composition).toContain('runPtyConnectionSavedSshReattach({')
     expect(orchestrator).toContain('runPtyConnectionDeferredReattach({')
     expect(controller).toContain('export function createPtyConnectionReattachFallbackController(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
