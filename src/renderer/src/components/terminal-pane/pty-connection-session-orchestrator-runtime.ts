@@ -146,6 +146,7 @@ import { createPtyConnectionReattachReplayController } from './pty-connection-re
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
+import { createPtyConnectionTitleCompletionDeferralController } from './pty-connection-title-completion-deferral-controller'
 import { createPtyConnectionTransportSettleController } from './pty-connection-transport-settle-controller'
 import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
 import { createPtyConnectionWindowsDoneStatusController } from './pty-connection-windows-done-status-controller'
@@ -175,7 +176,6 @@ import {
   shouldSuppressCodexAutoApprovalSyntheticTitle,
   shouldSuppressCodexAutoApprovalStatus
 } from './codex-auto-approval-notification-suppression'
-import type { AgentCompletionStatusSnapshot } from './agent-completion-coordinator-types'
 import {
   markTerminalBracketedPasteInterrupted,
   observeTerminalBracketedPasteModeOutput
@@ -480,13 +480,6 @@ export function connectPanePty(
       activeHookAgentForTitle !== explicitTitleAgentType
     return !titleNamesDifferentKnownAgent
   }
-  let pendingSuppressedTitleSideEffects: {
-    title: string
-    agentType: AgentType | undefined
-  } | null = null
-  const clearSuppressedTitleSideEffects = (): void => {
-    pendingSuppressedTitleSideEffects = null
-  }
   const applyAgentCompletionSideEffects = (
     title: string,
     agentType: AgentType | undefined
@@ -501,51 +494,17 @@ export function connectPanePty(
     setFocusReportSuppressionForAgentCompletion(title, agentType)
     queueAgentIdleTerminalModeReset()
   }
-  const preserveSuppressedTitleSideEffects = (
-    title: string,
-    activeHookStatus: AgentStatusEntry
-  ): void => {
-    pendingSuppressedTitleSideEffects = {
-      title,
-      agentType: activeHookStatus.agentType
-    }
-    if (activeHookStatus.state === 'waiting' || activeHookStatus.state === 'blocked') {
+  const titleCompletionDeferralController = createPtyConnectionTitleCompletionDeferralController({
+    resolveCompatibleAgentType: resolveCompatibleAgentTypeForOwner,
+    applyCompletion: applyAgentCompletionSideEffects,
+    relaxPendingCompletion: () => {
       suppressNativeWindowsIdleCodexFocusReports = false
       queueAgentIdleTerminalModeReset()
     }
-  }
-  const handleAgentHookTerminalLifecycle = (payload: AgentCompletionStatusSnapshot): void => {
-    const pending = pendingSuppressedTitleSideEffects
-    if (!pending) {
-      return
-    }
-    const payloadAgentForPending = resolveCompatibleAgentTypeForOwner(
-      payload.agentType,
-      pending.agentType
-    )
-    const belongsToPendingAgent =
-      !pending.agentType ||
-      pending.agentType === 'unknown' ||
-      !payload.agentType ||
-      payload.agentType === 'unknown' ||
-      payloadAgentForPending === pending.agentType
-    if (!belongsToPendingAgent || payload.state === 'working') {
-      clearSuppressedTitleSideEffects()
-      return
-    }
-    if (payload.state === 'done') {
-      applyAgentCompletionSideEffects(pending.title, payload.agentType ?? pending.agentType)
-      clearSuppressedTitleSideEffects()
-      return
-    }
-    if (payload.state === 'waiting' || payload.state === 'blocked') {
-      suppressNativeWindowsIdleCodexFocusReports = false
-      queueAgentIdleTerminalModeReset()
-    }
-  }
+  })
   const unregisterAgentHookTerminalLifecycle = registerAgentHookTerminalLifecycleHandler(
     cacheKey,
-    handleAgentHookTerminalLifecycle
+    titleCompletionDeferralController.handleLifecycle
   )
   const hasFreshPaneAgentSurface = (): boolean => {
     const entry = useAppStore.getState().agentStatusByPaneKey[cacheKey]
@@ -1135,7 +1094,7 @@ export function connectPanePty(
     },
     dispatchCompletion: (title, meta) => {
       if (meta?.source === 'process-exit') {
-        clearSuppressedTitleSideEffects()
+        titleCompletionDeferralController.clear()
       }
       if (meta?.terminalIdleConfirmed === true) {
         // Why: an agent can crash before its done hook; confirmed process death
@@ -1638,7 +1597,7 @@ export function connectPanePty(
       // Why: agent CLIs can briefly publish an idle title while hook status
       // still says the same agent turn is active (e.g. during tool output).
       if (activeHookStatus) {
-        preserveSuppressedTitleSideEffects(title, activeHookStatus)
+        titleCompletionDeferralController.preserve(title, activeHookStatus)
       }
       return
     }
@@ -1668,7 +1627,7 @@ export function connectPanePty(
   }
   const onAgentBecameWorking = (): void => {
     suppressNativeWindowsIdleCodexFocusReports = false
-    clearSuppressedTitleSideEffects()
+    titleCompletionDeferralController.clear()
     if (markFreshWorking()) {
       agentCompletionCoordinator.observeTitleWorking()
     }
@@ -1682,7 +1641,7 @@ export function connectPanePty(
     // Why: eligibility can disappear transiently during reconnect, but a
     // confirmed shell-title transition is authoritative for native-chat exit.
     deps.onAgentExitedRef.current(pane.leafId)
-    clearSuppressedTitleSideEffects()
+    titleCompletionDeferralController.clear()
     clearCommandInferredPaneAgent()
     requestKnownDroidReconfirmation()
     // Why: when the terminal title reverts to a plain shell (e.g., "bash", "zsh"),
@@ -5166,7 +5125,7 @@ export function connectPanePty(
       cleanupStartupDelivery()
       releaseUnattemptedStartupDraftPasteDelivery()
       unregisterAgentHookTerminalLifecycle()
-      clearSuppressedTitleSideEffects()
+      titleCompletionDeferralController.dispose()
       disposeAgentNotificationController()
       clearReattachIdleAgentCursorResetTimer()
       disposeAlternateScreenRepaintController()

@@ -318,4 +318,18 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionWindowsDoneStatusController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes deferred title-completion side effects through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-title-completion-deferral-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionTitleCompletionDeferralController')
+    expect(orchestrator).not.toContain('let pendingSuppressedTitleSideEffects: {')
+    expect(owner).toContain('export function createPtyConnectionTitleCompletionDeferralController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
