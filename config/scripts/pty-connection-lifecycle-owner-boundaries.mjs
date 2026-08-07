@@ -558,4 +558,21 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionHiddenDeliveryController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes hidden restore cleanup lifecycle through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-cleanup-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreCleanupController')
+    expect(orchestrator).not.toContain('let cancelHiddenOutputSnapshotScrollRestore =')
+    expect(orchestrator).not.toContain('let cleanupHiddenOutputRestoreDeferredRetry =')
+    expect(orchestrator).not.toContain('let cleanupHiddenOutputRestoreForegroundDeadline =')
+    expect(orchestrator).not.toContain('let cleanupHiddenOutputRestoreFloodRepaint =')
+    expect(owner).toContain('export function createPtyConnectionHiddenRestoreCleanupController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

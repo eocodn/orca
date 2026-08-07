@@ -138,6 +138,7 @@ import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
+import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
@@ -357,12 +358,9 @@ export function connectPanePty(
   const terminalActivityController = createPtyConnectionTerminalActivityController()
   const structuralReplayCoordinator = createTerminalStructuralReplayCoordinator(pane.terminal)
   const recoverySubscriptionsController = createPtyConnectionRecoverySubscriptionsController()
-  let cancelHiddenOutputSnapshotScrollRestore = (): void => {}
+  const hiddenRestoreCleanupController = createPtyConnectionHiddenRestoreCleanupController()
   const pendingFitController = createPtyConnectionPendingFitController()
   let disposeReattachLiveDataController = (): void => {}
-  let cleanupHiddenOutputRestoreDeferredRetry = (): void => {}
-  let cleanupHiddenOutputRestoreForegroundDeadline = (): void => {}
-  let cleanupHiddenOutputRestoreFloodRepaint = (): void => {}
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   let cleanupStartupDelivery = (): void => {}
   const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
@@ -2848,8 +2846,6 @@ export function connectPanePty(
       clearTimeout(hiddenOutputRestoreFloodRepaintTimer)
       hiddenOutputRestoreFloodRepaintTimer = null
     }
-    cleanupHiddenOutputRestoreFloodRepaint = clearHiddenOutputRestoreFloodRepaintTimer
-
     function resetHiddenOutputRestoreFloodSuppression(): void {
       hiddenOutputRestoreFloodSuppressedUntil = 0
       clearHiddenOutputRestoreFloodRepaintTimer()
@@ -3408,8 +3404,6 @@ export function connectPanePty(
       clearTimeout(hiddenOutputRestoreDeferredRetryTimer)
       hiddenOutputRestoreDeferredRetryTimer = null
     }
-    cleanupHiddenOutputRestoreDeferredRetry = clearHiddenOutputRestoreDeferredRetryTimer
-
     function clearHiddenOutputRestoreForegroundDeadlineTimer(): void {
       if (hiddenOutputRestoreForegroundDeadlineTimer === null) {
         return
@@ -3417,8 +3411,6 @@ export function connectPanePty(
       clearTimeout(hiddenOutputRestoreForegroundDeadlineTimer)
       hiddenOutputRestoreForegroundDeadlineTimer = null
     }
-    cleanupHiddenOutputRestoreForegroundDeadline = clearHiddenOutputRestoreForegroundDeadlineTimer
-
     function armHiddenOutputRestoreForegroundDeadline(): void {
       if (
         disposed ||
@@ -3569,7 +3561,12 @@ export function connectPanePty(
       }
       // Why: invalidation suppresses restoration, but queued bytes still own the bracket until their FIFO sentinels prove parsing finished.
     }
-    cancelHiddenOutputSnapshotScrollRestore = cancelSnapshotScrollRestore
+    hiddenRestoreCleanupController.bind({
+      cancelSnapshotScrollRestore,
+      clearDeferredRetry: clearHiddenOutputRestoreDeferredRetryTimer,
+      clearForegroundDeadline: clearHiddenOutputRestoreForegroundDeadlineTimer,
+      clearFloodRepaint: clearHiddenOutputRestoreFloodRepaintTimer
+    })
 
     function clearPaneMode2031State(): void {
       deps.paneMode2031Ref.current.delete(pane.id)
@@ -4897,7 +4894,7 @@ export function connectPanePty(
       terminalRecoveryInstance.unregister()
       unregisterUndeliverableWriteHandler()
       remoteViewportClaimController.dispose()
-      cancelHiddenOutputSnapshotScrollRestore()
+      hiddenRestoreCleanupController.dispose()
       structuralReplayCoordinator.dispose()
       freshSpawnFollowController.cancel()
       spawnSizeReconcileController.dispose()
@@ -4928,9 +4925,6 @@ export function connectPanePty(
       disposeAgentNotificationController()
       clearReattachIdleAgentCursorResetTimer()
       alternateScreenRepaintController.dispose()
-      cleanupHiddenOutputRestoreDeferredRetry()
-      cleanupHiddenOutputRestoreForegroundDeadline()
-      cleanupHiddenOutputRestoreFloodRepaint()
       recoverySubscriptionsController.dispose()
       releaseRendererPtyVisibilityClaim(transport)
       // Why: the pane's fact consumer must be gone before a parked-tab watcher takes over this PTY's facts in the same effect flush.
