@@ -310,12 +310,11 @@ import { createPtyConnectionSessionLivenessReconcileController } from './pty-con
 import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
-import { preparePtyConnectionAttachRouteObservation } from './pty-connection-attach-route-observation'
+import { runPtyConnectionObservedNormalRoute } from './pty-connection-observed-normal-route'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
-import { runPtyConnectionNormalRouteSession } from './pty-connection-normal-route-session'
 import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'
 import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'
 
@@ -5629,94 +5628,84 @@ export function connectPanePty(
     )?.ptyId
     const hasSleepingAgentSession = Boolean(getSleepingRecordForPane(storeSnapshot))
 
-    const {
-      sleptRemoteRuntimeSessionId,
-      legacyAttachOnlyPtyId,
-      deferredReattachSessionId,
-      attachPtyId,
-      attachUsesEagerBuffer
-    } = preparePtyConnectionAttachRouteObservation({
-      paneId: pane.id,
-      tabId: deps.tabId,
-      restoredPtyId,
-      existingPtyId,
-      pendingSpawnKey,
-      hadExistingPaneTransportAtConnect,
-      hasSleepingAgentSession,
-      currentTabLivePtyIds: storeSnapshot.ptyIdsByTabId[deps.tabId] ?? [],
-      runtimeEnvironmentId,
-      mountFollowsTerminalPark,
-      worktreeId: deps.worktreeId,
-      legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked(),
-      isRemoteRuntimePtyId,
-      hasEagerBuffer: (ptyId) => Boolean(getEagerPtyBufferHandle(ptyId)),
-      canRestorePairedParkedTerminal,
-      isSessionOwnedByWorktree,
-      // Why: the tab fallback must not steal a PTY a setup sibling published while the main pane waited for split geometry.
-      isPtyClaimedBySibling: (ptyId) =>
-        Array.from(deps.paneTransportsRef.current.entries()).some(
-          ([candidatePaneId, candidateTransport]) =>
-            candidatePaneId !== pane.id && candidateTransport.getPtyId() === ptyId
-        ),
-      clearPanePtyLayoutBinding: (ptyId) => deps.syncPanePtyLayoutBinding(pane.id, ptyId),
-      clearTabPtyId: deps.clearTabPtyId,
-      recordDiagnostic: recordPtyConnectDiagnostic
-    })
-    runPtyConnectionNormalRouteSession({
-      sleptRemoteRuntimeSessionId,
-      deferredReattachSessionId,
-      hasSleepingAgentSession,
-      buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
-      startFreshColdRestore: startFreshColdRestoreAgentResume,
-      restoredReattach: {
+    runPtyConnectionObservedNormalRoute({
+      observation: {
         paneId: pane.id,
         tabId: deps.tabId,
-        worktreeId: deps.worktreeId,
-        leafId: deps.restoredLeafId ?? pane.leafId,
-        setAllowInitialIdleCacheSeed: (value) => {
-          allowInitialIdleCacheSeed = value
-        },
-        recordDiagnostic: recordPtyConnectDiagnostic,
-        buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
-        isDisposed: () => disposed,
-        getTransportStreamGeneration: () => transportStreamGeneration,
-        isCurrentAuthority: isCapturedDirectSshReattachCurrent,
-        rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
-        isRejectedSessionExpired: (error) =>
-          Boolean(connectionId && isSshSessionExpiredError(error)),
-        clearPaneBinding: (sessionId) => deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId),
-        clearTabBinding: (sessionId) => deps.clearTabPtyId(deps.tabId, sessionId),
-        reportError,
-        warnLifecycleAnomaly: warnTerminalLifecycleAnomaly,
-        attemptReattach: reattachAttemptController.attempt
-      },
-      attachSpawn: {
-        paneId: pane.id,
-        tabId: deps.tabId,
-        attachPtyId,
-        legacyAttachOnlyPtyId,
-        attachUsesEagerBuffer,
-        hasSshConnection: Boolean(connectionId),
+        restoredPtyId,
+        existingPtyId,
         pendingSpawnKey,
-        transport,
-        directSshRetryAttempt,
-        setAllowInitialIdleCacheSeed: (value) => {
-          allowInitialIdleCacheSeed = value
-        },
-        recordDiagnostic: recordPtyConnectDiagnostic,
-        attachRetainedLegacyPty: attachController.attachRetainedLegacyPty,
-        removeDeferredSshSessionId: () =>
-          useAppStore.getState().removeDeferredSshSessionId(deps.tabId),
-        attachDetachedPty: attachController.attachDetachedPty,
+        hadExistingPaneTransportAtConnect,
+        hasSleepingAgentSession,
+        currentTabLivePtyIds: storeSnapshot.ptyIdsByTabId[deps.tabId] ?? [],
+        runtimeEnvironmentId,
+        mountFollowsTerminalPark,
+        worktreeId: deps.worktreeId,
+        legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked(),
+        isRemoteRuntimePtyId,
+        hasEagerBuffer: (ptyId) => Boolean(getEagerPtyBufferHandle(ptyId)),
+        canRestorePairedParkedTerminal,
+        isSessionOwnedByWorktree,
+        // Why: the tab fallback must not steal a PTY a setup sibling published while the main pane waited for split geometry.
+        isPtyClaimedBySibling: (ptyId) =>
+          Array.from(deps.paneTransportsRef.current.entries()).some(
+            ([candidatePaneId, candidateTransport]) =>
+              candidatePaneId !== pane.id && candidateTransport.getPtyId() === ptyId
+          ),
+        clearPanePtyLayoutBinding: (ptyId) => deps.syncPanePtyLayoutBinding(pane.id, ptyId),
         clearTabPtyId: deps.clearTabPtyId,
-        startFreshSpawn,
-        armDirectSshPaneRetryTimeout,
-        isDisposed: () => disposed,
-        canAdoptCapturedDirectSshRetryPty,
-        adoptPendingSpawn: attachController.adoptPendingSpawn,
-        reportError
+        recordDiagnostic: recordPtyConnectDiagnostic
       },
-      scheduleRuntimeGraphSync
+      normalRoute: {
+        buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
+        startFreshColdRestore: startFreshColdRestoreAgentResume,
+        restoredReattach: {
+          paneId: pane.id,
+          tabId: deps.tabId,
+          worktreeId: deps.worktreeId,
+          leafId: deps.restoredLeafId ?? pane.leafId,
+          setAllowInitialIdleCacheSeed: (value) => {
+            allowInitialIdleCacheSeed = value
+          },
+          recordDiagnostic: recordPtyConnectDiagnostic,
+          buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
+          isDisposed: () => disposed,
+          getTransportStreamGeneration: () => transportStreamGeneration,
+          isCurrentAuthority: isCapturedDirectSshReattachCurrent,
+          rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
+          isRejectedSessionExpired: (error) =>
+            Boolean(connectionId && isSshSessionExpiredError(error)),
+          clearPaneBinding: (sessionId) => deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId),
+          clearTabBinding: (sessionId) => deps.clearTabPtyId(deps.tabId, sessionId),
+          reportError,
+          warnLifecycleAnomaly: warnTerminalLifecycleAnomaly,
+          attemptReattach: reattachAttemptController.attempt
+        },
+        attachSpawn: {
+          paneId: pane.id,
+          tabId: deps.tabId,
+          hasSshConnection: Boolean(connectionId),
+          pendingSpawnKey,
+          transport,
+          directSshRetryAttempt,
+          setAllowInitialIdleCacheSeed: (value) => {
+            allowInitialIdleCacheSeed = value
+          },
+          recordDiagnostic: recordPtyConnectDiagnostic,
+          attachRetainedLegacyPty: attachController.attachRetainedLegacyPty,
+          removeDeferredSshSessionId: () =>
+            useAppStore.getState().removeDeferredSshSessionId(deps.tabId),
+          attachDetachedPty: attachController.attachDetachedPty,
+          clearTabPtyId: deps.clearTabPtyId,
+          startFreshSpawn,
+          armDirectSshPaneRetryTimeout,
+          isDisposed: () => disposed,
+          canAdoptCapturedDirectSshRetryPty,
+          adoptPendingSpawn: attachController.adoptPendingSpawn,
+          reportError
+        },
+        scheduleRuntimeGraphSync
+      }
     })
   }
 

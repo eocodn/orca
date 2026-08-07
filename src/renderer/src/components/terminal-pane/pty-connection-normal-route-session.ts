@@ -9,7 +9,7 @@ import {
   type PtyConnectionRestoredReattachSessionArgs
 } from './pty-connection-restored-reattach-session'
 
-type PtyConnectionNormalRouteSessionArgs = {
+export type PtyConnectionNormalRouteSessionArgs = {
   sleptRemoteRuntimeSessionId: string | null
   deferredReattachSessionId: string | null
   hasSleepingAgentSession: boolean

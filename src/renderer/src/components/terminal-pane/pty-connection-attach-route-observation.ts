@@ -1,6 +1,6 @@
 import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-candidate'
 
-type PtyConnectionAttachRouteObservationArgs = {
+export type PtyConnectionAttachRouteObservationArgs = {
   paneId: string
   tabId: string
   restoredPtyId: string | null
