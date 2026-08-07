@@ -136,6 +136,7 @@ import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
+import { createPtyConnectionHiddenRestoreDeferredRetryController } from './pty-connection-hidden-restore-deferred-retry-controller'
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
 import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
@@ -260,8 +261,6 @@ import { isRendererHiddenPtyDeliveryGateEnabled } from './terminal-hidden-delive
 import {
   CURSOR_SHOW_SEQUENCE,
   FOCUS_REPORTING_DISABLE_SEQUENCE,
-  HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX,
-  HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS,
   HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
   HIDDEN_OUTPUT_RESTORE_PENDING_CHARS,
   HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING,
@@ -2709,8 +2708,6 @@ export function connectPanePty(
     let hiddenOutputRestoreFreshSnapshotNeeded = false
     let hiddenOutputRestoreRetryDeferred = false
     let hiddenOutputRestoreScheduled = false
-    let hiddenOutputRestoreDeferredRetryTimer: ReturnType<typeof setTimeout> | null = null
-    let hiddenOutputRestoreDeferredRetryAttempts = 0
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
       generation: number
@@ -2749,6 +2746,25 @@ export function connectPanePty(
         getCurrentPtyId: () => transport.getPtyId(),
         getRestoreGeneration: () => hiddenOutputRestoreGeneration,
         onDeadline: abandonHiddenOutputRestoreAndDrainPendingForeground
+      })
+    const hiddenRestoreDeferredRetryController =
+      createPtyConnectionHiddenRestoreDeferredRetryController({
+        isDisposed: () => disposed,
+        isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
+        isRestoreNeeded: () => hiddenOutputRestoreNeeded,
+        onRetry: () => {
+          hiddenOutputRestoreRetryDeferred = false
+          requestHiddenOutputRestoreIfNeeded()
+        },
+        onExhausted: () => {
+          const ptyId = hiddenOutputRestorePtyId
+          if (ptyId !== null) {
+            abandonHiddenOutputRestoreAndDrainPendingForeground(ptyId)
+            return
+          }
+          clearHiddenOutputRestoreState()
+          writeRestoreUnavailableWarning()
+        }
       })
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     const hiddenRendererQueryStateController =
@@ -3276,17 +3292,8 @@ export function connectPanePty(
       hiddenOutputRestoreRetryDeferred = false
       hiddenOutputRestoreScheduled = false
       cancelScheduledHiddenOutputRestore(pane.terminal)
-      clearHiddenOutputRestoreDeferredRetryTimer()
+      hiddenRestoreDeferredRetryController.reset()
       hiddenRestoreForegroundDeadlineController.clear()
-      hiddenOutputRestoreDeferredRetryAttempts = 0
-    }
-
-    function clearHiddenOutputRestoreDeferredRetryTimer(): void {
-      if (hiddenOutputRestoreDeferredRetryTimer === null) {
-        return
-      }
-      clearTimeout(hiddenOutputRestoreDeferredRetryTimer)
-      hiddenOutputRestoreDeferredRetryTimer = null
     }
 
     function abandonHiddenOutputRestoreAndDrainPendingForeground(
@@ -3323,9 +3330,8 @@ export function connectPanePty(
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
       cancelScheduledHiddenOutputRestore(pane.terminal)
-      clearHiddenOutputRestoreDeferredRetryTimer()
+      hiddenRestoreDeferredRetryController.reset()
       hiddenRestoreForegroundDeadlineController.clear()
-      hiddenOutputRestoreDeferredRetryAttempts = 0
 
       // Why quiet: flood cuts abandon deliberately and repaint post-flood, so the "restore unavailable" warning would be noise the repaint wipes.
       if (!opts.quiet) {
@@ -3354,36 +3360,6 @@ export function connectPanePty(
       }
     }
 
-    function scheduleHiddenOutputRestoreDeferredRetry(): void {
-      if (
-        disposed ||
-        hiddenOutputRestoreDeferredRetryTimer !== null ||
-        !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-      ) {
-        return
-      }
-      if (hiddenOutputRestoreDeferredRetryAttempts >= HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX) {
-        const ptyId = hiddenOutputRestorePtyId
-        if (ptyId !== null) {
-          abandonHiddenOutputRestoreAndDrainPendingForeground(ptyId)
-        } else {
-          clearHiddenOutputRestoreState()
-          writeRestoreUnavailableWarning()
-        }
-        return
-      }
-      hiddenOutputRestoreDeferredRetryAttempts += 1
-      // Why: a null snapshot usually means remote output was still mutating; retry after one quiet tick instead of spinning.
-      hiddenOutputRestoreDeferredRetryTimer = setTimeout(() => {
-        hiddenOutputRestoreDeferredRetryTimer = null
-        if (disposed || !hiddenOutputRestoreNeeded) {
-          return
-        }
-        hiddenOutputRestoreRetryDeferred = false
-        requestHiddenOutputRestoreIfNeeded()
-      }, HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS)
-    }
-
     function clearHiddenOutputRestoreState(): void {
       cancelSnapshotScrollRestore()
       clearPendingLiveChunksDuringRestore()
@@ -3410,7 +3386,7 @@ export function connectPanePty(
     }
     hiddenRestoreCleanupController.bind({
       cancelSnapshotScrollRestore,
-      clearDeferredRetry: clearHiddenOutputRestoreDeferredRetryTimer,
+      clearDeferredRetry: hiddenRestoreDeferredRetryController.dispose,
       clearForegroundDeadline: hiddenRestoreForegroundDeadlineController.dispose,
       clearFloodRepaint: hiddenRestoreFloodBackpressureController.dispose
     })
@@ -3659,7 +3635,7 @@ export function connectPanePty(
         cancelScheduledHiddenOutputRestore(pane.terminal)
         hiddenOutputRestoreScheduled = false
       }
-      clearHiddenOutputRestoreDeferredRetryTimer()
+      hiddenRestoreDeferredRetryController.clear()
       hiddenOutputRestoreRetryDeferred = false
 
       hiddenOutputRestoreInFlight = (async () => {
@@ -3711,10 +3687,10 @@ export function connectPanePty(
             hiddenOutputRestoreNeeded = true
             hiddenOutputRestoreFreshSnapshotNeeded = false
             hiddenOutputRestoreRetryDeferred = true
-            scheduleHiddenOutputRestoreDeferredRetry()
+            hiddenRestoreDeferredRetryController.schedule()
             return
           }
-          hiddenOutputRestoreDeferredRetryAttempts = 0
+          hiddenRestoreDeferredRetryController.resetAttempts()
           restoreIterations += 1
           await applyMainBufferSnapshot(snapshot)
           if (
