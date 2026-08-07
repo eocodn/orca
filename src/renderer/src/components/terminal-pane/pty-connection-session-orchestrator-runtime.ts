@@ -134,6 +134,10 @@ import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
+import {
+  REATTACH_LIVE_DATA_MAX_CHARS,
+  createPtyConnectionReattachLiveDataController
+} from './pty-connection-reattach-live-data-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
@@ -340,6 +344,7 @@ export function connectPanePty(
   let pendingHiddenSnapshotFit: SafeFitContinuationHandle | null = null
   let pendingReattachFit: SafeFitContinuationHandle | null = null
   let cancelFreshSpawnFollowReset = (): void => {}
+  let disposeReattachLiveDataController = (): void => {}
   let cleanupHiddenOutputRestoreDeferredRetry = (): void => {}
   let cleanupHiddenOutputRestoreForegroundDeadline = (): void => {}
   let cleanupHiddenOutputRestoreFloodRepaint = (): void => {}
@@ -1999,21 +2004,7 @@ export function connectPanePty(
   const hadExistingPaneTransportAtConnect = deps.paneTransportsRef.current.size > 0
   let lastTerminalInputAt = Number.NEGATIVE_INFINITY
   let hasReceivedPtyOutput = false
-  let deferredReattachLiveData:
-    | {
-        data: string
-        ptyId: string | null
-        streamGeneration: number
-        meta?: PtyDataMeta
-        ackCredit?: () => void
-      }[]
-    | null = null
-  let deferredReattachLiveDataChars = 0
-  let reattachLiveDataDeferralDepth = 0
-  let deferredReattachLiveDataOwners = new Map<number, { failed: boolean }>()
   let transportStreamGeneration = 0
-  const MAX_DEFERRED_REATTACH_LIVE_CHARS = 512 * 1024
-  const MAX_DEFERRED_REATTACH_LIVE_CHUNKS = 1_024
   const markTerminalInputSent = (): void => {
     lastTerminalInputAt = performance.now()
     // Why: input must probe a wedged xterm even when the PTY produces no renderer output.
@@ -4286,6 +4277,16 @@ export function connectPanePty(
       }
     }
 
+    const reattachLiveDataController = createPtyConnectionReattachLiveDataController({
+      getPtyId: () => transport.getPtyId(),
+      getStreamGeneration: () => transportStreamGeneration,
+      isDisposed: () => disposed,
+      takeDeliveryCredit: takeCurrentTerminalDeliveryCredit,
+      deliverWithDeferredCredit: deliverTerminalDataWithDeferredCredit,
+      deliverData: (data, meta, streamGeneration) => dataCallback(data, meta, streamGeneration)
+    })
+    disposeReattachLiveDataController = reattachLiveDataController.dispose
+
     const dataCallback = (
       data: string,
       meta?: PtyDataMeta,
@@ -4294,48 +4295,7 @@ export function connectPanePty(
       if (streamGeneration !== transportStreamGeneration) {
         return
       }
-      if (deferredReattachLiveData !== null) {
-        // Why: a replacement stream must not inherit bytes or a gap marker from the replay owner it superseded.
-        deferredReattachLiveData = deferredReattachLiveData.filter((chunk) => {
-          const keep = chunk.streamGeneration === streamGeneration
-          if (!keep) {
-            chunk.ackCredit?.()
-          }
-          return keep
-        })
-        deferredReattachLiveDataChars = deferredReattachLiveData.reduce(
-          (total, chunk) => total + chunk.data.length,
-          0
-        )
-        const oversized = data.length > MAX_DEFERRED_REATTACH_LIVE_CHARS
-        const deferredData = oversized ? data.slice(-MAX_DEFERRED_REATTACH_LIVE_CHARS) : data
-        const ackCredit = takeCurrentTerminalDeliveryCredit()
-        deferredReattachLiveData.push({
-          data: deferredData,
-          ptyId: transport.getPtyId(),
-          streamGeneration,
-          ...(meta ? { meta } : {}),
-          ...(ackCredit ? { ackCredit } : {})
-        })
-        deferredReattachLiveDataChars += deferredData.length
-        // Why: one huge IPC frame would bypass the queue's memory bound; mark a stream gap so snapshot recovery replaces it, not a partial ANSI frame.
-        let dropped = oversized
-        while (
-          deferredReattachLiveData.length > 1 &&
-          (deferredReattachLiveData.length > MAX_DEFERRED_REATTACH_LIVE_CHUNKS ||
-            deferredReattachLiveDataChars > MAX_DEFERRED_REATTACH_LIVE_CHARS)
-        ) {
-          const removed = deferredReattachLiveData.shift()
-          deferredReattachLiveDataChars -= removed?.data.length ?? 0
-          removed?.ackCredit?.()
-          dropped = true
-        }
-        if (dropped && deferredReattachLiveData[0]) {
-          deferredReattachLiveData[0].meta = {
-            ...deferredReattachLiveData[0].meta,
-            droppedOutput: true
-          }
-        }
+      if (reattachLiveDataController.defer(data, meta, streamGeneration)) {
         return
       }
       if (data.length > 0) {
@@ -4494,77 +4454,22 @@ export function connectPanePty(
       }
     })
 
-    const beginReattachLiveDataDeferral = (ownerGeneration = transportStreamGeneration): void => {
-      reattachLiveDataDeferralDepth += 1
-      if (reattachLiveDataDeferralDepth === 1) {
-        deferredReattachLiveData = []
-        deferredReattachLiveDataChars = 0
-        deferredReattachLiveDataOwners = new Map()
-      }
-      if (!deferredReattachLiveDataOwners.has(ownerGeneration)) {
-        deferredReattachLiveDataOwners.set(ownerGeneration, { failed: false })
-      }
-    }
+    const beginReattachLiveDataDeferral = reattachLiveDataController.begin
 
     const finishReattachLiveDataDeferral = (
       deliver: boolean,
       acceptedGeneration = transportStreamGeneration
     ): void => {
-      if (reattachLiveDataDeferralDepth <= 0) {
-        return
-      }
-      if (!deliver) {
-        const owner = deferredReattachLiveDataOwners.get(acceptedGeneration)
-        if (owner) {
-          owner.failed = true
-        }
-      }
-      reattachLiveDataDeferralDepth -= 1
-      if (reattachLiveDataDeferralDepth > 0) {
-        return
-      }
-      const chunks = deferredReattachLiveData
-      deferredReattachLiveData = null
-      deferredReattachLiveDataChars = 0
-      const currentPtyId = transport.getPtyId()
-      const currentGeneration = transportStreamGeneration
-      const currentOwner = deferredReattachLiveDataOwners.get(currentGeneration)
-      deferredReattachLiveDataOwners = new Map()
-      if (disposed || !chunks) {
-        for (const chunk of chunks ?? []) {
-          chunk.ackCredit?.()
-        }
-        return
-      }
-      // Why: paint the authoritative replay first, then admit deferred live chunks so the replay clear can't erase newer output.
-      let deliveredDeferredChunks = 0
-      for (const chunk of chunks) {
-        if (
-          chunk.ptyId !== currentPtyId ||
-          chunk.streamGeneration !== currentGeneration ||
-          currentOwner?.failed === true
-        ) {
-          chunk.ackCredit?.()
-          continue
-        }
-        if (chunk.ackCredit) {
-          deliverTerminalDataWithDeferredCredit(chunk.ackCredit, () => {
-            dataCallback(chunk.data, chunk.meta, chunk.streamGeneration)
-          })
-        } else {
-          dataCallback(chunk.data, chunk.meta, chunk.streamGeneration)
-        }
-        deliveredDeferredChunks += 1
-      }
-      if (deliveredDeferredChunks > 0) {
+      const settlement = reattachLiveDataController.finish(deliver, acceptedGeneration)
+      if (settlement && settlement.deliveredChunks > 0) {
         // Why: replay restores the viewport before these newer bytes parse; settle the deferred slice, then apply the latest user intent.
-        flushTerminalOutput(pane.terminal, { maxChars: MAX_DEFERRED_REATTACH_LIVE_CHARS })
+        flushTerminalOutput(pane.terminal, { maxChars: REATTACH_LIVE_DATA_MAX_CHARS })
         void waitForTerminalReplayWritesParsed(pane.terminal).then(() => {
           if (
             disposed ||
             !deps.isVisibleRef.current ||
-            transport.getPtyId() !== currentPtyId ||
-            transportStreamGeneration !== currentGeneration
+            transport.getPtyId() !== settlement.ptyId ||
+            transportStreamGeneration !== settlement.streamGeneration
           ) {
             return
           }
@@ -5309,13 +5214,7 @@ export function connectPanePty(
       disposed = true
       disposeDirectSshRetryController()
       // Why: a stalled xterm replay may never reach its finally; release live-frame credit when this renderer no longer owns the stream.
-      for (const chunk of deferredReattachLiveData ?? []) {
-        chunk.ackCredit?.()
-      }
-      deferredReattachLiveData = null
-      deferredReattachLiveDataChars = 0
-      reattachLiveDataDeferralDepth = 0
-      deferredReattachLiveDataOwners = new Map()
+      disposeReattachLiveDataController()
       cancelPendingSafeFitContinuations(pane)
       pendingHiddenSnapshotFit = null
       pendingReattachFit = null

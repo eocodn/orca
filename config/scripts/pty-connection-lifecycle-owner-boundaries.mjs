@@ -154,4 +154,24 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionRendererSequenceController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes reattach live-data deferral state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-live-data-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachLiveDataController')
+    expect(orchestrator).toContain("from './pty-connection-reattach-live-data-controller'")
+    expect(orchestrator).not.toContain('let deferredReattachLiveData:')
+    expect(orchestrator).not.toContain('let deferredReattachLiveDataChars = 0')
+    expect(orchestrator).not.toContain('let reattachLiveDataDeferralDepth = 0')
+    expect(orchestrator).not.toContain(
+      'let deferredReattachLiveDataOwners = new Map<number, { failed: boolean }>()'
+    )
+    expect(owner).toContain('export function createPtyConnectionReattachLiveDataController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
