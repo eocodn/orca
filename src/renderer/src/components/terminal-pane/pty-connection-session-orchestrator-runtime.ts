@@ -317,7 +317,7 @@ import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
 import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'
-import { createPtyConnectionReattachFallbackController } from './pty-connection-reattach-fallback-controller'
+import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'
 import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
 import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'
 import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'
@@ -5679,36 +5679,24 @@ export function connectPanePty(
         recordDiagnostic: recordPtyConnectDiagnostic,
         buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
         createFallbackHandlers: (sessionId, coldRestoreStartup) =>
-          createPtyConnectionReattachFallbackController({
+          createPtyConnectionRestoredReattachFallback({
             sessionId,
+            coldRestoreStartup,
+            paneId: pane.id,
+            tabId: deps.tabId,
+            worktreeId: deps.worktreeId,
+            leafId: deps.restoredLeafId ?? pane.leafId,
             isDisposed: () => disposed,
-            rejectRejectedWhenDisposed: false,
             getTransportStreamGeneration: () => transportStreamGeneration,
             isCurrentAuthority: isCapturedDirectSshReattachCurrent,
             rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
             isRejectedSessionExpired: (error) =>
               Boolean(connectionId && isSshSessionExpiredError(error)),
-            clearBindings: () => {
-              deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId)
-              deps.clearTabPtyId(deps.tabId, sessionId)
-            },
-            clearBindingsOnRejectedError: true,
-            startFreshColdRestore: () =>
-              startFreshColdRestoreAgentResume(coldRestoreStartup, {
-                forceBlankRestoredViewport: true
-              }),
+            clearPaneBinding: () => deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId),
+            clearTabBinding: () => deps.clearTabPtyId(deps.tabId, sessionId),
+            startFreshColdRestore: startFreshColdRestoreAgentResume,
             reportError,
-            warnRejected: (message) =>
-              warnTerminalLifecycleAnomaly('restored PTY reattach threw', {
-                tabId: deps.tabId,
-                worktreeId: deps.worktreeId,
-                leafId: deps.restoredLeafId ?? pane.leafId,
-                paneId: pane.id,
-                ptyId: sessionId,
-                reason: message
-              }),
-            reportRejectedError: true,
-            warnRejectedError: true
+            warnLifecycleAnomaly: warnTerminalLifecycleAnomaly
           }),
         attemptReattach: reattachAttemptController.attempt
       })

@@ -149,13 +149,16 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const restoredComposition = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-fallback.ts'
+    )
     const composition = read(
       'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-reattach-fallback-controller.ts'
     )
-    const fallbackUsers = `${orchestrator}\n${composition}`
+    const fallbackUsers = `${restoredComposition}\n${composition}`
 
     expect(fallbackUsers).toContain(
       "import { createPtyConnectionReattachFallbackController } from './pty-connection-reattach-fallback-controller'"
@@ -167,6 +170,22 @@ describe('PTY connection owner boundaries', () => {
     expect(orchestrator).toContain('runPtyConnectionDeferredReattach({')
     expect(controller).toContain('export function createPtyConnectionReattachFallbackController(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
+  it('routes restored-session fallback policy through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-restored-reattach-fallback.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'"
+    )
+    expect(orchestrator).not.toContain('createPtyConnectionReattachFallbackController({')
+    expect(owner).toContain('export function createPtyConnectionRestoredReattachFallback(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
   it('routes non-reattach attach and spawn decisions through its concrete owner', () => {
