@@ -6,6 +6,24 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes general deferred reattach through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-deferred-reattach-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'"
+    )
+    expect(orchestrator).not.toContain(
+      'allowInitialIdleCacheSeed = true\n      recordPtyConnectDiagnostic(`pane=${pane.id} -> REATTACH'
+    )
+    expect(controller).toContain('export function runPtyConnectionDeferredReattach(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes saved SSH session reattach through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
@@ -36,8 +54,8 @@ describe('PTY connection owner boundaries', () => {
       "import { createPtyConnectionReattachFallbackController } from './pty-connection-reattach-fallback-controller'"
     )
     expect(orchestrator.match(/createPtyConnectionReattachFallbackController\(\{/g)).toHaveLength(2)
-    expect(orchestrator).toContain('onExpired: reattachFallbackController.onExpired')
-    expect(orchestrator).toContain('onRejected: reattachFallbackController.onRejected')
+    expect(orchestrator).toContain('runPtyConnectionSavedSshReattach({')
+    expect(orchestrator).toContain('runPtyConnectionDeferredReattach({')
     expect(controller).toContain('export function createPtyConnectionReattachFallbackController(')
     expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })

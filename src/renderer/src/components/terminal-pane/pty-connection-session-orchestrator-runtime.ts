@@ -321,6 +321,7 @@ import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-s
 import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'
 import { createPtyConnectionReattachFallbackController } from './pty-connection-reattach-fallback-controller'
 import { runPtyConnectionSavedSshReattach } from './pty-connection-saved-ssh-reattach-controller'
+import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -5806,46 +5807,47 @@ export function connectPanePty(
     )
 
     if (deferredReattachSessionId) {
-      allowInitialIdleCacheSeed = true
-      recordPtyConnectDiagnostic(`pane=${pane.id} -> REATTACH ${deferredReattachSessionId}`)
-      const coldRestoreStartup = buildColdRestoreAgentResumeStartup()
-      const reattachFallbackController = createPtyConnectionReattachFallbackController({
+      runPtyConnectionDeferredReattach({
+        paneId: pane.id,
         sessionId: deferredReattachSessionId,
-        isDisposed: () => disposed,
-        rejectRejectedWhenDisposed: false,
-        getTransportStreamGeneration: () => transportStreamGeneration,
-        isCurrentAuthority: isCapturedDirectSshReattachCurrent,
-        rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
-        isRejectedSessionExpired: (error) =>
-          Boolean(connectionId && isSshSessionExpiredError(error)),
-        clearBindings: () => {
-          deps.clearExitedPanePtyLayoutBinding(pane.id, deferredReattachSessionId)
-          deps.clearTabPtyId(deps.tabId, deferredReattachSessionId)
+        setAllowInitialIdleCacheSeed: (value) => {
+          allowInitialIdleCacheSeed = value
         },
-        clearBindingsOnRejectedError: true,
-        startFreshColdRestore: () =>
-          startFreshColdRestoreAgentResume(coldRestoreStartup, {
-            forceBlankRestoredViewport: true
+        recordDiagnostic: recordPtyConnectDiagnostic,
+        buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
+        createFallbackHandlers: (sessionId, coldRestoreStartup) =>
+          createPtyConnectionReattachFallbackController({
+            sessionId,
+            isDisposed: () => disposed,
+            rejectRejectedWhenDisposed: false,
+            getTransportStreamGeneration: () => transportStreamGeneration,
+            isCurrentAuthority: isCapturedDirectSshReattachCurrent,
+            rejectObsoleteAuthority: rejectObsoleteDirectSshReattach,
+            isRejectedSessionExpired: (error) =>
+              Boolean(connectionId && isSshSessionExpiredError(error)),
+            clearBindings: () => {
+              deps.clearExitedPanePtyLayoutBinding(pane.id, sessionId)
+              deps.clearTabPtyId(deps.tabId, sessionId)
+            },
+            clearBindingsOnRejectedError: true,
+            startFreshColdRestore: () =>
+              startFreshColdRestoreAgentResume(coldRestoreStartup, {
+                forceBlankRestoredViewport: true
+              }),
+            reportError,
+            warnRejected: (message) =>
+              warnTerminalLifecycleAnomaly('restored PTY reattach threw', {
+                tabId: deps.tabId,
+                worktreeId: deps.worktreeId,
+                leafId: deps.restoredLeafId ?? pane.leafId,
+                paneId: pane.id,
+                ptyId: sessionId,
+                reason: message
+              }),
+            reportRejectedError: true,
+            warnRejectedError: true
           }),
-        reportError,
-        warnRejected: (message) =>
-          warnTerminalLifecycleAnomaly('restored PTY reattach threw', {
-            tabId: deps.tabId,
-            worktreeId: deps.worktreeId,
-            leafId: deps.restoredLeafId ?? pane.leafId,
-            paneId: pane.id,
-            ptyId: deferredReattachSessionId,
-            reason: message
-          }),
-        reportRejectedError: true,
-        warnRejectedError: true
-      })
-      void reattachAttemptController.attempt({
-        sessionId: deferredReattachSessionId,
-        coldRestoreStartup,
-        onTransportError: reattachFallbackController.onTransportError,
-        onExpired: reattachFallbackController.onExpired,
-        onRejected: reattachFallbackController.onRejected
+        attemptReattach: reattachAttemptController.attempt
       })
     } else {
       runPtyConnectionAttachSpawnRoute({
