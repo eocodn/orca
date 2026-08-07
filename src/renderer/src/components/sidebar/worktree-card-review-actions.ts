@@ -5,7 +5,7 @@ import type { GitHubWorkItem } from '../../../../shared/types'
 import type { WorktreeCardRuntime } from './worktree-card-runtime-types'
 
 export function useWorktreeCardReviewActions(
-  worktree: { id: string; hostId?: string; automationProvenance?: unknown },
+  worktree: { id: string; hostId?: string },
   repo: { id: string } | undefined,
   runtime: WorktreeCardRuntime
 ) {

@@ -17,8 +17,10 @@ import { getWorkspacePortsByWorktreeId } from '@/lib/workspace-port-groups'
 import { usePromptCacheCountdownStartedAt } from './CacheTimer'
 import { useWorktreeAgentRows } from './useWorktreeAgentRows'
 import { useWorktreeCardDetailsHoverControl } from './worktree-card-details-hover-state'
-import { useWorkspaceDeleteModifierPressed } from './workspace-delete-quick-action'
-import { canShowWorkspaceDeleteQuickAction } from './workspace-delete-quick-action'
+import {
+  canShowWorkspaceDeleteQuickAction,
+  useWorkspaceDeleteModifierPressed
+} from './workspace-delete-quick-action'
 import { hasWorktreeCardDetails } from './WorktreeCardMeta'
 import { useWorktreeCardMetadata } from './worktree-card-metadata'
 import { EMPTY_WORKSPACE_PORTS } from './worktree-card-model'
@@ -120,7 +122,6 @@ export function useWorktreeCardRuntime(
   const showLinearIssue = cardProps.includes('linear-issue')
   const showJiraIssue = cardProps.includes('jira-issue')
   const showPR = cardProps.includes('pr')
-  const showAutomation = cardProps.includes('automation')
   const showCli = cardProps.includes('cli')
   const showComment = cardProps.includes('comment')
   const showPorts = cardProps.includes('ports')
@@ -176,7 +177,6 @@ export function useWorktreeCardRuntime(
     jiraIssue: showJiraIssue ? metadata.jiraIssueDisplay : null,
     review: newCardStyle ? null : showPR ? metadata.prDisplay : null,
     comment: showComment ? worktree.comment : null,
-    automationProvenance: showAutomation ? worktree.automationProvenance : null,
     cliProvenance: showCli ? worktree.cliProvenance : null
   })
   const hasPorts = showPorts && workspacePorts.length > 0
@@ -217,7 +217,6 @@ export function useWorktreeCardRuntime(
     showLinearIssue,
     showJiraIssue,
     showPR,
-    showAutomation,
     showCli,
     showComment,
     showPorts,

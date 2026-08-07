@@ -11,6 +11,15 @@ const boundaryFiles = [
   'store/slices/ui-state-cancel-contextual-tour-actions.ts',
   'lib/startup-ui-hydration.ts'
 ]
+const sidebarBoundaryFiles = [
+  'components/sidebar/worktree-card-actions.ts',
+  'components/sidebar/worktree-card-detail-render.tsx',
+  'components/sidebar/worktree-card-review-actions.ts',
+  'components/sidebar/worktree-card-runtime-types.ts',
+  'components/sidebar/worktree-card-runtime.ts',
+  'components/sidebar/worktree-card-shell.tsx',
+  'components/sidebar/worktree-card-surface.tsx'
+]
 
 function readBoundarySources(): string[] {
   return boundaryFiles.map((fileName) => readFileSync(resolve(rendererRoot, fileName), 'utf8'))
@@ -31,5 +40,14 @@ describe('renderer automation removal boundaries', () => {
     expect(sources).toContain('createdWithAgent')
     expect(sources).toContain('createWorktree')
     expect(sources).toContain('hideCliCreatedWorkspaces')
+  })
+
+  it('does not retain automation provenance in sidebar worktree cards', () => {
+    for (const fileName of sidebarBoundaryFiles) {
+      const source = readFileSync(resolve(rendererRoot, fileName), 'utf8')
+      expect(source).not.toContain('automationProvenance')
+      expect(source).not.toContain('showAutomation')
+      expect(source).not.toContain('handleOpenAutomation')
+    }
   })
 })

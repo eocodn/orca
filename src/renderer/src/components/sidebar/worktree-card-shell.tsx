@@ -49,7 +49,6 @@ export type WorktreeCardShellProps = Pick<
   hoverJiraIssue: Parameters<typeof WorktreeCardDetailsHover>[0]['jiraIssue']
   hoverReview: WorktreeCardPrDisplay | null | undefined
   hoverComment: string | null | undefined
-  metaAutomationProvenance: Parameters<typeof WorktreeCardDetailsHover>[0]['automationProvenance']
   metaCliProvenance: Parameters<typeof WorktreeCardDetailsHover>[0]['cliProvenance']
   branchName?: string
   workspaceTitle?: string
@@ -61,8 +60,6 @@ export type WorktreeCardShellProps = Pick<
   handleOpenGitHubIssueInOrca: (event: React.MouseEvent) => void
   handleOpenLinearIssueInOrca: (event: React.MouseEvent) => void
   handleOpenReviewInOrca: (event: React.MouseEvent) => void
-  handleOpenAutomation: (event: React.MouseEvent) => void
-  handleOpenAutomationRun: (event: React.MouseEvent) => void
   handleUnlinkReview: () => void
   hasExplicitLinkedReview: boolean
   showDisconnectedDialog: boolean
@@ -109,7 +106,6 @@ export function WorktreeCardShell({
   hoverJiraIssue,
   hoverReview,
   hoverComment,
-  metaAutomationProvenance,
   metaCliProvenance,
   branchName,
   workspaceTitle,
@@ -121,8 +117,6 @@ export function WorktreeCardShell({
   handleOpenGitHubIssueInOrca,
   handleOpenLinearIssueInOrca,
   handleOpenReviewInOrca,
-  handleOpenAutomation,
-  handleOpenAutomationRun,
   handleUnlinkReview,
   hasExplicitLinkedReview,
   showDisconnectedDialog,
@@ -145,9 +139,7 @@ export function WorktreeCardShell({
         jiraIssue={hoverJiraIssue}
         review={hoverReview}
         comment={hoverComment}
-        automationProvenance={metaAutomationProvenance}
         cliProvenance={metaCliProvenance}
-        automationHostId={worktree.hostId}
         branchName={branchName}
         workspaceTitle={workspaceTitle}
         workspaceTitleRenameDisabled={isDeleting || affiliateListMode}
@@ -168,8 +160,6 @@ export function WorktreeCardShell({
         onOpenReviewInOrca={
           hoverReview?.url && hoverReview.provider === 'github' ? handleOpenReviewInOrca : undefined
         }
-        onOpenAutomation={affiliateListMode ? undefined : handleOpenAutomation}
-        onOpenAutomationRun={affiliateListMode ? undefined : handleOpenAutomationRun}
         onUnlinkReview={
           !affiliateListMode && hasExplicitLinkedReview ? handleUnlinkReview : undefined
         }

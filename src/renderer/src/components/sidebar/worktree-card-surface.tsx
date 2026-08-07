@@ -82,7 +82,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
     showLinearIssue,
     showJiraIssue,
     showPR,
-    showAutomation,
     showCli,
     showComment,
     showPorts,
@@ -146,8 +145,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
   const {
     handleEditIssue,
     handleEditComment,
-    handleOpenAutomation,
-    handleOpenAutomationRun,
     handleClick,
     handleRenameTitle,
     handleDoubleClick,
@@ -185,7 +182,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
   const showLineageChildChip = lineageChildCount > 0 && onLineageToggle !== undefined
   const statusLaneReview = statusPrDisplay ?? prDisplay
   const detailModel = buildWorktreeCardDetailRenderModel({
-    worktreeHostId: worktree.hostId,
     worktreeDisplayName: worktree.displayName,
     newCardStyle,
     compactCards,
@@ -194,7 +190,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
     showLinearIssue,
     showJiraIssue,
     showPR,
-    showAutomation,
     showCli,
     showComment,
     showPorts,
@@ -211,7 +206,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
     prDisplay,
     linearIssue,
     comment: worktree.comment,
-    automationProvenance: worktree.automationProvenance,
     cliProvenance: worktree.cliProvenance,
     linkedReview: Boolean(prDisplay),
     handleEditIssue,
@@ -219,12 +213,9 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
     handleOpenGitHubIssueInOrca,
     handleOpenLinearIssueInOrca,
     handleOpenReviewInOrca,
-    handleOpenAutomation,
-    handleOpenAutomationRun,
     handleUnlinkReview
   })
   const {
-    metaAutomationProvenance,
     metaCliProvenance,
     hasHoverDetails,
     hoverBranchName,
@@ -334,7 +325,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
       hoverJiraIssue={jiraIssueDisplay}
       hoverReview={prDisplay}
       hoverComment={worktree.comment}
-      metaAutomationProvenance={metaAutomationProvenance}
       metaCliProvenance={metaCliProvenance}
       branchName={hoverBranchName}
       workspaceTitle={hoverWorkspaceTitle}
@@ -346,8 +336,6 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
       handleOpenGitHubIssueInOrca={handleOpenGitHubIssueInOrca}
       handleOpenLinearIssueInOrca={handleOpenLinearIssueInOrca}
       handleOpenReviewInOrca={handleOpenReviewInOrca}
-      handleOpenAutomation={handleOpenAutomation}
-      handleOpenAutomationRun={handleOpenAutomationRun}
       handleUnlinkReview={handleUnlinkReview}
       hasExplicitLinkedReview={Boolean(prDisplay)}
       showDisconnectedDialog={showDisconnectedDialog}

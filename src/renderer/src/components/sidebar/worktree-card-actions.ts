@@ -15,8 +15,6 @@ import { runWorktreeDelete } from './delete-worktree-flow'
 export type WorktreeCardActions = {
   handleEditIssue: (event: React.MouseEvent) => void
   handleEditComment: (event: React.MouseEvent) => void
-  handleOpenAutomation: (event: React.MouseEvent) => void
-  handleOpenAutomationRun: (event: React.MouseEvent) => void
   handleClick: (event: React.MouseEvent<HTMLDivElement>) => void
   handleRenameTitle: (displayName: string) => void
   handleOpenRenameErrorDialog: (event: React.MouseEvent<HTMLButtonElement>) => void
@@ -51,8 +49,6 @@ export function useWorktreeCardActions(
     affiliateListMode = false
   } = props
   const openModal = useAppStore((s) => s.openModal)
-  const openAutomationsPage = useAppStore((s) => s.openAutomationsPage)
-  const setPendingAutomationRunNavigation = useAppStore((s) => s.setPendingAutomationRunNavigation)
   const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
   const deleteFolderWorkspace = useAppStore((s) => s.deleteFolderWorkspace)
   const setActiveWorktree = useAppStore((s) => s.setActiveWorktree)
@@ -84,50 +80,6 @@ export function useWorktreeCardActions(
       })
     },
     [openModal, worktree]
-  )
-  const handleOpenAutomation = useCallback(
-    (event: React.MouseEvent) => {
-      event.stopPropagation()
-      const automationId = worktree.automationProvenance?.automationId
-      if (!automationId) {
-        return
-      }
-      const hostId = worktree.automationProvenance?.hostId ?? worktree.hostId
-      setPendingAutomationRunNavigation({
-        automationId,
-        runId: null,
-        ...(hostId ? { hostId } : {})
-      })
-      openAutomationsPage()
-    },
-    [
-      openAutomationsPage,
-      setPendingAutomationRunNavigation,
-      worktree.automationProvenance,
-      worktree.hostId
-    ]
-  )
-  const handleOpenAutomationRun = useCallback(
-    (event: React.MouseEvent) => {
-      event.stopPropagation()
-      const provenance = worktree.automationProvenance
-      if (!provenance) {
-        return
-      }
-      const hostId = provenance.hostId ?? worktree.hostId
-      setPendingAutomationRunNavigation({
-        automationId: provenance.automationId,
-        runId: provenance.automationRunId,
-        ...(hostId ? { hostId } : {})
-      })
-      openAutomationsPage()
-    },
-    [
-      openAutomationsPage,
-      setPendingAutomationRunNavigation,
-      worktree.automationProvenance,
-      worktree.hostId
-    ]
   )
   const handleClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -254,8 +206,6 @@ export function useWorktreeCardActions(
   return {
     handleEditIssue,
     handleEditComment,
-    handleOpenAutomation,
-    handleOpenAutomationRun,
     handleClick,
     handleRenameTitle,
     handleOpenRenameErrorDialog,

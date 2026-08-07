@@ -42,7 +42,6 @@ export type WorktreeCardRuntime = {
   showLinearIssue: boolean
   showJiraIssue: boolean
   showPR: boolean
-  showAutomation: boolean
   showCli: boolean
   showComment: boolean
   showPorts: boolean

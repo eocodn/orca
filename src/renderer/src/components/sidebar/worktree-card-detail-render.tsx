@@ -10,7 +10,6 @@ import type { WorktreeCardPrDisplay } from './worktree-card-pr-display'
 import type { WorkspacePort } from '../../../../shared/workspace-ports'
 
 export type WorktreeCardDetailRenderProps = {
-  worktreeHostId?: string
   worktreeDisplayName: string
   newCardStyle: boolean
   compactCards: boolean
@@ -19,7 +18,6 @@ export type WorktreeCardDetailRenderProps = {
   showLinearIssue: boolean
   showJiraIssue: boolean
   showPR: boolean
-  showAutomation: boolean
   showCli: boolean
   showComment: boolean
   showPorts: boolean
@@ -36,7 +34,6 @@ export type WorktreeCardDetailRenderProps = {
   prDisplay: WorktreeCardPrDisplay | null | undefined
   linearIssue?: { url?: string } | null
   comment?: string | null
-  automationProvenance?: Parameters<typeof WorktreeCardDetailsHover>[0]['automationProvenance']
   cliProvenance?: Parameters<typeof WorktreeCardDetailsHover>[0]['cliProvenance']
   linkedReview: boolean
   handleEditIssue: (event: React.MouseEvent) => void
@@ -44,8 +41,6 @@ export type WorktreeCardDetailRenderProps = {
   handleOpenGitHubIssueInOrca: (event: React.MouseEvent) => void
   handleOpenLinearIssueInOrca: (event: React.MouseEvent) => void
   handleOpenReviewInOrca: (event: React.MouseEvent) => void
-  handleOpenAutomation: (event: React.MouseEvent) => void
-  handleOpenAutomationRun: (event: React.MouseEvent) => void
   handleUnlinkReview: () => void
 }
 
@@ -58,7 +53,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
     showLinearIssue,
     showJiraIssue,
     showPR,
-    showAutomation,
     showCli,
     showComment,
     showPorts,
@@ -67,7 +61,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
     identityDisplay,
     branch,
     worktreeDisplayName,
-    worktreeHostId,
     workspacePorts,
     detailsHoverControl,
     issueDisplay,
@@ -76,7 +69,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
     prDisplay,
     linearIssue,
     comment,
-    automationProvenance,
     cliProvenance,
     linkedReview,
     handleEditIssue,
@@ -84,15 +76,12 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
     handleOpenGitHubIssueInOrca,
     handleOpenLinearIssueInOrca,
     handleOpenReviewInOrca,
-    handleOpenAutomation,
-    handleOpenAutomationRun,
     handleUnlinkReview
   } = props
   const metaIssue = showIssue ? issueDisplay : null
   const metaLinearIssue = showLinearIssue ? linearIssueDisplay : null
   const metaJiraIssue = showJiraIssue ? jiraIssueDisplay : null
   const metaReview = showPR ? prDisplay : null
-  const metaAutomation = showAutomation ? automationProvenance : null
   const metaCli = showCli ? cliProvenance : null
   const metaComment = showComment ? comment : null
   const hasDetails = hasWorktreeCardDetails({
@@ -101,7 +90,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
     jiraIssue: metaJiraIssue,
     review: newCardStyle ? null : metaReview,
     comment: metaComment,
-    automationProvenance: metaAutomation,
     cliProvenance: metaCli
   })
   const hasPorts = showPorts && workspacePorts.length > 0
@@ -123,7 +111,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
       jiraIssue: jiraIssueDisplay,
       review: prDisplay,
       comment,
-      automationProvenance: metaAutomation,
       cliProvenance: metaCli
     }) ||
       workspacePorts.length > 0 ||
@@ -140,9 +127,7 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
             jiraIssue={metaJiraIssue}
             review={metaReview}
             comment={metaComment}
-            automationProvenance={metaAutomation}
             cliProvenance={metaCli}
-            automationHostId={worktreeHostId}
             branchName={showBranchIdentityHover ? branch : undefined}
             workspaceTitle={worktreeDisplayName}
             identityOrder="branch-first"
@@ -161,8 +146,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
                 ? handleOpenReviewInOrca
                 : undefined
             }
-            onOpenAutomation={affiliateListMode ? undefined : handleOpenAutomation}
-            onOpenAutomationRun={affiliateListMode ? undefined : handleOpenAutomationRun}
             onUnlinkReview={!affiliateListMode && linkedReview ? handleUnlinkReview : undefined}
           >
             {value}
@@ -180,7 +163,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
             jiraIssue={metaJiraIssue}
             review={newCardStyle ? null : metaReview}
             comment={metaComment}
-            automationProvenance={metaAutomation}
             cliProvenance={metaCli}
             className="ml-0 pr-0"
           />
@@ -195,9 +177,7 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
         jiraIssue={metaJiraIssue}
         review={metaReview}
         comment={metaComment}
-        automationProvenance={metaAutomation}
         cliProvenance={metaCli}
-        automationHostId={worktreeHostId}
         detailsAfter={hasPorts ? <WorktreeCardPortsDetails ports={workspacePorts} /> : null}
         hoverControl={detailsHoverControl}
         onEditIssue={affiliateListMode ? undefined : handleEditIssue}
@@ -209,8 +189,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
         onOpenReviewInOrca={
           metaReview?.url && metaReview.provider === 'github' ? handleOpenReviewInOrca : undefined
         }
-        onOpenAutomation={affiliateListMode ? undefined : handleOpenAutomation}
-        onOpenAutomationRun={affiliateListMode ? undefined : handleOpenAutomationRun}
         onUnlinkReview={!affiliateListMode && linkedReview ? handleUnlinkReview : undefined}
       >
         {detailsContent}
@@ -223,7 +201,6 @@ export function buildWorktreeCardDetailRenderModel(props: WorktreeCardDetailRend
     metaLinearIssue,
     metaJiraIssue,
     metaReview,
-    metaAutomationProvenance: metaAutomation,
     metaCliProvenance: metaCli,
     metaComment,
     hasDetails,
