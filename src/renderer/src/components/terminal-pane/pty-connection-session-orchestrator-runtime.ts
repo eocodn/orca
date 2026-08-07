@@ -136,6 +136,7 @@ import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './
 import { createPtyConnectionHiddenRestoreIdentityController } from './pty-connection-hidden-restore-identity-controller'
 import {
   createPtyConnectionHiddenRestorePendingLiveController,
+  getHiddenRestorePendingLiveChunkDataAfterSnapshot,
   type HiddenRestorePendingLiveChunk
 } from './pty-connection-hidden-restore-pending-live-controller'
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
@@ -2316,7 +2317,10 @@ export function connectPanePty(
     const rendererSequenceController = createPtyConnectionRendererSequenceController({
       getPtyId: () => transport.getPtyId(),
       sliceDataAfterSequence: (data, meta, sequence) =>
-        getChunkDataAfterSnapshot({ data, seq: meta?.seq, rawLength: meta?.rawLength }, sequence)
+        getHiddenRestorePendingLiveChunkDataAfterSnapshot(
+          { data, seq: meta?.seq, rawLength: meta?.rawLength },
+          sequence
+        )
     })
     const reattachReplayController = createPtyConnectionReattachReplayController({
       getPtyId: () => transport.getPtyId(),
@@ -3022,28 +3026,6 @@ export function connectPanePty(
       hiddenRestoreForegroundDeadlineController.arm()
     }
 
-    function getChunkDataAfterSnapshot(
-      chunk: HiddenRestorePendingLiveChunk,
-      snapshotSeq: number | undefined
-    ): string | null {
-      if (typeof snapshotSeq !== 'number' || typeof chunk.seq !== 'number') {
-        return chunk.data
-      }
-      const rawLength = chunk.rawLength ?? chunk.data.length
-      const startSeq = chunk.seq - rawLength
-      if (snapshotSeq >= chunk.seq) {
-        return ''
-      }
-      if (snapshotSeq <= startSeq) {
-        return chunk.data
-      }
-      const offset = snapshotSeq - startSeq
-      if (rawLength !== chunk.data.length) {
-        return null
-      }
-      return chunk.data.slice(offset)
-    }
-
     const recordRendererOrderedSeq = rendererSequenceController.recordOrdered
 
     rendererSequenceExitResetController.bindRuntime({
@@ -3056,47 +3038,19 @@ export function connectPanePty(
     const getHiddenRendererDataAfterOrderedSeq =
       rendererSequenceController.getHiddenDataAfterOrdered
 
-    // 'drained' = painted all queued bytes; 'overflow' = queue blew its cap (stream outran fetch+replay); 'refetch' = offsets unmappable, need a fresher snapshot.
-    function drainPendingLiveChunksAfterSnapshot(
-      snapshotSeq: number | undefined
-    ): 'drained' | 'overflow' | 'refetch' {
-      if (hiddenRestorePendingLiveController.takeOverflow()) {
-        discardPendingLiveChunksSalvagingQueries()
-        return 'overflow'
-      }
-      while (hiddenRestorePendingLiveController.hasQueuedChunks()) {
-        const chunks = hiddenRestorePendingLiveController.takeBatch()
-        for (const [index, chunk] of chunks.entries()) {
-          const data = getChunkDataAfterSnapshot(chunk, snapshotSeq)
-          if (data === null) {
-            // Why: renderer-only OSC stripping makes raw seq offsets unmappable onto cleaned text; refetch instead of risking duplicate output.
-            for (const discarded of chunks.slice(index)) {
-              hiddenRendererQueryController.salvageDiscarded(discarded.data)
-            }
-            discardPendingLiveChunksSalvagingQueries()
-            return 'refetch'
-          }
-          // Why: advance the continuity point so reconciliation neither re-drops drained chunks as duplicates nor misreads the next live chunk as a gap.
-          if (typeof chunk.seq === 'number') {
-            restoredSnapshotReconciliationController.advanceExpectedSeq(chunk.seq)
-          }
-          if (data) {
-            writePtyOutputToXterm(data, true)
-            recordRendererOrderedSeq(chunk)
-          }
-        }
-        if (hiddenRestorePendingLiveController.takeOverflow()) {
-          discardPendingLiveChunksSalvagingQueries()
-          return 'overflow'
-        }
-      }
-      return 'drained'
-    }
-
-    function discardPendingLiveChunksSalvagingQueries(): void {
-      const discarded = hiddenRestorePendingLiveController.discardAll()
-      for (const chunk of discarded) {
+    const hiddenRestorePendingLiveDrainCallbacks = {
+      onDiscarded: (chunk: HiddenRestorePendingLiveChunk): void => {
         hiddenRendererQueryController.salvageDiscarded(chunk.data)
+      },
+      onChunk: (chunk: HiddenRestorePendingLiveChunk, data: string): void => {
+        // Why: advance continuity even when the snapshot fully covers this chunk.
+        if (typeof chunk.seq === 'number') {
+          restoredSnapshotReconciliationController.advanceExpectedSeq(chunk.seq)
+        }
+        if (data) {
+          writePtyOutputToXterm(data, true)
+          recordRendererOrderedSeq(chunk)
+        }
       }
     }
 
@@ -3119,9 +3073,13 @@ export function connectPanePty(
         resetHiddenOutputRestoreIfPtyChanged()
         return
       }
-      const { chunks: pendingChunks, overflow: hadPendingOverflow } =
-        hiddenRestorePendingLiveController.takeForAbandon()
       const replayingSnapshot = hiddenRestoreReplayBaselineController.take()
+      const replayedSeq = typeof replayingSnapshot?.seq === 'number' ? replayingSnapshot.seq : null
+      const {
+        chunks: pendingChunks,
+        data: pendingData,
+        overflow: hadPendingOverflow
+      } = hiddenRestorePendingLiveController.takeForAbandonReplay(replayedSeq)
       const nextRestoreGeneration = hiddenRestoreIdentityController.invalidate()
       // Why: flood abandonment stops recovery bookkeeping, but its already-queued replay must keep the rebuild bracket and final pin.
       hiddenRestoreScrollTicketController.handoffGeneration(expectedPtyId, nextRestoreGeneration)
@@ -3139,13 +3097,6 @@ export function connectPanePty(
       }
       if (hadPendingOverflow) {
         return
-      }
-      const replayedSeq = typeof replayingSnapshot?.seq === 'number' ? replayingSnapshot.seq : null
-      let pendingData = ''
-      for (const chunk of pendingChunks) {
-        const sliced =
-          replayedSeq === null ? chunk.data : getChunkDataAfterSnapshot(chunk, replayedSeq)
-        pendingData += sliced ?? chunk.data
       }
       if (replayingSnapshot && replayedSeq !== null) {
         restoredSnapshotReconciliationController.setBaseline(expectedPtyId, replayingSnapshot)
@@ -3488,7 +3439,10 @@ export function connectPanePty(
           restoredSnapshotReconciliationController.setBaseline(currentPtyId, snapshot)
           hiddenRestoreReplayBaselineController.clear()
           const needsFreshSnapshot = hiddenRestoreFreshnessController.takeNeeded()
-          const drainOutcome = drainPendingLiveChunksAfterSnapshot(snapshot.seq)
+          const drainOutcome = hiddenRestorePendingLiveController.drainAfterSnapshot(
+            snapshot.seq,
+            hiddenRestorePendingLiveDrainCallbacks
+          )
           if (drainOutcome === 'drained' && !needsFreshSnapshot) {
             hiddenRestoreIdentityController.complete()
             hiddenRestoreForegroundDeadlineController.clear()
