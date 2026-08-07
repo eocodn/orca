@@ -511,4 +511,15 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionPendingFitController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('wires renderer-owned agent status without a mutable callback handoff', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+
+    expect(orchestrator).not.toContain('let handleRendererOwnedAgentStatus:')
+    expect(orchestrator).toContain(
+      "const handleRendererOwnedAgentStatus: NonNullable<IpcPtyTransportOptions['onAgentStatus']> ="
+    )
+  })
 }

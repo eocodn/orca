@@ -371,9 +371,6 @@ export function connectPanePty(
   let syncHiddenRendererPtyDelivery: () => void = () => {}
   let releaseHiddenRendererPtyDelivery: () => void = () => {}
   let handleRemoteOutputPauseChanged: (paused: boolean, supported: boolean) => void = () => {}
-  let handleRendererOwnedAgentStatus: NonNullable<
-    IpcPtyTransportOptions['onAgentStatus']
-  > = () => {}
   const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
   const agentIdleTerminalModeController = createPtyConnectionAgentIdleTerminalModeController({
     isDisposed: () => disposed,
@@ -1741,7 +1738,9 @@ export function connectPanePty(
         })
       : undefined
   const shouldOwnAgentStatusInRenderer = runtimeEnvironmentId !== null
-  handleRendererOwnedAgentStatus = (payload): void => {
+  const handleRendererOwnedAgentStatus: NonNullable<IpcPtyTransportOptions['onAgentStatus']> = (
+    payload
+  ): void => {
     if (
       shouldSuppressCodexAutoApprovalStatus(payload, {
         paneKey: cacheKey,
