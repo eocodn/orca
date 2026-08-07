@@ -133,6 +133,7 @@ import { createPtyConnectionAgentIdleTerminalModeController } from './pty-connec
 import { createPtyConnectionBufferSwitchController } from './pty-connection-buffer-switch-controller'
 import { createPtyConnectionCommandFinishedStatusDropController } from './pty-connection-command-finished-status-drop-controller'
 import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
+import { createPtyConnectionE2eDataInjectionController } from './pty-connection-e2e-data-injection-controller'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
@@ -363,7 +364,6 @@ export function connectPanePty(
   let cleanupHiddenOutputRestoreFloodRepaint = (): void => {}
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   let cleanupStartupDelivery = (): void => {}
-  let unregisterE2ePtyDataInjection = (): void => {}
   // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
   // output plumbing inside the connect frame; lifecycle hooks (visibility
   // flips, exit, dispose) run before/after it exists, so start with no-ops.
@@ -408,6 +408,10 @@ export function connectPanePty(
   // Why: paneKey crosses PTY env, hook IPC, retained rows, and reload/replay.
   // Use the stable layout leaf UUID, not the renderer-local numeric pane id.
   const cacheKey = makePaneKey(deps.tabId, pane.leafId)
+  const e2eDataInjectionController = createPtyConnectionE2eDataInjectionController({
+    paneKey: cacheKey,
+    register: registerE2eTerminalPtyDataInjection
+  })
   // Why: mirrors the kitty keyboard flags the pane's application negotiates.
   // Fed only from application output (live PTY bytes + daemon replay
   // payloads), never from renderer-generated resets, so it reflects what the
@@ -4227,7 +4231,7 @@ export function connectPanePty(
 
       schedulePendingStartupCommandDelivery()
     }
-    unregisterE2ePtyDataInjection = registerE2eTerminalPtyDataInjection(cacheKey, (data, meta) => {
+    e2eDataInjectionController.register((data, meta) => {
       if (!disposed) {
         dataCallback(data, meta)
       }
@@ -5010,7 +5014,7 @@ export function connectPanePty(
       dropSideEffectFactConsumer()
       panePtyBindingController.clear()
       discardTerminalOutput(pane.terminal)
-      unregisterE2ePtyDataInjection()
+      e2eDataInjectionController.dispose()
       windowsDoneStatusController.dispose()
       imeCompositionRouteDisposable.dispose()
       onDataDisposable.dispose()

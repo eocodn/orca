@@ -524,4 +524,18 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
       "const handleRendererOwnedAgentStatus: NonNullable<IpcPtyTransportOptions['onAgentStatus']> ="
     )
   })
+
+  it('routes E2E PTY data injection registration through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-e2e-data-injection-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionE2eDataInjectionController')
+    expect(orchestrator).not.toContain('let unregisterE2ePtyDataInjection =')
+    expect(owner).toContain('export function createPtyConnectionE2eDataInjectionController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
