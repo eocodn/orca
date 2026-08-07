@@ -59,4 +59,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionRenderRiskController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes foreground render-refresh policy through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-foreground-render-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'"
+    )
+    expect(orchestrator).not.toContain('let foregroundRewriteChunkEndedWithCarriageReturn = false')
+    expect(orchestrator).not.toContain('function shouldForceForegroundRenderRefresh(')
+    expect(orchestrator).not.toContain('function alternateScreenRewriteAtlasRecoveryOnParsed(')
+    expect(owner).toContain('export function createPtyConnectionForegroundRenderController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

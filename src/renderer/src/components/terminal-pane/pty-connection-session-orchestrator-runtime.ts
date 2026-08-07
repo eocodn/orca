@@ -132,6 +132,7 @@ import {
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
+import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
@@ -2671,6 +2672,19 @@ export function connectPanePty(
       rewriteDecision: terminalRewriteOutputRenderRefreshDecision,
       containsCursorPositionSequence
     })
+    const foregroundRenderController = createPtyConnectionForegroundRenderController({
+      now: () => performance.now(),
+      getLastTerminalInputAt: () => lastTerminalInputAt,
+      foregroundRiskPrefersRefresh: renderRiskController.foregroundOutputPrefersRenderRefresh,
+      rewriteDecision: terminalRewriteOutputRenderRefreshDecision,
+      rewriteOutputPrefersRefresh: terminalRewriteOutputPrefersRenderRefresh,
+      windowsEastAsianPrefersRefresh: windowsEastAsianOutputPrefersRenderRefresh,
+      isWindowsClient: shouldApplyWindowsRendererUnicodeRefresh,
+      isNativeWindowsConpty: shouldApplyNativeWindowsRewriteRefresh,
+      getBufferType: () => pane.terminal.buffer.active.type,
+      getBufferSwitches: () => alternateScreenBufferSwitches,
+      scheduleAtlasRecovery: scheduleTerminalWebglAtlasRecovery
+    })
 
     // The replay path uses the guard so xterm auto-replies to embedded query
     // sequences don't leak into the shell. xterm.write() buffers internally
@@ -3064,8 +3078,6 @@ export function connectPanePty(
     }
     let foregroundImmediateBudgetChars = 0
     let foregroundImmediateBudgetWindowStart = 0
-    let foregroundRewriteChunkEndedWithCarriageReturn = false
-    let foregroundRewriteCsiScanTail = ''
     let mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     let hiddenStartupRendererQueryPending = ''
@@ -3348,84 +3360,6 @@ export function connectPanePty(
       return false
     }
 
-    function containsNonAsciiOutput(data: string): boolean {
-      for (let index = 0; index < data.length; index++) {
-        if (data.charCodeAt(index) > 0x7f) {
-          return true
-        }
-      }
-      return false
-    }
-
-    function containsWindowsRewriteControl(data: string): boolean {
-      return data.includes('\r') || terminalRewriteOutputPrefersRenderRefresh(data)
-    }
-
-    function foregroundRewriteOutputPrefersRenderRefresh(data: string): boolean {
-      const decision = terminalRewriteOutputRenderRefreshDecision(data, {
-        previousChunkEndsWithCarriageReturn: foregroundRewriteChunkEndedWithCarriageReturn,
-        previousRewriteCsiScanTail: foregroundRewriteCsiScanTail
-      })
-      foregroundRewriteChunkEndedWithCarriageReturn = decision.nextChunkEndsWithCarriageReturn
-      foregroundRewriteCsiScanTail = decision.nextRewriteCsiScanTail
-      return decision.prefersRenderRefresh
-    }
-
-    // Why: Vim-style rewrites leave stale WebGL glyphs until the atlas rebuilds; alt-screen membership is only authoritative post-parse (enter/exit can split chunks), so capture pre-parse and decide at parse completion.
-    function alternateScreenRewriteAtlasRecoveryOnParsed(): () => void {
-      const wasAlternateScreenBuffer = pane.terminal.buffer.active.type === 'alternate'
-      const switchesBeforeParse = alternateScreenBufferSwitches
-      return () => {
-        if (
-          wasAlternateScreenBuffer ||
-          alternateScreenBufferSwitches !== switchesBeforeParse ||
-          pane.terminal.buffer.active.type === 'alternate'
-        ) {
-          scheduleTerminalWebglAtlasRecovery()
-        }
-      }
-    }
-
-    function shouldForceForegroundRenderRefresh(data: string): {
-      refresh: boolean
-      inPlaceRewrite: boolean
-      recoverWebglAtlasAfterParse: boolean
-    } {
-      const rewriteOutputPrefersRenderRefresh = foregroundRewriteOutputPrefersRenderRefresh(data)
-      const recentInput =
-        performance.now() - lastTerminalInputAt <= FOREGROUND_INTERACTIVE_REDRAW_WINDOW_MS
-      if (renderRiskController.foregroundOutputPrefersRenderRefresh(data)) {
-        return {
-          refresh: true,
-          inPlaceRewrite: rewriteOutputPrefersRenderRefresh,
-          recoverWebglAtlasAfterParse: true
-        }
-      }
-      if (rewriteOutputPrefersRenderRefresh) {
-        // Why: xterm's buffer is right but in-place redraw cells stay stale in the renderer until a repaint (resize fixes it).
-        return { refresh: true, inPlaceRewrite: true, recoverWebglAtlasAfterParse: false }
-      }
-      if (
-        windowsEastAsianOutputPrefersRenderRefresh(data, {
-          isWindowsClient: shouldApplyWindowsRendererUnicodeRefresh,
-          isNativeWindowsConpty: shouldApplyNativeWindowsRewriteRefresh,
-          hadRecentInput: recentInput,
-          maxInteractiveRedrawChars: FOREGROUND_INTERACTIVE_REDRAW_CHARS
-        })
-      ) {
-        // Why: CJK/Korean from Microsoft Pinyin commits and native ConPTY output can leave stale wide-glyph cells in the Windows DOM renderer.
-        return { refresh: true, inPlaceRewrite: false, recoverWebglAtlasAfterParse: false }
-      }
-      return {
-        refresh:
-          shouldApplyNativeWindowsRewriteRefresh &&
-          containsNonAsciiOutput(data) &&
-          containsWindowsRewriteControl(data),
-        inPlaceRewrite: false,
-        recoverWebglAtlasAfterParse: false
-      }
-    }
-
     // Why here and not in xterm's CSI handler: xterm batches several PTY chunks into one
     // synchronous parse, so a handler cannot tell where a chunk ended. fish enables and
     // disables 2031 around every prompt, so answering a subscribe the same chunk withdraws
@@ -3496,7 +3430,7 @@ export function connectPanePty(
         scheduleForegroundPtyGridCheck()
       }
       const renderRefreshDecision = foregroundOutput
-        ? shouldForceForegroundRenderRefresh(data)
+        ? foregroundRenderController.decideRenderRefresh(data)
         : { refresh: false, inPlaceRewrite: false, recoverWebglAtlasAfterParse: false }
       const recoverHiddenWebglAtlasAfterParse =
         !foregroundOutput && renderRiskController.hiddenOutputNeedsAtlasRecoveryAfterParse(data)
@@ -3506,7 +3440,7 @@ export function connectPanePty(
       const onParsedAtlasRecovery = recoverWebglAtlasAfterParse
         ? scheduleTerminalWebglAtlasRecovery
         : renderRefreshDecision.inPlaceRewrite
-          ? alternateScreenRewriteAtlasRecoveryOnParsed()
+          ? foregroundRenderController.alternateScreenAtlasRecoveryOnParsed()
           : undefined
       const foregroundRenderRefreshNeeded = renderRefreshDecision.refresh
       // Why: Claude Code's in-place prompt redraws on Windows ConPTY can paint one frame late; a follow-up repaint fixes the column desync without a resize.
