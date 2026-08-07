@@ -317,6 +317,7 @@ import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-can
 import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
+import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2692,31 +2693,22 @@ export function connectPanePty(
       startupOverride?: PendingStartupCommand | null,
       options: FreshSpawnOptions = {}
     ): Promise<string | null> => {
-      if (isLegacyWorkerAutomaticResumeBlocked()) {
+      const preflightAccepted = runPtyConnectionFreshSpawnPreflight({
+        legacyWorkerAutomaticResumeBlocked: isLegacyWorkerAutomaticResumeBlocked(),
+        worktreeDeleting: Boolean(
+          useAppStore.getState().deleteStateByWorktreeId?.[deps.worktreeId]?.isDeleting
+        ),
+        hasSshConnection: Boolean(connectionId),
+        startupCommand: startupOverride?.command ?? null,
+        clearPaneMode2031State,
+        clearHiddenOutputRestoreState,
+        resetFreshSpawnFollowOutput,
+        resetKittyKeyboardModes: () => kittyKeyboardModes.reset(),
+        prepareFreshShellViewportForSpawn: () => prepareFreshShellViewportForSpawn(options),
+        setPendingStartupCommand
+      })
+      if (!preflightAccepted) {
         return Promise.resolve(null)
-      }
-      if (useAppStore.getState().deleteStateByWorktreeId?.[deps.worktreeId]?.isDeleting) {
-        // Why: the worktree is being deleted; its PTYs were just killed for the
-        // filesystem teardown. A fresh shell must not spawn into a directory the
-        // removal is about to delete (main fences it anyway), and the pane is
-        // about to unmount — so skip the doomed respawn instead of racing it.
-        return Promise.resolve(null)
-      }
-      clearPaneMode2031State()
-      clearHiddenOutputRestoreState()
-      // Why: a canceled old replay clear can preserve xterm's native
-      // isUserScrolling flag. A replacement shell must start in follow mode.
-      resetFreshSpawnFollowOutput()
-      // Why: a fresh spawn is a new process with kitty keyboard flags at
-      // zero. The exit-handler reset alone is not enough: a late exit from a
-      // replaced PTY takes the stale-transport early return and skips it, so
-      // a restart-in-place would leak the old TUI's flags into a fresh shell.
-      kittyKeyboardModes.reset()
-      prepareFreshShellViewportForSpawn(options)
-      if (connectionId && startupOverride?.command) {
-        // Why: SSH providers use `command` only as spawn metadata; the renderer
-        // must still submit the resume command to the fresh remote shell.
-        setPendingStartupCommand({ command: startupOverride.command })
       }
       const processedSpawnPromise = createFreshSpawnController().spawn(startupOverride)
       return trackPtyConnectionSpawn({

@@ -6,6 +6,30 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes fresh-spawn preflight through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const preflight = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-fresh-spawn-preflight.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'"
+    )
+    const startFreshSpawn = orchestrator.slice(
+      orchestrator.indexOf('const startFreshSpawn ='),
+      orchestrator.indexOf("let foregroundRefreshRiskScanTail = ''")
+    )
+    expect(startFreshSpawn).not.toContain('if (isLegacyWorkerAutomaticResumeBlocked()) {')
+    expect(startFreshSpawn).not.toContain(
+      'clearPaneMode2031State()\n      clearHiddenOutputRestoreState()'
+    )
+    expect(startFreshSpawn).not.toContain('if (connectionId && startupOverride?.command) {')
+    expect(preflight).toContain('export function runPtyConnectionFreshSpawnPreflight(')
+    expect(preflight.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes fresh-spawn connect and result settlement through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
