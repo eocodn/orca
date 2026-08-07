@@ -6,6 +6,24 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes user-initiated SSH connect waiting through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-prompt-wait-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { waitForUserInitiatedSshConnect } from './pty-connection-ssh-prompt-wait-controller'"
+    )
+    expect(orchestrator).not.toContain(
+      'const outcome = await new Promise<UserInitiatedSshConnectOutcome>'
+    )
+    expect(controller).toContain('export function waitForUserInitiatedSshConnect(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes general deferred reattach through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
