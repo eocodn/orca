@@ -2,16 +2,24 @@ import { describe, expect, it, vi } from 'vitest'
 import { createPtyConnectionHiddenRestorePendingLiveController } from './pty-connection-hidden-restore-pending-live-controller'
 
 describe('createPtyConnectionHiddenRestorePendingLiveController', () => {
-  it('queues chunks and takes them as one batch', () => {
+  it('queues chunks and drains them as one transaction', () => {
     const controller = createPtyConnectionHiddenRestorePendingLiveController({ maxChars: 10 })
+    const drained: { chunk: { data: string; seq?: number; rawLength?: number }; data: string }[] =
+      []
 
     expect(controller.enqueue({ data: 'abc', seq: 3 })).toEqual({ kind: 'queued' })
     expect(controller.enqueue({ data: 'de', rawLength: 2 })).toEqual({ kind: 'queued' })
     expect(controller.hasQueuedChunks()).toBe(true)
 
-    expect(controller.takeBatch()).toEqual([
-      { data: 'abc', seq: 3 },
-      { data: 'de', rawLength: 2 }
+    expect(
+      controller.drainAfterSnapshot(undefined, {
+        onChunk: (chunk, data) => drained.push({ chunk, data }),
+        onDiscarded: vi.fn()
+      })
+    ).toBe('drained')
+    expect(drained).toEqual([
+      { chunk: { data: 'abc', seq: 3 }, data: 'abc' },
+      { chunk: { data: 'de', rawLength: 2 }, data: 'de' }
     ])
     expect(controller.hasPending()).toBe(false)
   })
@@ -26,8 +34,13 @@ describe('createPtyConnectionHiddenRestorePendingLiveController', () => {
     })
     expect(controller.hasPending()).toBe(true)
     expect(controller.hasQueuedChunks()).toBe(false)
-    expect(controller.takeOverflow()).toBe(true)
-    expect(controller.takeOverflow()).toBe(false)
+    expect(
+      controller.drainAfterSnapshot(undefined, {
+        onChunk: vi.fn(),
+        onDiscarded: vi.fn()
+      })
+    ).toBe('overflow')
+    expect(controller.hasPending()).toBe(false)
   })
 
   it('discards new chunks while the overflow latch is active', () => {
@@ -38,17 +51,12 @@ describe('createPtyConnectionHiddenRestorePendingLiveController', () => {
       kind: 'discarded',
       chunks: [{ data: 'later' }]
     })
-    expect(controller.takeOverflow()).toBe(true)
-  })
-
-  it('discardAll clears queued chunks without erasing a concurrent overflow latch', () => {
-    const controller = createPtyConnectionHiddenRestorePendingLiveController({ maxChars: 5 })
-    controller.enqueue({ data: 'abc' })
-    expect(controller.discardAll()).toEqual([{ data: 'abc' }])
-
-    controller.enqueue({ data: 'abcdef' })
-    expect(controller.discardAll()).toEqual([])
-    expect(controller.takeOverflow()).toBe(true)
+    expect(
+      controller.drainAfterSnapshot(undefined, {
+        onChunk: vi.fn(),
+        onDiscarded: vi.fn()
+      })
+    ).toBe('overflow')
   })
 
   it('drains only bytes newer than the snapshot while preserving chunk sequence evidence', () => {

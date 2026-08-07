@@ -69,23 +69,6 @@ export function createPtyConnectionHiddenRestorePendingLiveController(
     hasQueuedChunks(): boolean {
       return chunks.length > 0
     },
-    takeBatch(): HiddenRestorePendingLiveChunk[] {
-      const batch = chunks
-      chunks = []
-      chars = 0
-      return batch
-    },
-    takeOverflow(): boolean {
-      const current = overflow
-      overflow = false
-      return current
-    },
-    discardAll(): HiddenRestorePendingLiveChunk[] {
-      const discarded = chunks
-      chunks = []
-      chars = 0
-      return discarded
-    },
     drainAfterSnapshot(
       snapshotSeq: number | undefined,
       drainOptions: HiddenRestorePendingLiveDrainOptions
