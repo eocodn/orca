@@ -1,7 +1,7 @@
 import { isRuntimeOwnedSshTargetId } from '../../../../shared/execution-host'
 import { resolveSshPaneConnectGate } from './ssh-pane-connect-gate'
 
-type PtyConnectionSshDeferredRouteArgs = {
+export type PtyConnectionSshDeferredRouteArgs = {
   connectionId: string
   tabId: string
   sshStatus: string | undefined

@@ -10,7 +10,7 @@ import { waitForUserInitiatedSshConnect } from './pty-connection-ssh-prompt-wait
 type SshConnectionResult = { connected: true } | { connected: false; error: string }
 type SshPromptConnectOutcome = 'connected' | 'cancelled' | 'failed'
 
-type PtyConnectionSshDeferredSessionArgs = {
+export type PtyConnectionSshDeferredSessionArgs = {
   tabId: string
   pendingSessionId: string | null
   needsPassphrasePrompt: () => Promise<boolean>

@@ -11,11 +11,16 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const observedRoute = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-observed-ssh-route.ts'
+    )
     const controller = read(
       'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-session-controller.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(observedRoute).toContain('runPtyConnectionSshDeferredSession')
+    expect(observedRoute).toContain("from './pty-connection-ssh-deferred-session-controller'")
+    expect(orchestrator).not.toContain(
       "import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'"
     )
     expect(orchestrator).not.toContain('runPtyConnectionDeferredSshConnect({')
@@ -29,11 +34,16 @@ describe('PTY connection owner boundaries', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
+    const observedRoute = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-observed-ssh-route.ts'
+    )
     const route = read(
       'src/renderer/src/components/terminal-pane/pty-connection-ssh-deferred-route.ts'
     )
 
-    expect(orchestrator).toContain(
+    expect(observedRoute).toContain('runPtyConnectionSshDeferredRoute')
+    expect(observedRoute).toContain("from './pty-connection-ssh-deferred-route'")
+    expect(orchestrator).not.toContain(
       "import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'"
     )
     expect(orchestrator).not.toContain('const gate = resolveSshPaneConnectGate({')

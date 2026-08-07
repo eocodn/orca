@@ -1,6 +1,30 @@
 import { expect, it } from 'vitest'
 
 export function registerPtyConnectionRouteOwnerBoundaryTests(read) {
+  it('routes observed SSH deferred work through one concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-observed-ssh-route.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionObservedSshRoute } from './pty-connection-observed-ssh-route'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'"
+    )
+    expect(orchestrator).not.toContain(
+      "import { runPtyConnectionSshDeferredSession } from './pty-connection-ssh-deferred-session-controller'"
+    )
+    expect(orchestrator).not.toContain('dispatchDeferredFlow: (pendingSessionId) => {')
+    expect(owner).toContain('runPtyConnectionSshDeferredRoute({')
+    expect(owner).toContain('runPtyConnectionSshDeferredSession({')
+    expect(owner).toContain('export function runPtyConnectionObservedSshRoute(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes restored PTY candidate selection through its concrete resolver', () => {
     const owner = read(
       'src/renderer/src/components/terminal-pane/pty-connection-attach-route-observation.ts'
