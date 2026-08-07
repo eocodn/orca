@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes PTY attach execution through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-attach-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionAttachController } from './pty-connection-attach-controller'"
+    )
+    expect(orchestrator).not.toContain('transport.attach({')
+    expect(orchestrator).not.toContain('const attachRetainedLegacyPty =')
+    expect(controller).toContain('export function createPtyConnectionAttachController(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes PTY reattach attempt lifecycle through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

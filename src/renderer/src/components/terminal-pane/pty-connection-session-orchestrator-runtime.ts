@@ -313,6 +313,7 @@ import { createPtyConnectionSizeReassertionController } from './pty-connection-s
 import { createPtyConnectionSessionLivenessReconcileController } from './pty-connection-session-liveness-reconcile-controller'
 import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
+import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -5659,29 +5660,17 @@ export function connectPanePty(
       }
     })
 
-    const attachRetainedLegacyPty = (ptyId: string): boolean => {
-      try {
-        clearPaneMode2031State()
-        clearHiddenOutputRestoreState()
-        const outputCallbacks = captureTransportOutputCallbacks(reportError)
-        transport.attach({
-          existingPtyId: ptyId,
-          callbacks: outputCallbacks.callbacks
-        })
-        const attachedPtyId = transport.getPtyId() ?? ptyId
-        bindActivePanePty(attachedPtyId, {
-          updateTabPtyId: 'if-missing',
-          sampleVisibleForegroundAgent: true
-        })
-        if (isRemoteRuntimePtyId(attachedPtyId)) {
-          registerPaneSerializerFor(attachedPtyId)
-        }
-        return true
-      } catch (err) {
-        reportError(err instanceof Error ? err.message : String(err))
-        return false
-      }
-    }
+    const attachController = createPtyConnectionAttachController({
+      transport,
+      cols,
+      rows,
+      clearPaneMode2031State,
+      clearHiddenOutputRestoreState,
+      captureTransportOutputCallbacks,
+      reportError,
+      bindActivePanePty,
+      registerPaneSerializerFor
+    })
 
     // Why: trigger the deferred SSH connect per-tab (not per-target) so multiple tabs for one target reattach independently.
     // Must run before session-id resolution: the SSH provider isn't registered until connect succeeds.
@@ -5823,7 +5812,7 @@ export function connectPanePty(
           }
           if (pendingSessionId) {
             if (isLegacyWorkerAutomaticResumeBlocked()) {
-              if (attachRetainedLegacyPty(pendingSessionId)) {
+              if (attachController.attachRetainedLegacyPty(pendingSessionId)) {
                 useAppStore.getState().removeDeferredSshSessionId(deps.tabId)
                 scheduleRuntimeGraphSync()
               }
@@ -6055,32 +6044,13 @@ export function connectPanePty(
       recordPtyConnectDiagnostic(`pane=${pane.id} -> ATTACH detached=${attachPtyId}`)
       allowInitialIdleCacheSeed = false
       if (legacyAttachOnlyPtyId) {
-        if (attachRetainedLegacyPty(legacyAttachOnlyPtyId) && connectionId) {
+        if (attachController.attachRetainedLegacyPty(legacyAttachOnlyPtyId) && connectionId) {
           useAppStore.getState().removeDeferredSshSessionId(deps.tabId)
         }
       } else {
         // Why: surface synchronous attach failures via reportError so the pane shows a diagnostic instead of a blank surface.
         // On throw, clear the stale ptyId from the tab and fresh-spawn — else the next remount reads the same dead id and loops here.
-        try {
-          clearPaneMode2031State()
-          clearHiddenOutputRestoreState()
-          const outputCallbacks = captureTransportOutputCallbacks(reportError)
-          transport.attach({
-            existingPtyId: attachPtyId,
-            cols,
-            rows,
-            callbacks: outputCallbacks.callbacks
-          })
-          const attachedPtyId = transport.getPtyId() ?? attachPtyId
-          bindActivePanePty(attachedPtyId, {
-            updateTabPtyId: 'if-missing',
-            sampleVisibleForegroundAgent: true
-          })
-          if (attachPtyId === eagerLivePtyId || isRemoteRuntimePtyId(attachedPtyId)) {
-            registerPaneSerializerFor(attachedPtyId)
-          }
-        } catch (err) {
-          reportError(err instanceof Error ? err.message : String(err))
+        if (!attachController.attachDetachedPty(attachPtyId, attachPtyId === eagerLivePtyId)) {
           deps.clearTabPtyId(deps.tabId, attachPtyId)
           startFreshSpawn()
         }
@@ -6117,21 +6087,8 @@ export function connectPanePty(
             if (!canAdoptCapturedDirectSshRetryPty(spawnedPtyId)) {
               return
             }
-            clearPaneMode2031State()
-            clearHiddenOutputRestoreState()
-            const outputCallbacks = captureTransportOutputCallbacks(reportError)
-            transport.attach({
-              existingPtyId: spawnedPtyId,
-              cols,
-              rows,
-              callbacks: outputCallbacks.callbacks
-            })
-            const attachedPtyId = transport.getPtyId() ?? spawnedPtyId
             // Why: this reuses a PTY spawned by an earlier mount, so no later spawn event will bind this remounted pane's DOM/container.
-            bindActivePanePty(attachedPtyId, {
-              updateTabPtyId: 'if-missing',
-              sampleVisibleForegroundAgent: true
-            })
+            attachController.adoptPendingSpawn(spawnedPtyId)
           })
           .catch((err) => {
             reportError(err instanceof Error ? err.message : String(err))
