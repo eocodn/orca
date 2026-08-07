@@ -406,4 +406,21 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionBufferSwitchController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes hibernated-agent wake state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hibernated-wake-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHibernatedWakeController')
+    expect(orchestrator).not.toContain('let hibernatedWakeTarget:')
+    expect(orchestrator).not.toContain('let pendingHibernatedWakeTarget:')
+    expect(orchestrator).not.toContain('let hibernatedWakeInFlightClaimKey:')
+    expect(orchestrator).not.toContain('let wakeHibernatedAgentPane:')
+    expect(owner).toContain('export function createPtyConnectionHibernatedWakeController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

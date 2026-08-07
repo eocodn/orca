@@ -138,6 +138,7 @@ import { createPtyConnectionDroidReconfirmationController } from './pty-connecti
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
+import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import {
@@ -233,7 +234,6 @@ import { isTerminalTabParked } from './terminal-parked-watcher-registry'
 import { getExecutionHostIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { CLIENT_PLATFORM } from '@/lib/new-workspace'
 import { resolveAgentStatusTerminalTitle } from '@/lib/agent-status-terminal-title'
-import type { SleepingAgentSessionRecord } from '../../../../shared/agent-session-resume'
 import {
   normalizeCompatibleAgentTitleForOwner,
   resolveCompatibleAgentTypeForOwner
@@ -1149,83 +1149,13 @@ export function connectPanePty(
     }))
   })
 
-  // Why: hibernation suppresses its kill's exit while the pane is hidden, so
-  // onExit must not tear the pane down — but the pane still owes the user a
-  // wake. Remember the hibernated PTY and exact record; the visibility-resume
-  // hook consumes both and cannot accidentally adopt a later stale record.
-  type HibernatedWakeTarget = { ptyId: string; record: SleepingAgentSessionRecord }
-  let hibernatedWakeTarget: HibernatedWakeTarget | null = null
-  let wakeHibernatedAgentPane: (() => Promise<string | null>) | null = null
-  // Why: a mobile wake can land after the sleeping record is written but
-  // before the suppressed kill exit arms the wake target. The phone never
-  // reveals the desktop pane, so without a latch the edge-triggered wake would
-  // be dropped and the phone left on a frozen terminal.
-  let pendingHibernatedWakeTarget: HibernatedWakeTarget | null = null
-  // Why: transport.connect settles asynchronously. Repeated mobile activation
-  // must keep claiming this provider session until the replacement PTY either
-  // exists (and clears the sleep record) or the spawn fails and can be retried.
-  let hibernatedWakeInFlightClaimKey: string | null = null
-  // Why: reveal is the normal wake trigger, but a reveal that lands *during* the
-  // in-flight hibernation kill runs noteVisibilityResume before onExit arms the
-  // wake. Sharing the guarded consume lets both the reveal hook and the
-  // arm-time foreground check resume the pane exactly once.
-  const consumeHibernatedAgentWake = (claimedProviderSessions?: Set<string>): string | null => {
-    const target = hibernatedWakeTarget
-    if (!target || disposed) {
-      return null
-    }
-    if (deps.paneTransportsRef.current.get(pane.id) !== transport) {
-      return null
-    }
-    const currentRecord = getSleepingRecordForPane(useAppStore.getState())?.record
-    if (currentRecord !== target.record) {
-      hibernatedWakeTarget = null
-      pendingHibernatedWakeTarget = null
-      return null
-    }
-    const currentPtyId = transport.getPtyId()
-    // Why: a real pty:exit clears the transport's ptyId before onExit while a
-    // reconcile-driven exit leaves it bound; both mean "nothing respawned since
-    // hibernation". A different non-null id means another flow (e.g. an
-    // intentional restart) already rebound the pane — its spawn wins.
-    if (currentPtyId !== null && currentPtyId !== target.ptyId) {
-      hibernatedWakeTarget = null
-      pendingHibernatedWakeTarget = null
-      return null
-    }
-    if (!wakeHibernatedAgentPane) {
-      return null
-    }
-    const claimKey = getProviderSessionClaimKey(target.record)
-    if (claimedProviderSessions?.has(claimKey)) {
-      return null
-    }
-    // Why: one wake event can visit multiple mounted legacy/stable panes for
-    // the same provider session. Claim synchronously before any spawn starts.
-    claimedProviderSessions?.add(claimKey)
-    hibernatedWakeTarget = null
-    pendingHibernatedWakeTarget = null
-    hibernatedWakeInFlightClaimKey = claimKey
-    // Why: reveal is the wake signal for a hibernated pane. Resume the recorded
-    // agent session (or fall back to a fresh shell) instead of leaving the
-    // frozen frame with no PTY behind it.
-    void wakeHibernatedAgentPane()
-      .then((spawnedPtyId) => {
-        if (!spawnedPtyId) {
-          // Why: a transient replacement-spawn failure leaves the passive
-          // record owned by this pane. Re-arm the exact target so a later
-          // mobile open can retry instead of stranding the frozen session;
-          // consume revalidates disposal, binding, PTY, and record identity.
-          hibernatedWakeTarget = target
-        }
-      })
-      .finally(() => {
-        if (hibernatedWakeInFlightClaimKey === claimKey) {
-          hibernatedWakeInFlightClaimKey = null
-        }
-      })
-    return claimKey
-  }
+  const hibernatedWakeController = createPtyConnectionHibernatedWakeController({
+    isDisposed: () => disposed,
+    isCurrentOwner: () => deps.paneTransportsRef.current.get(pane.id) === transport,
+    getCurrentRecord: () => getSleepingRecordForPane(useAppStore.getState())?.record ?? null,
+    getCurrentPtyId: () => transport.getPtyId(),
+    getClaimKey: getProviderSessionClaimKey
+  })
   const exitController = createPtyConnectionExitController({
     pane,
     manager,
@@ -1259,24 +1189,21 @@ export function connectPanePty(
           },
           shouldRefreshViewportSynchronously: shouldRefreshForegroundSynchronously
         })
-        hibernatedWakeTarget = { ptyId, record: sleepingRecordEntry.record }
-        const pendingWakeMatches =
-          pendingHibernatedWakeTarget?.ptyId === ptyId &&
-          pendingHibernatedWakeTarget.record === sleepingRecordEntry.record
-        if (pendingHibernatedWakeTarget && !pendingWakeMatches) {
-          pendingHibernatedWakeTarget = null
-        }
-        if (deps.isVisibleRef.current || pendingWakeMatches) {
+        const { pendingMatches } = hibernatedWakeController.arm({
+          ptyId,
+          record: sleepingRecordEntry.record
+        })
+        if (deps.isVisibleRef.current || pendingMatches) {
           // Why: a reveal (or a mobile wake) that raced this kill already ran
           // before the exit landed, so it saw nothing armed. Consume the wake
           // now (deferred off the exit handler) so the pane still resumes
           // without needing a second hide/reveal or wake event.
           queueMicrotask(() => {
-            consumeHibernatedAgentWake()
+            hibernatedWakeController.consume()
           })
         }
-      } else if (pendingHibernatedWakeTarget?.ptyId === ptyId) {
-        pendingHibernatedWakeTarget = null
+      } else {
+        hibernatedWakeController.clearPendingForPty(ptyId)
       }
     },
     getHadExistingPaneTransportAtConnect: () => hadExistingPaneTransportAtConnect,
@@ -2456,7 +2383,7 @@ export function connectPanePty(
       disposeStartupDraftController()
       disposeStartupCommandDelivery()
     }
-    wakeHibernatedAgentPane = () => startFreshColdRestoreAgentResume()
+    hibernatedWakeController.setWake(() => startFreshColdRestoreAgentResume())
 
     const freshSpawnFollowController = createPtyConnectionFreshSpawnFollowController({
       isDisposed: () => disposed,
@@ -5018,7 +4945,7 @@ export function connectPanePty(
       remoteViewportClaimController.armCurrent()
       remoteViewportClaimController.claimPending()
       sizeReassertionController.request()
-      consumeHibernatedAgentWake()
+      hibernatedWakeController.consume()
       requestKnownDroidReconfirmation()
       sampleVisiblePaneForegroundAgent()
     },
@@ -5029,14 +4956,11 @@ export function connectPanePty(
     },
     // Why: mobile wake reaches this pane while it's hidden on the desktop, so consume only the armed hibernation wake — no size/foreground reads.
     wakeHibernatedAgentIfArmed(claimedProviderSessions) {
-      if (hibernatedWakeInFlightClaimKey) {
-        if (claimedProviderSessions?.has(hibernatedWakeInFlightClaimKey)) {
-          return null
-        }
-        claimedProviderSessions?.add(hibernatedWakeInFlightClaimKey)
-        return hibernatedWakeInFlightClaimKey
+      const inFlightClaimKey = hibernatedWakeController.claimInFlight(claimedProviderSessions)
+      if (inFlightClaimKey) {
+        return inFlightClaimKey
       }
-      const consumedClaimKey = consumeHibernatedAgentWake(claimedProviderSessions)
+      const consumedClaimKey = hibernatedWakeController.consume(claimedProviderSessions)
       if (consumedClaimKey) {
         return consumedClaimKey
       }
@@ -5051,17 +4975,14 @@ export function connectPanePty(
         currentPtyId !== null &&
         state.suppressedPtyExitIds[currentPtyId] === true &&
         !disposed &&
-        hibernatedWakeTarget === null &&
+        !hibernatedWakeController.hasArmedTarget() &&
         deps.paneTransportsRef.current.get(pane.id) === transport &&
         transport.getPtyId() === currentPtyId
       ) {
-        const claimKey = getProviderSessionClaimKey(recordEntry.record)
-        if (claimedProviderSessions?.has(claimKey)) {
-          return null
-        }
-        claimedProviderSessions?.add(claimKey)
-        pendingHibernatedWakeTarget = { ptyId: currentPtyId, record: recordEntry.record }
-        return claimKey
+        return hibernatedWakeController.latchPending(
+          { ptyId: currentPtyId, record: recordEntry.record },
+          claimedProviderSessions
+        )
       }
       return null
     },
