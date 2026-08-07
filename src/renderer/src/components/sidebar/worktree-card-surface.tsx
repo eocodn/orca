@@ -10,8 +10,7 @@ import { useWorktreeCardRuntime } from './worktree-card-runtime'
 import { useWorktreeCardActions } from './worktree-card-actions'
 import { useWorktreeCardDecorationEffects } from './worktree-card-decoration-effects'
 import { WorktreeCardShell } from './worktree-card-shell'
-import { getLineageChildLabels } from './worktree-card-display-model'
-import { hasDetailedMetaRowContent } from './worktree-card-display-model'
+import { getLineageChildLabels, hasDetailedMetaRowContent } from './worktree-card-display-model'
 import { buildWorktreeCardDetailRenderModel } from './worktree-card-detail-render'
 import { WorktreeCardParent } from './worktree-card-parent'
 const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
@@ -224,8 +223,15 @@ const WorktreeCardSurface = React.memo(function WorktreeCardSurface({
     handleOpenAutomationRun,
     handleUnlinkReview
   })
-  const { hasHoverDetails, hoverBranchName, hoverWorkspaceTitle, titleWrapper, detailsAndPorts } =
-    detailModel
+  const {
+    metaAutomationProvenance,
+    metaCliProvenance,
+    hasHoverDetails,
+    hoverBranchName,
+    hoverWorkspaceTitle,
+    titleWrapper,
+    detailsAndPorts
+  } = detailModel
   const titleRowIndicators = showTitleRowIndicators ? (
     <div className="ml-auto flex shrink-0 items-center gap-1 pr-1.5">{detailsAndPorts}</div>
   ) : null

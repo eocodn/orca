@@ -48,8 +48,6 @@ function browserTab(id: string, groupId: string, entityId: string, sortOrder: nu
   }
 }
 
-}
-
 describe('getGroupVisibleTabOrder', () => {
   it('returns active-group refs with backing ids plus unified tab ids', () => {
     const group: TabGroup = {
@@ -146,8 +144,6 @@ describe('getGroupVisibleTabOrder', () => {
       { type: 'browser', id: 'browser-1', tabId: 'tab-b1' },
       { type: 'editor', id: '/repo/file.md', tabId: 'tab-e1' }
     ])
-  })
-
   })
 })
 

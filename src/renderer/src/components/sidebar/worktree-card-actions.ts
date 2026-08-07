@@ -262,10 +262,6 @@ export function useWorktreeCardActions(
     handleDoubleClick,
     handleToggleUnreadQuick,
     handleWorkspaceQuickAction,
-    handleDragStart,
-    handleDragEnd,
-    handleContextMenuSelect,
-    stopQuickActionPointerPropagation,
     ...pointerActions,
     ...reviewActions
   }

@@ -179,9 +179,6 @@ export function useWorktreeCardMetadata({
     linkedBitbucketPR,
     linkedAzureDevOpsPR,
     linkedGiteaPR,
-    linkedBitbucketPR,
-    linkedAzureDevOpsPR,
-    linkedGiteaPR,
     {
       reviewHintKey:
         (useCachedBranchReview || cachedMergedBranchPRMatchesCurrentHead) && !hasLinkedReview
