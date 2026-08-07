@@ -141,6 +141,7 @@ import { createPtyConnectionHibernatedWakeController } from './pty-connection-hi
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import { createPtyConnectionRemoteOutputPauseController } from './pty-connection-remote-output-pause-controller'
+import { createPtyConnectionSideEffectFactConsumerController } from './pty-connection-side-effect-fact-consumer-controller'
 import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
@@ -995,7 +996,7 @@ export function connectPanePty(
   // parsers (which stay unregistered) — same policy code, single consumer.
   // restoreTitleOnRegister replaces the eager-replay title restore: main's
   // title-only snapshot carries the no-attention-replay rule.
-  let unregisterSideEffectFactConsumer: (() => void) | null = null
+  const sideEffectFactConsumerController = createPtyConnectionSideEffectFactConsumerController()
   const registerSideEffectFactConsumerForPty = (
     ptyId: string,
     remoteOutputPaused = false
@@ -1003,42 +1004,40 @@ export function connectPanePty(
     if ((!mainSideEffectAuthority && !remoteOutputPaused) || disposed) {
       return
     }
-    unregisterSideEffectFactConsumer?.()
-    unregisterSideEffectFactConsumer = registerTerminalSideEffectFactConsumer({
-      ptyId,
-      callbacks: {
-        onTitleChange,
-        onBell,
-        onAgentBecameIdle,
-        onAgentBecameWorking,
-        onAgentExited,
-        onCommandFinished: handleCommandFinished,
-        onPrLink: (link) =>
-          useAppStore.getState().observeTerminalGitHubPullRequestLink(deps.worktreeId, link),
-        // Why: the Command Code settle policy stays here — the done settle
-        // timer must consult the live store row (which hook events and
-        // renderer seeds also write), so main only emits scrape facts.
-        onCommandCodeWorking: seedCommandCodeOutputWorkingStatus,
-        onCommandCodeDone: scheduleCommandCodeOutputDoneStatus,
-        ...(shouldOwnAgentStatusInRenderer
-          ? { onAgentStatus: (payload) => handleRendererOwnedAgentStatus(payload) }
-          : {}),
-        // Why: gated hidden panes never see the subscribe bytes; the fact
-        // replaces the byte scan (and the old post-latch subscribe drop).
-        ...(hiddenDeliveryGateActive || remoteOutputPaused
-          ? {
-              onMode2031Subscribe: handleHiddenMode2031SubscribeFact,
-              onMode2031Unsubscribe: handleHiddenMode2031UnsubscribeFact
-            }
-          : {})
-      },
-      restoreTitleOnRegister: true
-    })
+    sideEffectFactConsumerController.replace(() =>
+      registerTerminalSideEffectFactConsumer({
+        ptyId,
+        callbacks: {
+          onTitleChange,
+          onBell,
+          onAgentBecameIdle,
+          onAgentBecameWorking,
+          onAgentExited,
+          onCommandFinished: handleCommandFinished,
+          onPrLink: (link) =>
+            useAppStore.getState().observeTerminalGitHubPullRequestLink(deps.worktreeId, link),
+          // Why: the Command Code settle policy stays here — the done settle
+          // timer must consult the live store row (which hook events and
+          // renderer seeds also write), so main only emits scrape facts.
+          onCommandCodeWorking: seedCommandCodeOutputWorkingStatus,
+          onCommandCodeDone: scheduleCommandCodeOutputDoneStatus,
+          ...(shouldOwnAgentStatusInRenderer
+            ? { onAgentStatus: (payload) => handleRendererOwnedAgentStatus(payload) }
+            : {}),
+          // Why: gated hidden panes never see the subscribe bytes; the fact
+          // replaces the byte scan (and the old post-latch subscribe drop).
+          ...(hiddenDeliveryGateActive || remoteOutputPaused
+            ? {
+                onMode2031Subscribe: handleHiddenMode2031SubscribeFact,
+                onMode2031Unsubscribe: handleHiddenMode2031UnsubscribeFact
+              }
+            : {})
+        },
+        restoreTitleOnRegister: true
+      })
+    )
   }
-  const dropSideEffectFactConsumer = (): void => {
-    unregisterSideEffectFactConsumer?.()
-    unregisterSideEffectFactConsumer = null
-  }
+  const dropSideEffectFactConsumer = sideEffectFactConsumerController.clear
   const clearPanePtyFitBinding = (): void => {
     // Why: fit bindings live in a module-level map, so pane teardown must
     // clear them explicitly instead of relying on DOM removal.

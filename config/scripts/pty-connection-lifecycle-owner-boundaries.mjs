@@ -453,4 +453,18 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionRemoteOutputPauseController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes side-effect fact consumer lifecycle through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-side-effect-fact-consumer-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionSideEffectFactConsumerController')
+    expect(orchestrator).not.toContain('let unregisterSideEffectFactConsumer:')
+    expect(owner).toContain('export function createPtyConnectionSideEffectFactConsumerController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
