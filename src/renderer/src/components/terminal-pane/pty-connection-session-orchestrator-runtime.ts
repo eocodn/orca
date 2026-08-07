@@ -157,7 +157,7 @@ import {
   isPlainEscapeKeyEvent
 } from './agent-interrupt-inference'
 import { createAgentQuestionAnsweredInference } from './agent-question-answered-inference'
-import { AGENT_INTERRUPT_SETTLE_MS } from '../../../../shared/agent-interrupt-intent'
+import { createPtyConnectionTitleOnlyInterruptController } from './pty-connection-title-only-interrupt-controller'
 import { createAgentCompletionCoordinator } from './agent-completion-coordinator'
 import {
   dispatchAgentHookTerminalLifecycle,
@@ -610,48 +610,19 @@ export function connectPanePty(
       deps.updateTabTitle(deps.tabId, neutralTitle)
     }
   }
-  let titleOnlyInterruptTimer: ReturnType<typeof setTimeout> | null = null
-  const clearTitleOnlyInterruptTimer = (): void => {
-    if (titleOnlyInterruptTimer !== null) {
-      clearTimeout(titleOnlyInterruptTimer)
-      titleOnlyInterruptTimer = null
-    }
-  }
-  const observeTitleOnlyInterrupt = (): void => {
-    const state = useAppStore.getState()
-    if (state.agentStatusByPaneKey[cacheKey]) {
-      return
-    }
-    const runtimeTitle = state.runtimePaneTitlesByTabId?.[deps.tabId]?.[pane.id]
-    const tabTitle = (state.tabsByWorktree[deps.worktreeId] ?? []).find(
-      (entry) => entry.id === deps.tabId
-    )?.title
-    const baselineTitle = runtimeTitle ?? tabTitle
-    if (detectAgentStatusFromTitle(baselineTitle ?? '') !== 'working') {
-      return
-    }
-    clearTitleOnlyInterruptTimer()
-    titleOnlyInterruptTimer = setTimeout(() => {
-      titleOnlyInterruptTimer = null
-      if (useAppStore.getState().agentStatusByPaneKey[cacheKey]) {
-        return
-      }
-      const currentState = useAppStore.getState()
-      const currentRuntimeTitle = currentState.runtimePaneTitlesByTabId?.[deps.tabId]?.[pane.id]
-      const currentTabTitle = (currentState.tabsByWorktree[deps.worktreeId] ?? []).find(
+  const titleOnlyInterruptController = createPtyConnectionTitleOnlyInterruptController({
+    hasAgentStatus: () => Boolean(useAppStore.getState().agentStatusByPaneKey[cacheKey]),
+    readTitle: () => {
+      const state = useAppStore.getState()
+      const runtimeTitle = state.runtimePaneTitlesByTabId?.[deps.tabId]?.[pane.id]
+      const tabTitle = (state.tabsByWorktree[deps.worktreeId] ?? []).find(
         (entry) => entry.id === deps.tabId
       )?.title
-      const currentTitle = currentRuntimeTitle ?? currentTabTitle
-      if (
-        currentTitle === baselineTitle &&
-        detectAgentStatusFromTitle(currentTitle ?? '') === 'working'
-      ) {
-        // Why: title-only agents such as Pi can miss their own idle title after
-        // Ctrl+C. Clear only an unchanged, acknowledged working title.
-        clearInferredInterruptWorkingTitle()
-      }
-    }, AGENT_INTERRUPT_SETTLE_MS)
-  }
+      return runtimeTitle ?? tabTitle
+    },
+    isWorkingTitle: (title) => detectAgentStatusFromTitle(title) === 'working',
+    clearWorkingTitle: clearInferredInterruptWorkingTitle
+  })
   const {
     clearIdleCursorResetTimer: clearReattachIdleAgentCursorResetTimer,
     getReplayPayloadSignalGeneration,
@@ -750,7 +721,7 @@ export function connectPanePty(
     flushPending: flushPendingInterruptInference
   } = createPtyConnectionInputIntent({
     observeInterruptIntent: (intent) => interruptInference.observeInputIntent(intent),
-    observeTitleOnlyInterrupt,
+    observeTitleOnlyInterrupt: titleOnlyInterruptController.observe,
     markBracketedPasteInterrupted: () => markTerminalBracketedPasteInterrupted(pane.terminal),
     observeQuestionAnsweredInput: (data) =>
       questionAnsweredInference.observeSentTerminalInput(data),
@@ -1734,7 +1705,7 @@ export function connectPanePty(
     // the agent has exited. Clear any running cache timer so the sidebar doesn't
     // show a stale countdown for a tab that no longer has an active Claude session.
     deps.setCacheTimerStartedAt(cacheKey, null)
-    clearTitleOnlyInterruptTimer()
+    titleOnlyInterruptController.clear()
     // Why: title reversion alone is not process death. The process/PTY tracker
     // owns removing agent rows when the TUI actually exits.
   }
@@ -2329,7 +2300,7 @@ export function connectPanePty(
             observeAcceptedShellCommandInput(data)
             observeAcceptedTerminalInput(data, acknowledgedIntent)
             interruptInference.observeInputIntent(acknowledgedIntent)
-            observeTitleOnlyInterrupt()
+            titleOnlyInterruptController.observe()
           } else {
             // Why: Esc/Ctrl+C are the first keys users press on a frozen pane;
             // an unbound-transport reject here must arm recovery too.
@@ -5223,7 +5194,7 @@ export function connectPanePty(
       clearPendingTerminalInputIntent()
       clearPendingTerminalInputWrite()
       interruptInference.dispose()
-      clearTitleOnlyInterruptTimer()
+      titleOnlyInterruptController.dispose()
       // Why release, not cancel: the pending settle belongs to the turn, not to
       // this pane — a park mid-settle hands it to the parked watcher instead.
       releaseCommandCodeDoneSettleExecutor()

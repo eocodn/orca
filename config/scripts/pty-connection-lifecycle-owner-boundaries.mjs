@@ -187,4 +187,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createInitialCacheTimerSeedController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes title-only interrupt settlement through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-title-only-interrupt-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionTitleOnlyInterruptController')
+    expect(orchestrator).not.toContain(
+      'let titleOnlyInterruptTimer: ReturnType<typeof setTimeout> | null = null'
+    )
+    expect(owner).toContain('export function createPtyConnectionTitleOnlyInterruptController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
