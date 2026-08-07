@@ -361,7 +361,6 @@ export function connectPanePty(
   const recoverySubscriptionsController = createPtyConnectionRecoverySubscriptionsController()
   const hiddenRestoreCleanupController = createPtyConnectionHiddenRestoreCleanupController()
   const pendingFitController = createPtyConnectionPendingFitController()
-  let disposeReattachLiveDataController = (): void => {}
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   const startupDeliveryCleanupController = createPtyConnectionStartupDeliveryCleanupController()
   const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
@@ -1951,6 +1950,13 @@ export function connectPanePty(
       : runtimeEnvironmentId
         ? createRemoteRuntimePtyTransport(runtimeEnvironmentId, transportOptions)
         : createIpcPtyTransport(transportOptions)
+  const reattachLiveDataController = createPtyConnectionReattachLiveDataController({
+    getPtyId: () => transport.getPtyId(),
+    getStreamGeneration: streamGenerationController.getCurrent,
+    isDisposed: () => disposed,
+    takeDeliveryCredit: takeCurrentTerminalDeliveryCredit,
+    deliverWithDeferredCredit: deliverTerminalDataWithDeferredCredit
+  })
   const canSendDesktopQueryReply = (): boolean => {
     const ptyId = transport.getPtyId()
     return !ptyId || !isPtyLocked(ptyId)
@@ -3981,16 +3987,6 @@ export function connectPanePty(
       })
     }
 
-    const reattachLiveDataController = createPtyConnectionReattachLiveDataController({
-      getPtyId: () => transport.getPtyId(),
-      getStreamGeneration: streamGenerationController.getCurrent,
-      isDisposed: () => disposed,
-      takeDeliveryCredit: takeCurrentTerminalDeliveryCredit,
-      deliverWithDeferredCredit: deliverTerminalDataWithDeferredCredit,
-      deliverData: (data, meta, streamGeneration) => dataCallback(data, meta, streamGeneration)
-    })
-    disposeReattachLiveDataController = reattachLiveDataController.dispose
-
     const dataCallback = (
       data: string,
       meta?: PtyDataMeta,
@@ -4152,6 +4148,9 @@ export function connectPanePty(
 
       schedulePendingStartupCommandDelivery()
     }
+    reattachLiveDataController.bindDeliverData((data, meta, streamGeneration) =>
+      dataCallback(data, meta, streamGeneration)
+    )
     e2eDataInjectionController.register((data, meta) => {
       if (!disposed) {
         dataCallback(data, meta)
@@ -4888,7 +4887,7 @@ export function connectPanePty(
       disposed = true
       disposeDirectSshRetryController()
       // Why: a stalled xterm replay may never reach its finally; release live-frame credit when this renderer no longer owns the stream.
-      disposeReattachLiveDataController()
+      reattachLiveDataController.dispose()
       cancelPendingSafeFitContinuations(pane)
       pendingFitController.clearAll()
       // Why: park/reconnect/remount doesn't advance the recovery epoch, so invalidate this xterm or its delayed retry could hit the next instance.

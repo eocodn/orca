@@ -17,7 +17,7 @@ type PtyConnectionReattachLiveDataControllerArgs = {
   isDisposed: () => boolean
   takeDeliveryCredit: () => (() => void) | undefined
   deliverWithDeferredCredit: (credit: () => void, deliver: () => void) => void
-  deliverData: (data: string, meta: PtyDataMeta | undefined, streamGeneration: number) => void
+  deliverData?: (data: string, meta: PtyDataMeta | undefined, streamGeneration: number) => void
 }
 
 type ReattachLiveDataSettlement = {
@@ -38,6 +38,7 @@ export function createPtyConnectionReattachLiveDataController({
   let bufferedChars = 0
   let deferralDepth = 0
   let owners = new Map<number, { failed: boolean }>()
+  let boundDeliverData = deliverData ?? null
 
   const releaseChunk = (chunk: DeferredLiveChunk): void => {
     chunk.ackCredit?.()
@@ -50,6 +51,16 @@ export function createPtyConnectionReattachLiveDataController({
   }
 
   return {
+    bindDeliverData(
+      nextDeliverData: (
+        data: string,
+        meta: PtyDataMeta | undefined,
+        streamGeneration: number
+      ) => void
+    ): void {
+      boundDeliverData = nextDeliverData
+    },
+
     begin(ownerGeneration = getStreamGeneration()): void {
       deferralDepth += 1
       if (deferralDepth === 1) {
@@ -139,6 +150,17 @@ export function createPtyConnectionReattachLiveDataController({
         return null
       }
 
+      const hasCurrentDeliverableChunk = pending.some(
+        (chunk) =>
+          chunk.ptyId === ptyId &&
+          chunk.streamGeneration === streamGeneration &&
+          currentOwner?.failed !== true
+      )
+      if (hasCurrentDeliverableChunk && !boundDeliverData) {
+        releaseChunks(pending)
+        throw new Error('reattach live-data delivery is not bound')
+      }
+
       let deliveredChunks = 0
       for (const chunk of pending) {
         if (
@@ -151,10 +173,10 @@ export function createPtyConnectionReattachLiveDataController({
         }
         if (chunk.ackCredit) {
           deliverWithDeferredCredit(chunk.ackCredit, () =>
-            deliverData(chunk.data, chunk.meta, chunk.streamGeneration)
+            boundDeliverData?.(chunk.data, chunk.meta, chunk.streamGeneration)
           )
         } else {
-          deliverData(chunk.data, chunk.meta, chunk.streamGeneration)
+          boundDeliverData?.(chunk.data, chunk.meta, chunk.streamGeneration)
         }
         deliveredChunks += 1
       }

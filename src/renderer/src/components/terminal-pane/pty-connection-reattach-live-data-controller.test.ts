@@ -50,6 +50,45 @@ function createHarness() {
 }
 
 describe('createPtyConnectionReattachLiveDataController', () => {
+  it('binds live-data delivery after construction', () => {
+    const delivered = vi.fn()
+    const controller = createPtyConnectionReattachLiveDataController({
+      getPtyId: () => 'pty-1',
+      getStreamGeneration: () => 1,
+      isDisposed: () => false,
+      takeDeliveryCredit: () => undefined,
+      deliverWithDeferredCredit: (_credit, deliver) => deliver()
+    })
+
+    controller.bindDeliverData(delivered)
+    controller.begin(1)
+    controller.defer('live', undefined, 1)
+
+    expect(controller.finish(true, 1)).toEqual({
+      deliveredChunks: 1,
+      ptyId: 'pty-1',
+      streamGeneration: 1
+    })
+    expect(delivered).toHaveBeenCalledWith('live', undefined, 1)
+  })
+
+  it('fails fast and releases buffered credit when delivery was never bound', () => {
+    const credit = vi.fn()
+    const controller = createPtyConnectionReattachLiveDataController({
+      getPtyId: () => 'pty-1',
+      getStreamGeneration: () => 1,
+      isDisposed: () => false,
+      takeDeliveryCredit: () => credit,
+      deliverWithDeferredCredit: (_credit, deliver) => deliver()
+    })
+
+    controller.begin(1)
+    controller.defer('live', undefined, 1)
+
+    expect(() => controller.finish(true, 1)).toThrow('reattach live-data delivery is not bound')
+    expect(credit).toHaveBeenCalledTimes(1)
+  })
+
   it('holds nested deferrals until the outermost owner settles', () => {
     const state = createHarness()
 

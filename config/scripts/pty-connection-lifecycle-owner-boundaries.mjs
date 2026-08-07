@@ -173,6 +173,9 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(orchestrator).not.toContain(
       'let deferredReattachLiveDataOwners = new Map<number, { failed: boolean }>()'
     )
+    expect(orchestrator).not.toContain('let disposeReattachLiveDataController =')
+    expect(orchestrator).toContain('reattachLiveDataController.bindDeliverData(')
+    expect(orchestrator).toContain('reattachLiveDataController.dispose()')
     expect(owner).toContain('export function createPtyConnectionReattachLiveDataController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
