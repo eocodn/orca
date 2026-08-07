@@ -11,15 +11,7 @@ import { parseWorkspaceKey } from '../../../../shared/workspace-scope'
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../../shared/constants'
 import { isEphemeralSetupTerminalWorktreeId } from '../../../../shared/ephemeral-setup-terminal-worktree-id'
 import { parseExecutionHostId } from '../../../../shared/execution-host'
-import { parseTerminalOscColorQuery } from '../../../../shared/terminal-osc-color-reply'
-import {
-  HIDDEN_STARTUP_RENDERER_QUERY_PENDING_CHARS,
-  containsStatefulRendererQuery,
-  extractHiddenStartupRendererQueryData,
-  findCsiFinalByteIndex,
-  isStatefulRendererReplyCsiQuery,
-  isStatelessRendererReplyCsiQuery
-} from '../../../../shared/terminal-reply-query-extraction'
+import { containsStatefulRendererQuery } from '../../../../shared/terminal-reply-query-extraction'
 import {
   deliverTerminalDataWithDeferredCredit,
   takeCurrentTerminalDeliveryCredit
@@ -150,7 +142,7 @@ import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRestoreScrollTicketController } from './pty-connection-hidden-restore-scroll-ticket-controller'
 import { createPtyConnectionHiddenRestoreTaskController } from './pty-connection-hidden-restore-task-controller'
-import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
+import { createPtyConnectionHiddenRendererQueryController } from './pty-connection-hidden-renderer-query-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionMode2031ReplyScanController } from './pty-connection-mode2031-reply-scan-controller'
@@ -217,7 +209,6 @@ import { createTerminalGitHubPRLinkDetector } from '../../../../shared/terminal-
 import { scheduleTerminalWebglAtlasRecovery } from './terminal-webgl-atlas-recovery'
 import {
   CONPTY_DA1_RESPONSE,
-  DEFAULT_DA1_RESPONSE,
   createTerminalPixelSizeQueryResponder,
   installTerminalCapabilityReplyHandlers,
   sendTerminalOscColorQueryReplies
@@ -2752,8 +2743,21 @@ export function connectPanePty(
       pane.terminal
     )
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
-    const hiddenRendererQueryStateController =
-      createPtyConnectionHiddenRendererQueryStateController()
+    const hiddenRendererQueryController = createPtyConnectionHiddenRendererQueryController({
+      sendImmediateReply: sendDesktopQueryReplyImmediate,
+      replyOscColorQueries: (data) => {
+        sendTerminalOscColorQueryReplies(data, pane.terminal, sendDesktopQueryReplyImmediate)
+      },
+      writeRendererQuery: (data, foreground) => {
+        writePtyOutputToXterm(data, foreground, { hiddenStartupRendererQuery: true })
+      },
+      getCursor: () => ({
+        cursorX: pane.terminal.buffer.active.cursorX,
+        cursorY: pane.terminal.buffer.active.cursorY,
+        cols: pane.terminal.cols,
+        rows: pane.terminal.rows
+      })
+    })
 
     function canUseMainBufferSnapshot(ptyId: string | null): ptyId is string {
       return Boolean(ptyId) && !isRemoteRuntimePtyId(ptyId)
@@ -2977,168 +2981,16 @@ export function connectPanePty(
         return false
       }
       // Why: CPR/DECRQM replies depend on ordered state; keep a clean stateful-query chunk live, but after skipped bytes avoid stale replies.
-      return hiddenRendererQueryStateController.isDirty() || !containsStatefulRendererQuery(data)
-    }
-
-    function writeHiddenStartupRendererQueries(data: string): void {
-      const extracted = extractHiddenStartupRendererQueryData(
-        data,
-        hiddenRendererQueryStateController.getPending()
-      )
-      hiddenRendererQueryStateController.setPending(extracted.pending)
-      if (extracted.oscColorQueryData) {
-        // Why: Codex's startup palette probe has a 100ms budget; answer hidden color queries immediately so scheduling/remote-input debounce (#7329) can't miss it.
-        sendTerminalOscColorQueryReplies(
-          extracted.oscColorQueryData,
-          pane.terminal,
-          sendDesktopQueryReplyImmediate
-        )
-      }
-      if (extracted.statelessQueryData) {
-        writePtyOutputToXterm(extracted.statelessQueryData, false, {
-          hiddenStartupRendererQuery: true
-        })
-      }
-      // Stateful hidden queries need ordered terminal state; if the hidden xterm is dirty, skip rather than send stale CPR/DECRQM.
-    }
-
-    function takeHiddenStartupRendererQueryPendingForForeground(data: string): {
-      statelessQueryData: string
-      statefulQueryData: string
-      oscColorQueryData: string
-      remainingData: string
-      consumedCurrentChars: number
-    } {
-      const pending = hiddenRendererQueryStateController.takePending()
-      if (!pending) {
-        return {
-          statelessQueryData: '',
-          statefulQueryData: '',
-          oscColorQueryData: '',
-          remainingData: data,
-          consumedCurrentChars: 0
-        }
-      }
-
-      const input = pending + data
-      let statelessQueryData = ''
-      let statefulQueryData = ''
-      let oscColorQueryData = ''
-      let consumedInputChars = pending.length
-      let nextPending = ''
-      if (input.startsWith('\x1b[')) {
-        const finalByteIndex = findCsiFinalByteIndex(input, 2)
-        if (finalByteIndex === -1) {
-          nextPending = input.slice(0, HIDDEN_STARTUP_RENDERER_QUERY_PENDING_CHARS)
-          consumedInputChars = input.length
-        } else {
-          const sequence = input.slice(0, finalByteIndex + 1)
-          if (isStatelessRendererReplyCsiQuery(sequence)) {
-            statelessQueryData = sequence
-          } else if (isStatefulRendererReplyCsiQuery(sequence)) {
-            statefulQueryData = sequence
-          }
-          consumedInputChars = finalByteIndex + 1
-        }
-      } else if (input.startsWith('\x1b]')) {
-        const query = parseTerminalOscColorQuery(input, 0)
-        if (query.kind === 'partial') {
-          nextPending = input.slice(0, HIDDEN_STARTUP_RENDERER_QUERY_PENDING_CHARS)
-          consumedInputChars = input.length
-        } else if (query.kind === 'match') {
-          oscColorQueryData = input.slice(0, query.endIndex)
-          consumedInputChars = query.endIndex
-        } else {
-          consumedInputChars = pending.length
-        }
-      } else if (input.length === 1) {
-        nextPending = input
-        consumedInputChars = input.length
-      } else {
-        consumedInputChars = pending.length
-      }
-
-      hiddenRendererQueryStateController.setPending(nextPending)
-      const consumedCurrentChars = Math.max(0, consumedInputChars - pending.length)
-      return {
-        statelessQueryData,
-        statefulQueryData,
-        oscColorQueryData,
-        remainingData: data.slice(consumedCurrentChars),
-        consumedCurrentChars
-      }
-    }
-
-    function metaAfterConsumingCurrentChars(
-      meta: PtyDataMeta | undefined,
-      consumedCurrentChars: number
-    ): PtyDataMeta | undefined {
-      if (consumedCurrentChars === 0 || typeof meta?.rawLength !== 'number') {
-        return meta
-      }
-      return {
-        ...meta,
-        rawLength: Math.max(0, meta.rawLength - consumedCurrentChars)
-      }
+      return hiddenRendererQueryController.shouldSkip(data)
     }
 
     function skipHiddenRendererOutput(data: string): void {
-      writeHiddenStartupRendererQueries(data)
+      hiddenRendererQueryController.observeHidden(data)
       markHiddenOutputRestoreNeeded()
-      hiddenRendererQueryStateController.markDirty()
       if (hiddenRestoreTaskController.isInFlight()) {
         hiddenRestoreFreshnessController.markNeeded()
       }
       recordHiddenRendererSkip(data.length)
-    }
-
-    // Why: discarding flood bytes must not swallow terminal queries (a lost DSR/CPR hangs the program); the snapshot repaint owns the content, so synthesize replies via the immediate input path, not xterm replay.
-    function salvageRendererQueriesFromDiscardedRestoreData(data: string): void {
-      if (!data || !data.includes('\x1b')) {
-        return
-      }
-      const extracted = extractHiddenStartupRendererQueryData(data, '')
-      if (extracted.oscColorQueryData) {
-        sendTerminalOscColorQueryReplies(
-          extracted.oscColorQueryData,
-          pane.terminal,
-          sendDesktopQueryReplyImmediate
-        )
-      }
-      let unansweredQueryData = ''
-      for (const sequence of splitCsiSequences(
-        extracted.statefulQueryData + extracted.statelessQueryData
-      )) {
-        if (sequence === '\x1b[6n') {
-          // CPR from the live buffer; may be mid-repaint stale, but in a drop scenario liveness (unblock the reader) is the contract, not accuracy.
-          const buffer = pane.terminal.buffer.active
-          const row = Math.min(buffer.cursorY + 1, pane.terminal.rows)
-          const col = Math.min(buffer.cursorX + 1, pane.terminal.cols)
-          sendDesktopQueryReplyImmediate(`\x1b[${row};${col}R`)
-        } else if (sequence === '\x1b[c' || sequence === '\x1b[0c') {
-          sendDesktopQueryReplyImmediate(DEFAULT_DA1_RESPONSE)
-        } else {
-          unansweredQueryData += sequence
-        }
-      }
-      if (unansweredQueryData) {
-        // Best-effort for rarer queries (DECRQM, DA2, XTVERSION): replay into xterm so its handlers answer when no replay is active.
-        writePtyOutputToXterm(unansweredQueryData, true, { hiddenStartupRendererQuery: true })
-      }
-    }
-
-    function splitCsiSequences(queryData: string): string[] {
-      const sequences: string[] = []
-      let offset = queryData.indexOf('\x1b[')
-      while (offset !== -1) {
-        const finalByteIndex = findCsiFinalByteIndex(queryData, offset + 2)
-        if (finalByteIndex === -1) {
-          break
-        }
-        sequences.push(queryData.slice(offset, finalByteIndex + 1))
-        offset = queryData.indexOf('\x1b[', finalByteIndex + 1)
-      }
-      return sequences
     }
 
     function queueLiveChunkDuringRestore(data: string, meta?: PtyDataMeta): void {
@@ -3164,7 +3016,7 @@ export function connectPanePty(
       if (queueResult.kind === 'discarded') {
         // Why: overflow drops content, but renderer-owned query replies still need salvage.
         for (const chunk of queueResult.chunks) {
-          salvageRendererQueriesFromDiscardedRestoreData(chunk.data)
+          hiddenRendererQueryController.salvageDiscarded(chunk.data)
         }
       }
       hiddenRestoreForegroundDeadlineController.arm()
@@ -3219,7 +3071,7 @@ export function connectPanePty(
           if (data === null) {
             // Why: renderer-only OSC stripping makes raw seq offsets unmappable onto cleaned text; refetch instead of risking duplicate output.
             for (const discarded of chunks.slice(index)) {
-              salvageRendererQueriesFromDiscardedRestoreData(discarded.data)
+              hiddenRendererQueryController.salvageDiscarded(discarded.data)
             }
             discardPendingLiveChunksSalvagingQueries()
             return 'refetch'
@@ -3244,7 +3096,7 @@ export function connectPanePty(
     function discardPendingLiveChunksSalvagingQueries(): void {
       const discarded = hiddenRestorePendingLiveController.discardAll()
       for (const chunk of discarded) {
-        salvageRendererQueriesFromDiscardedRestoreData(chunk.data)
+        hiddenRendererQueryController.salvageDiscarded(chunk.data)
       }
     }
 
@@ -3275,7 +3127,7 @@ export function connectPanePty(
       hiddenRestoreScrollTicketController.handoffGeneration(expectedPtyId, nextRestoreGeneration)
       hiddenRestoreTaskController.abandon()
       hiddenRestoreFreshnessController.reset()
-      hiddenRendererQueryStateController.reset()
+      hiddenRendererQueryController.reset()
       renderRiskController.resetHidden()
       hiddenRestoreScheduleController.cancel()
       hiddenRestoreDeferredRetryController.reset()
@@ -3311,7 +3163,7 @@ export function connectPanePty(
     function clearHiddenOutputRestoreState(): void {
       cancelSnapshotScrollRestore()
       clearPendingLiveChunksDuringRestore()
-      hiddenRendererQueryStateController.reset()
+      hiddenRendererQueryController.reset()
       renderRiskController.resetHidden()
       hiddenRestoreIdentityController.invalidate()
       hiddenRestoreReplayBaselineController.clear()
@@ -3344,9 +3196,8 @@ export function connectPanePty(
     }
 
     function skipBackgroundAlternateScreenOutput(data: string): void {
-      writeHiddenStartupRendererQueries(data)
+      hiddenRendererQueryController.observeHidden(data)
       renderRiskController.resetSkippedHidden()
-      hiddenRendererQueryStateController.markDirty()
       recordHiddenRendererSkip(data.length)
       const ptyId = transport.getPtyId()
       if (!ptyId) {
@@ -3443,7 +3294,7 @@ export function connectPanePty(
               // Why last: snapshot taken mid-escape; re-arm as the FINAL replay write (any later ESC aborts it) so the live tail completes it, not render literally (Bug E / #7329).
               writeReplayData(snapshot.pendingEscapeTailAnsi)
             }
-            hiddenRendererQueryStateController.markClean()
+            hiddenRendererQueryController.markClean()
             recordRendererOrderedSeq(snapshot)
             renderRiskController.resetHidden()
             recordTerminalOutput(pane.terminal)
@@ -3767,7 +3618,7 @@ export function connectPanePty(
           markHiddenOutputRestoreNeeded()
           if (data) {
             // The sentinel can carry query bytes carved from the bulk drop (extractDroppedPtyQueryBytes in main); replies must still flow.
-            salvageRendererQueriesFromDiscardedRestoreData(data)
+            hiddenRendererQueryController.salvageDiscarded(data)
           }
           return
         }
@@ -3819,13 +3670,10 @@ export function connectPanePty(
       }
       // Why: a hidden Codex query can split just before visibility flips; hand xterm the completed query while other bytes still follow restore.
       const pendingForegroundQuery = foreground
-        ? takeHiddenStartupRendererQueryPendingForForeground(data)
+        ? hiddenRendererQueryController.takePendingForForeground(data, meta)
         : null
       const rendererData = pendingForegroundQuery?.remainingData ?? data
-      const rendererMeta = metaAfterConsumingCurrentChars(
-        meta,
-        pendingForegroundQuery?.consumedCurrentChars ?? 0
-      )
+      const rendererMeta = pendingForegroundQuery?.meta ?? meta
       observeRendererOrderedSeqRegression(meta)
       const orderedRendererData = foreground
         ? rendererData
@@ -3840,19 +3688,6 @@ export function connectPanePty(
         recordRendererOrderedSeq(rendererMeta)
         schedulePendingStartupCommandDelivery()
         return
-      }
-      if (pendingForegroundQuery?.statelessQueryData) {
-        writePtyOutputToXterm(pendingForegroundQuery.statelessQueryData, true, {
-          hiddenStartupRendererQuery: true
-        })
-      }
-      if (pendingForegroundQuery?.oscColorQueryData) {
-        sendTerminalOscColorQueryReplies(
-          pendingForegroundQuery.oscColorQueryData,
-          pane.terminal,
-          // Why: OSC color reply sent immediately so the remote debounce can't delay it past the program's read window (#7329).
-          sendDesktopQueryReplyImmediate
-        )
       }
       const restoreAppliesToCurrentPty =
         hiddenRestoreIdentityController.getPtyId() !== null &&

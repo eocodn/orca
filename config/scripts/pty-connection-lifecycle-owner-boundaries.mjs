@@ -193,18 +193,27 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
-  it('routes hidden renderer query state through its concrete controller', () => {
+  it('routes hidden renderer query protocol through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
     )
     const owner = read(
-      'src/renderer/src/components/terminal-pane/pty-connection-hidden-renderer-query-state-controller.ts'
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-renderer-query-controller.ts'
     )
 
-    expect(orchestrator).toContain('createPtyConnectionHiddenRendererQueryStateController')
+    expect(orchestrator).toContain('createPtyConnectionHiddenRendererQueryController')
+    expect(orchestrator).not.toContain('createPtyConnectionHiddenRendererQueryStateController')
     expect(orchestrator).not.toContain("let hiddenStartupRendererQueryPending = ''")
     expect(orchestrator).not.toContain('let hiddenRendererStateDirty = false')
-    expect(owner).toContain('export function createPtyConnectionHiddenRendererQueryStateController')
+    expect(orchestrator).not.toContain('function writeHiddenStartupRendererQueries(')
+    expect(orchestrator).not.toContain(
+      'function takeHiddenStartupRendererQueryPendingForForeground('
+    )
+    expect(orchestrator).not.toContain('function metaAfterConsumingCurrentChars(')
+    expect(orchestrator).not.toContain('function salvageRendererQueriesFromDiscardedRestoreData(')
+    expect(orchestrator).not.toContain('function splitCsiSequences(')
+    expect(owner).toContain('export function createPtyConnectionHiddenRendererQueryController')
+    expect(owner).toContain('createPtyConnectionHiddenRendererQueryStateController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
