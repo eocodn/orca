@@ -284,4 +284,19 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionTransportSettleController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes active pane PTY binding state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-pane-pty-binding-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionPanePtyBindingController')
+    expect(orchestrator).not.toContain('let activePanePtyBinding: string | null = null')
+    expect(orchestrator).not.toContain('let activePanePtyBindingBoundAt: number | null = null')
+    expect(owner).toContain('export function createPtyConnectionPanePtyBindingController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

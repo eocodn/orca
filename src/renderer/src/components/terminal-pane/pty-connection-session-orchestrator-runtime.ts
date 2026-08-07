@@ -137,6 +137,7 @@ import { createPtyConnectionDroidReconfirmationController } from './pty-connecti
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
+import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
@@ -1016,6 +1017,13 @@ export function connectPanePty(
     deps,
     getTransport: () => transport
   })
+  const reportPanePtyVisibility = (ptyId: string | null | undefined, visible: boolean): void => {
+    if (!ptyId || isRemoteRuntimePtyId(ptyId)) {
+      // Why: remote-runtime PTYs use a relay path outside main's local renderer-visibility registry.
+      return
+    }
+    setRendererPtyVisibilityClaim(transport, ptyId, visible)
+  }
   const setPanePtyFitBinding = (ptyId: string): void => {
     bindPanePtyId(pane.id, ptyId, deps.tabId)
     pane.container.dataset.ptyId = ptyId
@@ -1027,10 +1035,6 @@ export function connectPanePty(
     }
     remoteViewportClaimController.claimPending()
   }
-  let activePanePtyBinding: string | null = null
-  // Why: bind time lets async liveness reconcile ignore a request started
-  // before this PTY bound (newborn race). Null disables the guard (fail-safe).
-  let activePanePtyBindingBoundAt: number | null = null
 
   // Why: with main side-effect authority on, the pane's title/bell/agent
   // policy callbacks consume pty:sideEffect facts instead of transport byte
@@ -1086,11 +1090,16 @@ export function connectPanePty(
     // clear them explicitly instead of relying on DOM removal.
     bindPanePtyId(pane.id, null, deps.tabId)
     remoteViewportClaimController.clear()
-    activePanePtyBinding = null
-    activePanePtyBindingBoundAt = null
     delete pane.container.dataset.ptyId
     delete pane.container.dataset.ptyRecoveryState
   }
+  const panePtyBindingController = createPtyConnectionPanePtyBindingController({
+    now: () => performance.now(),
+    isVisible: () => deps.isVisibleRef.current,
+    setFitBinding: setPanePtyFitBinding,
+    clearFitBinding: clearPanePtyFitBinding,
+    reportVisibility: reportPanePtyVisibility
+  })
 
   const agentCompletionCoordinator = createAgentCompletionCoordinator({
     paneKey: cacheKey,
@@ -1263,7 +1272,7 @@ export function connectPanePty(
       agentCompletionCoordinator.dispose()
       dropSideEffectFactConsumer()
       releaseHiddenRendererPtyDelivery()
-      clearPanePtyFitBinding()
+      panePtyBindingController.clear()
       kittyKeyboardModes.reset()
     },
     onSuppressedExit: (ptyId) => {
@@ -1324,7 +1333,7 @@ export function connectPanePty(
   })
 
   const resolveCurrentAgentStatusRouting = () => {
-    const ptyId = activePanePtyBinding ?? transport.getPtyId()
+    const ptyId = panePtyBindingController.getPtyId() ?? transport.getPtyId()
     const state = useAppStore.getState()
     if (disposed || !ptyId) {
       return undefined
@@ -1495,14 +1504,6 @@ export function connectPanePty(
   }
 
   const observeTerminalGitHubPRLink = createTerminalGitHubPRLinkDetector()
-  const reportPanePtyVisibility = (ptyId: string | null | undefined, visible: boolean): void => {
-    if (!ptyId || isRemoteRuntimePtyId(ptyId)) {
-      // Why: remote-runtime PTYs use a relay path outside main's local
-      // renderer-visibility registry, so reporting them here is misleading.
-      return
-    }
-    setRendererPtyVisibilityClaim(transport, ptyId, visible)
-  }
   const bindActivePanePty = (
     ptyId: string,
     options: {
@@ -1512,15 +1513,7 @@ export function connectPanePty(
       sampleVisibleForegroundAgent?: boolean
     } = {}
   ): void => {
-    if (activePanePtyBinding && activePanePtyBinding !== ptyId) {
-      reportPanePtyVisibility(activePanePtyBinding, false)
-    }
-    setPanePtyFitBinding(ptyId)
-    activePanePtyBinding = ptyId
-    reportPanePtyVisibility(ptyId, deps.isVisibleRef.current)
-    // Why: record bind time on the spawn/attach chokepoint so the reconcile
-    // guard knows this binding is newer than any pre-bind snapshot.
-    activePanePtyBindingBoundAt = performance.now()
+    panePtyBindingController.bind(ptyId)
     registerSideEffectFactConsumerForPty(ptyId)
     syncHiddenRendererPtyDelivery()
     deps.syncPanePtyLayoutBinding(pane.id, ptyId)
@@ -2563,7 +2556,7 @@ export function connectPanePty(
         },
         showSessionRestoredBanner,
         clearSleepingRecordAfterColdRestoreSpawn,
-        getActivePanePtyBinding: () => activePanePtyBinding,
+        getActivePanePtyBinding: panePtyBindingController.getPtyId,
         bindActivePanePty: (ptyId) => {
           // Why: daemon createOrAttach can make a fresh request adopt an existing PTY without emitting onPtySpawn.
           bindActivePanePty(ptyId, {
@@ -5071,7 +5064,7 @@ export function connectPanePty(
     transport,
     isDisposed: () => disposed,
     hasHandledExit: exitController.hasHandledExit,
-    getPtyBoundAt: () => activePanePtyBindingBoundAt,
+    getPtyBoundAt: panePtyBindingController.getBoundAt,
     onExit
   })
 
@@ -5198,7 +5191,7 @@ export function connectPanePty(
       releaseRendererPtyVisibilityClaim(transport)
       // Why: the pane's fact consumer must be gone before a parked-tab watcher takes over this PTY's facts in the same effect flush.
       dropSideEffectFactConsumer()
-      clearPanePtyFitBinding()
+      panePtyBindingController.clear()
       discardTerminalOutput(pane.terminal)
       unregisterE2ePtyDataInjection()
       if (unsubscribeWindowsDoneTerminalModeReset !== null) {
