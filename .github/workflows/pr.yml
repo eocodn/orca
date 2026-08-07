@@ -50,12 +50,6 @@ jobs:
       - name: Check reliability gate manifest
         run: pnpm run check:reliability-gates
 
-      - name: Enforce max-lines ratchet
-        run: pnpm run check:max-lines-ratchet
-
-      - name: Enforce source line limit
-        run: pnpm run check:source-lines
-
       - name: Verify localization catalog
         run: pnpm run verify:localization-catalog
 

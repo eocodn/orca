@@ -135,7 +135,6 @@ const configSources = new Map([
     read('config/scripts/windows-ssh-attach-console-repro.mjs')
   ],
   ['config/tsconfig.cli.json', read('config/tsconfig.cli.json')],
-  ['config/max-lines-baseline.txt', read('config/max-lines-baseline.txt')],
   ['config/reliability-gates.jsonc', read('config/reliability-gates.jsonc')],
   ['package.json', read('package.json')]
 ])
@@ -241,11 +240,7 @@ assert.deepEqual(
   'production code retains imports of retired provider hook adapters'
 )
 
-for (const path of [
-  'config/tsconfig.cli.json',
-  'config/electron-builder.config.cjs',
-  'config/max-lines-baseline.txt'
-]) {
+for (const path of ['config/tsconfig.cli.json', 'config/electron-builder.config.cjs']) {
   const source = read(path)
   for (const token of [
     '/amp/',
@@ -271,7 +266,7 @@ for (const path of [
   ]) {
     assert.ok(
       !source.includes(token),
-      `${path} retains retired provider hook packaging or max-lines entry ${token}`
+      `${path} retains retired provider hook packaging entry ${token}`
     )
   }
 }

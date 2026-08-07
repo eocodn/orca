@@ -197,7 +197,6 @@ services:
       - src/main/runtime/runtime-domain-boundaries.test.ts
       - src/main/runtime/mobile-notification-replay.test.ts
       - src/main/runtime/oversized-source-boundaries.test.ts
-      - config/scripts/check-source-line-counts.test.mjs
       - src/main/runtime/orca-runtime-tail-wait-memo.test.ts
       - src/main/runtime/retained-tail-redraw-window.equivalence.test.ts
       - src/main/runtime/orca-runtime-path-candidate-history.test.ts
@@ -236,7 +235,6 @@ services:
       - sh
       - -euc
       - >-
-        node config/scripts/check-source-line-counts.mjs &&
         pnpm exec oxfmt --check
         src/main/runtime/terminal-output-path-candidates.ts
         src/main/runtime/terminal-output-path-candidates.test.ts

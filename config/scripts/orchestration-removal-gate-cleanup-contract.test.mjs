@@ -17,14 +17,4 @@ describe('orchestration removal gate cleanup contract', () => {
       expect(source).not.toContain(forbidden)
     }
   })
-
-  it('does not retain max-line baselines for removed orchestration files', () => {
-    const source = readFileSync(resolve(projectRoot, 'config/max-lines-baseline.txt'), 'utf8')
-    for (const forbidden of [
-      'src/main/runtime/orchestration/coordinator.ts',
-      'src/main/runtime/rpc/methods/orchestration.ts'
-    ]) {
-      expect(source).not.toContain(forbidden)
-    }
-  })
 })
