@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes fresh-shell restored viewport preparation through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-fresh-shell-viewport.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'"
+    )
+    expect(orchestrator).not.toContain('const consumeRestoredViewportBlankingMarker =')
+    expect(orchestrator).not.toContain('const writeFreshShellViewportBlanking =')
+    expect(owner).toContain('export function preparePtyConnectionFreshShellViewport(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes fresh-spawn preflight through its concrete owner', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

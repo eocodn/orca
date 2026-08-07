@@ -88,7 +88,6 @@ import {
   RESET_KITTY_KEYBOARD_PROTOCOL,
   RESET_TERMINAL_CURSOR_STYLE
 } from './layout-serialization'
-import { buildFreshShellViewportBlankingSequence } from './terminal-restored-viewport'
 import { scanForShellReadyMarker } from './shell-ready-marker-scan'
 import { getSystemPrefersDark } from '@/lib/terminal-theme'
 import {
@@ -318,6 +317,7 @@ import { createPtyConnectionPendingSpawnController } from './pty-connection-pend
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
+import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2889,22 +2889,14 @@ export function connectPanePty(
         : POST_REPLAY_REATTACH_RESET
     }
 
-    const consumeRestoredViewportBlankingMarker = (): boolean => {
-      return deps.restoredViewportBlankingPanesRef?.current.delete(pane.id) ?? false
-    }
-
-    const writeFreshShellViewportBlanking = (rows = pane.terminal.rows): void => {
-      writeReplayData(buildFreshShellViewportBlankingSequence(rows))
-    }
-
     const prepareFreshShellViewportForSpawn = (options: FreshSpawnOptions): void => {
-      const hadRestoredViewport = consumeRestoredViewportBlankingMarker()
-      if (!options.forceBlankRestoredViewport && !hadRestoredViewport) {
-        return
-      }
-      // Why: fresh Windows ConPTY output paints at screen coordinates, so
-      // restored rows must leave the viewport before the first prompt redraw.
-      writeFreshShellViewportBlanking()
+      preparePtyConnectionFreshShellViewport({
+        paneId: pane.id,
+        rows: pane.terminal.rows,
+        forceBlankRestoredViewport: Boolean(options.forceBlankRestoredViewport),
+        restoredViewportBlankingPanes: deps.restoredViewportBlankingPanesRef?.current,
+        writeReplayData
+      })
     }
 
     const sendFocusedReattachFocusInAfterReplay = (
@@ -5439,9 +5431,14 @@ export function connectPanePty(
           writeReplayData(POST_REPLAY_MODE_RESET)
           // Why: the dead run's kitty flags died with it and its scrollback was never scanned — the fresh shell starts at zero.
           kittyKeyboardModes.reset()
-          consumeRestoredViewportBlankingMarker()
           // Why: a taller destination fit must not pull recovered rows back into the fresh shell's viewport after source-grid replay.
-          writeFreshShellViewportBlanking(Math.max(destinationRows, pane.terminal.rows))
+          preparePtyConnectionFreshShellViewport({
+            paneId: pane.id,
+            rows: Math.max(destinationRows, pane.terminal.rows),
+            forceBlankRestoredViewport: true,
+            restoredViewportBlankingPanes: deps.restoredViewportBlankingPanesRef?.current,
+            writeReplayData
+          })
           if (!isRemoteRuntimePtyId(ptyId)) {
             getClientRuntime().terminal.ackColdRestore(ptyId)
           }
