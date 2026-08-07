@@ -306,6 +306,7 @@ import { createPtyConnectionAgentNotificationController } from './pty-connection
 import { createPtyConnectionExitController } from './pty-connection-exit-controller'
 import { createPtyConnectionRemoteViewportClaimController } from './pty-connection-remote-viewport-claim-controller'
 import { createPtyConnectionResizeForwardingController } from './pty-connection-resize-forwarding-controller'
+import { createPtyConnectionResizeSuppressionController } from './pty-connection-resize-suppression-controller'
 import { createPtyConnectionPaneGeometryController } from './pty-connection-pane-geometry-controller'
 import { createPtyConnectionSpawnSizeReconcileController } from './pty-connection-spawn-size-reconcile-controller'
 import { createPtyConnectionSizeReassertionController } from './pty-connection-size-reassertion-controller'
@@ -364,7 +365,6 @@ export function connectPanePty(
   let cleanupStartupDelivery = (): void => {}
   let unregisterE2ePtyDataInjection = (): void => {}
   let disposeAlternateScreenRepaintController = (): void => {}
-  let suppressStructuralReplayPtyResize = false
   // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
   // output plumbing inside the connect frame; lifecycle hooks (visibility
   // flips, exit, dispose) run before/after it exists, so start with no-ops.
@@ -375,7 +375,6 @@ export function connectPanePty(
     IpcPtyTransportOptions['onAgentStatus']
   > = () => {}
   let remoteOutputPausedPtyId: string | null = null
-  let suppressViewportClaimTerminalResize = false
   // Why: idle callbacks are registered before the deferred PTY output plumbing
   // exists. Start with the shared scheduler, then switch to the PTY writer
   // below so hidden-tab resets keep backlog-recovery callbacks and byte order.
@@ -2275,12 +2274,12 @@ export function connectPanePty(
     getCurrentTransport: () => deps.paneTransportsRef.current.get(pane.id)
   })
 
+  const resizeSuppressionController = createPtyConnectionResizeSuppressionController()
   const resizeForwardingController = createPtyConnectionResizeForwardingController({
     pane,
     deps,
     transport,
-    shouldSkipTerminalResize: () =>
-      suppressStructuralReplayPtyResize || suppressViewportClaimTerminalResize
+    shouldSkipTerminalResize: resizeSuppressionController.shouldSkip
   })
   const {
     forward: forwardPtyResize,
@@ -2313,14 +2312,10 @@ export function connectPanePty(
     isDisposed: () => disposed,
     shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
     requestPtySizeReassertion: sizeReassertionController.request,
-    resizeTerminalForViewportClaim: (cols, rows) => {
-      suppressViewportClaimTerminalResize = true
-      try {
+    resizeTerminalForViewportClaim: (cols, rows) =>
+      resizeSuppressionController.runViewportClaim(() => {
         pane.terminal.resize(cols, rows)
-      } finally {
-        suppressViewportClaimTerminalResize = false
-      }
-    }
+      })
   })
   readProposedTerminalGrid = paneGeometryController.readProposedGrid
   const scheduleForegroundPtyGridCheck = sizeReassertionController.scheduleForegroundGridDriftCheck
@@ -3862,12 +3857,9 @@ export function connectPanePty(
               (pane.terminal.cols !== snapshot.cols || pane.terminal.rows !== snapshot.rows)
             ) {
               // Why: xterm parses writes later; hold snapshot dimensions until the FIFO sentinel completes so serialized wraps stay exact.
-              suppressStructuralReplayPtyResize = true
-              try {
+              resizeSuppressionController.runStructural(() => {
                 pane.terminal.resize(snapshot.cols, snapshot.rows)
-              } finally {
-                suppressStructuralReplayPtyResize = false
-              }
+              })
             }
             // Why shared: the SSH reattach model paint inlines the same
             // choreography (coordinator nesting would deadlock there); one
@@ -4582,12 +4574,9 @@ export function connectPanePty(
             (pane.terminal.cols !== snapshotDimensions.cols ||
               pane.terminal.rows !== snapshotDimensions.rows)
           ) {
-            suppressStructuralReplayPtyResize = true
-            try {
+            resizeSuppressionController.runStructural(() => {
               pane.terminal.resize(snapshotDimensions.cols, snapshotDimensions.rows)
-            } finally {
-              suppressStructuralReplayPtyResize = false
-            }
+            })
           }
           writeReplayData('\x1b[2J\x1b[3J\x1b[H')
           // Why: re-arm the kitty keyboard mirror from the snapshot preamble so Option chords keep their encoding after a window reload.
@@ -4632,12 +4621,9 @@ export function connectPanePty(
               (pane.terminal.cols !== modelCols || pane.terminal.rows !== modelRows)
             ) {
               // Why: replay at the snapshot's own dimensions (see the daemon-snapshot branch, #7279).
-              suppressStructuralReplayPtyResize = true
-              try {
+              resizeSuppressionController.runStructural(() => {
                 pane.terminal.resize(modelCols, modelRows)
-              } finally {
-                suppressStructuralReplayPtyResize = false
-              }
+              })
             }
             kittyKeyboardModes.scanReplay(modelData)
             // Why shared: park+reveal of an alt-screen TUI needs the same
@@ -4704,12 +4690,9 @@ export function connectPanePty(
               pane.terminal.rows !== coldRestoreDimensions.rows)
           ) {
             // Why: recovered ANSI cursor positions belong to the checkpoint's grid; keep this layout-only resize from reaching the fresh PTY.
-            suppressStructuralReplayPtyResize = true
-            try {
+            resizeSuppressionController.runStructural(() => {
               pane.terminal.resize(coldRestoreDimensions.cols, coldRestoreDimensions.rows)
-            } finally {
-              suppressStructuralReplayPtyResize = false
-            }
+            })
           }
           // Why: recorded scrollback is raw PTY output that may hold query sequences; xterm.write would auto-reply into the new shell's stdin. See replay-guard.ts.
           writeReplayData(connectResult.coldRestore.scrollback)

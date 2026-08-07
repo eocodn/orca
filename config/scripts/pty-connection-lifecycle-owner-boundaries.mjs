@@ -377,4 +377,19 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionParkMountEvidenceController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes renderer-only resize suppression through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-resize-suppression-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionResizeSuppressionController')
+    expect(orchestrator).not.toContain('let suppressStructuralReplayPtyResize = false')
+    expect(orchestrator).not.toContain('let suppressViewportClaimTerminalResize = false')
+    expect(owner).toContain('export function createPtyConnectionResizeSuppressionController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
