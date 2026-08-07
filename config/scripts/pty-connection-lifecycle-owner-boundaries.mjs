@@ -193,6 +193,21 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden renderer query state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-renderer-query-state-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRendererQueryStateController')
+    expect(orchestrator).not.toContain("let hiddenStartupRendererQueryPending = ''")
+    expect(orchestrator).not.toContain('let hiddenRendererStateDirty = false')
+    expect(owner).toContain('export function createPtyConnectionHiddenRendererQueryStateController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

@@ -138,6 +138,7 @@ import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
+import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
@@ -2738,8 +2739,8 @@ export function connectPanePty(
       createPtyConnectionRestoredSnapshotReconciliationController()
     let mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
-    let hiddenStartupRendererQueryPending = ''
-    let hiddenRendererStateDirty = false
+    const hiddenRendererQueryStateController =
+      createPtyConnectionHiddenRendererQueryStateController()
 
     function canUseMainBufferSnapshot(ptyId: string | null): ptyId is string {
       return Boolean(ptyId) && !isRemoteRuntimePtyId(ptyId)
@@ -2998,15 +2999,15 @@ export function connectPanePty(
         return false
       }
       // Why: CPR/DECRQM replies depend on ordered state; keep a clean stateful-query chunk live, but after skipped bytes avoid stale replies.
-      return hiddenRendererStateDirty || !containsStatefulRendererQuery(data)
+      return hiddenRendererQueryStateController.isDirty() || !containsStatefulRendererQuery(data)
     }
 
     function writeHiddenStartupRendererQueries(data: string): void {
       const extracted = extractHiddenStartupRendererQueryData(
         data,
-        hiddenStartupRendererQueryPending
+        hiddenRendererQueryStateController.getPending()
       )
-      hiddenStartupRendererQueryPending = extracted.pending
+      hiddenRendererQueryStateController.setPending(extracted.pending)
       if (extracted.oscColorQueryData) {
         // Why: Codex's startup palette probe has a 100ms budget; answer hidden color queries immediately so scheduling/remote-input debounce (#7329) can't miss it.
         sendTerminalOscColorQueryReplies(
@@ -3030,8 +3031,7 @@ export function connectPanePty(
       remainingData: string
       consumedCurrentChars: number
     } {
-      const pending = hiddenStartupRendererQueryPending
-      hiddenStartupRendererQueryPending = ''
+      const pending = hiddenRendererQueryStateController.takePending()
       if (!pending) {
         return {
           statelessQueryData: '',
@@ -3080,7 +3080,7 @@ export function connectPanePty(
         consumedInputChars = pending.length
       }
 
-      hiddenStartupRendererQueryPending = nextPending
+      hiddenRendererQueryStateController.setPending(nextPending)
       const consumedCurrentChars = Math.max(0, consumedInputChars - pending.length)
       return {
         statelessQueryData,
@@ -3107,7 +3107,7 @@ export function connectPanePty(
     function skipHiddenRendererOutput(data: string): void {
       writeHiddenStartupRendererQueries(data)
       markHiddenOutputRestoreNeeded()
-      hiddenRendererStateDirty = true
+      hiddenRendererQueryStateController.markDirty()
       if (hiddenOutputRestoreInFlight) {
         hiddenOutputRestoreFreshSnapshotNeeded = true
       }
@@ -3377,8 +3377,7 @@ export function connectPanePty(
       hiddenOutputRestoreFreshSnapshotNeeded = false
       hiddenOutputRestoreRetryDeferred = false
       hiddenOutputRestoreScheduled = false
-      hiddenStartupRendererQueryPending = ''
-      hiddenRendererStateDirty = false
+      hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
       cancelScheduledHiddenOutputRestore(pane.terminal)
       clearHiddenOutputRestoreDeferredRetryTimer()
@@ -3445,8 +3444,7 @@ export function connectPanePty(
     function clearHiddenOutputRestoreState(): void {
       cancelSnapshotScrollRestore()
       clearPendingLiveChunksDuringRestore()
-      hiddenStartupRendererQueryPending = ''
-      hiddenRendererStateDirty = false
+      hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
       hiddenOutputRestoreNeeded = false
       hiddenOutputRestorePtyId = null
@@ -3485,7 +3483,7 @@ export function connectPanePty(
     function skipBackgroundAlternateScreenOutput(data: string): void {
       writeHiddenStartupRendererQueries(data)
       renderRiskController.resetSkippedHidden()
-      hiddenRendererStateDirty = true
+      hiddenRendererQueryStateController.markDirty()
       recordHiddenRendererSkip(data.length)
       const ptyId = transport.getPtyId()
       if (!ptyId) {
@@ -3590,7 +3588,7 @@ export function connectPanePty(
               // Why last: snapshot taken mid-escape; re-arm as the FINAL replay write (any later ESC aborts it) so the live tail completes it, not render literally (Bug E / #7329).
               writeReplayData(snapshot.pendingEscapeTailAnsi)
             }
-            hiddenRendererStateDirty = false
+            hiddenRendererQueryStateController.markClean()
             recordRendererOrderedSeq(snapshot)
             renderRiskController.resetHidden()
             recordTerminalOutput(pane.terminal)
