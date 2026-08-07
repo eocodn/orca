@@ -317,6 +317,7 @@ import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-
 import { runPtyConnectionFreshSpawnPreflight } from './pty-connection-fresh-spawn-preflight'
 import { preparePtyConnectionFreshShellViewport } from './pty-connection-fresh-shell-viewport'
 import { runPtyConnectionAttachSpawnRoute } from './pty-connection-attach-spawn-route'
+import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'
 import { createPtyConnectionRestoredReattachFallback } from './pty-connection-restored-reattach-fallback'
 import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
 import { runPtyConnectionSshDeferredRoute } from './pty-connection-ssh-deferred-route'
@@ -5668,6 +5669,14 @@ export function connectPanePty(
     const sleptRemoteColdRestoreStartup = sleptRemoteRuntimeSessionId
       ? buildColdRestoreAgentResumeStartup()
       : null
+    const startFreshOrColdRestore = (): void => {
+      runPtyConnectionFreshOrColdRestore({
+        coldRestoreStartup: sleptRemoteColdRestoreStartup,
+        hasSleepingAgentSession,
+        startFreshColdRestore: startFreshColdRestoreAgentResume,
+        startFreshSpawn
+      })
+    }
 
     if (deferredReattachSessionId) {
       runPtyConnectionDeferredReattach({
@@ -5729,23 +5738,11 @@ export function connectPanePty(
             isDisposed: () => disposed,
             canAdoptCapturedDirectSshRetryPty,
             adoptPendingSpawn: attachController.adoptPendingSpawn,
-            onMissingSpawn: () => {
-              if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
-                startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
-              } else {
-                startFreshSpawn()
-              }
-            },
+            onMissingSpawn: startFreshOrColdRestore,
             reportError,
             recordDiagnostic: recordPtyConnectDiagnostic
           }).join(),
-        startFreshOrColdRestore: () => {
-          if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {
-            startFreshColdRestoreAgentResume(sleptRemoteColdRestoreStartup ?? undefined)
-          } else {
-            startFreshSpawn()
-          }
-        }
+        startFreshOrColdRestore
       })
     }
     scheduleRuntimeGraphSync()

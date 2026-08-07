@@ -204,6 +204,24 @@ describe('PTY connection owner boundaries', () => {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes fresh-vs-cold restore selection through its concrete owner', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-fresh-or-cold-restore.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionFreshOrColdRestore } from './pty-connection-fresh-or-cold-restore'"
+    )
+    expect(orchestrator).not.toContain(
+      'if (sleptRemoteColdRestoreStartup || hasSleepingAgentSession) {'
+    )
+    expect(owner).toContain('export function runPtyConnectionFreshOrColdRestore(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes fresh-shell restored viewport preparation through its concrete owner', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
