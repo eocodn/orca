@@ -305,6 +305,7 @@ import { createPtyConnectionReattachAgentSignals } from './pty-connection-reatta
 import { createPtyConnectionInputIntent } from './pty-connection-input-intent'
 import { createPtyConnectionSerializerController } from './pty-connection-serializer-controller'
 import { createPtyConnectionStartupDraftController } from './pty-connection-startup-draft-controller'
+import { createPtyConnectionStartupDeliveryCleanupController } from './pty-connection-startup-delivery-cleanup-controller'
 import { createPtyConnectionColdRestoreStartup } from './pty-connection-cold-restore-startup'
 import { createPtyConnectionStartupCommandDelivery } from './pty-connection-startup-command-delivery'
 import { createPtyConnectionDirectSshRetryController } from './pty-connection-direct-ssh-retry-controller'
@@ -362,7 +363,7 @@ export function connectPanePty(
   const pendingFitController = createPtyConnectionPendingFitController()
   let disposeReattachLiveDataController = (): void => {}
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
-  let cleanupStartupDelivery = (): void => {}
+  const startupDeliveryCleanupController = createPtyConnectionStartupDeliveryCleanupController()
   const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
   const agentIdleTerminalModeController = createPtyConnectionAgentIdleTerminalModeController({
     isDisposed: () => disposed,
@@ -2415,10 +2416,10 @@ export function connectPanePty(
       clearSleepingRecordProviderDuplicates,
       startFreshSpawn: (startupOverride, options) => startFreshSpawn(startupOverride, options)
     })
-    cleanupStartupDelivery = () => {
-      disposeStartupDraftController()
-      disposeStartupCommandDelivery()
-    }
+    startupDeliveryCleanupController.bind({
+      disposeDraft: disposeStartupDraftController,
+      disposeCommandDelivery: disposeStartupCommandDelivery
+    })
     hibernatedWakeController.setWake(() => startFreshColdRestoreAgentResume())
 
     const createFreshSpawnController = () =>
@@ -4918,7 +4919,7 @@ export function connectPanePty(
         const teardown = waitTeardowns.pop()
         teardown?.()
       }
-      cleanupStartupDelivery()
+      startupDeliveryCleanupController.dispose()
       releaseUnattemptedStartupDraftPasteDelivery()
       unregisterAgentHookTerminalLifecycle()
       titleCompletionDeferralController.dispose()
