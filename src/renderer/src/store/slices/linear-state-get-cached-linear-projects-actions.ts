@@ -55,6 +55,7 @@ import {
 } from '../../../../shared/linear-issue-attribute-filter'
 import { CACHE_TTL, TEAM_CACHE_TTL, MAX_CACHE_ENTRIES, isFresh, evictStaleEntries, looksLikeAuthError, workspaceErrorType, workspaceErrorMessage, inflightIssueRequests, inflightSearchRequests, inflightListRequests, inflightTeamRequests, inflightProjectRequests, inflightProjectDetailRequests, inflightProjectIssueRequests, inflightCustomViewRequests, inflightCustomViewDetailRequests, inflightCustomViewIssueRequests, inflightCustomViewProjectRequests, getSelectedWorkspaceId, linearSearchCacheKey, linearListCacheKey, LINEAR_LIST_INVALIDATION_VERSION_CAP, linearTeamsCacheKey, linearWorkspaceSignature, linearStatusScopeSignature, clearLinearRequestMaps, invalidateLinearCaches, clearLinearIssueCollectionRequestMaps, shouldRefreshStatusAfterRead, linearCollectionCacheKey, emptyLinearCollection, collectionWithWorkspaceError, largestCachedCollectionBelowLimit, patchLinearIssueCollectionCache, normalizeListAttributeFilter, beginLinearMutation, isCurrentLinearMutation, isCurrentLinearRuntimeContext, canWriteLinearReadResult, getLinearReadScope, scopedLinearCacheKey } from './linear-state'
 import type { InflightLinearIssueRequest, InflightLinearListRequest, InflightLinearPlainListRequest, InflightLinearCollectionRequest, InflightLinearDetailRequest, InflightLinearTeamRequest, LinearIssueListReadArgs, LinearIssueReadArgs, LinearFetchOptions, LinearPatchOptions, LinearReadScope, LinearSlice } from './linear-state'
+import { linearRequestRuntimeState } from './linear-state-request-runtime'
 type SliceSet = Parameters<StateCreator<AppState>>[0]
 type SliceGet = Parameters<StateCreator<AppState>>[1]
 export function createLinearSliceGetCachedLinearProjectsActions4(set: SliceSet, get: SliceGet) {
@@ -83,15 +84,15 @@ export function createLinearSliceGetCachedLinearProjectsActions4(set: SliceSet, 
     if (
       inflight &&
       inflight.contextKey === contextKey &&
-      inflight.mutationGeneration === linearMutationGeneration &&
+      inflight.mutationGeneration === linearRequestRuntimeState.mutationGeneration &&
       (!options?.force || inflight.force)
     ) {
       return inflight.promise
     }
 
     let entry: InflightLinearCollectionRequest<LinearProjectSummary>
-    const requestCacheGeneration = linearCacheGeneration
-    const requestMutationGeneration = linearMutationGeneration
+    const requestCacheGeneration = linearRequestRuntimeState.cacheGeneration
+    const requestMutationGeneration = linearRequestRuntimeState.mutationGeneration
     const promise = linearListProjects(scope.settings, trimmed, limit, resolvedWorkspaceId, {
       force: options?.force
     })
@@ -177,15 +178,15 @@ export function createLinearSliceGetCachedLinearProjectsActions4(set: SliceSet, 
     if (
       inflight &&
       inflight.contextKey === contextKey &&
-      inflight.mutationGeneration === linearMutationGeneration &&
+      inflight.mutationGeneration === linearRequestRuntimeState.mutationGeneration &&
       (!options?.force || inflight.force)
     ) {
       return inflight.promise
     }
 
     let entry: InflightLinearDetailRequest<LinearProjectDetail | null>
-    const requestCacheGeneration = linearCacheGeneration
-    const requestMutationGeneration = linearMutationGeneration
+    const requestCacheGeneration = linearRequestRuntimeState.cacheGeneration
+    const requestMutationGeneration = linearRequestRuntimeState.mutationGeneration
     const promise = linearGetProject(scope.settings, id, workspaceId, {
       force: options?.force
     })

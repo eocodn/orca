@@ -55,6 +55,8 @@ import {
 } from '../../../../shared/linear-issue-attribute-filter'
 import { CACHE_TTL, TEAM_CACHE_TTL, MAX_CACHE_ENTRIES, isFresh, evictStaleEntries, looksLikeAuthError, workspaceErrorType, workspaceErrorMessage, inflightIssueRequests, inflightSearchRequests, inflightListRequests, inflightTeamRequests, inflightProjectRequests, inflightProjectDetailRequests, inflightProjectIssueRequests, inflightCustomViewRequests, inflightCustomViewDetailRequests, inflightCustomViewIssueRequests, inflightCustomViewProjectRequests, getSelectedWorkspaceId, linearSearchCacheKey, linearListCacheKey, LINEAR_LIST_INVALIDATION_VERSION_CAP, linearTeamsCacheKey, linearWorkspaceSignature, linearStatusScopeSignature, clearLinearRequestMaps, invalidateLinearCaches, clearLinearIssueCollectionRequestMaps, shouldRefreshStatusAfterRead, linearCollectionCacheKey, emptyLinearCollection, collectionWithWorkspaceError, largestCachedCollectionBelowLimit, patchLinearIssueCollectionCache, normalizeListAttributeFilter, beginLinearMutation, isCurrentLinearMutation, isCurrentLinearRuntimeContext, canWriteLinearReadResult, getLinearReadScope, scopedLinearCacheKey } from './linear-state'
 import type { InflightLinearIssueRequest, InflightLinearListRequest, InflightLinearPlainListRequest, InflightLinearCollectionRequest, InflightLinearDetailRequest, InflightLinearTeamRequest, LinearIssueListReadArgs, LinearIssueReadArgs, LinearFetchOptions, LinearPatchOptions, LinearReadScope, LinearSlice } from './linear-state'
+import { getLinearListInvalidationToken } from './linear-state-list-invalidation-token'
+import { linearRequestRuntimeState } from './linear-state-request-runtime'
 type SliceSet = Parameters<StateCreator<AppState>>[0]
 type SliceGet = Parameters<StateCreator<AppState>>[1]
 export function createLinearSliceLinearStatusActions(set: SliceSet, get: SliceGet) {
@@ -73,23 +75,23 @@ export function createLinearSliceLinearStatusActions(set: SliceSet, get: SliceGe
   linearCustomViewDetailCache: {},
   linearCustomViewIssueCache: {},
   linearCustomViewProjectCache: {},
-  linearListInvalidationToken: linearListInvalidationToken,
+  linearListInvalidationToken: getLinearListInvalidationToken(),
   checkLinearConnection: async (force = false) => {
     const contextKey = getProviderRuntimeContextKey(get().settings)
-    if (inflightStatusRequest && !force && inflightStatusRequest.contextKey === contextKey) {
-      return inflightStatusRequest.promise
+    if (linearRequestRuntimeState.inflightStatusRequest && !force && linearRequestRuntimeState.inflightStatusRequest.contextKey === contextKey) {
+      return linearRequestRuntimeState.inflightStatusRequest.promise
     }
     if (get().linearStatusContextKey !== contextKey) {
       set({ linearStatusChecked: false })
     }
 
-    const mutationGeneration = linearMutationGeneration
-    const statusReadGeneration = (linearStatusReadGeneration += 1)
+    const mutationGeneration = linearRequestRuntimeState.mutationGeneration
+    const statusReadGeneration = (linearRequestRuntimeState.statusReadGeneration += 1)
     const request = linearStatus(get().settings)
       .then((status) => {
         if (
-          mutationGeneration !== linearMutationGeneration ||
-          statusReadGeneration !== linearStatusReadGeneration ||
+          mutationGeneration !== linearRequestRuntimeState.mutationGeneration ||
+          statusReadGeneration !== linearRequestRuntimeState.statusReadGeneration ||
           !isCurrentLinearRuntimeContext(contextKey, get().settings)
         ) {
           return
@@ -124,8 +126,8 @@ export function createLinearSliceLinearStatusActions(set: SliceSet, get: SliceGe
       })
       .catch(() => {
         if (
-          mutationGeneration !== linearMutationGeneration ||
-          statusReadGeneration !== linearStatusReadGeneration ||
+          mutationGeneration !== linearRequestRuntimeState.mutationGeneration ||
+          statusReadGeneration !== linearRequestRuntimeState.statusReadGeneration ||
           !isCurrentLinearRuntimeContext(contextKey, get().settings)
         ) {
           return
@@ -156,13 +158,13 @@ export function createLinearSliceLinearStatusActions(set: SliceSet, get: SliceGe
       })
       .finally(() => {
         if (
-          statusReadGeneration === linearStatusReadGeneration &&
-          inflightStatusRequest?.promise === request
+          statusReadGeneration === linearRequestRuntimeState.statusReadGeneration &&
+          linearRequestRuntimeState.inflightStatusRequest?.promise === request
         ) {
-          inflightStatusRequest = null
+          linearRequestRuntimeState.inflightStatusRequest = null
         }
       })
-    inflightStatusRequest = { contextKey, promise: request }
+    linearRequestRuntimeState.inflightStatusRequest = { contextKey, promise: request }
 
     return request
   },

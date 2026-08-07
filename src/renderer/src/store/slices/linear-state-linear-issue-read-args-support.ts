@@ -55,6 +55,7 @@ import {
 } from '../../../../shared/linear-issue-attribute-filter'
 import { CACHE_TTL, TEAM_CACHE_TTL, MAX_CACHE_ENTRIES, isFresh, evictStaleEntries, looksLikeAuthError, workspaceErrorType, workspaceErrorMessage, inflightIssueRequests, inflightSearchRequests, inflightListRequests, inflightTeamRequests, inflightProjectRequests, inflightProjectDetailRequests, inflightProjectIssueRequests, inflightCustomViewRequests, inflightCustomViewDetailRequests, inflightCustomViewIssueRequests, inflightCustomViewProjectRequests, getSelectedWorkspaceId, linearSearchCacheKey, linearListCacheKey, LINEAR_LIST_INVALIDATION_VERSION_CAP, linearTeamsCacheKey, linearWorkspaceSignature, linearStatusScopeSignature, clearLinearRequestMaps, invalidateLinearCaches, clearLinearIssueCollectionRequestMaps, shouldRefreshStatusAfterRead, linearCollectionCacheKey, emptyLinearCollection, collectionWithWorkspaceError, largestCachedCollectionBelowLimit, patchLinearIssueCollectionCache } from './linear-state'
 import type { InflightLinearIssueRequest, InflightLinearListRequest, InflightLinearPlainListRequest, InflightLinearCollectionRequest, InflightLinearDetailRequest, InflightLinearTeamRequest, LinearIssueListReadArgs } from './linear-state'
+import { linearRequestRuntimeState } from './linear-state-request-runtime'
 export type LinearIssueReadArgs =
   | { kind: 'search'; query: string; limit?: number }
   | LinearIssueListReadArgs
@@ -75,12 +76,12 @@ export type LinearReadScope = {
   explicitSource: boolean
 }
 export function beginLinearMutation(): number {
-  linearMutationGeneration += 1
-  inflightStatusRequest = null
-  return linearMutationGeneration
+  linearRequestRuntimeState.mutationGeneration += 1
+  linearRequestRuntimeState.inflightStatusRequest = null
+  return linearRequestRuntimeState.mutationGeneration
 }
 export function isCurrentLinearMutation(generation: number): boolean {
-  return generation === linearMutationGeneration
+  return generation === linearRequestRuntimeState.mutationGeneration
 }
 export function isCurrentLinearRuntimeContext(
   contextKey: string,
@@ -96,8 +97,8 @@ export function canWriteLinearReadResult(
   explicitSource = false
 ): boolean {
   return (
-    generation === linearCacheGeneration &&
-    mutationGeneration === linearMutationGeneration &&
+    generation === linearRequestRuntimeState.cacheGeneration &&
+    mutationGeneration === linearRequestRuntimeState.mutationGeneration &&
     (explicitSource || isCurrentLinearRuntimeContext(contextKey, settings))
   )
 }

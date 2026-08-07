@@ -55,6 +55,8 @@ import {
 } from '../../../../shared/linear-issue-attribute-filter'
 import { CACHE_TTL, TEAM_CACHE_TTL, MAX_CACHE_ENTRIES, isFresh, evictStaleEntries, looksLikeAuthError, workspaceErrorType, workspaceErrorMessage, inflightIssueRequests, inflightSearchRequests, inflightListRequests, inflightTeamRequests, inflightProjectRequests, inflightProjectDetailRequests, inflightProjectIssueRequests, inflightCustomViewRequests, inflightCustomViewDetailRequests, inflightCustomViewIssueRequests, inflightCustomViewProjectRequests, getSelectedWorkspaceId, linearSearchCacheKey, linearListCacheKey, LINEAR_LIST_INVALIDATION_VERSION_CAP, linearTeamsCacheKey, linearWorkspaceSignature, linearStatusScopeSignature, clearLinearRequestMaps, invalidateLinearCaches, clearLinearIssueCollectionRequestMaps, shouldRefreshStatusAfterRead, linearCollectionCacheKey, emptyLinearCollection, collectionWithWorkspaceError, largestCachedCollectionBelowLimit, patchLinearIssueCollectionCache, normalizeListAttributeFilter, beginLinearMutation, isCurrentLinearMutation, isCurrentLinearRuntimeContext, canWriteLinearReadResult, getLinearReadScope, scopedLinearCacheKey } from './linear-state'
 import type { InflightLinearIssueRequest, InflightLinearListRequest, InflightLinearPlainListRequest, InflightLinearCollectionRequest, InflightLinearDetailRequest, InflightLinearTeamRequest, LinearIssueListReadArgs, LinearIssueReadArgs, LinearFetchOptions, LinearPatchOptions, LinearReadScope, LinearSlice } from './linear-state'
+import { advanceLinearListInvalidationToken } from './linear-state-list-invalidation-token'
+import { linearRequestRuntimeState } from './linear-state-request-runtime'
 type SliceSet = Parameters<StateCreator<AppState>>[0]
 type SliceGet = Parameters<StateCreator<AppState>>[1]
 export function createLinearSliceListLinearCustomViewProjectsActions7(set: SliceSet, get: SliceGet) {
@@ -75,15 +77,15 @@ export function createLinearSliceListLinearCustomViewProjectsActions7(set: Slice
     if (
       inflight &&
       inflight.contextKey === contextKey &&
-      inflight.mutationGeneration === linearMutationGeneration &&
+      inflight.mutationGeneration === linearRequestRuntimeState.mutationGeneration &&
       (!options?.force || inflight.force)
     ) {
       return inflight.promise
     }
 
     let entry: InflightLinearCollectionRequest<LinearProjectSummary>
-    const requestCacheGeneration = linearCacheGeneration
-    const requestMutationGeneration = linearMutationGeneration
+    const requestCacheGeneration = linearRequestRuntimeState.cacheGeneration
+    const requestMutationGeneration = linearRequestRuntimeState.mutationGeneration
     const promise = linearListCustomViewProjects(scope.settings, viewId, limit, workspaceId, {
       force: options?.force
     })
@@ -157,11 +159,7 @@ export function createLinearSliceListLinearCustomViewProjectsActions7(set: Slice
   invalidateLinearIssueLists: (options) => {
     const scope = getLinearReadScope(get().settings, options?.sourceContext)
     const tokenScope = scope.cachePrefix ?? 'local'
-    const nextVersion =
-      linearListInvalidationToken.scope === tokenScope
-        ? (linearListInvalidationToken.version + 1) % LINEAR_LIST_INVALIDATION_VERSION_CAP || 1
-        : 1
-    linearListInvalidationToken = { scope: tokenScope, version: nextVersion }
+    const invalidationToken = advanceLinearListInvalidationToken(tokenScope)
 
     // Why: drop only attribute-filtered plain list entries in this source scope
     // so the next TaskPage read is forced current without wiping search/unrelated
@@ -189,11 +187,11 @@ export function createLinearSliceListLinearCustomViewProjectsActions7(set: Slice
         changed = true
       }
       if (!changed) {
-        return { linearListInvalidationToken: linearListInvalidationToken }
+        return { linearListInvalidationToken: invalidationToken }
       }
       return {
         linearListCache: nextListCache,
-        linearListInvalidationToken: linearListInvalidationToken
+        linearListInvalidationToken: invalidationToken
       }
     })
   },

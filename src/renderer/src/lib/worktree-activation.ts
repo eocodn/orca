@@ -29,6 +29,7 @@ import { toast } from 'sonner'
 import { isDetachedHeadWorkspace } from '@/components/sidebar/visible-worktrees'
 import type { ExecutionHostId } from '../../../shared/execution-host'
 import { findFolderWorkspaceOwner } from './folder-workspace-runtime-owner'
+import { ensureWorktreeHasInitialTerminal } from './worktree-activation-terminal'
 
 export type {
   ActivateAndRevealResult,

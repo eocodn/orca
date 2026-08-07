@@ -55,6 +55,7 @@ import {
 } from '../../../../shared/linear-issue-attribute-filter'
 import { normalizeListAttributeFilter, beginLinearMutation, isCurrentLinearMutation, isCurrentLinearRuntimeContext, canWriteLinearReadResult, getLinearReadScope, scopedLinearCacheKey } from './linear-state'
 import type { LinearIssueReadArgs, LinearFetchOptions, LinearPatchOptions, LinearReadScope, LinearSlice } from './linear-state'
+import { linearRequestRuntimeState } from './linear-state-request-runtime'
 export const CACHE_TTL = 60_000 // 60s — same as GitHub work-items revalidation TTL
 export const TEAM_CACHE_TTL = 10 * 60_000 // Teams change rarely and block visible Linear rows.
 export const MAX_CACHE_ENTRIES = 500
@@ -172,10 +173,6 @@ export const inflightCustomViewProjectRequests = new Map<
   string,
   InflightLinearCollectionRequest<LinearProjectSummary>
 >()
-let inflightStatusRequest: { contextKey: string; promise: Promise<void> } | null = null
-let linearStatusReadGeneration = 0
-let linearMutationGeneration = 0
-let linearCacheGeneration = 0
 export function getSelectedWorkspaceId(status: LinearConnectionStatus): LinearWorkspaceSelection | null {
   return status.selectedWorkspaceId ?? status.activeWorkspaceId ?? null
 }
@@ -196,13 +193,7 @@ export function linearListCacheKey(
   return `${workspaceId ?? 'default'}::list::${filter}::${limit}::${attributeSignature}`
 }
 
-// Why: facet mutations need one source-scoped token TaskPage can observe without
-// scattering membership guesses through board/detail components.
-export const LINEAR_LIST_INVALIDATION_VERSION_CAP = 10_000
-let linearListInvalidationToken: { scope: string; version: number } = {
-  scope: '',
-  version: 0
-}
+export { LINEAR_LIST_INVALIDATION_VERSION_CAP } from './linear-state-list-invalidation-token'
 export function linearTeamsCacheKey(workspaceId: LinearWorkspaceSelection | null | undefined): string {
   return `${workspaceId ?? 'default'}::teams`
 }
@@ -249,7 +240,7 @@ export function clearLinearRequestMaps(): void {
   inflightCustomViewProjectRequests.clear()
 }
 export function invalidateLinearCaches(): void {
-  linearCacheGeneration += 1
+  linearRequestRuntimeState.cacheGeneration += 1
   clearLinearRequestMaps()
   clearLinearMetadataCache()
 }
