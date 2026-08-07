@@ -148,6 +148,7 @@ import { createPtyConnectionRenderRiskController } from './pty-connection-render
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPtyConnectionTransportSettleController } from './pty-connection-transport-settle-controller'
 import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
+import { createPtyConnectionWindowsDoneStatusController } from './pty-connection-windows-done-status-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
 import { dispatchTerminalCommandFinishedEvent } from '@/hooks/terminal-command-finished-event'
@@ -1820,37 +1821,25 @@ export function connectPanePty(
   const shouldApplyNativeWindowsRewriteRefresh = isNativeWindowsConpty
   const shouldApplyWindowsRendererUnicodeRefresh = CLIENT_PLATFORM === 'win32'
   const shouldProtectNativeWindowsSynchronizedOutput = isNativeWindowsConpty
-  let lastAgentStatusState = state.agentStatusByPaneKey[cacheKey]?.state
-  let unsubscribeWindowsDoneTerminalModeReset: (() => void) | null = null
-  if (isNativeWindowsConpty) {
-    const initialAgentStatus = state.agentStatusByPaneKey[cacheKey]
-    if (
-      !initialAgentStatus &&
+  const windowsDoneStatusController = createPtyConnectionWindowsDoneStatusController({
+    enabled: isNativeWindowsConpty,
+    initialStatus: state.agentStatusByPaneKey[cacheKey],
+    historyResumeIdleCodex:
       paneStartup?.telemetry?.launch_source === 'sidebar' &&
       paneStartup.telemetry.request_kind === 'resume' &&
-      (paneStartup.launchAgent === 'codex' || paneStartup.telemetry.agent_kind === 'codex')
-    ) {
-      // Why: history resumes open on a completed Codex composer without a done
-      // row, so arm the same Windows stale-focus guard until work starts again.
-      suppressNativeWindowsIdleCodexFocusReports = true
-    }
-    if (initialAgentStatus?.state === 'done') {
-      setFocusReportSuppressionForAgentCompletion(undefined, initialAgentStatus.agentType)
-    }
-    unsubscribeWindowsDoneTerminalModeReset = useAppStore.subscribe((nextState) => {
-      const nextAgentStatus = nextState.agentStatusByPaneKey[cacheKey]
-      const nextAgentStatusState = nextAgentStatus?.state
-      if (nextAgentStatusState === 'done') {
-        setFocusReportSuppressionForAgentCompletion(undefined, nextAgentStatus.agentType)
-        if (lastAgentStatusState !== 'done') {
-          queueAgentIdleTerminalModeReset()
-        }
-      } else if (nextAgentStatusState) {
-        suppressNativeWindowsIdleCodexFocusReports = false
-      }
-      lastAgentStatusState = nextAgentStatusState
-    })
-  }
+      (paneStartup.launchAgent === 'codex' || paneStartup.telemetry.agent_kind === 'codex'),
+    subscribe: (listener) =>
+      useAppStore.subscribe((nextState) => listener(nextState.agentStatusByPaneKey[cacheKey])),
+    applyCompletionSuppression: (agentType) =>
+      setFocusReportSuppressionForAgentCompletion(undefined, agentType),
+    setCodexSuppression: (suppressed) => {
+      suppressNativeWindowsIdleCodexFocusReports = suppressed
+    },
+    clearSuppression: () => {
+      suppressNativeWindowsIdleCodexFocusReports = false
+    },
+    queueIdleReset: () => queueAgentIdleTerminalModeReset()
+  })
 
   const localWindowsTerminalCapabilities = hasCachedWindowsTerminalCapabilities()
     ? getCachedWindowsTerminalCapabilities()
@@ -5194,10 +5183,7 @@ export function connectPanePty(
       panePtyBindingController.clear()
       discardTerminalOutput(pane.terminal)
       unregisterE2ePtyDataInjection()
-      if (unsubscribeWindowsDoneTerminalModeReset !== null) {
-        unsubscribeWindowsDoneTerminalModeReset()
-        unsubscribeWindowsDoneTerminalModeReset = null
-      }
+      windowsDoneStatusController.dispose()
       imeCompositionRouteDisposable.dispose()
       onDataDisposable.dispose()
       userInputActivityDisposable?.dispose()

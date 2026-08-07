@@ -299,4 +299,23 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionPanePtyBindingController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes native Windows done-status watching through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-windows-done-status-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionWindowsDoneStatusController')
+    expect(orchestrator).not.toContain(
+      'let lastAgentStatusState = state.agentStatusByPaneKey[cacheKey]?.state'
+    )
+    expect(orchestrator).not.toContain(
+      'let unsubscribeWindowsDoneTerminalModeReset: (() => void) | null = null'
+    )
+    expect(owner).toContain('export function createPtyConnectionWindowsDoneStatusController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
