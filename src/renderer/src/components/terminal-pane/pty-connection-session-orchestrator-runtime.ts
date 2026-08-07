@@ -322,6 +322,7 @@ import { createPtyConnectionReattachFallbackController } from './pty-connection-
 import { runPtyConnectionSavedSshReattach } from './pty-connection-saved-ssh-reattach-controller'
 import { runPtyConnectionDeferredReattach } from './pty-connection-deferred-reattach-controller'
 import { waitForUserInitiatedSshConnect } from './pty-connection-ssh-prompt-wait-controller'
+import { runPtyConnectionSshPromptAdmission } from './pty-connection-ssh-prompt-admission-controller'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -5592,45 +5593,27 @@ export function connectPanePty(
       const legacyWorkerOwnsPane = isLegacyWorkerAutomaticResumeBlocked()
       if (gate.enterDeferredFlow && (!legacyWorkerOwnsPane || !gate.sshConnected)) {
         void (async () => {
-          // Why: for a passphrase target with no cached credential, don't auto-fire ssh.connect — a prompt popping just from focusing a tab / Cmd+J would surprise the user.
-          // Wait for a user-initiated connect first; no-passphrase targets return false here and auto-connect as before.
-          let needsPrompt = false
-          try {
-            needsPrompt = await getClientRuntime().ssh.needsPassphrasePrompt({
-              targetId: connectionId
-            })
-          } catch (err) {
-            console.warn('[pty-connection] needsPassphrasePrompt probe failed:', err)
-            // Why: on probe failure fall through to auto-connect rather than stranding the tab — a stuck tab is worse than a surprising prompt.
-          }
-          if (disposed || !capturedDirectSshRetryLeaseMatches()) {
-            return
-          }
-          if (needsPrompt) {
-            const alreadyConnected =
-              useAppStore.getState().sshConnectionStates.get(connectionId)?.status === 'connected'
-            if (!alreadyConnected) {
-              // Wait for the user-driven connect (SshDisconnectedDialog → passphrase → ssh.connect) to complete.
-              // Why: resolve on terminal-failure statuses too ('auth-failed'/'error'/'reconnection-failed') so it can't hang forever if the user cancels or the connect fails.
-              const outcome = await waitForUserInitiatedSshConnect({
+          const promptAdmission = await runPtyConnectionSshPromptAdmission({
+            needsPassphrasePrompt: () =>
+              getClientRuntime().ssh.needsPassphrasePrompt({ targetId: connectionId }),
+            isCurrentAuthority: () => !disposed && capturedDirectSshRetryLeaseMatches(),
+            isAlreadyConnected: () =>
+              useAppStore.getState().sshConnectionStates.get(connectionId)?.status === 'connected',
+            waitForUserConnect: () =>
+              waitForUserInitiatedSshConnect({
                 getStatus: () =>
                   useAppStore.getState().sshConnectionStates.get(connectionId)?.status,
                 subscribe: (listener) => useAppStore.subscribe(() => listener()),
                 isDisposed: () => disposed,
                 waitTeardowns,
                 outcomeForStatus: sshPromptConnectOutcomeForStatus
-              })
-              if (disposed || !capturedDirectSshRetryLeaseMatches()) {
-                return
-              }
-              if (outcome === 'cancelled') {
-                return
-              }
-              if (outcome === 'failed') {
-                reportError('SSH connection failed')
-                return
-              }
-            }
+              }),
+            warnProbeFailure: (error) =>
+              console.warn('[pty-connection] needsPassphrasePrompt probe failed:', error),
+            reportError
+          })
+          if (promptAdmission !== 'continue') {
+            return
           }
 
           // Why: wait for the shared SSH connection (multiple panes/tabs may need it) before PTY reattach, rather than returning early when it's in-flight.

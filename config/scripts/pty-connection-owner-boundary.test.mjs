@@ -6,6 +6,22 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes SSH prompt admission through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-ssh-prompt-admission-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionSshPromptAdmission } from './pty-connection-ssh-prompt-admission-controller'"
+    )
+    expect(orchestrator).not.toContain('let needsPrompt = false')
+    expect(controller).toContain('export async function runPtyConnectionSshPromptAdmission(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes user-initiated SSH connect waiting through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
