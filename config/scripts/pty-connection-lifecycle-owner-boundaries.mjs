@@ -346,4 +346,19 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionStreamGenerationController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes terminal activity evidence through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-terminal-activity-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionTerminalActivityController')
+    expect(orchestrator).not.toContain('let lastTerminalInputAt = Number.NEGATIVE_INFINITY')
+    expect(orchestrator).not.toContain('let hasReceivedPtyOutput = false')
+    expect(owner).toContain('export function createPtyConnectionTerminalActivityController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

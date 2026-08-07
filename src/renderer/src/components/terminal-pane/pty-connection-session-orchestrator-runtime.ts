@@ -148,6 +148,7 @@ import { createPtyConnectionRenderRiskController } from './pty-connection-render
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPtyConnectionTitleCompletionDeferralController } from './pty-connection-title-completion-deferral-controller'
 import { createPtyConnectionStreamGenerationController } from './pty-connection-stream-generation-controller'
+import { createPtyConnectionTerminalActivityController } from './pty-connection-terminal-activity-controller'
 import { createPtyConnectionTransportSettleController } from './pty-connection-transport-settle-controller'
 import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
 import { createPtyConnectionWindowsDoneStatusController } from './pty-connection-windows-done-status-controller'
@@ -344,6 +345,7 @@ export function connectPanePty(
   let mountFollowsTerminalPark = isTerminalTabParked(deps.tabId)
   exposeE2eTerminalPtyOutputDebug()
   let disposed = false
+  const terminalActivityController = createPtyConnectionTerminalActivityController()
   const structuralReplayCoordinator = createTerminalStructuralReplayCoordinator(pane.terminal)
   let unregisterBacklogRecovery: (() => void) | null = null
   let unregisterDocumentVisibilityRecovery: (() => void) | null = null
@@ -1276,8 +1278,8 @@ export function connectPanePty(
     },
     getHadExistingPaneTransportAtConnect: () => hadExistingPaneTransportAtConnect,
     getRestoredPtyIdForTransport: () => restoredPtyIdForTransport,
-    getLastTerminalInputAt: () => lastTerminalInputAt,
-    getHasReceivedPtyOutput: () => hasReceivedPtyOutput
+    getLastTerminalInputAt: terminalActivityController.getLastInputAt,
+    getHasReceivedPtyOutput: terminalActivityController.hasReceivedOutput
   })
   const { onExit } = exitController
 
@@ -1896,11 +1898,9 @@ export function connectPanePty(
       })
   const shouldDeliverStartupViaTerminalPaste = paneStartup?.delivery === 'terminal-paste'
   const hadExistingPaneTransportAtConnect = deps.paneTransportsRef.current.size > 0
-  let lastTerminalInputAt = Number.NEGATIVE_INFINITY
-  let hasReceivedPtyOutput = false
   const streamGenerationController = createPtyConnectionStreamGenerationController()
   const markTerminalInputSent = (): void => {
-    lastTerminalInputAt = performance.now()
+    terminalActivityController.markInput(performance.now())
     // Why: input must probe a wedged xterm even when the PTY produces no renderer output.
     requestTerminalWritePipelineProbe(pane.terminal)
   }
@@ -2563,7 +2563,7 @@ export function connectPanePty(
     })
     const foregroundRenderController = createPtyConnectionForegroundRenderController({
       now: () => performance.now(),
-      getLastTerminalInputAt: () => lastTerminalInputAt,
+      getLastTerminalInputAt: terminalActivityController.getLastInputAt,
       foregroundRiskPrefersRefresh: renderRiskController.foregroundOutputPrefersRenderRefresh,
       rewriteDecision: terminalRewriteOutputRenderRefreshDecision,
       rewriteOutputPrefersRefresh: terminalRewriteOutputPrefersRenderRefresh,
@@ -2577,7 +2577,7 @@ export function connectPanePty(
     const foregroundLatencyController = createPtyConnectionForegroundLatencyController({
       paneId: pane.id,
       now: () => performance.now(),
-      getLastTerminalInputAt: () => lastTerminalInputAt,
+      getLastTerminalInputAt: terminalActivityController.getLastInputAt,
       isPaneMarkedActive: () => deps.isActiveRef.current,
       getActivePaneId: () => manager.getActivePane?.()?.id ?? null,
       consumeInactiveBudget: consumeInactiveForegroundImmediateBudget
@@ -2585,7 +2585,7 @@ export function connectPanePty(
     const synchronizedForegroundController = createPtyConnectionSynchronizedForegroundController({
       protectedOutput: shouldProtectNativeWindowsSynchronizedOutput,
       now: () => performance.now(),
-      getLastTerminalInputAt: () => lastTerminalInputAt
+      getLastTerminalInputAt: terminalActivityController.getLastInputAt
     })
 
     // The replay path uses the guard so xterm auto-replies to embedded query
@@ -4190,7 +4190,7 @@ export function connectPanePty(
         return
       }
       if (data.length > 0) {
-        hasReceivedPtyOutput = true
+        terminalActivityController.markOutput()
         recordAgentHibernationPaneOutput(cacheKey)
         // Why: output is the agent-start signal that ends the relaxed no-evidence process-scan cadence (a starting agent always prints).
         agentCompletionCoordinator.observeOutputActivity()
