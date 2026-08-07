@@ -6,6 +6,24 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes deferred SSH connect composition through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-deferred-ssh-connect-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionDeferredSshConnect } from './pty-connection-deferred-ssh-connect-controller'"
+    )
+    expect(orchestrator).not.toContain(
+      'const promptAdmission = await runPtyConnectionSshPromptAdmission('
+    )
+    expect(controller).toContain('export async function runPtyConnectionDeferredSshConnect(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes shared SSH connection settlement through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
