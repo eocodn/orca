@@ -6,6 +6,23 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes fresh-spawn registry settlement through its concrete tracker', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const tracker = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-spawn-tracker.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'"
+    )
+    expect(orchestrator).not.toContain('pendingSpawnByPaneKey.set(')
+    expect(orchestrator).not.toContain('pendingSpawnByPaneKey.delete(')
+    expect(tracker).toContain('export function trackPtyConnectionSpawn(')
+    expect(tracker.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes pending-spawn adoption through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

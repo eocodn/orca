@@ -254,8 +254,7 @@ import {
   SYNCHRONIZED_OUTPUT_START_SEQUENCE,
   TERMINAL_FOCUS_IN_SEQUENCE,
   TERMINAL_FOCUS_OUT_SEQUENCE,
-  TERMINAL_RENDERER_RISK_SCAN_TAIL_CHARS,
-  pendingSpawnByPaneKey
+  TERMINAL_RENDERER_RISK_SCAN_TAIL_CHARS
 } from './pty-connection-runtime-state'
 export { STARTUP_CWD_FALLBACK_NOTICE } from './pty-connection-runtime-state'
 import {
@@ -316,6 +315,7 @@ import { createPtyConnectionReattachAttemptController } from './pty-connection-r
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
 import { resolvePtyConnectionAttachCandidate } from './pty-connection-attach-candidate'
 import { createPtyConnectionPendingSpawnController } from './pty-connection-pending-spawn-controller'
+import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 
 // Why: when multiple panes/tabs need the same deferred SSH connection,
 // the first one calls ssh.connect() and subsequent ones must wait for it
@@ -2711,7 +2711,7 @@ export function connectPanePty(
         .finally(() => {
           transportConnectInFlightSince = null
         })
-      const trackedPromise: Promise<string | null> = Promise.resolve(spawnedRaw)
+      const processedSpawnPromise: Promise<string | null> = Promise.resolve(spawnedRaw)
         .then(async (spawnedPtyId) => {
           if (outputCallbacks.generation !== transportStreamGeneration) {
             const gen = await preSignalPromise
@@ -2818,27 +2818,15 @@ export function connectPanePty(
           }
           return null
         })
-        .finally(() => {
-          if (pendingSpawnByPaneKey.get(pendingSpawnKey) === trackedPromise) {
-            pendingSpawnByPaneKey.delete(pendingSpawnKey)
-          }
-        })
-      armDirectSshPaneRetryTimeout(trackedPromise, directSshRetryAttempt)
-      void trackedPromise.then((spawnedPtyId) => {
-        if (spawnedPtyId) {
-          return
-        }
-        queueMicrotask(() => {
-          if (disposed || transport.getPtyId() || pendingSpawnByPaneKey.has(pendingSpawnKey)) {
-            return
-          }
-          settleDirectSshPaneRetryAttempt(directSshRetryAttempt, 'failed')
-        })
+      return trackPtyConnectionSpawn({
+        pendingSpawnKey,
+        spawnPromise: processedSpawnPromise,
+        directSshRetryAttempt,
+        armDirectSshPaneRetryTimeout,
+        isDisposed: () => disposed,
+        getPtyId: () => transport.getPtyId(),
+        settleDirectSshPaneRetryAttempt
       })
-      // Why: split panes in the same tab can spawn concurrently. Key by pane
-      // as well as tab so a remount cannot attach to a sibling setup pane's PTY.
-      pendingSpawnByPaneKey.set(pendingSpawnKey, trackedPromise)
-      return trackedPromise
     }
 
     let foregroundRefreshRiskScanTail = ''
