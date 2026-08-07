@@ -141,6 +141,7 @@ import { createPtyConnectionHiddenRestoreDeferredRetryController } from './pty-c
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
 import { createPtyConnectionHiddenRestoreFreshnessController } from './pty-connection-hidden-restore-freshness-controller'
 import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
+import { createPtyConnectionHiddenRestoreIdentityController } from './pty-connection-hidden-restore-identity-controller'
 import {
   createPtyConnectionHiddenRestorePendingLiveController,
   type HiddenRestorePendingLiveChunk
@@ -2697,7 +2698,6 @@ export function connectPanePty(
       }
     }
 
-    let hiddenOutputRestoreNeeded = false
     let hiddenOutputRestoreInFlight: Promise<void> | null = null
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
@@ -2705,10 +2705,6 @@ export function connectPanePty(
       valid: boolean
       started: boolean
     } | null = null
-    // Why: hidden recovery state belongs to one PTY stream. Reattach/restart
-    // can reuse the pane object for a different session before visibility.
-    let hiddenOutputRestorePtyId: string | null = null
-    let hiddenOutputRestoreGeneration = 0
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
     const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
@@ -2719,6 +2715,7 @@ export function connectPanePty(
       createPtyConnectionHiddenRestoreReplayBaselineController()
     const hiddenRestorePendingLiveController =
       createPtyConnectionHiddenRestorePendingLiveController()
+    const hiddenRestoreIdentityController = createPtyConnectionHiddenRestoreIdentityController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -2730,21 +2727,21 @@ export function connectPanePty(
         isDisposed: () => disposed,
         isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
         hasPending: hiddenRestorePendingLiveController.hasPending,
-        getRestorePtyId: () => hiddenOutputRestorePtyId,
+        getRestorePtyId: hiddenRestoreIdentityController.getPtyId,
         getCurrentPtyId: () => transport.getPtyId(),
-        getRestoreGeneration: () => hiddenOutputRestoreGeneration,
+        getRestoreGeneration: hiddenRestoreIdentityController.getGeneration,
         onDeadline: abandonHiddenOutputRestoreAndDrainPendingForeground
       })
     const hiddenRestoreDeferredRetryController =
       createPtyConnectionHiddenRestoreDeferredRetryController({
         isDisposed: () => disposed,
         isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
-        isRestoreNeeded: () => hiddenOutputRestoreNeeded,
+        isRestoreNeeded: hiddenRestoreIdentityController.isNeeded,
         onRetry: () => {
           requestHiddenOutputRestoreIfNeeded()
         },
         onExhausted: () => {
-          const ptyId = hiddenOutputRestorePtyId
+          const ptyId = hiddenRestoreIdentityController.getPtyId()
           if (ptyId !== null) {
             abandonHiddenOutputRestoreAndDrainPendingForeground(ptyId)
             return
@@ -2963,11 +2960,10 @@ export function connectPanePty(
       if (!canUseHiddenOutputSnapshot(ptyId)) {
         return
       }
-      if (hiddenOutputRestorePtyId !== null && hiddenOutputRestorePtyId !== ptyId) {
+      if (hiddenRestoreIdentityController.hasDifferentPty(ptyId)) {
         clearHiddenOutputRestoreState()
       }
-      hiddenOutputRestorePtyId = ptyId
-      hiddenOutputRestoreNeeded = true
+      hiddenRestoreIdentityController.markNeededFor(ptyId)
       if (shouldWritePtyOutputForeground(deps.isVisibleRef.current)) {
         requestHiddenOutputRestoreIfNeeded()
       }
@@ -3155,11 +3151,10 @@ export function connectPanePty(
       if (!canUseHiddenOutputSnapshot(ptyId)) {
         return
       }
-      if (hiddenOutputRestorePtyId !== null && hiddenOutputRestorePtyId !== ptyId) {
+      if (hiddenRestoreIdentityController.hasDifferentPty(ptyId)) {
         clearHiddenOutputRestoreState()
       }
-      hiddenOutputRestorePtyId = ptyId
-      hiddenOutputRestoreNeeded = true
+      hiddenRestoreIdentityController.markNeededFor(ptyId)
       const pending: HiddenRestorePendingLiveChunk = { data }
       if (typeof meta?.seq === 'number') {
         pending.seq = meta.seq
@@ -3267,24 +3262,25 @@ export function connectPanePty(
       expectedPtyId: string,
       opts: { quiet?: boolean } = {}
     ): void {
-      if (transport.getPtyId() !== expectedPtyId || hiddenOutputRestorePtyId !== expectedPtyId) {
+      if (
+        transport.getPtyId() !== expectedPtyId ||
+        hiddenRestoreIdentityController.getPtyId() !== expectedPtyId
+      ) {
         resetHiddenOutputRestoreIfPtyChanged()
         return
       }
       const { chunks: pendingChunks, overflow: hadPendingOverflow } =
         hiddenRestorePendingLiveController.takeForAbandon()
       const replayingSnapshot = hiddenRestoreReplayBaselineController.take()
-      hiddenOutputRestoreGeneration += 1
+      const nextRestoreGeneration = hiddenRestoreIdentityController.invalidate()
       if (
         hiddenOutputSnapshotScrollRestore?.valid &&
         hiddenOutputSnapshotScrollRestore.ptyId === expectedPtyId
       ) {
         // Why: flood abandonment stops recovery bookkeeping, but its already-queued replay must keep the rebuild bracket and final pin.
-        hiddenOutputSnapshotScrollRestore.generation = hiddenOutputRestoreGeneration
+        hiddenOutputSnapshotScrollRestore.generation = nextRestoreGeneration
       }
       hiddenOutputRestoreInFlight = null
-      hiddenOutputRestoreNeeded = false
-      hiddenOutputRestorePtyId = null
       hiddenRestoreFreshnessController.reset()
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
@@ -3324,10 +3320,8 @@ export function connectPanePty(
       clearPendingLiveChunksDuringRestore()
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
-      hiddenOutputRestoreNeeded = false
-      hiddenOutputRestorePtyId = null
+      hiddenRestoreIdentityController.invalidate()
       hiddenRestoreReplayBaselineController.clear()
-      hiddenOutputRestoreGeneration += 1
     }
 
     function cancelSnapshotScrollRestore(): void {
@@ -3371,10 +3365,10 @@ export function connectPanePty(
     }
 
     function resetHiddenOutputRestoreIfPtyChanged(): void {
-      if (hiddenOutputRestorePtyId === null) {
+      if (hiddenRestoreIdentityController.getPtyId() === null) {
         return
       }
-      if (transport.getPtyId() !== hiddenOutputRestorePtyId) {
+      if (transport.getPtyId() !== hiddenRestoreIdentityController.getPtyId()) {
         // Why: renderer backlog is tied to the old PTY stream; after reattach it must not delay or replay before the new PTY.
         clearHiddenOutputRestoreState()
         restoredSnapshotReconciliationController.clear()
@@ -3406,7 +3400,7 @@ export function connectPanePty(
       pendingEscapeTailAnsi?: string
     }): Promise<void> {
       const restorePtyId = transport.getPtyId()
-      const restoreGeneration = hiddenOutputRestoreGeneration
+      const restoreGeneration = hiddenRestoreIdentityController.getGeneration()
       if (hiddenOutputSnapshotScrollRestore) {
         cancelSnapshotScrollRestore()
       }
@@ -3427,7 +3421,7 @@ export function connectPanePty(
               !scrollRestore.valid ||
               disposed ||
               transport.getPtyId() !== scrollRestore.ptyId ||
-              hiddenOutputRestoreGeneration !== scrollRestore.generation
+              hiddenRestoreIdentityController.getGeneration() !== scrollRestore.generation
             ) {
               return
             }
@@ -3470,13 +3464,13 @@ export function connectPanePty(
               scrollRestore.valid &&
               !disposed &&
               transport.getPtyId() === scrollRestore.ptyId &&
-              hiddenOutputRestoreGeneration === scrollRestore.generation,
+              hiddenRestoreIdentityController.getGeneration() === scrollRestore.generation,
             afterRestore: async () => {
               const isCurrentRestore = (): boolean =>
                 scrollRestore.valid &&
                 !disposed &&
                 transport.getPtyId() === scrollRestore.ptyId &&
-                hiddenOutputRestoreGeneration === scrollRestore.generation
+                hiddenRestoreIdentityController.getGeneration() === scrollRestore.generation
               if (!isCurrentRestore()) {
                 return
               }
@@ -3541,14 +3535,17 @@ export function connectPanePty(
         return false
       }
       resetHiddenOutputRestoreIfPtyChanged()
-      const ptyId = hiddenOutputRestorePtyId ?? transport.getPtyId()
-      if (!hiddenOutputRestoreNeeded && !hiddenRestorePendingLiveController.hasQueuedChunks()) {
+      const ptyId = hiddenRestoreIdentityController.getPtyId() ?? transport.getPtyId()
+      if (
+        !hiddenRestoreIdentityController.isNeeded() &&
+        !hiddenRestorePendingLiveController.hasQueuedChunks()
+      ) {
         return false
       }
       if (!canUseHiddenOutputSnapshot(ptyId)) {
         return false
       }
-      hiddenOutputRestorePtyId = ptyId
+      hiddenRestoreIdentityController.bindPty(ptyId)
       if (hiddenOutputRestoreInFlight) {
         hiddenRestoreForegroundDeadlineController.arm()
         return true
@@ -3557,16 +3554,16 @@ export function connectPanePty(
         const priority = foregroundLatencyController.isActiveSplitPane() ? 'active' : 'inactive'
         if (priority === 'inactive') {
           const scheduledPtyId = ptyId
-          const scheduledGeneration = hiddenOutputRestoreGeneration
+          const scheduledGeneration = hiddenRestoreIdentityController.getGeneration()
           // Why: resume can reveal many split panes at once; spread inactive replays across frames so xterm scrollback replay doesn't block return.
           hiddenRestoreScheduleController.scheduleInactive(() => {
             if (
               disposed ||
-              hiddenOutputRestoreGeneration !== scheduledGeneration ||
-              hiddenOutputRestorePtyId !== scheduledPtyId ||
+              hiddenRestoreIdentityController.getGeneration() !== scheduledGeneration ||
+              hiddenRestoreIdentityController.getPtyId() !== scheduledPtyId ||
               transport.getPtyId() !== scheduledPtyId ||
               !canUseHiddenOutputSnapshot(scheduledPtyId) ||
-              (!hiddenOutputRestoreNeeded &&
+              (!hiddenRestoreIdentityController.isNeeded() &&
                 !hiddenRestorePendingLiveController.hasQueuedChunks()) ||
               !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
             ) {
@@ -3584,26 +3581,26 @@ export function connectPanePty(
         // Backstop (rc.7.perf loop): bound how many snapshot fetch+replay rounds one task burns before yielding to the live stream.
         let restoreIterations = 0
         while (!disposed) {
-          const currentPtyId = hiddenOutputRestorePtyId
+          const currentPtyId = hiddenRestoreIdentityController.getPtyId()
           if (currentPtyId === null) {
             clearHiddenOutputRestoreState()
             return
           }
           if (!canUseHiddenOutputSnapshot(currentPtyId)) {
-            if (hiddenOutputRestorePtyId === currentPtyId) {
+            if (hiddenRestoreIdentityController.getPtyId() === currentPtyId) {
               clearHiddenOutputRestoreState()
             }
             writeRestoreUnavailableWarning()
             return
           }
           if (transport.getPtyId() !== currentPtyId) {
-            if (hiddenOutputRestorePtyId === currentPtyId) {
+            if (hiddenRestoreIdentityController.getPtyId() === currentPtyId) {
               clearHiddenOutputRestoreState()
             }
             return
           }
-          const restoreGeneration = hiddenOutputRestoreGeneration
-          hiddenOutputRestoreNeeded = false
+          const restoreGeneration = hiddenRestoreIdentityController.getGeneration()
+          hiddenRestoreIdentityController.clearNeeded()
           let snapshot: PtyBufferSnapshot | null = null
           try {
             snapshot = await serializeHiddenOutputSnapshot(currentPtyId, {
@@ -3615,18 +3612,20 @@ export function connectPanePty(
           if (disposed) {
             return
           }
-          const restoreGenerationChanged = hiddenOutputRestoreGeneration !== restoreGeneration
+          const restoreGenerationChanged =
+            hiddenRestoreIdentityController.getGeneration() !== restoreGeneration
           const restorePtyChanged =
-            transport.getPtyId() !== currentPtyId || hiddenOutputRestorePtyId !== currentPtyId
+            transport.getPtyId() !== currentPtyId ||
+            hiddenRestoreIdentityController.getPtyId() !== currentPtyId
           if (restoreGenerationChanged || restorePtyChanged) {
             // Why: the snapshot belongs to the requested PTY; after reattach it's stale, and a stale generation may be an abandoned timeout superseded by a newer restore.
-            if (restorePtyChanged && hiddenOutputRestorePtyId === currentPtyId) {
+            if (restorePtyChanged && hiddenRestoreIdentityController.getPtyId() === currentPtyId) {
               clearHiddenOutputRestoreState()
             }
             return
           }
           if (!snapshot) {
-            hiddenOutputRestoreNeeded = true
+            hiddenRestoreIdentityController.markNeeded()
             hiddenRestoreFreshnessController.reset()
             hiddenRestoreDeferredRetryController.schedule()
             return
@@ -3636,8 +3635,8 @@ export function connectPanePty(
           await applyMainBufferSnapshot(snapshot)
           if (
             disposed ||
-            hiddenOutputRestoreGeneration !== restoreGeneration ||
-            hiddenOutputRestorePtyId !== currentPtyId ||
+            hiddenRestoreIdentityController.getGeneration() !== restoreGeneration ||
+            hiddenRestoreIdentityController.getPtyId() !== currentPtyId ||
             transport.getPtyId() !== currentPtyId
           ) {
             return
@@ -3648,14 +3647,13 @@ export function connectPanePty(
           const needsFreshSnapshot = hiddenRestoreFreshnessController.takeNeeded()
           const drainOutcome = drainPendingLiveChunksAfterSnapshot(snapshot.seq)
           if (drainOutcome === 'drained' && !needsFreshSnapshot) {
-            hiddenOutputRestoreNeeded = false
-            hiddenOutputRestorePtyId = null
+            hiddenRestoreIdentityController.complete()
             hiddenRestoreForegroundDeadlineController.clear()
             return
           }
           if (!shouldWritePtyOutputForeground(deps.isVisibleRef.current)) {
             // Why: hidden bytes arriving during the snapshot aren't in renderer memory; leave recovery pending for reveal, don't loop snapshots in a throttled tab.
-            hiddenOutputRestoreNeeded = true
+            hiddenRestoreIdentityController.markNeeded()
             return
           }
           if (drainOutcome === 'overflow') {
@@ -3678,7 +3676,7 @@ export function connectPanePty(
             abandonHiddenOutputRestoreAndDrainPendingForeground(currentPtyId, { quiet: true })
             return
           }
-          hiddenOutputRestoreNeeded = true
+          hiddenRestoreIdentityController.markNeeded()
         }
       })()
       const hiddenOutputRestoreTask = hiddenOutputRestoreInFlight
@@ -3688,12 +3686,12 @@ export function connectPanePty(
           hiddenOutputRestoreInFlight = null
         }
         if (hiddenRestorePendingLiveController.hasPending()) {
-          hiddenOutputRestoreNeeded = true
+          hiddenRestoreIdentityController.markNeeded()
           hiddenRestoreForegroundDeadlineController.arm()
         }
         if (
           !hiddenRestoreDeferredRetryController.isDeferred() &&
-          hiddenOutputRestoreNeeded &&
+          hiddenRestoreIdentityController.isNeeded() &&
           shouldWritePtyOutputForeground(deps.isVisibleRef.current)
         ) {
           requestHiddenOutputRestoreIfNeeded()
@@ -3710,7 +3708,7 @@ export function connectPanePty(
       requestRestore: () => {
         requestHiddenOutputRestoreIfNeeded()
       },
-      getRestorePtyId: () => hiddenOutputRestorePtyId
+      getRestorePtyId: () => hiddenRestoreIdentityController.getPtyId()
     })
 
     recoverySubscriptionsController.replaceBacklog(
@@ -3867,7 +3865,8 @@ export function connectPanePty(
         )
       }
       const restoreAppliesToCurrentPty =
-        hiddenOutputRestorePtyId !== null && transport.getPtyId() === hiddenOutputRestorePtyId
+        hiddenRestoreIdentityController.getPtyId() !== null &&
+        transport.getPtyId() === hiddenRestoreIdentityController.getPtyId()
       const skipBackgroundAlternateScreenFrame =
         meta?.background === true &&
         shouldWritePtyOutputForeground(deps.isVisibleRef.current) &&
@@ -3878,7 +3877,7 @@ export function connectPanePty(
       } else if (shouldSkipHiddenRendererOutput(foreground, orderedRendererData)) {
         skipHiddenRendererOutput(orderedRendererData)
       } else if (
-        (hiddenOutputRestoreNeeded || hiddenOutputRestoreInFlight) &&
+        (hiddenRestoreIdentityController.isNeeded() || hiddenOutputRestoreInFlight) &&
         restoreAppliesToCurrentPty
       ) {
         if (foreground) {
@@ -3889,7 +3888,7 @@ export function connectPanePty(
           requestHiddenOutputRestoreIfNeeded()
         } else if (hiddenOutputRestoreInFlight) {
           renderRiskController.resetSkippedHidden()
-          hiddenOutputRestoreNeeded = true
+          hiddenRestoreIdentityController.markNeeded()
           hiddenRestoreFreshnessController.markNeeded()
         }
         // Why: hidden chunks with a restore already latched are dropped; the reveal snapshot covers their bytes.

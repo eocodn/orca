@@ -322,6 +322,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore identity state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-identity-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreIdentityController')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreNeeded =')
+    expect(orchestrator).not.toContain('let hiddenOutputRestorePtyId:')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreGeneration =')
+    expect(owner).toContain('export function createPtyConnectionHiddenRestoreIdentityController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes certified-dead restore recovery claims through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
