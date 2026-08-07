@@ -140,6 +140,7 @@ import { createPtyConnectionForegroundRenderController } from './pty-connection-
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
+import { createPtyConnectionRemoteOutputPauseController } from './pty-connection-remote-output-pause-controller'
 import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
@@ -374,7 +375,7 @@ export function connectPanePty(
   let handleRendererOwnedAgentStatus: NonNullable<
     IpcPtyTransportOptions['onAgentStatus']
   > = () => {}
-  let remoteOutputPausedPtyId: string | null = null
+  const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
   const agentIdleTerminalModeController = createPtyConnectionAgentIdleTerminalModeController({
     isDisposed: () => disposed,
     writeReset: (sequence) => {
@@ -1944,7 +1945,10 @@ export function connectPanePty(
   // predicate), so exactly one reply goes out.
   const handleHiddenMode2031SubscribeFact = (): void => {
     const ptyId = transport.getPtyId()
-    if (disposed || (!isHiddenDeliveryGateManagedPty(ptyId) && remoteOutputPausedPtyId !== ptyId)) {
+    if (
+      disposed ||
+      (!isHiddenDeliveryGateManagedPty(ptyId) && !remoteOutputPauseController.isPaused(ptyId))
+    ) {
       return
     }
     const mode = resolveTerminalColorSchemeMode(
@@ -1969,7 +1973,10 @@ export function connectPanePty(
   // sent: a withdrawal is not a query.
   const handleHiddenMode2031UnsubscribeFact = (): void => {
     const ptyId = transport.getPtyId()
-    if (disposed || (!isHiddenDeliveryGateManagedPty(ptyId) && remoteOutputPausedPtyId !== ptyId)) {
+    if (
+      disposed ||
+      (!isHiddenDeliveryGateManagedPty(ptyId) && !remoteOutputPauseController.isPaused(ptyId))
+    ) {
       return
     }
     deps.paneMode2031Ref.current.delete(pane.id)
@@ -2900,8 +2907,7 @@ export function connectPanePty(
         return
       }
       if (!supported || !paused) {
-        if (remoteOutputPausedPtyId === ptyId) {
-          remoteOutputPausedPtyId = null
+        if (remoteOutputPauseController.clearIfMatches(ptyId)) {
           if (!mainSideEffectAuthority) {
             dropSideEffectFactConsumer()
           }
@@ -2911,8 +2917,7 @@ export function connectPanePty(
         }
         return
       }
-      if (remoteOutputPausedPtyId !== ptyId) {
-        remoteOutputPausedPtyId = ptyId
+      if (remoteOutputPauseController.markPaused(ptyId)) {
         registerSideEffectFactConsumerForPty(ptyId, true)
       }
       markHiddenOutputRestoreNeeded()
@@ -2921,8 +2926,7 @@ export function connectPanePty(
     syncHiddenRendererPtyDelivery = (): void => {
       const ptyId = transport.getPtyId()
       syncModelRestoreNeededSubscription(ptyId)
-      if (remoteOutputPausedPtyId !== null && remoteOutputPausedPtyId !== ptyId) {
-        remoteOutputPausedPtyId = null
+      if (remoteOutputPauseController.clearIfRebound(ptyId)) {
         if (!mainSideEffectAuthority) {
           dropSideEffectFactConsumer()
         }
@@ -2958,8 +2962,7 @@ export function connectPanePty(
     }
     releaseHiddenRendererPtyDelivery = (): void => {
       transport.setOutputPaused?.(false)
-      if (remoteOutputPausedPtyId !== null) {
-        remoteOutputPausedPtyId = null
+      if (remoteOutputPauseController.clear()) {
         if (!mainSideEffectAuthority) {
           dropSideEffectFactConsumer()
         }
@@ -3108,7 +3111,7 @@ export function connectPanePty(
       const ptyId = transport.getPtyId()
       if (
         foreground ||
-        (!shouldSnapshotHiddenCodexOutput && remoteOutputPausedPtyId !== ptyId) ||
+        (!shouldSnapshotHiddenCodexOutput && !remoteOutputPauseController.isPaused(ptyId)) ||
         !canUseHiddenOutputSnapshot(ptyId)
       ) {
         return false
