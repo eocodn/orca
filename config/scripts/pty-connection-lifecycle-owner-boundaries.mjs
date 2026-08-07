@@ -236,4 +236,19 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionAlternateScreenRepaintController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes visible foreground sample admission through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-visible-foreground-sample-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionVisibleForegroundSampleController')
+    expect(orchestrator).not.toContain('let visibleForegroundSamplePending = false')
+    expect(orchestrator).not.toContain('let visibleForegroundSampleSettled = false')
+    expect(owner).toContain('export function createPtyConnectionVisibleForegroundSampleController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

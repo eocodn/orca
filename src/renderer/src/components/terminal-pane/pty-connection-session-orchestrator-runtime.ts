@@ -144,6 +144,7 @@ import { createPtyConnectionReattachReplayController } from './pty-connection-re
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
+import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
 import { dispatchTerminalCommandFinishedEvent } from '@/hooks/terminal-command-finished-event'
@@ -794,8 +795,6 @@ export function connectPanePty(
     }
   }
   let deferredCommandFinishedStatusDrop: (() => void) | null = null
-  let visibleForegroundSamplePending = false
-  let visibleForegroundSampleSettled = false
   const settleDeferredCommandFinishedStatusDrop = (): void => {
     const dropStatus = deferredCommandFinishedStatusDrop
     deferredCommandFinishedStatusDrop = null
@@ -822,6 +821,31 @@ export function connectPanePty(
       executionHostId: getExecutionHostIdForWorktree(state, deps.worktreeId)
     })
   }
+  function startVisibleForegroundSample(expectsAgent: boolean): boolean {
+    return paneForegroundAgentTracker.onVisiblePtyBound(expectsAgent)
+  }
+  const visibleForegroundSampleController = createPtyConnectionVisibleForegroundSampleController({
+    resolveSample: (forceRoutingConfirmation) => {
+      if (!deps.isVisibleRef.current) {
+        return null
+      }
+      const state = useAppStore.getState()
+      const foreground = state.paneForegroundAgentByPaneKey[cacheKey]
+      // Why: a daemon reattach may restore display identity without current routing authority.
+      if (foreground?.agent && foreground.routingTrusted === true) {
+        return null
+      }
+      if (!forceRoutingConfirmation && paneHasLiveHookAgentIcon(state)) {
+        return null
+      }
+      // Why: a completed local process ladder is stronger than stale launch metadata.
+      if (foreground?.shellForeground) {
+        return null
+      }
+      return { expectsAgent: paneExpectsLaunchAgent(state) }
+    },
+    sample: startVisibleForegroundSample
+  })
   const paneForegroundAgentTracker = createPaneForegroundAgentTracker({
     getPtyId: () => transport.getPtyId(),
     isTrackablePtyId: isForegroundTrackingAllowed,
@@ -849,10 +873,7 @@ export function connectPanePty(
       settleDeferredCommandFinishedStatusDrop()
     },
     onCommandFinishedUnavailable: settleDeferredCommandFinishedStatusDrop,
-    onVisibleForegroundSettled: (outcome) => {
-      visibleForegroundSamplePending = false
-      visibleForegroundSampleSettled = outcome !== 'inconclusive'
-    }
+    onVisibleForegroundSettled: visibleForegroundSampleController.settle
   })
   // Why: one command-finished policy whether the signal arrives as bytes
   // (remote PTYs, kill switch off) or as a main-derived pty:sideEffect fact —
@@ -860,7 +881,7 @@ export function connectPanePty(
   // identical across authority modes.
   const handleCommandFinished = (bestEffortExitCode: number | null): void => {
     clearCommandInferredPaneAgentAfterPtySideEffects()
-    visibleForegroundSamplePending = false
+    visibleForegroundSampleController.clearPending()
     const shouldDeferStatusDrop = paneForegroundAgentTracker.onCommandFinished()
     // Why: the finished command may have moved HEAD or the index (e.g.
     // `git checkout`); nudge git UI now instead of waiting for a poll.
@@ -892,34 +913,7 @@ export function connectPanePty(
     deferredCommandFinishedStatusDrop = null
     dropStatus()
   }
-  const sampleVisiblePaneForegroundAgent = (forceRoutingConfirmation = false): void => {
-    if (
-      !deps.isVisibleRef.current ||
-      visibleForegroundSamplePending ||
-      visibleForegroundSampleSettled
-    ) {
-      return
-    }
-    const state = useAppStore.getState()
-    const foreground = state.paneForegroundAgentByPaneKey[cacheKey]
-    // Why: a daemon reattach may restore display identity without current
-    // routing authority. Only fresh evidence can suppress its confirmation.
-    if (foreground?.agent && foreground.routingTrusted === true) {
-      return
-    }
-    if (!forceRoutingConfirmation && paneHasLiveHookAgentIcon(state)) {
-      return
-    }
-    const expectsAgent = paneExpectsLaunchAgent(state)
-    // Why: a completed local process ladder is stronger than stale tab/startup
-    // launch metadata. Command-start clears this mark if the pane becomes busy.
-    if (foreground?.shellForeground) {
-      return
-    }
-    // Why: tab launch metadata can leak across split panes; rebuild pane-scoped
-    // identity from local process state, with remote/SSH excluded by the tracker.
-    visibleForegroundSamplePending = paneForegroundAgentTracker.onVisiblePtyBound(expectsAgent)
-  }
+  const sampleVisiblePaneForegroundAgent = visibleForegroundSampleController.request
   setStartAcceptedInferredCommand((agent) => {
     paneForegroundAgentTracker.onCommandStarted(agent)
   })
@@ -938,8 +932,7 @@ export function connectPanePty(
       agent: 'droid',
       shellForeground: false
     })
-    visibleForegroundSamplePending = false
-    visibleForegroundSampleSettled = false
+    visibleForegroundSampleController.reset()
     // Why: hook rows can suppress display-only sampling, but cannot restore
     // byte authority after this function explicitly revoked routing trust.
     sampleVisiblePaneForegroundAgent(true)
@@ -955,8 +948,7 @@ export function connectPanePty(
       // Why: a new command invalidates cleanup waiting on the previous D; only
       // a later confirmed shell boundary may retire this pane's live identity.
       deferredCommandFinishedStatusDrop = null
-      visibleForegroundSamplePending = false
-      visibleForegroundSampleSettled = false
+      visibleForegroundSampleController.reset()
       // Why: typed commands can be aliases, so they only widen the bounded
       // process-confirmation window; they never become routing evidence.
       paneForegroundAgentTracker.onCommandStarted(getCommandInferredPaneAgent())
@@ -5237,8 +5229,7 @@ export function connectPanePty(
       paneGeometryController.dispose()
       commandLifecycle.dispose()
       deferredCommandFinishedStatusDrop = null
-      visibleForegroundSamplePending = false
-      visibleForegroundSampleSettled = false
+      visibleForegroundSampleController.dispose()
       paneForegroundAgentTracker.dispose()
       agentCompletionCoordinator.dispose()
     }
