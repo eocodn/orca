@@ -134,6 +134,7 @@ import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
+import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
@@ -2471,8 +2472,25 @@ export function connectPanePty(
     }
     const { cols, rows, reportError } = preflight
 
+    const reattachReplayController = createPtyConnectionReattachReplayController({
+      getPtyId: () => transport.getPtyId(),
+      getStreamGeneration: () => transportStreamGeneration,
+      isDisposed: () => disposed,
+      writeReplayDataAsync: (data) => writeReplayDataAsync(data),
+      rememberPayloadAgentSignal: rememberReattachPayloadAgentSignal,
+      scanReplayKeyboardModes: (data) => kittyKeyboardModes.scanReplay(data),
+      buildReplayResetSequence: (data) => reattachReplayResetSequence(data),
+      sendFocusedReattachFocusInAfterReplay: (ptyId, streamGeneration) =>
+        sendFocusedReattachFocusInAfterReplay(ptyId, streamGeneration),
+      rebuildPaneWebgl: () => manager.rebuildPaneWebgl(pane.id),
+      beginLiveDataDeferral: (streamGeneration) => beginReattachLiveDataDeferral(streamGeneration),
+      finishLiveDataDeferral: (deliver, streamGeneration) =>
+        finishReattachLiveDataDeferral(deliver, streamGeneration),
+      runStructuralReplay: (operation, shouldRestore) =>
+        structuralReplayCoordinator.run(operation, { shouldRestore })
+    })
+
     const {
-      state: serializerControllerState,
       registerPaneSerializerFor,
       settlePaneSerializerAfterReplay,
       reportRemoteRendererSerializerReady
@@ -2486,7 +2504,8 @@ export function connectPanePty(
       getRendererOrderedFrame: () => ({
         ptyId: rendererOrderedPtyId,
         seq: rendererOrderedSeq
-      })
+      }),
+      whenReplayIdle: reattachReplayController.whenIdle
     })
 
     const {
@@ -2787,155 +2806,7 @@ export function connectPanePty(
       })
     }
 
-    type PendingReplayData = {
-      data: string
-      clearBeforeReplay: boolean
-      ptyId: string | null
-      generation: number
-      streamGeneration: number
-      pendingEscapeTailAnsi?: string
-    }
-
-    let pendingReplayData: PendingReplayData | null = null
-    let replayPayloadGeneration = 0
-    let replayDrainQueued = false
-    const drainReplayDataQueue = async (
-      expectedPtyId: string | null,
-      expectedStreamGeneration: number
-    ): Promise<boolean> => {
-      let appliedCurrentPayload = false
-      while (pendingReplayData !== null) {
-        if (
-          pendingReplayData.ptyId !== expectedPtyId ||
-          pendingReplayData.streamGeneration !== expectedStreamGeneration
-        ) {
-          return false
-        }
-        if (
-          transport.getPtyId() !== expectedPtyId ||
-          transportStreamGeneration !== expectedStreamGeneration
-        ) {
-          pendingReplayData = null
-          return false
-        }
-        const payload = pendingReplayData
-        const { data, clearBeforeReplay, pendingEscapeTailAnsi } = payload
-        pendingReplayData = null
-        const isCurrentPayload = (): boolean =>
-          !disposed &&
-          payload.generation === replayPayloadGeneration &&
-          payload.streamGeneration === transportStreamGeneration &&
-          transport.getPtyId() === payload.ptyId
-        if (!isCurrentPayload()) {
-          continue
-        }
-        // Relay replay buffers may overlap with content already rendered in
-        // xterm. Local eager replay decides this earlier so metadata-only frames
-        // can keep restored scrollback while still using the replay guard.
-        if (clearBeforeReplay) {
-          await writeReplayDataAsync('\x1b[2J\x1b[3J\x1b[H')
-          if (!isCurrentPayload()) {
-            continue
-          }
-        }
-        if (clearBeforeReplay || data.length > 0) {
-          // Why: an empty clearing frame is still an authoritative repaint and
-          // must clear a stale agent signal from an earlier payload.
-          rememberReattachPayloadAgentSignal(data, { fullScreenReplay: clearBeforeReplay })
-        }
-        // Why: replayed application bytes carry the live TUI's kitty keyboard
-        // negotiation; the mirror must re-arm from them after a reload. Replay
-        // semantics: relay reconnects redeliver the same window, so pushes
-        // apply as sets to keep the mirrored stack from accumulating frames.
-        kittyKeyboardModes.scanReplay(data)
-        await writeReplayDataAsync(data)
-        if (!isCurrentPayload()) {
-          continue
-        }
-        if (clearBeforeReplay || data.length > 0) {
-          await writeReplayDataAsync(reattachReplayResetSequence(data))
-          if (!isCurrentPayload()) {
-            continue
-          }
-          sendFocusedReattachFocusInAfterReplay(payload.ptyId, payload.streamGeneration)
-        }
-        // Why: the daemon could not serialize a PTY read that ended mid-escape,
-        // so the emulator shipped the dangling partial separately. Write it LAST
-        // — after the reset, whose ESC would otherwise abort it — so the next
-        // live chunk completes the sequence instead of rendering literally
-        // (#7329). Guarded so a later ESC cannot leave the parser wedged.
-        if (pendingEscapeTailAnsi) {
-          await writeReplayDataAsync(pendingEscapeTailAnsi)
-        }
-        if (!isCurrentPayload()) {
-          continue
-        }
-        // Why: remote-runtime snapshots can arrive after WebGL attached to an
-        // empty buffer; rebuilding after replay parses seeds the glyph atlas
-        // from the now-populated xterm state.
-        manager.rebuildPaneWebgl(pane.id)
-        appliedCurrentPayload = true
-      }
-      return appliedCurrentPayload
-    }
-    const scheduleReplayDataDrain = (): void => {
-      if (replayDrainQueued) {
-        return
-      }
-      const scheduledPtyId = pendingReplayData?.ptyId ?? null
-      replayDrainQueued = true
-      // Why: live bytes are newer than the authoritative replay frame. Hold
-      // them until clear + replay + reset have all parsed, or replay can erase them.
-      const scheduledStreamGeneration =
-        pendingReplayData?.streamGeneration ?? transportStreamGeneration
-      beginReattachLiveDataDeferral(scheduledStreamGeneration)
-      let replayCompleted = false
-      serializerControllerState.replayWriteQueue = serializerControllerState.replayWriteQueue
-        .catch(() => undefined)
-        .then(() =>
-          structuralReplayCoordinator.run(
-            async () => {
-              replayCompleted = await drainReplayDataQueue(
-                scheduledPtyId,
-                scheduledStreamGeneration
-              )
-            },
-            {
-              shouldRestore: () =>
-                !disposed &&
-                transport.getPtyId() === scheduledPtyId &&
-                transportStreamGeneration === scheduledStreamGeneration
-            }
-          )
-        )
-        .then(() => {
-          replayCompleted &&= !disposed && transport.getPtyId() === scheduledPtyId
-        })
-        .finally(() => {
-          replayDrainQueued = false
-          if (pendingReplayData !== null) {
-            // Why: preserve the PTY identity captured when the callback fired;
-            // re-reading it here could retag stale bytes for a replacement PTY.
-            scheduleReplayDataDrain()
-          }
-          finishReattachLiveDataDeferral(replayCompleted, scheduledStreamGeneration)
-        })
-    }
-    const replayDataCallback = (
-      data: string,
-      meta: { clearBeforeReplay?: boolean; pendingEscapeTailAnsi?: string } = {},
-      streamGeneration = transportStreamGeneration
-    ): void => {
-      pendingReplayData = {
-        data,
-        clearBeforeReplay: meta.clearBeforeReplay !== false,
-        ptyId: transport.getPtyId(),
-        generation: (replayPayloadGeneration += 1),
-        streamGeneration,
-        ...(meta.pendingEscapeTailAnsi ? { pendingEscapeTailAnsi: meta.pendingEscapeTailAnsi } : {})
-      }
-      scheduleReplayDataDrain()
-    }
+    const replayDataCallback = reattachReplayController.enqueue
 
     const captureTransportOutputCallbacks = (onError: (message: string) => void) => {
       // Why: a new stream generation cannot inherit an old replay's pending

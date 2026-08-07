@@ -24,6 +24,7 @@ type SerializerControllerArgs = {
   isDisposed: () => boolean
   clearHiddenOutputRestoreState: () => void
   getRendererOrderedFrame: (ptyId: string) => { ptyId: string | null; seq: number | null }
+  whenReplayIdle: () => Promise<void>
 }
 
 export function createPtyConnectionSerializerController({
@@ -33,10 +34,9 @@ export function createPtyConnectionSerializerController({
   onDataDisposable,
   isDisposed,
   clearHiddenOutputRestoreState,
-  getRendererOrderedFrame
+  getRendererOrderedFrame,
+  whenReplayIdle
 }: SerializerControllerArgs) {
-  const state = { replayWriteQueue: Promise.resolve() }
-
   const registerPaneSerializerFor = (ptyId: string): void => {
     if (isDisposed()) {
       return
@@ -94,7 +94,7 @@ export function createPtyConnectionSerializerController({
     generation: number
   ): Promise<void> => {
     try {
-      await state.replayWriteQueue
+      await whenReplayIdle()
       if (isDisposed() || transport.getPtyId() !== ptyId) {
         await getClientRuntime()
           .terminal.clearPendingPaneSerializer(cacheKey, generation)
@@ -122,7 +122,7 @@ export function createPtyConnectionSerializerController({
     if (!hasPtySerializer(ptyId)) {
       registerPaneSerializerFor(ptyId)
     }
-    void state.replayWriteQueue
+    void whenReplayIdle()
       .then(() => waitForTerminalOutputParsed(pane.terminal))
       .then(() => {
         if (!isDisposed() && transport.getPtyId() === ptyId) {
@@ -133,7 +133,6 @@ export function createPtyConnectionSerializerController({
   }
 
   return {
-    state,
     registerPaneSerializerFor,
     settlePaneSerializerAfterReplay,
     reportRemoteRendererSerializerReady

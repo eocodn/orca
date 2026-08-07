@@ -95,4 +95,27 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionForegroundLatencyController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes reattach replay queue state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-replay-controller.ts'
+    )
+    const serializer = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-serializer-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'"
+    )
+    expect(orchestrator).not.toContain('type PendingReplayData = {')
+    expect(orchestrator).not.toContain('let pendingReplayData: PendingReplayData | null = null')
+    expect(orchestrator).not.toContain('let replayPayloadGeneration = 0')
+    expect(orchestrator).not.toContain('let replayDrainQueued = false')
+    expect(serializer).not.toContain('const state = { replayWriteQueue: Promise.resolve() }')
+    expect(owner).toContain('export function createPtyConnectionReattachReplayController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
