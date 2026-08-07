@@ -145,6 +145,7 @@ import { createPtyConnectionHiddenRestoreSnapshotLoopController } from './pty-co
 import { createPtyConnectionHiddenRestoreSnapshotReplayController } from './pty-connection-hidden-restore-snapshot-replay-controller'
 import { createPtyConnectionHiddenRestoreTaskController } from './pty-connection-hidden-restore-task-controller'
 import { createPtyConnectionHiddenRendererQueryController } from './pty-connection-hidden-renderer-query-controller'
+import { createPtyConnectionHiddenRestoreAbandonController } from './pty-connection-hidden-restore-abandon-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionMode2031ReplyScanController } from './pty-connection-mode2031-reply-scan-controller'
@@ -3063,53 +3064,34 @@ export function connectPanePty(
       hiddenRestoreForegroundDeadlineController.clear()
     }
 
+    const hiddenRestoreAbandonController = createPtyConnectionHiddenRestoreAbandonController({
+      getCurrentPtyId: () => transport.getPtyId(),
+      getRestorePtyId: hiddenRestoreIdentityController.getPtyId,
+      resetIfPtyChanged: resetHiddenOutputRestoreIfPtyChanged,
+      takeReplayBaseline: hiddenRestoreReplayBaselineController.take,
+      takePendingForAbandonReplay: hiddenRestorePendingLiveController.takeForAbandonReplay,
+      invalidateRestore: hiddenRestoreIdentityController.invalidate,
+      handoffScrollGeneration: hiddenRestoreScrollTicketController.handoffGeneration,
+      abandonTask: hiddenRestoreTaskController.abandon,
+      resetFreshness: hiddenRestoreFreshnessController.reset,
+      resetRendererQueries: hiddenRendererQueryController.reset,
+      resetRenderRisk: renderRiskController.resetHidden,
+      cancelScheduled: hiddenRestoreScheduleController.cancel,
+      resetDeferredRetry: hiddenRestoreDeferredRetryController.reset,
+      clearForegroundDeadline: hiddenRestoreForegroundDeadlineController.clear,
+      writeUnavailableWarning: writeRestoreUnavailableWarning,
+      setReconciliationBaseline: restoredSnapshotReconciliationController.setBaseline,
+      advanceExpectedSeq: restoredSnapshotReconciliationController.advanceExpectedSeq,
+      writePendingData: (data) => {
+        writePtyOutputToXterm(data, true)
+      }
+    })
+
     function abandonHiddenOutputRestoreAndDrainPendingForeground(
       expectedPtyId: string,
       opts: { quiet?: boolean } = {}
     ): void {
-      if (
-        transport.getPtyId() !== expectedPtyId ||
-        hiddenRestoreIdentityController.getPtyId() !== expectedPtyId
-      ) {
-        resetHiddenOutputRestoreIfPtyChanged()
-        return
-      }
-      const replayingSnapshot = hiddenRestoreReplayBaselineController.take()
-      const replayedSeq = typeof replayingSnapshot?.seq === 'number' ? replayingSnapshot.seq : null
-      const {
-        chunks: pendingChunks,
-        data: pendingData,
-        overflow: hadPendingOverflow
-      } = hiddenRestorePendingLiveController.takeForAbandonReplay(replayedSeq)
-      const nextRestoreGeneration = hiddenRestoreIdentityController.invalidate()
-      // Why: flood abandonment stops recovery bookkeeping, but its already-queued replay must keep the rebuild bracket and final pin.
-      hiddenRestoreScrollTicketController.handoffGeneration(expectedPtyId, nextRestoreGeneration)
-      hiddenRestoreTaskController.abandon()
-      hiddenRestoreFreshnessController.reset()
-      hiddenRendererQueryController.reset()
-      renderRiskController.resetHidden()
-      hiddenRestoreScheduleController.cancel()
-      hiddenRestoreDeferredRetryController.reset()
-      hiddenRestoreForegroundDeadlineController.clear()
-
-      // Why quiet: flood cuts abandon deliberately and repaint post-flood, so the "restore unavailable" warning would be noise the repaint wipes.
-      if (!opts.quiet) {
-        writeRestoreUnavailableWarning()
-      }
-      if (hadPendingOverflow) {
-        return
-      }
-      if (replayingSnapshot && replayedSeq !== null) {
-        restoredSnapshotReconciliationController.setBaseline(expectedPtyId, replayingSnapshot)
-        for (const chunk of pendingChunks) {
-          if (typeof chunk.seq === 'number') {
-            restoredSnapshotReconciliationController.advanceExpectedSeq(chunk.seq)
-          }
-        }
-      }
-      if (pendingData) {
-        writePtyOutputToXterm(pendingData, true)
-      }
+      hiddenRestoreAbandonController.abandon(expectedPtyId, opts)
     }
 
     function clearHiddenOutputRestoreState(): void {

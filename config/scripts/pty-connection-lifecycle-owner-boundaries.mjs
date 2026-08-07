@@ -429,6 +429,25 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore abandonment through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-abandon-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreAbandonController')
+    expect(orchestrator).not.toContain(
+      'const replayingSnapshot = hiddenRestoreReplayBaselineController.take()'
+    )
+    expect(orchestrator).not.toContain(
+      'const nextRestoreGeneration = hiddenRestoreIdentityController.invalidate()'
+    )
+    expect(owner).toContain('export function createPtyConnectionHiddenRestoreAbandonController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes certified-dead restore recovery claims through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
