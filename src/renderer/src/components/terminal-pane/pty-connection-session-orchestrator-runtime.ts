@@ -145,6 +145,7 @@ import { createPtyConnectionReattachReplayController } from './pty-connection-re
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
+import { createPtyConnectionTransportSettleController } from './pty-connection-transport-settle-controller'
 import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
@@ -2134,7 +2135,7 @@ export function connectPanePty(
   // the last frame stays painted — the pane looks healthy and eats input
   // (issue #8104 class). None of the dead-session reconciles cover it because
   // the PTY is live; recover by remounting the tab over the live PTY.
-  let transportConnectInFlightSince: number | null = null
+  const transportSettleController = createPtyConnectionTransportSettleController({ now: Date.now })
   // Why a grace window instead of a plain flag: a connect that never settles
   // (SSH RPC timeout class, wedged daemon call) would otherwise suppress
   // input-triggered recovery FOREVER — and such a pane has no output flowing,
@@ -2142,7 +2143,6 @@ export function connectPanePty(
   // recover again; the transport's destroyed-check no longer kills a
   // pre-existing session when a late reattach resolves, so a remount racing
   // a slow-but-alive connect costs a wasted view rebuild, not a shell.
-  const TRANSPORT_CONNECT_SETTLE_GRACE_MS = 60_000
   const requestRecoveryForUndeliverableInput = (providerRejected = false): void => {
     if (!providerRejected && transport.isConnected?.() && transport.getPtyId() !== null) {
       return
@@ -2154,9 +2154,7 @@ export function connectPanePty(
     // to preserve. The fossil case this detector targets has no pending
     // connect, so it still recovers. Same for a late async reject landing
     // after dispose: the successor pane owns the tab now.
-    const connectStillSettling =
-      transportConnectInFlightSince !== null &&
-      Date.now() - transportConnectInFlightSince < TRANSPORT_CONNECT_SETTLE_GRACE_MS
+    const connectStillSettling = transportSettleController.isSettling()
     if (connectStillSettling || disposed) {
       return
     }
@@ -2545,9 +2543,7 @@ export function connectPanePty(
         rows,
         captureTransportOutputCallbacks,
         getTransportStreamGeneration: () => transportStreamGeneration,
-        setConnectInFlightSince: (value) => {
-          transportConnectInFlightSince = value
-        },
+        setConnectInFlightSince: transportSettleController.setInFlightSince,
         mergeStartupEnvWithPaneIdentity,
         shouldDeclareHiddenAtSpawn,
         claimCapturedDirectSshRetryPty,
@@ -4891,9 +4887,7 @@ export function connectPanePty(
       directSshRetryAttempt,
       claimCapturedDirectSshRetryPty,
       armDirectSshPaneRetryTimeout,
-      setConnectInFlightSince: (value) => {
-        transportConnectInFlightSince = value
-      }
+      setConnectInFlightSince: transportSettleController.setInFlightSince
     })
 
     const attachController = createPtyConnectionAttachController({
