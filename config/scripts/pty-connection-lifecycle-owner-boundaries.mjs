@@ -38,6 +38,8 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
       "'fresh-spawn-follow-reset',\n            tryResetNativeFollow"
     )
     expect(orchestrator).not.toContain('let freshSpawnFollowResetDisposables: IDisposable[] = []')
+    expect(orchestrator).not.toContain('let cancelFreshSpawnFollowReset =')
+    expect(orchestrator).toContain('freshSpawnFollowController.cancel()')
     expect(owner).toContain('export function createPtyConnectionFreshSpawnFollowController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })

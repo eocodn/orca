@@ -357,7 +357,6 @@ export function connectPanePty(
   const recoverySubscriptionsController = createPtyConnectionRecoverySubscriptionsController()
   let cancelHiddenOutputSnapshotScrollRestore = (): void => {}
   const pendingFitController = createPtyConnectionPendingFitController()
-  let cancelFreshSpawnFollowReset = (): void => {}
   let disposeReattachLiveDataController = (): void => {}
   let cleanupHiddenOutputRestoreDeferredRetry = (): void => {}
   let cleanupHiddenOutputRestoreForegroundDeadline = (): void => {}
@@ -384,6 +383,16 @@ export function connectPanePty(
       })
     },
     resolveCommittedTitleAgentType
+  })
+  const freshSpawnFollowController = createPtyConnectionFreshSpawnFollowController({
+    isDisposed: () => disposed,
+    markFollowOutput: () => markTerminalFollowOutput(pane.terminal),
+    getScrollIntentKind: () => getTerminalScrollIntentKind(pane.terminal),
+    deferGeometryMutation: (retry) =>
+      deferTerminalGeometryMutationDuringRebuild(pane.terminal, 'fresh-spawn-follow-reset', retry),
+    scrollToBottom: () => pane.terminal.scrollToBottom(),
+    subscribeRender: (listener) => pane.terminal.onRender(listener),
+    subscribeResize: (listener) => pane.terminal.onResize(listener)
   })
   // Why: passphrase-gate waits register a teardown here so dispose() can
   // actively unsubscribe + resolve them. Without this, a pane disposed
@@ -2376,22 +2385,6 @@ export function connectPanePty(
       disposeStartupCommandDelivery()
     }
     hibernatedWakeController.setWake(() => startFreshColdRestoreAgentResume())
-
-    const freshSpawnFollowController = createPtyConnectionFreshSpawnFollowController({
-      isDisposed: () => disposed,
-      markFollowOutput: () => markTerminalFollowOutput(pane.terminal),
-      getScrollIntentKind: () => getTerminalScrollIntentKind(pane.terminal),
-      deferGeometryMutation: (retry) =>
-        deferTerminalGeometryMutationDuringRebuild(
-          pane.terminal,
-          'fresh-spawn-follow-reset',
-          retry
-        ),
-      scrollToBottom: () => pane.terminal.scrollToBottom(),
-      subscribeRender: (listener) => pane.terminal.onRender(listener),
-      subscribeResize: (listener) => pane.terminal.onResize(listener)
-    })
-    cancelFreshSpawnFollowReset = freshSpawnFollowController.cancel
 
     const createFreshSpawnController = () =>
       createPtyConnectionFreshSpawnController({
@@ -4984,7 +4977,7 @@ export function connectPanePty(
       remoteViewportClaimController.dispose()
       cancelHiddenOutputSnapshotScrollRestore()
       structuralReplayCoordinator.dispose()
-      cancelFreshSpawnFollowReset()
+      freshSpawnFollowController.cancel()
       spawnSizeReconcileController.dispose()
       startupGridController.dispose()
       sizeReassertionController.dispose()
