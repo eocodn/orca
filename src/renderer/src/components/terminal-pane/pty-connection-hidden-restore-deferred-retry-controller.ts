@@ -16,8 +16,10 @@ export function createPtyConnectionHiddenRestoreDeferredRetryController(
 ) {
   let timer: ReturnType<typeof setTimeout> | null = null
   let attempts = 0
+  let deferred = false
 
   function clear(): void {
+    deferred = false
     if (timer === null) {
       return
     }
@@ -26,17 +28,23 @@ export function createPtyConnectionHiddenRestoreDeferredRetryController(
   }
 
   return {
+    isDeferred(): boolean {
+      return deferred
+    },
     schedule(): void {
+      deferred = true
       if (options.isDisposed() || timer !== null || !options.isForeground()) {
         return
       }
       if (attempts >= HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX) {
+        deferred = false
         options.onExhausted()
         return
       }
       attempts += 1
       timer = setTimeout(() => {
         timer = null
+        deferred = false
         if (options.isDisposed() || !options.isRestoreNeeded()) {
           return
         }

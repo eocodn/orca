@@ -2704,7 +2704,6 @@ export function connectPanePty(
     let hiddenOutputRestorePendingChars = 0
     let hiddenOutputRestorePendingOverflow = false
     let hiddenOutputRestoreFreshSnapshotNeeded = false
-    let hiddenOutputRestoreRetryDeferred = false
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
       generation: number
@@ -2749,7 +2748,6 @@ export function connectPanePty(
         isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
         isRestoreNeeded: () => hiddenOutputRestoreNeeded,
         onRetry: () => {
-          hiddenOutputRestoreRetryDeferred = false
           requestHiddenOutputRestoreIfNeeded()
         },
         onExhausted: () => {
@@ -3288,7 +3286,6 @@ export function connectPanePty(
       hiddenOutputRestorePendingChars = 0
       hiddenOutputRestorePendingOverflow = false
       hiddenOutputRestoreFreshSnapshotNeeded = false
-      hiddenOutputRestoreRetryDeferred = false
       hiddenRestoreScheduleController.cancel()
       hiddenRestoreDeferredRetryController.reset()
       hiddenRestoreForegroundDeadlineController.clear()
@@ -3323,7 +3320,6 @@ export function connectPanePty(
       hiddenOutputRestorePendingChars = 0
       hiddenOutputRestorePendingOverflow = false
       hiddenOutputRestoreFreshSnapshotNeeded = false
-      hiddenOutputRestoreRetryDeferred = false
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
       hiddenRestoreScheduleController.cancel()
@@ -3623,7 +3619,6 @@ export function connectPanePty(
         hiddenRestoreScheduleController.cancel()
       }
       hiddenRestoreDeferredRetryController.clear()
-      hiddenOutputRestoreRetryDeferred = false
 
       hiddenOutputRestoreInFlight = (async () => {
         // Backstop (rc.7.perf loop): bound how many snapshot fetch+replay rounds one task burns before yielding to the live stream.
@@ -3673,7 +3668,6 @@ export function connectPanePty(
           if (!snapshot) {
             hiddenOutputRestoreNeeded = true
             hiddenOutputRestoreFreshSnapshotNeeded = false
-            hiddenOutputRestoreRetryDeferred = true
             hiddenRestoreDeferredRetryController.schedule()
             return
           }
@@ -3739,7 +3733,7 @@ export function connectPanePty(
           hiddenRestoreForegroundDeadlineController.arm()
         }
         if (
-          !hiddenOutputRestoreRetryDeferred &&
+          !hiddenRestoreDeferredRetryController.isDeferred() &&
           hiddenOutputRestoreNeeded &&
           shouldWritePtyOutputForeground(deps.isVisibleRef.current)
         ) {

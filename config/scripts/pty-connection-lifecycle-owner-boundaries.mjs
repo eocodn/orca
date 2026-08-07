@@ -267,10 +267,12 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(orchestrator).toContain('createPtyConnectionHiddenRestoreDeferredRetryController')
     expect(orchestrator).not.toContain('let hiddenOutputRestoreDeferredRetryTimer:')
     expect(orchestrator).not.toContain('let hiddenOutputRestoreDeferredRetryAttempts =')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreRetryDeferred =')
     expect(orchestrator).not.toContain('function scheduleHiddenOutputRestoreDeferredRetry()')
     expect(owner).toContain(
       'export function createPtyConnectionHiddenRestoreDeferredRetryController'
     )
+    expect(owner).toContain('isDeferred(): boolean')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 

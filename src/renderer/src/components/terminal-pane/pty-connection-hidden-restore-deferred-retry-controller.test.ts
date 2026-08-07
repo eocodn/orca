@@ -36,9 +36,11 @@ describe('createPtyConnectionHiddenRestoreDeferredRetryController', () => {
     const { controller, onRetry } = createHarness()
 
     controller.schedule()
+    expect(controller.isDeferred()).toBe(true)
     controller.schedule()
     vi.advanceTimersByTime(HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS)
 
+    expect(controller.isDeferred()).toBe(false)
     expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
@@ -70,6 +72,17 @@ describe('createPtyConnectionHiddenRestoreDeferredRetryController', () => {
     expect(onRetry).not.toHaveBeenCalled()
   })
 
+  it('clear releases the deferred latch and cancels the retry', () => {
+    const { controller, onRetry } = createHarness()
+    controller.schedule()
+
+    controller.clear()
+    vi.advanceTimersByTime(HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS)
+
+    expect(controller.isDeferred()).toBe(false)
+    expect(onRetry).not.toHaveBeenCalled()
+  })
+
   it('signals exhaustion after the retry budget is consumed', () => {
     const { controller, onRetry, onExhausted } = createHarness()
     for (let attempt = 0; attempt < HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX; attempt += 1) {
@@ -81,6 +94,7 @@ describe('createPtyConnectionHiddenRestoreDeferredRetryController', () => {
 
     expect(onRetry).toHaveBeenCalledTimes(HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX)
     expect(onExhausted).toHaveBeenCalledTimes(1)
+    expect(controller.isDeferred()).toBe(false)
   })
 
   it('reset cancels a pending retry and restores the full retry budget', () => {
@@ -93,6 +107,7 @@ describe('createPtyConnectionHiddenRestoreDeferredRetryController', () => {
     controller.schedule()
     expect(onExhausted).toHaveBeenCalledTimes(1)
     controller.reset()
+    expect(controller.isDeferred()).toBe(false)
     controller.schedule()
     vi.advanceTimersByTime(HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS)
 
