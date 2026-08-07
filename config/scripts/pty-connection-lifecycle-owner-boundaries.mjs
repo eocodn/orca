@@ -392,4 +392,18 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionResizeSuppressionController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes terminal buffer-switch observation through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-buffer-switch-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionBufferSwitchController')
+    expect(orchestrator).not.toContain('let alternateScreenBufferSwitches = 0')
+    expect(owner).toContain('export function createPtyConnectionBufferSwitchController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

@@ -132,6 +132,7 @@ import {
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionAlternateScreenRepaintController } from './pty-connection-alternate-screen-repaint-controller'
+import { createPtyConnectionBufferSwitchController } from './pty-connection-buffer-switch-controller'
 import { createPtyConnectionCommandFinishedStatusDropController } from './pty-connection-command-finished-status-drop-controller'
 import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
@@ -2290,9 +2291,8 @@ export function connectPanePty(
   // Why: a rewrite chunk can enter AND exit the alternate screen in one parse
   // (fast-quitting TUI), netting buffer.active.type back to 'normal'; counting
   // switches keeps those redraws visible to the atlas-recovery check.
-  let alternateScreenBufferSwitches = 0
-  const onBufferChangeDisposable = pane.terminal.buffer.onBufferChange?.(() => {
-    alternateScreenBufferSwitches += 1
+  const bufferSwitchController = createPtyConnectionBufferSwitchController({
+    subscribe: (listener) => pane.terminal.buffer.onBufferChange?.(listener)
   })
 
   let readProposedTerminalGrid: () => { cols: number; rows: number } | null = () => null
@@ -2569,7 +2569,7 @@ export function connectPanePty(
       isWindowsClient: shouldApplyWindowsRendererUnicodeRefresh,
       isNativeWindowsConpty: shouldApplyNativeWindowsRewriteRefresh,
       getBufferType: () => pane.terminal.buffer.active.type,
-      getBufferSwitches: () => alternateScreenBufferSwitches,
+      getBufferSwitches: bufferSwitchController.getCount,
       scheduleAtlasRecovery: scheduleTerminalWebglAtlasRecovery
     })
     const foregroundLatencyController = createPtyConnectionForegroundLatencyController({
@@ -5136,7 +5136,7 @@ export function connectPanePty(
       userInputActivityDisposable?.dispose()
       terminalCapabilityRepliesDisposable.dispose()
       resizeForwardingController.dispose()
-      onBufferChangeDisposable?.dispose()
+      bufferSwitchController.dispose()
       paneGeometryController.dispose()
       commandLifecycle.dispose()
       commandFinishedStatusDropController.dispose()
