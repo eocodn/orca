@@ -140,6 +140,7 @@ import {
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRestoreScrollTicketController } from './pty-connection-hidden-restore-scroll-ticket-controller'
+import { createPtyConnectionHiddenRestoreSnapshotLoopController } from './pty-connection-hidden-restore-snapshot-loop-controller'
 import { createPtyConnectionHiddenRestoreSnapshotReplayController } from './pty-connection-hidden-restore-snapshot-replay-controller'
 import { createPtyConnectionHiddenRestoreTaskController } from './pty-connection-hidden-restore-task-controller'
 import { createPtyConnectionHiddenRendererQueryController } from './pty-connection-hidden-renderer-query-controller'
@@ -3221,6 +3222,53 @@ export function connectPanePty(
         scheduleIdleCursorReset: scheduleReattachIdleAgentCursorReset
       })
 
+    const hiddenRestoreSnapshotLoopController =
+      createPtyConnectionHiddenRestoreSnapshotLoopController({
+        maxIterations: HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
+        isDisposed: () => disposed,
+        getRestorePtyId: hiddenRestoreIdentityController.getPtyId,
+        getCurrentPtyId: () => transport.getPtyId(),
+        getRestoreGeneration: hiddenRestoreIdentityController.getGeneration,
+        canUseSnapshot: canUseHiddenOutputSnapshot,
+        clearRestoreState: clearHiddenOutputRestoreState,
+        writeUnavailableWarning: writeRestoreUnavailableWarning,
+        clearNeeded: hiddenRestoreIdentityController.clearNeeded,
+        markNeeded: hiddenRestoreIdentityController.markNeeded,
+        serializeSnapshot: (ptyId) =>
+          serializeHiddenOutputSnapshot(ptyId, {
+            scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
+          }),
+        resetFreshness: hiddenRestoreFreshnessController.reset,
+        scheduleDeferredRetry: hiddenRestoreDeferredRetryController.schedule,
+        resetDeferredRetryAttempts: hiddenRestoreDeferredRetryController.resetAttempts,
+        applySnapshot: hiddenRestoreSnapshotReplayController.apply,
+        setReconciliationBaseline: restoredSnapshotReconciliationController.setBaseline,
+        clearReplayBaseline: hiddenRestoreReplayBaselineController.clear,
+        takeFreshSnapshotNeeded: hiddenRestoreFreshnessController.takeNeeded,
+        drainPendingLive: (snapshotSeq) =>
+          hiddenRestorePendingLiveController.drainAfterSnapshot(
+            snapshotSeq,
+            hiddenRestorePendingLiveDrainCallbacks
+          ),
+        isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
+        completeRestore: hiddenRestoreIdentityController.complete,
+        clearForegroundDeadline: hiddenRestoreForegroundDeadlineController.clear,
+        noteBackpressure: hiddenRestoreFloodBackpressureController.noteBackpressure,
+        abandonAndDrain: (ptyId) => {
+          abandonHiddenOutputRestoreAndDrainPendingForeground(ptyId, { quiet: true })
+        },
+        warnIterationCap: (ptyId, reason) => {
+          warnTerminalLifecycleAnomaly('hidden output restore hit its iteration cap', {
+            tabId: deps.tabId,
+            worktreeId: deps.worktreeId,
+            leafId: pane.leafId,
+            paneId: pane.id,
+            ptyId,
+            reason
+          })
+        }
+      })
+
     function requestHiddenOutputRestoreIfNeeded(opts?: { bypassScheduler?: boolean }): boolean {
       // Why: once the write pipeline is probe-certified dead a restore can never parse; recovery owns the pane and the remount gets a fresh xterm + restore.
       if (isTerminalWritePipelineCertifiedDead(pane.terminal)) {
@@ -3280,111 +3328,7 @@ export function connectPanePty(
       }
       hiddenRestoreDeferredRetryController.clear()
 
-      const hiddenOutputRestoreTask = (async () => {
-        // Backstop (rc.7.perf loop): bound how many snapshot fetch+replay rounds one task burns before yielding to the live stream.
-        let restoreIterations = 0
-        while (!disposed) {
-          const currentPtyId = hiddenRestoreIdentityController.getPtyId()
-          if (currentPtyId === null) {
-            clearHiddenOutputRestoreState()
-            return
-          }
-          if (!canUseHiddenOutputSnapshot(currentPtyId)) {
-            if (hiddenRestoreIdentityController.getPtyId() === currentPtyId) {
-              clearHiddenOutputRestoreState()
-            }
-            writeRestoreUnavailableWarning()
-            return
-          }
-          if (transport.getPtyId() !== currentPtyId) {
-            if (hiddenRestoreIdentityController.getPtyId() === currentPtyId) {
-              clearHiddenOutputRestoreState()
-            }
-            return
-          }
-          const restoreGeneration = hiddenRestoreIdentityController.getGeneration()
-          hiddenRestoreIdentityController.clearNeeded()
-          let snapshot: PtyBufferSnapshot | null = null
-          try {
-            snapshot = await serializeHiddenOutputSnapshot(currentPtyId, {
-              scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
-            })
-          } catch {
-            snapshot = null
-          }
-          if (disposed) {
-            return
-          }
-          const restoreGenerationChanged =
-            hiddenRestoreIdentityController.getGeneration() !== restoreGeneration
-          const restorePtyChanged =
-            transport.getPtyId() !== currentPtyId ||
-            hiddenRestoreIdentityController.getPtyId() !== currentPtyId
-          if (restoreGenerationChanged || restorePtyChanged) {
-            // Why: the snapshot belongs to the requested PTY; after reattach it's stale, and a stale generation may be an abandoned timeout superseded by a newer restore.
-            if (restorePtyChanged && hiddenRestoreIdentityController.getPtyId() === currentPtyId) {
-              clearHiddenOutputRestoreState()
-            }
-            return
-          }
-          if (!snapshot) {
-            hiddenRestoreIdentityController.markNeeded()
-            hiddenRestoreFreshnessController.reset()
-            hiddenRestoreDeferredRetryController.schedule()
-            return
-          }
-          hiddenRestoreDeferredRetryController.resetAttempts()
-          restoreIterations += 1
-          await hiddenRestoreSnapshotReplayController.apply(snapshot)
-          if (
-            disposed ||
-            hiddenRestoreIdentityController.getGeneration() !== restoreGeneration ||
-            hiddenRestoreIdentityController.getPtyId() !== currentPtyId ||
-            transport.getPtyId() !== currentPtyId
-          ) {
-            return
-          }
-          // Why: everything at/before snapshot.seq is now painted; chunks still draining from main's ACK backlog below it are duplicates to suppress.
-          restoredSnapshotReconciliationController.setBaseline(currentPtyId, snapshot)
-          hiddenRestoreReplayBaselineController.clear()
-          const needsFreshSnapshot = hiddenRestoreFreshnessController.takeNeeded()
-          const drainOutcome = hiddenRestorePendingLiveController.drainAfterSnapshot(
-            snapshot.seq,
-            hiddenRestorePendingLiveDrainCallbacks
-          )
-          if (drainOutcome === 'drained' && !needsFreshSnapshot) {
-            hiddenRestoreIdentityController.complete()
-            hiddenRestoreForegroundDeadlineController.clear()
-            return
-          }
-          if (!shouldWritePtyOutputForeground(deps.isVisibleRef.current)) {
-            // Why: hidden bytes arriving during the snapshot aren't in renderer memory; leave recovery pending for reveal, don't loop snapshots in a throttled tab.
-            hiddenRestoreIdentityController.markNeeded()
-            return
-          }
-          if (drainOutcome === 'overflow') {
-            // Cut 1 (rc.7.perf loop): a FOREGROUND queue overflow means the stream outruns fetch+replay; re-fetching starves ACKs, so abandon and heal with one post-flood repaint.
-            hiddenRestoreFloodBackpressureController.noteBackpressure(currentPtyId)
-            abandonHiddenOutputRestoreAndDrainPendingForeground(currentPtyId, { quiet: true })
-            return
-          }
-          if (restoreIterations >= HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS) {
-            // Backstop: re-looping this many times means the stream is winning the race.
-            warnTerminalLifecycleAnomaly('hidden output restore hit its iteration cap', {
-              tabId: deps.tabId,
-              worktreeId: deps.worktreeId,
-              leafId: pane.leafId,
-              paneId: pane.id,
-              ptyId: currentPtyId,
-              reason: drainOutcome
-            })
-            hiddenRestoreFloodBackpressureController.noteBackpressure(currentPtyId)
-            abandonHiddenOutputRestoreAndDrainPendingForeground(currentPtyId, { quiet: true })
-            return
-          }
-          hiddenRestoreIdentityController.markNeeded()
-        }
-      })()
+      const hiddenOutputRestoreTask = hiddenRestoreSnapshotLoopController.run()
       hiddenRestoreTaskController.track(hiddenOutputRestoreTask, () => {
         // Why: a replay settling after teardown must not respawn zero-work restore tasks from pending live state.
         if (disposed) {

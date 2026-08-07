@@ -396,6 +396,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes the hidden restore snapshot loop through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-snapshot-loop-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreSnapshotLoopController')
+    expect(orchestrator).not.toContain('let restoreIterations =')
+    expect(owner).toContain(
+      'export function createPtyConnectionHiddenRestoreSnapshotLoopController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes certified-dead restore recovery claims through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
