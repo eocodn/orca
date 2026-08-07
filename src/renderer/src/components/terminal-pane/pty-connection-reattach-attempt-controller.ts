@@ -39,7 +39,7 @@ type ReattachAttemptControllerArgs = {
   setConnectInFlightSince: (value: number | null) => void
 }
 
-type ReattachAttemptOptions = {
+export type ReattachAttemptOptions = {
   sessionId: string
   coldRestoreStartup: ColdRestoreAgentResumeStartup | null
   onTransportError: (message: string) => void

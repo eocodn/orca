@@ -6,6 +6,24 @@ const projectDir = resolve(import.meta.dirname, '../..')
 const read = (path) => readFileSync(resolve(projectDir, path), 'utf8')
 
 describe('PTY connection owner boundaries', () => {
+  it('routes saved SSH session reattach through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const controller = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-saved-ssh-reattach-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { runPtyConnectionSavedSshReattach } from './pty-connection-saved-ssh-reattach-controller'"
+    )
+    expect(orchestrator).not.toContain(
+      'if (pendingSessionId) {\n            if (isLegacyWorkerAutomaticResumeBlocked())'
+    )
+    expect(controller).toContain('export function runPtyConnectionSavedSshReattach(')
+    expect(controller.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach failure fallback through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
