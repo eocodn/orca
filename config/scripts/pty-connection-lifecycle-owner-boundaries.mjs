@@ -235,6 +235,8 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(orchestrator).not.toContain(
       'let alternateScreenBackgroundRepaintTimer: ReturnType<typeof setTimeout> | null = null'
     )
+    expect(orchestrator).not.toContain('let disposeAlternateScreenRepaintController =')
+    expect(orchestrator).toContain('alternateScreenRepaintController.dispose()')
     expect(owner).toContain('export function createPtyConnectionAlternateScreenRepaintController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })

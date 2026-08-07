@@ -364,7 +364,6 @@ export function connectPanePty(
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   let cleanupStartupDelivery = (): void => {}
   let unregisterE2ePtyDataInjection = (): void => {}
-  let disposeAlternateScreenRepaintController = (): void => {}
   // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
   // output plumbing inside the connect frame; lifecycle hooks (visibility
   // flips, exit, dispose) run before/after it exists, so start with no-ops.
@@ -2216,6 +2215,26 @@ export function connectPanePty(
     shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
     isAuthoritative: isRendererPtyResizeAuthoritative
   } = resizeForwardingController
+  const pulseVisibleLocalPtySizeForTuiRepaint = (ptyId: string): void => {
+    if (
+      !isRendererPtyResizeAuthoritative() ||
+      shouldSuppressDesktopPtyResize() ||
+      isRemoteRuntimePtyId(ptyId)
+    ) {
+      return
+    }
+    const cols = pane.terminal.cols
+    const rows = pane.terminal.rows
+    if (cols <= 2 || rows <= 0) {
+      return
+    }
+    // Why: a hidden alt-screen TUI can miss the same-size restore SIGWINCH; a one-column pulse makes the repaint observable to the child.
+    transport.resize(cols - 1, rows)
+    transport.resize(cols, rows)
+  }
+  const alternateScreenRepaintController = createPtyConnectionAlternateScreenRepaintController({
+    repaint: pulseVisibleLocalPtySizeForTuiRepaint
+  })
 
   // Why: a rewrite chunk can enter AND exit the alternate screen in one parse
   // (fast-quitting TUI), netting buffer.active.type back to 'normal'; counting
@@ -3643,29 +3662,6 @@ export function connectPanePty(
       mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
     }
 
-    function pulseVisibleLocalPtySizeForTuiRepaint(ptyId: string): void {
-      if (
-        !isRendererPtyResizeAuthoritative() ||
-        shouldSuppressDesktopPtyResize() ||
-        isRemoteRuntimePtyId(ptyId)
-      ) {
-        return
-      }
-      const cols = pane.terminal.cols
-      const rows = pane.terminal.rows
-      if (cols <= 2 || rows <= 0) {
-        return
-      }
-      // Why: a hidden alt-screen TUI can miss the same-size restore SIGWINCH; a one-column pulse makes the repaint observable to the child.
-      transport.resize(cols - 1, rows)
-      transport.resize(cols, rows)
-    }
-
-    const alternateScreenRepaintController = createPtyConnectionAlternateScreenRepaintController({
-      repaint: pulseVisibleLocalPtySizeForTuiRepaint
-    })
-    disposeAlternateScreenRepaintController = alternateScreenRepaintController.dispose
-
     function skipBackgroundAlternateScreenOutput(data: string): void {
       writeHiddenStartupRendererQueries(data)
       renderRiskController.resetSkippedHidden()
@@ -5004,7 +5000,7 @@ export function connectPanePty(
       titleCompletionDeferralController.dispose()
       disposeAgentNotificationController()
       clearReattachIdleAgentCursorResetTimer()
-      disposeAlternateScreenRepaintController()
+      alternateScreenRepaintController.dispose()
       cleanupHiddenOutputRestoreDeferredRetry()
       cleanupHiddenOutputRestoreForegroundDeadline()
       cleanupHiddenOutputRestoreFloodRepaint()
