@@ -118,4 +118,21 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionReattachReplayController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes synchronized foreground frame state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-synchronized-foreground-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'"
+    )
+    expect(orchestrator).not.toContain('let synchronizedForegroundOutputActive = false')
+    expect(orchestrator).not.toContain('let synchronizedForegroundFrameInteractive = false')
+    expect(owner).toContain('export function createPtyConnectionSynchronizedForegroundController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

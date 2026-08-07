@@ -136,6 +136,7 @@ import { createPtyConnectionForegroundLatencyController } from './pty-connection
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
+import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
 import { dispatchTerminalCommandFinishedEvent } from '@/hooks/terminal-command-finished-event'
@@ -234,7 +235,6 @@ import { isRendererHiddenPtyDeliveryGateEnabled } from './terminal-hidden-delive
 import {
   CURSOR_SHOW_SEQUENCE,
   FOCUS_REPORTING_DISABLE_SEQUENCE,
-  FOREGROUND_SYNCHRONIZED_FRAME_INTERACTIVE_WINDOW_MS,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS,
   HIDDEN_OUTPUT_RESTORE_FLOOD_SUPPRESS_MS,
@@ -271,14 +271,10 @@ import {
   canRestorePairedParkedTerminal,
   consumeInactiveForegroundImmediateBudget,
   containsCursorPositionSequence,
-  containsCursorRestore,
-  containsSynchronizedOutputEnd,
-  containsSynchronizedOutputStart,
   isCodexPaneStale,
   isRemoteRuntimePtyId,
   isSessionOwnedByWorktree,
   isSshSessionExpiredError,
-  shouldSynchronizedOutputRemainActive,
   shouldWritePtyOutputForeground,
   sshPromptConnectOutcomeForStatus,
   waitForSshConnection
@@ -351,11 +347,6 @@ export function connectPanePty(
   let unregisterE2ePtyDataInjection = (): void => {}
   let alternateScreenBackgroundRepaintTimer: ReturnType<typeof setTimeout> | null = null
   let shiftEnterReconfirmTimer: ReturnType<typeof setTimeout> | null = null
-  let synchronizedForegroundOutputActive = false
-  // Why: tracks the keystroke proximity captured when the current synchronized
-  // foreground frame opened, so a split end marker that lands after the redraw
-  // window still drains on the fast path instead of the 1s coalesce fallback.
-  let synchronizedForegroundFrameInteractive = false
   let suppressStructuralReplayPtyResize = false
   // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
   // output plumbing inside the connect frame; lifecycle hooks (visibility
@@ -2708,6 +2699,11 @@ export function connectPanePty(
       getActivePaneId: () => manager.getActivePane?.()?.id ?? null,
       consumeInactiveBudget: consumeInactiveForegroundImmediateBudget
     })
+    const synchronizedForegroundController = createPtyConnectionSynchronizedForegroundController({
+      protectedOutput: shouldProtectNativeWindowsSynchronizedOutput,
+      now: () => performance.now(),
+      getLastTerminalInputAt: () => lastTerminalInputAt
+    })
 
     // The replay path uses the guard so xterm auto-replies to embedded query
     // sequences don't leak into the shell. xterm.write() buffers internally
@@ -3235,25 +3231,15 @@ export function connectPanePty(
         canUseHiddenOutputSnapshot(transport.getPtyId()) &&
         shouldSnapshotHiddenCodexOutput &&
         (opts?.hiddenStartupRendererQuery === true || containsHiddenStartupRendererQuery(data))
-      const synchronizedOutputStarted =
-        shouldProtectNativeWindowsSynchronizedOutput &&
-        foreground &&
-        containsSynchronizedOutputStart(data)
-      const synchronizedOutputEnded =
-        shouldProtectNativeWindowsSynchronizedOutput &&
-        foreground &&
-        containsSynchronizedOutputEnd(data)
-      const synchronizedForegroundOutput =
-        shouldProtectNativeWindowsSynchronizedOutput &&
-        foreground &&
-        (synchronizedForegroundOutputActive || synchronizedOutputStarted || synchronizedOutputEnded)
-      const nextSynchronizedForegroundOutputActive =
-        shouldProtectNativeWindowsSynchronizedOutput &&
-        foreground &&
-        shouldSynchronizedOutputRemainActive(data, synchronizedForegroundOutputActive)
-      // Why: xterm's DOM renderer draws the cursor as row content, so Windows cursor-only restores need row invalidation even outside DEC 2026.
-      const nativeWindowsCursorRestore =
-        shouldProtectNativeWindowsSynchronizedOutput && foreground && containsCursorRestore(data)
+      const synchronizedForegroundDecision = synchronizedForegroundController.observe(
+        data,
+        foreground
+      )
+      const {
+        synchronizedOutput: synchronizedForegroundOutput,
+        latencySensitive: synchronizedFrameLatencySensitive,
+        nativeWindowsCursorRestore
+      } = synchronizedForegroundDecision
       const foregroundOutput = foreground || parseHiddenStartupOutput
       if (foreground) {
         scheduleForegroundPtyGridCheck()
@@ -3278,18 +3264,6 @@ export function connectPanePty(
         isForeground: foreground,
         isInPlaceRewrite: renderRefreshDecision.inPlaceRewrite
       })
-      // Why: recompute the latch on every synchronized START so each frame's interactivity is judged by its own open time and can't leak across a same-chunk close+open; clear only on leaving synchronized output.
-      if (synchronizedForegroundOutput && synchronizedOutputStarted) {
-        synchronizedForegroundFrameInteractive =
-          performance.now() - lastTerminalInputAt <=
-          FOREGROUND_SYNCHRONIZED_FRAME_INTERACTIVE_WINDOW_MS
-      } else if (!nextSynchronizedForegroundOutputActive && !synchronizedOutputEnded) {
-        synchronizedForegroundFrameInteractive = false
-      }
-      // Why: ConPTY can split a submit repaint's closing chunk past the 150ms window, so treat a keystroke-opened frame as latency-sensitive to drain it fast (~16-32ms) not the 1s coalesce fallback.
-      const synchronizedFrameLatencySensitive =
-        synchronizedForegroundOutput && synchronizedForegroundFrameInteractive
-      synchronizedForegroundOutputActive = nextSynchronizedForegroundOutputActive
       writeTerminalOutput(pane.terminal, data, {
         foreground: foregroundOutput,
         beforeWrite: beforeTerminalOutputWrite,
@@ -3311,9 +3285,9 @@ export function connectPanePty(
         // Why: xterm already queued a WebGL frame parsing this chunk; merge the repair into it instead of rendering the grid twice.
         shouldRefreshForegroundSynchronously,
         onParsed: onParsedAtlasRecovery,
-        stripTransientCursorShows: shouldProtectNativeWindowsSynchronizedOutput && foreground,
-        coalesceForeground: synchronizedForegroundOutput && synchronizedOutputEnded,
-        holdForeground: synchronizedForegroundOutput && nextSynchronizedForegroundOutputActive
+        stripTransientCursorShows: synchronizedForegroundDecision.stripTransientCursorShows,
+        coalesceForeground: synchronizedForegroundDecision.coalesceForeground,
+        holdForeground: synchronizedForegroundDecision.holdForeground
       })
     }
 
