@@ -136,6 +136,7 @@ import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
+import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
@@ -260,7 +261,6 @@ import {
   FOCUS_REPORTING_DISABLE_SEQUENCE,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS,
-  HIDDEN_OUTPUT_RESTORE_FLOOD_SUPPRESS_MS,
   HIDDEN_OUTPUT_RESTORE_FOREGROUND_TIMEOUT_MS,
   HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
   HIDDEN_OUTPUT_RESTORE_PENDING_CHARS,
@@ -2725,18 +2725,21 @@ export function connectPanePty(
     // window-cap retries keep a fresh-but-wedged replacement from fossilizing.
     let certifiedDeadRestoreRecoveryRequested = false
     let hiddenOutputRestoreGeneration = 0
-    // Flood-backpressure suppression (HIDDEN_OUTPUT_RESTORE_FLOOD_SUPPRESS_MS).
-    let hiddenOutputRestoreFloodSuppressedUntil = 0
     // Why: queued replay writes still paint after deadline abandonment; the
     // fallback drain must not write snapshot-covered live bytes a second time.
     let hiddenOutputRestoreReplayingSnapshot: {
       seq?: number
       pendingDeliveryStartSeq?: number
     } | null = null
-    let hiddenOutputRestoreFloodRepaintTimer: ReturnType<typeof setTimeout> | null = null
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
     const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
+    const hiddenRestoreFloodBackpressureController =
+      createPtyConnectionHiddenRestoreFloodBackpressureController({
+        getCurrentPtyId: () => transport.getPtyId(),
+        isDisposed: () => disposed,
+        requestRepaint: markHiddenOutputRestoreNeeded
+      })
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     const hiddenRendererQueryStateController =
       createPtyConnectionHiddenRendererQueryStateController()
@@ -2788,10 +2791,6 @@ export function connectPanePty(
       )
     }
 
-    function isHiddenOutputRestoreFloodSuppressed(): boolean {
-      return Date.now() < hiddenOutputRestoreFloodSuppressedUntil
-    }
-
     // True when a drop/gap signal on a visible pane is attributable to this
     // pane's OWN restore backpressure (a restore is replaying right now, or
     // one was just cut off for outrunning the stream). Such signals must not
@@ -2799,38 +2798,9 @@ export function connectPanePty(
     function isForegroundRestoreBackpressureContext(): boolean {
       return (
         shouldWritePtyOutputForeground(deps.isVisibleRef.current) &&
-        (hiddenOutputRestoreInFlight !== null || isHiddenOutputRestoreFloodSuppressed())
+        (hiddenOutputRestoreInFlight !== null ||
+          hiddenRestoreFloodBackpressureController.isSuppressed())
       )
-    }
-
-    function clearHiddenOutputRestoreFloodRepaintTimer(): void {
-      if (hiddenOutputRestoreFloodRepaintTimer === null) {
-        return
-      }
-      clearTimeout(hiddenOutputRestoreFloodRepaintTimer)
-      hiddenOutputRestoreFloodRepaintTimer = null
-    }
-    function resetHiddenOutputRestoreFloodSuppression(): void {
-      hiddenOutputRestoreFloodSuppressedUntil = 0
-      clearHiddenOutputRestoreFloodRepaintTimer()
-    }
-
-    // Extends the suppression window; every backpressure signal resets the timer so the deferred repaint fires once, SUPPRESS_MS after the last signal.
-    function noteHiddenOutputRestoreFloodBackpressure(): void {
-      hiddenOutputRestoreFloodSuppressedUntil = Date.now() + HIDDEN_OUTPUT_RESTORE_FLOOD_SUPPRESS_MS
-      const ptyId = transport.getPtyId()
-      if (ptyId === null) {
-        return
-      }
-      clearHiddenOutputRestoreFloodRepaintTimer()
-      hiddenOutputRestoreFloodRepaintTimer = setTimeout(() => {
-        hiddenOutputRestoreFloodRepaintTimer = null
-        if (disposed || transport.getPtyId() !== ptyId) {
-          return
-        }
-        // Why one repaint: flood-dropped bytes leave a gap the live stream can't heal; once quiet, one snapshot restore repaints from main's authoritative buffer.
-        markHiddenOutputRestoreNeeded()
-      }, HIDDEN_OUTPUT_RESTORE_FLOOD_SUPPRESS_MS)
     }
 
     // Why: main reports dropped renderer-bound bytes out-of-band, routed per PTY by pty-model-restore-channel.ts.
@@ -2845,7 +2815,7 @@ export function connectPanePty(
       transport.resetCrossChunkParserState?.()
       // Why gated (rc.7.perf loop): on a visible pane these markers come from our own restore starving ACKs; re-arming per marker kept the fetch loop alive all flood, so defer to one post-flood repaint.
       if (isForegroundRestoreBackpressureContext()) {
-        noteHiddenOutputRestoreFloodBackpressure()
+        hiddenRestoreFloodBackpressureController.noteBackpressure(transport.getPtyId())
         return
       }
       // Why: a marker during an in-flight restore means that snapshot may predate the drop, so a fresh one must follow; capture BEFORE the mark, which starts a restore synchronously on a visible pane.
@@ -3467,7 +3437,7 @@ export function connectPanePty(
       cancelSnapshotScrollRestore,
       clearDeferredRetry: clearHiddenOutputRestoreDeferredRetryTimer,
       clearForegroundDeadline: clearHiddenOutputRestoreForegroundDeadlineTimer,
-      clearFloodRepaint: clearHiddenOutputRestoreFloodRepaintTimer
+      clearFloodRepaint: hiddenRestoreFloodBackpressureController.dispose
     })
 
     function clearPaneMode2031State(): void {
@@ -3500,7 +3470,7 @@ export function connectPanePty(
         restoredSnapshotReconciliationController.clear()
         clearPaneMode2031State()
         // Why: flood-backpressure evidence is per PTY stream too.
-        resetHiddenOutputRestoreFloodSuppression()
+        hiddenRestoreFloodBackpressureController.reset()
         discardTerminalOutput(pane.terminal)
       }
     }
@@ -3799,7 +3769,7 @@ export function connectPanePty(
           }
           if (drainOutcome === 'overflow') {
             // Cut 1 (rc.7.perf loop): a FOREGROUND queue overflow means the stream outruns fetch+replay; re-fetching starves ACKs, so abandon and heal with one post-flood repaint.
-            noteHiddenOutputRestoreFloodBackpressure()
+            hiddenRestoreFloodBackpressureController.noteBackpressure(currentPtyId)
             abandonHiddenOutputRestoreAndDrainPendingForeground(currentPtyId, { quiet: true })
             return
           }
@@ -3813,7 +3783,7 @@ export function connectPanePty(
               ptyId: currentPtyId,
               reason: drainOutcome
             })
-            noteHiddenOutputRestoreFloodBackpressure()
+            hiddenRestoreFloodBackpressureController.noteBackpressure(currentPtyId)
             abandonHiddenOutputRestoreAndDrainPendingForeground(currentPtyId, { quiet: true })
             return
           }
@@ -3912,7 +3882,7 @@ export function connectPanePty(
       if (meta?.droppedOutput === true) {
         // Why gated (rc.7.perf loop): a visible pane's cap-drop during its own restore is self-caused backpressure; defer to one post-flood repaint instead of re-arming per sentinel.
         if (meta?.background !== true && isForegroundRestoreBackpressureContext()) {
-          noteHiddenOutputRestoreFloodBackpressure()
+          hiddenRestoreFloodBackpressureController.noteBackpressure(transport.getPtyId())
         } else {
           // Why: main dropped buffered output at the pending cap, so the stream has a gap; repaint from the main-owned snapshot instead of writing on.
           markHiddenOutputRestoreNeeded()
@@ -3952,7 +3922,7 @@ export function connectPanePty(
       if (reconciliation.action === 'force-fresh-restore') {
         // Why gated (rc.7.perf loop): foreground-flood seq gaps are our own backpressure drops; snapshot-per-gap IS the loop, so retire the baseline and heal post-flood.
         if (foreground && isForegroundRestoreBackpressureContext()) {
-          noteHiddenOutputRestoreFloodBackpressure()
+          hiddenRestoreFloodBackpressureController.noteBackpressure(transport.getPtyId())
           restoredSnapshotReconciliationController.clear()
           // fall through with the ORIGINAL data/meta — post-gap bytes are new
         } else {

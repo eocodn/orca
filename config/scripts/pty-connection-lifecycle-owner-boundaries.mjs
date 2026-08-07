@@ -222,6 +222,23 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore flood backpressure through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-flood-backpressure-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreFloodBackpressureController')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreFloodSuppressedUntil =')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreFloodRepaintTimer:')
+    expect(owner).toContain(
+      'export function createPtyConnectionHiddenRestoreFloodBackpressureController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
