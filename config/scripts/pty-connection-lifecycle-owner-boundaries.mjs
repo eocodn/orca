@@ -290,6 +290,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes per-pane hidden restore scheduling through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-schedule-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreScheduleController')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreScheduled =')
+    expect(orchestrator).not.toContain('scheduleHiddenOutputRestore(')
+    expect(orchestrator).not.toContain('cancelScheduledHiddenOutputRestore(')
+    expect(owner).toContain('export function createPtyConnectionHiddenRestoreScheduleController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

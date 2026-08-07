@@ -140,6 +140,7 @@ import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hi
 import { createPtyConnectionHiddenRestoreDeferredRetryController } from './pty-connection-hidden-restore-deferred-retry-controller'
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
 import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
+import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
@@ -219,10 +220,6 @@ import {
   releaseRendererPtyVisibilityClaim,
   setRendererPtyVisibilityClaim
 } from './pty-renderer-delivery-claims'
-import {
-  cancelScheduledHiddenOutputRestore,
-  scheduleHiddenOutputRestore
-} from './hidden-output-restore-scheduler'
 import { resolveHiddenRestoreScrollbackRows } from './terminal-hidden-restore-scrollback'
 import {
   buildMainModelSnapshotReplayWrites,
@@ -2708,7 +2705,6 @@ export function connectPanePty(
     let hiddenOutputRestorePendingOverflow = false
     let hiddenOutputRestoreFreshSnapshotNeeded = false
     let hiddenOutputRestoreRetryDeferred = false
-    let hiddenOutputRestoreScheduled = false
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
       generation: number
@@ -2766,6 +2762,9 @@ export function connectPanePty(
           writeRestoreUnavailableWarning()
         }
       })
+    const hiddenRestoreScheduleController = createPtyConnectionHiddenRestoreScheduleController(
+      pane.terminal
+    )
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     const hiddenRendererQueryStateController =
       createPtyConnectionHiddenRendererQueryStateController()
@@ -3290,8 +3289,7 @@ export function connectPanePty(
       hiddenOutputRestorePendingOverflow = false
       hiddenOutputRestoreFreshSnapshotNeeded = false
       hiddenOutputRestoreRetryDeferred = false
-      hiddenOutputRestoreScheduled = false
-      cancelScheduledHiddenOutputRestore(pane.terminal)
+      hiddenRestoreScheduleController.cancel()
       hiddenRestoreDeferredRetryController.reset()
       hiddenRestoreForegroundDeadlineController.clear()
     }
@@ -3326,10 +3324,9 @@ export function connectPanePty(
       hiddenOutputRestorePendingOverflow = false
       hiddenOutputRestoreFreshSnapshotNeeded = false
       hiddenOutputRestoreRetryDeferred = false
-      hiddenOutputRestoreScheduled = false
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
-      cancelScheduledHiddenOutputRestore(pane.terminal)
+      hiddenRestoreScheduleController.cancel()
       hiddenRestoreDeferredRetryController.reset()
       hiddenRestoreForegroundDeadlineController.clear()
 
@@ -3604,35 +3601,26 @@ export function connectPanePty(
       if (!opts?.bypassScheduler) {
         const priority = foregroundLatencyController.isActiveSplitPane() ? 'active' : 'inactive'
         if (priority === 'inactive') {
-          if (!hiddenOutputRestoreScheduled) {
-            hiddenOutputRestoreScheduled = true
-            const scheduledPtyId = ptyId
-            const scheduledGeneration = hiddenOutputRestoreGeneration
-            // Why: resume can reveal many split panes at once; spread inactive replays across frames so xterm scrollback replay doesn't block return.
-            scheduleHiddenOutputRestore(
-              pane.terminal,
-              () => {
-                hiddenOutputRestoreScheduled = false
-                if (
-                  disposed ||
-                  hiddenOutputRestoreGeneration !== scheduledGeneration ||
-                  hiddenOutputRestorePtyId !== scheduledPtyId ||
-                  transport.getPtyId() !== scheduledPtyId ||
-                  !canUseHiddenOutputSnapshot(scheduledPtyId) ||
-                  (!hiddenOutputRestoreNeeded && hiddenOutputRestorePendingChunks.length === 0) ||
-                  !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-                ) {
-                  return
-                }
-                requestHiddenOutputRestoreIfNeeded({ bypassScheduler: true })
-              },
-              priority
-            )
-          }
+          const scheduledPtyId = ptyId
+          const scheduledGeneration = hiddenOutputRestoreGeneration
+          // Why: resume can reveal many split panes at once; spread inactive replays across frames so xterm scrollback replay doesn't block return.
+          hiddenRestoreScheduleController.scheduleInactive(() => {
+            if (
+              disposed ||
+              hiddenOutputRestoreGeneration !== scheduledGeneration ||
+              hiddenOutputRestorePtyId !== scheduledPtyId ||
+              transport.getPtyId() !== scheduledPtyId ||
+              !canUseHiddenOutputSnapshot(scheduledPtyId) ||
+              (!hiddenOutputRestoreNeeded && hiddenOutputRestorePendingChunks.length === 0) ||
+              !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
+            ) {
+              return
+            }
+            requestHiddenOutputRestoreIfNeeded({ bypassScheduler: true })
+          })
           return true
         }
-        cancelScheduledHiddenOutputRestore(pane.terminal)
-        hiddenOutputRestoreScheduled = false
+        hiddenRestoreScheduleController.cancel()
       }
       hiddenRestoreDeferredRetryController.clear()
       hiddenOutputRestoreRetryDeferred = false
