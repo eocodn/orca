@@ -352,6 +352,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore snapshot scroll tickets through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-scroll-ticket-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreScrollTicketController')
+    expect(orchestrator).not.toContain('let hiddenOutputSnapshotScrollRestore:')
+    expect(owner).toContain(
+      'export function createPtyConnectionHiddenRestoreScrollTicketController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes certified-dead restore recovery claims through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

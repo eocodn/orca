@@ -148,6 +148,7 @@ import {
 } from './pty-connection-hidden-restore-pending-live-controller'
 import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
+import { createPtyConnectionHiddenRestoreScrollTicketController } from './pty-connection-hidden-restore-scroll-ticket-controller'
 import { createPtyConnectionHiddenRestoreTaskController } from './pty-connection-hidden-restore-task-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
@@ -2699,12 +2700,6 @@ export function connectPanePty(
       }
     }
 
-    let hiddenOutputSnapshotScrollRestore: {
-      ptyId: string | null
-      generation: number
-      valid: boolean
-      started: boolean
-    } | null = null
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
     const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
@@ -2717,6 +2712,8 @@ export function connectPanePty(
       createPtyConnectionHiddenRestorePendingLiveController()
     const hiddenRestoreIdentityController = createPtyConnectionHiddenRestoreIdentityController()
     const hiddenRestoreTaskController = createPtyConnectionHiddenRestoreTaskController()
+    const hiddenRestoreScrollTicketController =
+      createPtyConnectionHiddenRestoreScrollTicketController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -3274,13 +3271,8 @@ export function connectPanePty(
         hiddenRestorePendingLiveController.takeForAbandon()
       const replayingSnapshot = hiddenRestoreReplayBaselineController.take()
       const nextRestoreGeneration = hiddenRestoreIdentityController.invalidate()
-      if (
-        hiddenOutputSnapshotScrollRestore?.valid &&
-        hiddenOutputSnapshotScrollRestore.ptyId === expectedPtyId
-      ) {
-        // Why: flood abandonment stops recovery bookkeeping, but its already-queued replay must keep the rebuild bracket and final pin.
-        hiddenOutputSnapshotScrollRestore.generation = nextRestoreGeneration
-      }
+      // Why: flood abandonment stops recovery bookkeeping, but its already-queued replay must keep the rebuild bracket and final pin.
+      hiddenRestoreScrollTicketController.handoffGeneration(expectedPtyId, nextRestoreGeneration)
       hiddenRestoreTaskController.abandon()
       hiddenRestoreFreshnessController.reset()
       hiddenRendererQueryStateController.reset()
@@ -3327,13 +3319,11 @@ export function connectPanePty(
 
     function cancelSnapshotScrollRestore(): void {
       pendingFitController.cancelHidden()
-      const scrollRestore = hiddenOutputSnapshotScrollRestore
-      if (!scrollRestore) {
+      const invalidated = hiddenRestoreScrollTicketController.invalidateCurrent()
+      if (!invalidated) {
         return
       }
-      scrollRestore.valid = false
-      hiddenOutputSnapshotScrollRestore = null
-      if (scrollRestore.started) {
+      if (invalidated.started) {
         cancelTerminalScrollIntentBufferRebuildCompletions(pane.terminal)
       }
       // Why: invalidation suppresses restoration, but queued bytes still own the bracket until their FIFO sentinels prove parsing finished.
@@ -3402,16 +3392,13 @@ export function connectPanePty(
     }): Promise<void> {
       const restorePtyId = transport.getPtyId()
       const restoreGeneration = hiddenRestoreIdentityController.getGeneration()
-      if (hiddenOutputSnapshotScrollRestore) {
+      if (hiddenRestoreScrollTicketController.hasCurrent()) {
         cancelSnapshotScrollRestore()
       }
-      const scrollRestore = {
-        ptyId: restorePtyId,
-        generation: restoreGeneration,
-        valid: true,
-        started: false
-      }
-      hiddenOutputSnapshotScrollRestore = scrollRestore
+      const scrollRestore = hiddenRestoreScrollTicketController.begin(
+        restorePtyId,
+        restoreGeneration
+      )
       const colsBeforeReplay = pane.terminal.cols
       const rowsBeforeReplay = pane.terminal.rows
       const hasSnapshotDimensions = hasPositiveTerminalDimensions(snapshot.cols, snapshot.rows)
@@ -3419,14 +3406,16 @@ export function connectPanePty(
         await structuralReplayCoordinator.run(
           async () => {
             if (
-              !scrollRestore.valid ||
               disposed ||
-              transport.getPtyId() !== scrollRestore.ptyId ||
-              hiddenRestoreIdentityController.getGeneration() !== scrollRestore.generation
+              !hiddenRestoreScrollTicketController.isCurrent(
+                scrollRestore,
+                transport.getPtyId(),
+                hiddenRestoreIdentityController.getGeneration()
+              )
             ) {
               return
             }
-            scrollRestore.started = true
+            hiddenRestoreScrollTicketController.markStarted(scrollRestore)
             hiddenRestoreReplayBaselineController.begin(snapshot)
             discardTerminalOutput(pane.terminal)
             if (
@@ -3462,16 +3451,20 @@ export function connectPanePty(
           },
           {
             shouldRestore: () =>
-              scrollRestore.valid &&
               !disposed &&
-              transport.getPtyId() === scrollRestore.ptyId &&
-              hiddenRestoreIdentityController.getGeneration() === scrollRestore.generation,
+              hiddenRestoreScrollTicketController.isCurrent(
+                scrollRestore,
+                transport.getPtyId(),
+                hiddenRestoreIdentityController.getGeneration()
+              ),
             afterRestore: async () => {
               const isCurrentRestore = (): boolean =>
-                scrollRestore.valid &&
                 !disposed &&
-                transport.getPtyId() === scrollRestore.ptyId &&
-                hiddenRestoreIdentityController.getGeneration() === scrollRestore.generation
+                hiddenRestoreScrollTicketController.isCurrent(
+                  scrollRestore,
+                  transport.getPtyId(),
+                  hiddenRestoreIdentityController.getGeneration()
+                )
               if (!isCurrentRestore()) {
                 return
               }
@@ -3513,9 +3506,7 @@ export function connectPanePty(
           }
         )
       } finally {
-        if (hiddenOutputSnapshotScrollRestore === scrollRestore) {
-          hiddenOutputSnapshotScrollRestore = null
-        }
+        hiddenRestoreScrollTicketController.clearIf(scrollRestore)
       }
     }
 
@@ -3681,6 +3672,10 @@ export function connectPanePty(
         }
       })()
       hiddenRestoreTaskController.track(hiddenOutputRestoreTask, () => {
+        // Why: a replay settling after teardown must not respawn zero-work restore tasks from pending live state.
+        if (disposed) {
+          return
+        }
         if (hiddenRestorePendingLiveController.hasPending()) {
           hiddenRestoreIdentityController.markNeeded()
           hiddenRestoreForegroundDeadlineController.arm()
