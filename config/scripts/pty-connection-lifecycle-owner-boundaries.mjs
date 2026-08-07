@@ -239,6 +239,23 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore foreground deadlines through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-foreground-deadline-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreForegroundDeadlineController')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreForegroundDeadlineTimer:')
+    expect(orchestrator).not.toContain('function armHiddenOutputRestoreForegroundDeadline()')
+    expect(owner).toContain(
+      'export function createPtyConnectionHiddenRestoreForegroundDeadlineController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

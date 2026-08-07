@@ -137,6 +137,7 @@ import { createPtyConnectionForegroundLatencyController } from './pty-connection
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
+import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
@@ -261,7 +262,6 @@ import {
   FOCUS_REPORTING_DISABLE_SEQUENCE,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS,
-  HIDDEN_OUTPUT_RESTORE_FOREGROUND_TIMEOUT_MS,
   HIDDEN_OUTPUT_RESTORE_MAX_LOOP_ITERATIONS,
   HIDDEN_OUTPUT_RESTORE_PENDING_CHARS,
   HIDDEN_OUTPUT_RESTORE_UNAVAILABLE_WARNING,
@@ -2710,7 +2710,6 @@ export function connectPanePty(
     let hiddenOutputRestoreRetryDeferred = false
     let hiddenOutputRestoreScheduled = false
     let hiddenOutputRestoreDeferredRetryTimer: ReturnType<typeof setTimeout> | null = null
-    let hiddenOutputRestoreForegroundDeadlineTimer: ReturnType<typeof setTimeout> | null = null
     let hiddenOutputRestoreDeferredRetryAttempts = 0
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
@@ -2739,6 +2738,17 @@ export function connectPanePty(
         getCurrentPtyId: () => transport.getPtyId(),
         isDisposed: () => disposed,
         requestRepaint: markHiddenOutputRestoreNeeded
+      })
+    const hiddenRestoreForegroundDeadlineController =
+      createPtyConnectionHiddenRestoreForegroundDeadlineController({
+        isDisposed: () => disposed,
+        isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
+        hasPending: () =>
+          hiddenOutputRestorePendingChunks.length > 0 || hiddenOutputRestorePendingOverflow,
+        getRestorePtyId: () => hiddenOutputRestorePtyId,
+        getCurrentPtyId: () => transport.getPtyId(),
+        getRestoreGeneration: () => hiddenOutputRestoreGeneration,
+        onDeadline: abandonHiddenOutputRestoreAndDrainPendingForeground
       })
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     const hiddenRendererQueryStateController =
@@ -3147,7 +3157,7 @@ export function connectPanePty(
       if (hiddenOutputRestorePendingOverflow) {
         // Why: the overflow latch discards everything queued at the next drain, so queueing more only grows the discard; salvage queries, drop content.
         salvageRendererQueriesFromDiscardedRestoreData(data)
-        armHiddenOutputRestoreForegroundDeadline()
+        hiddenRestoreForegroundDeadlineController.arm()
         return
       }
       if (hiddenOutputRestorePendingChars + data.length > HIDDEN_OUTPUT_RESTORE_PENDING_CHARS) {
@@ -3159,7 +3169,7 @@ export function connectPanePty(
           salvageRendererQueriesFromDiscardedRestoreData(chunk.data)
         }
         salvageRendererQueriesFromDiscardedRestoreData(data)
-        armHiddenOutputRestoreForegroundDeadline()
+        hiddenRestoreForegroundDeadlineController.arm()
         return
       }
       const pending: PendingHiddenOutputRestoreChunk = { data }
@@ -3171,7 +3181,7 @@ export function connectPanePty(
       }
       hiddenOutputRestorePendingChunks.push(pending)
       hiddenOutputRestorePendingChars += data.length
-      armHiddenOutputRestoreForegroundDeadline()
+      hiddenRestoreForegroundDeadlineController.arm()
     }
 
     function getChunkDataAfterSnapshot(
@@ -3267,7 +3277,7 @@ export function connectPanePty(
       hiddenOutputRestoreScheduled = false
       cancelScheduledHiddenOutputRestore(pane.terminal)
       clearHiddenOutputRestoreDeferredRetryTimer()
-      clearHiddenOutputRestoreForegroundDeadlineTimer()
+      hiddenRestoreForegroundDeadlineController.clear()
       hiddenOutputRestoreDeferredRetryAttempts = 0
     }
 
@@ -3277,41 +3287,6 @@ export function connectPanePty(
       }
       clearTimeout(hiddenOutputRestoreDeferredRetryTimer)
       hiddenOutputRestoreDeferredRetryTimer = null
-    }
-    function clearHiddenOutputRestoreForegroundDeadlineTimer(): void {
-      if (hiddenOutputRestoreForegroundDeadlineTimer === null) {
-        return
-      }
-      clearTimeout(hiddenOutputRestoreForegroundDeadlineTimer)
-      hiddenOutputRestoreForegroundDeadlineTimer = null
-    }
-    function armHiddenOutputRestoreForegroundDeadline(): void {
-      if (
-        disposed ||
-        hiddenOutputRestoreForegroundDeadlineTimer !== null ||
-        !shouldWritePtyOutputForeground(deps.isVisibleRef.current) ||
-        (hiddenOutputRestorePendingChunks.length === 0 && !hiddenOutputRestorePendingOverflow)
-      ) {
-        return
-      }
-      const ptyId = hiddenOutputRestorePtyId
-      if (ptyId === null || transport.getPtyId() !== ptyId) {
-        return
-      }
-      const deadlineGeneration = hiddenOutputRestoreGeneration
-      // Why: only foreground output blocked behind recovery gets a deadline; hidden-time restore work has no user impact.
-      hiddenOutputRestoreForegroundDeadlineTimer = setTimeout(() => {
-        hiddenOutputRestoreForegroundDeadlineTimer = null
-        if (
-          disposed ||
-          hiddenOutputRestoreGeneration !== deadlineGeneration ||
-          hiddenOutputRestorePtyId !== ptyId ||
-          !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-        ) {
-          return
-        }
-        abandonHiddenOutputRestoreAndDrainPendingForeground(ptyId)
-      }, HIDDEN_OUTPUT_RESTORE_FOREGROUND_TIMEOUT_MS)
     }
 
     function abandonHiddenOutputRestoreAndDrainPendingForeground(
@@ -3349,7 +3324,7 @@ export function connectPanePty(
       renderRiskController.resetHidden()
       cancelScheduledHiddenOutputRestore(pane.terminal)
       clearHiddenOutputRestoreDeferredRetryTimer()
-      clearHiddenOutputRestoreForegroundDeadlineTimer()
+      hiddenRestoreForegroundDeadlineController.clear()
       hiddenOutputRestoreDeferredRetryAttempts = 0
 
       // Why quiet: flood cuts abandon deliberately and repaint post-flood, so the "restore unavailable" warning would be noise the repaint wipes.
@@ -3436,7 +3411,7 @@ export function connectPanePty(
     hiddenRestoreCleanupController.bind({
       cancelSnapshotScrollRestore,
       clearDeferredRetry: clearHiddenOutputRestoreDeferredRetryTimer,
-      clearForegroundDeadline: clearHiddenOutputRestoreForegroundDeadlineTimer,
+      clearForegroundDeadline: hiddenRestoreForegroundDeadlineController.dispose,
       clearFloodRepaint: hiddenRestoreFloodBackpressureController.dispose
     })
 
@@ -3648,7 +3623,7 @@ export function connectPanePty(
       }
       hiddenOutputRestorePtyId = ptyId
       if (hiddenOutputRestoreInFlight) {
-        armHiddenOutputRestoreForegroundDeadline()
+        hiddenRestoreForegroundDeadlineController.arm()
         return true
       }
       if (!opts?.bypassScheduler) {
@@ -3759,7 +3734,7 @@ export function connectPanePty(
           if (drainOutcome === 'drained' && !needsFreshSnapshot) {
             hiddenOutputRestoreNeeded = false
             hiddenOutputRestorePtyId = null
-            clearHiddenOutputRestoreForegroundDeadlineTimer()
+            hiddenRestoreForegroundDeadlineController.clear()
             return
           }
           if (!shouldWritePtyOutputForeground(deps.isVisibleRef.current)) {
@@ -3798,7 +3773,7 @@ export function connectPanePty(
         }
         if (hiddenOutputRestorePendingChunks.length > 0 || hiddenOutputRestorePendingOverflow) {
           hiddenOutputRestoreNeeded = true
-          armHiddenOutputRestoreForegroundDeadline()
+          hiddenRestoreForegroundDeadlineController.arm()
         }
         if (
           !hiddenOutputRestoreRetryDeferred &&
