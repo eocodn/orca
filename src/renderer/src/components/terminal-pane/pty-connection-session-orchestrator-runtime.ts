@@ -85,10 +85,8 @@ import {
 import { scanForShellReadyMarker } from './shell-ready-marker-scan'
 import { getSystemPrefersDark } from '@/lib/terminal-theme'
 import {
-  INITIAL_MODE_2031_REPLY_SCAN_STATE,
   mode2031SequenceFor,
-  resolveTerminalColorSchemeMode,
-  scanMode2031ReplyDecision
+  resolveTerminalColorSchemeMode
 } from '../../../../shared/terminal-color-scheme-protocol'
 import { warnTerminalLifecycleAnomaly } from './terminal-lifecycle-diagnostics'
 import { subscribeToTerminalUserInput } from './terminal-user-input-signal'
@@ -141,6 +139,7 @@ import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hi
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
+import { createPtyConnectionMode2031ReplyScanController } from './pty-connection-mode2031-reply-scan-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import { createPtyConnectionPendingFitController } from './pty-connection-pending-fit-controller'
@@ -2737,7 +2736,7 @@ export function connectPanePty(
     let hiddenOutputRestoreFloodRepaintTimer: ReturnType<typeof setTimeout> | null = null
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
-    let mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
+    const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     const hiddenRendererQueryStateController =
       createPtyConnectionHiddenRendererQueryStateController()
@@ -2874,13 +2873,12 @@ export function connectPanePty(
       if (isHiddenDeliveryGateManagedPty(transport.getPtyId())) {
         return
       }
-      const result = scanMode2031ReplyDecision(mode2031ReplyScanState, data)
-      mode2031ReplyScanState = result.state
-      if (result.decision === 'unsubscribed') {
+      const decision = mode2031ReplyScanController.scan(data)
+      if (decision === 'unsubscribed') {
         deps.paneMode2031Ref.current.delete(pane.id)
         deps.paneLastThemeModeRef.current.delete(pane.id)
       }
-      if (result.decision !== 'subscribed') {
+      if (decision !== 'subscribed') {
         return
       }
       const settings = useAppStore.getState().settings
@@ -3477,7 +3475,7 @@ export function connectPanePty(
       deps.paneLastThemeModeRef.current.delete(pane.id)
       // A partial CSI prefix belongs to the stream that produced it; carrying it into a
       // replacement PTY would splice two unrelated byte ranges into one sequence.
-      mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
+      mode2031ReplyScanController.reset()
     }
 
     function skipBackgroundAlternateScreenOutput(data: string): void {

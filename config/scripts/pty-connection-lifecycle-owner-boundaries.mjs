@@ -208,6 +208,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes live mode-2031 reply scanning through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-mode2031-reply-scan-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionMode2031ReplyScanController')
+    expect(orchestrator).not.toContain('let mode2031ReplyScanState =')
+    expect(owner).toContain('export function createPtyConnectionMode2031ReplyScanController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
