@@ -276,6 +276,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes hidden restore fresh-snapshot latching through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-restore-freshness-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenRestoreFreshnessController')
+    expect(orchestrator).not.toContain('let hiddenOutputRestoreFreshSnapshotNeeded =')
+    expect(owner).toContain('export function createPtyConnectionHiddenRestoreFreshnessController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes certified-dead restore recovery claims through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

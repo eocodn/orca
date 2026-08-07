@@ -139,6 +139,7 @@ import { createPtyConnectionForegroundRenderController } from './pty-connection-
 import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
 import { createPtyConnectionHiddenRestoreDeferredRetryController } from './pty-connection-hidden-restore-deferred-retry-controller'
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
+import { createPtyConnectionHiddenRestoreFreshnessController } from './pty-connection-hidden-restore-freshness-controller'
 import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
@@ -2703,7 +2704,6 @@ export function connectPanePty(
     let hiddenOutputRestorePendingChunks: PendingHiddenOutputRestoreChunk[] = []
     let hiddenOutputRestorePendingChars = 0
     let hiddenOutputRestorePendingOverflow = false
-    let hiddenOutputRestoreFreshSnapshotNeeded = false
     let hiddenOutputSnapshotScrollRestore: {
       ptyId: string | null
       generation: number
@@ -2725,6 +2725,7 @@ export function connectPanePty(
     const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
     const certifiedDeadRestoreRecoveryController =
       createPtyConnectionCertifiedDeadRestoreRecoveryController()
+    const hiddenRestoreFreshnessController = createPtyConnectionHiddenRestoreFreshnessController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -2845,7 +2846,7 @@ export function connectPanePty(
       const restoreWasInFlight = hiddenOutputRestoreInFlight !== null
       markHiddenOutputRestoreNeeded()
       if (restoreWasInFlight) {
-        hiddenOutputRestoreFreshSnapshotNeeded = true
+        hiddenRestoreFreshnessController.markNeeded()
       }
     }
 
@@ -3100,7 +3101,7 @@ export function connectPanePty(
       markHiddenOutputRestoreNeeded()
       hiddenRendererQueryStateController.markDirty()
       if (hiddenOutputRestoreInFlight) {
-        hiddenOutputRestoreFreshSnapshotNeeded = true
+        hiddenRestoreFreshnessController.markNeeded()
       }
       recordHiddenRendererSkip(data.length)
     }
@@ -3285,7 +3286,7 @@ export function connectPanePty(
       hiddenOutputRestorePendingChunks = []
       hiddenOutputRestorePendingChars = 0
       hiddenOutputRestorePendingOverflow = false
-      hiddenOutputRestoreFreshSnapshotNeeded = false
+      hiddenRestoreFreshnessController.reset()
       hiddenRestoreScheduleController.cancel()
       hiddenRestoreDeferredRetryController.reset()
       hiddenRestoreForegroundDeadlineController.clear()
@@ -3319,7 +3320,7 @@ export function connectPanePty(
       hiddenOutputRestorePendingChunks = []
       hiddenOutputRestorePendingChars = 0
       hiddenOutputRestorePendingOverflow = false
-      hiddenOutputRestoreFreshSnapshotNeeded = false
+      hiddenRestoreFreshnessController.reset()
       hiddenRendererQueryStateController.reset()
       renderRiskController.resetHidden()
       hiddenRestoreScheduleController.cancel()
@@ -3667,7 +3668,7 @@ export function connectPanePty(
           }
           if (!snapshot) {
             hiddenOutputRestoreNeeded = true
-            hiddenOutputRestoreFreshSnapshotNeeded = false
+            hiddenRestoreFreshnessController.reset()
             hiddenRestoreDeferredRetryController.schedule()
             return
           }
@@ -3685,8 +3686,7 @@ export function connectPanePty(
           // Why: everything at/before snapshot.seq is now painted; chunks still draining from main's ACK backlog below it are duplicates to suppress.
           restoredSnapshotReconciliationController.setBaseline(currentPtyId, snapshot)
           hiddenOutputRestoreReplayingSnapshot = null
-          const needsFreshSnapshot = hiddenOutputRestoreFreshSnapshotNeeded
-          hiddenOutputRestoreFreshSnapshotNeeded = false
+          const needsFreshSnapshot = hiddenRestoreFreshnessController.takeNeeded()
           const drainOutcome = drainPendingLiveChunksAfterSnapshot(snapshot.seq)
           if (drainOutcome === 'drained' && !needsFreshSnapshot) {
             hiddenOutputRestoreNeeded = false
@@ -3862,7 +3862,7 @@ export function connectPanePty(
           const restoreWasInFlight = hiddenOutputRestoreInFlight !== null
           markHiddenOutputRestoreNeeded()
           if (restoreWasInFlight) {
-            hiddenOutputRestoreFreshSnapshotNeeded = true
+            hiddenRestoreFreshnessController.markNeeded()
           }
           return
         }
@@ -3931,7 +3931,7 @@ export function connectPanePty(
         } else if (hiddenOutputRestoreInFlight) {
           renderRiskController.resetSkippedHidden()
           hiddenOutputRestoreNeeded = true
-          hiddenOutputRestoreFreshSnapshotNeeded = true
+          hiddenRestoreFreshnessController.markNeeded()
         }
         // Why: hidden chunks with a restore already latched are dropped; the reveal snapshot covers their bytes.
       } else {
