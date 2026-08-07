@@ -141,6 +141,7 @@ import { createPtyConnectionHiddenRestoreDeferredRetryController } from './pty-c
 import { createPtyConnectionHiddenRestoreFloodBackpressureController } from './pty-connection-hidden-restore-flood-backpressure-controller'
 import { createPtyConnectionHiddenRestoreFreshnessController } from './pty-connection-hidden-restore-freshness-controller'
 import { createPtyConnectionHiddenRestoreForegroundDeadlineController } from './pty-connection-hidden-restore-foreground-deadline-controller'
+import { createPtyConnectionHiddenRestoreReplayBaselineController } from './pty-connection-hidden-restore-replay-baseline-controller'
 import { createPtyConnectionHiddenRestoreScheduleController } from './pty-connection-hidden-restore-schedule-controller'
 import { createPtyConnectionHiddenRendererQueryStateController } from './pty-connection-hidden-renderer-query-state-controller'
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
@@ -2714,18 +2715,14 @@ export function connectPanePty(
     // can reuse the pane object for a different session before visibility.
     let hiddenOutputRestorePtyId: string | null = null
     let hiddenOutputRestoreGeneration = 0
-    // Why: queued replay writes still paint after deadline abandonment; the
-    // fallback drain must not write snapshot-covered live bytes a second time.
-    let hiddenOutputRestoreReplayingSnapshot: {
-      seq?: number
-      pendingDeliveryStartSeq?: number
-    } | null = null
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
     const mode2031ReplyScanController = createPtyConnectionMode2031ReplyScanController()
     const certifiedDeadRestoreRecoveryController =
       createPtyConnectionCertifiedDeadRestoreRecoveryController()
     const hiddenRestoreFreshnessController = createPtyConnectionHiddenRestoreFreshnessController()
+    const hiddenRestoreReplayBaselineController =
+      createPtyConnectionHiddenRestoreReplayBaselineController()
     const hiddenRestoreFloodBackpressureController =
       createPtyConnectionHiddenRestoreFloodBackpressureController({
         getCurrentPtyId: () => transport.getPtyId(),
@@ -3304,8 +3301,7 @@ export function connectPanePty(
         ? []
         : hiddenOutputRestorePendingChunks.slice()
       const hadPendingOverflow = hiddenOutputRestorePendingOverflow
-      const replayingSnapshot = hiddenOutputRestoreReplayingSnapshot
-      hiddenOutputRestoreReplayingSnapshot = null
+      const replayingSnapshot = hiddenRestoreReplayBaselineController.take()
       hiddenOutputRestoreGeneration += 1
       if (
         hiddenOutputSnapshotScrollRestore?.valid &&
@@ -3361,7 +3357,7 @@ export function connectPanePty(
       renderRiskController.resetHidden()
       hiddenOutputRestoreNeeded = false
       hiddenOutputRestorePtyId = null
-      hiddenOutputRestoreReplayingSnapshot = null
+      hiddenRestoreReplayBaselineController.clear()
       hiddenOutputRestoreGeneration += 1
     }
 
@@ -3467,14 +3463,7 @@ export function connectPanePty(
               return
             }
             scrollRestore.started = true
-            if (typeof snapshot.seq === 'number') {
-              hiddenOutputRestoreReplayingSnapshot = {
-                seq: snapshot.seq,
-                ...(typeof snapshot.pendingDeliveryStartSeq === 'number'
-                  ? { pendingDeliveryStartSeq: snapshot.pendingDeliveryStartSeq }
-                  : {})
-              }
-            }
+            hiddenRestoreReplayBaselineController.begin(snapshot)
             discardTerminalOutput(pane.terminal)
             if (
               hasSnapshotDimensions &&
@@ -3685,7 +3674,7 @@ export function connectPanePty(
           }
           // Why: everything at/before snapshot.seq is now painted; chunks still draining from main's ACK backlog below it are duplicates to suppress.
           restoredSnapshotReconciliationController.setBaseline(currentPtyId, snapshot)
-          hiddenOutputRestoreReplayingSnapshot = null
+          hiddenRestoreReplayBaselineController.clear()
           const needsFreshSnapshot = hiddenRestoreFreshnessController.takeNeeded()
           const drainOutcome = drainPendingLiveChunksAfterSnapshot(snapshot.seq)
           if (drainOutcome === 'drained' && !needsFreshSnapshot) {
