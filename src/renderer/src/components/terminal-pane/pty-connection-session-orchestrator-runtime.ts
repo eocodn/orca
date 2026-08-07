@@ -132,6 +132,7 @@ import {
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
+import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
@@ -232,12 +233,7 @@ import { isRendererHiddenPtyDeliveryGateEnabled } from './terminal-hidden-delive
 import {
   CURSOR_SHOW_SEQUENCE,
   FOCUS_REPORTING_DISABLE_SEQUENCE,
-  FOREGROUND_BUDGET_WINDOW_MS,
-  FOREGROUND_IMMEDIATE_BUDGET_CHARS,
-  FOREGROUND_INTERACTIVE_REDRAW_CHARS,
-  FOREGROUND_INTERACTIVE_REDRAW_WINDOW_MS,
   FOREGROUND_SYNCHRONIZED_FRAME_INTERACTIVE_WINDOW_MS,
-  FOREGROUND_THROUGHPUT_IMMEDIATE_CHARS,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MAX,
   HIDDEN_OUTPUT_RESTORE_DEFERRED_RETRY_MS,
   HIDDEN_OUTPUT_RESTORE_FLOOD_SUPPRESS_MS,
@@ -2685,6 +2681,14 @@ export function connectPanePty(
       getBufferSwitches: () => alternateScreenBufferSwitches,
       scheduleAtlasRecovery: scheduleTerminalWebglAtlasRecovery
     })
+    const foregroundLatencyController = createPtyConnectionForegroundLatencyController({
+      paneId: pane.id,
+      now: () => performance.now(),
+      getLastTerminalInputAt: () => lastTerminalInputAt,
+      isPaneMarkedActive: () => deps.isActiveRef.current,
+      getActivePaneId: () => manager.getActivePane?.()?.id ?? null,
+      consumeInactiveBudget: consumeInactiveForegroundImmediateBudget
+    })
 
     // The replay path uses the guard so xterm auto-replies to embedded query
     // sequences don't leak into the shell. xterm.write() buffers internally
@@ -3076,8 +3080,6 @@ export function connectPanePty(
       restoredSnapshotExpectedStartSeq = null
       restoredSnapshotDeliveryWindowStartSeq = null
     }
-    let foregroundImmediateBudgetChars = 0
-    let foregroundImmediateBudgetWindowStart = 0
     let mode2031ReplyScanState = INITIAL_MODE_2031_REPLY_SCAN_STATE
     const shouldSnapshotHiddenCodexOutput = shouldKeepHiddenStartupRendererQueriesLive(paneStartup)
     let hiddenStartupRendererQueryPending = ''
@@ -3316,50 +3318,6 @@ export function connectPanePty(
       recordTerminalOutput(pane.terminal)
     }
 
-    function consumeForegroundImmediateBudget(dataLength: number): boolean {
-      const now = performance.now()
-      if (now - foregroundImmediateBudgetWindowStart > FOREGROUND_BUDGET_WINDOW_MS) {
-        foregroundImmediateBudgetChars = 0
-        foregroundImmediateBudgetWindowStart = now
-      }
-      if (foregroundImmediateBudgetChars + dataLength > FOREGROUND_IMMEDIATE_BUDGET_CHARS) {
-        return false
-      }
-      foregroundImmediateBudgetChars += dataLength
-      return true
-    }
-
-    function isActiveSplitPane(): boolean {
-      if (!deps.isActiveRef.current) {
-        return false
-      }
-      const activePane = manager.getActivePane?.() ?? null
-      return activePane ? activePane.id === pane.id : true
-    }
-
-    function isLatencySensitiveForegroundOutput(data: string): boolean {
-      if (!isActiveSplitPane()) {
-        // Why: many visible split panes each emit tiny TUI frames; a shared budget keeps them live without letting aggregate xterm work starve typing in the active pane.
-        if (data.includes('\x1b[')) {
-          return false
-        }
-        return consumeInactiveForegroundImmediateBudget(data.length)
-      }
-      if (data.length <= FOREGROUND_THROUGHPUT_IMMEDIATE_CHARS) {
-        return consumeForegroundImmediateBudget(data.length)
-      }
-      const recentInput =
-        performance.now() - lastTerminalInputAt <= FOREGROUND_INTERACTIVE_REDRAW_WINDOW_MS
-      if (
-        recentInput &&
-        data.length <= FOREGROUND_INTERACTIVE_REDRAW_CHARS &&
-        data.includes('\x1b[')
-      ) {
-        return consumeForegroundImmediateBudget(data.length)
-      }
-      return false
-    }
-
     // Why here and not in xterm's CSI handler: xterm batches several PTY chunks into one
     // synchronous parse, so a handler cannot tell where a chunk ended. fish enables and
     // disables 2031 around every prompt, so answering a subscribe the same chunk withdraws
@@ -3470,7 +3428,8 @@ export function connectPanePty(
         latencySensitive:
           !foreground || parseHiddenStartupOutput
             ? true
-            : synchronizedFrameLatencySensitive || isLatencySensitiveForegroundOutput(data),
+            : synchronizedFrameLatencySensitive ||
+              foregroundLatencyController.isLatencySensitive(data),
         forceForegroundRefresh:
           foregroundOutput &&
           (synchronizedForegroundOutput ||
@@ -4352,7 +4311,7 @@ export function connectPanePty(
         return true
       }
       if (!opts?.bypassScheduler) {
-        const priority = isActiveSplitPane() ? 'active' : 'inactive'
+        const priority = foregroundLatencyController.isActiveSplitPane() ? 'active' : 'inactive'
         if (priority === 'inactive') {
           if (!hiddenOutputRestoreScheduled) {
             hiddenOutputRestoreScheduled = true

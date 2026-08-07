@@ -77,4 +77,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionForegroundRenderController(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes foreground latency budgeting through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-foreground-latency-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'"
+    )
+    expect(orchestrator).not.toContain('let foregroundImmediateBudgetChars = 0')
+    expect(orchestrator).not.toContain('function consumeForegroundImmediateBudget(')
+    expect(orchestrator).not.toContain('function isLatencySensitiveForegroundOutput(')
+    expect(owner).toContain('export function createPtyConnectionForegroundLatencyController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
