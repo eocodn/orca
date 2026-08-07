@@ -22,4 +22,23 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function preparePtyConnectionConnectPreflight(')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes fresh-spawn follow recovery through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-fresh-spawn-follow-controller.ts'
+    )
+
+    expect(orchestrator).toContain(
+      "import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'"
+    )
+    expect(orchestrator).not.toContain(
+      "'fresh-spawn-follow-reset',\n            tryResetNativeFollow"
+    )
+    expect(orchestrator).not.toContain('let freshSpawnFollowResetDisposables: IDisposable[] = []')
+    expect(owner).toContain('export function createPtyConnectionFreshSpawnFollowController(')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

@@ -1,6 +1,5 @@
 import { getClientRuntime } from '../../runtime/client-runtime'
 import type { PaneManager, ManagedPane } from '@/lib/pane-manager/pane-manager'
-import type { IDisposable } from '@xterm/xterm'
 import { installTerminalImeCompositionRoute } from './terminal-ime-composition-route'
 import { detectAgentStatusFromTitle, agentTypeToIconAgent, isClaudeAgent } from '@/lib/agent-status'
 import { resolvePaneTitleDecision } from './terminal-title-evidence'
@@ -132,6 +131,7 @@ import {
   isPassiveCompletedHibernationEvidence
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
+import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPaneForegroundAgentTracker } from './pane-foreground-agent-tracker'
 import { parseAppSshPtyId } from '../../../../shared/ssh-pty-id'
 import { dispatchTerminalCommandFinishedEvent } from '@/hooks/terminal-command-finished-event'
@@ -2571,50 +2571,21 @@ export function connectPanePty(
     }
     wakeHibernatedAgentPane = () => startFreshColdRestoreAgentResume()
 
-    let freshSpawnFollowResetDisposables: IDisposable[] = []
-    cancelFreshSpawnFollowReset = (): void => {
-      for (const disposable of freshSpawnFollowResetDisposables) {
-        disposable.dispose()
-      }
-      freshSpawnFollowResetDisposables = []
-    }
-    const resetFreshSpawnFollowOutput = (): void => {
-      cancelFreshSpawnFollowReset()
-      markTerminalFollowOutput(pane.terminal)
-      let nativeFollowResetComplete = false
-      const tryResetNativeFollow = (): void => {
-        if (
-          disposed ||
-          getTerminalScrollIntentKind(pane.terminal) !== 'followOutput' ||
-          deferTerminalGeometryMutationDuringRebuild(
-            pane.terminal,
-            'fresh-spawn-follow-reset',
-            tryResetNativeFollow
-          )
-        ) {
-          return
-        }
-        try {
-          pane.terminal.scrollToBottom()
-          nativeFollowResetComplete = true
-          cancelFreshSpawnFollowReset()
-        } catch (err) {
-          if (!(err instanceof TypeError && /dimensions/.test(err.message))) {
-            cancelFreshSpawnFollowReset()
-            throw err
-          }
-        }
-      }
-      tryResetNativeFollow()
-      if (!nativeFollowResetComplete) {
-        // Why: xterm's browser viewport can reject scrolling while its renderer
-        // is detached; the first render/resize is the earliest safe native retry.
-        freshSpawnFollowResetDisposables = [
-          pane.terminal.onRender(tryResetNativeFollow),
-          pane.terminal.onResize(tryResetNativeFollow)
-        ]
-      }
-    }
+    const freshSpawnFollowController = createPtyConnectionFreshSpawnFollowController({
+      isDisposed: () => disposed,
+      markFollowOutput: () => markTerminalFollowOutput(pane.terminal),
+      getScrollIntentKind: () => getTerminalScrollIntentKind(pane.terminal),
+      deferGeometryMutation: (retry) =>
+        deferTerminalGeometryMutationDuringRebuild(
+          pane.terminal,
+          'fresh-spawn-follow-reset',
+          retry
+        ),
+      scrollToBottom: () => pane.terminal.scrollToBottom(),
+      subscribeRender: (listener) => pane.terminal.onRender(listener),
+      subscribeResize: (listener) => pane.terminal.onResize(listener)
+    })
+    cancelFreshSpawnFollowReset = freshSpawnFollowController.cancel
 
     const createFreshSpawnController = () =>
       createPtyConnectionFreshSpawnController({
@@ -2677,7 +2648,7 @@ export function connectPanePty(
         startupCommand: startupOverride?.command ?? null,
         clearPaneMode2031State,
         clearHiddenOutputRestoreState,
-        resetFreshSpawnFollowOutput,
+        resetFreshSpawnFollowOutput: freshSpawnFollowController.reset,
         resetKittyKeyboardModes: () => kittyKeyboardModes.reset(),
         prepareFreshShellViewportForSpawn: () => prepareFreshShellViewportForSpawn(options),
         setPendingStartupCommand
