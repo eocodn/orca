@@ -157,6 +157,23 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes renderer sequence exit reset through its stable concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-renderer-sequence-exit-reset-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionRendererSequenceExitResetController')
+    expect(orchestrator).not.toContain('let resetRendererOrderedSeqForPtyExit:')
+    expect(orchestrator).toContain('rendererSequenceExitResetController.resetForExit')
+    expect(owner).toContain(
+      'export function createPtyConnectionRendererSequenceExitResetController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes reattach live-data deferral state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

@@ -152,6 +152,7 @@ import {
 } from './pty-connection-reattach-live-data-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
+import { createPtyConnectionRendererSequenceExitResetController } from './pty-connection-renderer-sequence-exit-reset-controller'
 import { createPtyConnectionRenderRiskController } from './pty-connection-render-risk-controller'
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPtyConnectionTitleCompletionDeferralController } from './pty-connection-title-completion-deferral-controller'
@@ -361,7 +362,8 @@ export function connectPanePty(
   const recoverySubscriptionsController = createPtyConnectionRecoverySubscriptionsController()
   const hiddenRestoreCleanupController = createPtyConnectionHiddenRestoreCleanupController()
   const pendingFitController = createPtyConnectionPendingFitController()
-  let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
+  const rendererSequenceExitResetController =
+    createPtyConnectionRendererSequenceExitResetController()
   const startupDeliveryCleanupController = createPtyConnectionStartupDeliveryCleanupController()
   const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
   const agentIdleTerminalModeController = createPtyConnectionAgentIdleTerminalModeController({
@@ -1154,7 +1156,7 @@ export function connectPanePty(
     cacheKey,
     getRuntimeEnvironmentId: () => runtimeEnvironmentId,
     getTransport: () => transport,
-    resetRendererOrderedSeqForExit: (ptyId) => resetRendererOrderedSeqForPtyExit(ptyId),
+    resetRendererOrderedSeqForExit: rendererSequenceExitResetController.resetForExit,
     releaseCurrentPaneRuntime: () => {
       agentCompletionCoordinator.dispose()
       dropSideEffectFactConsumer()
@@ -3329,13 +3331,11 @@ export function connectPanePty(
 
     const recordRendererOrderedSeq = rendererSequenceController.recordOrdered
 
-    resetRendererOrderedSeqForPtyExit = (exitedPtyId: string): void => {
-      // Why: an exit ends this ptyId's seq domain; a revived id restarts main's counter, so both seq high-water marks (ordered + restored baseline) must reset here or they drop revived bytes as duplicates.
-      if (restoredSnapshotBaselinePtyId === exitedPtyId) {
-        clearRestoredSnapshotBaseline()
-      }
-      rendererSequenceController.resetForPtyExit(exitedPtyId)
-    }
+    rendererSequenceExitResetController.bindRuntime({
+      getRestoredSnapshotBaselinePtyId: () => restoredSnapshotBaselinePtyId,
+      clearRestoredSnapshotBaseline,
+      resetRendererSequenceForPtyExit: rendererSequenceController.resetForPtyExit
+    })
 
     const observeRendererOrderedSeqRegression = rendererSequenceController.observeChannel
     const getHiddenRendererDataAfterOrderedSeq =
