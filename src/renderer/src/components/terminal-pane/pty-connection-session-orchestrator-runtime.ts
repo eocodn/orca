@@ -81,9 +81,7 @@ import {
   POST_REPLAY_LIVE_AGENT_SNAPSHOT_RESET,
   POST_REPLAY_LIVE_SNAPSHOT_RESET,
   POST_REPLAY_MODE_RESET,
-  POST_REPLAY_REATTACH_RESET,
-  RESET_KITTY_KEYBOARD_PROTOCOL,
-  RESET_TERMINAL_CURSOR_STYLE
+  POST_REPLAY_REATTACH_RESET
 } from './layout-serialization'
 import { scanForShellReadyMarker } from './shell-ready-marker-scan'
 import { getSystemPrefersDark } from '@/lib/terminal-theme'
@@ -132,6 +130,7 @@ import {
 } from '@/lib/sleeping-agent-pane-ownership'
 import { createTerminalCommandLifecycle } from './terminal-command-lifecycle'
 import { createPtyConnectionAlternateScreenRepaintController } from './pty-connection-alternate-screen-repaint-controller'
+import { createPtyConnectionAgentIdleTerminalModeController } from './pty-connection-agent-idle-terminal-mode-controller'
 import { createPtyConnectionBufferSwitchController } from './pty-connection-buffer-switch-controller'
 import { createPtyConnectionCommandFinishedStatusDropController } from './pty-connection-command-finished-status-drop-controller'
 import { createPtyConnectionDroidReconfirmationController } from './pty-connection-droid-reconfirmation-controller'
@@ -376,27 +375,15 @@ export function connectPanePty(
     IpcPtyTransportOptions['onAgentStatus']
   > = () => {}
   let remoteOutputPausedPtyId: string | null = null
-  // Why: idle callbacks are registered before the deferred PTY output plumbing
-  // exists. Start with the shared scheduler, then switch to the PTY writer
-  // below so hidden-tab resets keep backlog-recovery callbacks and byte order.
-  let idleAgentTerminalModeReset = RESET_TERMINAL_CURSOR_STYLE
-  let suppressNativeWindowsIdleCodexFocusReports = false
-  const setFocusReportSuppressionForAgentCompletion = (
-    title: string | undefined,
-    agentType: AgentType | undefined
-  ): void => {
-    const titleAgentType = resolveCommittedTitleAgentType(title ?? '')
-    suppressNativeWindowsIdleCodexFocusReports =
-      agentType && agentType !== 'unknown' ? agentType === 'codex' : titleAgentType === 'codex'
-  }
-  let queueAgentIdleTerminalModeReset = (): void => {
-    if (disposed) {
-      return
-    }
-    writeTerminalOutput(pane.terminal, idleAgentTerminalModeReset, {
-      foreground: shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-    })
-  }
+  const agentIdleTerminalModeController = createPtyConnectionAgentIdleTerminalModeController({
+    isDisposed: () => disposed,
+    writeReset: (sequence) => {
+      writeTerminalOutput(pane.terminal, sequence, {
+        foreground: shouldWritePtyOutputForeground(deps.isVisibleRef.current)
+      })
+    },
+    resolveCommittedTitleAgentType
+  })
   // Why: passphrase-gate waits register a teardown here so dispose() can
   // actively unsubscribe + resolve them. Without this, a pane disposed
   // mid-wait leaks its zustand subscriber and the surrounding async IIFE
@@ -497,15 +484,15 @@ export function connectPanePty(
     ) {
       deps.setCacheTimerStartedAt(cacheKey, Date.now())
     }
-    setFocusReportSuppressionForAgentCompletion(title, agentType)
-    queueAgentIdleTerminalModeReset()
+    agentIdleTerminalModeController.applyCompletionFocusSuppression(title, agentType)
+    agentIdleTerminalModeController.queueReset()
   }
   const titleCompletionDeferralController = createPtyConnectionTitleCompletionDeferralController({
     resolveCompatibleAgentType: resolveCompatibleAgentTypeForOwner,
     applyCompletion: applyAgentCompletionSideEffects,
     relaxPendingCompletion: () => {
-      suppressNativeWindowsIdleCodexFocusReports = false
-      queueAgentIdleTerminalModeReset()
+      agentIdleTerminalModeController.clearFocusSuppression()
+      agentIdleTerminalModeController.queueReset()
     }
   })
   const unregisterAgentHookTerminalLifecycle = registerAgentHookTerminalLifecycleHandler(
@@ -608,7 +595,7 @@ export function connectPanePty(
     deps,
     cacheKey,
     isDisposed: () => disposed,
-    queueAgentIdleTerminalModeReset: () => queueAgentIdleTerminalModeReset()
+    queueAgentIdleTerminalModeReset: agentIdleTerminalModeController.queueReset
   })
   const interruptInference = createAgentInterruptInference({
     paneKey: cacheKey,
@@ -1107,9 +1094,12 @@ export function connectPanePty(
         // must still restore cursor and native Windows Kitty keyboard modes.
         const currentAgentStatus = useAppStore.getState().agentStatusByPaneKey[cacheKey]
         if (!isFreshNonDoneAgentStatus(currentAgentStatus)) {
-          setFocusReportSuppressionForAgentCompletion(title, meta.agentStatus?.agentType)
+          agentIdleTerminalModeController.applyCompletionFocusSuppression(
+            title,
+            meta.agentStatus?.agentType
+          )
         }
-        queueAgentIdleTerminalModeReset()
+        agentIdleTerminalModeController.queueReset()
       }
       scheduleAgentTaskCompleteNotification(title, {
         allowDoneDetailAfterGrace: meta?.quietedHookDone,
@@ -1549,17 +1539,20 @@ export function connectPanePty(
       deps.setCacheTimerStartedAt(cacheKey, Date.now())
     }
     if (detectAgentStatusFromTitle(title) === 'idle') {
-      setFocusReportSuppressionForAgentCompletion(title, activeHookStatus?.agentType)
+      agentIdleTerminalModeController.applyCompletionFocusSuppression(
+        title,
+        activeHookStatus?.agentType
+      )
     }
     if (syncAgentTaskCompleteTrackingEnabled()) {
       agentCompletionCoordinator.observeClassifiedTitleCompletion(title)
     }
     // Why: some agent TUIs leave xterm renderer modes active after a turn.
     // Reset cursor everywhere, and Kitty keyboard state on native Windows.
-    queueAgentIdleTerminalModeReset()
+    agentIdleTerminalModeController.queueReset()
   }
   const onAgentBecameWorking = (): void => {
-    suppressNativeWindowsIdleCodexFocusReports = false
+    agentIdleTerminalModeController.clearFocusSuppression()
     titleCompletionDeferralController.clear()
     if (markFreshWorking()) {
       agentCompletionCoordinator.observeTitleWorking()
@@ -1708,7 +1701,7 @@ export function connectPanePty(
   if (isNativeWindowsConpty) {
     // Why: Windows ConPTY agent turns can leave renderer keyboard modes armed
     // after completion, corrupting plain input with encoded bytes.
-    idleAgentTerminalModeReset = `${RESET_TERMINAL_CURSOR_STYLE}${RESET_KITTY_KEYBOARD_PROTOCOL}`
+    agentIdleTerminalModeController.enableNativeWindowsReset()
   }
   const shouldApplyNativeWindowsRewriteRefresh = isNativeWindowsConpty
   const shouldApplyWindowsRendererUnicodeRefresh = CLIENT_PLATFORM === 'win32'
@@ -1723,14 +1716,10 @@ export function connectPanePty(
     subscribe: (listener) =>
       useAppStore.subscribe((nextState) => listener(nextState.agentStatusByPaneKey[cacheKey])),
     applyCompletionSuppression: (agentType) =>
-      setFocusReportSuppressionForAgentCompletion(undefined, agentType),
-    setCodexSuppression: (suppressed) => {
-      suppressNativeWindowsIdleCodexFocusReports = suppressed
-    },
-    clearSuppression: () => {
-      suppressNativeWindowsIdleCodexFocusReports = false
-    },
-    queueIdleReset: () => queueAgentIdleTerminalModeReset()
+      agentIdleTerminalModeController.applyCompletionFocusSuppression(undefined, agentType),
+    setCodexSuppression: agentIdleTerminalModeController.setCodexFocusSuppressed,
+    clearSuppression: agentIdleTerminalModeController.clearFocusSuppression,
+    queueIdleReset: agentIdleTerminalModeController.queueReset
   })
 
   const localWindowsTerminalCapabilities = hasCachedWindowsTerminalCapabilities()
@@ -2107,7 +2096,7 @@ export function connectPanePty(
     }
     if (
       isNativeWindowsConpty &&
-      suppressNativeWindowsIdleCodexFocusReports &&
+      agentIdleTerminalModeController.shouldSuppressCodexFocusReport() &&
       (data === TERMINAL_FOCUS_IN_SEQUENCE || data === TERMINAL_FOCUS_OUT_SEQUENCE)
     ) {
       // Why: Codex can leave focus reporting armed after a Windows turn, but
@@ -3095,15 +3084,9 @@ export function connectPanePty(
       })
     }
 
-    queueAgentIdleTerminalModeReset = (): void => {
-      if (disposed) {
-        return
-      }
-      writePtyOutputToXterm(
-        idleAgentTerminalModeReset,
-        shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-      )
-    }
+    agentIdleTerminalModeController.setWriter((sequence) => {
+      writePtyOutputToXterm(sequence, shouldWritePtyOutputForeground(deps.isVisibleRef.current))
+    })
 
     function markHiddenOutputRestoreNeeded(): void {
       renderRiskController.resetSkippedHidden()

@@ -423,4 +423,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionHibernatedWakeController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes agent-idle terminal mode state through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-agent-idle-terminal-mode-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionAgentIdleTerminalModeController')
+    expect(orchestrator).not.toContain('let idleAgentTerminalModeReset =')
+    expect(orchestrator).not.toContain('let suppressNativeWindowsIdleCodexFocusReports =')
+    expect(orchestrator).not.toContain('let queueAgentIdleTerminalModeReset =')
+    expect(owner).toContain('export function createPtyConnectionAgentIdleTerminalModeController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
