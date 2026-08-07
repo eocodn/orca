@@ -141,6 +141,7 @@ import { createPtyConnectionHibernatedWakeController } from './pty-connection-hi
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import { createPtyConnectionRemoteOutputPauseController } from './pty-connection-remote-output-pause-controller'
+import { createPtyConnectionRecoverySubscriptionsController } from './pty-connection-recovery-subscriptions-controller'
 import { createPtyConnectionSideEffectFactConsumerController } from './pty-connection-side-effect-fact-consumer-controller'
 import {
   REATTACH_LIVE_DATA_MAX_CHARS,
@@ -353,8 +354,7 @@ export function connectPanePty(
   let disposed = false
   const terminalActivityController = createPtyConnectionTerminalActivityController()
   const structuralReplayCoordinator = createTerminalStructuralReplayCoordinator(pane.terminal)
-  let unregisterBacklogRecovery: (() => void) | null = null
-  let unregisterDocumentVisibilityRecovery: (() => void) | null = null
+  const recoverySubscriptionsController = createPtyConnectionRecoverySubscriptionsController()
   let cancelHiddenOutputSnapshotScrollRestore = (): void => {}
   let pendingHiddenSnapshotFit: SafeFitContinuationHandle | null = null
   let pendingReattachFit: SafeFitContinuationHandle | null = null
@@ -4045,11 +4045,13 @@ export function connectPanePty(
       return true
     }
 
-    unregisterBacklogRecovery = registerTerminalBacklogRecovery(pane.terminal, () => {
-      // Why: clear the hidden-delivery bit BEFORE the restore snapshot request; bytes arriving in between are reconciled by the seq guard.
-      syncHiddenRendererPtyDelivery()
-      return requestHiddenOutputRestoreIfNeeded()
-    })
+    recoverySubscriptionsController.replaceBacklog(
+      registerTerminalBacklogRecovery(pane.terminal, () => {
+        // Why: clear the hidden-delivery bit BEFORE the restore snapshot request; bytes arriving in between are reconciled by the seq guard.
+        syncHiddenRendererPtyDelivery()
+        return requestHiddenOutputRestoreIfNeeded()
+      })
+    )
     if (
       typeof document !== 'undefined' &&
       typeof document.addEventListener === 'function' &&
@@ -4067,10 +4069,10 @@ export function connectPanePty(
       const unregisterStaleVisibilityRecovery = registerStaleDocumentVisibilityRecovery(
         onDocumentVisibilityChange
       )
-      unregisterDocumentVisibilityRecovery = () => {
+      recoverySubscriptionsController.replaceDocumentVisibility(() => {
         document.removeEventListener('visibilitychange', onDocumentVisibilityChange)
         unregisterStaleVisibilityRecovery()
-      }
+      })
     }
 
     const reattachLiveDataController = createPtyConnectionReattachLiveDataController({
@@ -5024,10 +5026,7 @@ export function connectPanePty(
       cleanupHiddenOutputRestoreDeferredRetry()
       cleanupHiddenOutputRestoreForegroundDeadline()
       cleanupHiddenOutputRestoreFloodRepaint()
-      unregisterBacklogRecovery?.()
-      unregisterBacklogRecovery = null
-      unregisterDocumentVisibilityRecovery?.()
-      unregisterDocumentVisibilityRecovery = null
+      recoverySubscriptionsController.dispose()
       releaseRendererPtyVisibilityClaim(transport)
       // Why: the pane's fact consumer must be gone before a parked-tab watcher takes over this PTY's facts in the same effect flush.
       dropSideEffectFactConsumer()

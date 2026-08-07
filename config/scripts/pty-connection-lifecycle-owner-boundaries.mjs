@@ -479,4 +479,19 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
       'requestPtySizeReassertion: () => sizeReassertionController.request()'
     )
   })
+
+  it('routes terminal recovery subscriptions through their concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-recovery-subscriptions-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionRecoverySubscriptionsController')
+    expect(orchestrator).not.toContain('let unregisterBacklogRecovery:')
+    expect(orchestrator).not.toContain('let unregisterDocumentVisibilityRecovery:')
+    expect(owner).toContain('export function createPtyConnectionRecoverySubscriptionsController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }
