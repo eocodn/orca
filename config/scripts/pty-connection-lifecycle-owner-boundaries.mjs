@@ -538,4 +538,24 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionE2eDataInjectionController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('routes hidden renderer delivery lifecycle through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-hidden-delivery-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionHiddenDeliveryController')
+    expect(orchestrator).not.toContain('let syncHiddenRendererPtyDelivery:')
+    expect(orchestrator).not.toContain('let releaseHiddenRendererPtyDelivery:')
+    expect(orchestrator).not.toContain('let handleRemoteOutputPauseChanged:')
+    expect(orchestrator).not.toContain('let hiddenDeliverySyncedPtyId:')
+    expect(orchestrator).not.toContain('let releaseHiddenDeliveryClaim:')
+    expect(orchestrator).not.toContain('let modelRestoreSubscribedPtyId:')
+    expect(orchestrator).not.toContain('let unregisterModelRestoreNeeded:')
+    expect(owner).toContain('export function createPtyConnectionHiddenDeliveryController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

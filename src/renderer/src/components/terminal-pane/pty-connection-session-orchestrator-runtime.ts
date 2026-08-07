@@ -137,6 +137,7 @@ import { createPtyConnectionE2eDataInjectionController } from './pty-connection-
 import { createPtyConnectionFreshSpawnFollowController } from './pty-connection-fresh-spawn-follow-controller'
 import { createPtyConnectionForegroundLatencyController } from './pty-connection-foreground-latency-controller'
 import { createPtyConnectionForegroundRenderController } from './pty-connection-foreground-render-controller'
+import { createPtyConnectionHiddenDeliveryController } from './pty-connection-hidden-delivery-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
@@ -364,12 +365,6 @@ export function connectPanePty(
   let cleanupHiddenOutputRestoreFloodRepaint = (): void => {}
   let resetRendererOrderedSeqForPtyExit: (exitedPtyId: string) => void = () => {}
   let cleanupStartupDelivery = (): void => {}
-  // Why: hidden-delivery gate sync is wired up alongside the deferred PTY
-  // output plumbing inside the connect frame; lifecycle hooks (visibility
-  // flips, exit, dispose) run before/after it exists, so start with no-ops.
-  let syncHiddenRendererPtyDelivery: () => void = () => {}
-  let releaseHiddenRendererPtyDelivery: () => void = () => {}
-  let handleRemoteOutputPauseChanged: (paused: boolean, supported: boolean) => void = () => {}
   const remoteOutputPauseController = createPtyConnectionRemoteOutputPauseController()
   const agentIdleTerminalModeController = createPtyConnectionAgentIdleTerminalModeController({
     isDisposed: () => disposed,
@@ -1811,6 +1806,26 @@ export function connectPanePty(
   // mark (a fact can outrun the pty:data task that sets it).
   const isHiddenDeliveryGateManagedPty = (ptyId: string | null): ptyId is string =>
     hiddenDeliveryGateActive && Boolean(ptyId) && !isRemoteRuntimePtyId(ptyId)
+  const hiddenDeliveryController = createPtyConnectionHiddenDeliveryController({
+    getPtyId: () => transport.getPtyId(),
+    setOutputPaused: (paused) => {
+      transport.setOutputPaused?.(paused)
+    },
+    isDisposed: () => disposed,
+    isForeground: () => shouldWritePtyOutputForeground(deps.isVisibleRef.current),
+    isRemotePty: (ptyId) => Boolean(ptyId && isRemoteRuntimePtyId(ptyId)),
+    isGateManagedPty: isHiddenDeliveryGateManagedPty,
+    acquireHiddenClaim: acquireHiddenRendererPtyDeliveryClaim,
+    declareVisible: declareRendererPtyDeliveryVisible,
+    registerModelRestore: registerPtyModelRestoreNeededHandler,
+    remotePause: remoteOutputPauseController,
+    mainSideEffectAuthority,
+    registerSideEffectFacts: registerSideEffectFactConsumerForPty,
+    dropSideEffectFacts: dropSideEffectFactConsumer
+  })
+  const syncHiddenRendererPtyDelivery = hiddenDeliveryController.sync
+  const releaseHiddenRendererPtyDelivery = hiddenDeliveryController.release
+  const handleRemoteOutputPauseChanged = hiddenDeliveryController.handleRemoteOutputPauseChanged
   // Why (byte-parser mode only): with main authority the Command Code scrape
   // runs in main's per-PTY tracker and arrives as command-code facts; running
   // the byte detector too would double-drive the seed/settle policy above.
@@ -2811,16 +2826,6 @@ export function connectPanePty(
       )
     }
 
-    // ── Hidden-delivery gate sync (Phase 4) ─────────────────────────────
-    // Why: marks this pane's PTY hidden in main while no visible view needs
-    // its bytes; main then drops delivery after model ingestion and reveal
-    // restores from the snapshot. The marked id is tracked locally so PTY
-    // changes (reattach/restart) can never leave a stale id gated.
-    let hiddenDeliverySyncedPtyId: string | null = null
-    let releaseHiddenDeliveryClaim: (() => void) | null = null
-    let modelRestoreSubscribedPtyId: string | null = null
-    let unregisterModelRestoreNeeded: (() => void) | null = null
-
     function isHiddenOutputRestoreFloodSuppressed(): boolean {
       return Date.now() < hiddenOutputRestoreFloodSuppressedUntil
     }
@@ -2889,98 +2894,6 @@ export function connectPanePty(
       if (restoreWasInFlight) {
         hiddenOutputRestoreFreshSnapshotNeeded = true
       }
-    }
-
-    function syncModelRestoreNeededSubscription(ptyId: string | null): void {
-      if (modelRestoreSubscribedPtyId === ptyId) {
-        return
-      }
-      unregisterModelRestoreNeeded?.()
-      unregisterModelRestoreNeeded = null
-      modelRestoreSubscribedPtyId = ptyId
-      // Why: markers exist only for PTYs whose bytes transit local main;
-      // remote-runtime transports are structurally unaffected.
-      if (!ptyId || isRemoteRuntimePtyId(ptyId)) {
-        return
-      }
-      unregisterModelRestoreNeeded = registerPtyModelRestoreNeededHandler(
-        ptyId,
-        handleModelRestoreNeededMarker
-      )
-    }
-
-    handleRemoteOutputPauseChanged = (paused, supported): void => {
-      const ptyId = transport.getPtyId()
-      if (!ptyId || !isRemoteRuntimePtyId(ptyId)) {
-        return
-      }
-      if (!supported || !paused) {
-        if (remoteOutputPauseController.clearIfMatches(ptyId)) {
-          if (!mainSideEffectAuthority) {
-            dropSideEffectFactConsumer()
-          }
-        }
-        if (supported && !paused && hiddenOutputRestorePtyId === ptyId) {
-          requestHiddenOutputRestoreIfNeeded()
-        }
-        return
-      }
-      if (remoteOutputPauseController.markPaused(ptyId)) {
-        registerSideEffectFactConsumerForPty(ptyId, true)
-      }
-      markHiddenOutputRestoreNeeded()
-    }
-
-    syncHiddenRendererPtyDelivery = (): void => {
-      const ptyId = transport.getPtyId()
-      syncModelRestoreNeededSubscription(ptyId)
-      if (remoteOutputPauseController.clearIfRebound(ptyId)) {
-        if (!mainSideEffectAuthority) {
-          dropSideEffectFactConsumer()
-        }
-      }
-      if (isRemoteRuntimePtyId(ptyId) && canUseHiddenOutputSnapshot(ptyId)) {
-        transport.setOutputPaused?.(
-          !disposed && !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-        )
-        return
-      }
-      if (hiddenDeliverySyncedPtyId !== null && hiddenDeliverySyncedPtyId !== ptyId) {
-        releaseHiddenDeliveryClaim?.()
-        releaseHiddenDeliveryClaim = null
-        hiddenDeliverySyncedPtyId = null
-      }
-      if (!isHiddenDeliveryGateManagedPty(ptyId) || !canUseHiddenOutputSnapshot(ptyId)) {
-        return
-      }
-      const shouldHide = !disposed && !shouldWritePtyOutputForeground(deps.isVisibleRef.current)
-      const isFirstSyncForPty = hiddenDeliverySyncedPtyId !== ptyId
-      hiddenDeliverySyncedPtyId = ptyId
-      if (shouldHide) {
-        if (!releaseHiddenDeliveryClaim) {
-          releaseHiddenDeliveryClaim = acquireHiddenRendererPtyDeliveryClaim(ptyId)
-        }
-      } else if (releaseHiddenDeliveryClaim) {
-        releaseHiddenDeliveryClaim()
-        releaseHiddenDeliveryClaim = null
-      } else if (isFirstSyncForPty) {
-        // Why: clear unconditionally on first sync — a stale main-side hidden bit can survive a renderer reload for daemon-backed PTYs that keep their session id.
-        declareRendererPtyDeliveryVisible(ptyId)
-      }
-    }
-    releaseHiddenRendererPtyDelivery = (): void => {
-      transport.setOutputPaused?.(false)
-      if (remoteOutputPauseController.clear()) {
-        if (!mainSideEffectAuthority) {
-          dropSideEffectFactConsumer()
-        }
-      }
-      releaseHiddenDeliveryClaim?.()
-      releaseHiddenDeliveryClaim = null
-      hiddenDeliverySyncedPtyId = null
-      unregisterModelRestoreNeeded?.()
-      unregisterModelRestoreNeeded = null
-      modelRestoreSubscribedPtyId = null
     }
 
     function beforeTerminalOutputWrite(data: string): void {
@@ -4029,6 +3942,16 @@ export function connectPanePty(
       hiddenOutputRestoreInFlight = trackedHiddenOutputRestore
       return true
     }
+
+    hiddenDeliveryController.bindRuntime({
+      canUseSnapshot: canUseHiddenOutputSnapshot,
+      onModelRestoreNeeded: handleModelRestoreNeededMarker,
+      markRestoreNeeded: markHiddenOutputRestoreNeeded,
+      requestRestore: () => {
+        requestHiddenOutputRestoreIfNeeded()
+      },
+      getRestorePtyId: () => hiddenOutputRestorePtyId
+    })
 
     recoverySubscriptionsController.replaceBacklog(
       registerTerminalBacklogRecovery(pane.terminal, () => {
