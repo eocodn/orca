@@ -467,4 +467,16 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionSideEffectFactConsumerController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+
+  it('wires pane geometry directly into size reassertion without a mutable grid reader', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+
+    expect(orchestrator).not.toContain('let readProposedTerminalGrid:')
+    expect(orchestrator).toContain('readProposedGrid: paneGeometryController.readProposedGrid')
+    expect(orchestrator).toContain(
+      'requestPtySizeReassertion: () => sizeReassertionController.request()'
+    )
+  })
 }

@@ -2217,7 +2217,18 @@ export function connectPanePty(
     subscribe: (listener) => pane.terminal.buffer.onBufferChange?.(listener)
   })
 
-  let readProposedTerminalGrid: () => { cols: number; rows: number } | null = () => null
+  const paneGeometryController = createPtyConnectionPaneGeometryController({
+    pane,
+    deps,
+    transport,
+    isDisposed: () => disposed,
+    shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
+    requestPtySizeReassertion: () => sizeReassertionController.request(),
+    resizeTerminalForViewportClaim: (cols, rows) =>
+      resizeSuppressionController.runViewportClaim(() => {
+        pane.terminal.resize(cols, rows)
+      })
+  })
   const sizeReassertionController = createPtyConnectionSizeReassertionController({
     pane,
     deps,
@@ -2225,21 +2236,8 @@ export function connectPanePty(
     isDisposed: () => disposed,
     shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
     forwardResize: forwardPtyResize,
-    readProposedGrid: () => readProposedTerminalGrid()
+    readProposedGrid: paneGeometryController.readProposedGrid
   })
-  const paneGeometryController = createPtyConnectionPaneGeometryController({
-    pane,
-    deps,
-    transport,
-    isDisposed: () => disposed,
-    shouldSuppressDesktopResize: shouldSuppressDesktopPtyResize,
-    requestPtySizeReassertion: sizeReassertionController.request,
-    resizeTerminalForViewportClaim: (cols, rows) =>
-      resizeSuppressionController.runViewportClaim(() => {
-        pane.terminal.resize(cols, rows)
-      })
-  })
-  readProposedTerminalGrid = paneGeometryController.readProposedGrid
   const scheduleForegroundPtyGridCheck = sizeReassertionController.scheduleForegroundGridDriftCheck
 
   const spawnSizeReconcileController = createPtyConnectionSpawnSizeReconcileController({
