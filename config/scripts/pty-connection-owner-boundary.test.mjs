@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { registerPtyConnectionLifecycleOwnerBoundaryTests } from './pty-connection-lifecycle-owner-boundaries.mjs'
 import { registerPtyConnectionRouteOwnerBoundaryTests } from './pty-connection-route-owner-boundaries.mjs'
 
 const projectDir = resolve(import.meta.dirname, '../..')
@@ -429,6 +430,7 @@ describe('PTY connection owner boundaries', () => {
   })
 
   registerPtyConnectionRouteOwnerBoundaryTests(read)
+  registerPtyConnectionLifecycleOwnerBoundaryTests(read)
 
   it('routes deferred startup grid scheduling through its concrete controller', () => {
     const orchestrator = read(

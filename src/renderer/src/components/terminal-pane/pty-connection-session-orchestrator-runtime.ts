@@ -12,8 +12,6 @@ import { parseWorkspaceKey } from '../../../../shared/workspace-scope'
 import { FLOATING_TERMINAL_WORKTREE_ID } from '../../../../shared/constants'
 import { isEphemeralSetupTerminalWorktreeId } from '../../../../shared/ephemeral-setup-terminal-worktree-id'
 import { parseExecutionHostId } from '../../../../shared/execution-host'
-import { createTerminalZeroDimensionsMessage } from '../../../../shared/terminal-zero-dimensions-diagnostic'
-import { isWorktreeRemovalFenceError } from '../../../../shared/worktree-removal-fence-error'
 import { parseTerminalOscColorQuery } from '../../../../shared/terminal-osc-color-reply'
 import {
   HIDDEN_STARTUP_RENDERER_QUERY_PENDING_CHARS,
@@ -310,6 +308,7 @@ import { createPtyConnectionSessionLivenessReconcileController } from './pty-con
 import { createPtyConnectionStartupGridController } from './pty-connection-startup-grid-controller'
 import { createPtyConnectionReattachAttemptController } from './pty-connection-reattach-attempt-controller'
 import { createPtyConnectionAttachController } from './pty-connection-attach-controller'
+import { preparePtyConnectionConnectPreflight } from './pty-connection-connect-preflight'
 import { runPtyConnectionObservedNormalRoute } from './pty-connection-observed-normal-route'
 import { trackPtyConnectionSpawn } from './pty-connection-spawn-tracker'
 import { createPtyConnectionFreshSpawnController } from './pty-connection-fresh-spawn-controller'
@@ -2464,41 +2463,19 @@ export function connectPanePty(
   const reconcileSpawnedPtySize = spawnSizeReconcileController.reconcileAfterSpawn
 
   const performDeferredConnect = (): void => {
-    if (disposed) {
+    const preflight = preparePtyConnectionConnectPreflight({
+      isDisposed: () => disposed,
+      fitPane: () => {
+        safeFit(pane)
+      },
+      readGrid: () => ({ cols: pane.terminal.cols, rows: pane.terminal.rows }),
+      isVisible: () => deps.isVisibleRef.current,
+      reportPtyError: (message) => deps.onPtyErrorRef?.current?.(pane.id, message)
+    })
+    if (!preflight) {
       return
     }
-    safeFit(pane)
-    const cols = pane.terminal.cols
-    const rows = pane.terminal.rows
-
-    // Why: if fitAddon resolved to 0×0, the container likely has no layout
-    // dimensions (display:none, unmounted, or zero-size parent). Surface a
-    // diagnostic so the user sees something instead of a blank pane.
-    // Gate on visibility: background/hidden tabs (orchestration workers, CLI
-    // `terminal create` without --focus) legitimately connect at 0×0 because
-    // safeFit skips fitting unmeasurable panes; they refit via the pane resize
-    // observer once shown, so the diagnostic must not fire while hidden.
-    if ((cols === 0 || rows === 0) && deps.isVisibleRef.current) {
-      deps.onPtyErrorRef?.current?.(pane.id, createTerminalZeroDimensionsMessage(cols, rows))
-    }
-
-    const reportError = (message: string): void => {
-      // Why: the transport connect can reject asynchronously after the pane has been
-      // disposed (e.g. its workspace was deleted) — dropping a late error avoids a toast
-      // racing the unmount. Mirrors the connect scheduler's disposed guard above.
-      if (disposed) {
-        return
-      }
-      if (isWorktreeRemovalFenceError(message)) {
-        // Why: main fences a spawn/reattach whose worktree (or an overlapping
-        // parent/child root) is being deleted. That is expected teardown, not a
-        // user-facing failure — the pane unmounts once removal completes, so never
-        // surface the raw fence error. Covers the parent-removal-fences-child case
-        // that startFreshSpawn's own-worktree isDeleting skip cannot see.
-        return
-      }
-      deps.onPtyErrorRef?.current?.(pane.id, message)
-    }
+    const { cols, rows, reportError } = preflight
 
     const {
       state: serializerControllerState,
