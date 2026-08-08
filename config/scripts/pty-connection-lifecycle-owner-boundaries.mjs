@@ -568,6 +568,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes post-replay live-data settlement through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-live-data-settlement-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachLiveDataSettlementController')
+    expect(orchestrator).not.toContain('const finishReattachLiveDataDeferral =')
+    expect(owner).toContain(
+      'export function createPtyConnectionReattachLiveDataSettlementController'
+    )
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes initial cache-timer seed state through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

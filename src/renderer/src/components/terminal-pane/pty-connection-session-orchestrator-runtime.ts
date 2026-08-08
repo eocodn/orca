@@ -160,6 +160,7 @@ import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
 } from './pty-connection-reattach-live-data-controller'
+import { createPtyConnectionReattachLiveDataSettlementController } from './pty-connection-reattach-live-data-settlement-controller'
 import { createPtyConnectionReattachBindingController } from './pty-connection-reattach-binding-controller'
 import { createPtyConnectionReattachFitController } from './pty-connection-reattach-fit-controller'
 import { createPtyConnectionReattachParkSnapshotController } from './pty-connection-reattach-park-snapshot-controller'
@@ -2333,7 +2334,7 @@ export function connectPanePty(
       rebuildPaneWebgl: () => manager.rebuildPaneWebgl(pane.id),
       beginLiveDataDeferral: (streamGeneration) => beginReattachLiveDataDeferral(streamGeneration),
       finishLiveDataDeferral: (deliver, streamGeneration) =>
-        finishReattachLiveDataDeferral(deliver, streamGeneration),
+        reattachLiveDataSettlementController.finish(deliver, streamGeneration),
       runStructuralReplay: (operation, shouldRestore) =>
         structuralReplayCoordinator.run(operation, { shouldRestore })
     })
@@ -3443,28 +3444,18 @@ export function connectPanePty(
     })
 
     const beginReattachLiveDataDeferral = reattachLiveDataController.begin
-
-    const finishReattachLiveDataDeferral = (
-      deliver: boolean,
-      acceptedGeneration = streamGenerationController.getCurrent()
-    ): void => {
-      const settlement = reattachLiveDataController.finish(deliver, acceptedGeneration)
-      if (settlement && settlement.deliveredChunks > 0) {
-        // Why: replay restores the viewport before these newer bytes parse; settle the deferred slice, then apply the latest user intent.
-        flushTerminalOutput(pane.terminal, { maxChars: REATTACH_LIVE_DATA_MAX_CHARS })
-        void waitForTerminalReplayWritesParsed(pane.terminal).then(() => {
-          if (
-            disposed ||
-            !deps.isVisibleRef.current ||
-            transport.getPtyId() !== settlement.ptyId ||
-            !streamGenerationController.isCurrent(settlement.streamGeneration)
-          ) {
-            return
-          }
-          enforceTerminalCurrentScrollIntent(pane.terminal)
-        })
-      }
-    }
+    const reattachLiveDataSettlementController =
+      createPtyConnectionReattachLiveDataSettlementController({
+        finishLiveDataDeferral: reattachLiveDataController.finish,
+        flushTerminalOutput: () =>
+          flushTerminalOutput(pane.terminal, { maxChars: REATTACH_LIVE_DATA_MAX_CHARS }),
+        waitForReplayWritesParsed: () => waitForTerminalReplayWritesParsed(pane.terminal),
+        isDisposed: () => disposed,
+        isVisible: () => deps.isVisibleRef.current,
+        getPtyId: () => transport.getPtyId(),
+        isGenerationCurrent: streamGenerationController.isCurrent,
+        enforceScrollIntent: () => enforceTerminalCurrentScrollIntent(pane.terminal)
+      })
 
     const isCapturedDirectSshReattachCurrent = (ptyId: string): boolean =>
       !directSshRetryAttempt || capturedDirectSshRetryStateMatches(ptyId)
@@ -3686,7 +3677,7 @@ export function connectPanePty(
       captureTransportOutputCallbacks: transportStreamCallbackController.capture,
       getTransportStreamGeneration: streamGenerationController.getCurrent,
       beginLiveDataDeferral: beginReattachLiveDataDeferral,
-      finishLiveDataDeferral: finishReattachLiveDataDeferral,
+      finishLiveDataDeferral: reattachLiveDataSettlementController.finish,
       handleReattachResult,
       settlePaneSerializerAfterReplay,
       mergeStartupEnvWithPaneIdentity,
