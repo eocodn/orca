@@ -980,4 +980,18 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner).toContain('export function createPtyConnectionStartupDeliveryCleanupController')
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
+  it('routes successful reattach binding lifecycle through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-binding-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachBindingController')
+    expect(orchestrator).not.toContain('reportPanePtyVisibility(ptyId, deps.isVisibleRef.current)')
+    expect(orchestrator).not.toContain('scheduleReattachIdleAgentCursorReset()')
+    expect(owner).toContain('export function createPtyConnectionReattachBindingController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
 }

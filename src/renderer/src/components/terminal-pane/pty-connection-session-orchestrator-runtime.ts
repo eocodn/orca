@@ -159,6 +159,7 @@ import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
 } from './pty-connection-reattach-live-data-controller'
+import { createPtyConnectionReattachBindingController } from './pty-connection-reattach-binding-controller'
 import { createPtyConnectionReattachFitController } from './pty-connection-reattach-fit-controller'
 import { createPtyConnectionReattachParkSnapshotController } from './pty-connection-reattach-park-snapshot-controller'
 import { createPtyConnectionReattachPayloadController } from './pty-connection-reattach-payload-controller'
@@ -3518,6 +3519,28 @@ export function connectPanePty(
       return true
     }
 
+    const reattachBindingController = createPtyConnectionReattachBindingController({
+      isVisible: () => deps.isVisibleRef.current,
+      setPanePtyFitBinding,
+      reportPanePtyVisibility,
+      registerSideEffectFactConsumerForPty,
+      syncHiddenRendererPtyDelivery,
+      syncPanePtyLayoutBinding: (ptyId) => deps.syncPanePtyLayoutBinding(pane.id, ptyId),
+      notifyCodexPaneBoundForStaleSweep,
+      updateTabPtyId: (ptyId, directSshRetryAttemptId) => {
+        if (directSshRetryAttemptId) {
+          deps.updateTabPtyId(deps.tabId, ptyId, undefined, directSshRetryAttemptId)
+        } else {
+          deps.updateTabPtyId(deps.tabId, ptyId)
+        }
+      },
+      startProcessTracking: () => agentCompletionCoordinator.startProcessTracking(),
+      sampleVisiblePaneForegroundAgent,
+      registerPaneSerializerFor,
+      scheduleReattachIdleAgentCursorReset,
+      scheduleRuntimeGraphSync
+    })
+
     const handleReattachResult = async (
       result: PtyConnectResult | string | void,
       staleSessionId?: string | null,
@@ -3582,22 +3605,12 @@ export function connectPanePty(
       if (!isCurrentReattachPayload()) {
         return false
       }
-      setPanePtyFitBinding(ptyId)
-      reportPanePtyVisibility(ptyId, deps.isVisibleRef.current)
-      registerSideEffectFactConsumerForPty(ptyId)
-      syncHiddenRendererPtyDelivery()
-      deps.syncPanePtyLayoutBinding(pane.id, ptyId)
-      notifyCodexPaneBoundForStaleSweep(ptyId)
-      if (hasCapturedDirectSshRetryPtyAccepted() && directSshRetryAttempt) {
-        deps.updateTabPtyId(deps.tabId, ptyId, undefined, directSshRetryAttempt.attemptId)
-      } else {
-        deps.updateTabPtyId(deps.tabId, ptyId)
-      }
-      agentCompletionCoordinator.startProcessTracking()
-      sampleVisiblePaneForegroundAgent()
-
-      // Why: mobile streaming needs xterm's exact screen state; install the serializer + lastTitle source for main-process hydration parity.
-      registerPaneSerializerFor(ptyId)
+      reattachBindingController.bind(ptyId, {
+        directSshRetryAttemptId:
+          hasCapturedDirectSshRetryPtyAccepted() && directSshRetryAttempt
+            ? directSshRetryAttempt.attemptId
+            : undefined
+      })
 
       const reattachParkSnapshotController = createPtyConnectionReattachParkSnapshotController({
         consumeParkMountEvidence: parkMountEvidenceController.consume,
@@ -3703,9 +3716,7 @@ export function connectPanePty(
       if (!isCurrentReattachPayload()) {
         return false
       }
-      scheduleReattachIdleAgentCursorReset()
-
-      scheduleRuntimeGraphSync()
+      reattachBindingController.complete()
       return true
     }
 
