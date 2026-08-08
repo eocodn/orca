@@ -24,11 +24,6 @@ function Assert-NonBlank([string]$Value, [string]$Name) {
     if ([string]::IsNullOrWhiteSpace($Value)) { throw "$Name must be nonblank" }
 }
 
-function Assert-SafeProcessArgument([string]$Value) {
-    if ($Value.Contains('"')) { throw 'process_argument_contains_quote' }
-    return $Value
-}
-
 function New-ProcessStartInfo([string]$FilePath, [string[]]$Arguments, [bool]$RedirectInput = $false) {
     Assert-NonBlank $FilePath 'process path'
     $info = [System.Diagnostics.ProcessStartInfo]::new()
@@ -39,7 +34,7 @@ function New-ProcessStartInfo([string]$FilePath, [string[]]$Arguments, [bool]$Re
     $info.RedirectStandardInput = $RedirectInput
     $info.CreateNoWindow = $true
     foreach ($argument in $Arguments) {
-        [void]$info.ArgumentList.Add((Assert-SafeProcessArgument ([string]$argument)))
+        [void]$info.ArgumentList.Add([string]$argument)
     }
     return $info
 }
@@ -130,10 +125,9 @@ function Write-JsonResult([object]$Value, [string]$Path) {
 function Invoke-SelfTest {
     if ((Convert-WslArchToRustTarget 'x86_64') -ne 'x86_64-unknown-linux-gnu') { throw 'x86_64 mapping failed' }
     if ((Convert-WslArchToRustTarget 'aarch64') -ne 'aarch64-unknown-linux-gnu') { throw 'aarch64 mapping failed' }
-    if ((Assert-SafeProcessArgument 'path with spaces') -ne 'path with spaces') { throw 'space argument failed' }
-    try { Assert-SafeProcessArgument 'bad"quote' | Out-Null; throw 'quote rejection failed' } catch {
-        if ($_.Exception.Message -eq 'quote rejection failed') { throw }
-    }
+    $processInfo = New-ProcessStartInfo 'program.exe' @('path with spaces', 'argument"with quote')
+    if ($processInfo.ArgumentList[0] -ne 'path with spaces') { throw 'space argument failed' }
+    if ($processInfo.ArgumentList[1] -ne 'argument"with quote') { throw 'quote argument failed' }
     $names = @()
     foreach ($target in @('windows_native', 'wsl2')) {
         foreach ($operation in @('file', 'git', 'pty')) {

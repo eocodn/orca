@@ -58,6 +58,7 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     const source = read('scripts/run-windows-live-acceptance.ps1')
     expect(source).toContain('LiveMatrixBinary')
     expect(source).not.toContain('cargo.exe')
+    expect(source).not.toContain('process_argument_contains_quote')
     expect(source).toContain("'control_status'")
     expect(source).toContain("'worker_update'")
     expect(source).toContain("'worker_status'")
