@@ -415,9 +415,10 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        execute_file_request, execute_git_worktree_request, parse_git_execution_target,
-        parse_workspace_location, register_host_workspace, register_host_workspace_with_location,
-        render_file_request, render_git_request, render_host_status, FileRequest,
+        execute_file_request, execute_git_worktree_request, host_status,
+        parse_git_execution_target, parse_workspace_location, register_host_workspace,
+        register_host_workspace_with_location, register_workspace, render_file_request,
+        render_git_request, render_host_status, FileRequest,
     };
     use ade_host_platform::git_capability::GitCapabilityRegistry;
     use ade_host_platform::ExecutionTarget;
@@ -561,6 +562,117 @@ mod tests {
             ),
             Err(String::from("SSH host is required"))
         );
+    }
+
+    #[test]
+    fn registers_all_workspace_target_cells_through_the_tauri_command() {
+        let state_db = std::env::temp_dir().join(format!(
+            "ade-tauri-workspace-matrix-{}-{}.sqlite",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock should be available")
+                .as_nanos()
+        ));
+        let state_db = state_db.to_string_lossy().into_owned();
+        let cases = [
+            (
+                "folder-native",
+                "folder",
+                "windows-native",
+                None,
+                r"C:\workspaces\folder-native",
+            ),
+            (
+                "folder-wsl",
+                "folder",
+                "wsl2",
+                Some("Ubuntu-24.04"),
+                "/home/dev/folder-wsl",
+            ),
+            (
+                "folder-ssh",
+                "folder",
+                "ssh",
+                Some("builder.example"),
+                "/srv/folder-ssh",
+            ),
+            (
+                "worktree-native",
+                "git-worktree",
+                "windows-native",
+                None,
+                r"C:\workspaces\worktree-native",
+            ),
+            (
+                "worktree-wsl",
+                "git-worktree",
+                "wsl2",
+                Some("Ubuntu-24.04"),
+                "/home/dev/worktree-wsl",
+            ),
+            (
+                "worktree-ssh",
+                "git-worktree",
+                "ssh",
+                Some("builder.example"),
+                "/srv/worktree-ssh",
+            ),
+        ];
+
+        for (index, (workspace_id, kind, target, identity, path)) in cases.iter().enumerate() {
+            let response = register_workspace(
+                state_db.clone(),
+                String::from(*workspace_id),
+                String::from(*path),
+                format!("request-{workspace_id}"),
+                Some(String::from(*kind)),
+                Some(String::from(*target)),
+                identity.map(String::from),
+            )
+            .expect("workspace registration should succeed");
+            let status: serde_json::Value =
+                serde_json::from_str(&response).expect("status should deserialize");
+            assert_eq!(status["workspace_count"], index + 1);
+            let workspace = status["workspaces"]
+                .as_array()
+                .expect("workspaces should be an array")
+                .iter()
+                .find(|workspace| workspace["workspace_id"] == *workspace_id)
+                .expect("registered workspace should be present");
+            assert_eq!(workspace["path"], *path);
+            assert_eq!(workspace["location"]["kind"], *kind);
+            assert_eq!(workspace["location"]["target"], *target);
+            assert_eq!(workspace["location"]["path"], *path);
+            match identity {
+                Some(identity) => assert_eq!(workspace["location"]["identity"], *identity),
+                None => assert!(workspace["location"]["identity"].is_null()),
+            }
+        }
+
+        let replay = register_workspace(
+            state_db.clone(),
+            String::from("worktree-ssh"),
+            String::from("/srv/worktree-ssh"),
+            String::from("request-worktree-ssh"),
+            Some(String::from("git-worktree")),
+            Some(String::from("ssh")),
+            Some(String::from("builder.example")),
+        )
+        .expect("identical workspace registration replay should succeed");
+        let replay: serde_json::Value =
+            serde_json::from_str(&replay).expect("replay status should deserialize");
+        assert_eq!(replay["workspace_count"], 6);
+
+        let status = host_status(state_db.clone()).expect("host status should succeed");
+        let status: serde_json::Value =
+            serde_json::from_str(&status).expect("host status should deserialize");
+        assert_eq!(status["workspace_count"], 6);
+        assert_eq!(status["workspaces"].as_array().map(Vec::len), Some(6));
+
+        let _ = std::fs::remove_file(&state_db);
+        let _ = std::fs::remove_file(format!("{state_db}-shm"));
+        let _ = std::fs::remove_file(format!("{state_db}-wal"));
     }
 
     #[test]
