@@ -59,6 +59,8 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     expect(source).toContain('LiveMatrixBinary')
     expect(source).not.toContain('cargo.exe')
     expect(source).not.toContain('process_argument_contains_quote')
+    expect(source).toContain('[object]$CommandArgs = $null')
+    expect(source).not.toContain('[object]$Args = $null')
     expect(source).toContain("'control_status'")
     expect(source).toContain("'worker_update'")
     expect(source).toContain("'worker_status'")

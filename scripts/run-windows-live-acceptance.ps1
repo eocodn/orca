@@ -248,9 +248,9 @@ try {
     if (-not $startup.ok -or $startup.type -ne 'control_server' -or $startup.protocol_version -ne 1 -or $startup.server_pid -ne $server.Id) { throw 'control_server_startup_invalid' }
     if ([System.IO.Path]::GetFullPath($startup.endpoint_file) -ne [System.IO.Path]::GetFullPath($endpointFile)) { throw 'control_server_endpoint_mismatch' }
 
-    function Invoke-Control([string]$RequestId, [string]$Command, [object]$Args = $null) {
+    function Invoke-Control([string]$RequestId, [string]$Command, [object]$CommandArgs = $null) {
         $request = [ordered]@{ protocol_version=1; request_id=$RequestId; command=$Command }
-        if ($null -ne $Args) { $request.args = $Args }
+        if ($null -ne $CommandArgs) { $request.args = $CommandArgs }
         $json = ($request | ConvertTo-Json -Depth 8 -Compress) + [Environment]::NewLine
         $result = Invoke-External $ControlBinary @('--json','--jsonl','--connect',$endpointFile) @{} $json
         if ($result.ExitCode -ne 0) { throw "control_client_failed:$Command stderr=$($result.Stderr.Trim())" }
