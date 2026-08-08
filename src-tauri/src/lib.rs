@@ -188,6 +188,15 @@ struct TauriGitWorktreeResult {
     worktrees: Vec<GitWorktree>,
 }
 
+fn require_remote_identity(identity: Option<String>, message: &str) -> Result<String, String> {
+    let identity = identity.ok_or_else(|| String::from(message))?;
+    if identity.trim().is_empty() {
+        Err(String::from(message))
+    } else {
+        Ok(identity)
+    }
+}
+
 fn parse_git_execution_target(
     target: &str,
     remote_identity: Option<String>,
@@ -196,10 +205,10 @@ fn parse_git_execution_target(
         "windows-native" if remote_identity.is_none() => Ok(ExecutionTarget::WindowsNative),
         "windows-native" => Err(String::from("native target cannot have a remote identity")),
         "wsl2" => Ok(ExecutionTarget::Wsl2 {
-            distro: remote_identity.ok_or_else(|| String::from("WSL2 distro is required"))?,
+            distro: require_remote_identity(remote_identity, "WSL2 distro is required")?,
         }),
         "ssh" => Ok(ExecutionTarget::Ssh {
-            host: remote_identity.ok_or_else(|| String::from("SSH host is required"))?,
+            host: require_remote_identity(remote_identity, "SSH host is required")?,
         }),
         value => Err(format!("unsupported execution target: {value}")),
     }
@@ -273,10 +282,10 @@ fn parse_workspace_location(
     let target = match target.as_deref() {
         Some("windows-native") if identity.is_none() => StoredExecutionTarget::WindowsNative,
         Some("wsl2") => StoredExecutionTarget::Wsl2 {
-            distro: identity.ok_or_else(|| String::from("WSL2 distro is required"))?,
+            distro: require_remote_identity(identity, "WSL2 distro is required")?,
         },
         Some("ssh") => StoredExecutionTarget::Ssh {
-            host: identity.ok_or_else(|| String::from("SSH host is required"))?,
+            host: require_remote_identity(identity, "SSH host is required")?,
         },
         Some("windows-native") => {
             return Err(String::from("native target cannot have a remote identity"))
@@ -407,8 +416,8 @@ pub fn run() {
 mod tests {
     use super::{
         execute_file_request, execute_git_worktree_request, parse_git_execution_target,
-        register_host_workspace, register_host_workspace_with_location, render_file_request,
-        render_git_request, render_host_status, FileRequest,
+        parse_workspace_location, register_host_workspace, register_host_workspace_with_location,
+        render_file_request, render_git_request, render_host_status, FileRequest,
     };
     use ade_host_platform::git_capability::GitCapabilityRegistry;
     use ade_host_platform::ExecutionTarget;
@@ -521,6 +530,36 @@ mod tests {
         assert_eq!(
             parse_git_execution_target("windows-native", Some(String::from("unexpected"))),
             Err(String::from("native target cannot have a remote identity"))
+        );
+        assert_eq!(
+            parse_git_execution_target("wsl2", Some(String::from("   "))),
+            Err(String::from("WSL2 distro is required"))
+        );
+        assert_eq!(
+            parse_git_execution_target("ssh", Some(String::new())),
+            Err(String::from("SSH host is required"))
+        );
+    }
+
+    #[test]
+    fn rejects_blank_remote_workspace_location_identities() {
+        assert_eq!(
+            parse_workspace_location(
+                "/repo",
+                Some(String::from("folder")),
+                Some(String::from("wsl2")),
+                Some(String::from(" \t ")),
+            ),
+            Err(String::from("WSL2 distro is required"))
+        );
+        assert_eq!(
+            parse_workspace_location(
+                "/repo",
+                Some(String::from("git-worktree")),
+                Some(String::from("ssh")),
+                Some(String::new()),
+            ),
+            Err(String::from("SSH host is required"))
         );
     }
 

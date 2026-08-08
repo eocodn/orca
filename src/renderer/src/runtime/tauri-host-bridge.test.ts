@@ -264,6 +264,32 @@ describe('Tauri host invoke bridge', () => {
     expect(invoke).not.toHaveBeenCalled()
   })
 
+  it('rejects whitespace-only remote identities before invoking Rust', async () => {
+    const invoke = vi.fn<TauriInvoke>()
+    const bridge = createTauriHostBridge(invoke)
+
+    await expect(
+      bridge.registerWorkspace({
+        stateDb: 'state.db',
+        workspaceId: 'workspace-1',
+        path: '/repo',
+        requestId: 'workspace-1',
+        workspaceKind: 'folder',
+        executionTarget: 'wsl2',
+        remoteIdentity: '   '
+      })
+    ).rejects.toMatchObject({ code: 'invalid_request' })
+    await expect(
+      bridge.gitWorktreeList({
+        requestId: 'git-1',
+        path: '/repo',
+        executionTarget: 'ssh',
+        remoteIdentity: '\t'
+      })
+    ).rejects.toMatchObject({ code: 'invalid_request' })
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
   it('rejects file and terminal responses that reuse a request id with different identity', async () => {
     const invoke = vi
       .fn<TauriInvoke>()

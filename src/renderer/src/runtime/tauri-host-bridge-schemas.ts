@@ -179,7 +179,7 @@ export const RegisterWorkspaceArgsSchema = z
     requestId: RequestId,
     workspaceKind: WorkspaceKind.optional(),
     executionTarget: ExecutionTarget.optional(),
-    remoteIdentity: z.string().min(1).optional()
+    remoteIdentity: NonBlank.optional()
   })
   .strict()
 
@@ -188,7 +188,7 @@ export const GitWorktreeListArgsSchema = z
     requestId: RequestId,
     path: PathSchema,
     executionTarget: ExecutionTarget,
-    remoteIdentity: z.string().min(1).optional()
+    remoteIdentity: NonBlank.optional()
   })
   .strict()
 
