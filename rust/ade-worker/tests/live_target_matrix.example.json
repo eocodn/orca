@@ -1,0 +1,82 @@
+{
+  "cases": [
+    {
+      "name": "folder-native",
+      "workspace_kind": "folder",
+      "target": { "kind": "windows-native" },
+      "workspace_path": "C:\\ade-live\\folder-native",
+      "repository_path": "C:\\ade-live\\folder-native",
+      "expected_worktree_path": "C:/ade-live/folder-native",
+      "marker_path": "C:\\ade-live\\folder-native\\.ade-live-marker",
+      "marker_contains": "ade-live-ready",
+      "pty_program": "cmd.exe",
+      "pty_args": ["/C", "echo ADE_LIVE_NATIVE_OK"],
+      "pty_marker": "ADE_LIVE_NATIVE_OK"
+    },
+    {
+      "name": "worktree-native",
+      "workspace_kind": "git-worktree",
+      "target": { "kind": "windows-native" },
+      "workspace_path": "C:\\ade-live\\worktree-native",
+      "repository_path": "C:\\ade-live\\worktree-native",
+      "expected_worktree_path": "C:/ade-live/worktree-native",
+      "marker_path": "C:\\ade-live\\worktree-native\\.ade-live-marker",
+      "marker_contains": "ade-live-ready",
+      "pty_program": "cmd.exe",
+      "pty_args": ["/C", "echo ADE_LIVE_NATIVE_OK"],
+      "pty_marker": "ADE_LIVE_NATIVE_OK"
+    },
+    {
+      "name": "folder-wsl",
+      "workspace_kind": "folder",
+      "target": { "kind": "wsl2", "identity": "Ubuntu-24.04" },
+      "workspace_path": "/home/dev/ade-live/folder-wsl",
+      "repository_path": "/home/dev/ade-live/folder-wsl",
+      "expected_worktree_path": "/home/dev/ade-live/folder-wsl",
+      "marker_path": "/home/dev/ade-live/folder-wsl/.ade-live-marker",
+      "marker_contains": "ade-live-ready",
+      "pty_program": "sh",
+      "pty_args": ["-lc", "printf 'ADE_LIVE_WSL_OK\\n'"],
+      "pty_marker": "ADE_LIVE_WSL_OK"
+    },
+    {
+      "name": "worktree-wsl",
+      "workspace_kind": "git-worktree",
+      "target": { "kind": "wsl2", "identity": "Ubuntu-24.04" },
+      "workspace_path": "/home/dev/ade-live/worktree-wsl",
+      "repository_path": "/home/dev/ade-live/worktree-wsl",
+      "expected_worktree_path": "/home/dev/ade-live/worktree-wsl",
+      "marker_path": "/home/dev/ade-live/worktree-wsl/.ade-live-marker",
+      "marker_contains": "ade-live-ready",
+      "pty_program": "sh",
+      "pty_args": ["-lc", "printf 'ADE_LIVE_WSL_OK\\n'"],
+      "pty_marker": "ADE_LIVE_WSL_OK"
+    },
+    {
+      "name": "folder-ssh",
+      "workspace_kind": "folder",
+      "target": { "kind": "ssh", "identity": "builder.example" },
+      "workspace_path": "/srv/ade-live/folder-ssh",
+      "repository_path": "/srv/ade-live/folder-ssh",
+      "expected_worktree_path": "/srv/ade-live/folder-ssh",
+      "marker_path": "/srv/ade-live/folder-ssh/.ade-live-marker",
+      "marker_contains": "ade-live-ready",
+      "pty_program": "sh",
+      "pty_args": ["-lc", "printf 'ADE_LIVE_SSH_OK\\n'"],
+      "pty_marker": "ADE_LIVE_SSH_OK"
+    },
+    {
+      "name": "worktree-ssh",
+      "workspace_kind": "git-worktree",
+      "target": { "kind": "ssh", "identity": "builder.example" },
+      "workspace_path": "/srv/ade-live/worktree-ssh",
+      "repository_path": "/srv/ade-live/worktree-ssh",
+      "expected_worktree_path": "/srv/ade-live/worktree-ssh",
+      "marker_path": "/srv/ade-live/worktree-ssh/.ade-live-marker",
+      "marker_contains": "ade-live-ready",
+      "pty_program": "sh",
+      "pty_args": ["-lc", "printf 'ADE_LIVE_SSH_OK\\n'"],
+      "pty_marker": "ADE_LIVE_SSH_OK"
+    }
+  ]
+}
