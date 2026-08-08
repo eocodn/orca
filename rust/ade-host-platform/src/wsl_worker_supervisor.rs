@@ -199,6 +199,14 @@ impl WslWorkerSupervisor {
         generation: u64,
         reason: impl Into<String>,
     ) -> Result<WslWorkerSnapshot, WslWorkerControlError> {
+        self.invalidate_generation(generation, reason)
+    }
+
+    pub fn invalidate_generation(
+        &mut self,
+        generation: u64,
+        reason: impl Into<String>,
+    ) -> Result<WslWorkerSnapshot, WslWorkerControlError> {
         self.ensure_generation(generation)?;
         let reason = reason.into();
         if reason.trim().is_empty() {

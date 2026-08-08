@@ -136,6 +136,12 @@ impl WslWorkerInstaller {
         Self::new(Arc::new(ProcessWslWorkerInstallCommandExecutor))
     }
 
+    pub fn validate_request(
+        request: &WslWorkerInstallRequest,
+    ) -> Result<(), WslWorkerInstallFailure> {
+        ValidatedInstall::new(request).map(|_| ())
+    }
+
     pub fn install(
         &self,
         request: &WslWorkerInstallRequest,

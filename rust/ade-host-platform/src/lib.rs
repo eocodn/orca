@@ -7,11 +7,14 @@ pub mod git_repository;
 pub mod git_worktree;
 pub mod wsl_worker_installer;
 pub mod wsl_worker_supervisor;
+pub mod wsl_worker_update;
 
 #[cfg(test)]
 mod wsl_worker_installer_tests;
 #[cfg(test)]
 mod wsl_worker_supervisor_tests;
+#[cfg(test)]
+mod wsl_worker_update_tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecutionTarget {
