@@ -414,6 +414,21 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes reattach post-replay fitting through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-fit-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachFitController')
+    expect(orchestrator).not.toContain("'reattach-pty-resize'")
+    expect(orchestrator).not.toContain('let fitCompleted = false')
+    expect(owner).toContain('export function createPtyConnectionReattachFitController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes the hidden restore snapshot loop through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

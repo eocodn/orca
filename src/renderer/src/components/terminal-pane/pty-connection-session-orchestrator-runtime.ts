@@ -159,6 +159,7 @@ import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
 } from './pty-connection-reattach-live-data-controller'
+import { createPtyConnectionReattachFitController } from './pty-connection-reattach-fit-controller'
 import { createPtyConnectionReattachPayloadController } from './pty-connection-reattach-payload-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
@@ -3759,49 +3760,27 @@ export function connectPanePty(
           coldRestoreStartup
         })
 
-      const fitAfterReattachRestore = async (): Promise<void> => {
-        if (!isCurrentReattachPayload()) {
-          return
-        }
-        const reattachPtyId = transport.getPtyId()
-        if (!reattachPtyId) {
-          return
-        }
-        if (!getFitOverrideForPty(reattachPtyId)) {
-          const fit = safeFitAndThen(
-            pane,
-            'reattach-pty-resize',
-            () => {
-              if (!isCurrentReattachPayload() || transport.getPtyId() !== reattachPtyId) {
-                return
-              }
-              const reattachCols = pane.terminal.cols
-              const reattachRows = pane.terminal.rows
-              if (reattachCols > 0 && reattachRows > 0) {
-                transport.resize(reattachCols, reattachRows)
-              }
-              // Why: POSIX only sends SIGWINCH on an actual dimension change; signal explicitly so restored TUIs repaint at the correct cursor after replay.
-              if (!isRemoteRuntimePtyId(reattachPtyId)) {
-                getClientRuntime().terminal.signal(reattachPtyId, 'SIGWINCH')
-              }
-            },
-            { shouldContinue: isCurrentReattachPayload, retryIfUnmeasurable: true }
-          )
-          pendingFitController.setReattach(fit)
-          let fitCompleted = false
-          try {
-            fitCompleted = await fit.completion
-          } finally {
-            pendingFitController.clearReattachIf(fit)
-          }
-          if (fitCompleted && isCurrentReattachPayload() && deps.isVisibleRef.current) {
-            // Why: reattach resize is fire-and-forget; verify the provider's applied grid while this reveal still owns the visible pane.
-            sizeReassertionController.request()
-          }
-        } else if (isCurrentReattachPayload() && !isRemoteRuntimePtyId(reattachPtyId)) {
-          getClientRuntime().terminal.signal(reattachPtyId, 'SIGWINCH')
-        }
-      }
+      const reattachFitController = createPtyConnectionReattachFitController({
+        terminal: pane.terminal,
+        isCurrent: isCurrentReattachPayload,
+        getPtyId: () => transport.getPtyId(),
+        hasFitOverride: getFitOverrideForPty,
+        isRemoteRuntimePtyId,
+        startFit: (reason, continuation) =>
+          safeFitAndThen(pane, reason, continuation, {
+            shouldContinue: isCurrentReattachPayload,
+            retryIfUnmeasurable: true
+          }),
+        setPendingFit: pendingFitController.setReattach,
+        clearPendingFitIf: pendingFitController.clearReattachIf,
+        resizePty: (_ptyId, cols, rows) => transport.resize(cols, rows),
+        signalPty: (id, signal) => {
+          getClientRuntime().terminal.signal(id, signal)
+        },
+        isVisible: () => deps.isVisibleRef.current,
+        requestSizeReassertion: sizeReassertionController.request
+      })
+      const fitAfterReattachRestore = (): Promise<void> => reattachFitController.fit()
       if (reattachPayloadController.requiresStructuralReplay(connectResult, parkModelSnapshot)) {
         await structuralReplayCoordinator.run(applyReattachPayload, {
           shouldRestore: isCurrentReattachPayload,
