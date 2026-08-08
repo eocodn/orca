@@ -223,6 +223,19 @@ fn successful_update_invalidates_old_ready_and_publishes_new_ready_generation() 
 }
 
 #[test]
+fn shared_supervisor_handle_observes_the_exact_coordinator_state() {
+    let supervisor_executor = Arc::new(SupervisorExecutor::default());
+    let coordinator = WslWorkerUpdateCoordinator::new(
+        WslWorkerSupervisor::new(supervisor_executor),
+        WslWorkerInstaller::new(Arc::new(InstallerExecutor::default())),
+    );
+    let shared = coordinator.supervisor_handle();
+    let ready = coordinator.update(&request(7)).unwrap();
+
+    assert_eq!(shared.lock().unwrap().snapshot(), ready);
+}
+
+#[test]
 fn installer_failure_keeps_maintenance_and_never_restores_old_ready_worker() {
     let supervisor_executor = Arc::new(SupervisorExecutor::default());
     let supervisor = ready_supervisor(supervisor_executor, 6);

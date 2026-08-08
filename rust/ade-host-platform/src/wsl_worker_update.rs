@@ -6,7 +6,7 @@ use crate::wsl_worker_supervisor::{
     WslWorkerSupervisor,
 };
 use ade_host_core::protocol::PROTOCOL_VERSION;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WslWorkerUpdateStage {
@@ -25,18 +25,29 @@ pub struct WslWorkerUpdateFailure {
 }
 
 pub struct WslWorkerUpdateCoordinator {
-    supervisor: Mutex<WslWorkerSupervisor>,
+    supervisor: Arc<Mutex<WslWorkerSupervisor>>,
     installer: WslWorkerInstaller,
     update_lock: Mutex<()>,
 }
 
 impl WslWorkerUpdateCoordinator {
     pub fn new(supervisor: WslWorkerSupervisor, installer: WslWorkerInstaller) -> Self {
+        Self::with_shared_supervisor(Arc::new(Mutex::new(supervisor)), installer)
+    }
+
+    pub fn with_shared_supervisor(
+        supervisor: Arc<Mutex<WslWorkerSupervisor>>,
+        installer: WslWorkerInstaller,
+    ) -> Self {
         Self {
-            supervisor: Mutex::new(supervisor),
+            supervisor,
             installer,
             update_lock: Mutex::new(()),
         }
+    }
+
+    pub fn supervisor_handle(&self) -> Arc<Mutex<WslWorkerSupervisor>> {
+        Arc::clone(&self.supervisor)
     }
 
     pub fn snapshot(&self) -> Result<WslWorkerSnapshot, WslWorkerUpdateFailure> {

@@ -8,6 +8,10 @@ pub mod file_git_router;
 pub mod pty_router;
 pub mod pty_service;
 mod wsl_worker_relay;
+pub mod wsl_worker_runtime;
+
+#[cfg(test)]
+mod wsl_worker_runtime_tests;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HostCliOptions {
