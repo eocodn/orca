@@ -159,6 +159,7 @@ import {
   REATTACH_LIVE_DATA_MAX_CHARS,
   createPtyConnectionReattachLiveDataController
 } from './pty-connection-reattach-live-data-controller'
+import { createPtyConnectionReattachPayloadController } from './pty-connection-reattach-payload-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRendererSequenceExitResetController } from './pty-connection-renderer-sequence-exit-reset-controller'
@@ -224,11 +225,6 @@ import {
   setRendererPtyVisibilityClaim
 } from './pty-renderer-delivery-claims'
 import { resolveHiddenRestoreScrollbackRows } from './terminal-hidden-restore-scrollback'
-import {
-  buildMainModelSnapshotReplayWrites,
-  hasPositiveTerminalDimensions,
-  resolvePositiveTerminalDimensions
-} from './terminal-snapshot-replay-paint'
 import {
   decideSshReattachPaintSource,
   memoizeSshReattachModelSnapshotProbe,
@@ -3691,201 +3687,77 @@ export function connectPanePty(
       // Why: ordinary parking destroys xterm. Rebuild from the authoritative
       // host snapshot before releasing queued live bytes; null falls back to
       // the subscribe screen without keeping the old xterm mounted.
-      let prefetchedParkModelSnapshot: PtyBufferSnapshot | null = null
+      let parkModelSnapshot: PtyBufferSnapshot | null = null
       if (revealFollowsTerminalPark && (!hasStructuralReplay || isRemoteRuntimePtyId(ptyId))) {
         if (parseAppSshPtyId(ptyId)) {
-          prefetchedParkModelSnapshot = await fetchSshMainModelReattachSnapshot()
+          parkModelSnapshot = await fetchSshMainModelReattachSnapshot()
         } else {
           try {
-            prefetchedParkModelSnapshot = await serializeHiddenOutputSnapshot(ptyId, {
+            parkModelSnapshot = await serializeHiddenOutputSnapshot(ptyId, {
               scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
             })
           } catch {
-            prefetchedParkModelSnapshot = null
+            parkModelSnapshot = null
           }
         }
         if (!isCurrentReattachPayload()) {
           return false
         }
       }
-      let reattachPayloadApplied = !hasStructuralReplay && prefetchedParkModelSnapshot === null
-      const applyReattachPayload = async (): Promise<void> => {
+      // Why: a parked SSH reveal may prefer the authoritative main model over
+      // the relay tail; keep that authority/probe policy outside the paint owner.
+      if (
+        connectResult?.replay &&
+        revealFollowsTerminalPark &&
+        parkModelSnapshot === null &&
+        !isRemoteRuntimePtyId(ptyId)
+      ) {
+        parkModelSnapshot = await fetchSshMainModelReattachSnapshot()
         if (!isCurrentReattachPayload()) {
-          return
+          return false
         }
-        if (connectResult?.snapshot) {
-          rememberReattachPayloadAgentSignal(connectResult.snapshot, { fullScreenReplay: true })
-          // Why: replay at the snapshot's own dimensions to avoid rewrapping soft-wrapped rows at a different column count (#7279); suppress the PTY forward so this layout-only resize doesn't SIGWINCH the remote TUI.
-          const snapshotDimensions = resolvePositiveTerminalDimensions(
-            connectResult.snapshotCols,
-            connectResult.snapshotRows
-          )
-          if (
-            snapshotDimensions &&
-            (pane.terminal.cols !== snapshotDimensions.cols ||
-              pane.terminal.rows !== snapshotDimensions.rows)
-          ) {
-            resizeSuppressionController.runStructural(() => {
-              pane.terminal.resize(snapshotDimensions.cols, snapshotDimensions.rows)
-            })
-          }
-          writeReplayData('\x1b[2J\x1b[3J\x1b[H')
-          // Why: re-arm the kitty keyboard mirror from the snapshot preamble so Option chords keep their encoding after a window reload.
-          kittyKeyboardModes.scanReplay(connectResult.snapshot)
-          writeReplayData(connectResult.snapshot)
-          // Snapshot reattach keeps a live session, so drop only renderer-owned state instead of the broader mode reset.
-          writeReplayData(reattachReplayResetSequence(connectResult.snapshot))
-          if (connectResult.pendingEscapeTailAnsi) {
-            // Why last: re-arm the dangling mid-escape after the reset (whose ESC would abort it) so the live continuation completes it (#7329).
-            writeReplayData(connectResult.pendingEscapeTailAnsi)
-          }
-          sendFocusedReattachFocusInAfterReplay(ptyId, attemptGeneration)
-          if (connectResult.coldRestore) {
-            // Snapshot superseded the cold-restore payload; ack so the daemon doesn't redeliver it.
-            if (!isRemoteRuntimePtyId(ptyId)) {
-              getClientRuntime().terminal.ackColdRestore(ptyId)
-            }
-          }
-        } else if (connectResult?.replay || prefetchedParkModelSnapshot) {
-          // Why scoped to a park-reveal: the 100KiB relay tail loses scrollback the
-          // model still holds, but an in-place reattach (network reconnect, wake,
-          // reload) already has that replay in hand, so probing would only delay its
-          // paint by the timeout. Memoized, so this is never a second probe.
-          const modelSnapshot = revealFollowsTerminalPark
-            ? (prefetchedParkModelSnapshot ??
-              (isRemoteRuntimePtyId(ptyId) ? null : await fetchSshMainModelReattachSnapshot()))
-            : null
-          if (!isCurrentReattachPayload()) {
-            return
-          }
-          if (modelSnapshot) {
-            // Why composed for scan/reset only: kitty + reset heuristics need
-            // the full byte stream; the actual writes go through the shared
-            // alt-screen choreography below (scrollbackAnsi is '' for
-            // normal-buffer snapshots, so composition matches data there).
-            const modelData = `${modelSnapshot.scrollbackAnsi ?? ''}${modelSnapshot.data}`
-            rememberReattachPayloadAgentSignal(modelData, { fullScreenReplay: true })
-            const modelCols = modelSnapshot.cols
-            const modelRows = modelSnapshot.rows
-            if (
-              hasPositiveTerminalDimensions(modelCols, modelRows) &&
-              (pane.terminal.cols !== modelCols || pane.terminal.rows !== modelRows)
-            ) {
-              // Why: replay at the snapshot's own dimensions (see the daemon-snapshot branch, #7279).
-              resizeSuppressionController.runStructural(() => {
-                pane.terminal.resize(modelCols, modelRows)
-              })
-            }
-            kittyKeyboardModes.scanReplay(modelData)
-            // Why shared: park+reveal of an alt-screen TUI needs the same
-            // ?1049l/?1049h rebuild as hidden snapshot replay (main strips
-            // the ?1049h marker when splitting scrollbackAnsi) — inlined here
-            // because nesting structuralReplayCoordinator would deadlock.
-            for (const replayChunk of buildMainModelSnapshotReplayWrites(modelSnapshot)) {
-              writeReplayData(replayChunk)
-            }
-            writeReplayData(reattachReplayResetSequence(modelData))
-            if (modelSnapshot.pendingEscapeTailAnsi) {
-              // Why last: re-arm the dangling mid-escape after the reset so the live continuation completes it (#7329).
-              writeReplayData(modelSnapshot.pendingEscapeTailAnsi)
-            }
-            // Why: main sampled its delivery backlog with the snapshot; the baseline drops/slices deferred and live chunks the snapshot already covers.
-            restoredSnapshotReconciliationController.setBaseline(ptyId, modelSnapshot)
-            recordRendererOrderedSeq(modelSnapshot)
-            sendFocusedReattachFocusInAfterReplay(ptyId, attemptGeneration)
-            if (connectResult?.coldRestore && !isRemoteRuntimePtyId(ptyId)) {
-              getClientRuntime().terminal.ackColdRestore(ptyId)
-            }
-          } else if (connectResult?.replay) {
-            rememberReattachPayloadAgentSignal(connectResult.replay, { fullScreenReplay: true })
-            // Relay replay may overlap xterm's pre-disconnect content; clear first to avoid duplication.
-            writeReplayData('\x1b[2J\x1b[3J\x1b[H')
-            // Why: raw relay replay may contain the app's own kitty pushes; re-arm with set semantics so redelivery can't grow the stack.
-            kittyKeyboardModes.scanReplay(connectResult.replay)
-            writeReplayData(connectResult.replay)
-            writeReplayData(reattachReplayResetSequence(connectResult.replay))
-            sendFocusedReattachFocusInAfterReplay(ptyId, attemptGeneration)
-            if (connectResult.coldRestore) {
-              if (!isRemoteRuntimePtyId(ptyId)) {
-                getClientRuntime().terminal.ackColdRestore(ptyId)
-              }
-            }
-          }
-        } else if (connectResult?.coldRestore) {
-          let destinationRows = pane.terminal.rows
-          try {
-            const proposedDestination = pane.fitAddon.proposeDimensions()
-            if (
-              proposedDestination &&
-              Number.isFinite(proposedDestination.rows) &&
-              proposedDestination.rows > 0
-            ) {
-              destinationRows = Math.max(destinationRows, proposedDestination.rows)
-            }
-          } catch {
-            // The current xterm grid remains a safe lower bound for blanking.
-          }
-          // Why: shrinking first would promote clipped stale viewport rows into scrollback, beyond the reach of a later viewport-only clear.
-          writeReplayData('\x1b[2J\x1b[H')
-          await waitForTerminalReplayWritesParsed(pane.terminal)
-          if (!isCurrentReattachPayload()) {
-            return
-          }
-          const coldRestoreDimensions = resolvePositiveTerminalDimensions(
-            connectResult.coldRestore.cols,
-            connectResult.coldRestore.rows
-          )
-          if (
-            coldRestoreDimensions &&
-            (pane.terminal.cols !== coldRestoreDimensions.cols ||
-              pane.terminal.rows !== coldRestoreDimensions.rows)
-          ) {
-            // Why: recovered ANSI cursor positions belong to the checkpoint's grid; keep this layout-only resize from reaching the fresh PTY.
-            resizeSuppressionController.runStructural(() => {
-              pane.terminal.resize(coldRestoreDimensions.cols, coldRestoreDimensions.rows)
-            })
-          }
-          // Why: recorded scrollback is raw PTY output that may hold query sequences; xterm.write would auto-reply into the new shell's stdin. See replay-guard.ts.
-          writeReplayData(connectResult.coldRestore.scrollback)
-          const preparedStartup = coldRestoreStartup ?? buildColdRestoreAgentResumeStartup()
-          const didPrepareResume = applyColdRestoreAgentResumeStartup(preparedStartup)
-          if (didPrepareResume) {
-            if (connectResult.agentResumeUnavailable) {
-              // Why: main dropped the resume argv, so this pane is a NEW session —
-              // the plain restored banner would claim the old one came back.
-              showSessionRestoredBanner('resume-unavailable')
-            } else if (preparedStartup?.hasSleepingRecord) {
-              showSessionRestoredBanner()
-            }
-            clearSleepingRecordAfterColdRestoreSpawn(preparedStartup)
-          }
-          // Why: cold-restore spawned a fresh shell; reset mode bytes a crashed TUI (e.g. Claude's \e[?1004h) left in scrollback that no live TUI now consumes.
-          writeReplayData(POST_REPLAY_MODE_RESET)
-          // Why: the dead run's kitty flags died with it and its scrollback was never scanned — the fresh shell starts at zero.
-          kittyKeyboardModes.reset()
-          // Why: a taller destination fit must not pull recovered rows back into the fresh shell's viewport after source-grid replay.
+      }
+      const reattachPayloadController = createPtyConnectionReattachPayloadController({
+        terminal: pane.terminal,
+        isCurrent: isCurrentReattachPayload,
+        runStructuralResize: (operation) => resizeSuppressionController.runStructural(operation),
+        proposeDestinationRows: () => pane.fitAddon.proposeDimensions()?.rows ?? null,
+        writeReplayData,
+        waitForReplayWritesParsed: () => waitForTerminalReplayWritesParsed(pane.terminal),
+        rememberPayloadAgentSignal: rememberReattachPayloadAgentSignal,
+        scanReplayKeyboardModes: (data) => kittyKeyboardModes.scanReplay(data),
+        resetKeyboardModes: () => kittyKeyboardModes.reset(),
+        buildReplayResetSequence: reattachReplayResetSequence,
+        sendFocusedReattachFocusIn: sendFocusedReattachFocusInAfterReplay,
+        isRemoteRuntimePtyId,
+        ackColdRestore: (id) => {
+          getClientRuntime().terminal.ackColdRestore(id)
+        },
+        setReconciliationBaseline: restoredSnapshotReconciliationController.setBaseline,
+        recordRendererOrderedSeq,
+        buildColdRestoreStartup: buildColdRestoreAgentResumeStartup,
+        applyColdRestoreStartup: applyColdRestoreAgentResumeStartup,
+        showSessionRestoredBanner,
+        clearSleepingRecordAfterColdRestoreSpawn,
+        prepareFreshShellViewport: (destinationRows) => {
           preparePtyConnectionFreshShellViewport({
             paneId: pane.id,
-            rows: Math.max(destinationRows, pane.terminal.rows),
+            rows: destinationRows,
             forceBlankRestoredViewport: true,
             restoredViewportBlankingPanes: deps.restoredViewportBlankingPanesRef?.current,
             writeReplayData
           })
-          if (!isRemoteRuntimePtyId(ptyId)) {
-            getClientRuntime().terminal.ackColdRestore(ptyId)
-          }
-          if (didPrepareResume && !coldRestoreStartup) {
-            schedulePendingStartupCommandDelivery()
-          }
-        }
-        if (hasStructuralReplay || prefetchedParkModelSnapshot) {
-          await waitForTerminalReplayWritesParsed(pane.terminal)
-          if (!isCurrentReattachPayload()) {
-            return
-          }
-          reattachPayloadApplied = true
-        }
-      }
+        },
+        schedulePendingStartupCommandDelivery
+      })
+      const applyReattachPayload = (): Promise<void> =>
+        reattachPayloadController.apply({
+          ptyId,
+          attemptGeneration,
+          connectResult,
+          modelSnapshot: parkModelSnapshot,
+          coldRestoreStartup
+        })
 
       const fitAfterReattachRestore = async (): Promise<void> => {
         if (!isCurrentReattachPayload()) {
@@ -3930,7 +3802,7 @@ export function connectPanePty(
           getClientRuntime().terminal.signal(reattachPtyId, 'SIGWINCH')
         }
       }
-      if (hasStructuralReplay || prefetchedParkModelSnapshot) {
+      if (reattachPayloadController.requiresStructuralReplay(connectResult, parkModelSnapshot)) {
         await structuralReplayCoordinator.run(applyReattachPayload, {
           shouldRestore: isCurrentReattachPayload,
           afterRestore: fitAfterReattachRestore
@@ -3939,7 +3811,7 @@ export function connectPanePty(
         await applyReattachPayload()
         await fitAfterReattachRestore()
       }
-      if (!isCurrentReattachPayload() || !reattachPayloadApplied) {
+      if (!isCurrentReattachPayload()) {
         return false
       }
       scheduleReattachIdleAgentCursorReset()

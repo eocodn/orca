@@ -396,6 +396,24 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes reattach payload painting through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-payload-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachPayloadController')
+    expect(orchestrator).not.toContain(
+      'rememberReattachPayloadAgentSignal(connectResult.snapshot, { fullScreenReplay: true })'
+    )
+    expect(orchestrator).not.toContain('buildMainModelSnapshotReplayWrites(modelSnapshot)')
+    expect(orchestrator).not.toContain('writeReplayData(connectResult.coldRestore.scrollback)')
+    expect(owner).toContain('export function createPtyConnectionReattachPayloadController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes the hidden restore snapshot loop through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
