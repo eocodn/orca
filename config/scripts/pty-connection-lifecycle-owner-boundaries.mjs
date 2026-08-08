@@ -429,6 +429,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes parked reattach snapshot selection through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-park-snapshot-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachParkSnapshotController')
+    expect(orchestrator).not.toContain('let parkModelSnapshot')
+    expect(orchestrator).not.toContain('memoizeSshReattachModelSnapshotProbe')
+    expect(orchestrator).not.toContain('decideSshReattachPaintSource')
+    expect(owner).toContain('export function createPtyConnectionReattachParkSnapshotController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes the hidden restore snapshot loop through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

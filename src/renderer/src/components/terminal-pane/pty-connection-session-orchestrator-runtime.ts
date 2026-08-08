@@ -160,6 +160,7 @@ import {
   createPtyConnectionReattachLiveDataController
 } from './pty-connection-reattach-live-data-controller'
 import { createPtyConnectionReattachFitController } from './pty-connection-reattach-fit-controller'
+import { createPtyConnectionReattachParkSnapshotController } from './pty-connection-reattach-park-snapshot-controller'
 import { createPtyConnectionReattachPayloadController } from './pty-connection-reattach-payload-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
@@ -226,12 +227,6 @@ import {
   setRendererPtyVisibilityClaim
 } from './pty-renderer-delivery-claims'
 import { resolveHiddenRestoreScrollbackRows } from './terminal-hidden-restore-scrollback'
-import {
-  decideSshReattachPaintSource,
-  memoizeSshReattachModelSnapshotProbe,
-  resolveSshReattachModelSnapshotWithTimeout,
-  shouldFetchSshReattachModelSnapshot
-} from './ssh-reattach-model-restore'
 import { readInFlightCommandCodeTurn } from './parked-terminal-command-status'
 import {
   cancelCommandCodeDoneSettle,
@@ -3648,76 +3643,35 @@ export function connectPanePty(
       // Why: mobile streaming needs xterm's exact screen state; install the serializer + lastTitle source for main-process hydration parity.
       registerPaneSerializerFor(ptyId)
 
-      // Why (C1 SSH parking): main's headless model holds ~5k rows for SSH ptys
-      // while the relay replay is a 100KiB raw-byte tail; prefer the model on
-      // reveal. Only a non-empty 'headless'-sourced snapshot qualifies — the
-      // renderer-serializer fallback has no mounted xterm after a park. The
-      // paint happens inline in the hidden snapshot replay style
-      // would nest structuralReplayCoordinator.run inside the reattach task and
-      // deadlock on the coordinator's tail chain.
-      // Memoized: the prefetch and the payload task share one probe result, so a
-      // null prefetch can never buy a second timeout before the relay paint.
-      const fetchSshMainModelReattachSnapshot = memoizeSshReattachModelSnapshotProbe(
-        async (): Promise<PtyBufferSnapshot | null> => {
-          const sshParkingEnabled =
-            useAppStore.getState().settings?.terminalSshViewParking !== false
-          if (!shouldFetchSshReattachModelSnapshot({ ptyId, sshParkingEnabled })) {
-            return null
-          }
-          const snapshot = await resolveSshReattachModelSnapshotWithTimeout(
-            getClientRuntime().terminal.getMainBufferSnapshot(ptyId, {
-              scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
-            })
-          )
-          if (
-            !snapshot ||
-            decideSshReattachPaintSource({ ptyId, sshParkingEnabled, snapshot }) !==
-              'main-model-snapshot'
-          ) {
-            return null
-          }
-          return snapshot
-        }
-      )
-      // Why consume-once: only the first reattach of a reveal remount may pay
-      // the probe; a later in-place reconnect on this same mount must not buy a
-      // second timeout before the relay paint.
-      const revealFollowsTerminalPark =
-        parkMountEvidenceController.consume() &&
-        (connectResult?.isReattach === true || isRemoteRuntimePtyId(ptyId))
-      // Why: ordinary parking destroys xterm. Rebuild from the authoritative
-      // host snapshot before releasing queued live bytes; null falls back to
-      // the subscribe screen without keeping the old xterm mounted.
-      let parkModelSnapshot: PtyBufferSnapshot | null = null
-      if (revealFollowsTerminalPark && (!hasStructuralReplay || isRemoteRuntimePtyId(ptyId))) {
-        if (parseAppSshPtyId(ptyId)) {
-          parkModelSnapshot = await fetchSshMainModelReattachSnapshot()
-        } else {
-          try {
-            parkModelSnapshot = await serializeHiddenOutputSnapshot(ptyId, {
-              scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
-            })
-          } catch {
-            parkModelSnapshot = null
-          }
-        }
-        if (!isCurrentReattachPayload()) {
-          return false
-        }
+      const reattachParkSnapshotController = createPtyConnectionReattachParkSnapshotController({
+        consumeParkMountEvidence: parkMountEvidenceController.consume,
+        isCurrent: isCurrentReattachPayload,
+        isRemoteRuntimePtyId,
+        isSshParkingEnabled: () =>
+          useAppStore.getState().settings?.terminalSshViewParking !== false,
+        getMainBufferSnapshot: (id) =>
+          getClientRuntime().terminal.getMainBufferSnapshot(id, {
+            scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
+          }),
+        serializeRendererSnapshot: (id) =>
+          serializeHiddenOutputSnapshot(id, {
+            scrollbackRows: resolveHiddenRestoreScrollbackRows(pane.terminal.options.scrollback)
+          })
+      })
+      const parkSnapshotSelectionResult = reattachParkSnapshotController.select({
+        ptyId,
+        isReattach: connectResult?.isReattach === true,
+        hasStructuralReplay,
+        hasRelayReplay: Boolean(connectResult?.replay)
+      })
+      const parkSnapshotSelection =
+        parkSnapshotSelectionResult instanceof Promise
+          ? await parkSnapshotSelectionResult
+          : parkSnapshotSelectionResult
+      if (parkSnapshotSelection.status === 'stale') {
+        return false
       }
-      // Why: a parked SSH reveal may prefer the authoritative main model over
-      // the relay tail; keep that authority/probe policy outside the paint owner.
-      if (
-        connectResult?.replay &&
-        revealFollowsTerminalPark &&
-        parkModelSnapshot === null &&
-        !isRemoteRuntimePtyId(ptyId)
-      ) {
-        parkModelSnapshot = await fetchSshMainModelReattachSnapshot()
-        if (!isCurrentReattachPayload()) {
-          return false
-        }
-      }
+      const parkModelSnapshot = parkSnapshotSelection.modelSnapshot
       const reattachPayloadController = createPtyConnectionReattachPayloadController({
         terminal: pane.terminal,
         isCurrent: isCurrentReattachPayload,
