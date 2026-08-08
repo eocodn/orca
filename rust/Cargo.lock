@@ -80,6 +80,7 @@ dependencies = [
 name = "ade-worker"
 version = "0.1.0"
 dependencies = [
+ "ade-control",
  "ade-host-core",
  "ade-host-platform",
  "ade-terminal",

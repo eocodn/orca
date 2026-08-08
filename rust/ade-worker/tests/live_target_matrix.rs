@@ -1,14 +1,18 @@
+use ade_control::AgentControlClient;
 use ade_host_core::protocol::{
     ExecutionContext, ExecutionTarget, FileWorkerRequest, FileWorkerResponse, GitWorkerRequest,
     GitWorkerResponse, OwnershipContext, PtyExecutionTarget, PtyOperation, PtyRequest, PtyResponse,
     PtySshShell, PtyStatus, WorkspaceKind,
 };
 use serde::Deserialize;
+use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+
+const CONTROL_PROTOCOL_VERSION: u64 = 1;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,7 +36,7 @@ struct LiveTargetCase {
     pty_marker: String,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 enum LiveWorkspaceKind {
     Folder,
@@ -45,6 +49,29 @@ enum LiveTarget {
     WindowsNative,
     Wsl2 { identity: String },
     Ssh { identity: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LiveTargetKind {
+    WindowsNative,
+    Wsl2,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LiveOperation {
+    File,
+    Git,
+    Pty,
+}
+
+struct AcceptanceContext {
+    control_endpoint: PathBuf,
+    windows_worker: PathBuf,
+    wsl_worker: PathBuf,
+    distro: String,
+    worker_id: String,
+    worker_incarnation: u64,
+    worker_version: String,
 }
 
 impl LiveTargetMatrix {
@@ -82,6 +109,26 @@ impl LiveTargetMatrix {
         }
         Ok(())
     }
+
+    fn case(&self, target: LiveTargetKind, workspace_kind: LiveWorkspaceKind) -> &LiveTargetCase {
+        let matches = self
+            .cases
+            .iter()
+            .filter(|case| {
+                case.workspace_kind == workspace_kind && case.target_kind() == Some(target)
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            matches.len(),
+            1,
+            "live matrix must contain exactly one {target:?}/{workspace_kind:?} case; matches={:?}",
+            matches
+                .iter()
+                .map(|case| case.name.as_str())
+                .collect::<Vec<_>>()
+        );
+        matches[0]
+    }
 }
 
 fn require_nonblank(value: &str, field: &str) -> Result<(), String> {
@@ -97,6 +144,14 @@ impl LiveTargetCase {
         match self.workspace_kind {
             LiveWorkspaceKind::Folder => WorkspaceKind::Folder,
             LiveWorkspaceKind::GitWorktree => WorkspaceKind::GitWorktree,
+        }
+    }
+
+    fn target_kind(&self) -> Option<LiveTargetKind> {
+        match self.target {
+            LiveTarget::WindowsNative => Some(LiveTargetKind::WindowsNative),
+            LiveTarget::Wsl2 { .. } => Some(LiveTargetKind::Wsl2),
+            LiveTarget::Ssh { .. } => None,
         }
     }
 
@@ -131,6 +186,74 @@ impl LiveTargetCase {
     }
 }
 
+impl AcceptanceContext {
+    fn load() -> Self {
+        let endpoint = required_env("ADE_ACCEPTANCE_CONTROL_ENDPOINT");
+        let context = Self {
+            control_endpoint: PathBuf::from(endpoint),
+            windows_worker: required_path("ADE_ACCEPTANCE_WINDOWS_WORKER_BIN"),
+            wsl_worker: required_path("ADE_ACCEPTANCE_WSL_WORKER_BIN"),
+            distro: required_env("ADE_ACCEPTANCE_DISTRO"),
+            worker_id: required_env("ADE_ACCEPTANCE_WORKER_ID"),
+            worker_incarnation: required_env("ADE_ACCEPTANCE_WORKER_INCARNATION")
+                .parse()
+                .expect("ADE_ACCEPTANCE_WORKER_INCARNATION must be a positive u64"),
+            worker_version: required_env("ADE_ACCEPTANCE_WORKER_VERSION"),
+        };
+        assert!(
+            context.control_endpoint.is_file(),
+            "control endpoint must exist"
+        );
+        assert!(
+            context.windows_worker.is_file(),
+            "Windows worker binary must exist"
+        );
+        assert!(context.wsl_worker.is_file(), "WSL worker binary must exist");
+        assert!(
+            context.worker_incarnation > 0,
+            "worker incarnation must be positive"
+        );
+        context
+    }
+
+    fn verify_ready(&self, test_name: &str) {
+        let mut client = AgentControlClient::connect(&self.control_endpoint)
+            .expect("acceptance control endpoint must be authenticated and reachable");
+        let request_id = format!("acceptance-{test_name}");
+        let request = json!({
+            "protocol_version": CONTROL_PROTOCOL_VERSION,
+            "request_id": request_id,
+            "command": "worker_status"
+        });
+        let response = client
+            .request_line(&request.to_string())
+            .expect("worker_status request must complete");
+        let value: Value = serde_json::from_str(&response).expect("worker_status must be JSON");
+        assert_eq!(value["protocol_version"], CONTROL_PROTOCOL_VERSION);
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["result"]["type"], "worker_status");
+        assert_eq!(value["result"]["state"], "ready");
+        assert_eq!(value["result"]["maintenance"], false);
+        assert_eq!(value["result"]["distro"], self.distro);
+        assert_eq!(value["result"]["worker_id"], self.worker_id);
+        assert_eq!(
+            value["result"]["worker_incarnation"],
+            self.worker_incarnation
+        );
+        assert_eq!(value["result"]["worker_version"], self.worker_version);
+    }
+}
+
+fn required_env(name: &str) -> String {
+    let value = std::env::var(name).unwrap_or_else(|_| panic!("{name} must be set for acceptance"));
+    assert!(!value.trim().is_empty(), "{name} must be nonblank");
+    value
+}
+
+fn required_path(name: &str) -> PathBuf {
+    PathBuf::from(required_env(name))
+}
+
 struct WorkerJsonlChild {
     child: Child,
     stdin: BufWriter<ChildStdin>,
@@ -138,14 +261,16 @@ struct WorkerJsonlChild {
 }
 
 impl WorkerJsonlChild {
-    fn spawn() -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_ade-worker"))
+    fn spawn(binary: &Path) -> Self {
+        let mut child = Command::new(binary)
             .arg("--jsonl")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .expect("ade-worker child should start");
+            .unwrap_or_else(|error| {
+                panic!("ade-worker {} should start: {error}", binary.display())
+            });
         let stdin = BufWriter::new(child.stdin.take().expect("worker stdin"));
         let stdout = BufReader::new(child.stdout.take().expect("worker stdout"));
         Self {
@@ -177,65 +302,71 @@ impl Drop for WorkerJsonlChild {
 
 fn execution_context(
     case: &LiveTargetCase,
-    index: usize,
     target: ExecutionTarget,
     remote_identity: Option<String>,
+    acceptance: &AcceptanceContext,
 ) -> ExecutionContext {
     ExecutionContext::new(
-        format!("live-workspace-{index}"),
+        format!("acceptance-{}", case.name),
         case.workspace_kind(),
-        format!("live-worker-{index}"),
-        1,
-        OwnershipContext::new(index as u64 + 1),
+        acceptance.worker_id.clone(),
+        acceptance.worker_incarnation,
+        OwnershipContext::new(1),
         target,
         remote_identity,
     )
 }
 
-fn run_case(worker: &mut WorkerJsonlChild, case: &LiveTargetCase, index: usize) {
-    let (target, pty_target, remote_identity) = case.execution_targets();
-    let context = execution_context(case, index, target, remote_identity);
-
-    let file_request = FileWorkerRequest::read(
-        format!("live-{index}-file"),
-        context.clone(),
+fn run_file(worker: &mut WorkerJsonlChild, case: &LiveTargetCase, context: ExecutionContext) {
+    let request = FileWorkerRequest::read(
+        format!("acceptance-{}-file", case.name),
+        context,
         case.marker_path.clone(),
     );
-    let file_response: FileWorkerResponse = worker.request(&file_request);
-    let marker_text = String::from_utf8_lossy(&file_response.bytes);
+    let response: FileWorkerResponse = worker.request(&request);
+    let marker_text = String::from_utf8_lossy(&response.bytes);
     assert!(
         marker_text.contains(&case.marker_contains),
         "{}: marker file did not contain {:?}; actual={marker_text:?}",
         case.name,
         case.marker_contains
     );
+}
 
-    let git_request = GitWorkerRequest::worktree_list(
-        format!("live-{index}-git"),
+fn run_git(worker: &mut WorkerJsonlChild, case: &LiveTargetCase, context: ExecutionContext) {
+    let request = GitWorkerRequest::worktree_list(
+        format!("acceptance-{}-git", case.name),
         context,
         case.repository_path.clone(),
     );
-    let git_response: GitWorkerResponse = worker.request(&git_request);
+    let response: GitWorkerResponse = worker.request(&request);
     assert!(
-        git_response
+        response
             .worktrees
             .iter()
             .any(|worktree| worktree.path == case.expected_worktree_path),
         "{}: expected worktree path {:?}; actual={:?}",
         case.name,
         case.expected_worktree_path,
-        git_response
+        response
             .worktrees
             .iter()
             .map(|worktree| worktree.path.as_str())
             .collect::<Vec<_>>()
     );
+}
 
-    let session_id = format!("live-session-{index}");
+fn run_pty(
+    worker: &mut WorkerJsonlChild,
+    case: &LiveTargetCase,
+    context: &ExecutionContext,
+    pty_target: PtyExecutionTarget,
+) {
+    let session_id = format!("acceptance-{}-pty", case.name);
     let start_request = PtyRequest::new(
-        format!("live-{index}-pty-start"),
-        format!("live-workspace-{index}"),
-        format!("live-worker-{index}"),
+        format!("acceptance-{}-pty-start", case.name),
+        context.workspace_id.clone(),
+        context.worker_id.clone(),
         session_id.clone(),
         None,
         PtyOperation::Start {
@@ -258,26 +389,20 @@ fn run_case(worker: &mut WorkerJsonlChild, case: &LiveTargetCase, index: usize) 
         start
     } else {
         let wait_request = PtyRequest::new(
-            format!("live-{index}-pty-wait"),
-            format!("live-workspace-{index}"),
-            format!("live-worker-{index}"),
+            format!("acceptance-{}-pty-wait", case.name),
+            context.workspace_id.clone(),
+            context.worker_id.clone(),
             session_id,
             Some(start.session_generation),
             PtyOperation::Wait { timeout_ms: 10_000 },
         );
         worker.request::<PtyResponse, _>(&wait_request)
     };
-    assert_eq!(
-        final_response.status,
-        PtyStatus::Exited,
-        "{}: PTY did not exit: {final_response:?}",
-        case.name
-    );
+    assert_eq!(final_response.status, PtyStatus::Exited, "PTY did not exit");
     assert_eq!(
         final_response.exit_code,
         Some(0),
-        "{}: PTY exited unsuccessfully: {final_response:?}",
-        case.name
+        "PTY exited unsuccessfully"
     );
     assert!(
         final_response.tail.contains(&case.pty_marker),
@@ -287,6 +412,115 @@ fn run_case(worker: &mut WorkerJsonlChild, case: &LiveTargetCase, index: usize) 
         final_response.tail
     );
 }
+
+fn run_live_test(
+    test_name: &str,
+    target: LiveTargetKind,
+    workspace_kind: LiveWorkspaceKind,
+    operation: LiveOperation,
+) {
+    let acceptance = AcceptanceContext::load();
+    acceptance.verify_ready(test_name);
+
+    let matrix_path = required_env("ADE_LIVE_TARGET_MATRIX");
+    let matrix_text = fs::read_to_string(Path::new(&matrix_path))
+        .unwrap_or_else(|error| panic!("failed to read {matrix_path}: {error}"));
+    let matrix = LiveTargetMatrix::parse(&matrix_text)
+        .unwrap_or_else(|error| panic!("invalid live target matrix {matrix_path}: {error}"));
+    let case = matrix.case(target, workspace_kind);
+    let (execution_target, pty_target, remote_identity) = case.execution_targets();
+    let context = execution_context(case, execution_target, remote_identity, &acceptance);
+    let mut worker = WorkerJsonlChild::spawn(&acceptance.windows_worker);
+
+    match operation {
+        LiveOperation::File => run_file(&mut worker, case, context),
+        LiveOperation::Git => run_git(&mut worker, case, context),
+        LiveOperation::Pty => run_pty(&mut worker, case, &context, pty_target),
+    }
+}
+
+macro_rules! live_test {
+    ($name:ident, $target:expr, $workspace:expr, $operation:expr) => {
+        #[test]
+        #[ignore = "requires Windows live acceptance runner"]
+        fn $name() {
+            run_live_test(stringify!($name), $target, $workspace, $operation);
+        }
+    };
+}
+
+live_test!(
+    windows_native_file_folder,
+    LiveTargetKind::WindowsNative,
+    LiveWorkspaceKind::Folder,
+    LiveOperation::File
+);
+live_test!(
+    windows_native_file_worktree,
+    LiveTargetKind::WindowsNative,
+    LiveWorkspaceKind::GitWorktree,
+    LiveOperation::File
+);
+live_test!(
+    windows_native_git_folder,
+    LiveTargetKind::WindowsNative,
+    LiveWorkspaceKind::Folder,
+    LiveOperation::Git
+);
+live_test!(
+    windows_native_git_worktree,
+    LiveTargetKind::WindowsNative,
+    LiveWorkspaceKind::GitWorktree,
+    LiveOperation::Git
+);
+live_test!(
+    windows_native_pty_folder,
+    LiveTargetKind::WindowsNative,
+    LiveWorkspaceKind::Folder,
+    LiveOperation::Pty
+);
+live_test!(
+    windows_native_pty_worktree,
+    LiveTargetKind::WindowsNative,
+    LiveWorkspaceKind::GitWorktree,
+    LiveOperation::Pty
+);
+live_test!(
+    wsl2_file_folder,
+    LiveTargetKind::Wsl2,
+    LiveWorkspaceKind::Folder,
+    LiveOperation::File
+);
+live_test!(
+    wsl2_file_worktree,
+    LiveTargetKind::Wsl2,
+    LiveWorkspaceKind::GitWorktree,
+    LiveOperation::File
+);
+live_test!(
+    wsl2_git_folder,
+    LiveTargetKind::Wsl2,
+    LiveWorkspaceKind::Folder,
+    LiveOperation::Git
+);
+live_test!(
+    wsl2_git_worktree,
+    LiveTargetKind::Wsl2,
+    LiveWorkspaceKind::GitWorktree,
+    LiveOperation::Git
+);
+live_test!(
+    wsl2_pty_folder,
+    LiveTargetKind::Wsl2,
+    LiveWorkspaceKind::Folder,
+    LiveOperation::Pty
+);
+live_test!(
+    wsl2_pty_worktree,
+    LiveTargetKind::Wsl2,
+    LiveWorkspaceKind::GitWorktree,
+    LiveOperation::Pty
+);
 
 #[test]
 fn live_target_matrix_config_is_strict_and_rejects_ambiguous_cases() {
@@ -329,23 +563,4 @@ fn live_target_matrix_config_is_strict_and_rejects_ambiguous_cases() {
         "\"pty_marker\": \"ready\", \"unexpected\": true",
     );
     assert!(LiveTargetMatrix::parse(&unknown).is_err());
-}
-
-#[test]
-#[ignore = "requires ADE_LIVE_TARGET_MATRIX and configured native/WSL2/SSH fixtures"]
-fn live_target_matrix_runs_file_git_and_pty_through_the_real_worker() {
-    let matrix_path = std::env::var("ADE_LIVE_TARGET_MATRIX").expect(
-        "set ADE_LIVE_TARGET_MATRIX to a strict JSON config; see live_target_matrix.example.json",
-    );
-    let matrix_text = fs::read_to_string(Path::new(&matrix_path))
-        .unwrap_or_else(|error| panic!("failed to read {matrix_path}: {error}"));
-    let matrix = LiveTargetMatrix::parse(&matrix_text)
-        .unwrap_or_else(|error| panic!("invalid live target matrix {matrix_path}: {error}"));
-    let mut worker = WorkerJsonlChild::spawn();
-
-    for (index, case) in matrix.cases.iter().enumerate() {
-        eprintln!("[live-target] running {}", case.name);
-        run_case(&mut worker, case, index);
-        eprintln!("[live-target] passed {}", case.name);
-    }
 }
