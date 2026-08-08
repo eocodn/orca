@@ -43,6 +43,8 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     expect(source).toContain('wsl_worker_binary')
     expect(source).toContain('live_matrix_binary')
     expect(source).toContain('SelfTest')
+    expect(source).toContain('Write-Output $json')
+    expect(source).not.toContain('[Console]::Out.WriteLine(($Value | ConvertTo-Json')
     expect(dockerfile).toContain('mingw-w64')
     expect(dockerfile).toContain('x86_64-pc-windows-gnu')
     expect(dockerfile).toContain('--test live_target_matrix')

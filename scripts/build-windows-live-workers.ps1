@@ -64,7 +64,8 @@ function New-WslArguments([string]$Distribution, [string]$BuildUser, [string[]]$
 }
 
 function Write-MachineJson([object]$Value) {
-    [Console]::Out.WriteLine(($Value | ConvertTo-Json -Depth 12 -Compress))
+    $json = $Value | ConvertTo-Json -Depth 12 -Compress
+    Write-Output $json
 }
 
 function Invoke-SelfTest {
