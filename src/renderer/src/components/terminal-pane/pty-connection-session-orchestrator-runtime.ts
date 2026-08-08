@@ -163,6 +163,7 @@ import { createPtyConnectionReattachFitController } from './pty-connection-reatt
 import { createPtyConnectionReattachParkSnapshotController } from './pty-connection-reattach-park-snapshot-controller'
 import { createPtyConnectionReattachPayloadController } from './pty-connection-reattach-payload-controller'
 import { createPtyConnectionReattachReplayController } from './pty-connection-reattach-replay-controller'
+import { createPtyConnectionReattachResultAdmissionController } from './pty-connection-reattach-result-admission-controller'
 import { createPtyConnectionRendererSequenceController } from './pty-connection-renderer-sequence-controller'
 import { createPtyConnectionRendererSequenceExitResetController } from './pty-connection-renderer-sequence-exit-reset-controller'
 import { createPtyConnectionRestoredSnapshotReconciliationController } from './pty-connection-restored-snapshot-reconciliation-controller'
@@ -3523,74 +3524,53 @@ export function connectPanePty(
       coldRestoreStartup?: ColdRestoreAgentResumeStartup | null,
       attemptGeneration = streamGenerationController.getCurrent()
     ): Promise<boolean> => {
-      if (disposed) {
-        return false
-      }
-      if (!streamGenerationController.isCurrent(attemptGeneration)) {
-        return false
-      }
-      const connectResult =
-        result && typeof result === 'object' && 'id' in result ? (result as PtyConnectResult) : null
-
-      if (connectResult?.exitedBeforeAttach) {
-        // Why: the transport already delivered the dead session's final frame + exit; treat as terminal state, not a failed reattach.
-        return true
-      }
-
-      const retryPtyId =
-        connectResult?.id ??
-        (typeof result === 'string' ? result : (staleSessionId ?? transport.getPtyId()))
-      if (rejectObsoleteDirectSshReattach(retryPtyId)) {
-        // Why: an obsolete reattach must stop consuming frames without killing the durable PTY a newer lease may adopt.
-        return false
-      }
-      const ptyId =
-        connectResult?.id ?? (typeof result === 'string' ? result : transport.getPtyId())
-      if (!ptyId) {
-        warnTerminalLifecycleAnomaly('restored PTY reattach returned no PTY id', {
-          tabId: deps.tabId,
-          worktreeId: deps.worktreeId,
-          leafId: deps.restoredLeafId ?? pane.leafId,
-          paneId: pane.id,
-          ptyId: staleSessionId ?? null
-        })
-        // Why: a stale restored session can fail reattach after mount; don't leave xterm alive without a backing PTY.
-        if (staleSessionId) {
-          deps.clearExitedPanePtyLayoutBinding(pane.id, staleSessionId)
-        } else {
-          deps.syncPanePtyLayoutBinding(pane.id, null)
-        }
-        if (staleSessionId) {
-          deps.clearTabPtyId(deps.tabId, staleSessionId)
-        }
-        startFreshColdRestoreAgentResume(coldRestoreStartup, {
-          forceBlankRestoredViewport: true
-        })
-        return false
-      }
-      registerEffectiveLaunchConfig(connectResult?.launchConfig, {
-        ...(coldRestoreStartup ? { launchToken: coldRestoreStartup.launchToken } : {}),
-        ...(connectResult?.launchAgent
-          ? { launchAgent: connectResult.launchAgent }
-          : coldRestoreStartup
-            ? { launchAgent: coldRestoreStartup.agent }
-            : {})
+      const resultAdmissionController = createPtyConnectionReattachResultAdmissionController({
+        isDisposed: () => disposed,
+        isGenerationCurrent: streamGenerationController.isCurrent,
+        getTransportPtyId: () => transport.getPtyId(),
+        rejectObsoleteDirectSshReattach,
+        warnMissingPty: (missingStaleSessionId) => {
+          warnTerminalLifecycleAnomaly('restored PTY reattach returned no PTY id', {
+            tabId: deps.tabId,
+            worktreeId: deps.worktreeId,
+            leafId: deps.restoredLeafId ?? pane.leafId,
+            paneId: pane.id,
+            ptyId: missingStaleSessionId
+          })
+        },
+        clearPaneBinding: (bindingSessionId) => {
+          if (bindingSessionId) {
+            deps.clearExitedPanePtyLayoutBinding(pane.id, bindingSessionId)
+          } else {
+            deps.syncPanePtyLayoutBinding(pane.id, null)
+          }
+        },
+        clearTabBinding: (bindingSessionId) => {
+          deps.clearTabPtyId(deps.tabId, bindingSessionId)
+        },
+        startFreshColdRestore: (startup) => {
+          startFreshColdRestoreAgentResume(startup, { forceBlankRestoredViewport: true })
+        },
+        registerEffectiveLaunchConfig,
+        disconnect: () => transport.disconnect(),
+        isPassiveResumeAuthority: (startup) =>
+          Boolean(
+            startup &&
+            !startup.useLiveEntry &&
+            startup.sleepingRecordEntry &&
+            isPassiveCompletedHibernationEvidence(startup.sleepingRecordEntry.record)
+          )
       })
-      if (connectResult?.sessionExpired) {
-        if (staleSessionId) {
-          deps.clearExitedPanePtyLayoutBinding(pane.id, staleSessionId)
-        } else {
-          deps.syncPanePtyLayoutBinding(pane.id, null)
-        }
-        if (staleSessionId) {
-          deps.clearTabPtyId(deps.tabId, staleSessionId)
-        }
-        // Why: SSH sleep/reconnect can invalidate the relay PTY while the tab stays mounted; replace the dead lease in-place, not a stale overlay.
-        startFreshColdRestoreAgentResume(coldRestoreStartup, {
-          forceBlankRestoredViewport: true
-        })
-        return false
+      const admission = resultAdmissionController.admit({
+        result,
+        staleSessionId,
+        coldRestoreStartup,
+        attemptGeneration
+      })
+      if (admission.status === 'handled') {
+        return admission.accepted
       }
+      const { ptyId, connectResult, hasStructuralReplay } = admission
       const isCurrentReattachPayload = (): boolean => {
         const currentPtyId = transport.getPtyId()
         return (
@@ -3600,30 +3580,6 @@ export function connectPanePty(
         )
       }
       if (!isCurrentReattachPayload()) {
-        return false
-      }
-      // Strict precedence snapshot > replay > coldRestore: paint exactly one, else overlapping tails duplicate TUI output on worktree switch.
-      const hasStructuralReplay = Boolean(
-        connectResult?.snapshot || connectResult?.replay || connectResult?.coldRestore
-      )
-      const resumeComesFromPassiveHibernation = Boolean(
-        coldRestoreStartup &&
-        !coldRestoreStartup.useLiveEntry &&
-        coldRestoreStartup.sleepingRecordEntry &&
-        isPassiveCompletedHibernationEvidence(coldRestoreStartup.sleepingRecordEntry.record)
-      )
-      // Why: reattach drops startup commands; only passive hibernation is authority to retire an empty adopted shell and resume its provider session.
-      if (!hasStructuralReplay && connectResult?.isReattach && resumeComesFromPassiveHibernation) {
-        transport.disconnect()
-        if (staleSessionId) {
-          deps.clearExitedPanePtyLayoutBinding(pane.id, staleSessionId)
-          deps.clearTabPtyId(deps.tabId, staleSessionId)
-        } else {
-          deps.syncPanePtyLayoutBinding(pane.id, null)
-        }
-        startFreshColdRestoreAgentResume(coldRestoreStartup, {
-          forceBlankRestoredViewport: true
-        })
         return false
       }
       setPanePtyFitBinding(ptyId)

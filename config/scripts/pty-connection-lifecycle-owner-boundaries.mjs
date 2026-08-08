@@ -445,6 +445,22 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes reattach result admission and fallback through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-reattach-result-admission-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionReattachResultAdmissionController')
+    expect(orchestrator).not.toContain('connectResult?.exitedBeforeAttach')
+    expect(orchestrator).not.toContain('connectResult?.sessionExpired')
+    expect(orchestrator).not.toContain('resumeComesFromPassiveHibernation')
+    expect(owner).toContain('export function createPtyConnectionReattachResultAdmissionController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes the hidden restore snapshot loop through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
