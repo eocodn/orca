@@ -742,6 +742,20 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes transport stream callback authority through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-transport-stream-callback-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionTransportStreamCallbackController')
+    expect(orchestrator).not.toContain('const captureTransportOutputCallbacks =')
+    expect(owner).toContain('export function createPtyConnectionTransportStreamCallbackController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes terminal activity evidence through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

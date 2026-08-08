@@ -18,7 +18,7 @@ import {
 } from '@/lib/pane-manager/terminal-delivery-credit'
 import { isTerminalQueryReply } from '../../../../shared/terminal-query-reply'
 import type { PtyBufferSnapshot, PtyConnectResult } from './pty-transport'
-import type { IpcPtyTransportOptions, PtyTransportRecoveryState } from './pty-transport-types'
+import type { IpcPtyTransportOptions } from './pty-transport-types'
 import { createIpcPtyTransport } from './pty-transport'
 import { createRemoteRuntimePtyTransport } from './remote-runtime-pty-transport'
 import { toAgentLaunchPreferences } from '@/runtime/agent-session-create-operation'
@@ -172,6 +172,7 @@ import { createPtyConnectionRenderRiskController } from './pty-connection-render
 import { createPtyConnectionSynchronizedForegroundController } from './pty-connection-synchronized-foreground-controller'
 import { createPtyConnectionTitleCompletionDeferralController } from './pty-connection-title-completion-deferral-controller'
 import { createPtyConnectionStreamGenerationController } from './pty-connection-stream-generation-controller'
+import { createPtyConnectionTransportStreamCallbackController } from './pty-connection-transport-stream-callback-controller'
 import { createPtyConnectionTerminalActivityController } from './pty-connection-terminal-activity-controller'
 import { createPtyConnectionTransportSettleController } from './pty-connection-transport-settle-controller'
 import { createPtyConnectionVisibleForegroundSampleController } from './pty-connection-visible-foreground-sample-controller'
@@ -2434,7 +2435,7 @@ export function connectPanePty(
         runtimeEnvironmentId,
         cols,
         rows,
-        captureTransportOutputCallbacks,
+        captureTransportOutputCallbacks: transportStreamCallbackController.capture,
         getTransportStreamGeneration: streamGenerationController.getCurrent,
         setConnectInFlightSince: transportSettleController.setInFlightSince,
         mergeStartupEnvWithPaneIdentity,
@@ -2638,58 +2639,22 @@ export function connectPanePty(
 
     const replayDataCallback = reattachReplayController.enqueue
 
-    const captureTransportOutputCallbacks = (onError: (message: string) => void) => {
-      // Why: a new stream generation cannot inherit an old replay's pending
-      // destination-grid fit or keep its live-data waiter open.
-      pendingFitController.cancelAll()
-      const generation = streamGenerationController.advance()
-      const isCurrent = (): boolean => !disposed && streamGenerationController.isCurrent(generation)
-      return {
-        generation,
-        callbacks: {
-          onConnect: (): void => {
-            if (isCurrent()) {
-              reportRemoteRendererSerializerReady()
-            }
-          },
-          onData: (data: string, meta?: PtyDataMeta): void => {
-            if (isCurrent()) {
-              dataCallback(data, meta, generation)
-            }
-          },
-          onReplayData: (
-            data: string,
-            meta?: { clearBeforeReplay?: boolean; pendingEscapeTailAnsi?: string }
-          ): void => {
-            if (isCurrent()) {
-              replayDataCallback(data, meta, generation)
-            }
-          },
-          onError: (message: string): void => {
-            if (isCurrent()) {
-              onError(message)
-            }
-          },
-          onWriteUnavailable: (): void => {
-            if (isCurrent()) {
-              requestRecoveryForUndeliverableInput(true)
-            }
-          },
-          onRecoveryStateChange: (state: PtyTransportRecoveryState): void => {
-            if (isCurrent()) {
-              // Why: cached pixels remain visible while detached; expose transport truth for diagnostics and recovery UI.
-              pane.container.dataset.ptyRecoveryState = state.phase
-              deps.onPtyRecoveryStateRef?.current?.(pane.id, state)
-            }
-          },
-          onOutputPauseChanged: (paused: boolean, supported: boolean): void => {
-            if (isCurrent()) {
-              handleRemoteOutputPauseChanged(paused, supported)
-            }
-          }
-        }
-      }
-    }
+    const transportStreamCallbackController = createPtyConnectionTransportStreamCallbackController({
+      cancelPendingFits: pendingFitController.cancelAll,
+      advanceGeneration: streamGenerationController.advance,
+      isGenerationCurrent: streamGenerationController.isCurrent,
+      isDisposed: () => disposed,
+      onConnect: reportRemoteRendererSerializerReady,
+      onData: (data, meta, generation) => dataCallback(data, meta, generation),
+      onReplayData: (data, meta, generation) => replayDataCallback(data, meta, generation),
+      onWriteUnavailable: () => requestRecoveryForUndeliverableInput(true),
+      onRecoveryStateChange: (state) => {
+        // Why: cached pixels remain visible while detached; expose transport truth for diagnostics and recovery UI.
+        pane.container.dataset.ptyRecoveryState = state.phase
+        deps.onPtyRecoveryStateRef?.current?.(pane.id, state)
+      },
+      onOutputPauseChanged: handleRemoteOutputPauseChanged
+    })
 
     const restoredSnapshotReconciliationController =
       createPtyConnectionRestoredSnapshotReconciliationController()
@@ -3726,7 +3691,7 @@ export function connectPanePty(
       runtimeEnvironmentId,
       cols,
       rows,
-      captureTransportOutputCallbacks,
+      captureTransportOutputCallbacks: transportStreamCallbackController.capture,
       getTransportStreamGeneration: streamGenerationController.getCurrent,
       beginLiveDataDeferral: beginReattachLiveDataDeferral,
       finishLiveDataDeferral: finishReattachLiveDataDeferral,
@@ -3746,7 +3711,7 @@ export function connectPanePty(
       rows,
       clearPaneMode2031State,
       clearHiddenOutputRestoreState,
-      captureTransportOutputCallbacks,
+      captureTransportOutputCallbacks: transportStreamCallbackController.capture,
       reportError,
       bindActivePanePty,
       registerPaneSerializerFor
