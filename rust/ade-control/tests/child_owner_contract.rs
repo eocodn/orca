@@ -95,7 +95,10 @@ fn startup_pid_mismatch_is_terminal_and_fake_child_is_reaped() {
     fs::set_permissions(&script, permissions).unwrap();
 
     let result = AgentControlChild::spawn(&script, &state_db, &endpoint);
-    if !matches!(&result, Err(AgentControlChildError::StartupPidMismatch { .. })) {
+    if !matches!(
+        &result,
+        Err(AgentControlChildError::StartupPidMismatch { .. })
+    ) {
         let detail = match &result {
             Ok(_) => String::from("Ok(AgentControlChild)"),
             Err(error) => format!("Err({error:?})"),
