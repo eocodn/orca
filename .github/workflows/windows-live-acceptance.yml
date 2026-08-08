@@ -77,11 +77,9 @@ jobs:
         id: build
         shell: pwsh
         run: |
-          $arguments = @('-Distro', '${{ inputs.distro }}')
-          if (-not [string]::IsNullOrWhiteSpace('${{ inputs.wsl_build_user }}')) {
-            $arguments += @('-WslBuildUser', '${{ inputs.wsl_build_user }}')
-          }
-          $line = & ./scripts/build-windows-live-workers.ps1 @arguments
+          $line = & ./scripts/build-windows-live-workers.ps1 `
+            -Distro '${{ inputs.distro }}' `
+            -WslBuildUser '${{ inputs.wsl_build_user }}'
           if ($LASTEXITCODE -ne 0) {
             throw "Windows live worker build failed with exit $LASTEXITCODE`: $line"
           }

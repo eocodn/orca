@@ -28,6 +28,9 @@ describe('Windows live acceptance workflow', () => {
     const steps = job.steps
     expect(steps.some((step) => step.run?.includes('build-windows-live-workers.ps1'))).toBe(true)
     expect(steps.some((step) => step.run?.includes('run-windows-live-acceptance.ps1'))).toBe(true)
+    expect(source).not.toContain('@arguments')
+    expect(source).toContain("-Distro '${{ inputs.distro }}'")
+    expect(source).toContain("-WslBuildUser '${{ inputs.wsl_build_user }}'")
     expect(source).toContain('live_matrix=$($result.live_matrix_binary)')
     expect(source).toContain('-LiveMatrixBinary')
     expect(source).toContain("$reportPath = 'out/windows-live-acceptance.json'")
