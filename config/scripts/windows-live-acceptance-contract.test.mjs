@@ -42,6 +42,8 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     expect(source).toContain('windows_worker_binary')
     expect(source).toContain('wsl_worker_binary')
     expect(source).toContain('live_matrix_binary')
+    expect(source).toContain('worker_version')
+    expect(source).toContain('worker-version.txt')
     expect(source).toContain('SelfTest')
     expect(source).toContain('Write-Output $json')
     expect(source).not.toContain('[Console]::Out.WriteLine(($Value | ConvertTo-Json')
@@ -52,6 +54,7 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     expect(dockerfile).toContain('ade-control.exe')
     expect(dockerfile).toContain('ade-worker.exe')
     expect(dockerfile).toContain('live-target-matrix.exe')
+    expect(dockerfile).toContain('worker-version.txt')
   })
 
   it('runs every exact ignored cell through persistent Agent Control and emits JSON', () => {

@@ -31,12 +31,15 @@ RUN cargo build \
 
 RUN set -eux; \
   live_matrix="$(find rust/target/x86_64-pc-windows-gnu/release/deps -maxdepth 1 -type f -name 'live_target_matrix-*.exe' -print -quit)"; \
+  worker_version="$(sed -n '/^\[package\]$/,/^\[/s/^version = "\([^"]*\)"$/\1/p' rust/ade-worker/Cargo.toml | head -n 1)"; \
   test -n "$live_matrix"; \
+  test -n "$worker_version"; \
   mkdir -p /artifacts/windows /artifacts/wsl; \
   cp rust/target/x86_64-pc-windows-gnu/release/ade-control.exe /artifacts/windows/ade-control.exe; \
   cp rust/target/x86_64-pc-windows-gnu/release/ade-worker.exe /artifacts/windows/ade-worker.exe; \
   cp "$live_matrix" /artifacts/windows/live-target-matrix.exe; \
-  cp rust/target/release/ade-worker /artifacts/wsl/ade-worker
+  cp rust/target/release/ade-worker /artifacts/wsl/ade-worker; \
+  printf '%s\n' "$worker_version" > /artifacts/worker-version.txt
 
 FROM scratch AS export
 COPY --from=build /artifacts/ /

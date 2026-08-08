@@ -88,6 +88,7 @@ jobs:
           "windows_worker=$($result.windows_worker_binary)" >> $env:GITHUB_OUTPUT
           "wsl_worker=$($result.wsl_worker_binary)" >> $env:GITHUB_OUTPUT
           "live_matrix=$($result.live_matrix_binary)" >> $env:GITHUB_OUTPUT
+          "worker_version=$($result.worker_version)" >> $env:GITHUB_OUTPUT
           "wsl_arch=$($result.wsl_arch)" >> $env:GITHUB_OUTPUT
 
       - name: Run strict live matrix
@@ -96,12 +97,14 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path out -Force | Out-Null
           $reportPath = 'out/windows-live-acceptance.json'
-          $workerVersion = '${{ inputs.worker_version }}'
-          if ([string]::IsNullOrWhiteSpace($workerVersion)) {
-            $workerVersion = 'github-${{ github.sha }}'
-          }
+          $builtWorkerVersion = '${{ steps.build.outputs.worker_version }}'
+          $requestedWorkerVersion = '${{ inputs.worker_version }}'
+          $workerVersion = $builtWorkerVersion
           $exitCode = 1
           try {
+            if (-not [string]::IsNullOrWhiteSpace($requestedWorkerVersion) -and $requestedWorkerVersion -ne $builtWorkerVersion) {
+              throw "Requested worker version $requestedWorkerVersion does not match built worker version $builtWorkerVersion"
+            }
             & ./scripts/run-windows-live-acceptance.ps1 `
               -Distro '${{ inputs.distro }}' `
               -ServiceUser '${{ inputs.service_user }}' `

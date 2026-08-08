@@ -92,6 +92,7 @@ $windowsControl = Join-Path $outputRoot 'windows/ade-control.exe'
 $windowsWorker = Join-Path $outputRoot 'windows/ade-worker.exe'
 $liveMatrix = Join-Path $outputRoot 'windows/live-target-matrix.exe'
 $wslWorker = Join-Path $outputRoot 'wsl/ade-worker'
+$workerVersionFile = Join-Path $outputRoot 'worker-version.txt'
 $plan = [ordered]@{
     ok = $true
     plan_only = [bool]$PlanOnly
@@ -105,6 +106,7 @@ $plan = [ordered]@{
     windows_worker_binary = $windowsWorker
     live_matrix_binary = $liveMatrix
     wsl_worker_binary = $wslWorker
+    worker_version_file = $workerVersionFile
 }
 if ($PlanOnly) { Write-MachineJson $plan; exit 0 }
 
@@ -134,9 +136,12 @@ try {
         '--output',"type=local,dest=$outputWsl",
         $repoWsl
     )))
-    foreach ($artifact in @($windowsControl, $windowsWorker, $liveMatrix, $wslWorker)) {
+    foreach ($artifact in @($windowsControl, $windowsWorker, $liveMatrix, $wslWorker, $workerVersionFile)) {
         if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) { throw "build_artifact_missing:$artifact" }
     }
+    $workerVersion = [System.IO.File]::ReadAllText($workerVersionFile).Trim()
+    Assert-NonBlank $workerVersion 'worker version'
+    if ($workerVersion -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { throw "invalid_worker_version:$workerVersion" }
     $wslWorkerLinux = "$outputWsl/wsl/ade-worker"
     [void](Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('test','-f',$wslWorkerLinux)))
 
@@ -152,6 +157,7 @@ try {
         live_matrix_binary = [System.IO.Path]::GetFullPath($liveMatrix)
         wsl_worker_binary = [System.IO.Path]::GetFullPath($wslWorker)
         wsl_worker_linux_path = $wslWorkerLinux
+        worker_version = $workerVersion
     })
 } catch {
     Write-MachineJson ([ordered]@{ ok=$false; failure=$_.Exception.Message; distro=$Distro })
