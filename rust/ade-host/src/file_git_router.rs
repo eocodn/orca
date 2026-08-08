@@ -286,8 +286,29 @@ impl JsonlFileGitWorkerTransport {
         identity: WorkerIdentity,
         timeout: Duration,
     ) -> Result<Self, FileGitRouterError> {
-        let mut child = Command::new(worker_path.as_ref())
-            .arg("--jsonl")
+        let mut command = Command::new(worker_path.as_ref());
+        command.arg("--jsonl");
+        Self::spawn_command(command, identity, timeout)
+    }
+
+    #[cfg(all(test, unix))]
+    fn spawn_script_for_test(
+        script_path: impl AsRef<Path>,
+        identity: WorkerIdentity,
+        timeout: Duration,
+    ) -> Result<Self, FileGitRouterError> {
+        // Why: direct exec of a freshly written script can race with overlayfs writable handles (ETXTBSY).
+        let mut command = Command::new("sh");
+        command.arg(script_path.as_ref()).arg("--jsonl");
+        Self::spawn_command(command, identity, timeout)
+    }
+
+    fn spawn_command(
+        mut command: Command,
+        identity: WorkerIdentity,
+        timeout: Duration,
+    ) -> Result<Self, FileGitRouterError> {
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

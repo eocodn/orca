@@ -285,7 +285,6 @@ fn routes_file_and_git_operations_through_the_real_worker_process() {
 #[test]
 fn jsonl_transport_requires_error_correlation_and_replays_terminal_failure() {
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
     use std::time::Duration;
 
     let path = std::env::temp_dir().join(format!(
@@ -301,11 +300,10 @@ fn jsonl_transport_requires_error_correlation_and_replays_terminal_failure() {
         "#!/bin/sh\nIFS= read -r line\nprintf '%s\\n' '{\"ok\":false,\"error\":\"worker failed\"}'\n",
     )
     .unwrap();
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
 
     let (_, token) = owned();
     let request = file_request("missing-error-id", &token);
-    let mut transport = JsonlFileGitWorkerTransport::spawn(
+    let mut transport = JsonlFileGitWorkerTransport::spawn_script_for_test(
         &path,
         WorkerIdentity {
             worker_id: "worker".into(),
@@ -330,7 +328,6 @@ fn jsonl_transport_requires_error_correlation_and_replays_terminal_failure() {
 #[test]
 fn jsonl_timeout_poisons_transport_before_late_response_can_be_reused() {
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
     use std::time::Duration;
 
     let path = std::env::temp_dir().join(format!(
@@ -346,11 +343,10 @@ fn jsonl_timeout_poisons_transport_before_late_response_can_be_reused() {
         "#!/bin/sh\nIFS= read -r line\nsleep 1\nprintf '%s\\n' '{\"ok\":false,\"request_id\":null,\"error\":\"late\"}'\n",
     )
     .unwrap();
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
 
     let (_, token) = owned();
     let request = file_request("timeout", &token);
-    let mut transport = JsonlFileGitWorkerTransport::spawn(
+    let mut transport = JsonlFileGitWorkerTransport::spawn_script_for_test(
         &path,
         WorkerIdentity {
             worker_id: "worker".into(),
@@ -375,7 +371,6 @@ fn jsonl_timeout_poisons_transport_before_late_response_can_be_reused() {
 #[test]
 fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
     use std::fs;
-    use std::os::unix::fs::PermissionsExt;
     use std::time::Duration;
 
     let make_worker = |body: &str| {
@@ -388,14 +383,13 @@ fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
                 .as_nanos()
         ));
         fs::write(&path, body).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
         path
     };
     let (_, token) = owned();
     let request = file_request("terminal", &token);
 
     let crash = make_worker("#!/bin/sh\nIFS= read -r line\nexit 0\n");
-    let mut transport = JsonlFileGitWorkerTransport::spawn(
+    let mut transport = JsonlFileGitWorkerTransport::spawn_script_for_test(
         &crash,
         WorkerIdentity {
             worker_id: "worker".into(),
@@ -416,7 +410,7 @@ fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
     fs::remove_file(crash).unwrap();
 
     let malformed = make_worker("#!/bin/sh\nIFS= read -r line\nprintf '%s\\n' 'not-json'\n");
-    let mut transport = JsonlFileGitWorkerTransport::spawn(
+    let mut transport = JsonlFileGitWorkerTransport::spawn_script_for_test(
         &malformed,
         WorkerIdentity {
             worker_id: "worker".into(),
