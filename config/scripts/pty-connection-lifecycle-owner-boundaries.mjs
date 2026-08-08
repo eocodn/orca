@@ -756,6 +756,26 @@ export function registerPtyConnectionLifecycleOwnerBoundaryTests(read) {
     expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
   })
 
+  it('routes live data admission through its concrete controller', () => {
+    const orchestrator = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'
+    )
+    const owner = read(
+      'src/renderer/src/components/terminal-pane/pty-connection-live-data-admission-controller.ts'
+    )
+
+    expect(orchestrator).toContain('createPtyConnectionLiveDataAdmissionController')
+    expect(orchestrator).not.toContain(
+      'if (!streamGenerationController.isCurrent(streamGeneration))'
+    )
+    expect(orchestrator).not.toContain(
+      'if (reattachLiveDataController.defer(data, meta, streamGeneration))'
+    )
+    expect(orchestrator).not.toContain('if (meta?.droppedOutput === true)')
+    expect(owner).toContain('export function createPtyConnectionLiveDataAdmissionController')
+    expect(owner.split(/\r?\n/).length).toBeLessThanOrEqual(300)
+  })
+
   it('routes terminal activity evidence through its concrete controller', () => {
     const orchestrator = read(
       'src/renderer/src/components/terminal-pane/pty-connection-session-orchestrator-runtime.ts'

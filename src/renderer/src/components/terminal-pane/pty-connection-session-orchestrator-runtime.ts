@@ -149,6 +149,7 @@ import { createPtyConnectionHiddenRestoreAbandonController } from './pty-connect
 import { createPtyConnectionHiddenRestoreCleanupController } from './pty-connection-hidden-restore-cleanup-controller'
 import { createPtyConnectionHibernatedWakeController } from './pty-connection-hibernated-wake-controller'
 import { createPtyConnectionMode2031ReplyScanController } from './pty-connection-mode2031-reply-scan-controller'
+import { createPtyConnectionLiveDataAdmissionController } from './pty-connection-live-data-admission-controller'
 import { createPtyConnectionParkMountEvidenceController } from './pty-connection-park-mount-evidence-controller'
 import { createPtyConnectionPanePtyBindingController } from './pty-connection-pane-pty-binding-controller'
 import { createPtyConnectionPendingFitController } from './pty-connection-pending-fit-controller'
@@ -3291,47 +3292,38 @@ export function connectPanePty(
       })
     }
 
+    const liveDataAdmissionController = createPtyConnectionLiveDataAdmissionController({
+      isGenerationCurrent: streamGenerationController.isCurrent,
+      deferLiveData: reattachLiveDataController.defer,
+      markTerminalOutputActivity: terminalActivityController.markOutput,
+      recordHibernationOutput: () => recordAgentHibernationPaneOutput(cacheKey),
+      // Why: output is the agent-start signal that ends the relaxed no-evidence process-scan cadence.
+      observeAgentOutputActivity: agentCompletionCoordinator.observeOutputActivity,
+      scanSshShellReady: sshShellReadyMarkerScan
+        ? (data) => scanForShellReadyMarker(sshShellReadyMarkerScan, data)
+        : null,
+      markSshStartupShellReady,
+      observeStartupDraftReadiness: observeStartupDraftPasteReadiness,
+      resetHiddenRestoreIfPtyChanged: resetHiddenOutputRestoreIfPtyChanged,
+      observeLiveMode2031: observeLiveMode2031Chunk,
+      isForegroundRestoreBackpressureContext,
+      noteForegroundRestoreBackpressure: () =>
+        hiddenRestoreFloodBackpressureController.noteBackpressure(transport.getPtyId()),
+      markHiddenRestoreNeeded: markHiddenOutputRestoreNeeded,
+      salvageDiscardedQueries: hiddenRendererQueryController.salvageDiscarded
+    })
+
     const dataCallback = (
       data: string,
       meta?: PtyDataMeta,
       streamGeneration = streamGenerationController.getCurrent()
     ): void => {
-      if (!streamGenerationController.isCurrent(streamGeneration)) {
+      const admission = liveDataAdmissionController.admit(data, meta, streamGeneration)
+      if (admission.action === 'stop') {
         return
       }
-      if (reattachLiveDataController.defer(data, meta, streamGeneration)) {
-        return
-      }
-      if (data.length > 0) {
-        terminalActivityController.markOutput()
-        recordAgentHibernationPaneOutput(cacheKey)
-        // Why: output is the agent-start signal that ends the relaxed no-evidence process-scan cadence (a starting agent always prints).
-        agentCompletionCoordinator.observeOutputActivity()
-      }
-      if (sshShellReadyMarkerScan) {
-        const scanned = scanForShellReadyMarker(sshShellReadyMarkerScan, data)
-        if (scanned.matched) {
-          markSshStartupShellReady()
-        }
-        data = scanned.output
-      }
-      observeStartupDraftPasteReadiness(data)
-      resetHiddenOutputRestoreIfPtyChanged()
-      observeLiveMode2031Chunk(data)
-      if (meta?.droppedOutput === true) {
-        // Why gated (rc.7.perf loop): a visible pane's cap-drop during its own restore is self-caused backpressure; defer to one post-flood repaint instead of re-arming per sentinel.
-        if (meta?.background !== true && isForegroundRestoreBackpressureContext()) {
-          hiddenRestoreFloodBackpressureController.noteBackpressure(transport.getPtyId())
-        } else {
-          // Why: main dropped buffered output at the pending cap, so the stream has a gap; repaint from the main-owned snapshot instead of writing on.
-          markHiddenOutputRestoreNeeded()
-          if (data) {
-            // The sentinel can carry query bytes carved from the bulk drop (extractDroppedPtyQueryBytes in main); replies must still flow.
-            hiddenRendererQueryController.salvageDiscarded(data)
-          }
-          return
-        }
-      }
+      data = admission.data
+      meta = admission.meta
       respondToTerminalPixelSizeQueries(data)
       observeTerminalBracketedPasteModeOutput(pane.terminal, data)
       // Why: under main side-effect authority these facts arrive via pty:sideEffect; byte-scanning here would double-fire. Remote PTYs / kill-switch-off keep this path.
