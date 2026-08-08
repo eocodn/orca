@@ -155,3 +155,125 @@ fn run_git(path: &std::path::Path, args: &[&str]) {
         .unwrap();
     assert!(status.success(), "git command failed: {args:?}");
 }
+
+#[derive(Default)]
+struct RecordingFileExecutor {
+    calls: std::sync::Mutex<Vec<(ade_host_platform::CommandSpec, Vec<u8>)>>,
+    outputs: std::sync::Mutex<
+        std::collections::VecDeque<ade_host_platform::file_execution::FileCommandOutput>,
+    >,
+}
+
+impl RecordingFileExecutor {
+    fn with_outputs(outputs: Vec<ade_host_platform::file_execution::FileCommandOutput>) -> Self {
+        Self {
+            calls: std::sync::Mutex::new(Vec::new()),
+            outputs: std::sync::Mutex::new(outputs.into()),
+        }
+    }
+}
+
+impl ade_host_platform::file_execution::FileCommandExecutor for RecordingFileExecutor {
+    fn execute(
+        &self,
+        command: &ade_host_platform::CommandSpec,
+        stdin: &[u8],
+    ) -> std::io::Result<ade_host_platform::file_execution::FileCommandOutput> {
+        self.calls
+            .lock()
+            .unwrap()
+            .push((command.clone(), stdin.to_vec()));
+        Ok(self.outputs.lock().unwrap().pop_front().unwrap())
+    }
+}
+
+#[test]
+fn file_dispatch_routes_wsl_reads_and_ssh_writes_without_touching_host_paths() {
+    use ade_host_core::protocol::PtySshShell;
+    use ade_host_platform::file_execution::FileCommandOutput;
+    use std::sync::Arc;
+
+    let remote_decoy_root = temp_dir("remote-file-decoy");
+    let remote_decoy = remote_decoy_root.join("ssh-write.bin");
+    let remote_decoy_text = remote_decoy.to_string_lossy().into_owned();
+    let executor = Arc::new(RecordingFileExecutor::with_outputs(vec![
+        FileCommandOutput {
+            success: true,
+            code: Some(0),
+            stdout: vec![0, 1, 0xff, b'\n'],
+            stderr: Vec::new(),
+        },
+        FileCommandOutput {
+            success: true,
+            code: Some(0),
+            stdout: b"changed\n".to_vec(),
+            stderr: Vec::new(),
+        },
+    ]));
+    let registry = FileGitWorkerRegistry::with_file_executor(executor.clone());
+
+    let wsl_context = ExecutionContext::new(
+        "workspace-wsl",
+        WorkspaceKind::Folder,
+        "worker-wsl",
+        1,
+        OwnershipContext::new(7),
+        ExecutionTarget::Wsl2 {
+            distro: String::from("Ubuntu-24.04"),
+        },
+        Some(String::from("Ubuntu-24.04")),
+    );
+    let read = FileWorkerRequest::read("file-wsl-read", wsl_context, "/home/dev/blob.bin");
+    let read_response = registry.execute_file(&read).expect("WSL read should route");
+    assert_eq!(read_response.bytes, vec![0, 1, 0xff, b'\n']);
+
+    let ssh_context = ExecutionContext::new(
+        "workspace-ssh",
+        WorkspaceKind::GitWorktree,
+        "worker-ssh",
+        1,
+        OwnershipContext::new(9),
+        ExecutionTarget::Ssh {
+            host: String::from("builder.example"),
+            shell: PtySshShell::Posix,
+        },
+        Some(String::from("builder.example")),
+    );
+    let write_bytes = vec![0, b'a', 0xff, b'\n'];
+    let write = FileWorkerRequest::write(
+        "file-ssh-write",
+        ssh_context,
+        remote_decoy_text.clone(),
+        write_bytes.clone(),
+    );
+    let write_response = registry
+        .execute_file(&write)
+        .expect("SSH write should route");
+    assert!(write_response.changed);
+    assert_eq!(write_response.bytes_written, write_bytes.len() as u64);
+    assert!(
+        !remote_decoy.exists(),
+        "remote write must not touch the Host path"
+    );
+
+    let calls = executor.calls.lock().unwrap();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0.program, "wsl.exe");
+    assert_eq!(
+        calls[0].0.args,
+        vec![
+            "--distribution",
+            "Ubuntu-24.04",
+            "--",
+            "cat",
+            "--",
+            "/home/dev/blob.bin"
+        ]
+    );
+    assert!(calls[0].1.is_empty());
+    assert_eq!(calls[1].0.program, "ssh");
+    assert_eq!(calls[1].0.args[0..2], ["--", "builder.example"]);
+    assert_eq!(calls[1].1, write_bytes);
+
+    let _ = fs::remove_dir_all(remote_decoy_root);
+}

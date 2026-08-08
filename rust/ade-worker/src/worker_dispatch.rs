@@ -6,18 +6,28 @@ use ade_host_core::protocol::{
 use ade_host_platform::git_capability::GitCapabilityRegistry;
 use ade_host_platform::git_execution::{run_git_worktree_list, ProcessGitCommandExecutor};
 use ade_host_platform::{
-    file_service::FileService,
+    file_execution::{read_file, write_file, FileCommandExecutor, ProcessFileCommandExecutor},
     git_repository::{resolve_repository_git_dir, GitRepositoryCommandError},
     ExecutionTarget as PlatformTarget,
 };
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-#[derive(Default)]
 pub struct FileGitWorkerRegistry {
     state: Mutex<DispatchState>,
     git_capabilities: GitCapabilityRegistry,
+    file_executor: Arc<dyn FileCommandExecutor>,
+}
+
+impl Default for FileGitWorkerRegistry {
+    fn default() -> Self {
+        Self {
+            state: Mutex::new(DispatchState::default()),
+            git_capabilities: GitCapabilityRegistry::default(),
+            file_executor: Arc::new(ProcessFileCommandExecutor),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -75,6 +85,13 @@ pub struct DispatchError<'a> {
 }
 
 impl FileGitWorkerRegistry {
+    pub fn with_file_executor(file_executor: Arc<dyn FileCommandExecutor>) -> Self {
+        Self {
+            file_executor,
+            ..Self::default()
+        }
+    }
+
     pub fn execute_file(&self, request: &FileWorkerRequest) -> Result<FileWorkerResponse, String> {
         request.validate().map_err(format_protocol_error)?;
         if let Some(result) = self.begin(DispatchRequest::File(request.clone()))? {
@@ -111,18 +128,19 @@ impl FileGitWorkerRegistry {
         &self,
         request: &FileWorkerRequest,
     ) -> Result<FileWorkerResponse, String> {
+        let target = platform_target(&request.execution_target);
         match &request.operation {
             ade_host_core::protocol::FileWorkerOperation::Read { path } => {
-                let result =
-                    FileService::read(path).map_err(|error| format!("file_read:{error:?}"))?;
-                let response = FileWorkerResponse::from_read_request(request, result.bytes);
+                let bytes = read_file(&target, path, self.file_executor.as_ref())
+                    .map_err(|error| format!("file_read:{error:?}"))?;
+                let response = FileWorkerResponse::from_read_request(request, bytes);
                 response
                     .validate_for(request)
                     .map_err(format_protocol_error)?;
                 Ok(response)
             }
             ade_host_core::protocol::FileWorkerOperation::Write { path, bytes } => {
-                let result = FileService::write_atomic(path, bytes)
+                let result = write_file(&target, path, bytes, self.file_executor.as_ref())
                     .map_err(|error| format!("file_write:{error:?}"))?;
                 let response = FileWorkerResponse::from_write_request(
                     request,
