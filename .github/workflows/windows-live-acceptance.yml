@@ -63,7 +63,7 @@ jobs:
           if ($caption -notmatch 'Windows 10') {
             throw "Dedicated runner must be Windows 10; observed: $caption"
           }
-          foreach ($command in @('wsl.exe', 'cargo.exe', 'git.exe')) {
+          foreach ($command in @('wsl.exe', 'git.exe')) {
             if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
               throw "Required command is missing: $command"
             }
@@ -92,6 +92,7 @@ jobs:
           "control=$($result.windows_control_binary)" >> $env:GITHUB_OUTPUT
           "windows_worker=$($result.windows_worker_binary)" >> $env:GITHUB_OUTPUT
           "wsl_worker=$($result.wsl_worker_binary)" >> $env:GITHUB_OUTPUT
+          "live_matrix=$($result.live_matrix_binary)" >> $env:GITHUB_OUTPUT
           "wsl_arch=$($result.wsl_arch)" >> $env:GITHUB_OUTPUT
 
       - name: Run strict live matrix
@@ -113,6 +114,7 @@ jobs:
               -ControlBinary '${{ steps.build.outputs.control }}' `
               -WindowsWorkerBinary '${{ steps.build.outputs.windows_worker }}' `
               -WslWorkerBinary '${{ steps.build.outputs.wsl_worker }}' `
+              -LiveMatrixBinary '${{ steps.build.outputs.live_matrix }}' `
               -JsonOut $reportPath
             $exitCode = $LASTEXITCODE
           } catch {

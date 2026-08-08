@@ -48,10 +48,11 @@ function Convert-WslArchToRustHost([string]$Architecture) {
     }
 }
 
-function Get-TargetRoot([string]$RepositoryRoot) {
-    if ([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)) { return Join-Path $RepositoryRoot 'rust/target' }
-    if ([System.IO.Path]::IsPathRooted($env:CARGO_TARGET_DIR)) { return [System.IO.Path]::GetFullPath($env:CARGO_TARGET_DIR) }
-    return [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot $env:CARGO_TARGET_DIR))
+function Get-BuildOutputRoot([string]$RepositoryRoot) {
+    if (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        return [System.IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'ade-windows-live-build'))
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot 'out/windows-live-build'))
 }
 
 function New-WslArguments([string]$Distribution, [string]$BuildUser, [string[]]$CommandArguments) {
@@ -84,19 +85,25 @@ if ($SelfTest) {
 }
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$targetRoot = Get-TargetRoot $repositoryRoot
-$windowsControl = Join-Path $targetRoot 'release/ade-control.exe'
-$windowsWorker = Join-Path $targetRoot 'release/ade-worker.exe'
+$outputRoot = Get-BuildOutputRoot $repositoryRoot
+$dockerfile = Join-Path $repositoryRoot 'Dockerfile.windows-live-workers'
+$windowsControl = Join-Path $outputRoot 'windows/ade-control.exe'
+$windowsWorker = Join-Path $outputRoot 'windows/ade-worker.exe'
+$liveMatrix = Join-Path $outputRoot 'windows/live-target-matrix.exe'
+$wslWorker = Join-Path $outputRoot 'wsl/ade-worker'
 $plan = [ordered]@{
     ok = $true
     plan_only = [bool]$PlanOnly
     repository_root = $repositoryRoot
-    target_root = $targetRoot
+    output_root = $outputRoot
+    dockerfile = $dockerfile
     distro = $Distro
     wsl_build_user = if ([string]::IsNullOrWhiteSpace($WslBuildUser)) { $null } else { $WslBuildUser }
-    windows_cargo_args = @('build','--manifest-path','rust/Cargo.toml','--release','--locked','--package','ade-control','--package','ade-worker')
+    docker_command = @('docker','buildx','build')
     windows_control_binary = $windowsControl
     windows_worker_binary = $windowsWorker
+    live_matrix_binary = $liveMatrix
+    wsl_worker_binary = $wslWorker
 }
 if ($PlanOnly) { Write-MachineJson $plan; exit 0 }
 
@@ -104,32 +111,33 @@ if ($env:OS -ne 'Windows_NT') { Write-MachineJson ([ordered]@{ ok=$false; failur
 
 try {
     Assert-NonBlank $Distro 'Distro'
-    if (-not (Get-Command cargo.exe -ErrorAction SilentlyContinue)) { throw 'command_missing:cargo.exe' }
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { throw 'command_missing:wsl.exe' }
+    if (-not (Test-Path -LiteralPath $dockerfile -PathType Leaf)) { throw "dockerfile_missing:$dockerfile" }
 
-    [void](Invoke-Process 'cargo.exe' $plan.windows_cargo_args $repositoryRoot)
-    foreach ($artifact in @($windowsControl, $windowsWorker)) {
-        if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) { throw "windows_artifact_missing:$artifact" }
-    }
+    if (Test-Path -LiteralPath $outputRoot) { Remove-Item -LiteralPath $outputRoot -Recurse -Force }
+    New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
 
     $repoWsl = Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('wslpath','-a','-u',$repositoryRoot))
     Assert-NonBlank $repoWsl 'WSL repository path'
+    $outputWsl = Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('wslpath','-a','-u',$outputRoot))
+    Assert-NonBlank $outputWsl 'WSL build output path'
     $arch = Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('uname','-m'))
     $rustHost = Convert-WslArchToRustHost $arch
-    $observedRustHost = Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('rustc','-vV'))
-    if ($observedRustHost -notmatch "(?m)^host:\s*$([regex]::Escape($rustHost))\s*$") { throw "wsl_rust_host_mismatch:$rustHost" }
-
-    $wslTargetDir = "$repoWsl/rust/target/wsl-live-$($arch.Trim())"
-    $wslManifest = "$repoWsl/rust/Cargo.toml"
+    if ($arch.Trim() -ne 'x86_64') { throw "windows_live_cross_build_requires_x86_64:$($arch.Trim())" }
+    $dockerVersion = Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('docker','version','--format','{{.Server.Version}}'))
+    Assert-NonBlank $dockerVersion 'Docker server version'
+    $dockerfileWsl = "$repoWsl/Dockerfile.windows-live-workers"
     [void](Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @(
-        'env', "CARGO_TARGET_DIR=$wslTargetDir", 'cargo', 'build',
-        '--manifest-path', $wslManifest, '--release', '--locked', '--package', 'ade-worker'
+        'docker','buildx','build',
+        '--file',$dockerfileWsl,
+        '--output',"type=local,dest=$outputWsl",
+        $repoWsl
     )))
-    $wslWorkerLinux = "$wslTargetDir/release/ade-worker"
-    [void](Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('test','-x',$wslWorkerLinux)))
-    $wslWorkerWindows = Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('wslpath','-a','-w',$wslWorkerLinux))
-    Assert-NonBlank $wslWorkerWindows 'WSL worker Windows path'
-    if (-not (Test-Path -LiteralPath $wslWorkerWindows -PathType Leaf)) { throw "wsl_artifact_not_windows_accessible:$wslWorkerWindows" }
+    foreach ($artifact in @($windowsControl, $windowsWorker, $liveMatrix, $wslWorker)) {
+        if (-not (Test-Path -LiteralPath $artifact -PathType Leaf)) { throw "build_artifact_missing:$artifact" }
+    }
+    $wslWorkerLinux = "$outputWsl/wsl/ade-worker"
+    [void](Invoke-Process 'wsl.exe' (New-WslArguments $Distro $WslBuildUser @('test','-f',$wslWorkerLinux)))
 
     Write-MachineJson ([ordered]@{
         ok = $true
@@ -137,9 +145,11 @@ try {
         wsl_build_user = if ([string]::IsNullOrWhiteSpace($WslBuildUser)) { $null } else { $WslBuildUser }
         wsl_arch = $arch.Trim()
         wsl_rust_host = $rustHost
+        docker_version = $dockerVersion.Trim()
         windows_control_binary = [System.IO.Path]::GetFullPath($windowsControl)
         windows_worker_binary = [System.IO.Path]::GetFullPath($windowsWorker)
-        wsl_worker_binary = $wslWorkerWindows.Trim()
+        live_matrix_binary = [System.IO.Path]::GetFullPath($liveMatrix)
+        wsl_worker_binary = [System.IO.Path]::GetFullPath($wslWorker)
         wsl_worker_linux_path = $wslWorkerLinux
     })
 } catch {

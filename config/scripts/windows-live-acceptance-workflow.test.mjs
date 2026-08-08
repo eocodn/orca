@@ -18,6 +18,8 @@ describe('Windows live acceptance workflow', () => {
     expect(job['runs-on']).toEqual(['self-hosted', 'ade-windows10-wsl2'])
     expect(job['timeout-minutes']).toBeGreaterThan(0)
     expect(source).toContain("'Windows 10'")
+    expect(source).toContain("'git.exe'")
+    expect(source).not.toContain("'cargo.exe'")
     expect(source).not.toContain('windows-latest')
     expect(source).not.toContain('continue-on-error')
   })
@@ -26,6 +28,8 @@ describe('Windows live acceptance workflow', () => {
     const steps = job.steps
     expect(steps.some((step) => step.run?.includes('build-windows-live-workers.ps1'))).toBe(true)
     expect(steps.some((step) => step.run?.includes('run-windows-live-acceptance.ps1'))).toBe(true)
+    expect(source).toContain('live_matrix=$($result.live_matrix_binary)')
+    expect(source).toContain('-LiveMatrixBinary')
     expect(source).toContain("$reportPath = 'out/windows-live-acceptance.json'")
     const upload = steps.find((step) => step.uses === 'actions/upload-artifact@v7')
     expect(upload.with.path).toBe('out/windows-live-acceptance.json')

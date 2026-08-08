@@ -1,0 +1,42 @@
+FROM rust:1.85-slim-bookworm@sha256:9f841bbe9e7d8e37ceb96ed907265a3a0df7f44e3737d0b100e7907a679acb36 AS build
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends build-essential git mingw-w64 pkg-config \
+  && rm -rf /var/lib/apt/lists/*
+RUN rustup target add x86_64-pc-windows-gnu
+
+WORKDIR /workspace
+COPY rust /workspace/rust
+
+RUN cargo build \
+  --manifest-path rust/Cargo.toml \
+  --release \
+  --locked \
+  --package ade-control \
+  --package ade-worker \
+  --target x86_64-pc-windows-gnu
+RUN cargo test \
+  --manifest-path rust/Cargo.toml \
+  --release \
+  --locked \
+  --package ade-worker \
+  --test live_target_matrix \
+  --target x86_64-pc-windows-gnu \
+  --no-run
+RUN cargo build \
+  --manifest-path rust/Cargo.toml \
+  --release \
+  --locked \
+  --package ade-worker
+
+RUN set -eux; \
+  live_matrix="$(find rust/target/x86_64-pc-windows-gnu/release/deps -maxdepth 1 -type f -name 'live_target_matrix-*.exe' -print -quit)"; \
+  test -n "$live_matrix"; \
+  mkdir -p /artifacts/windows /artifacts/wsl; \
+  cp rust/target/x86_64-pc-windows-gnu/release/ade-control.exe /artifacts/windows/ade-control.exe; \
+  cp rust/target/x86_64-pc-windows-gnu/release/ade-worker.exe /artifacts/windows/ade-worker.exe; \
+  cp "$live_matrix" /artifacts/windows/live-target-matrix.exe; \
+  cp rust/target/release/ade-worker /artifacts/wsl/ade-worker
+
+FROM scratch AS export
+COPY --from=build /artifacts/ /

@@ -5,6 +5,7 @@ param(
     [string]$ControlBinary,
     [string]$WindowsWorkerBinary,
     [string]$WslWorkerBinary,
+    [string]$LiveMatrixBinary,
     [string]$WorkerVersion = 'acceptance',
     [string]$JsonOut,
     [switch]$SelfTest,
@@ -182,11 +183,11 @@ try {
     Assert-NonBlank $Distro 'Distro'
     Assert-NonBlank $ServiceUser 'ServiceUser'
     Assert-NonBlank $WorkerVersion 'WorkerVersion'
-    foreach ($pathValue in @($ControlBinary, $WindowsWorkerBinary, $WslWorkerBinary)) {
+    foreach ($pathValue in @($ControlBinary, $WindowsWorkerBinary, $WslWorkerBinary, $LiveMatrixBinary)) {
         Assert-NonBlank $pathValue 'binary path'
         if (-not (Test-Path -LiteralPath $pathValue -PathType Leaf)) { throw "binary_missing:$pathValue" }
     }
-    foreach ($command in @('wsl.exe', 'git.exe', 'cargo.exe')) {
+    foreach ($command in @('wsl.exe', 'git.exe')) {
         if (-not (Get-Command $command -ErrorAction SilentlyContinue)) { throw "command_missing:$command" }
     }
 
@@ -277,7 +278,7 @@ try {
     if ($ready.result.state -ne 'ready' -or $ready.result.maintenance -ne $false -or $ready.result.distro -ne $Distro -or $ready.result.worker_id -ne $workerId -or [uint64]$ready.result.worker_incarnation -ne [uint64]$workerIncarnation -or $ready.result.worker_version -ne $WorkerVersion) { throw 'worker_ready_identity_mismatch' }
     $report.control.ready = $ready
 
-    $list = Invoke-Checked 'cargo.exe' @('test','--manifest-path','rust/Cargo.toml','-p','ade-worker','--test','live_target_matrix','--','--list')
+    $list = Invoke-Checked $LiveMatrixBinary @('--list')
     $testNames = @($list -split "`r?`n" | ForEach-Object { if ($_ -match '^([^:]+): test$' -and $Matches[1] -match '^(windows_native|wsl2)_') { $Matches[1] } } | Where-Object { $_ })
     $mapped = Assert-LiveMatrixContract $testNames
     $acceptanceEnv = @{
@@ -297,7 +298,7 @@ try {
             foreach ($context in @('folder','worktree')) {
                 $name = $mapped["$target|$operation|$context"]
                 $started = [System.Diagnostics.Stopwatch]::StartNew()
-                $test = Invoke-External 'cargo.exe' @('test','--manifest-path','rust/Cargo.toml','-p','ade-worker','--test','live_target_matrix',$name,'--','--ignored','--exact','--nocapture') $acceptanceEnv
+                $test = Invoke-External $LiveMatrixBinary @($name,'--ignored','--exact','--nocapture') $acceptanceEnv
                 $started.Stop()
                 $contextResult = [ordered]@{ context=$context; test=$name; exit_code=$test.ExitCode; duration_ms=$started.ElapsedMilliseconds }
                 if ($test.ExitCode -ne 0) {
