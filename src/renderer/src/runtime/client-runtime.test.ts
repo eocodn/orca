@@ -76,6 +76,20 @@ describe('ClientRuntime service boundary', () => {
           workspace_count: 1,
           ready_workspaces: 1,
           source: 'sqlite-snapshot',
+          workspaces: [
+            {
+              workspace_id: 'workspace-1',
+              path: 'C:\\workspaces\\one',
+              status: 'ready',
+              generation: 1,
+              location: {
+                kind: 'folder',
+                target: 'windows-native',
+                identity: null,
+                path: 'C:\\workspaces\\one'
+              }
+            }
+          ],
           hostProtocol: { version: 1, capabilities: ['git', 'file', 'terminal'] }
         })
       }

@@ -8,12 +8,59 @@ const PositiveSafeInteger = SafeInteger.min(1)
 const ExecutionTarget = z.enum(['windows-native', 'wsl2', 'ssh'])
 const WorkspaceKind = z.enum(['folder', 'git-worktree'])
 
+const WorkspaceLocationSchema = z.discriminatedUnion('target', [
+  z
+    .object({
+      kind: WorkspaceKind,
+      target: z.literal('windows-native'),
+      identity: z.null(),
+      path: PathSchema
+    })
+    .strict(),
+  z
+    .object({
+      kind: WorkspaceKind,
+      target: z.literal('wsl2'),
+      identity: NonBlank,
+      path: PathSchema
+    })
+    .strict(),
+  z
+    .object({
+      kind: WorkspaceKind,
+      target: z.literal('ssh'),
+      identity: NonBlank,
+      path: PathSchema
+    })
+    .strict()
+])
+
+const HostWorkspaceSchema = z
+  .object({
+    workspace_id: NonBlank,
+    path: PathSchema,
+    status: NonBlank,
+    generation: SafeInteger,
+    location: WorkspaceLocationSchema.nullable()
+  })
+  .strict()
+  .superRefine((workspace, context) => {
+    if (workspace.location && workspace.location.path !== workspace.path) {
+      context.addIssue({
+        code: 'custom',
+        path: ['location', 'path'],
+        message: 'workspace location path must equal workspace path'
+      })
+    }
+  })
+
 export const HostStatusSchema = z
   .object({
     service: z.literal('ade-host'),
     workspace_count: z.number().int().nonnegative(),
     ready_workspaces: z.number().int().nonnegative(),
     source: z.literal('sqlite-snapshot'),
+    workspaces: z.array(HostWorkspaceSchema),
     hostProtocol: z
       .object({
         version: z.number().int().positive(),
@@ -22,7 +69,25 @@ export const HostStatusSchema = z
       .strict()
   })
   .strict()
-
+  .superRefine((status, context) => {
+    if (status.workspace_count !== status.workspaces.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['workspace_count'],
+        message: 'workspace_count must equal authoritative workspace snapshot length'
+      })
+    }
+    const readyWorkspaces = status.workspaces.filter(
+      (workspace) => workspace.status === 'ready'
+    ).length
+    if (status.ready_workspaces !== readyWorkspaces) {
+      context.addIssue({
+        code: 'custom',
+        path: ['ready_workspaces'],
+        message: 'ready_workspaces must equal authoritative ready workspace count'
+      })
+    }
+  })
 export const HostStatusArgsSchema = z.object({ stateDb: PathSchema }).strict()
 
 export const GitWorktreeSchema = z

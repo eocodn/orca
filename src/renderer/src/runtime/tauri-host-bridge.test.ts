@@ -8,9 +8,10 @@ import {
 
 const status = {
   service: 'ade-host',
-  workspace_count: 1,
-  ready_workspaces: 1,
+  workspace_count: 0,
+  ready_workspaces: 0,
   source: 'sqlite-snapshot',
+  workspaces: [],
   hostProtocol: { version: 1, capabilities: ['workspace.read', 'file'] }
 }
 
@@ -103,6 +104,114 @@ describe('Tauri host invoke bridge', () => {
         expected_generation: 0,
         operation: { type: 'start' }
       }
+    })
+  })
+
+  it('preserves the six target-aware workspace cells from the authoritative host snapshot', async () => {
+    const workspaces = [
+      {
+        workspace_id: 'folder-native',
+        path: 'C:\\folder',
+        status: 'ready',
+        generation: 1,
+        location: { kind: 'folder', target: 'windows-native', identity: null, path: 'C:\\folder' }
+      },
+      {
+        workspace_id: 'worktree-native',
+        path: 'C:\\worktree',
+        status: 'ready',
+        generation: 1,
+        location: {
+          kind: 'git-worktree',
+          target: 'windows-native',
+          identity: null,
+          path: 'C:\\worktree'
+        }
+      },
+      {
+        workspace_id: 'folder-wsl',
+        path: '/home/dev/folder',
+        status: 'ready',
+        generation: 1,
+        location: {
+          kind: 'folder',
+          target: 'wsl2',
+          identity: 'Ubuntu-22.04',
+          path: '/home/dev/folder'
+        }
+      },
+      {
+        workspace_id: 'worktree-wsl',
+        path: '/home/dev/worktree',
+        status: 'ready',
+        generation: 1,
+        location: {
+          kind: 'git-worktree',
+          target: 'wsl2',
+          identity: 'Ubuntu-24.04',
+          path: '/home/dev/worktree'
+        }
+      },
+      {
+        workspace_id: 'folder-ssh',
+        path: '/srv/folder',
+        status: 'ready',
+        generation: 1,
+        location: {
+          kind: 'folder',
+          target: 'ssh',
+          identity: 'builder-a.example',
+          path: '/srv/folder'
+        }
+      },
+      {
+        workspace_id: 'worktree-ssh',
+        path: '/srv/worktree',
+        status: 'ready',
+        generation: 1,
+        location: {
+          kind: 'git-worktree',
+          target: 'ssh',
+          identity: 'builder-b.example',
+          path: '/srv/worktree'
+        }
+      }
+    ]
+    const invoke = vi.fn<TauriInvoke>().mockResolvedValue(
+      JSON.stringify({
+        ...status,
+        workspace_count: workspaces.length,
+        ready_workspaces: workspaces.length,
+        workspaces
+      })
+    )
+    const bridge = createTauriHostBridge(invoke)
+
+    await expect(bridge.hostStatus('state.db')).resolves.toMatchObject({ workspaces })
+  })
+
+  it.each([
+    [
+      'native identity',
+      { kind: 'folder', target: 'windows-native', identity: 'Ubuntu', path: 'C:\\repo' }
+    ],
+    ['missing WSL identity', { kind: 'folder', target: 'wsl2', identity: null, path: '/repo' }],
+    ['mismatched path', { kind: 'folder', target: 'ssh', identity: 'builder', path: '/other' }]
+  ])('rejects malformed workspace location: %s', async (_label, location) => {
+    const invoke = vi.fn<TauriInvoke>().mockResolvedValue(
+      JSON.stringify({
+        ...status,
+        workspace_count: 1,
+        ready_workspaces: 1,
+        workspaces: [
+          { workspace_id: 'workspace-1', path: '/repo', status: 'ready', generation: 1, location }
+        ]
+      })
+    )
+    const bridge = createTauriHostBridge(invoke)
+
+    await expect(bridge.hostStatus('state.db')).rejects.toMatchObject({
+      code: 'malformed_response'
     })
   })
 

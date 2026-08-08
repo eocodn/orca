@@ -29,11 +29,58 @@ struct TauriHostProtocol {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
+struct TauriWorkspaceLocation {
+    kind: &'static str,
+    target: &'static str,
+    identity: Option<String>,
+    path: String,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
+struct TauriWorkspaceStatus {
+    workspace_id: String,
+    path: String,
+    status: String,
+    generation: u64,
+    location: Option<TauriWorkspaceLocation>,
+}
+
+impl From<&StoredWorkspace> for TauriWorkspaceStatus {
+    fn from(workspace: &StoredWorkspace) -> Self {
+        let location = workspace.location.as_ref().map(|location| {
+            let kind = match location.kind {
+                StoredWorkspaceKind::Folder => "folder",
+                StoredWorkspaceKind::GitWorktree => "git-worktree",
+            };
+            let (target, identity) = match &location.target {
+                StoredExecutionTarget::WindowsNative => ("windows-native", None),
+                StoredExecutionTarget::Wsl2 { distro } => ("wsl2", Some(distro.clone())),
+                StoredExecutionTarget::Ssh { host } => ("ssh", Some(host.clone())),
+            };
+            TauriWorkspaceLocation {
+                kind,
+                target,
+                identity,
+                path: location.path.clone(),
+            }
+        });
+        Self {
+            workspace_id: workspace.workspace_id.clone(),
+            path: workspace.path.clone(),
+            status: workspace.status.clone(),
+            generation: workspace.generation,
+            location,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq)]
 pub struct TauriHostStatus {
     service: &'static str,
     workspace_count: usize,
     ready_workspaces: usize,
     source: &'static str,
+    workspaces: Vec<TauriWorkspaceStatus>,
     #[serde(rename = "hostProtocol")]
     host_protocol: TauriHostProtocol,
 }
@@ -47,6 +94,7 @@ pub fn render_host_status(snapshot: &[StoredWorkspace]) -> Result<String, serde_
             .filter(|workspace| workspace.status == "ready")
             .count(),
         source: "sqlite-snapshot",
+        workspaces: snapshot.iter().map(TauriWorkspaceStatus::from).collect(),
         host_protocol: TauriHostProtocol {
             version: PROTOCOL_VERSION,
             capabilities: HOST_CAPABILITIES
@@ -372,12 +420,26 @@ mod tests {
     #[test]
     fn renders_the_same_authoritative_host_status_as_other_clients() {
         let snapshot = vec![
-            StoredWorkspace::new("workspace-1", r"C:\workspaces\one", "ready", 4),
-            StoredWorkspace::new("workspace-2", r"C:\workspaces\two", "starting", 5),
+            StoredWorkspace::new("workspace-1", r"C:\\workspaces\\one", "ready", 4).with_location(
+                StoredWorkspaceLocation::new(
+                    StoredWorkspaceKind::Folder,
+                    StoredExecutionTarget::WindowsNative,
+                    r"C:\\workspaces\\one",
+                ),
+            ),
+            StoredWorkspace::new("workspace-2", "/home/dev/two", "starting", 5).with_location(
+                StoredWorkspaceLocation::new(
+                    StoredWorkspaceKind::GitWorktree,
+                    StoredExecutionTarget::Wsl2 {
+                        distro: String::from("Ubuntu-22.04"),
+                    },
+                    "/home/dev/two",
+                ),
+            ),
         ];
         assert_eq!(
             render_host_status(&snapshot).expect("status must serialize"),
-            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","pty","git","file"]}}"#
+            r#"{"service":"ade-host","workspace_count":2,"ready_workspaces":1,"source":"sqlite-snapshot","workspaces":[{"workspace_id":"workspace-1","path":"C:\\\\workspaces\\\\one","status":"ready","generation":4,"location":{"kind":"folder","target":"windows-native","identity":null,"path":"C:\\\\workspaces\\\\one"}},{"workspace_id":"workspace-2","path":"/home/dev/two","status":"starting","generation":5,"location":{"kind":"git-worktree","target":"wsl2","identity":"Ubuntu-22.04","path":"/home/dev/two"}}],"hostProtocol":{"version":1,"capabilities":["workspace.read","workspace.write","terminal","pty","git","file"]}}"#
         );
     }
 
