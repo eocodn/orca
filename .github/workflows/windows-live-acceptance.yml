@@ -80,9 +80,6 @@ jobs:
           $line = & ./scripts/build-windows-live-workers.ps1 `
             -Distro '${{ inputs.distro }}' `
             -WslBuildUser '${{ inputs.wsl_build_user }}'
-          if ($LASTEXITCODE -ne 0) {
-            throw "Windows live worker build failed with exit $LASTEXITCODE`: $line"
-          }
           $result = $line | ConvertFrom-Json
           if (-not $result.ok) {
             throw "Windows live worker build returned failure: $($result.failure)"

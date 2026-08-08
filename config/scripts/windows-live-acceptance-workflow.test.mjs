@@ -31,6 +31,7 @@ describe('Windows live acceptance workflow', () => {
     expect(source).not.toContain('@arguments')
     expect(source).toContain("-Distro '${{ inputs.distro }}'")
     expect(source).toContain("-WslBuildUser '${{ inputs.wsl_build_user }}'")
+    expect(source).not.toContain('Windows live worker build failed with exit $LASTEXITCODE')
     expect(source).toContain('live_matrix=$($result.live_matrix_binary)')
     expect(source).toContain('-LiveMatrixBinary')
     expect(source).toContain("$reportPath = 'out/windows-live-acceptance.json'")
