@@ -1,5 +1,7 @@
 pub mod process;
 pub mod pty;
+mod pty_backend;
+mod pty_contract;
 
 use ade_host_core::terminal::{TerminalCommand, TerminalSnapshot, TerminalStatus};
 use std::path::PathBuf;
