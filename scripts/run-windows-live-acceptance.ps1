@@ -89,6 +89,16 @@ function Classify-LiveTestName([string]$Name) {
     return [pscustomobject]@{ Target = $Matches[1]; Operation = $Matches[2]; Context = $Matches[3] }
 }
 
+function Get-LiveTestNames([string]$ListOutput) {
+    $names = @()
+    foreach ($line in ($ListOutput -split "`r?`n")) {
+        if ($line -match '^((?:windows_native|wsl2)_(?:file|git|pty)_(?:folder|worktree)): test$') {
+            $names += $Matches[1]
+        }
+    }
+    return $names
+}
+
 function Assert-LiveMatrixContract([string[]]$Names) {
     $mapped = @{}
     foreach ($name in $Names) {
@@ -134,10 +144,10 @@ function Invoke-SelfTest {
             foreach ($context in @('folder', 'worktree')) { $names += "${target}_${operation}_${context}" }
         }
     }
+    $syntheticList = ($names | ForEach-Object { "${_}: test" }) -join [Environment]::NewLine
+    $names = @(Get-LiveTestNames $syntheticList)
     if ($TestNamesFile) {
-        $names = @(Get-Content -LiteralPath $TestNamesFile | ForEach-Object {
-            if ($_ -match '^([^:]+): test$') { $Matches[1] }
-        } | Where-Object { $_ -match '^(windows_native|wsl2)_' })
+        $names = @(Get-LiveTestNames (Get-Content -LiteralPath $TestNamesFile -Raw))
     }
     $map = Assert-LiveMatrixContract $names
     Write-JsonResult ([ordered]@{ ok = $true; self_test = $true; tests = $map.Count; cells = 6 }) $JsonOut
@@ -273,7 +283,7 @@ try {
     $report.control.ready = $ready
 
     $list = Invoke-Checked $LiveMatrixBinary @('--list')
-    $testNames = @($list -split "`r?`n" | ForEach-Object { if ($_ -match '^([^:]+): test$' -and $Matches[1] -match '^(windows_native|wsl2)_') { $Matches[1] } } | Where-Object { $_ })
+    $testNames = @(Get-LiveTestNames $list)
     $mapped = Assert-LiveMatrixContract $testNames
     $acceptanceEnv = @{
         ADE_ACCEPTANCE_CONTROL_ENDPOINT = [System.IO.Path]::GetFullPath($endpointFile)

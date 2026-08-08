@@ -65,6 +65,8 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     expect(source).not.toContain('process_argument_contains_quote')
     expect(source).toContain('[object]$CommandArgs = $null')
     expect(source).not.toContain('[object]$Args = $null')
+    expect(source).toContain('function Get-LiveTestNames')
+    expect(source).not.toContain("$Matches[1] -match '^(windows_native|wsl2)_'")
     expect(source).toContain("'control_status'")
     expect(source).toContain("'worker_update'")
     expect(source).toContain("'worker_status'")
