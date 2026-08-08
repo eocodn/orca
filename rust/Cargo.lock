@@ -10,6 +10,7 @@ dependencies = [
  "ade-host-platform",
  "serde",
  "serde_json",
+ "windows-sys",
 ]
 
 [[package]]

@@ -18,6 +18,7 @@ pub struct AgentControlRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentControlCommand {
+    ControlStatus,
     HostStatus,
     WorkerStatus,
     WorkerMaintenance,
@@ -56,8 +57,18 @@ pub(crate) struct AgentControlResponse {
 #[derive(Debug, Serialize)]
 #[serde(untagged)]
 pub(crate) enum AgentControlResult {
+    ControlStatus(ControlStatusResult),
     HostStatus(HostStatusResult),
     Worker(WorkerStatusResult),
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct ControlStatusResult {
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub server_pid: u32,
+    pub started_at_unix_ms: u64,
+    pub receipt_count: usize,
 }
 
 #[derive(Debug, Serialize)]

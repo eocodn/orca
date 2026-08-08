@@ -1,4 +1,6 @@
-use ade_control::{parse_cli_args, AgentControlSession, ControlCliError, ControlCliOptions};
+use ade_control::{
+    parse_cli_args, AgentControlSession, ControlCliError, ControlCliMode, ControlCliOptions,
+};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -28,8 +30,9 @@ fn cli_requires_explicit_json_jsonl_and_state_database() {
         parse_cli_args(["--json", "--jsonl", "--state-db", "state.db"]),
         Ok(ControlCliOptions {
             json: true,
-            jsonl: true,
-            state_db: PathBuf::from("state.db"),
+            mode: ControlCliMode::Direct {
+                state_db: PathBuf::from("state.db"),
+            },
         })
     );
     assert_eq!(
@@ -39,6 +42,32 @@ fn cli_requires_explicit_json_jsonl_and_state_database() {
     assert_eq!(
         parse_cli_args(["--json", "--jsonl", "--state-db", "state.db", "--legacy"]),
         Err(ControlCliError::UnexpectedArgument("--legacy".into()))
+    );
+    assert_eq!(
+        parse_cli_args([
+            "--json",
+            "--serve",
+            "--state-db",
+            "state.db",
+            "--endpoint-file",
+            "control.json",
+        ]),
+        Ok(ControlCliOptions {
+            json: true,
+            mode: ControlCliMode::Serve {
+                state_db: PathBuf::from("state.db"),
+                endpoint_file: PathBuf::from("control.json"),
+            },
+        })
+    );
+    assert_eq!(
+        parse_cli_args(["--json", "--jsonl", "--connect", "control.json"]),
+        Ok(ControlCliOptions {
+            json: true,
+            mode: ControlCliMode::Connect {
+                endpoint_file: PathBuf::from("control.json"),
+            },
+        })
     );
 }
 

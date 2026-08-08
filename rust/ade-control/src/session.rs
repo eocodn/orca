@@ -1,32 +1,26 @@
 use crate::cli::ControlCliError;
 use crate::protocol::{
     error_response, success_response, worker_status_result, AgentControlCommand,
-    AgentControlRequest, AgentControlResponse, AgentControlResult, HostStatusResult,
-    WorkerMaintenanceArgs, WorkerUpdateArgs, CONTROL_PROTOCOL_VERSION,
+    AgentControlRequest, AgentControlResponse, AgentControlResult, ControlStatusResult,
+    HostStatusResult, WorkerMaintenanceArgs, WorkerUpdateArgs, CONTROL_PROTOCOL_VERSION,
 };
+use crate::receipts::{ReceiptClaim, ReceiptRegistry, ReceiptRegistryError};
 use ade_host::host_state_service::HostStateService;
 use ade_host::wsl_worker_runtime::{WslWorkerRuntime, WslWorkerRuntimeError};
 use ade_host_platform::wsl_worker_installer::{WslWorkerInstallRequest, WslWorkerInstaller};
 use ade_host_platform::wsl_worker_supervisor::WslWorkerSupervisor;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::Path;
 use std::sync::Mutex;
-
-const MAX_RECEIPTS: usize = 4_096;
-
-#[derive(Debug, Clone)]
-struct Receipt {
-    canonical_request: String,
-    response: String,
-}
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct AgentControlSession {
     host: Mutex<HostStateService>,
     worker: WslWorkerRuntime,
-    receipts: Mutex<HashMap<String, Receipt>>,
+    receipts: ReceiptRegistry,
+    started_at_unix_ms: u64,
 }
 
 impl AgentControlSession {
@@ -39,7 +33,13 @@ impl AgentControlSession {
                 WslWorkerSupervisor::default(),
                 WslWorkerInstaller::default(),
             ),
-            receipts: Mutex::new(HashMap::new()),
+            receipts: ReceiptRegistry::new(),
+            started_at_unix_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|error| ControlCliError::Session(format!("system_time:{error}")))?
+                .as_millis()
+                .try_into()
+                .map_err(|_| ControlCliError::Session("system_time_overflow".into()))?,
         })
     }
 
@@ -88,42 +88,16 @@ impl AgentControlSession {
                 ));
             }
         };
-        let mut receipts = match self.receipts.lock() {
-            Ok(receipts) => receipts,
-            Err(_) => {
-                return serialize_response(error_response(
-                    Some(request.request_id),
-                    "receipt_lock_poisoned",
-                    "receipt lock poisoned".into(),
-                ));
-            }
-        };
-        if let Some(receipt) = receipts.get(&request.request_id) {
-            if receipt.canonical_request == canonical_request {
-                return receipt.response.clone();
-            }
-            return serialize_response(error_response(
-                Some(request.request_id),
-                "request_id_conflict",
-                "request_id already belongs to a different request".into(),
-            ));
-        }
-        if receipts.len() >= MAX_RECEIPTS {
-            return serialize_response(error_response(
-                Some(request.request_id),
-                "receipt_capacity_exceeded",
-                format!("maximum receipts={MAX_RECEIPTS}"),
-            ));
-        }
         let request_id = request.request_id.clone();
-        let response = serialize_response(self.execute(request));
-        receipts.insert(
-            request_id,
-            Receipt {
-                canonical_request,
-                response: response.clone(),
-            },
-        );
+        let receipt_count = match self.receipts.claim(&request_id, &canonical_request) {
+            Ok(ReceiptClaim::Replay(response)) => return response,
+            Ok(ReceiptClaim::Execute { receipt_count }) => receipt_count,
+            Err(error) => return serialize_response(receipt_error(request_id, error)),
+        };
+        let response = serialize_response(self.execute(request, receipt_count));
+        if let Err(error) = self.receipts.complete(&request_id, response.clone()) {
+            return serialize_response(receipt_error(request_id, error));
+        }
         response
     }
 
@@ -141,9 +115,18 @@ impl AgentControlSession {
         Ok(())
     }
 
-    fn execute(&self, request: AgentControlRequest) -> AgentControlResponse {
+    fn execute(&self, request: AgentControlRequest, receipt_count: usize) -> AgentControlResponse {
         let request_id = request.request_id;
         match request.command {
+            AgentControlCommand::ControlStatus => success_response(
+                request_id,
+                AgentControlResult::ControlStatus(ControlStatusResult {
+                    kind: "control_status",
+                    server_pid: std::process::id(),
+                    started_at_unix_ms: self.started_at_unix_ms,
+                    receipt_count,
+                }),
+            ),
             AgentControlCommand::HostStatus => self.host_status(request_id),
             AgentControlCommand::WorkerStatus => match self.worker.status() {
                 Ok(status) => success_response(
@@ -153,8 +136,12 @@ impl AgentControlSession {
                 Err(error) => worker_runtime_error(request_id, error),
             },
             AgentControlCommand::WorkerMaintenance => {
-                let args: WorkerMaintenanceArgs = decode_args(request.args)
-                    .expect("validated worker_maintenance args must decode");
+                let args: WorkerMaintenanceArgs = match decode_args(request.args) {
+                    Ok(args) => args,
+                    Err(message) => {
+                        return error_response(Some(request_id), "invalid_request", message);
+                    }
+                };
                 match self.worker.set_maintenance(args.enabled) {
                     Ok(status) => success_response(
                         request_id,
@@ -167,8 +154,12 @@ impl AgentControlSession {
                 }
             }
             AgentControlCommand::WorkerUpdate => {
-                let args: WorkerUpdateArgs =
-                    decode_args(request.args).expect("validated worker_update args must decode");
+                let args: WorkerUpdateArgs = match decode_args(request.args) {
+                    Ok(args) => args,
+                    Err(message) => {
+                        return error_response(Some(request_id), "invalid_request", message);
+                    }
+                };
                 self.worker_update(request_id, args)
             }
         }
@@ -252,7 +243,9 @@ fn parse_request(line: &str) -> Result<AgentControlRequest, RequestParseFailure>
 
 fn validate_operation_args(request: &AgentControlRequest) -> Result<(), String> {
     match request.command {
-        AgentControlCommand::HostStatus | AgentControlCommand::WorkerStatus => {
+        AgentControlCommand::ControlStatus
+        | AgentControlCommand::HostStatus
+        | AgentControlCommand::WorkerStatus => {
             if request.args.is_some() {
                 Err("command does not accept args".into())
             } else {
@@ -266,6 +259,27 @@ fn validate_operation_args(request: &AgentControlRequest) -> Result<(), String> 
             decode_args::<WorkerUpdateArgs>(request.args.clone()).map(|_| ())
         }
     }
+}
+
+fn receipt_error(request_id: String, error: ReceiptRegistryError) -> AgentControlResponse {
+    let (code, message) = match error {
+        ReceiptRegistryError::Conflict => (
+            "request_id_conflict",
+            "request_id already belongs to a different request".into(),
+        ),
+        ReceiptRegistryError::CapacityExceeded => (
+            "receipt_capacity_exceeded",
+            "maximum receipt capacity exceeded".into(),
+        ),
+        ReceiptRegistryError::LockPoisoned => {
+            ("receipt_lock_poisoned", "receipt lock poisoned".into())
+        }
+        ReceiptRegistryError::MissingInFlight => (
+            "receipt_state_invalid",
+            "receipt completion state is invalid".into(),
+        ),
+    };
+    error_response(Some(request_id), code, message)
 }
 
 fn decode_args<T: DeserializeOwned>(args: Option<Value>) -> Result<T, String> {
