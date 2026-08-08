@@ -1,5 +1,9 @@
+use crate::wsl_worker_relay::{
+    command_for_endpoint, handshake_request, parse_handshake, WslRelayHandshakeFailure,
+};
 use ade_host_core::ownership::{OwnershipRuntime, OwnershipState};
 use ade_host_core::protocol::{PtyOperation, PtyRequest, PtyResponse};
+use ade_host_platform::wsl_worker_endpoint::WslWorkerEndpoint;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -198,8 +202,52 @@ impl JsonlWorkerTransport {
         identity: WorkerIdentity,
         timeout: Duration,
     ) -> Result<Self, RouterError> {
-        let mut child = Command::new(worker_path.as_ref())
-            .arg("--jsonl")
+        let mut command = Command::new(worker_path.as_ref());
+        command.arg("--jsonl");
+        Self::spawn_command(command, identity, timeout)
+    }
+
+    pub fn spawn_wsl(endpoint: WslWorkerEndpoint, timeout: Duration) -> Result<Self, RouterError> {
+        let command = command_for_endpoint(&endpoint);
+        Self::spawn_wsl_command(command, endpoint, timeout)
+    }
+
+    fn spawn_wsl_command(
+        command: Command,
+        endpoint: WslWorkerEndpoint,
+        timeout: Duration,
+    ) -> Result<Self, RouterError> {
+        let identity = WorkerIdentity {
+            worker_id: endpoint.worker_id().into(),
+            worker_incarnation: endpoint.worker_incarnation(),
+        };
+        let mut transport = Self::spawn_command(command, identity, timeout)?;
+        if let Err(error) = transport.perform_wsl_handshake(&endpoint) {
+            let _ = transport.child.kill();
+            let _ = transport.child.wait();
+            return Err(error);
+        }
+        Ok(transport)
+    }
+
+    #[cfg(all(test, unix))]
+    fn spawn_wsl_script_for_test(
+        script_path: impl AsRef<Path>,
+        endpoint: WslWorkerEndpoint,
+        timeout: Duration,
+    ) -> Result<Self, RouterError> {
+        let spec = endpoint.relay_command();
+        let mut command = Command::new("sh");
+        command.arg(script_path.as_ref()).args(spec.args);
+        Self::spawn_wsl_command(command, endpoint, timeout)
+    }
+
+    fn spawn_command(
+        mut command: Command,
+        identity: WorkerIdentity,
+        timeout: Duration,
+    ) -> Result<Self, RouterError> {
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -224,6 +272,24 @@ impl JsonlWorkerTransport {
         })
     }
 
+    fn perform_wsl_handshake(&mut self, endpoint: &WslWorkerEndpoint) -> Result<(), RouterError> {
+        let request =
+            handshake_request(endpoint, "host-pty-relay").map_err(map_wsl_handshake_failure)?;
+        serde_json::to_writer(&mut self.writer, &request)
+            .map_err(|error| RouterError::Transport(error.to_string()))?;
+        self.writer
+            .write_all(b"\n")
+            .and_then(|_| self.writer.flush())
+            .map_err(|error| RouterError::Transport(error.to_string()))?;
+        let line = match self.responses.recv_timeout(self.timeout) {
+            Ok(result) => result?,
+            Err(RecvTimeoutError::Timeout) => return Err(RouterError::Timeout),
+            Err(RecvTimeoutError::Disconnected) => return Err(RouterError::Eof),
+        };
+        parse_handshake(endpoint, &request, &line).map_err(map_wsl_handshake_failure)?;
+        Ok(())
+    }
+
     pub fn sibling_worker_path() -> Result<PathBuf, RouterError> {
         let executable =
             std::env::current_exe().map_err(|error| RouterError::Transport(error.to_string()))?;
@@ -233,6 +299,13 @@ impl JsonlWorkerTransport {
             "ade-worker"
         };
         Ok(executable.with_file_name(name))
+    }
+}
+
+fn map_wsl_handshake_failure(error: WslRelayHandshakeFailure) -> RouterError {
+    match error {
+        WslRelayHandshakeFailure::Malformed => RouterError::MalformedResponse,
+        WslRelayHandshakeFailure::Mismatch(field) => RouterError::ResponseMismatch(field),
     }
 }
 
@@ -308,230 +381,5 @@ fn spawn_reader(stdout: ChildStdout, sender: Sender<Result<String, RouterError>>
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use ade_host_core::ownership::{OwnershipCommand, OwnershipToken};
-    use ade_host_core::protocol::{
-        Capability, ProtocolEnvelope, PtyOperation, PtyStatus, PROTOCOL_VERSION,
-    };
-
-    struct FakeTransport {
-        identity: WorkerIdentity,
-        response: Option<Result<PtyResponse, RouterError>>,
-        calls: usize,
-    }
-    impl PtyWorkerTransport for FakeTransport {
-        fn identity(&self) -> &WorkerIdentity {
-            &self.identity
-        }
-        fn dispatch(&mut self, _request: &PtyRequest) -> Result<PtyResponse, RouterError> {
-            self.calls += 1;
-            self.response.take().unwrap()
-        }
-    }
-
-    fn owned() -> (OwnershipRuntime, OwnershipToken) {
-        let runtime = OwnershipRuntime::new();
-        let acquired = runtime
-            .apply(OwnershipCommand::Acquire {
-                operation_id: "acquire".into(),
-                workspace_id: "ws".into(),
-                worker_id: "worker".into(),
-                worker_incarnation: 7,
-            })
-            .unwrap();
-        let token = acquired.token.unwrap();
-        runtime
-            .apply(OwnershipCommand::ClaimReady {
-                operation_id: "ready".into(),
-                token: token.clone(),
-            })
-            .unwrap();
-        (runtime, token)
-    }
-
-    fn request(id: &str) -> PtyRequest {
-        PtyRequest::new(
-            id,
-            "ws",
-            "worker",
-            "session",
-            None,
-            PtyOperation::Start {
-                program: "sh".into(),
-                args: vec![],
-                current_dir: None,
-                execution_target: None,
-                cols: 80,
-                rows: 24,
-            },
-        )
-    }
-
-    fn response(request: &PtyRequest) -> PtyResponse {
-        PtyResponse {
-            envelope: ProtocolEnvelope::new(
-                request.envelope.request_id.clone(),
-                Capability::Pty,
-                PROTOCOL_VERSION,
-            ),
-            workspace_id: request.workspace_id.clone(),
-            worker_id: request.worker_id.clone(),
-            session_id: request.session_id.clone(),
-            session_generation: 1,
-            generation: 1,
-            operation: "start".into(),
-            status: PtyStatus::Running,
-            exit_code: None,
-            output_sequence: 0,
-            tail: String::new(),
-            failure_reason: None,
-        }
-    }
-
-    #[test]
-    fn rejects_unowned_and_stale_incarnation_before_dispatch() {
-        let ownership = OwnershipRuntime::new();
-        let transport = FakeTransport {
-            identity: WorkerIdentity {
-                worker_id: "worker".into(),
-                worker_incarnation: 7,
-            },
-            response: None,
-            calls: 0,
-        };
-        let router = PtyHostRouter::new(ownership.clone(), Box::new(transport));
-        assert_eq!(
-            router.route(request("unowned")),
-            Err(RouterError::WorkspaceUnowned)
-        );
-        let acquired = ownership
-            .apply(OwnershipCommand::Acquire {
-                operation_id: "acquire".into(),
-                workspace_id: "ws".into(),
-                worker_id: "worker".into(),
-                worker_incarnation: 7,
-            })
-            .unwrap();
-        let token = acquired.token.unwrap();
-        ownership
-            .apply(OwnershipCommand::ClaimReady {
-                operation_id: "ready".into(),
-                token: token.clone(),
-            })
-            .unwrap();
-        let router = PtyHostRouter::new(
-            ownership,
-            Box::new(FakeTransport {
-                identity: WorkerIdentity {
-                    worker_id: "worker".into(),
-                    worker_incarnation: token.worker_incarnation + 1,
-                },
-                response: Some(Ok(response(&request("stale")))),
-                calls: 0,
-            }),
-        );
-        assert_eq!(
-            router.route(request("stale")),
-            Err(RouterError::StaleWorkerIncarnation)
-        );
-    }
-
-    #[test]
-    fn replays_identical_receipt_and_rejects_conflicting_request_id() {
-        let (ownership, _) = owned();
-        let first = request("same");
-        let mut conflict = first.clone();
-        conflict.session_id = "other".into();
-        let router = PtyHostRouter::new(
-            ownership,
-            Box::new(FakeTransport {
-                identity: WorkerIdentity {
-                    worker_id: "worker".into(),
-                    worker_incarnation: 7,
-                },
-                response: Some(Ok(response(&first))),
-                calls: 0,
-            }),
-        );
-        assert_eq!(router.route(first.clone()).unwrap().session_generation, 1);
-        assert_eq!(router.route(first).unwrap().session_generation, 1);
-        assert_eq!(router.route(conflict), Err(RouterError::RequestIdConflict));
-    }
-
-    #[test]
-    fn rejects_response_correlation_and_worker_errors_without_success() {
-        let (ownership, _) = owned();
-        let mut mismatched = response(&request("mismatch"));
-        mismatched.session_id = "wrong".into();
-        let router = PtyHostRouter::new(
-            ownership.clone(),
-            Box::new(FakeTransport {
-                identity: WorkerIdentity {
-                    worker_id: "worker".into(),
-                    worker_incarnation: 7,
-                },
-                response: Some(Ok(mismatched)),
-                calls: 0,
-            }),
-        );
-        assert_eq!(
-            router.route(request("mismatch")),
-            Err(RouterError::ResponseMismatch("session_id"))
-        );
-        let router = PtyHostRouter::new(
-            ownership,
-            Box::new(FakeTransport {
-                identity: WorkerIdentity {
-                    worker_id: "worker".into(),
-                    worker_incarnation: 7,
-                },
-                response: Some(Err(RouterError::Timeout)),
-                calls: 0,
-            }),
-        );
-        assert_eq!(router.route(request("timeout")), Err(RouterError::Timeout));
-    }
-
-    #[test]
-    fn rejects_response_generation_and_envelope_mismatches() {
-        let (ownership, _) = owned();
-        let start = request("generation");
-        let mut wrong = response(&start);
-        wrong.session_generation = 0;
-        let router = PtyHostRouter::new(
-            ownership.clone(),
-            Box::new(FakeTransport {
-                identity: WorkerIdentity {
-                    worker_id: "worker".into(),
-                    worker_incarnation: 7,
-                },
-                response: Some(Ok(wrong)),
-                calls: 0,
-            }),
-        );
-        assert_eq!(
-            router.route(start),
-            Err(RouterError::ResponseMismatch("session_generation"))
-        );
-
-        let start = request("envelope");
-        let mut wrong = response(&start);
-        wrong.envelope.protocol_version = PROTOCOL_VERSION + 1;
-        let router = PtyHostRouter::new(
-            ownership,
-            Box::new(FakeTransport {
-                identity: WorkerIdentity {
-                    worker_id: "worker".into(),
-                    worker_incarnation: 7,
-                },
-                response: Some(Ok(wrong)),
-                calls: 0,
-            }),
-        );
-        assert_eq!(
-            router.route(start),
-            Err(RouterError::ResponseMismatch("protocol_version"))
-        );
-    }
-}
+#[path = "pty_router_tests.rs"]
+mod tests;

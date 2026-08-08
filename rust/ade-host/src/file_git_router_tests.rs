@@ -430,3 +430,87 @@ fn jsonl_child_crash_and_malformed_response_are_terminal_without_retry() {
     drop(transport);
     fs::remove_file(malformed).unwrap();
 }
+
+#[cfg(unix)]
+#[test]
+fn wsl_relay_requires_handshake_before_file_dispatch_and_preserves_exact_endpoint_args() {
+    use ade_host_platform::wsl_worker_endpoint::{
+        WslWorkerEndpoint, WSL_WORKER_LINK, WSL_WORKER_SOCKET,
+    };
+    use std::fs;
+    use std::time::Duration;
+
+    let path = std::env::temp_dir().join(format!(
+        "ade-file-git-wsl-handshake-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::write(
+        &path,
+        format!(
+            "#!/bin/sh\n\
+             [ \"$1\" = \"--distribution\" ] && [ \"$2\" = \"Ubuntu-24.04\" ] || exit 40\n\
+             [ \"$3\" = \"--user\" ] && [ \"$4\" = \"alice\" ] || exit 41\n\
+             [ \"$5\" = \"--exec\" ] && [ \"$6\" = \"{WSL_WORKER_LINK}\" ] || exit 42\n\
+             [ \"$7\" = \"--connect-unix\" ] && [ \"$8\" = \"{WSL_WORKER_SOCKET}\" ] || exit 43\n\
+             IFS= read -r first || exit 44\n\
+             case \"$first\" in *'\"type\":\"worker_handshake\"'*'\"request_id\":\"host-file-git-relay-7\"'*) ;; *) exit 45 ;; esac\n\
+             printf '%s\\n' '{{\"type\":\"worker_handshake\",\"request_id\":\"host-file-git-relay-7\",\"protocol_version\":1,\"worker_id\":\"worker\",\"worker_incarnation\":7,\"worker_version\":\"0.1.0\"}}'\n\
+             IFS= read -r second || exit 46\n\
+             case \"$second\" in *'\"request_id\":\"after-handshake\"'*) ;; *) exit 47 ;; esac\n\
+             printf '%s\\n' '{{\"ok\":false,\"request_id\":\"after-handshake\",\"error\":\"after-handshake\"}}'\n"
+        ),
+    )
+    .unwrap();
+    let endpoint = WslWorkerEndpoint::new("Ubuntu-24.04", "alice", "worker", 7, "0.1.0").unwrap();
+    let mut transport = JsonlFileGitWorkerTransport::spawn_wsl_script_for_test(
+        &path,
+        endpoint,
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let (_, token) = owned();
+    let request = file_request("after-handshake", &token);
+    assert_eq!(
+        transport.dispatch_file(&request),
+        Err(FileGitRouterError::WorkerError("after-handshake".into()))
+    );
+    drop(transport);
+    fs::remove_file(path).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn wsl_relay_rejects_worker_version_mismatch_during_spawn() {
+    use ade_host_platform::wsl_worker_endpoint::WslWorkerEndpoint;
+    use std::fs;
+    use std::time::Duration;
+
+    let path = std::env::temp_dir().join(format!(
+        "ade-file-git-wsl-mismatch-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::write(
+        &path,
+        "#!/bin/sh\nIFS= read -r first || exit 50\nprintf '%s\\n' '{\"type\":\"worker_handshake\",\"request_id\":\"host-file-git-relay-7\",\"protocol_version\":1,\"worker_id\":\"worker\",\"worker_incarnation\":7,\"worker_version\":\"0.0.9\"}'\nsleep 5\n",
+    )
+    .unwrap();
+    let endpoint = WslWorkerEndpoint::new("Ubuntu-24.04", "alice", "worker", 7, "0.1.0").unwrap();
+    let result = JsonlFileGitWorkerTransport::spawn_wsl_script_for_test(
+        &path,
+        endpoint,
+        Duration::from_secs(1),
+    );
+    assert!(matches!(
+        result,
+        Err(FileGitRouterError::ResponseMismatch("worker_version"))
+    ));
+    fs::remove_file(path).unwrap();
+}

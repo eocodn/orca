@@ -25,6 +25,7 @@ name = "ade-host"
 version = "0.1.0"
 dependencies = [
  "ade-host-core",
+ "ade-host-platform",
  "ade-host-store",
  "serde",
  "serde_json",

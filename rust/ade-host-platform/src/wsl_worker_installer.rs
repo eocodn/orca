@@ -1,12 +1,11 @@
+use crate::wsl_worker_endpoint::{WslWorkerEndpoint, WslWorkerEndpointError};
 use crate::CommandSpec;
-use ade_host_core::protocol::{WorkerHandshakeRequest, WorkerHandshakeResponse, PROTOCOL_VERSION};
+use ade_host_core::protocol::WorkerHandshakeResponse;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
-const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
-pub const WSL_WORKER_SOCKET: &str = "/run/ade/worker.sock";
-pub const WSL_WORKER_LINK: &str = "/usr/lib/ade/ade-worker";
+pub use crate::wsl_worker_endpoint::{WSL_WORKER_LINK, WSL_WORKER_SOCKET};
 pub const WSL_WORKER_UNIT: &str = "/etc/systemd/system/ade-worker.service";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -341,10 +340,23 @@ impl WslWorkerInstaller {
             });
         }
 
-        let handshake_request = WorkerHandshakeRequest::new(format!(
-            "wsl-worker-install-{}",
-            request.worker_incarnation
-        ));
+        let endpoint = WslWorkerEndpoint::new(
+            request.distro.clone(),
+            request.service_user.clone(),
+            request.worker_id.clone(),
+            request.worker_incarnation,
+            request.worker_version.clone(),
+        )
+        .map_err(|error| WslWorkerInstallFailure {
+            stage: WslWorkerInstallStage::Handshake,
+            reason: format!("worker_endpoint_invalid:{error:?}"),
+        })?;
+        let handshake_request = endpoint
+            .handshake_request(format!("wsl-worker-install-{}", request.worker_incarnation))
+            .map_err(|error| WslWorkerInstallFailure {
+                stage: WslWorkerInstallStage::Handshake,
+                reason: format!("handshake_request_invalid:{error:?}"),
+            })?;
         let mut handshake_stdin =
             serde_json::to_vec(&handshake_request).map_err(|error| WslWorkerInstallFailure {
                 stage: WslWorkerInstallStage::Handshake,
@@ -353,12 +365,7 @@ impl WslWorkerInstaller {
         handshake_stdin.push(b'\n');
         let handshake = self.run(
             WslWorkerInstallStage::Handshake,
-            wsl_user(
-                &request.distro,
-                &request.service_user,
-                WSL_WORKER_LINK,
-                &["--connect-unix", WSL_WORKER_SOCKET],
-            ),
+            endpoint.relay_command(),
             handshake_stdin,
         )?;
         let mut lines = handshake
@@ -380,48 +387,12 @@ impl WslWorkerInstaller {
                 stage: WslWorkerInstallStage::Handshake,
                 reason: format!("handshake_response_invalid:{error}"),
             })?;
-        response
-            .validate_for(&handshake_request)
+        endpoint
+            .validate_handshake(&handshake_request, &response)
             .map_err(|error| WslWorkerInstallFailure {
                 stage: WslWorkerInstallStage::Handshake,
-                reason: format!("handshake_invalid:{error:?}"),
+                reason: endpoint_handshake_reason(error),
             })?;
-        if response.protocol_version != PROTOCOL_VERSION {
-            return Err(WslWorkerInstallFailure {
-                stage: WslWorkerInstallStage::Handshake,
-                reason: format!(
-                    "protocol_version_mismatch:expected={PROTOCOL_VERSION}:actual={}",
-                    response.protocol_version
-                ),
-            });
-        }
-        if response.worker_id != request.worker_id {
-            return Err(WslWorkerInstallFailure {
-                stage: WslWorkerInstallStage::Handshake,
-                reason: format!(
-                    "worker_id_mismatch:expected={}:actual={}",
-                    request.worker_id, response.worker_id
-                ),
-            });
-        }
-        if response.worker_incarnation != request.worker_incarnation {
-            return Err(WslWorkerInstallFailure {
-                stage: WslWorkerInstallStage::Handshake,
-                reason: format!(
-                    "worker_incarnation_mismatch:expected={}:actual={}",
-                    request.worker_incarnation, response.worker_incarnation
-                ),
-            });
-        }
-        if response.worker_version != request.worker_version {
-            return Err(WslWorkerInstallFailure {
-                stage: WslWorkerInstallStage::Handshake,
-                reason: format!(
-                    "worker_version_mismatch:expected={}:actual={}",
-                    request.worker_version, response.worker_version
-                ),
-            });
-        }
 
         Ok(WslWorkerInstallation {
             service_user: request.service_user.clone(),
@@ -481,21 +452,14 @@ impl ValidatedInstall {
             stage: WslWorkerInstallStage::Validate,
             reason: reason.into(),
         };
-        if request.distro.trim().is_empty() {
-            return Err(invalid("empty_distro"));
-        }
-        if !is_safe_identifier(&request.service_user) {
-            return Err(invalid("invalid_service_user"));
-        }
-        if !is_safe_identifier(&request.worker_id) {
-            return Err(invalid("invalid_worker_id"));
-        }
-        if !is_safe_version(&request.worker_version) {
-            return Err(invalid("invalid_worker_version"));
-        }
-        if request.worker_incarnation == 0 || request.worker_incarnation > MAX_SAFE_INTEGER {
-            return Err(invalid("invalid_worker_incarnation"));
-        }
+        WslWorkerEndpoint::new(
+            request.distro.clone(),
+            request.service_user.clone(),
+            request.worker_id.clone(),
+            request.worker_incarnation,
+            request.worker_version.clone(),
+        )
+        .map_err(|error| invalid(endpoint_validation_reason(error)))?;
         if request.binary.is_empty() {
             return Err(invalid("empty_worker_binary"));
         }
@@ -529,23 +493,29 @@ impl ValidatedInstall {
     }
 }
 
-fn is_safe_identifier(value: &str) -> bool {
-    let mut bytes = value.bytes();
-    let Some(first) = bytes.next() else {
-        return false;
-    };
-    (first.is_ascii_alphanumeric() || first == b'_')
-        && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
+fn endpoint_validation_reason(error: WslWorkerEndpointError) -> &'static str {
+    match error {
+        WslWorkerEndpointError::EmptyDistro => "empty_distro",
+        WslWorkerEndpointError::InvalidServiceUser | WslWorkerEndpointError::RootServiceUser => {
+            "invalid_service_user"
+        }
+        WslWorkerEndpointError::InvalidWorkerId => "invalid_worker_id",
+        WslWorkerEndpointError::InvalidWorkerIncarnation => "invalid_worker_incarnation",
+        WslWorkerEndpointError::InvalidWorkerVersion => "invalid_worker_version",
+        WslWorkerEndpointError::InvalidHandshake(_)
+        | WslWorkerEndpointError::WorkerIdMismatch
+        | WslWorkerEndpointError::WorkerIncarnationMismatch
+        | WslWorkerEndpointError::WorkerVersionMismatch => "invalid_worker_endpoint",
+    }
 }
 
-fn is_safe_version(value: &str) -> bool {
-    let mut bytes = value.bytes();
-    let Some(first) = bytes.next() else {
-        return false;
-    };
-    first.is_ascii_alphanumeric()
-        && bytes
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.' | b'+'))
+fn endpoint_handshake_reason(error: WslWorkerEndpointError) -> String {
+    match error {
+        WslWorkerEndpointError::WorkerIdMismatch => "worker_id_mismatch".into(),
+        WslWorkerEndpointError::WorkerIncarnationMismatch => "worker_incarnation_mismatch".into(),
+        WslWorkerEndpointError::WorkerVersionMismatch => "worker_version_mismatch".into(),
+        other => format!("handshake_invalid:{other:?}"),
+    }
 }
 
 fn render_unit(request: &WslWorkerInstallRequest) -> String {

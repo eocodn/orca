@@ -4,10 +4,14 @@
 //! identity are checked before dispatch, and every response is correlated to
 //! the exact request context before it is exposed to callers.
 
+use crate::wsl_worker_relay::{
+    command_for_endpoint, handshake_request, parse_handshake, WslRelayHandshakeFailure,
+};
 use ade_host_core::ownership::{OwnershipRuntime, OwnershipState};
 use ade_host_core::protocol::{
     FileWorkerRequest, FileWorkerResponse, GitWorkerRequest, GitWorkerResponse,
 };
+use ade_host_platform::wsl_worker_endpoint::WslWorkerEndpoint;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -291,6 +295,28 @@ impl JsonlFileGitWorkerTransport {
         Self::spawn_command(command, identity, timeout)
     }
 
+    pub fn spawn_wsl(
+        endpoint: WslWorkerEndpoint,
+        timeout: Duration,
+    ) -> Result<Self, FileGitRouterError> {
+        let command = command_for_endpoint(&endpoint);
+        Self::spawn_wsl_command(command, endpoint, timeout)
+    }
+
+    fn spawn_wsl_command(
+        command: Command,
+        endpoint: WslWorkerEndpoint,
+        timeout: Duration,
+    ) -> Result<Self, FileGitRouterError> {
+        let identity = WorkerIdentity {
+            worker_id: endpoint.worker_id().into(),
+            worker_incarnation: endpoint.worker_incarnation(),
+        };
+        let mut transport = Self::spawn_command(command, identity, timeout)?;
+        transport.perform_wsl_handshake(&endpoint)?;
+        Ok(transport)
+    }
+
     #[cfg(all(test, unix))]
     fn spawn_script_for_test(
         script_path: impl AsRef<Path>,
@@ -301,6 +327,18 @@ impl JsonlFileGitWorkerTransport {
         let mut command = Command::new("sh");
         command.arg(script_path.as_ref()).arg("--jsonl");
         Self::spawn_command(command, identity, timeout)
+    }
+
+    #[cfg(all(test, unix))]
+    fn spawn_wsl_script_for_test(
+        script_path: impl AsRef<Path>,
+        endpoint: WslWorkerEndpoint,
+        timeout: Duration,
+    ) -> Result<Self, FileGitRouterError> {
+        let spec = endpoint.relay_command();
+        let mut command = Command::new("sh");
+        command.arg(script_path.as_ref()).args(spec.args);
+        Self::spawn_wsl_command(command, endpoint, timeout)
     }
 
     fn spawn_command(
@@ -358,6 +396,39 @@ impl JsonlFileGitWorkerTransport {
             .into_iter()
             .find(|candidate| candidate.is_file())
             .unwrap_or_else(|| executable.with_file_name(name)))
+    }
+
+    fn perform_wsl_handshake(
+        &mut self,
+        endpoint: &WslWorkerEndpoint,
+    ) -> Result<(), FileGitRouterError> {
+        let request = handshake_request(endpoint, "host-file-git-relay")
+            .map_err(map_wsl_handshake_failure)?;
+        if let Err(error) = serde_json::to_writer(&mut self.writer, &request) {
+            return Err(self.terminate(FileGitRouterError::Transport(error.to_string())));
+        }
+        if let Err(error) = self
+            .writer
+            .write_all(b"\n")
+            .and_then(|_| self.writer.flush())
+        {
+            return Err(self.terminate(FileGitRouterError::Transport(error.to_string())));
+        }
+        let line = match self.responses.recv_timeout(self.timeout) {
+            Ok(Ok(line)) => line,
+            Ok(Err(error)) => return Err(self.terminate(error)),
+            Err(RecvTimeoutError::Timeout) => {
+                return Err(self.terminate(FileGitRouterError::Timeout));
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(self.terminate(FileGitRouterError::Eof));
+            }
+        };
+        if let Err(error) = parse_handshake(endpoint, &request, &line) {
+            let error = map_wsl_handshake_failure(error);
+            return Err(self.terminate(error));
+        }
+        Ok(())
     }
 
     fn dispatch<Q: serde::Serialize, R: serde::de::DeserializeOwned>(
@@ -426,6 +497,13 @@ impl JsonlFileGitWorkerTransport {
             let _ = self.child.wait();
         }
         error
+    }
+}
+
+fn map_wsl_handshake_failure(error: WslRelayHandshakeFailure) -> FileGitRouterError {
+    match error {
+        WslRelayHandshakeFailure::Malformed => FileGitRouterError::MalformedResponse,
+        WslRelayHandshakeFailure::Mismatch(field) => FileGitRouterError::ResponseMismatch(field),
     }
 }
 

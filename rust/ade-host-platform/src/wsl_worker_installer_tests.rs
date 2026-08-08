@@ -1,3 +1,4 @@
+use super::wsl_worker_endpoint::WslWorkerEndpoint;
 use super::wsl_worker_installer::{
     WslWorkerInstallCommand, WslWorkerInstallCommandExecutor, WslWorkerInstallCommandOutput,
     WslWorkerInstallFailure, WslWorkerInstallRequest, WslWorkerInstallStage, WslWorkerInstaller,
@@ -241,6 +242,9 @@ fn successful_upgrade_writes_private_daemon_unit_and_observes_versioned_handshak
     assert!(!unit.contains("User=root"));
 
     let handshake_call = &calls[15];
+    let endpoint =
+        WslWorkerEndpoint::new("Ubuntu-24.04", "alice", "wsl-ubuntu", 7, "0.1.0").unwrap();
+    assert_eq!(handshake_call.command, endpoint.relay_command());
     assert!(handshake_call
         .command
         .args

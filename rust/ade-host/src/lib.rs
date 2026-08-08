@@ -7,6 +7,7 @@ use std::path::PathBuf;
 pub mod file_git_router;
 pub mod pty_router;
 pub mod pty_service;
+mod wsl_worker_relay;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HostCliOptions {

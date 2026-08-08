@@ -5,10 +5,13 @@ pub mod git_execution;
 pub mod git_protocol_execution;
 pub mod git_repository;
 pub mod git_worktree;
+pub mod wsl_worker_endpoint;
 pub mod wsl_worker_installer;
 pub mod wsl_worker_supervisor;
 pub mod wsl_worker_update;
 
+#[cfg(test)]
+mod wsl_worker_endpoint_tests;
 #[cfg(test)]
 mod wsl_worker_installer_tests;
 #[cfg(test)]
