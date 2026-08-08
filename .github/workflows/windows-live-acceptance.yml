@@ -1,0 +1,151 @@
+name: Windows live acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      distro:
+        description: WSL2 distribution name
+        required: true
+        default: Ubuntu-24.04
+        type: string
+      service_user:
+        description: Non-root WSL worker service user
+        required: true
+        default: ade
+        type: string
+      wsl_build_user:
+        description: Optional WSL user that owns the Rust toolchain
+        required: false
+        default: ''
+        type: string
+      worker_version:
+        description: Optional worker version identity
+        required: false
+        default: ''
+        type: string
+  workflow_call:
+    inputs:
+      distro:
+        required: true
+        type: string
+      service_user:
+        required: true
+        type: string
+      wsl_build_user:
+        required: false
+        default: ''
+        type: string
+      worker_version:
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-live-acceptance-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-live-acceptance:
+    name: Windows 10 / WSL2 live acceptance
+    runs-on: [self-hosted, ade-windows10-wsl2]
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate Windows 10 / WSL2 host contract
+        shell: pwsh
+        run: |
+          $caption = (Get-CimInstance Win32_OperatingSystem).Caption
+          if ($caption -notmatch 'Windows 10') {
+            throw "Dedicated runner must be Windows 10; observed: $caption"
+          }
+          foreach ($command in @('wsl.exe', 'cargo.exe', 'git.exe')) {
+            if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+              throw "Required command is missing: $command"
+            }
+          }
+          & wsl.exe --status
+          if ($LASTEXITCODE -ne 0) {
+            throw "wsl.exe --status failed with exit $LASTEXITCODE"
+          }
+
+      - name: Build Windows and WSL workers
+        id: build
+        shell: pwsh
+        run: |
+          $arguments = @('-Distro', '${{ inputs.distro }}')
+          if (-not [string]::IsNullOrWhiteSpace('${{ inputs.wsl_build_user }}')) {
+            $arguments += @('-WslBuildUser', '${{ inputs.wsl_build_user }}')
+          }
+          $line = & ./scripts/build-windows-live-workers.ps1 @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows live worker build failed with exit $LASTEXITCODE`: $line"
+          }
+          $result = $line | ConvertFrom-Json
+          if (-not $result.ok) {
+            throw "Windows live worker build returned failure: $($result.failure)"
+          }
+          "control=$($result.windows_control_binary)" >> $env:GITHUB_OUTPUT
+          "windows_worker=$($result.windows_worker_binary)" >> $env:GITHUB_OUTPUT
+          "wsl_worker=$($result.wsl_worker_binary)" >> $env:GITHUB_OUTPUT
+          "wsl_arch=$($result.wsl_arch)" >> $env:GITHUB_OUTPUT
+
+      - name: Run strict live matrix
+        id: acceptance
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path out -Force | Out-Null
+          $reportPath = 'out/windows-live-acceptance.json'
+          $workerVersion = '${{ inputs.worker_version }}'
+          if ([string]::IsNullOrWhiteSpace($workerVersion)) {
+            $workerVersion = 'github-${{ github.sha }}'
+          }
+          $exitCode = 1
+          try {
+            & ./scripts/run-windows-live-acceptance.ps1 `
+              -Distro '${{ inputs.distro }}' `
+              -ServiceUser '${{ inputs.service_user }}' `
+              -WorkerVersion $workerVersion `
+              -ControlBinary '${{ steps.build.outputs.control }}' `
+              -WindowsWorkerBinary '${{ steps.build.outputs.windows_worker }}' `
+              -WslWorkerBinary '${{ steps.build.outputs.wsl_worker }}' `
+              -JsonOut $reportPath
+            $exitCode = $LASTEXITCODE
+          } catch {
+            [Console]::Error.WriteLine("live acceptance launcher failed: $($_.Exception.Message)")
+            $exitCode = 1
+          }
+          if (-not (Test-Path -LiteralPath $reportPath -PathType Leaf)) {
+            @{ ok = $false; failure = 'runner_did_not_write_report' } |
+              ConvertTo-Json -Compress |
+              Set-Content -LiteralPath $reportPath -Encoding utf8
+            $exitCode = 1
+          }
+          "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
+          exit 0
+
+      - name: Upload live acceptance report
+        if: always() && steps.acceptance.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-live-acceptance-${{ github.run_id }}
+          path: out/windows-live-acceptance.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Propagate acceptance result
+        if: always() && steps.acceptance.outcome != 'skipped'
+        shell: pwsh
+        run: |
+          $raw = '${{ steps.acceptance.outputs.exit_code }}'
+          if ([string]::IsNullOrWhiteSpace($raw)) {
+            throw 'Acceptance step did not publish an exit code'
+          }
+          $code = [int]$raw
+          if ($code -ne 0) {
+            exit $code
+          }
