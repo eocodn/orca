@@ -4,8 +4,8 @@
   "version": "1.4.163-rc.1",
   "identifier": "ai.stably.orca.ade",
   "build": {
-    "beforeDevCommand": "pnpm dev:web",
-    "beforeBuildCommand": "pnpm build:web",
+    "beforeDevCommand": "node config/scripts/prepare-agent-control-sidecar.mjs --profile debug && pnpm dev:web",
+    "beforeBuildCommand": "node config/scripts/prepare-agent-control-sidecar.mjs --profile release && pnpm build:web",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../out/web"
   },
@@ -29,7 +29,8 @@
   "bundle": {
     "active": false,
     "externalBin": [
-      "binaries/ade-worker"
+      "binaries/ade-worker",
+      "binaries/ade-control"
     ],
     "icon": [
       "../resources/build/icon.png"

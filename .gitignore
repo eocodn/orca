@@ -133,4 +133,5 @@ tools/benchmarks/results/terminal-pipeline-*.json
 /rust/target/
 /src-tauri/target/
 /src-tauri/binaries/ade-worker-*
+/src-tauri/binaries/ade-control-*
 /src-tauri/gen/
