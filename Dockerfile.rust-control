@@ -7,6 +7,9 @@ RUN rustup component add rustfmt clippy
 
 WORKDIR /workspace/rust
 COPY rust/Cargo.toml rust/Cargo.lock ./
+COPY rust/ade-control/Cargo.toml ade-control/Cargo.toml
+COPY rust/ade-control/src ade-control/src
+COPY rust/ade-control/tests ade-control/tests
 COPY rust/ade-host-core/Cargo.toml ade-host-core/Cargo.toml
 COPY rust/ade-host-core/src ade-host-core/src
 COPY rust/ade-host/Cargo.toml ade-host/Cargo.toml

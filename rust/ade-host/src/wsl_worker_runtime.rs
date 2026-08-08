@@ -111,6 +111,27 @@ impl WslWorkerRuntime {
         Ok(WslWorkerRuntimeStatus { supervisor, active })
     }
 
+    pub fn set_maintenance(
+        &self,
+        maintenance: bool,
+    ) -> Result<WslWorkerRuntimeStatus, WslWorkerRuntimeError> {
+        let _write = self
+            .admission
+            .write()
+            .map_err(|_| WslWorkerRuntimeError::LockPoisoned("admission"))?;
+        let supervisor = self
+            .supervisor
+            .lock()
+            .map_err(|_| WslWorkerRuntimeError::LockPoisoned("supervisor"))?
+            .set_maintenance(maintenance);
+        let active = self
+            .active
+            .lock()
+            .map_err(|_| WslWorkerRuntimeError::LockPoisoned("active"))?
+            .clone();
+        Ok(WslWorkerRuntimeStatus { supervisor, active })
+    }
+
     pub fn spawn_file_git(
         &self,
         timeout: Duration,
@@ -196,10 +217,7 @@ impl WslWorkerRuntime {
         &self,
         maintenance: bool,
     ) -> Result<(), WslWorkerRuntimeError> {
-        self.supervisor
-            .lock()
-            .map_err(|_| WslWorkerRuntimeError::LockPoisoned("supervisor"))?
-            .set_maintenance(maintenance);
+        self.set_maintenance(maintenance)?;
         Ok(())
     }
 

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "ade-control",
     "ade-host-core",
     "ade-host",
     "ade-worker",

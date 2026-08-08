@@ -5,6 +5,7 @@ use ade_host_store::store::{
 use std::path::PathBuf;
 
 pub mod file_git_router;
+pub mod host_state_service;
 pub mod pty_router;
 pub mod pty_service;
 mod wsl_worker_relay;
@@ -187,25 +188,14 @@ where
         register_workspace,
     } = parse_cli_args(args)?;
     if let Some(path) = state_db {
-        let store = ade_host_store::store::HostStore::open(path)
+        let service = host_state_service::HostStateService::open(path)
             .map_err(|error| HostCliError::StateStore(format!("{error:?}")))?;
         if let Some(registration) = register_workspace {
-            let WorkspaceRegistration {
-                workspace_id,
-                path,
-                request_id,
-                location,
-            } = registration;
-            let workspace = StoredWorkspace::new(workspace_id, path, "registered", 1);
-            let workspace = match location {
-                Some(location) => workspace.with_location(location),
-                None => workspace,
-            };
-            store
-                .commit_workspace(workspace, &request_id)
+            service
+                .register_workspace(registration)
                 .map_err(|error| HostCliError::StateStore(format!("{error:?}")))?;
         }
-        let snapshot = store
+        let snapshot = service
             .snapshot()
             .map_err(|error| HostCliError::StateStore(format!("{error:?}")))?;
         return if json {
