@@ -13,6 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2.0.0" }
 
 [dependencies]
+ade-control = { path = "../rust/ade-control" }
 ade-host = { path = "../rust/ade-host" }
 ade-host-core = { path = "../rust/ade-host-core" }
 ade-host-platform = { path = "../rust/ade-host-platform" }
