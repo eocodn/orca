@@ -5,6 +5,10 @@ pub mod git_execution;
 pub mod git_protocol_execution;
 pub mod git_repository;
 pub mod git_worktree;
+pub mod wsl_worker_supervisor;
+
+#[cfg(test)]
+mod wsl_worker_supervisor_tests;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecutionTarget {
