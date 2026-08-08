@@ -55,6 +55,7 @@ describe('Windows 10/WSL2 live acceptance gate', () => {
     expect(dockerfile).toContain('ade-worker.exe')
     expect(dockerfile).toContain('live-target-matrix.exe')
     expect(dockerfile).toContain('worker-version.txt')
+    expect(dockerfile).toContain("tr -d '\\r'")
   })
 
   it('runs every exact ignored cell through persistent Agent Control and emits JSON', () => {

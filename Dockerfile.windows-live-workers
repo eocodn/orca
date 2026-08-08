@@ -31,7 +31,7 @@ RUN cargo build \
 
 RUN set -eux; \
   live_matrix="$(find rust/target/x86_64-pc-windows-gnu/release/deps -maxdepth 1 -type f -name 'live_target_matrix-*.exe' -print -quit)"; \
-  worker_version="$(sed -n '/^\[package\]$/,/^\[/s/^version = "\([^"]*\)"$/\1/p' rust/ade-worker/Cargo.toml | head -n 1)"; \
+  worker_version="$(tr -d '\r' < rust/ade-worker/Cargo.toml | sed -n '/^\[package\]$/,/^\[/s/^version = "\([^"]*\)"$/\1/p' | head -n 1)"; \
   test -n "$live_matrix"; \
   test -n "$worker_version"; \
   mkdir -p /artifacts/windows /artifacts/wsl; \
