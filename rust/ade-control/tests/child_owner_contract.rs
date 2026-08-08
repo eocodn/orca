@@ -85,7 +85,7 @@ fn startup_pid_mismatch_is_terminal_and_fake_child_is_reaped() {
     fs::write(
         &script,
         format!(
-            "#!/bin/sh\nprintf '%s\\n' '{{\"protocol_version\":1,\"type\":\"control_server\",\"ok\":true,\"address\":\"127.0.0.1:9\",\"server_pid\":1,\"endpoint_file\":{}}}'\nsleep 30\n",
+            "#!/bin/sh\nprintf '%s\\n' '{{\"protocol_version\":1,\"type\":\"control_server\",\"ok\":true,\"address\":\"127.0.0.1:9\",\"server_pid\":0,\"endpoint_file\":{}}}'\nsleep 30\n",
             serde_json::to_string(&endpoint.to_string_lossy()).unwrap()
         ),
     )
@@ -94,10 +94,14 @@ fn startup_pid_mismatch_is_terminal_and_fake_child_is_reaped() {
     permissions.set_mode(0o700);
     fs::set_permissions(&script, permissions).unwrap();
 
-    assert!(matches!(
-        AgentControlChild::spawn(&script, &state_db, &endpoint),
-        Err(AgentControlChildError::StartupPidMismatch { .. })
-    ));
+    let result = AgentControlChild::spawn(&script, &state_db, &endpoint);
+    if !matches!(&result, Err(AgentControlChildError::StartupPidMismatch { .. })) {
+        let detail = match &result {
+            Ok(_) => String::from("Ok(AgentControlChild)"),
+            Err(error) => format!("Err({error:?})"),
+        };
+        panic!("unexpected fake-child startup result: {detail}");
+    }
     let _ = fs::remove_file(script);
     let _ = fs::remove_file(state_db);
 }
