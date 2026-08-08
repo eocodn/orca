@@ -5,6 +5,10 @@ pub mod jsonl_transport;
 pub mod pty_registry;
 pub mod pty_target;
 pub mod worker_dispatch;
+pub mod worker_service;
+
+#[cfg(all(test, unix))]
+mod worker_service_tests;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct WorkerCliOptions {

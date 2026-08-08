@@ -1,10 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 mod file_git_protocol;
+mod worker_handshake;
 pub use file_git_protocol::{
     ExecutionContext, ExecutionTarget, FileResponseOperation, FileWorkerOperation,
     FileWorkerRequest, FileWorkerResponse, GitResponseOperation, GitWorkerOperation,
     GitWorkerRequest, GitWorkerResponse, GitWorktree, OwnershipContext, WorkspaceKind,
+};
+pub use worker_handshake::{
+    WorkerHandshakeError, WorkerHandshakeKind, WorkerHandshakeRequest, WorkerHandshakeResponse,
 };
 
 pub const PROTOCOL_VERSION: u16 = 1;
