@@ -48,3 +48,34 @@ jobs:
           path: out/windows-tauri-package/*
           if-no-files-found: error
           retention-days: 14
+
+  windows-tauri-install-acceptance:
+    name: Install and observe on Windows 10
+    needs: windows-tauri-package
+    runs-on: [self-hosted, ade-windows10-wsl2]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download unsigned Windows package
+        uses: actions/download-artifact@v8
+        with:
+          name: orca-ade-windows-unsigned-${{ github.run_id }}
+          path: out/windows-tauri-package
+
+      - name: Install, launch, observe, and uninstall
+        shell: pwsh
+        run: |
+          ./scripts/run-windows-tauri-package-acceptance.ps1 `
+            -PackageDirectory out/windows-tauri-package `
+            -JsonOut out/windows-tauri-install-acceptance.json
+
+      - name: Upload install acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-tauri-install-acceptance-${{ github.run_id }}
+          path: out/windows-tauri-install-acceptance.json
+          if-no-files-found: error
+          retention-days: 14

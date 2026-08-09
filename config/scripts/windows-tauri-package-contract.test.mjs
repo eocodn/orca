@@ -32,4 +32,24 @@ describe('Windows Tauri package delivery', () => {
     expect(dockerfile).toContain('windows-tauri-package.json')
     expect(dockerfile).toContain('SHA256SUMS')
   })
+
+  it('installs, observes, and uninstalls the package on the dedicated Windows 10 runner', () => {
+    const workflow = parse(read('.github/workflows/windows-tauri-package.yml'))
+    const job = workflow.jobs['windows-tauri-install-acceptance']
+    const source = read('.github/workflows/windows-tauri-package.yml')
+    const acceptance = read('scripts/run-windows-tauri-package-acceptance.ps1')
+
+    expect(job.needs).toBe('windows-tauri-package')
+    expect(job['runs-on']).toEqual(['self-hosted', 'ade-windows10-wsl2'])
+    expect(source).toContain('actions/download-artifact@v8')
+    expect(source).toContain('run-windows-tauri-package-acceptance.ps1')
+    expect(source).toContain('windows-tauri-install-acceptance.json')
+    expect(acceptance).toContain("'Windows 10'")
+    expect(acceptance).toContain("'/S'")
+    expect(acceptance).toContain("'ade-control.exe'")
+    expect(acceptance).toContain("'ade-worker.exe'")
+    expect(acceptance).toContain('Get-CimInstance Win32_Process')
+    expect(acceptance).toContain('UninstallString')
+    expect(source).not.toContain('continue-on-error')
+  })
 })
