@@ -23,6 +23,7 @@ $observed = [ordered]@{
   native_worker_present = $false
   application_running = $false
   agent_control_running = $false
+  control_status_ok = $false
   uninstalled = $false
 }
 
@@ -85,6 +86,28 @@ try {
   if (-not $observed.application_running -or -not $observed.agent_control_running) {
     throw 'Installed application and Agent Control did not remain observable'
   }
+
+  $endpointDeadline = [DateTime]::UtcNow.AddSeconds(15)
+  do {
+    $endpoint = Get-ChildItem -LiteralPath $env:LOCALAPPDATA -Filter 'agent-control-*.json' -File -Recurse -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -eq "agent-control-$($applicationProcess.Id).json" } |
+      Select-Object -First 1
+    if ($null -eq $endpoint) { Start-Sleep -Milliseconds 500 }
+  } while ($null -eq $endpoint -and [DateTime]::UtcNow -lt $endpointDeadline)
+  if ($null -eq $endpoint) {
+    throw 'Application-owned Agent Control endpoint was not published'
+  }
+  $request = [ordered]@{ protocol_version = 1; request_id = 'package-control-status'; command = 'control_status' } |
+    ConvertTo-Json -Compress
+  $response = $request | & $control.FullName --json --jsonl --connect $endpoint.FullName
+  if ($LASTEXITCODE -ne 0) {
+    throw "Agent Control status request exited with $LASTEXITCODE"
+  }
+  $controlStatus = $response | ConvertFrom-Json
+  $observed.control_status_ok = $controlStatus.ok -eq $true -and $controlStatus.result.type -eq 'control_status'
+  if (-not $observed.control_status_ok) {
+    throw 'Agent Control status response was not healthy'
+  }
 } catch {
   $failure = $_.Exception.Message
 } finally {
@@ -106,9 +129,14 @@ try {
     }
     try {
       $uninstall = Start-Process -FilePath $uninstaller -ArgumentList $uninstallArguments -Wait -PassThru
-      $registrationRemains = Get-ChildItem $uninstallRoot |
-        ForEach-Object { Get-ItemProperty $_.PSPath } |
-        Where-Object { $_.DisplayName -eq 'Orca ADE' }
+      $uninstallDeadline = [DateTime]::UtcNow.AddSeconds(30)
+      do {
+        $registrationRemains = Get-ChildItem $uninstallRoot |
+          ForEach-Object { Get-ItemProperty $_.PSPath } |
+          Where-Object { $_.DisplayName -eq 'Orca ADE' }
+        $installRemains = Test-Path -LiteralPath $installLocation
+        if ($null -ne $registrationRemains -or $installRemains) { Start-Sleep -Milliseconds 500 }
+      } while (($null -ne $registrationRemains -or $installRemains) -and [DateTime]::UtcNow -lt $uninstallDeadline)
       $observed.uninstalled = $uninstall.ExitCode -eq 0 -and $null -eq $registrationRemains -and -not (Test-Path -LiteralPath $installLocation)
       if (-not $observed.uninstalled -and $null -eq $failure) {
         $failure = 'Silent uninstall did not remove installation state'

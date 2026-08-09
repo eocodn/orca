@@ -25,7 +25,8 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 
-ENV ADE_TAURI_CARGO_RUNNER=cargo-xwin
+ENV ADE_TAURI_CARGO_RUNNER=cargo-xwin \
+    RUSTFLAGS="-C target-feature=+crt-static"
 RUN pnpm run build:tauri:windows-installer \
     && node config/scripts/stage-windows-tauri-package.mjs \
         --target x86_64-pc-windows-msvc \
