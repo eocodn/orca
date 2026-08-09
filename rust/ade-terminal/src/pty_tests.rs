@@ -98,6 +98,21 @@ fn terminate_observes_a_natural_windows_exit_before_marking_failure() {
 
 #[cfg(windows)]
 #[test]
+fn observes_short_lived_windows_output_and_exit() {
+    let mut session = PtySession::spawn(
+        "pty-1",
+        spec("cmd.exe", &["/C", "echo", "ADE_WINDOWS_PTY_OK"]),
+    )
+    .unwrap();
+    let snapshot = session.wait(Duration::from_secs(2)).unwrap();
+
+    assert_eq!(snapshot.status, TerminalStatus::Exited { code: 0 });
+    assert_eq!(snapshot.exit_code, Some(0));
+    assert!(snapshot.tail.contains("ADE_WINDOWS_PTY_OK"));
+}
+
+#[cfg(windows)]
+#[test]
 fn observes_windows_exit_code_259_as_a_natural_exit() {
     let mut session =
         PtySession::spawn("pty-1", spec("cmd.exe", &["/C", "exit", "/B", "259"])).unwrap();

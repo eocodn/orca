@@ -1,20 +1,126 @@
 use crate::pty::PtyError;
 #[cfg(windows)]
-use crate::pty::{POLL_INTERVAL, READER_CLOSE_TIMEOUT};
+use portable_pty::MasterPty;
 use portable_pty::{Child, ExitStatus};
 #[cfg(unix)]
 use std::io;
 use std::io::Read;
 #[cfg(windows)]
+use std::io::Write;
+#[cfg(windows)]
 use std::os::windows::io::RawHandle;
 #[cfg(windows)]
 use std::process::Stdio;
-use std::sync::mpsc::SyncSender;
+#[cfg(windows)]
+use std::sync::mpsc::RecvTimeoutError;
+use std::sync::mpsc::{self, Receiver, SyncSender};
+#[cfg(windows)]
+use std::sync::Mutex;
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 #[cfg(windows)]
 use std::time::Instant;
 
 const OUTPUT_CHUNK_BYTES: usize = 8192;
+pub(crate) const OUTPUT_CHANNEL_CAPACITY: usize = 64;
+pub(crate) const READER_CLOSE_TIMEOUT: Duration = Duration::from_secs(1);
+pub(crate) const POLL_INTERVAL: Duration = Duration::from_millis(5);
+
+#[cfg(windows)]
+pub(crate) fn initialize_windows_cursor_inheritance(
+    writer: &mut dyn Write,
+) -> Result<(), PtyError> {
+    writer
+        .write_all(b"\x1b[1;1R")
+        .and_then(|_| writer.flush())
+        .map_err(|error| PtyError::Spawn(error.to_string()))
+}
+
+#[cfg(windows)]
+pub(crate) struct WindowsMasterCloser {
+    closed_rx: Receiver<()>,
+    close_thread: Option<JoinHandle<()>>,
+}
+
+#[cfg(windows)]
+impl WindowsMasterCloser {
+    pub(crate) fn start(master: Box<dyn MasterPty + Send>) -> Self {
+        let (closed_tx, closed_rx) = mpsc::sync_channel(1);
+        let close_thread = thread::spawn(move || {
+            drop(master);
+            let _ = closed_tx.send(());
+        });
+        Self {
+            closed_rx,
+            close_thread: Some(close_thread),
+        }
+    }
+
+    pub(crate) fn finish(mut self) -> Result<(), PtyError> {
+        match self.closed_rx.recv_timeout(READER_CLOSE_TIMEOUT) {
+            Ok(()) => self
+                .close_thread
+                .take()
+                .expect("Windows PTY close thread should exist")
+                .join()
+                .map_err(|_| PtyError::Termination(String::from("pty master close panicked"))),
+            Err(RecvTimeoutError::Timeout) => Err(PtyError::Termination(String::from(
+                "pty master did not close after output drain",
+            ))),
+            Err(RecvTimeoutError::Disconnected) => {
+                let join = self
+                    .close_thread
+                    .take()
+                    .expect("Windows PTY close thread should exist")
+                    .join();
+                if join.is_err() {
+                    Err(PtyError::Termination(String::from(
+                        "pty master close panicked",
+                    )))
+                } else {
+                    Err(PtyError::Termination(String::from(
+                        "pty master close did not report completion",
+                    )))
+                }
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+pub(crate) fn begin_windows_master_close(
+    writer: &Mutex<Option<Box<dyn Write + Send>>>,
+    master: &Mutex<Option<Box<dyn MasterPty + Send>>>,
+) -> Result<Option<WindowsMasterCloser>, PtyError> {
+    let master = take_windows_pty_handles(writer, master)?;
+    Ok(master.map(WindowsMasterCloser::start))
+}
+
+#[cfg(windows)]
+fn take_windows_pty_handles<W, M>(
+    writer: &Mutex<Option<W>>,
+    master: &Mutex<Option<M>>,
+) -> Result<Option<M>, PtyError> {
+    writer
+        .lock()
+        .map_err(|_| PtyError::Termination(String::from("pty_writer_unavailable")))?
+        .take();
+    let master = master
+        .lock()
+        .map_err(|_| PtyError::Termination(String::from("pty_master_unavailable")))?
+        .take();
+    Ok(master)
+}
+
+#[cfg(windows)]
+pub(crate) fn detach_windows_master_close(
+    writer: &Mutex<Option<Box<dyn Write + Send>>>,
+    master: &Mutex<Option<Box<dyn MasterPty + Send>>>,
+) -> Result<(), PtyError> {
+    let closer = begin_windows_master_close(writer, master)?;
+    drop(closer);
+    Ok(())
+}
 
 pub(crate) fn spawn_reader(
     mut reader: Box<dyn Read + Send>,
@@ -38,6 +144,28 @@ pub(crate) fn spawn_reader(
         }
     })
 }
+
+pub(crate) fn disconnect_output_reader(output_rx: &mut Receiver<Result<Vec<u8>, String>>) {
+    let (_, replacement) = mpsc::sync_channel(1);
+    let _ = std::mem::replace(output_rx, replacement);
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::take_windows_pty_handles;
+    use std::sync::Mutex;
+
+    #[test]
+    fn takes_both_windows_pty_handles_before_detached_close() {
+        let writer = Mutex::new(Some(1));
+        let master = Mutex::new(Some(2));
+
+        assert_eq!(take_windows_pty_handles(&writer, &master).unwrap(), Some(2));
+        assert_eq!(*writer.lock().unwrap(), None);
+        assert_eq!(*master.lock().unwrap(), None);
+    }
+}
+
 #[cfg(not(windows))]
 pub(crate) fn try_wait_child(
     child: &mut Box<dyn Child + Send + Sync>,

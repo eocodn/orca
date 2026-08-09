@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+pub const MAX_PTY_OUTPUT_BYTES: usize = 1024 * 1024;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PtySpec {
     pub program: String,
@@ -40,4 +42,18 @@ pub enum PtyError {
     Terminal(String),
     Timeout,
     Termination(String),
+}
+
+pub(crate) fn terminal_error(error: ade_host_core::terminal::TerminalError) -> PtyError {
+    PtyError::Terminal(format!("{error:?}"))
+}
+
+pub(crate) fn validate_complete_output(pending_utf8: &[u8]) -> Result<(), PtyError> {
+    if pending_utf8.is_empty() {
+        Ok(())
+    } else {
+        Err(PtyError::Output(String::from(
+            "pty output ended with incomplete UTF-8",
+        )))
+    }
 }

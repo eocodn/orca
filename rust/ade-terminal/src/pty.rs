@@ -1,11 +1,16 @@
 #[cfg(all(test, windows))]
 use crate::pty_backend::windows_child_handle_has_exited;
 #[cfg(windows)]
-use crate::pty_backend::{capture_windows_process_identity, WindowsProcessIdentity};
 use crate::pty_backend::{
-    spawn_reader, terminate_process_tree, try_wait_child, ProcessTermination,
+    begin_windows_master_close, capture_windows_process_identity, detach_windows_master_close,
+    initialize_windows_cursor_inheritance, WindowsProcessIdentity,
 };
-pub use crate::pty_contract::{PtyError, PtySpec};
+use crate::pty_backend::{
+    disconnect_output_reader, spawn_reader, terminate_process_tree, try_wait_child,
+    ProcessTermination, OUTPUT_CHANNEL_CAPACITY, POLL_INTERVAL, READER_CLOSE_TIMEOUT,
+};
+use crate::pty_contract::{terminal_error, validate_complete_output};
+pub use crate::pty_contract::{PtyError, PtySpec, MAX_PTY_OUTPUT_BYTES};
 use ade_host_core::terminal::{TerminalCommand, TerminalRuntime, TerminalSnapshot, TerminalStatus};
 use portable_pty::{native_pty_system, Child, CommandBuilder, ExitStatus, MasterPty, PtySize};
 use std::io::Write;
@@ -13,11 +18,6 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-
-const OUTPUT_CHANNEL_CAPACITY: usize = 64;
-pub const MAX_PTY_OUTPUT_BYTES: usize = 1024 * 1024;
-pub(crate) const READER_CLOSE_TIMEOUT: Duration = Duration::from_secs(1);
-pub(crate) const POLL_INTERVAL: Duration = Duration::from_millis(5);
 
 pub struct PtySession {
     terminal: TerminalRuntime,
@@ -97,6 +97,17 @@ impl PtySession {
                 let _ = child.wait();
                 return Err(PtyError::Spawn(error.to_string()));
             }
+        };
+        #[cfg(windows)]
+        let writer = {
+            let mut writer = writer;
+            if let Err(error) = initialize_windows_cursor_inheritance(writer.as_mut()) {
+                let mut child = child;
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+            writer
         };
         let (output_tx, output_rx) = mpsc::sync_channel(OUTPUT_CHANNEL_CAPACITY);
         let reader_thread = Some(spawn_reader(reader, output_tx));
@@ -198,13 +209,13 @@ impl PtySession {
                         "pty child termination was not confirmed",
                     )))
                 };
-                let drain = self.drain_output_until_reader_closes();
-                if drain.is_err() {
-                    self.disconnect_output_reader();
+                let io_cleanup = self.finish_pty_io_after_child_exit();
+                if io_cleanup.is_err() {
+                    disconnect_output_reader(&mut self.output_rx);
                 }
                 let cleanup_error = termination_error
                     .or_else(|| reap.err())
-                    .or_else(|| drain.err());
+                    .or_else(|| io_cleanup.err());
                 let reason = cleanup_error
                     .as_ref()
                     .map(|error| format!("pty timed out: {error:?}"))
@@ -251,13 +262,13 @@ impl PtySession {
                 "pty child termination was not confirmed",
             )))
         };
-        let drain = self.drain_output_until_reader_closes();
-        if drain.is_err() {
-            self.disconnect_output_reader();
+        let io_cleanup = self.finish_pty_io_after_child_exit();
+        if io_cleanup.is_err() {
+            disconnect_output_reader(&mut self.output_rx);
         }
         let cleanup_error = termination_error
             .or_else(|| reap.err())
-            .or_else(|| drain.err());
+            .or_else(|| io_cleanup.err());
         let reason = cleanup_error
             .as_ref()
             .map(|error| format!("pty termination cleanup failed: {error:?}"))
@@ -302,20 +313,14 @@ impl PtySession {
             self.fail_after_backend_error(&error);
             return Err(error);
         }
-        if let Err(error) = self.close_pty_handles() {
-            self.fail_after_backend_error(&error);
-            return Err(error);
-        }
-        if let Err(error) = self.drain_output_until_reader_closes() {
+        if let Err(error) = self.finish_pty_io_after_child_exit() {
             let _ = self.terminate_descendants();
-            if self.drain_output_until_reader_closes().is_err() {
-                self.disconnect_output_reader();
-            }
+            disconnect_output_reader(&mut self.output_rx);
             self.fail_after_backend_error(&error);
             return Err(error);
         }
         self.terminated = true;
-        if let Err(error) = self.finish_output() {
+        if let Err(error) = validate_complete_output(&self.pending_utf8) {
             self.fail_after_backend_error(&error);
             return Err(error);
         }
@@ -404,33 +409,28 @@ impl PtySession {
         Ok(())
     }
 
-    fn finish_output(&mut self) -> Result<(), PtyError> {
-        if self.pending_utf8.is_empty() {
-            return Ok(());
-        }
-        Err(PtyError::Output(String::from(
-            "pty output ended with incomplete UTF-8",
-        )))
-    }
-
     fn fail_after_backend_error(&mut self, error: &PtyError) {
         let termination = self.terminate_running_process();
         let descendants = self.terminate_descendants();
         if termination.is_ok() || self.child_reaped {
             let _ = self.reap_child();
         }
-        let _ = self.close_pty_handles();
-        if termination.is_err() || descendants.is_err() {
-            self.disconnect_output_reader();
+        let child_confirmed = termination.is_ok() || self.child_reaped;
+        let io_cleanup = if child_confirmed {
+            self.finish_pty_io_after_child_exit()
+        } else {
+            #[cfg(windows)]
+            let _ = detach_windows_master_close(&self.writer, &self.master);
+            Err(PtyError::Termination(String::from(
+                "pty child termination was not confirmed",
+            )))
+        };
+        if termination.is_err() || descendants.is_err() || io_cleanup.is_err() {
+            disconnect_output_reader(&mut self.output_rx);
         }
         let _ = self
             .terminal
             .fail_process("", format!("pty backend failure: {error:?}"));
-    }
-
-    fn disconnect_output_reader(&mut self) {
-        let (_, replacement) = mpsc::sync_channel(1);
-        let _ = std::mem::replace(&mut self.output_rx, replacement);
     }
 
     fn reap_child(&mut self) -> Result<(), PtyError> {
@@ -490,7 +490,6 @@ impl PtySession {
             self.child_reaped = true;
         }
         drop(child);
-        self.close_pty_handles()?;
         self.terminated = true;
         Ok(None)
     }
@@ -524,6 +523,7 @@ impl PtySession {
         }
     }
 
+    #[cfg(not(windows))]
     fn close_pty_handles(&mut self) -> Result<(), PtyError> {
         self.writer
             .lock()
@@ -534,6 +534,22 @@ impl PtySession {
             .map_err(|_| PtyError::Termination(String::from("pty_master_unavailable")))?
             .take();
         Ok(())
+    }
+    fn finish_pty_io_after_child_exit(&mut self) -> Result<(), PtyError> {
+        #[cfg(not(windows))]
+        {
+            self.close_pty_handles()?;
+            self.drain_output_until_reader_closes()
+        }
+        #[cfg(windows)]
+        {
+            let closer = begin_windows_master_close(&self.writer, &self.master)?;
+            let drain_result = self.drain_output_until_reader_closes();
+            return match closer {
+                Some(closer) => drain_result.and(closer.finish()),
+                None => drain_result,
+            };
+        }
     }
 
     #[cfg(unix)]
@@ -557,7 +573,17 @@ impl Drop for PtySession {
         if termination.is_ok() || self.child_reaped {
             let _ = self.reap_child();
         }
-        if (termination.is_ok() || self.child_reaped) && descendants.is_ok() {
+        let child_confirmed = termination.is_ok() || self.child_reaped;
+        let io_cleanup = if child_confirmed {
+            self.finish_pty_io_after_child_exit()
+        } else {
+            #[cfg(windows)]
+            let _ = detach_windows_master_close(&self.writer, &self.master);
+            Err(PtyError::Termination(String::from(
+                "pty child termination was not confirmed",
+            )))
+        };
+        if (termination.is_ok() || self.child_reaped) && descendants.is_ok() && io_cleanup.is_ok() {
             if let Some(reader_thread) = self.reader_thread.take() {
                 let _ = reader_thread.join();
             }
@@ -565,10 +591,6 @@ impl Drop for PtySession {
             self.reader_thread.take();
         }
     }
-}
-
-fn terminal_error(error: ade_host_core::terminal::TerminalError) -> PtyError {
-    PtyError::Terminal(format!("{error:?}"))
 }
 
 #[cfg(test)]
