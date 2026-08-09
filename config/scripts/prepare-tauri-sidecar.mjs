@@ -8,6 +8,7 @@ import {
   readRustHostTriple,
   validateTargetTriple
 } from './tauri-sidecar-build-plan.mjs'
+import { resolveTauriRustBuildCommand } from './tauri-rust-build-command.mjs'
 
 const projectDir = resolve(import.meta.dirname, '../..')
 const targetTriple = resolveTargetTriple(process.argv.slice(2), process.env)
@@ -63,7 +64,7 @@ function resolveTargetTriple(args, env) {
 }
 
 function cargoCommand() {
-  return process.platform === 'win32' ? 'cargo.exe' : 'cargo'
+  return resolveTauriRustBuildCommand(process.env, process.platform)
 }
 
 function rustcCommand() {

@@ -1,0 +1,41 @@
+FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node-runtime
+
+FROM rust:1.88-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89 AS build
+
+COPY --from=node-runtime /usr/local /usr/local
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        clang \
+        git \
+        lld \
+        llvm \
+        nsis \
+    && rm -rf /var/lib/apt/lists/*
+RUN rustup target add x86_64-pc-windows-msvc \
+    && cargo install --locked cargo-xwin --version 0.19.2 \
+    && corepack enable pnpm
+
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY config/patches ./config/patches
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+COPY . .
+
+ENV ADE_TAURI_CARGO_RUNNER=cargo-xwin
+RUN pnpm run build:tauri:windows-installer \
+    && node config/scripts/stage-windows-tauri-package.mjs \
+        --target x86_64-pc-windows-msvc \
+        --output /artifacts \
+    && test -s /artifacts/orca-ade-windows-x64-unsigned-setup.exe \
+    && test -s /artifacts/orca-ade.exe \
+    && test -s /artifacts/ade-worker.exe \
+    && test -s /artifacts/ade-control.exe \
+    && test -s /artifacts/windows-tauri-package.json \
+    && test -s /artifacts/SHA256SUMS
+
+FROM scratch
+COPY --from=build /artifacts /

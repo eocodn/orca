@@ -6,6 +6,7 @@ import {
   parseAgentControlSidecarArgs,
   resolveAgentControlTarget
 } from './agent-control-sidecar-plan.mjs'
+import { resolveTauriRustBuildCommand } from './tauri-rust-build-command.mjs'
 
 const projectDir = resolve(import.meta.dirname, '../..')
 const options = parseAgentControlSidecarArgs(process.argv.slice(2))
@@ -55,7 +56,7 @@ console.log(
 )
 
 function cargoCommand() {
-  return process.platform === 'win32' ? 'cargo.exe' : 'cargo'
+  return resolveTauriRustBuildCommand(process.env, process.platform)
 }
 
 function rustcCommand() {

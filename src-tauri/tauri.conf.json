@@ -33,7 +33,8 @@
       "binaries/ade-control"
     ],
     "icon": [
-      "../resources/build/icon.png"
+      "../resources/build/icon.png",
+      "../resources/build/icon.ico"
     ]
   }
 }

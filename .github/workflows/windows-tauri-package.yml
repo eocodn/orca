@@ -1,0 +1,50 @@
+name: Windows Tauri package
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-tauri-package-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows-tauri-package:
+    name: Build unsigned Windows Tauri installer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build Windows installer in Docker
+        run: |
+          docker buildx build \
+            --file Dockerfile.windows-tauri-package \
+            --output type=local,dest=out/windows-tauri-package \
+            --progress plain \
+            .
+
+      - name: Verify package manifest and checksums
+        run: |
+          cd out/windows-tauri-package
+          sha256sum --check SHA256SUMS
+          jq -e '
+            .protocol_version == 1 and
+            .target == "x86_64-pc-windows-msvc" and
+            .signed == false and
+            ([.files[].role] | sort) ==
+              (["agent_control", "application", "installer", "native_worker"] | sort)
+          ' windows-tauri-package.json >/dev/null
+          test -s orca-ade-windows-x64-unsigned-setup.exe
+
+      - name: Upload unsigned Windows package
+        uses: actions/upload-artifact@v7
+        with:
+          name: orca-ade-windows-unsigned-${{ github.run_id }}
+          path: out/windows-tauri-package/*
+          if-no-files-found: error
+          retention-days: 14

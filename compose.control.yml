@@ -13,6 +13,7 @@ services:
         pnpm run build:tauri &&
         test -x src-tauri/target/release/ade-tauri &&
         test -x src-tauri/target/release/ade-worker &&
+        test -x src-tauri/target/release/ade-control &&
         cargo test --manifest-path src-tauri/Cargo.toml --locked --lib
     init: true
     network_mode: host

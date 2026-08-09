@@ -58,6 +58,7 @@
     "build:electron-vite:parallel": "node config/scripts/run-electron-vite-targets-in-parallel.mjs",
     "build:web": "node config/scripts/run-vite-web-build.mjs && node config/scripts/verify-web-build.mjs",
     "build:tauri": "node config/scripts/build-tauri.mjs --no-bundle",
+    "build:tauri:windows-installer": "node config/scripts/build-tauri.mjs --runner cargo-xwin --target x86_64-pc-windows-msvc",
     "build:web-from-renderer": "node config/scripts/project-renderer-web-client.mjs && node config/scripts/verify-web-build.mjs",
     "build:desktop": "pnpm run typecheck && pnpm run build:relay && pnpm run build:cli && pnpm run build:electron-vite && pnpm run build:web-from-renderer",
     "build": "pnpm run build:desktop && pnpm run build:native",

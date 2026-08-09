@@ -16,6 +16,9 @@ describe('Tauri build path', () => {
     expect(packageJson.scripts['build:tauri']).toBe(
       'node config/scripts/build-tauri.mjs --no-bundle'
     )
+    expect(packageJson.scripts['build:tauri:windows-installer']).toBe(
+      'node config/scripts/build-tauri.mjs --runner cargo-xwin --target x86_64-pc-windows-msvc'
+    )
     const buildScript = readFileSync(join(projectDir, 'config/scripts/build-tauri.mjs'), 'utf8')
     expect(buildScript.indexOf('prepare-tauri-sidecar.mjs')).toBeLessThan(
       buildScript.indexOf("'tauri', 'build'")
@@ -26,14 +29,19 @@ describe('Tauri build path', () => {
   it('points Tauri at the web artifact and target-suffixed worker sidecar', () => {
     expect(tauriConfig.build.frontendDist).toBe('../out/web')
     expect(tauriConfig.build.beforeBuildCommand).toContain('pnpm build:web')
-    expect(tauriConfig.bundle.externalBin).toEqual(['binaries/ade-worker'])
+    expect(tauriConfig.bundle.externalBin).toEqual([
+      'binaries/ade-worker',
+      'binaries/ade-control'
+    ])
+    expect(tauriConfig.bundle.icon).toContain('../resources/build/icon.ico')
     expect(readFileSync(join(projectDir, 'src/renderer/web-index.html'), 'utf8')).toContain(
       'src/web/main.tsx'
     )
     expect(existsSync(join(projectDir, 'resources/build/icon.png'))).toBe(true)
+    expect(existsSync(join(projectDir, 'resources/build/icon.ico'))).toBe(true)
   })
 
-  it('keeps Windows NSIS overlay and verifies both Linux release executables', () => {
+  it('keeps Windows NSIS overlay and verifies all Linux release executables', () => {
     expect(windowsConfig.bundle.active).toBe(true)
     expect(windowsConfig.bundle.targets).toEqual(['nsis'])
     const service = compose.services['tauri-contract']
@@ -41,5 +49,6 @@ describe('Tauri build path', () => {
     expect(service.build.dockerfile).toBe('Dockerfile.tauri-contract')
     expect(service.command.join(' ')).toContain('pnpm run build:tauri')
     expect(service.command.join(' ')).toContain('test -x src-tauri/target/release/ade-worker')
+    expect(service.command.join(' ')).toContain('test -x src-tauri/target/release/ade-control')
   })
 })
