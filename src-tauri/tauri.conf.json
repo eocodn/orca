@@ -5,7 +5,7 @@
   "identifier": "ai.stably.orca.ade",
   "build": {
     "beforeDevCommand": "node config/scripts/prepare-agent-control-sidecar.mjs --profile debug && pnpm dev:web",
-    "beforeBuildCommand": "node config/scripts/prepare-agent-control-sidecar.mjs --profile release && pnpm build:web",
+    "beforeBuildCommand": "node config/scripts/prepare-agent-control-sidecar.mjs --profile release && pnpm build:web && node config/scripts/prepare-tauri-frontend.mjs",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../out/web"
   },

@@ -27,6 +27,7 @@ describe('Windows Tauri package delivery', () => {
     expect(dockerfile).toContain('cargo install --locked cargo-xwin')
     expect(dockerfile).toContain('target-feature=+crt-static')
     expect(dockerfile).toContain('pnpm run build:tauri:windows-installer')
+    expect(dockerfile).toContain('test -s out/web/index.html')
     expect(dockerfile).toContain('ade-worker.exe')
     expect(dockerfile).toContain('ade-control.exe')
     expect(dockerfile).toContain('-setup.exe')

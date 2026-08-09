@@ -29,6 +29,7 @@ describe('Tauri build path', () => {
   it('points Tauri at the web artifact and target-suffixed worker sidecar', () => {
     expect(tauriConfig.build.frontendDist).toBe('../out/web')
     expect(tauriConfig.build.beforeBuildCommand).toContain('pnpm build:web')
+    expect(tauriConfig.build.beforeBuildCommand).toContain('prepare-tauri-frontend.mjs')
     expect(tauriConfig.bundle.externalBin).toEqual([
       'binaries/ade-worker',
       'binaries/ade-control'
@@ -39,6 +40,12 @@ describe('Tauri build path', () => {
     )
     expect(existsSync(join(projectDir, 'resources/build/icon.png'))).toBe(true)
     expect(existsSync(join(projectDir, 'resources/build/icon.ico'))).toBe(true)
+    const frontendPreparation = readFileSync(
+      join(projectDir, 'config/scripts/prepare-tauri-frontend.mjs'),
+      'utf8'
+    )
+    expect(frontendPreparation).toContain("'out/web/web-index.html'")
+    expect(frontendPreparation).toContain("'out/web/index.html'")
   })
 
   it('keeps Windows NSIS overlay and verifies all Linux release executables', () => {
