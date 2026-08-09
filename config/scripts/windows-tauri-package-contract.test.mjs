@@ -50,6 +50,7 @@ describe('Windows Tauri package delivery', () => {
     expect(acceptance).toContain("'ade-worker.exe'")
     expect(acceptance).toContain('Get-CimInstance Win32_Process')
     expect(acceptance).toContain('UninstallString')
+    expect(acceptance).toContain(".Trim().Trim('\"')")
     expect(source).not.toContain('continue-on-error')
   })
 })

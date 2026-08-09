@@ -50,7 +50,7 @@ try {
     throw "Expected one Orca ADE uninstall registration; observed: $($uninstallEntries.Count)"
   }
   $uninstallEntry = $uninstallEntries[0]
-  $installLocation = [string]$uninstallEntry.InstallLocation
+  $installLocation = ([string]$uninstallEntry.InstallLocation).Trim().Trim('"')
   if ([string]::IsNullOrWhiteSpace($installLocation) -or -not (Test-Path -LiteralPath $installLocation -PathType Container)) {
     throw "Invalid installed location: $installLocation"
   }
