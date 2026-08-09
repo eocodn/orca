@@ -87,21 +87,38 @@ try {
     throw 'Installed application and Agent Control did not remain observable'
   }
 
-  $endpointDeadline = [DateTime]::UtcNow.AddSeconds(15)
-  do {
-    $endpoint = Get-ChildItem -LiteralPath $env:LOCALAPPDATA -Filter 'agent-control-*.json' -File -Recurse -ErrorAction SilentlyContinue |
-      Where-Object { $_.Name -eq "agent-control-$($applicationProcess.Id).json" } |
-      Select-Object -First 1
-    if ($null -eq $endpoint) { Start-Sleep -Milliseconds 500 }
-  } while ($null -eq $endpoint -and [DateTime]::UtcNow -lt $endpointDeadline)
-  if ($null -eq $endpoint) {
-    throw 'Application-owned Agent Control endpoint was not published'
+  $controlCommandLine = [string]$controlProcesses[0].CommandLine
+  if ($controlCommandLine -match '--endpoint-file\s+"([^"]+)"') {
+    $endpointPath = $Matches[1]
+  } elseif ($controlCommandLine -match '--endpoint-file\s+(\S+)') {
+    $endpointPath = $Matches[1]
+  } else {
+    throw 'Agent Control command line is missing --endpoint-file'
+  }
+  if (-not (Test-Path -LiteralPath $endpointPath -PathType Leaf)) {
+    throw "Application-owned Agent Control endpoint was not published: $endpointPath"
   }
   $request = [ordered]@{ protocol_version = 1; request_id = 'package-control-status'; command = 'control_status' } |
     ConvertTo-Json -Compress
-  $response = $request | & $control.FullName --json --jsonl --connect $endpoint.FullName
-  if ($LASTEXITCODE -ne 0) {
-    throw "Agent Control status request exited with $LASTEXITCODE"
+  $client = [System.Diagnostics.Process]::new()
+  $client.StartInfo.FileName = $control.FullName
+  $client.StartInfo.Arguments = "--json --jsonl --connect `"$endpointPath`""
+  $client.StartInfo.UseShellExecute = $false
+  $client.StartInfo.CreateNoWindow = $true
+  $client.StartInfo.RedirectStandardInput = $true
+  $client.StartInfo.RedirectStandardOutput = $true
+  $client.StartInfo.RedirectStandardError = $true
+  if (-not $client.Start()) { throw 'Agent Control status client did not start' }
+  $client.StandardInput.WriteLine($request)
+  $client.StandardInput.Close()
+  $response = $client.StandardOutput.ReadToEnd()
+  $clientError = $client.StandardError.ReadToEnd()
+  if (-not $client.WaitForExit(10000)) {
+    $client.Kill()
+    throw 'Agent Control status client timed out'
+  }
+  if ($client.ExitCode -ne 0) {
+    throw "Agent Control status request exited with $($client.ExitCode): $clientError"
   }
   $controlStatus = $response | ConvertFrom-Json
   $observed.control_status_ok = $controlStatus.ok -eq $true -and $controlStatus.result.type -eq 'control_status'
